@@ -65,6 +65,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="ASMDumper.cs" />
     <Compile Include="ClassReadingBinaryReader.cs" />
     <Compile Include="Extensions.cs" />
     <Compile Include="Metadata\Il2CppCustomAttributeTypeRange.cs" />

@@ -29,7 +29,7 @@ namespace AudicaShredder
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         private static Dictionary<long, TypeDefinition> typeDefsByAddress = new Dictionary<long, TypeDefinition>();
         private static Dictionary<long, MethodDefinition> methodsByIndex = new Dictionary<long, MethodDefinition>();
-        private static Dictionary<ulong, MethodDefinition> methodsByAddress = new Dictionary<ulong, MethodDefinition>();
+        internal static Dictionary<ulong, MethodDefinition> methodsByAddress = new Dictionary<ulong, MethodDefinition>();
         private static Dictionary<long, GenericParameter> genericParamsByIndex = new Dictionary<long, GenericParameter>();
 
         public static void PrintUsage()
@@ -203,7 +203,7 @@ namespace AudicaShredder
 
                         var fieldDefinition = new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
                         typeDefinition.Fields.Add(fieldDefinition);
-                        addressMap.Add(new Tuple<ulong, string>((ulong) fieldDef.token, fieldDefinition.FullName));
+                        addressMap.Add(new Tuple<ulong, string>(fieldDef.token, fieldDefinition.FullName));
                         //fieldDefault
                         if (fieldDefinition.HasDefault)
                         {
@@ -493,9 +493,11 @@ namespace AudicaShredder
                     var imageIndex = Assemblies.IndexOf(assembly);
                     var allUsedMnemonics = new List<ud_mnemonic_code>();
 
+                    var counter = 0;
                     foreach (var type in methodBytes)
                     {
-                        Console.WriteLine("\t-Dumping methods in type: " + type.Key);
+                        counter++;
+                        Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
                         try
                         {
                             var filename = Path.Combine(methodOutputDir, type.Key.Replace("<", "_").Replace(">", "_") + ".txt");
@@ -506,158 +508,8 @@ namespace AudicaShredder
                                 var methodDef = metadata.methodDefs[method.Key.Item2];
                                 var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.Key.Item2, imageIndex, methodDef.token);
                                 var methodDefinition = methodsByAddress[methodStart];
-                                
-                                //As we're on windows, function params are passed RCX RDX R8 R9, then the stack
-                                //If these are floating point numbers, they're put in XMM0 to 3 
 
-                                typeDump.Append($"Method: {methodDefinition.FullName}: (");
-
-                                var disasm = new Disassembler(method.Value, ArchitectureMode.x86_64, 0, true);
-                                var instructions = new List<Instruction>(disasm.Disassemble());
-
-                                var distinctMnemonics = new List<ud_mnemonic_code>(instructions.Select(i => i.Mnemonic).Distinct());
-                                typeDump.Append($"uses {distinctMnemonics.Count} unique operations)\n");
-                                allUsedMnemonics = new List<ud_mnemonic_code>(allUsedMnemonics.Concat(distinctMnemonics).Distinct());
-                                
-                                //Dump params
-                                typeDump.Append("\tParameters in registers: \n");
-
-                                var registers = new List<string>(new[] {"rcx", "rdx", "r8", "r9"});
-                                var stackIndex = 0;
-
-                                if (!methodDefinition.IsStatic)
-                                {
-                                    var pos = registers[0];
-                                    registers.RemoveAt(0);
-                                    typeDump.Append($"\t\t{type.Key} this in register {pos}\n");
-                                }
-                                
-                                foreach (var parameter in methodDefinition.Parameters)
-                                {
-                                    string pos;
-                                    var isReg = false;
-                                    if (registers.Count > 0)
-                                    {
-                                        pos = registers[0];
-                                        isReg = true;
-                                        registers.RemoveAt(0);
-                                    }
-                                    else
-                                    {
-                                        pos = stackIndex.ToString();
-                                        stackIndex += 8; //Pointer.
-                                    }
-                                    typeDump.Append($"\t\t{parameter.ParameterType.FullName} {parameter.Name} in {(isReg ? $"register {pos}" : $"stack at 0x{pos:X}")}\n");
-                                }
-
-                                var knownRegisters = new List<string>(new[] {"rsp", "rbp", "rsi", "rdi"});
-                                var argumentRegisters = new List<string>();
-                                typeDump.Append("\tMethod Body (x86 ASM):\n");
-                                
-                                foreach (var instruction in instructions)
-                                {
-                                    typeDump.Append($"\t\t{instruction}");
-
-                                    //Using a single operand (except for a PUSH operation) - check if the register, if there is one, is defined. 
-                                    if (instruction.Operands.Length == 1 &&
-                                        instruction.Mnemonic != ud_mnemonic_code.UD_Ipush) 
-                                    {
-                                        //Is this a register?
-                                        if (instruction.Operands[0].Type == ud_type.UD_OP_REG)
-                                        {
-                                            //It is. Is it known to us?
-                                            var theBase = instruction.Operands[0].Base;
-                                            var register = theBase.ToString().Replace("UD_R_", "").ToLower();
-                                            if (!knownRegisters.Contains(register))
-                                            {
-                                                //No. Must be an argument then.
-                                                argumentRegisters.Add(register);
-                                                knownRegisters.Add(register);
-                                            }
-                                        }
-                                    } else if (instruction.Operands.Length == 2)
-                                    {
-                                        //Check the SECOND operand. Is it a register?
-                                        if (instruction.Operands[1].Type == ud_type.UD_OP_REG)
-                                        {
-                                            //Yes, check it.
-                                            var theBase = instruction.Operands[1].Base;
-                                            var register = theBase.ToString().Replace("UD_R_", "").ToLower();
-                                            if (!knownRegisters.Contains(register))
-                                            {
-                                                //No. Must be an argument then.
-                                                typeDump.Append(
-                                                    $" ; register {register} is used here without being assigned a value prevously - must be passed into the function");
-                                                
-                                                argumentRegisters.Add(register);
-                                                knownRegisters.Add(register);
-                                            }
-                                        }
-                                        
-                                        //And check if we're defining the register used in the first operand.
-                                        if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov ||
-                                            instruction.Mnemonic == ud_mnemonic_code.UD_Imovaps ||
-                                            instruction.Mnemonic == ud_mnemonic_code.UD_Imovss)
-                                        {
-                                            if (instruction.Operands[0].Type == ud_type.UD_OP_REG)
-                                            {
-                                                //This register is now defined.
-                                                var theBase = instruction.Operands[0].Base;
-                                                var register = theBase.ToString().Replace("UD_R_", "").ToLower();
-                                                if (!knownRegisters.Contains(register))
-                                                {
-                                                    typeDump.Append($" ; - Register {register} is first given a value here.");
-                                                    knownRegisters.Add(register);
-                                                }
-                                            }
-                                        }
-                                    }
-                                    
-                                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp || instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
-                                    {
-                                        try
-                                        {
-                                            //JMP instruction, try find function
-                                            var jumpTarget = GetJumpTarget(instruction, methodStart + instruction.PC);
-                                            typeDump.Append($" ; jump to 0x{jumpTarget:X}");
-
-                                            var target = methodsByAddress.ContainsKey(jumpTarget) ? methodsByAddress[jumpTarget] : null;
-
-                                            if (target != null)
-                                            {
-                                                //Console.WriteLine("Found a function call!");
-                                                typeDump.Append($" - function {target.FullName}");
-                                            }
-                                            else
-                                            {
-                                                //Is this somewhere in this function?
-                                                var methodEnd = methodStart + (ulong) instructions.Count;
-                                                if (methodStart <= jumpTarget && jumpTarget <= methodEnd)
-                                                {
-                                                    var pos = jumpTarget - methodStart;
-                                                    typeDump.Append($" - offset 0x{pos:X} in this function");
-                                                }
-                                            }
-                                        }
-                                        catch (Exception e)
-                                        {
-                                            typeDump.Append($" ; {e.GetType()} thrown trying to locate JMP target.");
-                                        }
-                                    }
-
-                                    typeDump.Append("\n");
-                                }
-                                
-                                if (argumentRegisters.Count > 0)
-                                {
-                                    typeDump.Append("Method Arguments Identified: \n");
-                                    foreach (var registerName in argumentRegisters)
-                                    {
-                                        typeDump.Append($"\t{registerName}\n");
-                                    }
-                                }
-
-                                typeDump.Append("\n");
+                                ASMDumper.DumpMethod(typeDump, methodDefinition, method, allUsedMnemonics, methodDef, methodStart);
                             }
 
                             File.WriteAllText(filename, typeDump.ToString());
@@ -673,27 +525,7 @@ namespace AudicaShredder
             }
         }
 
-        private static ulong GetJumpTarget(Instruction insn, ulong start)
-        {
-            var opr = insn.Operands[0];
-
-            var mode = insn.GetType().GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(insn); //Reflection!
-
-            //Console.WriteLine(mode + " " + mode.GetType());
-
-            var num = ulong.MaxValue >> 64 - (byte) mode;
-            switch (opr.Size)
-            {
-                case 8:
-                    return start + (ulong) opr.LvalSByte & num;
-                case 16:
-                    return start + (ulong) opr.LvalSWord & num;
-                case 32:
-                    return start + (ulong) opr.LvalSDWord & num;
-                default:
-                    throw new InvalidOperationException(string.Format("invalid relative offset size {0}.", opr.Size));
-            }
-        }
+       
 
 
         #region Assembly Generation Helper Functions
