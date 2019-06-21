@@ -14,7 +14,7 @@ namespace AudicaShredder
 {
     public static class ASMDumper
     {
-        public static void DumpMethod(StringBuilder typeDump, MethodDefinition methodDefinition, KeyValuePair<Tuple<string, int>, byte[]> method, List<ud_mnemonic_code> allUsedMnemonics, Il2CppMethodDefinition methodDef, ulong methodStart)
+        public static void DumpMethod(StringBuilder typeDump, MethodDefinition methodDefinition, KeyValuePair<Tuple<string, int>, byte[]> method, ref List<ud_mnemonic_code> allUsedMnemonics, Il2CppMethodDefinition methodDef, ulong methodStart)
         {
             //As we're on windows, function params are passed RCX RDX R8 R9, then the stack
             //If these are floating point numbers, they're put in XMM0 to 3
@@ -101,9 +101,16 @@ namespace AudicaShredder
                         var src = registerAliases.FirstOrDefault(pair => pair.Value == sourceAlias);
 
                         var offset = int.Parse($"{offsetHex}", NumberStyles.HexNumber) - 16; //First 16 bytes appear to be reserved
-                        var field = methodDefinition.DeclaringType.Fields[offset / 8];
+                        try
+                        {
+                            var field = methodDefinition.DeclaringType.Fields[offset / 8];
 
-                        methodFunctionality.Append($"\t\tSet field {field} of {dest.Value} to {src.Value}\n");
+                            methodFunctionality.Append($"\t\tSet field {field.Name} of {dest.Value} to {src.Value}\n");
+                        }
+                        catch
+                        {
+                            methodFunctionality.Append($"\t\tSet field [#{offset / 8}?] of {dest.Value} to {src.Value}\n");
+                        }
                     }
                 }
 

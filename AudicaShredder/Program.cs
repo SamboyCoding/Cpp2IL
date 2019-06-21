@@ -29,8 +29,12 @@ namespace AudicaShredder
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         private static Dictionary<long, TypeDefinition> typeDefsByAddress = new Dictionary<long, TypeDefinition>();
         private static Dictionary<long, MethodDefinition> methodsByIndex = new Dictionary<long, MethodDefinition>();
-        internal static Dictionary<ulong, MethodDefinition> methodsByAddress = new Dictionary<ulong, MethodDefinition>();
-        private static Dictionary<long, GenericParameter> genericParamsByIndex = new Dictionary<long, GenericParameter>();
+
+        internal static Dictionary<ulong, MethodDefinition>
+            methodsByAddress = new Dictionary<ulong, MethodDefinition>();
+
+        private static Dictionary<long, GenericParameter> genericParamsByIndex =
+            new Dictionary<long, GenericParameter>();
 
         public static void PrintUsage()
         {
@@ -40,7 +44,9 @@ namespace AudicaShredder
         public static void Main(string[] args)
         {
             Console.WriteLine("===AudicaShredder by Samboy063===");
-            var loc = Registry.GetValue("HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1020340", "InstallLocation", null) as string;
+            var loc = Registry.GetValue(
+                "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1020340",
+                "InstallLocation", null) as string;
 
             if (args.Length != 1 && loc == null)
             {
@@ -61,7 +67,8 @@ namespace AudicaShredder
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
             var unityPlayerPath = Path.Combine(baseGamePath, "Audica.exe");
-            var metadataPath = Path.Combine(baseGamePath, "Audica_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
+            var metadataPath = Path.Combine(baseGamePath, "Audica_Data", "il2cpp_data", "Metadata",
+                "global-metadata.dat");
 
             if (!File.Exists(assemblyPath) || !File.Exists(unityPlayerPath) || !File.Exists(metadataPath))
             {
@@ -113,10 +120,12 @@ namespace AudicaShredder
 
             foreach (var imageDefinition in metadata.imageDefs)
             {
-                var asmName = new AssemblyNameDefinition(metadata.GetStringFromIndex(imageDefinition.nameIndex).Replace(".dll", ""), new Version("0.0.0.0"));
+                var asmName = new AssemblyNameDefinition(
+                    metadata.GetStringFromIndex(imageDefinition.nameIndex).Replace(".dll", ""), new Version("0.0.0.0"));
                 Console.Write($"\t\t{asmName.Name}...");
 
-                var assembly = AssemblyDefinition.CreateAssembly(asmName, metadata.GetStringFromIndex(imageDefinition.nameIndex), moduleParams);
+                var assembly = AssemblyDefinition.CreateAssembly(asmName,
+                    metadata.GetStringFromIndex(imageDefinition.nameIndex), moduleParams);
                 resolver.Register(assembly);
                 Assemblies.Add(assembly);
 
@@ -146,7 +155,8 @@ namespace AudicaShredder
                     {
                         var nestedIndex = metadata.nestedTypeIndices[type.nestedTypesStart + nestedNumber];
                         var nested = metadata.typeDefs[nestedIndex];
-                        var nestedDef = new TypeDefinition(metadata.GetStringFromIndex(nested.namespaceIndex), metadata.GetStringFromIndex(nested.nameIndex), (TypeAttributes) nested.flags);
+                        var nestedDef = new TypeDefinition(metadata.GetStringFromIndex(nested.namespaceIndex),
+                            metadata.GetStringFromIndex(nested.nameIndex), (TypeAttributes) nested.flags);
 
                         definition.NestedTypes.Add(nestedDef);
                         typeDefsByAddress.Add(nestedIndex, nestedDef);
@@ -185,12 +195,18 @@ namespace AudicaShredder
                 var typeEnd = imageDef.typeStart + imageDef.typeCount;
                 for (var index = imageDef.typeStart; index < typeEnd; index++)
                 {
-                    Console.WriteLine($"\t\t\tProcessing Type {index + 1 - imageDef.typeStart} of {imageDef.typeCount}...");
+                    Console.WriteLine(
+                        $"\t\t\tProcessing Type {index + 1 - imageDef.typeStart} of {imageDef.typeCount}...");
                     var typeDef = metadata.typeDefs[index];
                     var typeDefinition = typeDefsByAddress[index];
 
-                    if (Assemblies[imageIndex].Name.Name == "Assembly-CSharp" && typeDefinition.Namespace.Length < 2)
-                        infoTxt.Append($"\n\nType: {typeDefinition.Name}:");
+                    infoTxt.Append($"\n\nType: {typeDefinition.FullName}:")
+                        .Append("\n\tParent Classes/Interfaces:\n");
+
+                    foreach (var iface in typeDefinition.Interfaces)
+                    {
+                        infoTxt.Append($"\t\t{iface.InterfaceType.FullName}\n");
+                    }
 
                     //field
                     var fieldEnd = typeDef.fieldStart + typeDef.field_count;
@@ -201,7 +217,8 @@ namespace AudicaShredder
                         var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
                         var fieldTypeRef = GetTypeReference(typeDefinition, fieldType, theDll, metadata);
 
-                        var fieldDefinition = new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
+                        var fieldDefinition =
+                            new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
                         typeDefinition.Fields.Add(fieldDefinition);
                         addressMap.Add(new Tuple<ulong, string>(fieldDef.token, fieldDefinition.FullName));
                         //fieldDefault
@@ -210,16 +227,15 @@ namespace AudicaShredder
                             var fieldDefault = metadata.GetFieldDefaultValueFromIndex(i);
                             if (fieldDefault != null && fieldDefault.dataIndex != -1)
                             {
-                                fieldDefinition.Constant = GetDefaultValue(fieldDefault.dataIndex, fieldDefault.typeIndex, metadata, theDll);
+                                fieldDefinition.Constant = GetDefaultValue(fieldDefault.dataIndex,
+                                    fieldDefault.typeIndex, metadata, theDll);
                             }
                         }
 
-                        if (Assemblies[imageIndex].Name.Name == "Assembly-CSharp" && typeDefinition.Namespace.Length < 2)
-                        {
-                            infoTxt.Append($"\n\tField: {fieldName}\n")
-                                .Append($"\t\tType: {(fieldTypeRef.Namespace == "" ? "<None>" : fieldTypeRef.Namespace)}.{fieldTypeRef.Name}\n")
-                                .Append($"\t\tDefault Value: {fieldDefinition.Constant}");
-                        }
+                        infoTxt.Append($"\n\tField: {fieldName}\n")
+                            .Append(
+                                $"\t\tType: {(fieldTypeRef.Namespace == "" ? "<None>" : fieldTypeRef.Namespace)}.{fieldTypeRef.Name}\n")
+                            .Append($"\t\tDefault Value: {fieldDefinition.Constant}");
                     }
 
                     //method
@@ -230,34 +246,36 @@ namespace AudicaShredder
                         var methodDef = metadata.methodDefs[i];
                         var methodReturnType = theDll.types[methodDef.returnType];
                         var methodName = metadata.GetStringFromIndex(methodDef.nameIndex);
-                        var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags, typeDefinition.Module.ImportReference(typeof(void)));
+                        var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags,
+                            typeDefinition.Module.ImportReference(typeof(void)));
 
-                        var offsetInRam = theDll.GetMethodPointer(methodDef.methodIndex, i, imageIndex, methodDef.token);
+                        var offsetInRam =
+                            theDll.GetMethodPointer(methodDef.methodIndex, i, imageIndex, methodDef.token);
 
-                        if (Assemblies[imageIndex].Name.Name == "Assembly-CSharp" && typeDefinition.Namespace.Length < 2)
+
+                        long offsetInFile = offsetInRam == 0 ? 0 : theDll.MapVirtualAddressToRaw(offsetInRam);
+                        infoTxt.Append($"\n\tMethod: {methodName}:\n")
+                            .Append($"\t\tFile Offset 0x{offsetInFile:X8}\n")
+                            .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n");
+
+                        var bytes = new List<byte>();
+                        var offset = offsetInFile;
+                        while (true)
                         {
-                            long offsetInFile = offsetInRam == 0 ? 0 : theDll.MapVirtualAddressToRaw(offsetInRam);
-                            infoTxt.Append($"\n\tMethod: {methodName}:\n")
-                                .Append($"\t\tFile Offset 0x{offsetInFile.ToString("X8")}\n")
-                                .Append($"\t\tRam Offset 0x{offsetInRam.ToString("x8")}\n");
-
-                            var bytes = new List<byte>();
-                            var offset = offsetInFile;
-                            while (true)
-                            {
-                                var b = PEBytes[offset];
-                                if (b == 0xCC) break;
-                                bytes.Add(b);
-                                offset++;
-                            }
-
-                            infoTxt.Append($"\t\tMethod Length: {bytes.Count} bytes\n");
-
-                            typeMethods[new Tuple<string, int>(methodName, i)] = bytes.ToArray();
+                            var b = PEBytes[offset];
+                            if (b == 0xCC) break;
+                            bytes.Add(b);
+                            offset++;
                         }
 
+                        infoTxt.Append($"\t\tMethod Length: {bytes.Count} bytes\n");
+
+                        typeMethods[new Tuple<string, int>(methodName, i)] = bytes.ToArray();
+
+
                         typeDefinition.Methods.Add(methodDefinition);
-                        methodDefinition.ReturnType = GetTypeReference(methodDefinition, methodReturnType, theDll, metadata);
+                        methodDefinition.ReturnType =
+                            GetTypeReference(methodDefinition, methodReturnType, theDll, metadata);
                         if (methodDefinition.HasBody && typeDefinition.BaseType?.FullName != "System.MulticastDelegate")
                         {
                             var ilprocessor = methodDefinition.Body.GetILProcessor();
@@ -272,25 +290,28 @@ namespace AudicaShredder
                             var parameterName = metadata.GetStringFromIndex(parameterDef.nameIndex);
                             var parameterType = theDll.types[parameterDef.typeIndex];
                             var parameterTypeRef = GetTypeReference(methodDefinition, parameterType, theDll, metadata);
-                            var parameterDefinition = new ParameterDefinition(parameterName, (ParameterAttributes) parameterType.attrs, parameterTypeRef);
+                            var parameterDefinition = new ParameterDefinition(parameterName,
+                                (ParameterAttributes) parameterType.attrs, parameterTypeRef);
                             methodDefinition.Parameters.Add(parameterDefinition);
                             //ParameterDefault
                             if (parameterDefinition.HasDefault)
                             {
-                                var parameterDefault = metadata.GetParameterDefaultValueFromIndex(methodDef.parameterStart + j);
+                                var parameterDefault =
+                                    metadata.GetParameterDefaultValueFromIndex(methodDef.parameterStart + j);
                                 if (parameterDefault != null && parameterDefault.dataIndex != -1)
                                 {
-                                    parameterDefinition.Constant = GetDefaultValue(parameterDefault.dataIndex, parameterDefault.typeIndex, metadata, theDll);
+                                    parameterDefinition.Constant = GetDefaultValue(parameterDefault.dataIndex,
+                                        parameterDefault.typeIndex, metadata, theDll);
                                 }
                             }
 
-                            if (Assemblies[imageIndex].Name.Name == "Assembly-CSharp" && typeDefinition.Namespace.Length < 2)
-                            {
+                            
                                 infoTxt.Append($"\n\t\tParameter {j}:\n")
                                     .Append($"\t\t\tName: {parameterName}\n")
-                                    .Append($"\t\t\tType: {(parameterTypeRef.Namespace == "" ? "<None>" : parameterTypeRef.Namespace)}.{parameterTypeRef.Name}\n")
+                                    .Append(
+                                        $"\t\t\tType: {(parameterTypeRef.Namespace == "" ? "<None>" : parameterTypeRef.Namespace)}.{parameterTypeRef.Name}\n")
                                     .Append($"\t\t\tDefault Value: {parameterDefinition.Constant}");
-                            }
+                            
                         }
 
                         if (methodDef.genericContainerIndex >= 0)
@@ -303,7 +324,8 @@ namespace AudicaShredder
                                     var genericParameterIndex = genericContainer.genericParameterStart + j;
                                     var param = metadata.genericParameters[genericParameterIndex];
                                     var genericName = metadata.GetStringFromIndex(param.nameIndex);
-                                    if (!genericParamsByIndex.TryGetValue(genericParameterIndex, out var genericParameter))
+                                    if (!genericParamsByIndex.TryGetValue(genericParameterIndex,
+                                        out var genericParameter))
                                     {
                                         genericParameter = new GenericParameter(genericName, methodDefinition);
                                         methodDefinition.GenericParameters.Add(genericParameter);
@@ -350,7 +372,8 @@ namespace AudicaShredder
                                 propertyType = SetMethod.Parameters[0].ParameterType;
                         }
 
-                        var propertyDefinition = new PropertyDefinition(propertyName, (PropertyAttributes) propertyDef.attrs, propertyType)
+                        var propertyDefinition = new PropertyDefinition(propertyName,
+                            (PropertyAttributes) propertyDef.attrs, propertyType)
                         {
                             GetMethod = GetMethod,
                             SetMethod = SetMethod
@@ -366,7 +389,8 @@ namespace AudicaShredder
                         var eventName = metadata.GetStringFromIndex(eventDef.nameIndex);
                         var eventType = theDll.types[eventDef.typeIndex];
                         var eventTypeRef = GetTypeReference(typeDefinition, eventType, theDll, metadata);
-                        var eventDefinition = new EventDefinition(eventName, (EventAttributes) eventType.attrs, eventTypeRef);
+                        var eventDefinition =
+                            new EventDefinition(eventName, (EventAttributes) eventType.attrs, eventTypeRef);
                         if (eventDef.add >= 0)
                             eventDefinition.AddMethod = methodsByIndex[typeDef.methodStart + eventDef.add];
                         if (eventDef.remove >= 0)
@@ -407,7 +431,8 @@ namespace AudicaShredder
 
             Console.WriteLine("\tPass 4: Handling SerializeFields...");
             //Add serializefield to monobehaviors
-            var engine = Assemblies.Find(x => x.MainModule.Types.Any(t => t.Namespace == "UnityEngine" && t.Name == "SerializeField"));
+            var engine = Assemblies.Find(x =>
+                x.MainModule.Types.Any(t => t.Namespace == "UnityEngine" && t.Name == "SerializeField"));
             if (engine != null)
             {
                 var serializeField = engine.MainModule.Types.First(x => x.Name == "SerializeField").Methods.First();
@@ -426,7 +451,8 @@ namespace AudicaShredder
                             var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
                             var fieldDefinition = typeDefinition.Fields.First(x => x.Name == fieldName);
                             //fieldAttribute
-                            var attributeIndex = metadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
+                            var attributeIndex = metadata.GetCustomAttributeIndex(imageDef,
+                                fieldDef.customAttributeIndex, fieldDef.token);
                             if (attributeIndex >= 0)
                             {
                                 var attributeTypeRange = metadata.attributeTypeRanges[attributeIndex];
@@ -440,7 +466,9 @@ namespace AudicaShredder
                                         var attributeName = metadata.GetStringFromIndex(klass.nameIndex);
                                         if (attributeName == "SerializeField")
                                         {
-                                            var customAttribute = new CustomAttribute(typeDefinition.Module.ImportReference(serializeField));
+                                            var customAttribute =
+                                                new CustomAttribute(
+                                                    typeDefinition.Module.ImportReference(serializeField));
                                             fieldDefinition.CustomAttributes.Add(customAttribute);
                                         }
                                     }
@@ -462,13 +490,13 @@ namespace AudicaShredder
                 Directory.CreateDirectory(methodOutputDir);
 
             File.WriteAllText(Path.Combine(outputPath, "info.txt"), infoTxt.ToString());
-            
+
             addressMap.Sort((a, b) => (int) (a.Item1 - b.Item1));
             foreach (var tuple in addressMap)
             {
                 addressMapText.Append($"0x{tuple.Item1:X} => {tuple.Item2}\n");
             }
-            
+
             File.WriteAllText(Path.Combine(outputPath, "function_map.txt"), addressMapText.ToString());
 
             Console.WriteLine("Saving DLLs to " + outputPath + "...");
@@ -500,16 +528,19 @@ namespace AudicaShredder
                         Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
                         try
                         {
-                            var filename = Path.Combine(methodOutputDir, type.Key.Replace("<", "_").Replace(">", "_") + ".txt");
+                            var filename = Path.Combine(methodOutputDir,
+                                type.Key.Replace("<", "_").Replace(">", "_") + ".txt");
                             var typeDump = new StringBuilder("Type: " + type.Key + "\n\n");
 
                             foreach (var method in type.Value)
                             {
                                 var methodDef = metadata.methodDefs[method.Key.Item2];
-                                var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.Key.Item2, imageIndex, methodDef.token);
+                                var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.Key.Item2,
+                                    imageIndex, methodDef.token);
                                 var methodDefinition = methodsByAddress[methodStart];
 
-                                ASMDumper.DumpMethod(typeDump, methodDefinition, method, allUsedMnemonics, methodDef, methodStart);
+                                ASMDumper.DumpMethod(typeDump, methodDefinition, method, ref allUsedMnemonics,
+                                    methodDef, methodStart);
                             }
 
                             File.WriteAllText(filename, typeDump.ToString());
@@ -525,8 +556,6 @@ namespace AudicaShredder
             }
         }
 
-       
-
 
         #region Assembly Generation Helper Functions
 
@@ -538,7 +567,8 @@ namespace AudicaShredder
             }
         }
 
-        private static TypeReference GetTypeReference(MemberReference memberReference, Il2CppType il2CppType, PE.PE theDll, Il2CppMetadata metadata)
+        private static TypeReference GetTypeReference(MemberReference memberReference, Il2CppType il2CppType,
+            PE.PE theDll, Il2CppMetadata metadata)
         {
             var moduleDefinition = memberReference.Module;
             switch (il2CppType.type)
@@ -595,15 +625,18 @@ namespace AudicaShredder
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 {
-                    var genericClass = theDll.ReadClassAtVirtualAddress<Il2CppGenericClass>(il2CppType.data.generic_class);
+                    var genericClass =
+                        theDll.ReadClassAtVirtualAddress<Il2CppGenericClass>(il2CppType.data.generic_class);
                     var typeDefinition = typeDefsByAddress[genericClass.typeDefinitionIndex];
                     var genericInstanceType = new GenericInstanceType(moduleDefinition.ImportReference(typeDefinition));
-                    var genericInst = theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
+                    var genericInst =
+                        theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     var pointers = theDll.GetPointers(genericInst.type_argv, (long) genericInst.type_argc);
                     foreach (var pointer in pointers)
                     {
                         var oriType = theDll.GetIl2CppType(pointer);
-                        genericInstanceType.GenericArguments.Add(GetTypeReference(memberReference, oriType, theDll, metadata));
+                        genericInstanceType.GenericArguments.Add(GetTypeReference(memberReference, oriType, theDll,
+                            metadata));
                     }
 
                     return genericInstanceType;
@@ -617,7 +650,8 @@ namespace AudicaShredder
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
                 {
-                    if (genericParamsByIndex.TryGetValue(il2CppType.data.genericParameterIndex, out var genericParameter))
+                    if (genericParamsByIndex.TryGetValue(il2CppType.data.genericParameterIndex,
+                        out var genericParameter))
                     {
                         return genericParameter;
                     }
@@ -641,7 +675,8 @@ namespace AudicaShredder
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_MVAR:
                 {
-                    if (genericParamsByIndex.TryGetValue(il2CppType.data.genericParameterIndex, out var genericParameter))
+                    if (genericParamsByIndex.TryGetValue(il2CppType.data.genericParameterIndex,
+                        out var genericParameter))
                     {
                         return genericParameter;
                     }
