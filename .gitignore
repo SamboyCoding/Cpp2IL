@@ -3,6 +3,6 @@ packages/
 
 \.idea/
 
-AudicaShredder/bin/
+Cpp2IL/bin/
 
-AudicaShredder/obj/
+Cpp2IL/obj/
