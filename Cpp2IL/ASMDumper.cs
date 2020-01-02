@@ -5,19 +5,19 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using Cpp2IL.Metadata;
 using Mono.Cecil;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 
 namespace Cpp2IL
 {
-    public static class ASMDumper
+    internal static class ASMDumper
     {
-        public static void DumpMethod(StringBuilder typeDump, MethodDefinition methodDefinition, CppMethodData method, ref List<ud_mnemonic_code> allUsedMnemonics, Il2CppMethodDefinition methodDef, ulong methodStart)
+        internal static void DumpMethod(StringBuilder typeDump, MethodDefinition methodDefinition, CppMethodData method, ref List<ud_mnemonic_code> allUsedMnemonics, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals)
         {
             //As we're on windows, function params are passed RCX RDX R8 R9, then the stack
             //If these are floating point numbers, they're put in XMM0 to 3
+            //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
 
             typeDump.Append($"Method: {methodDefinition.FullName}: (");
 
@@ -87,35 +87,38 @@ namespace Cpp2IL
             {
                 //Preprocessing to make it easier to read.
                 var line = instruction.ToString();
-                foreach (var kvp in registerAliases)
-                {
-                    line = line.Replace(kvp.Key, $"{kvp.Value}_{kvp.Key}");
-                    var m = fieldAssignmentRegex.Match(line);
-                    if (m.Success)
-                    {
-                        var destAlias = m.Groups[1].Value;
-                        var offsetHex = m.Groups[2].Value;
-                        var sourceAlias = m.Groups[3].Value;
-                        
-                        var dest = registerAliases.FirstOrDefault(pair => pair.Value == destAlias);
-                        var src = registerAliases.FirstOrDefault(pair => pair.Value == sourceAlias);
+                line = registerAliases.Aggregate(line, (current, kvp) => current.Replace(kvp.Key, $"{kvp.Value}_{kvp.Key}"));
 
-                        var offset = int.Parse($"{offsetHex}", NumberStyles.HexNumber) - 16; //First 16 bytes appear to be reserved
+                var m = fieldAssignmentRegex.Match(line);
+                if (m.Success)
+                {
+                    var destAlias = m.Groups[1].Value;
+                    var offsetHex = m.Groups[2].Value;
+                    var sourceAlias = m.Groups[3].Value;
+
+                    var dest = registerAliases.FirstOrDefault(pair => pair.Value == destAlias);
+                    var src = registerAliases.FirstOrDefault(pair => pair.Value == sourceAlias);
+
+                    var offset = int.Parse($"{offsetHex}", NumberStyles.HexNumber) - 24; //First 16 bytes appear to be reserved
+                    if (offset >= 0)
+                    {
                         try
                         {
                             var field = methodDefinition.DeclaringType.Fields[offset / 8];
 
-                            methodFunctionality.Append($"\t\tSet field {field.Name} of {dest.Value} to {src.Value}\n");
+                            methodFunctionality.Append($"\t\tSet field {field.Name} of {dest.Value} to {src.Value} (on line {instructions.IndexOf(instruction)})\n");
                         }
                         catch
                         {
-                            methodFunctionality.Append($"\t\tSet field [#{offset / 8}?] of {dest.Value} to {src.Value}\n");
+                            methodFunctionality.Append($"\t\tSet field [#{offset / 8}?] of {dest.Value} to {src.Value} (on line {instructions.IndexOf(instruction)})\n");
                         }
                     }
                 }
 
                 typeDump.Append($"\t\t{line}");
 
+                #region Argument Detection
+                
                 //Using a single operand (except for a PUSH operation) - check if the register, if there is one, is defined. 
                 if (instruction.Operands.Length == 1 &&
                     instruction.Mnemonic != ud_mnemonic_code.UD_Ipush)
@@ -153,8 +156,7 @@ namespace Cpp2IL
                         if (!knownRegisters.Contains(register))
                         {
                             //No. Must be an argument then.
-                            typeDump.Append(
-                                $" ; register {register} is used here without being assigned a value prevously - must be passed into the function");
+                            typeDump.Append($" ; register {register} is used here without being assigned a value previously - must be passed into the function");
 
                             argumentRegisters.Add(register);
                             knownRegisters.Add(register);
@@ -186,6 +188,10 @@ namespace Cpp2IL
                         }
                     }
                 }
+                
+                #endregion
+
+                #region Jump Detection
 
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp || instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
                 {
@@ -201,6 +207,7 @@ namespace Cpp2IL
                         {
                             //Console.WriteLine("Found a function call!");
                             typeDump.Append($" - function {target.FullName}");
+                            methodFunctionality.Append($"\t\tCall function {target.FullName}\n");
                         }
                         else
                         {
@@ -219,8 +226,12 @@ namespace Cpp2IL
                     }
                 }
 
+                #endregion
+                
+
                 typeDump.Append("\n");
             }
+            
 
             if (argumentRegisters.Count > 0)
             {

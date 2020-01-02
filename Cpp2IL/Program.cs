@@ -155,6 +155,10 @@ namespace Cpp2IL
                     }
                 }
             }
+            
+            Console.WriteLine("\tPass 5: Locating Globals...");
+
+            var globals = AssemblyBuilder.MapGlobalIdentifiers(metadata, theDll);
 
             #endregion
 
@@ -202,7 +206,7 @@ namespace Cpp2IL
                             var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
                             var methodDefinition = SharedState.MethodsByAddress[methodStart];
 
-                            ASMDumper.DumpMethod(typeDump, methodDefinition, method, ref allUsedMnemonics, methodDef, methodStart);
+                            ASMDumper.DumpMethod(typeDump, methodDefinition, method, ref allUsedMnemonics, methodStart, globals);
                         }
 
                         File.WriteAllText(filename, typeDump.ToString());

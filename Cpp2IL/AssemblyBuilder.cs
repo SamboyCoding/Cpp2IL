@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text;
 using Cpp2IL.Metadata;
 using Mono.Cecil;
@@ -125,7 +126,7 @@ namespace Cpp2IL
             {
                 var typeDef = metadata.typeDefs[index];
                 var typeDefinition = SharedState.TypeDefsByAddress[index];
-                
+
                 methods.Add(new Tuple<TypeDefinition, List<CppMethodData>>(typeDefinition, ProcessTypeContents(metadata, theDll, typeDef, typeDefinition)));
             }
 
@@ -310,7 +311,7 @@ namespace Cpp2IL
                 };
                 ilTypeDefinition.Properties.Add(propertyDefinition);
             }
-            
+
             //Events
             var lastEventId = cppTypeDefinition.firstEventId + cppTypeDefinition.eventCount;
             for (var eventId = cppTypeDefinition.firstEventId; eventId < lastEventId; ++eventId)
@@ -328,7 +329,7 @@ namespace Cpp2IL
                     eventDefinition.InvokeMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + eventDef.raise];
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
-            
+
             File.WriteAllText(Path.Combine(Path.GetFullPath("audica_shredder_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_") + "_metadata.txt"), typeMetaText.ToString());
 
             if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
@@ -353,7 +354,91 @@ namespace Cpp2IL
                     ilTypeDefinition.GenericParameters.Add(genericParameter);
                 }
             }
+
             return typeMethods;
+        }
+
+        internal static List<GlobalIdentifier> MapGlobalIdentifiers(Il2CppMetadata metadata, PE.PE cppAssembly)
+        {
+            //Classes
+            var ret = metadata.metadataUsageDic[1]
+                .Select(kvp => new {kvp, type = cppAssembly.types[kvp.Value]})
+                .Select(t => new GlobalIdentifier
+                {
+                    Name = Utils.GetTypeName(metadata, cppAssembly, t.type, true),
+                    Offset = cppAssembly.metadataUsages[t.kvp.Key],
+                    IdentifierType = GlobalIdentifier.Type.TYPE
+                }).ToList();
+
+            //Idx 2 is exactly the same thing
+            ret.AddRange(metadata.metadataUsageDic[2]
+                .Select(kvp => new {kvp, type = cppAssembly.types[kvp.Value]})
+                .Select(t => new GlobalIdentifier
+                {
+                    Name = Utils.GetTypeName(metadata, cppAssembly, t.type, true),
+                    Offset = cppAssembly.metadataUsages[t.kvp.Key],
+                    IdentifierType = GlobalIdentifier.Type.TYPE
+                })
+            );
+
+            //Methods is idx 3
+            //Don't @ me, i prefer LINQ to foreach loops.
+            //But that said this could be optimised to less t-ing
+            ret.AddRange(metadata.metadataUsageDic[3]
+                .Select(kvp => new {kvp, method = metadata.methodDefs[kvp.Value]})
+                .Select(t => new {t.kvp, t.method, type = metadata.typeDefs[t.method.declaringType]})
+                .Select(t => new {t.kvp, t.method, typeName = Utils.GetTypeName(metadata, cppAssembly, t.type)})
+                .Select(t => new {t.kvp, methodName = t.typeName + "." + metadata.GetStringFromIndex(t.method.nameIndex) + "()"})
+                .Select(t => new GlobalIdentifier
+                {
+                    IdentifierType = GlobalIdentifier.Type.METHOD,
+                    Name = t.methodName,
+                    Offset = cppAssembly.metadataUsages[t.kvp.Key]
+                })
+            );
+
+            //Fields is idx 4
+            ret.AddRange(metadata.metadataUsageDic[4]
+                .Select(kvp => new {kvp, fieldRef = metadata.fieldRefs[kvp.Value]})
+                .Select(t => new {t.kvp, t.fieldRef, type = cppAssembly.types[t.fieldRef.typeIndex]})
+                .Select(t => new {t.type, t.kvp, t.fieldRef, typeDef = metadata.typeDefs[t.type.data.klassIndex]})
+                .Select(t => new {t.type, t.kvp, fieldDef = metadata.fieldDefs[t.typeDef.firstFieldIdx + t.fieldRef.fieldIndex]})
+                .Select(t => new {t.kvp, fieldName = Utils.GetTypeName(metadata, cppAssembly, t.type, true) + "." + metadata.GetStringFromIndex(t.fieldDef.nameIndex)})
+                .Select(t => new GlobalIdentifier
+                {
+                    IdentifierType = GlobalIdentifier.Type.FIELD,
+                    Name = t.fieldName,
+                    Offset = cppAssembly.metadataUsages[t.kvp.Key]
+                })
+            );
+
+            //Literals
+            ret.AddRange(metadata.metadataUsageDic[5]
+                .Select(kvp => new GlobalIdentifier
+                {
+                    IdentifierType = GlobalIdentifier.Type.LITERAL,
+                    Offset = cppAssembly.metadataUsages[kvp.Key],
+                    Name = metadata.GetStringFromIndex((int) kvp.Value)
+                })
+            );
+
+            return ret;
+        }
+
+
+        internal struct GlobalIdentifier
+        {
+            public ulong Offset;
+            public string Name;
+            public Type IdentifierType;
+
+            public enum Type
+            {
+                TYPE,
+                METHOD,
+                FIELD,
+                LITERAL
+            }
         }
     }
 }
