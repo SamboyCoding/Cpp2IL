@@ -12,6 +12,8 @@ namespace Cpp2IL
     {
         public ulong AddrInitFunction;
         public ulong AddrBailOutFunction;
+        public ulong AddrInitStaticFunction;
+        public ulong AddrNewFunction;
 
         public static KeyFunctionAddresses Find(List<Tuple<TypeDefinition, List<CppMethodData>>> methodData, PE.PE cppAssembly)
         {
@@ -31,7 +33,7 @@ namespace Cpp2IL
             var targetCall = instructions.First(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
             var addr = Utils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
             
-            Console.WriteLine($"\t\tLocated function setup method at 0x{addr:X}");
+            Console.WriteLine($"\t\tLocated Function Init function at 0x{addr:X}");
             ret.AddrInitFunction = addr;
             
             //Need to find the bail-out function, again so we can ignore it, as it's injected for null safety because cpp really doesn't like null pointer dereferences.
@@ -52,8 +54,37 @@ namespace Cpp2IL
             var callInstruction = Utils.DisassembleBytes(bytes).First();
 
             addr = Utils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
-            Console.WriteLine($"\t\tLocated Bailout Function at 0x{addr:X}");
+            Console.WriteLine($"\t\tLocated Bailout function at 0x{addr:X}");
             ret.AddrBailOutFunction = addr;
+            
+            //Now we're on the "Init Static Class" one. Easiest place for this is in UnityEngine.Debug$$LogWarning
+            methods = methodData.Find(t => t.Item1.Name == "Debug" && t.Item1.Namespace == "UnityEngine").Item2;
+            
+            //There are two of these but it doesn't matter which we get.
+            var logWarn = methods.Find(m => m.MethodName == "LogWarning");
+            instructions = Utils.DisassembleBytes(logWarn.MethodBytes);
+            
+            //Method: Find the second CALL as it points at what we want. (The first is the init method)
+            var calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+
+            addr = Utils.GetJumpTarget(calls[1], logWarn.MethodOffsetRam + calls[1].PC);
+            Console.WriteLine($"\t\tLocated Static Class Init function at 0x{addr:X}");
+            ret.AddrInitStaticFunction = addr;
+            
+            //Find `new` function (note this is NOT the constructor) from System.Globalization.DateTimeFormatInfo's ctor
+            methods = methodData.Find(t => t.Item1.Name == "DateTimeFormatInfo" && t.Item1.Namespace == "System.Globalization").Item2;
+
+            var ctor = methods.Find(m => m.MethodName == ".ctor");
+            instructions = Utils.DisassembleBytes(ctor.MethodBytes);
+            
+            //Once again just get the second call
+            calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+
+            addr = Utils.GetJumpTarget(calls[1], ctor.MethodOffsetRam + calls[1].PC);
+            Console.WriteLine($"\t\tLocated Class Instantiation (`new`) function at 0x{addr:X}");
+            ret.AddrNewFunction = addr;
+            
+            //TODO: Would be good to have the lookupNativeMethod so we can pattern match and patch out.
 
             return ret;
         }

@@ -52,8 +52,20 @@ namespace Cpp2IL
                     i += 5;
                     continue;
                 }
-                
-                ret.Add(instructions[i]);
+
+                var insn = instructions[i];
+
+                try
+                {
+                    if (insn.Mnemonic == ud_mnemonic_code.UD_Icall && Utils.GetJumpTarget(insn, _methodStart + insn.PC) == _keyFunctionAddresses.AddrBailOutFunction)
+                        continue;
+                }
+                catch (Exception)
+                {
+                    // ignored
+                }
+
+                ret.Add(insn);
             }
 
             return ret;
@@ -71,10 +83,20 @@ namespace Cpp2IL
              */
 
             typeDump.Append($"Method: {_methodDefinition.FullName}: (");
+            
+            var methodFunctionality = new StringBuilder();
 
+            //Pass 0: Disassemble
             var instructions = Utils.DisassembleBytes(_method.MethodBytes);
 
+            //Pass 1: Removal of unneeded generated code
             instructions = TrimOutIl2CppCrap(instructions);
+            
+            //Pass 2: Loop Detection
+            var loopRegisters = DetectPotentialLoops(instructions);
+
+            if(loopRegisters.Count > 0)
+                methodFunctionality.Append($"\t\tPotential Loops Centred on Register(s): {string.Join(",", loopRegisters)}\n");
 
             var distinctMnemonics = new List<ud_mnemonic_code>(instructions.Select(i => i.Mnemonic).Distinct());
             typeDump.Append($"uses {distinctMnemonics.Count} unique operations)\n");
@@ -122,7 +144,7 @@ namespace Cpp2IL
                 typeDump.Append($"\t\t{parameter.ParameterType.FullName} {parameter.Name} in {(isReg ? $"register {pos}" : $"stack at 0x{pos:X}")}\n");
             }
 
-            var knownRegisters = new List<string>(new[] {"rsp", "rbp", "rsi", "rdi", "rbx"});
+            var knownRegisters = new List<string>(new[] {"rsp", "rbp", "rsi", "rdi", "rbx", "rax"});
             var argumentRegisters = new List<string>();
             typeDump.Append("\tMethod Body (x86 ASM):\n");
 
@@ -131,7 +153,6 @@ namespace Cpp2IL
             //    Mov statements that serve only to preserve registers can be ignored (e.g backing up an xmm* register)
             //    Function calls can be inlined as such.
             //    Space reserving (add rsp / sub rsp) can be ignored.
-            var methodFunctionality = new StringBuilder();
 
             var fieldAssignmentRegex = new Regex(@"\[(\w+)_(?:\w+)\+0x(\d+)\], (\w+)_(?:\w+)");
 
@@ -172,8 +193,7 @@ namespace Cpp2IL
                 #region Argument Detection
                 
                 //Using a single operand (except for a PUSH operation) - check if the register, if there is one, is defined. 
-                if (instruction.Operands.Length == 1 &&
-                    instruction.Mnemonic != ud_mnemonic_code.UD_Ipush)
+                if (instruction.Operands.Length == 1 && instruction.Mnemonic != ud_mnemonic_code.UD_Ipush)
                 {
                     //Is this a register?
                     if (instruction.Operands[0].Type == ud_type.UD_OP_REG)
@@ -216,9 +236,7 @@ namespace Cpp2IL
                     }
 
                     //And check if we're defining the register used in the first operand.
-                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov ||
-                        instruction.Mnemonic == ud_mnemonic_code.UD_Imovaps ||
-                        instruction.Mnemonic == ud_mnemonic_code.UD_Imovss)
+                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov || instruction.Mnemonic == ud_mnemonic_code.UD_Imovaps || instruction.Mnemonic == ud_mnemonic_code.UD_Imovss)
                     {
                         if (instruction.Operands[0].Type == ud_type.UD_OP_REG)
                         {
@@ -259,7 +277,7 @@ namespace Cpp2IL
                         {
                             //Console.WriteLine("Found a function call!");
                             typeDump.Append($" - function {target.FullName}");
-                            methodFunctionality.Append($"\t\tCall function {target.FullName}\n");
+                            methodFunctionality.Append($"\t\tCalls function {target.FullName}\n");
                         }
                         else if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)
                         {
@@ -268,6 +286,12 @@ namespace Cpp2IL
                         else if (jumpTarget == _keyFunctionAddresses.AddrInitFunction)
                         {
                             typeDump.Append(" - this is the initialization function and will be ignored.");
+                        }
+                        else if (jumpTarget == _keyFunctionAddresses.AddrNewFunction)
+                        {
+                            typeDump.Append(" - this is the constructor function.");
+                            //TODO: Look at what's in register rcx as that's what's being created.
+                            methodFunctionality.Append("\t\tCreates an instance of [something]\n");
                         }
                         else
                         {
@@ -303,6 +327,15 @@ namespace Cpp2IL
             }
 
             typeDump.Append($"\n\tMethod Synopsis:\n{methodFunctionality}\n");
+        }
+
+        private List<string> DetectPotentialLoops(List<Instruction> instructions)
+        {
+            return instructions
+                .Where(instruction => instruction.Mnemonic == ud_mnemonic_code.UD_Iinc)
+                .Select(instruction => instruction.Operands[0].Base.ToString().Replace("UD_R_", "").ToLower())
+                .Distinct()
+                .ToList();
         }
     }
 }
