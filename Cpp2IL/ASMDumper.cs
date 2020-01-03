@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -261,7 +262,8 @@ namespace Cpp2IL
                     }
 
                     //And check if we're defining the register used in the first operand.
-                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov || instruction.Mnemonic == ud_mnemonic_code.UD_Imovaps || instruction.Mnemonic == ud_mnemonic_code.UD_Imovss || instruction.Mnemonic == ud_mnemonic_code.UD_Imovzx)
+                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov || instruction.Mnemonic == ud_mnemonic_code.UD_Imovaps || instruction.Mnemonic == ud_mnemonic_code.UD_Imovss || instruction.Mnemonic == ud_mnemonic_code.UD_Imovzx
+                        || instruction.Mnemonic == ud_mnemonic_code.UD_Ilea)
                     {
                         if (instruction.Operands[0].Type == ud_type.UD_OP_REG)
                         {
@@ -304,6 +306,31 @@ namespace Cpp2IL
                                     {
                                         typeDump.Append($" - this is global value {glob.Name} of type {glob.IdentifierType}");
                                         _registerAliases[destReg] = $"global_{glob.IdentifierType}_{glob.Name}";
+                                    }
+                                    else
+                                    {
+                                        //Try to read literal
+                                        try
+                                        {
+                                            var actualAddress = _cppAssembly.MapVirtualAddressToRaw(addr);
+                                            typeDump.Append(" - might be in file at " + actualAddress);
+                                            if (char.IsLetter(Convert.ToChar(_cppAssembly.raw[actualAddress])))
+                                            {
+                                                var literal = new StringBuilder();
+                                                while (_cppAssembly.raw[actualAddress] != 0 && literal.Length < 250)
+                                                {
+                                                    literal.Append(Convert.ToChar(_cppAssembly.raw[actualAddress]));
+                                                    actualAddress++;
+                                                }
+
+                                                typeDump.Append(" - literal: " + literal);
+                                                _registerAliases[destReg] = literal.ToString();
+                                            }
+                                        }
+                                        catch (Exception)
+                                        {
+                                            //suppress
+                                        }
                                     }
 
                                     break;
@@ -377,6 +404,18 @@ namespace Cpp2IL
                         else if (jumpTarget == _keyFunctionAddresses.AddrInitStaticFunction)
                         {
                             typeDump.Append(" - this is the static class initializer and will be ignored");
+                        } else if (jumpTarget == _keyFunctionAddresses.AddrNativeLookup)
+                        {
+                            typeDump.Append(" - this is the native lookup function");
+                            _registerAliases.TryGetValue("rcx", out var functionName);
+                            //TODO Attempt to resolve. Also, this will be followed by a CALL rax, which currently throws an InvalidOperationException but should instead lookup this function and call it.
+                            if (functionName != null)
+                            {
+                                _methodFunctionality.Append($"\t\tLooks up native function {functionName}\n");
+                            }
+                        } else if (jumpTarget == _keyFunctionAddresses.AddrNativeLookupGenMissingMethod)
+                        {
+                            typeDump.Append(" - this is the native lookup bailout function");
                         }
                         else
                         {

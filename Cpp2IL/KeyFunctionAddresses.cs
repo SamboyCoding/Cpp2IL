@@ -14,6 +14,8 @@ namespace Cpp2IL
         public ulong AddrBailOutFunction;
         public ulong AddrInitStaticFunction;
         public ulong AddrNewFunction;
+        public ulong AddrNativeLookup;
+        public ulong AddrNativeLookupGenMissingMethod;
 
         public static KeyFunctionAddresses Find(List<Tuple<TypeDefinition, List<CppMethodData>>> methodData, PE.PE cppAssembly)
         {
@@ -84,8 +86,21 @@ namespace Cpp2IL
             Console.WriteLine($"\t\tLocated Class Instantiation (`new`) function at 0x{addr:X}");
             ret.AddrNewFunction = addr;
 
-            //TODO: Would be good to have the lookupNativeMethod so we can pattern match and patch out.
+            methods = methodData.Find(t => t.Item1.Name == "Mesh" && t.Item1.Namespace == "UnityEngine").Item2;
 
+            ctor = methods.Find(m => m.MethodName == ".ctor");
+            instructions = Utils.DisassembleBytes(ctor.MethodBytes);
+            
+            calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+            
+            addr = Utils.GetJumpTarget(calls[2], ctor.MethodOffsetRam + calls[2].PC);
+            Console.WriteLine($"\t\tLocated Native Method Lookup function at 0x{addr:X}");
+            ret.AddrNativeLookup = addr;
+            
+            addr = Utils.GetJumpTarget(calls[3], ctor.MethodOffsetRam + calls[3].PC);
+            Console.WriteLine($"\t\tLocated Native Method Bailout function at 0x{addr:X}");
+            ret.AddrNativeLookupGenMissingMethod = addr;
+            
             return ret;
         }
     }
