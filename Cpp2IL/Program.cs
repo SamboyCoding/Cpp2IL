@@ -219,7 +219,7 @@ namespace Cpp2IL
                             var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
                             var methodDefinition = SharedState.MethodsByAddress[methodStart];
 
-                            ASMDumper.DumpMethod(typeDump, methodDefinition, method, ref allUsedMnemonics, methodStart, globals, keyFunctionAddresses);
+                            new ASMDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).DumpMethod(typeDump, ref allUsedMnemonics);
                         }
 
                         File.WriteAllText(filename, typeDump.ToString());

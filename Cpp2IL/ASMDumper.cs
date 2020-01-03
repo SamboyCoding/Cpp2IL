@@ -11,9 +11,54 @@ using SharpDisasm.Udis86;
 
 namespace Cpp2IL
 {
-    internal static class ASMDumper
+    internal class ASMDumper
     {
-        internal static void DumpMethod(StringBuilder typeDump, MethodDefinition methodDefinition, CppMethodData method, ref List<ud_mnemonic_code> allUsedMnemonics, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses)
+        private readonly MethodDefinition _methodDefinition;
+        private readonly CppMethodData _method;
+        private readonly ulong _methodStart;
+        private readonly List<AssemblyBuilder.GlobalIdentifier> _globals;
+        private readonly KeyFunctionAddresses _keyFunctionAddresses;
+        private readonly PE.PE _cppAssembly;
+
+        internal ASMDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
+        {
+            _methodDefinition = methodDefinition;
+            _method = method;
+            _methodStart = methodStart;
+            _globals = globals;
+            _keyFunctionAddresses = keyFunctionAddresses;
+            _cppAssembly = cppAssembly;
+        }
+        
+        private List<Instruction> TrimOutIl2CppCrap(List<Instruction> instructions)
+        {
+            var ret = new List<Instruction>();
+            
+            for (var i = 0; i < instructions.Count; i++)
+            {
+                if (Utils.CheckForNullCheckAtIndex(_methodStart, _cppAssembly, instructions, i, _keyFunctionAddresses))
+                {
+                    //Skip this (TEST) and the following instruction (JZ)
+                    i++;
+                    continue;
+                }
+
+                if (Utils.CheckForInitCallAtIndex(_methodStart, instructions, i, _keyFunctionAddresses))
+                {
+                    //Need to preserve the MOV which is the value after this one.
+                    ret.Add(instructions[i + 1]);
+                    
+                    //And skip 5 instructions
+                    i += 5;
+                    continue;
+                }
+                
+                ret.Add(instructions[i]);
+            }
+
+            return ret;
+        }
+        internal void DumpMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
             //As we're on windows, function params are passed RCX RDX R8 R9, then the stack
             //If these are floating point numbers, they're put in XMM0 to 3
@@ -25,10 +70,11 @@ namespace Cpp2IL
              * TODO: Basically, we need a preprocessing task that locates the addresses of certain key functions using known calls to them (for example, the generic method one is at least used in Unity internal code, if not anywhere in the CLR)
              */
 
-            typeDump.Append($"Method: {methodDefinition.FullName}: (");
+            typeDump.Append($"Method: {_methodDefinition.FullName}: (");
 
-            var disasm = new Disassembler(method.MethodBytes, ArchitectureMode.x86_64, 0, true);
-            var instructions = new List<Instruction>(disasm.Disassemble());
+            var instructions = Utils.DisassembleBytes(_method.MethodBytes);
+
+            instructions = TrimOutIl2CppCrap(instructions);
 
             var distinctMnemonics = new List<ud_mnemonic_code>(instructions.Select(i => i.Mnemonic).Distinct());
             typeDump.Append($"uses {distinctMnemonics.Count} unique operations)\n");
@@ -42,7 +88,7 @@ namespace Cpp2IL
             var registers = new List<string>(new[] {"rcx/xmm0", "rdx/xmm1", "r8/xmm2", "r9/xmm3"});
             var stackIndex = 0;
 
-            if (!methodDefinition.IsStatic)
+            if (!_methodDefinition.IsStatic)
             {
                 var pos = registers[0];
                 registers.RemoveAt(0);
@@ -53,7 +99,7 @@ namespace Cpp2IL
                 }
             }
 
-            foreach (var parameter in methodDefinition.Parameters)
+            foreach (var parameter in _methodDefinition.Parameters)
             {
                 string pos;
                 var isReg = false;
@@ -110,7 +156,7 @@ namespace Cpp2IL
                     {
                         try
                         {
-                            var field = methodDefinition.DeclaringType.Fields[offset / 8];
+                            var field = _methodDefinition.DeclaringType.Fields[offset / 8];
 
                             methodFunctionality.Append($"\t\tSet field {field.Name} of {dest.Value} to {src.Value} (on line {instructions.IndexOf(instruction)})\n");
                         }
@@ -204,7 +250,7 @@ namespace Cpp2IL
                     try
                     {
                         //JMP instruction, try find function
-                        var jumpTarget = Utils.GetJumpTarget(instruction, methodStart + instruction.PC);
+                        var jumpTarget = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
                         typeDump.Append($" ; jump to 0x{jumpTarget:X}");
 
                         SharedState.MethodsByAddress.TryGetValue(jumpTarget, out var target);
@@ -215,21 +261,21 @@ namespace Cpp2IL
                             typeDump.Append($" - function {target.FullName}");
                             methodFunctionality.Append($"\t\tCall function {target.FullName}\n");
                         }
-                        else if (jumpTarget == keyFunctionAddresses.BailOutFunction)
+                        else if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)
                         {
                             typeDump.Append(" - this is the bailout function and will be ignored.");
                         }
-                        else if (jumpTarget == keyFunctionAddresses.AddrInitFunction)
+                        else if (jumpTarget == _keyFunctionAddresses.AddrInitFunction)
                         {
                             typeDump.Append(" - this is the initialization function and will be ignored.");
                         }
                         else
                         {
                             //Is this somewhere in this function?
-                            var methodEnd = methodStart + (ulong) instructions.Count;
-                            if (methodStart <= jumpTarget && jumpTarget <= methodEnd)
+                            var methodEnd = _methodStart + (ulong) instructions.Count;
+                            if (_methodStart <= jumpTarget && jumpTarget <= methodEnd)
                             {
-                                var pos = jumpTarget - methodStart;
+                                var pos = jumpTarget - _methodStart;
                                 typeDump.Append($" - offset 0x{pos:X} in this function");
                             }
                         }

@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
 using Mono.Cecil;
 using SharpDisasm;
+using SharpDisasm.Udis86;
 
 namespace Cpp2IL
 {
@@ -185,29 +187,29 @@ namespace Cpp2IL
 
             return null;
         }
-        
+
         private static readonly Dictionary<int, string> TypeString = new Dictionary<int, string>
         {
-            {1,"void"},
-            {2,"bool"},
-            {3,"char"},
-            {4,"sbyte"},
-            {5,"byte"},
-            {6,"short"},
-            {7,"ushort"},
-            {8,"int"},
-            {9,"uint"},
-            {10,"long"},
-            {11,"ulong"},
-            {12,"float"},
-            {13,"double"},
-            {14,"string"},
-            {22,"TypedReference"},
-            {24,"IntPtr"},
-            {25,"UIntPtr"},
-            {28,"object"},
+            {1, "void"},
+            {2, "bool"},
+            {3, "char"},
+            {4, "sbyte"},
+            {5, "byte"},
+            {6, "short"},
+            {7, "ushort"},
+            {8, "int"},
+            {9, "uint"},
+            {10, "long"},
+            {11, "ulong"},
+            {12, "float"},
+            {13, "double"},
+            {14, "string"},
+            {22, "TypedReference"},
+            {24, "IntPtr"},
+            {25, "UIntPtr"},
+            {28, "object"}
         };
-        
+
         internal static string GetTypeName(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppType type, bool fullName = false)
         {
             string ret;
@@ -215,64 +217,65 @@ namespace Cpp2IL
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
+                {
+                    var typeDef = metadata.typeDefs[type.data.classIndex];
+                    ret = String.Empty;
+                    if (fullName)
                     {
-                        var typeDef = metadata.typeDefs[type.data.classIndex];
-                        ret = String.Empty;
-                        if (fullName)
+                        ret = metadata.GetStringFromIndex(typeDef.namespaceIndex);
+                        if (ret != String.Empty)
                         {
-                            ret = metadata.GetStringFromIndex(typeDef.namespaceIndex);
-                            if (ret != String.Empty)
-                            {
-                                ret += ".";
-                            }
+                            ret += ".";
                         }
-                        ret += GetTypeName(metadata, cppAssembly, typeDef);
-                        break;
                     }
+
+                    ret += GetTypeName(metadata, cppAssembly, typeDef);
+                    break;
+                }
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
-                    {
-                        var genericClass = cppAssembly.ReadClassAtVirtualAddress<Il2CppGenericClass>(type.data.generic_class);
-                        var typeDef = metadata.typeDefs[genericClass.typeDefinitionIndex];
-                        ret = metadata.GetStringFromIndex(typeDef.nameIndex);
-                        var genericInst = cppAssembly.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
-                        ret = ret.Replace($"`{genericInst.type_argc}", "");
-                        ret += GetGenericTypeParams(metadata, cppAssembly, genericInst);
-                        break;
-                    }
+                {
+                    var genericClass = cppAssembly.ReadClassAtVirtualAddress<Il2CppGenericClass>(type.data.generic_class);
+                    var typeDef = metadata.typeDefs[genericClass.typeDefinitionIndex];
+                    ret = metadata.GetStringFromIndex(typeDef.nameIndex);
+                    var genericInst = cppAssembly.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
+                    ret = ret.Replace($"`{genericInst.type_argc}", "");
+                    ret += GetGenericTypeParams(metadata, cppAssembly, genericInst);
+                    break;
+                }
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
                 case Il2CppTypeEnum.IL2CPP_TYPE_MVAR:
-                    {
-                        var param = metadata.genericParameters[type.data.genericParameterIndex];
-                        ret = metadata.GetStringFromIndex(param.nameIndex);
-                        break;
-                    }
+                {
+                    var param = metadata.genericParameters[type.data.genericParameterIndex];
+                    ret = metadata.GetStringFromIndex(param.nameIndex);
+                    break;
+                }
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
-                    {
-                        var arrayType = cppAssembly.ReadClassAtVirtualAddress<Il2CppArrayType>(type.data.array);
-                        var oriType = cppAssembly.GetIl2CppType(arrayType.etype);
-                        ret = $"{GetTypeName(metadata, cppAssembly, oriType)}[{new string(',', arrayType.rank - 1)}]";
-                        break;
-                    }
+                {
+                    var arrayType = cppAssembly.ReadClassAtVirtualAddress<Il2CppArrayType>(type.data.array);
+                    var oriType = cppAssembly.GetIl2CppType(arrayType.etype);
+                    ret = $"{GetTypeName(metadata, cppAssembly, oriType)}[{new string(',', arrayType.rank - 1)}]";
+                    break;
+                }
                 case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
-                    {
-                        var oriType = cppAssembly.GetIl2CppType(type.data.type);
-                        ret = $"{GetTypeName(metadata, cppAssembly, oriType)}[]";
-                        break;
-                    }
+                {
+                    var oriType = cppAssembly.GetIl2CppType(type.data.type);
+                    ret = $"{GetTypeName(metadata, cppAssembly, oriType)}[]";
+                    break;
+                }
                 case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
-                    {
-                        var oriType = cppAssembly.GetIl2CppType(type.data.type);
-                        ret = $"{GetTypeName(metadata, cppAssembly, oriType)}*";
-                        break;
-                    }
+                {
+                    var oriType = cppAssembly.GetIl2CppType(type.data.type);
+                    ret = $"{GetTypeName(metadata, cppAssembly, oriType)}*";
+                    break;
+                }
                 default:
-                    ret = TypeString[(int)type.type];
+                    ret = TypeString[(int) type.type];
                     break;
             }
 
             return ret;
         }
-        
+
         internal static string GetTypeName(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition typeDef)
         {
             var ret = String.Empty;
@@ -280,6 +283,7 @@ namespace Cpp2IL
             {
                 ret += GetTypeName(metadata, cppAssembly, cppAssembly.types[typeDef.declaringTypeIndex]) + ".";
             }
+
             ret += metadata.GetStringFromIndex(typeDef.nameIndex);
             var names = new List<string>();
             if (typeDef.genericContainerIndex >= 0)
@@ -291,12 +295,14 @@ namespace Cpp2IL
                     var param = metadata.genericParameters[genericParameterIndex];
                     names.Add(metadata.GetStringFromIndex(param.nameIndex));
                 }
+
                 ret = ret.Replace($"`{genericContainer.type_argc}", "");
                 ret += $"<{String.Join(", ", names)}>";
             }
+
             return ret;
         }
-        
+
         private static string GetGenericTypeParams(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppGenericInst genericInst)
         {
             var typeNames = new List<string>();
@@ -306,6 +312,7 @@ namespace Cpp2IL
                 var oriType = cppAssembly.GetIl2CppType(pointers[i]);
                 typeNames.Add(GetTypeName(metadata, cppAssembly, oriType));
             }
+
             return $"<{String.Join(", ", typeNames)}>";
         }
 
@@ -325,6 +332,71 @@ namespace Cpp2IL
                 32 => (start + (ulong) opr.LvalSDWord & num),
                 _ => throw new InvalidOperationException(String.Format("invalid relative offset size {0}.", opr.Size))
             };
+        }
+
+        public static List<Instruction> DisassembleBytes(byte[] bytes)
+        {
+            return new List<Instruction>(new Disassembler(bytes, ArchitectureMode.x86_64, 0, true).Disassemble());
+        }
+
+        public static bool CheckForNullCheckAtIndex(ulong offsetInRam, PE.PE cppAssembly, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
+        {
+            if (instructions.Count - idx < 2) return false;
+            
+            var insn = instructions[idx];
+            
+            //Check this is a valid TEST RCX RCX
+            if (insn.Mnemonic != ud_mnemonic_code.UD_Itest || insn.Operands.Length != 2 || insn.Operands[0].Base != insn.Operands[1].Base)
+                return false;
+
+            //Get the following instruction and verify it's a JZ
+            var jump = instructions[idx + 1];
+            if (jump.Mnemonic != ud_mnemonic_code.UD_Ijz) return false;
+            
+            //Get the target of the JZ
+            var addrOfCall = GetJumpTarget(jump, offsetInRam + jump.PC);
+            
+            //Disassemble 5 bytes at that destination (it should be a call)
+            var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
+            var callInstruction = DisassembleBytes(bytes).First();
+
+            //Make sure it *is* a call
+            if (callInstruction.Mnemonic != ud_mnemonic_code.UD_Icall) return false;
+
+            //Get where that call points to
+            var addr = GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
+            
+            //If it's the bailout then the original check was a il2cpp-generated null check
+            return addr == kfe.AddrBailOutFunction;
+        }
+
+        public static bool CheckForInitCallAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
+        {
+            //This is quite a different pattern to the above, but it still can be detected
+            //First it's a CMP [irrelevant] against 0
+            //Then a MOV which must be preserved
+            //Then a JNZ to skip the following code if not needed
+            //Then another MOV (which contains the unique ID of this function as the second param, but that's not important i don't think)
+            //Then a call to the init function
+            //Then a mov to the same [irrelevant] as above, setting it to the constant 1 (actually true, as it's a bool)
+            //The next instruction is where the JNZ would go to and is where we resume.
+            //So all in all, 6 instructions: CMP MOV JNZ MOV CALL MOV
+            
+            var requiredPattern = new[]
+            {
+                ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
+            };
+
+            if (instructions.Count - idx < 7) return false;
+
+            var instructionsInRange = instructions.GetRange(idx, 6);
+            var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
+            if (!requiredPattern.SequenceEqual(actualPattern)) return false;
+
+            var callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
+
+            //If this is true then we have an il2cpp-generated initialization call.
+            return callAddr == kfe.AddrInitFunction;
         }
     }
 }

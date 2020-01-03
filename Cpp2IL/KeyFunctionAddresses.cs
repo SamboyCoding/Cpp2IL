@@ -11,7 +11,7 @@ namespace Cpp2IL
     public struct KeyFunctionAddresses
     {
         public ulong AddrInitFunction;
-        public ulong BailOutFunction;
+        public ulong AddrBailOutFunction;
 
         public static KeyFunctionAddresses Find(List<Tuple<TypeDefinition, List<CppMethodData>>> methodData, PE.PE cppAssembly)
         {
@@ -26,8 +26,7 @@ namespace Cpp2IL
             var methods = methodData.Find(t => t.Item1.Name == "ArgumentCache" && t.Item1.Namespace == "UnityEngine.Events").Item2;
 
             var tatn = methods.Find(m => m.MethodName == "TidyAssemblyTypeName");
-            var disasm = new Disassembler(tatn.MethodBytes, ArchitectureMode.x86_64, 0, true);
-            var instructions = new List<Instruction>(disasm.Disassemble());
+            var instructions = Utils.DisassembleBytes(tatn.MethodBytes);
             
             var targetCall = instructions.First(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
             var addr = Utils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
@@ -50,12 +49,11 @@ namespace Cpp2IL
             //Get 5 bytes at that point so we can disasm
             //Warning: This might be fragile if the x86 instruction set ever changes.
             var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-            var smolDisasm = new Disassembler(bytes, ArchitectureMode.x86_64, 0, true);
-            var callInstruction = smolDisasm.Disassemble().First();
+            var callInstruction = Utils.DisassembleBytes(bytes).First();
 
             addr = Utils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
             Console.WriteLine($"\t\tLocated Bailout Function at 0x{addr:X}");
-            ret.BailOutFunction = addr;
+            ret.AddrBailOutFunction = addr;
 
             return ret;
         }
