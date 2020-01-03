@@ -471,5 +471,30 @@ namespace Cpp2IL
             
             return num1 + insn.PC;
         }
+
+        public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string name)
+        {
+            var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
+
+            //Generics are dumb.
+            var genericParams = new string[0];
+            if (definedType == null && name.Contains("<"))
+            {
+                //Replace < > with the number of generic params after a ` 
+                var genericName = name.Substring(0, name.IndexOf("<", StringComparison.Ordinal)) + "`" + (name.Count(c => c == ',') + 1);
+                genericParams = name.Substring(name.IndexOf("<", StringComparison.Ordinal) + 1).TrimEnd('>').Split(',');
+
+                definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == genericName);
+
+                if (definedType == null)
+                {
+                    //Still not got one? Ok, is there only one match for non FQN?
+                    var matches = SharedState.AllTypeDefinitions.Where(t => t.Name == genericName).ToList();
+                    if (matches.Count == 1)
+                        definedType = matches.First();
+                }
+            }
+            return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+        }
     }
 }

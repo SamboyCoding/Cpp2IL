@@ -83,7 +83,7 @@ namespace Cpp2IL
             addr = Utils.GetJumpTarget(calls[1], ctor.MethodOffsetRam + calls[1].PC);
             Console.WriteLine($"\t\tLocated Class Instantiation (`new`) function at 0x{addr:X}");
             ret.AddrNewFunction = addr;
-            
+
             //TODO: Would be good to have the lookupNativeMethod so we can pattern match and patch out.
 
             return ret;
