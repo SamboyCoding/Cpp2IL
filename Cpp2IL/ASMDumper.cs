@@ -53,10 +53,18 @@ namespace Cpp2IL
                     continue;
                 }
 
+                if (Utils.CheckForStaticClassInitAtIndex(_methodStart, instructions, i, _keyFunctionAddresses))
+                {
+                    //No need to preserve anything, just skip 5
+                    i += 5;
+                    continue;
+                }
+
                 var insn = instructions[i];
 
                 try
                 {
+                    //Single call to the bailout, sometimes left over at the end of a function
                     if (insn.Mnemonic == ud_mnemonic_code.UD_Icall && Utils.GetJumpTarget(insn, _methodStart + insn.PC) == _keyFunctionAddresses.AddrBailOutFunction)
                         continue;
                 }
@@ -103,6 +111,7 @@ namespace Cpp2IL
             allUsedMnemonics = new List<ud_mnemonic_code>(allUsedMnemonics.Concat(distinctMnemonics).Distinct());
 
             var registerAliases = new Dictionary<string, string>(); //Reg name to alias.
+            var registerTypes = new Dictionary<string, TypeReference>(); //Reg name to type
 
             //Dump params
             typeDump.Append("\tParameters in registers: \n");
@@ -114,10 +123,11 @@ namespace Cpp2IL
             {
                 var pos = registers[0];
                 registers.RemoveAt(0);
-                typeDump.Append($"\t\t<This> this in register {pos}\n");
+                typeDump.Append($"\t\t{_methodDefinition.DeclaringType} this in register {pos}\n");
                 foreach (var reg in pos.Split('/'))
                 {
                     registerAliases[reg] = "this";
+                    registerTypes[reg] = _methodDefinition.DeclaringType;
                 }
             }
 
@@ -133,6 +143,7 @@ namespace Cpp2IL
                     foreach (var reg in pos.Split('/'))
                     {
                         registerAliases[reg] = parameter.Name;
+                        registerTypes[reg] = parameter.ParameterType;
                     }
                 }
                 else
@@ -154,8 +165,9 @@ namespace Cpp2IL
             //    Function calls can be inlined as such.
             //    Space reserving (add rsp / sub rsp) can be ignored.
 
-            var fieldAssignmentRegex = new Regex(@"\[(\w+)_(?:\w+)\+0x(\d+)\], (\w+)_(?:\w+)");
+            var fieldAssignmentRegex = new Regex(@"\[(\w+)_(?:\w+)\+0x(\d+)\], (\w+)_(\w+)");
 
+            var localNum = 1;
             foreach (var instruction in instructions)
             {
                 //Preprocessing to make it easier to read.
@@ -168,18 +180,21 @@ namespace Cpp2IL
                     var destAlias = m.Groups[1].Value;
                     var offsetHex = m.Groups[2].Value;
                     var sourceAlias = m.Groups[3].Value;
+                    var sourceReg = m.Groups[4].Value;
 
                     var dest = registerAliases.FirstOrDefault(pair => pair.Value == destAlias);
                     var src = registerAliases.FirstOrDefault(pair => pair.Value == sourceAlias);
 
-                    var offset = int.Parse($"{offsetHex}", NumberStyles.HexNumber) - 24; //First 16 bytes appear to be reserved
+                    var offset = int.Parse($"{offsetHex}", NumberStyles.HexNumber) - 16; //First 16 bytes appear to be reserved
                     if (offset >= 0)
                     {
                         try
                         {
                             var field = _methodDefinition.DeclaringType.Fields[offset / 8];
 
-                            methodFunctionality.Append($"\t\tSet field {field.Name} of {dest.Value} to {src.Value} (on line {instructions.IndexOf(instruction)})\n");
+                            registerTypes.TryGetValue(sourceReg, out var regType);
+                            
+                            methodFunctionality.Append($"\t\tSet field {field.Name} (type {field.FieldType.FullName}) of {dest.Value} to {src.Value} (type {regType?.FullName}) (on line {instructions.IndexOf(instruction)})\n");
                         }
                         catch
                         {
@@ -256,9 +271,17 @@ namespace Cpp2IL
                                     theBase = instruction.Operands[1].Base;
                                     var sourceReg = theBase.ToString().Replace("UD_R_", "").ToLower();
                                     if (registerAliases.ContainsKey(sourceReg))
+                                    {
                                         registerAliases[destReg] = registerAliases[sourceReg];
+                                        if (registerTypes.ContainsKey(sourceReg))
+                                            registerTypes[destReg] = registerTypes[sourceReg];
+                                    }
                                     else if (registerAliases.ContainsKey(destReg))
+                                    {
                                         registerAliases.Remove(destReg); //If we have one for the dest but not the source, clear it
+                                        registerTypes.Remove(destReg);
+                                    }
+
                                     break;
                                 case ud_type.UD_OP_MEM:
                                     //[reg+0xyyyyy]
@@ -292,11 +315,13 @@ namespace Cpp2IL
 
                         SharedState.MethodsByAddress.TryGetValue(jumpTarget, out var target);
 
+                        TypeReference returnType = null;
                         if (target != null)
                         {
                             //Console.WriteLine("Found a function call!");
                             typeDump.Append($" - function {target.FullName}");
                             methodFunctionality.Append($"\t\tCalls function {target.FullName}\n");
+                            returnType = target.ReturnType;
                         }
                         else if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)
                         {
@@ -321,9 +346,30 @@ namespace Cpp2IL
                                     if (global.Offset != 0)
                                     {
                                         var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == global.Name);
+                                        
+                                        //Generics are dumb.
+                                        var genericParams = new string[0];
+                                        if (definedType == null && global.Name.Contains("<"))
+                                        {
+                                            //Replace < > with the number of generic params after a ` 
+                                            var genericName = global.Name.Substring(0, global.Name.IndexOf("<", StringComparison.Ordinal)) + "`" + (global.Name.Count(c => c == ',') + 1);
+                                            genericParams = global.Name.Substring(global.Name.IndexOf("<", StringComparison.Ordinal) + 1).TrimEnd('>').Split(',');
+                                            
+                                            definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == genericName);
+
+                                            if (definedType == null)
+                                            {
+                                                //Still not got one? Ok, is there only one match for non FQN?
+                                                var matches = SharedState.AllTypeDefinitions.Where(t => t.Name == genericName).ToList();
+                                                if (matches.Count == 1)
+                                                    definedType = matches.First();
+                                            }
+                                        }
+
                                         if (definedType != null)
                                         {
-                                            methodFunctionality.Append($"\t\tCreates an instance of type {definedType.FullName}\n");
+                                            methodFunctionality.Append($"\t\tCreates an instance of type {definedType.FullName}{(genericParams.Length > 0 ? $" with generic parameters {string.Join(",", genericParams)}" : "")}\n");
+                                            returnType = definedType;
                                             success = true;
                                         }
                                         else
@@ -351,6 +397,14 @@ namespace Cpp2IL
                                 var pos = jumpTarget - _methodStart;
                                 typeDump.Append($" - offset 0x{pos:X} in this function");
                             }
+                        }
+
+                        if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall && returnType != null && returnType.Name != "Void")
+                        {
+                            registerTypes["rax"] = returnType;
+                            registerAliases["rax"] = $"local{localNum}";
+                            methodFunctionality.Append($"\t\tCreates local variable local{localNum} of type {returnType} and sets it to the return value\n");
+                            localNum++;
                         }
                     }
                     catch (Exception e)

@@ -399,6 +399,25 @@ namespace Cpp2IL
             return callAddr == kfe.AddrInitFunction;
         }
 
+        public static bool CheckForStaticClassInitAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
+        {
+            var requiredPattern = new[]
+            {
+                ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Icall
+            };
+
+            if (instructions.Count - idx < 7) return false;
+
+            var instructionsInRange = instructions.GetRange(idx, 6);
+            var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
+            if (!requiredPattern.SequenceEqual(actualPattern)) return false;
+
+            var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
+
+            //If this is true then we have an il2cpp-generated initialization call.
+            return callAddr == kfe.AddrInitStaticFunction;
+        }
+
         public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
         {
             if (op.Type != ud_type.UD_OP_MEM) return 0;

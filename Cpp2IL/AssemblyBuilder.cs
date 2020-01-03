@@ -62,7 +62,6 @@ namespace Cpp2IL
                         definition = new TypeDefinition(ns, name, (TypeAttributes) type.flags);
                         mainModule.Types.Add(definition);
                         SharedState.TypeDefsByAddress.Add(defNumber, definition);
-                        SharedState.AllTypeDefinitions.Add(definition);
                     }
 
                     //Ensure we include all inner types within this type.
@@ -78,7 +77,6 @@ namespace Cpp2IL
 
                         definition.NestedTypes.Add(nestedDef);
                         SharedState.TypeDefsByAddress.Add(nestedIndex, nestedDef);
-                        SharedState.AllTypeDefinitions.Add(definition);
                     }
                 }
 
@@ -128,6 +126,7 @@ namespace Cpp2IL
             {
                 var typeDef = metadata.typeDefs[index];
                 var typeDefinition = SharedState.TypeDefsByAddress[index];
+                SharedState.AllTypeDefinitions.Add(typeDefinition);
 
                 methods.Add(new Tuple<TypeDefinition, List<CppMethodData>>(typeDefinition, ProcessTypeContents(metadata, theDll, typeDef, typeDefinition)));
             }
