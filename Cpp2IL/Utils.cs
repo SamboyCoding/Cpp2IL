@@ -219,7 +219,7 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
                     var typeDef = metadata.typeDefs[type.data.classIndex];
-                    ret = String.Empty;
+                    ret = string.Empty;
                     if (fullName)
                     {
                         ret = metadata.GetStringFromIndex(typeDef.namespaceIndex);
@@ -370,7 +370,7 @@ namespace Cpp2IL
             return addr == kfe.AddrBailOutFunction;
         }
 
-        public static bool CheckForInitCallAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
+        public static int CheckForInitCallAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
         {
             //This is quite a different pattern to the above, but it still can be detected
             //First it's a CMP [irrelevant] against 0
@@ -386,36 +386,73 @@ namespace Cpp2IL
             {
                 ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
             };
+            
+            var alternativePattern = new[]
+            {
+                ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
+            };
 
-            if (instructions.Count - idx < 7) return false;
-
-            var instructionsInRange = instructions.GetRange(idx, 6);
+            if (instructions.Count - idx < 6) return 0;
+            
+            var instructionsInRange = instructions.GetRange(idx, 5);
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-            if (!requiredPattern.SequenceEqual(actualPattern)) return false;
 
-            var callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
+            ulong callAddr;
+            if (alternativePattern.SequenceEqual(actualPattern))
+            {
+                callAddr = GetJumpTarget(instructionsInRange[3], offsetInRam + instructionsInRange[3].PC);
+                return callAddr == kfe.AddrInitFunction ? 4 : 0;
+            }
 
-            //If this is true then we have an il2cpp-generated initialization call.
-            return callAddr == kfe.AddrInitFunction;
+            if (instructions.Count - idx < 7) return 0;
+
+            instructionsInRange = instructions.GetRange(idx, 6);
+            actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
+            
+            if (!requiredPattern.SequenceEqual(actualPattern)) return 0;
+            
+            callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
+
+            return callAddr == kfe.AddrInitFunction ? 5 : 0;
         }
 
-        public static bool CheckForStaticClassInitAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
+        public static int CheckForStaticClassInitAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
         {
             var requiredPattern = new[]
             {
                 ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Icall
             };
+            
+            var alternativePattern = new[]
+            {
+                ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Iadd, ud_mnemonic_code.UD_Ijmp
+            };
 
-            if (instructions.Count - idx < 7) return false;
+            if (instructions.Count - idx < 7) return 0;
 
             var instructionsInRange = instructions.GetRange(idx, 6);
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-            if (!requiredPattern.SequenceEqual(actualPattern)) return false;
+            if (requiredPattern.SequenceEqual(actualPattern))
+            {
+                var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
 
-            var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
+                //If this is true then we have an il2cpp-generated initialization call.
+                return callAddr == kfe.AddrInitStaticFunction ? 5 : 0;
+            }
+            else
+            {
+                if (instructions.Count - idx < 8) return 0;
+                
+                instructionsInRange = instructions.GetRange(idx, 7);
+                actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
+                
+                if (!alternativePattern.SequenceEqual(actualPattern)) return 0;
+                
+                var callAddr = GetJumpTarget(instructionsInRange[6], offsetInRam + instructionsInRange[6].PC);
 
-            //If this is true then we have an il2cpp-generated initialization call.
-            return callAddr == kfe.AddrInitStaticFunction;
+                //If this is true then we have an il2cpp-generated initialization call.
+                return callAddr == kfe.AddrInitStaticFunction ? 6 : 0;
+            }
         }
 
         public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
@@ -429,6 +466,9 @@ namespace Cpp2IL
                 32 => (ulong) op.LvalSDWord,
                 _ => 0UL
             };
+
+            if (num1 == 0) return 0;
+            
             return num1 + insn.PC;
         }
     }

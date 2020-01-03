@@ -29,11 +29,11 @@ namespace Cpp2IL
             _keyFunctionAddresses = keyFunctionAddresses;
             _cppAssembly = cppAssembly;
         }
-        
+
         private List<Instruction> TrimOutIl2CppCrap(List<Instruction> instructions)
         {
             var ret = new List<Instruction>();
-            
+
             for (var i = 0; i < instructions.Count; i++)
             {
                 if (Utils.CheckForNullCheckAtIndex(_methodStart, _cppAssembly, instructions, i, _keyFunctionAddresses))
@@ -43,20 +43,23 @@ namespace Cpp2IL
                     continue;
                 }
 
-                if (Utils.CheckForInitCallAtIndex(_methodStart, instructions, i, _keyFunctionAddresses))
+                var toSkip = Utils.CheckForInitCallAtIndex(_methodStart, instructions, i, _keyFunctionAddresses);
+                if (toSkip != 0)
                 {
-                    //Need to preserve the MOV which is the value after this one.
-                    ret.Add(instructions[i + 1]);
-                    
-                    //And skip 5 instructions
-                    i += 5;
+                    //Need to preserve the MOV which is the value after this one if skipping 5.
+                    if (toSkip == 5)
+                        ret.Add(instructions[i + 1]);
+
+                    //And skip the instructions
+                    i += toSkip;
                     continue;
                 }
 
-                if (Utils.CheckForStaticClassInitAtIndex(_methodStart, instructions, i, _keyFunctionAddresses))
+                toSkip = Utils.CheckForStaticClassInitAtIndex(_methodStart, instructions, i, _keyFunctionAddresses);
+                if (toSkip != 0)
                 {
-                    //No need to preserve anything, just skip 5
-                    i += 5;
+                    //No need to preserve anything, just skip
+                    i += toSkip;
                     continue;
                 }
 
@@ -78,12 +81,13 @@ namespace Cpp2IL
 
             return ret;
         }
+
         internal void DumpMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
             //As we're on windows, function params are passed RCX RDX R8 R9, then the stack
             //If these are floating point numbers, they're put in XMM0 to 3
             //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
-            
+
             /*
              * TODO: Notes for whenever I next pick this up (hopefully tomorrow): We need a way to locate the generic method call helper functions (e.g. List#get_Item is called with a helper function, using a global reference to the method, which
              * TODO: should be in the globals param to this function. Also, there's a function that looks up a natively-implemented function by name (used in DebugDraw#LateUpdate) that is needed for clean decompilation.
@@ -91,7 +95,7 @@ namespace Cpp2IL
              */
 
             typeDump.Append($"Method: {_methodDefinition.FullName}: (");
-            
+
             var methodFunctionality = new StringBuilder();
 
             //Pass 0: Disassemble
@@ -99,11 +103,11 @@ namespace Cpp2IL
 
             //Pass 1: Removal of unneeded generated code
             instructions = TrimOutIl2CppCrap(instructions);
-            
+
             //Pass 2: Loop Detection
             var loopRegisters = DetectPotentialLoops(instructions);
 
-            if(loopRegisters.Count > 0)
+            if (loopRegisters.Count > 0)
                 methodFunctionality.Append($"\t\tPotential Loops Centred on Register(s): {string.Join(",", loopRegisters)}\n");
 
             var distinctMnemonics = new List<ud_mnemonic_code>(instructions.Select(i => i.Mnemonic).Distinct());
@@ -174,6 +178,7 @@ namespace Cpp2IL
                 var line = instruction.ToString();
                 line = registerAliases.Aggregate(line, (current, kvp) => current.Replace(kvp.Key, $"{kvp.Value}_{kvp.Key}"));
 
+                //Detect field writes into local class
                 var m = fieldAssignmentRegex.Match(line);
                 if (m.Success)
                 {
@@ -193,7 +198,7 @@ namespace Cpp2IL
                             var field = _methodDefinition.DeclaringType.Fields[offset / 8];
 
                             registerTypes.TryGetValue(sourceReg, out var regType);
-                            
+
                             methodFunctionality.Append($"\t\tSet field {field.Name} (type {field.FieldType.FullName}) of {dest.Value} to {src.Value} (type {regType?.FullName}) (on line {instructions.IndexOf(instruction)})\n");
                         }
                         catch
@@ -206,7 +211,7 @@ namespace Cpp2IL
                 typeDump.Append($"\t\t{line}");
 
                 #region Argument Detection
-                
+
                 //Using a single operand (except for a PUSH operation) - check if the register, if there is one, is defined. 
                 if (instruction.Operands.Length == 1 && instruction.Mnemonic != ud_mnemonic_code.UD_Ipush)
                 {
@@ -234,7 +239,7 @@ namespace Cpp2IL
                         var register = theBase.ToString().Replace("UD_R_", "").ToLower();
 
                         //Special case, `XOR reg, reg` is generated to zero out a register, we should ignore it
-                        if (instruction.Mnemonic == ud_mnemonic_code.UD_Ixor && instruction.Operands[0].Type == instruction.Operands[1].Type && instruction.Operands[0].Base == instruction.Operands[1].Base)
+                        if ((instruction.Mnemonic == ud_mnemonic_code.UD_Ixor || instruction.Mnemonic == ud_mnemonic_code.UD_Ixorps) && instruction.Operands[0].Type == instruction.Operands[1].Type && instruction.Operands[0].Base == instruction.Operands[1].Base)
                         {
                             knownRegisters.Add(register);
                             typeDump.Append($" ; zero out register {register}");
@@ -251,7 +256,7 @@ namespace Cpp2IL
                     }
 
                     //And check if we're defining the register used in the first operand.
-                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov || instruction.Mnemonic == ud_mnemonic_code.UD_Imovaps || instruction.Mnemonic == ud_mnemonic_code.UD_Imovss)
+                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov || instruction.Mnemonic == ud_mnemonic_code.UD_Imovaps || instruction.Mnemonic == ud_mnemonic_code.UD_Imovss || instruction.Mnemonic == ud_mnemonic_code.UD_Imovzx)
                     {
                         if (instruction.Operands[0].Type == ud_type.UD_OP_REG)
                         {
@@ -263,7 +268,7 @@ namespace Cpp2IL
                                 typeDump.Append($" ; - Register {destReg} is first given a value here.");
                                 knownRegisters.Add(destReg);
                             }
-                            
+
                             switch (instruction.Operands[1].Type)
                             {
                                 case ud_type.UD_OP_REG:
@@ -283,9 +288,10 @@ namespace Cpp2IL
                                     }
 
                                     break;
-                                case ud_type.UD_OP_MEM:
-                                    //[reg+0xyyyyy]
+                                case ud_type.UD_OP_MEM when instruction.Operands[1].Base == ud_type.UD_R_RIP:
+                                    //[rip+0xyyyyy] is a global read
                                     var offset = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+                                    if (offset == 0) break;
                                     var addr = _methodStart + offset;
                                     typeDump.Append($"; - Read on memory location 0x{addr:X}");
                                     var glob = _globals.Find(g => g.Offset == addr);
@@ -300,7 +306,7 @@ namespace Cpp2IL
                         }
                     }
                 }
-                
+
                 #endregion
 
                 #region Jump Detection
@@ -346,7 +352,7 @@ namespace Cpp2IL
                                     if (global.Offset != 0)
                                     {
                                         var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == global.Name);
-                                        
+
                                         //Generics are dumb.
                                         var genericParams = new string[0];
                                         if (definedType == null && global.Name.Contains("<"))
@@ -354,7 +360,7 @@ namespace Cpp2IL
                                             //Replace < > with the number of generic params after a ` 
                                             var genericName = global.Name.Substring(0, global.Name.IndexOf("<", StringComparison.Ordinal)) + "`" + (global.Name.Count(c => c == ',') + 1);
                                             genericParams = global.Name.Substring(global.Name.IndexOf("<", StringComparison.Ordinal) + 1).TrimEnd('>').Split(',');
-                                            
+
                                             definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == genericName);
 
                                             if (definedType == null)
@@ -380,9 +386,9 @@ namespace Cpp2IL
                                     }
                                 }
                             }
-                            if(!success)
+
+                            if (!success)
                                 methodFunctionality.Append("\t\tCreates an instance of [something]\n");
-                            
                         }
                         else if (jumpTarget == _keyFunctionAddresses.AddrInitStaticFunction)
                         {
@@ -414,10 +420,10 @@ namespace Cpp2IL
                 }
 
                 #endregion
-                
+
                 typeDump.Append("\n");
             }
-            
+
 
             if (argumentRegisters.Count > 0)
             {
