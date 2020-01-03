@@ -91,7 +91,8 @@ namespace Cpp2IL
             var moduleParams = new ModuleParameters
             {
                 Kind = ModuleKind.Dll,
-                AssemblyResolver = resolver
+                AssemblyResolver = resolver,
+                MetadataResolver = new MetadataResolver(resolver)
             };
 
 
@@ -194,7 +195,7 @@ namespace Cpp2IL
 
                 assembly.Write(dllPath);
 
-                if (assembly.Name.Name != "Assembly-CSharp" && assembly.Name.Name != "mscorlib") continue;
+                if (assembly.Name.Name != "Assembly-CSharp") continue;
                 
                 Console.WriteLine("Dumping method bytes to " + methodOutputDir);
                 Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));

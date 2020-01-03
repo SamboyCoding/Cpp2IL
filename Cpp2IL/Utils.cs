@@ -398,5 +398,19 @@ namespace Cpp2IL
             //If this is true then we have an il2cpp-generated initialization call.
             return callAddr == kfe.AddrInitFunction;
         }
+
+        public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
+        {
+            if (op.Type != ud_type.UD_OP_MEM) return 0;
+
+            var num1 = op.Offset switch
+            {
+                8 => (ulong) op.LvalSByte,
+                16 => (ulong) op.LvalSWord,
+                32 => (ulong) op.LvalSDWord,
+                _ => 0UL
+            };
+            return num1 + insn.PC;
+        }
     }
 }

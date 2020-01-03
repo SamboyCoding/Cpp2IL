@@ -248,13 +248,32 @@ namespace Cpp2IL
                                 typeDump.Append($" ; - Register {destReg} is first given a value here.");
                                 knownRegisters.Add(destReg);
                             }
+                            
+                            switch (instruction.Operands[1].Type)
+                            {
+                                case ud_type.UD_OP_REG:
+                                    //reg
+                                    theBase = instruction.Operands[1].Base;
+                                    var sourceReg = theBase.ToString().Replace("UD_R_", "").ToLower();
+                                    if (registerAliases.ContainsKey(sourceReg))
+                                        registerAliases[destReg] = registerAliases[sourceReg];
+                                    else if (registerAliases.ContainsKey(destReg))
+                                        registerAliases.Remove(destReg); //If we have one for the dest but not the source, clear it
+                                    break;
+                                case ud_type.UD_OP_MEM:
+                                    //[reg+0xyyyyy]
+                                    var offset = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+                                    var addr = _methodStart + offset;
+                                    typeDump.Append($"; - Read on memory location 0x{addr:X}");
+                                    var glob = _globals.Find(g => g.Offset == addr);
+                                    if (glob.Offset == addr)
+                                    {
+                                        typeDump.Append($" - this is global value {glob.Name} of type {glob.IdentifierType}");
+                                        registerAliases[destReg] = $"global_{glob.IdentifierType}_{glob.Name}";
+                                    }
 
-                            theBase = instruction.Operands[1].Base;
-                            var sourceReg = theBase.ToString().Replace("UD_R_", "").ToLower();
-                            if (registerAliases.ContainsKey(sourceReg))
-                                registerAliases[destReg] = registerAliases[sourceReg];
-                            else if (registerAliases.ContainsKey(destReg))
-                                registerAliases.Remove(destReg); //If we have one for the dest but not the source, clear it
+                                    break;
+                            }
                         }
                     }
                 }
@@ -290,8 +309,38 @@ namespace Cpp2IL
                         else if (jumpTarget == _keyFunctionAddresses.AddrNewFunction)
                         {
                             typeDump.Append(" - this is the constructor function.");
-                            //TODO: Look at what's in register rcx as that's what's being created.
-                            methodFunctionality.Append("\t\tCreates an instance of [something]\n");
+                            var success = false;
+                            registerAliases.TryGetValue("rcx", out var glob);
+                            if (glob != null)
+                            {
+                                var match = Regex.Match(glob, "global_([A-Z]+)_([^/]+)");
+                                if (match != null && match.Success)
+                                {
+                                    Enum.TryParse<AssemblyBuilder.GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
+                                    var global = _globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
+                                    if (global.Offset != 0)
+                                    {
+                                        var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == global.Name);
+                                        if (definedType != null)
+                                        {
+                                            methodFunctionality.Append($"\t\tCreates an instance of type {definedType.FullName}\n");
+                                            success = true;
+                                        }
+                                        else
+                                        {
+                                            methodFunctionality.Append($"\t\tCreates an instance of (unresolved) type {global.Name}\n");
+                                            success = true;
+                                        }
+                                    }
+                                }
+                            }
+                            if(!success)
+                                methodFunctionality.Append("\t\tCreates an instance of [something]\n");
+                            
+                        }
+                        else if (jumpTarget == _keyFunctionAddresses.AddrInitStaticFunction)
+                        {
+                            typeDump.Append(" - this is the static class initializer and will be ignored");
                         }
                         else
                         {
@@ -312,7 +361,6 @@ namespace Cpp2IL
 
                 #endregion
                 
-
                 typeDump.Append("\n");
             }
             
