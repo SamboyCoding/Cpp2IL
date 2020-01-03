@@ -106,6 +106,7 @@ namespace Cpp2IL
             AssemblyBuilder.ConfigureHierarchy(metadata, theDll);
 
             Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
+            
             var methods = new List<Tuple<TypeDefinition, List<CppMethodData>>>();
             for (var imageIndex = 0; imageIndex < metadata.assemblyDefinitions.Length; imageIndex++)
             {
@@ -113,9 +114,9 @@ namespace Cpp2IL
                 methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(metadata, theDll, metadata.assemblyDefinitions[imageIndex]));
             }
 
-
             Console.WriteLine("\tPass 4: Handling SerializeFields...");
             //Add serializefield to monobehaviors
+            #region SerializeFields
             var unityEngineAssembly = Assemblies.Find(x => x.MainModule.Types.Any(t => t.Namespace == "UnityEngine" && t.Name == "SerializeField"));
             if (unityEngineAssembly != null)
             {
@@ -145,7 +146,7 @@ namespace Cpp2IL
                                 var attributeTypeIndex = metadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
                                 var attributeType = theDll.types[attributeTypeIndex];
                                 if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS) continue;
-                                var cppAttribType = metadata.typeDefs[attributeType.data.klassIndex];
+                                var cppAttribType = metadata.typeDefs[attributeType.data.classIndex];
                                 var attributeName = metadata.GetStringFromIndex(cppAttribType.nameIndex);
                                 if (attributeName != "SerializeField") continue;
                                 var customAttribute = new CustomAttribute(typeDefinition.Module.ImportReference(serializeFieldMethod));
@@ -155,10 +156,25 @@ namespace Cpp2IL
                     }
                 }
             }
+            #endregion
             
             Console.WriteLine("\tPass 5: Locating Globals...");
 
             var globals = AssemblyBuilder.MapGlobalIdentifiers(metadata, theDll);
+            
+            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)} type globals");
+            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)} method globals");
+            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.FIELD)} field globals");
+            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)} string literals");
+            
+            Console.WriteLine("\tPass 6: Looking for key functions...");
+            
+            //This part involves decompiling known functions to search for other function calls
+            
+            Disassembler.Translator.IncludeAddress = true;
+            Disassembler.Translator.IncludeBinary = true;
+
+            var keyFunctionAddresses = KeyFunctionAddresses.Find(methods, theDll);
 
             #endregion
 
@@ -184,9 +200,6 @@ namespace Cpp2IL
                 Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
                 //Write methods
 
-                Disassembler.Translator.IncludeAddress = true;
-                Disassembler.Translator.IncludeBinary = true;
-
                 var imageIndex = Assemblies.IndexOf(assembly);
                 var allUsedMnemonics = new List<ud_mnemonic_code>();
 
@@ -206,7 +219,7 @@ namespace Cpp2IL
                             var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
                             var methodDefinition = SharedState.MethodsByAddress[methodStart];
 
-                            ASMDumper.DumpMethod(typeDump, methodDefinition, method, ref allUsedMnemonics, methodStart, globals);
+                            ASMDumper.DumpMethod(typeDump, methodDefinition, method, ref allUsedMnemonics, methodStart, globals, keyFunctionAddresses);
                         }
 
                         File.WriteAllText(filename, typeDump.ToString());

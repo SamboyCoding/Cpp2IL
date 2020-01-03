@@ -71,6 +71,7 @@
     <Compile Include="ClassReadingBinaryReader.cs" />
     <Compile Include="CppMethodData.cs" />
     <Compile Include="Extensions.cs" />
+    <Compile Include="KeyFunctionAddresses.cs" />
     <Compile Include="Metadata\Il2CppCustomAttributeTypeRange.cs" />
     <Compile Include="Metadata\Il2CppEventDefinition.cs" />
     <Compile Include="Metadata\Il2CppFieldDefaultValue.cs" />

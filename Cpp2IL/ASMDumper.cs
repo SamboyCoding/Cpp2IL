@@ -13,11 +13,17 @@ namespace Cpp2IL
 {
     internal static class ASMDumper
     {
-        internal static void DumpMethod(StringBuilder typeDump, MethodDefinition methodDefinition, CppMethodData method, ref List<ud_mnemonic_code> allUsedMnemonics, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals)
+        internal static void DumpMethod(StringBuilder typeDump, MethodDefinition methodDefinition, CppMethodData method, ref List<ud_mnemonic_code> allUsedMnemonics, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses)
         {
             //As we're on windows, function params are passed RCX RDX R8 R9, then the stack
             //If these are floating point numbers, they're put in XMM0 to 3
             //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
+            
+            /*
+             * TODO: Notes for whenever I next pick this up (hopefully tomorrow): We need a way to locate the generic method call helper functions (e.g. List#get_Item is called with a helper function, using a global reference to the method, which
+             * TODO: should be in the globals param to this function. Also, there's a function that looks up a natively-implemented function by name (used in DebugDraw#LateUpdate) that is needed for clean decompilation.
+             * TODO: Basically, we need a preprocessing task that locates the addresses of certain key functions using known calls to them (for example, the generic method one is at least used in Unity internal code, if not anywhere in the CLR)
+             */
 
             typeDump.Append($"Method: {methodDefinition.FullName}: (");
 
@@ -198,16 +204,24 @@ namespace Cpp2IL
                     try
                     {
                         //JMP instruction, try find function
-                        var jumpTarget = GetJumpTarget(instruction, methodStart + instruction.PC);
+                        var jumpTarget = Utils.GetJumpTarget(instruction, methodStart + instruction.PC);
                         typeDump.Append($" ; jump to 0x{jumpTarget:X}");
 
-                        var target = SharedState.MethodsByAddress.ContainsKey(jumpTarget) ? SharedState.MethodsByAddress[jumpTarget] : null;
+                        SharedState.MethodsByAddress.TryGetValue(jumpTarget, out var target);
 
                         if (target != null)
                         {
                             //Console.WriteLine("Found a function call!");
                             typeDump.Append($" - function {target.FullName}");
                             methodFunctionality.Append($"\t\tCall function {target.FullName}\n");
+                        }
+                        else if (jumpTarget == keyFunctionAddresses.BailOutFunction)
+                        {
+                            typeDump.Append(" - this is the bailout function and will be ignored.");
+                        }
+                        else if (jumpTarget == keyFunctionAddresses.AddrInitFunction)
+                        {
+                            typeDump.Append(" - this is the initialization function and will be ignored.");
                         }
                         else
                         {
@@ -243,28 +257,6 @@ namespace Cpp2IL
             }
 
             typeDump.Append($"\n\tMethod Synopsis:\n{methodFunctionality}\n");
-        }
-
-        private static ulong GetJumpTarget(Instruction insn, ulong start)
-        {
-            var opr = insn.Operands[0];
-
-            var mode = insn.GetType().GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(insn); //Reflection!
-
-            //Console.WriteLine(mode + " " + mode.GetType());
-
-            var num = ulong.MaxValue >> 64 - (byte) mode;
-            switch (opr.Size)
-            {
-                case 8:
-                    return start + (ulong) opr.LvalSByte & num;
-                case 16:
-                    return start + (ulong) opr.LvalSWord & num;
-                case 32:
-                    return start + (ulong) opr.LvalSDWord & num;
-                default:
-                    throw new InvalidOperationException(string.Format("invalid relative offset size {0}.", opr.Size));
-            }
         }
     }
 }

@@ -4,6 +4,7 @@
     {
         public string MethodName;
         public int MethodId;
+        public ulong MethodOffsetRam;
         public byte[] MethodBytes;
     }
 }

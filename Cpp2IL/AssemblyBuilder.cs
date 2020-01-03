@@ -137,7 +137,6 @@ namespace Cpp2IL
         {
             var typeMetaText = new StringBuilder();
             typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
-                .Append($"\nAddress: {cppAssembly.metadataUsages}")
                 .Append("\n\tParent Classes/Interfaces:\n");
 
             foreach (var iface in ilTypeDefinition.Interfaces)
@@ -212,7 +211,8 @@ namespace Cpp2IL
                 {
                     MethodName = methodName,
                     MethodId = methodId,
-                    MethodBytes = bytes.ToArray()
+                    MethodBytes = bytes.ToArray(),
+                    MethodOffsetRam = offsetInRam
                 });
 
 
@@ -401,7 +401,7 @@ namespace Cpp2IL
             ret.AddRange(metadata.metadataUsageDic[4]
                 .Select(kvp => new {kvp, fieldRef = metadata.fieldRefs[kvp.Value]})
                 .Select(t => new {t.kvp, t.fieldRef, type = cppAssembly.types[t.fieldRef.typeIndex]})
-                .Select(t => new {t.type, t.kvp, t.fieldRef, typeDef = metadata.typeDefs[t.type.data.klassIndex]})
+                .Select(t => new {t.type, t.kvp, t.fieldRef, typeDef = metadata.typeDefs[t.type.data.classIndex]})
                 .Select(t => new {t.type, t.kvp, fieldDef = metadata.fieldDefs[t.typeDef.firstFieldIdx + t.fieldRef.fieldIndex]})
                 .Select(t => new {t.kvp, fieldName = Utils.GetTypeName(metadata, cppAssembly, t.type, true) + "." + metadata.GetStringFromIndex(t.fieldDef.nameIndex)})
                 .Select(t => new GlobalIdentifier

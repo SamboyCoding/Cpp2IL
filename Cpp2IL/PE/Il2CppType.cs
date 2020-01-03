@@ -24,7 +24,7 @@ namespace Cpp2IL.PE
         public class Union
         {
             public ulong dummy;
-            public long klassIndex => (long) dummy;
+            public long classIndex => (long) dummy;
             public ulong type => dummy;
             public ulong array => dummy;
             public long genericParameterIndex => (long) dummy;

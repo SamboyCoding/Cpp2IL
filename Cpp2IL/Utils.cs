@@ -1,9 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Reflection;
 using System.Text;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
 using Mono.Cecil;
+using SharpDisasm;
 
 namespace Cpp2IL
 {
@@ -53,7 +55,7 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
-                    var typeDefinition = SharedState.TypeDefsByAddress[toImport.data.klassIndex];
+                    var typeDefinition = SharedState.TypeDefsByAddress[toImport.data.classIndex];
                     return moduleDefinition.ImportReference(typeDefinition);
                 }
 
@@ -214,12 +216,12 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                     {
-                        var typeDef = metadata.typeDefs[type.data.klassIndex];
-                        ret = string.Empty;
+                        var typeDef = metadata.typeDefs[type.data.classIndex];
+                        ret = String.Empty;
                         if (fullName)
                         {
                             ret = metadata.GetStringFromIndex(typeDef.namespaceIndex);
-                            if (ret != string.Empty)
+                            if (ret != String.Empty)
                             {
                                 ret += ".";
                             }
@@ -273,7 +275,7 @@ namespace Cpp2IL
         
         internal static string GetTypeName(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition typeDef)
         {
-            var ret = string.Empty;
+            var ret = String.Empty;
             if (typeDef.declaringTypeIndex != -1)
             {
                 ret += GetTypeName(metadata, cppAssembly, cppAssembly.types[typeDef.declaringTypeIndex]) + ".";
@@ -290,7 +292,7 @@ namespace Cpp2IL
                     names.Add(metadata.GetStringFromIndex(param.nameIndex));
                 }
                 ret = ret.Replace($"`{genericContainer.type_argc}", "");
-                ret += $"<{string.Join(", ", names)}>";
+                ret += $"<{String.Join(", ", names)}>";
             }
             return ret;
         }
@@ -304,7 +306,25 @@ namespace Cpp2IL
                 var oriType = cppAssembly.GetIl2CppType(pointers[i]);
                 typeNames.Add(GetTypeName(metadata, cppAssembly, oriType));
             }
-            return $"<{string.Join(", ", typeNames)}>";
+            return $"<{String.Join(", ", typeNames)}>";
+        }
+
+        public static ulong GetJumpTarget(Instruction insn, ulong start)
+        {
+            var opr = insn.Operands[0];
+
+            var mode = insn.GetType().GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(insn); //Reflection!
+
+            //Console.WriteLine(mode + " " + mode.GetType());
+
+            var num = ulong.MaxValue >> 64 - (byte) mode;
+            return opr.Size switch
+            {
+                8 => (start + (ulong) opr.LvalSByte & num),
+                16 => (start + (ulong) opr.LvalSWord & num),
+                32 => (start + (ulong) opr.LvalSDWord & num),
+                _ => throw new InvalidOperationException(String.Format("invalid relative offset size {0}.", opr.Size))
+            };
         }
     }
 }
