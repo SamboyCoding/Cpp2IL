@@ -303,7 +303,7 @@ namespace Cpp2IL
             return ret;
         }
 
-        private static string GetGenericTypeParams(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppGenericInst genericInst)
+        internal static string GetGenericTypeParams(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppGenericInst genericInst)
         {
             var typeNames = new List<string>();
             var pointers = cppAssembly.ReadClassArrayAtVirtualAddress<ulong>(genericInst.type_argv, (long) genericInst.type_argc);

@@ -88,12 +88,6 @@ namespace Cpp2IL
             //If these are floating point numbers, they're put in XMM0 to 3
             //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
 
-            /*
-             * TODO: Notes for whenever I next pick this up (hopefully tomorrow): We need a way to locate the generic method call helper functions (e.g. List#get_Item is called with a helper function, using a global reference to the method, which
-             * TODO: should be in the globals param to this function. Also, there's a function that looks up a natively-implemented function by name (used in DebugDraw#LateUpdate) that is needed for clean decompilation.
-             * TODO: Basically, we need a preprocessing task that locates the addresses of certain key functions using known calls to them (for example, the generic method one is at least used in Unity internal code, if not anywhere in the CLR)
-             */
-
             typeDump.Append($"Method: {_methodDefinition.FullName}: (");
 
             var methodFunctionality = new StringBuilder();
@@ -169,7 +163,7 @@ namespace Cpp2IL
             //    Function calls can be inlined as such.
             //    Space reserving (add rsp / sub rsp) can be ignored.
 
-            var fieldAssignmentRegex = new Regex(@"\[(\w+)_(?:\w+)\+0x(\d+)\], (\w+)_(\w+)");
+            var fieldAssignmentRegex = new Regex(@"\[(\w+)_(\w+)\+0x(\d+)\], (\w+)_(\w+)");
 
             var localNum = 1;
             foreach (var instruction in instructions)
@@ -183,9 +177,10 @@ namespace Cpp2IL
                 if (m.Success)
                 {
                     var destAlias = m.Groups[1].Value;
-                    var offsetHex = m.Groups[2].Value;
-                    var sourceAlias = m.Groups[3].Value;
-                    var sourceReg = m.Groups[4].Value;
+                    var destReg = m.Groups[2].Value;
+                    var offsetHex = m.Groups[3].Value;
+                    var sourceAlias = m.Groups[4].Value;
+                    var sourceReg = m.Groups[5].Value;
 
                     var dest = registerAliases.FirstOrDefault(pair => pair.Value == destAlias);
                     var src = registerAliases.FirstOrDefault(pair => pair.Value == sourceAlias);
@@ -195,11 +190,13 @@ namespace Cpp2IL
                     {
                         try
                         {
-                            var field = _methodDefinition.DeclaringType.Fields[offset / 8];
+                            registerTypes.TryGetValue(destReg, out var destRegType);
+
+                            var field = SharedState.AllTypeDefinitions.Find(t => t.FullName == destRegType?.FullName)?.Fields[offset / 8];
 
                             registerTypes.TryGetValue(sourceReg, out var regType);
 
-                            methodFunctionality.Append($"\t\tSet field {field.Name} (type {field.FieldType.FullName}) of {dest.Value} to {src.Value} (type {regType?.FullName}) (on line {instructions.IndexOf(instruction)})\n");
+                            methodFunctionality.Append($"\t\tSet field {field?.Name} (type {field?.FieldType.FullName}) of {dest.Value} to {src.Value} (type {regType?.FullName}) (on line {instructions.IndexOf(instruction)})\n");
                         }
                         catch
                         {
@@ -326,7 +323,44 @@ namespace Cpp2IL
                         {
                             //Console.WriteLine("Found a function call!");
                             typeDump.Append($" - function {target.FullName}");
-                            methodFunctionality.Append($"\t\tCalls function {target.FullName}\n");
+                            methodFunctionality.Append($"\t\tCalls {(target.IsStatic ? "static" : "instance")} function {target.FullName}");
+                            var args = new List<string>();
+
+                            var paramRegisters = new List<string>(new[] {"rcx/xmm0", "rdx/xmm1", "r8/xmm2", "r9/xmm3"});
+                            if (!target.IsStatic)
+                            {
+                                //This param 
+                                var possibilities = paramRegisters.First().Split('/');
+                                paramRegisters.RemoveAt(0);
+                                foreach (var possibility in possibilities)
+                                {
+                                    if (!registerAliases.ContainsKey(possibility)) continue;
+                                    args.Add($"{registerAliases[possibility]} as this in register {possibility}");
+                                    break;
+                                }
+                            }
+
+                            foreach (var parameter in target.Parameters)
+                            {
+                                var possibilities = paramRegisters.First().Split('/');
+                                paramRegisters.RemoveAt(0);
+                                var success = false;
+                                foreach (var possibility in possibilities)
+                                {
+                                    if (!registerAliases.ContainsKey(possibility)) continue;
+                                    args.Add($"{registerAliases[possibility]} as {parameter.Name} in register {possibility}");
+                                    success = true;
+                                    break;
+                                }
+
+                                if (!success)
+                                    args.Add($"<unknown> as {parameter.Name} in one of the registers {string.Join("/", possibilities)}");
+                            }
+
+                            if (args.Count > 0)
+                                methodFunctionality.Append($" with parameters: {string.Join(", ", args)}");
+
+                            methodFunctionality.Append("\n");
                             returnType = target.ReturnType;
                         }
                         else if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)

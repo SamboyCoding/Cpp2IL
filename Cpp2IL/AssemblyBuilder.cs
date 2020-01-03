@@ -422,6 +422,31 @@ namespace Cpp2IL
                     Name = metadata.GetStringFromIndex((int) kvp.Value)
                 })
             );
+            
+            foreach (var kvp in metadata.metadataUsageDic[6]) //kIl2CppMetadataUsageMethodRef
+            {
+                var methodSpec = cppAssembly.methodSpecs[kvp.Value];
+                var methodDef = metadata.methodDefs[methodSpec.methodDefinitionIndex];
+                var typeDef = metadata.typeDefs[methodDef.declaringType];
+                var typeName = Utils.GetTypeName(metadata, cppAssembly, typeDef);
+                if (methodSpec.classIndexIndex != -1)
+                {
+                    var classInst = cppAssembly.genericInsts[methodSpec.classIndexIndex];
+                    typeName += Utils.GetGenericTypeParams(metadata, cppAssembly, classInst);
+                }
+                var methodName = typeName + "." + metadata.GetStringFromIndex(methodDef.nameIndex) + "()";
+                if (methodSpec.methodIndexIndex != -1)
+                {
+                    var methodInst = cppAssembly.genericInsts[methodSpec.methodIndexIndex];
+                    methodName += Utils.GetGenericTypeParams(metadata, cppAssembly, methodInst);
+                }
+                ret.Add(new GlobalIdentifier
+                {
+                    Name = methodName,
+                    IdentifierType = GlobalIdentifier.Type.METHOD,
+                    Offset = cppAssembly.metadataUsages[kvp.Key]
+                });
+            }
 
             return ret;
         }
