@@ -622,43 +622,58 @@ namespace Cpp2IL
                     var comparisonItemB = lastComparison.Item2;
                     var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
 
+                    //Going back to an earlier point in the function - loop.
+                    //This works because the compiler puts all if statements *after* the main function body for jumping forward to, then back.
+                    //Still need checks in those jump back cases.
+                    var isLoop = dest < instruction.PC + _methodStart && dest > _methodStart;
+                    // if (isLoop)
+                    // {
+                    //     _methodFunctionality.Append("\t\tLoop Condition Found! Details: ");
+                    // }
+                    
                     lastComparison = new Tuple<object, object>("", ""); //Clear last comparison
-                    switch (instruction.Mnemonic)
+                    var condition = instruction.Mnemonic switch
                     {
-                        case ud_mnemonic_code.UD_Ijz:
-                            //Jump if zero. If both operands are the same, jumps if the operand is equal to zero. Otherwise jumps if they're not the same.
-                            _methodFunctionality.Append(
-                                comparisonItemA == comparisonItemB
-                                    ? $"\t\tJumps to 0x{dest:X} if {comparisonItemA} is zero or null\n"
-                                    : $"\t\tJumps to 0x{dest:X} if {comparisonItemA} != {comparisonItemB}\n"
-                            );
-                            break;
-                        case ud_mnemonic_code.UD_Ijnz:
-                            //Jump if not zero. If both the same, jump if != 0. Otherwise jumps if they're the same.
-                            _methodFunctionality.Append(
-                                comparisonItemA == comparisonItemB
-                                    ? $"\t\tJumps to 0x{dest:X} if {comparisonItemA} is NOT zero or null\n"
-                                    : $"\t\tJumps to 0x{dest:X} if {comparisonItemA} == {comparisonItemB}\n"
-                            );
-                            break;
-                        case ud_mnemonic_code.UD_Ijge:
-                            //This and those that follow are simple.
-                            //1 >= 2
-                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} >= {comparisonItemB}\n");
-                            break;
-                        case ud_mnemonic_code.UD_Ijle:
-                            //1 <= 2
-                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} <= {comparisonItemB}\n");
-                            break;
-                        case ud_mnemonic_code.UD_Ijg:
-                            //1 > 2
-                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} > { comparisonItemB}\n");
-                            break;
-                        case ud_mnemonic_code.UD_Ijl:
-                            //1 < 2
-                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} < {comparisonItemB}\n");
-                            break;
-                    }
+                        ud_mnemonic_code.UD_Ijz =>
+                        //Jump if zero. If both operands are the same, jumps if the operand is equal to zero. Otherwise jumps if they're not the same.
+                        (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is zero or null" : $"{comparisonItemA} == {comparisonItemB}"),
+                        ud_mnemonic_code.UD_Ijnz =>
+                        //Jump if not zero. If both the same, jump if != 0. Otherwise jumps if they're the same.
+                        (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is NOT zero or null" : $"{comparisonItemA} != {comparisonItemB}"),
+                        ud_mnemonic_code.UD_Ijge =>
+                        //This and those that follow are simple.
+                        //1 >= 2
+                        $"{comparisonItemA} >= {comparisonItemB}",
+                        ud_mnemonic_code.UD_Ijle =>
+                        //1 <= 2
+                        $"{comparisonItemA} <= {comparisonItemB}",
+                        ud_mnemonic_code.UD_Ijg =>
+                        //1 > 2
+                        $"{comparisonItemA} > {comparisonItemB}",
+                        ud_mnemonic_code.UD_Ijl =>
+                        //1 < 2
+                        $"{comparisonItemA} < {comparisonItemB}",
+                        _ => null
+                    };
+                    
+                    if(condition == null) continue;
+
+                    if (isLoop)
+                        _methodFunctionality.Append($"\tCode from 0x{dest:X} until 0x{instruction.PC + _methodStart:X} repeats while {condition}\n");
+                    else
+                        _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {condition}\n");
+                }
+                
+                //Loop Detection - make sure we handle INC statements
+                if (instruction.Mnemonic == ud_mnemonic_code.UD_Iinc)
+                {
+                    var theBase = instruction.Operands[0].Base;
+                    var register = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+                    _registerAliases.TryGetValue(register, out var alias);
+                    if (alias == null)
+                        alias = $"the value in register {register}";
+
+                    _methodFunctionality.Append($"\t\tIncreases {alias} by one.\n");
                 }
 
                 typeDump.Append("\n");
