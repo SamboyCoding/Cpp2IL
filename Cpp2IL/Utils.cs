@@ -455,7 +455,7 @@ namespace Cpp2IL
             }
         }
 
-        public static ulong GetMemOpOffset(Operand op)
+        public static ulong GetOperandMemoryOffset(Operand op)
         {
             if (op.Type != ud_type.UD_OP_MEM) return 0;
             var num1 = op.Offset switch
@@ -470,7 +470,7 @@ namespace Cpp2IL
 
         public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
         {
-            var num1 = GetMemOpOffset(op);
+            var num1 = GetOperandMemoryOffset(op);
 
             if (num1 == 0) return 0;
             

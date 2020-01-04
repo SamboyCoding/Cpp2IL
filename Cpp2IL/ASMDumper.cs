@@ -185,6 +185,7 @@ namespace Cpp2IL
             var fieldAssignmentRegex = new Regex(@"\[(\w+)_(\w+)\+0x(\d+)\], (\w+)_(\w+)");
 
             var localNum = 1;
+            var lastComparison = new Tuple<object, object>("", "");
             foreach (var instruction in instructions)
             {
                 //Preprocessing to make it easier to read.
@@ -266,7 +267,7 @@ namespace Cpp2IL
                             if (!loopRegisters.Contains(register))
                             {
                                 _registerAliases.Remove(register);
-                                
+
                                 //Zeroed out, so literally set it to zero/int32
                                 _registerContents[register] = 0;
                                 _registerTypes[register] = Utils.TryLookupTypeDefByName("System.Int32").Item1;
@@ -285,63 +286,34 @@ namespace Cpp2IL
                     else if (instruction.Operands[1].Type == ud_type.UD_OP_MEM && instruction.Operands[1].Base != ud_type.UD_R_RIP)
                     {
                         //Check for field read
+                        var field = CheckForFieldRead(instruction.Operands[1]);
                         var theBase = instruction.Operands[1].Base;
                         var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
-
-                        var offset = Utils.GetMemOpOffset(instruction.Operands[1]);
-                        _registerTypes.TryGetValue(sourceReg, out var type);
-                        if (type != null && instruction.Operands[0].Type == ud_type.UD_OP_REG)
+                        if (field != null && instruction.Operands[0].Type == ud_type.UD_OP_REG)
                         {
-                            theBase = instruction.Operands[0].Base;
-                            var destReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+                            typeDump.Append($" ; - field read on {field} from type {field.DeclaringType.Name} in register {sourceReg}");
 
-                            //Read at offset in type
-                            var fieldNum = (int) (offset - 16) / 8;
-                            
-                            var generics = new string[0];
-                            var typeDef = type.Resolve();
-                            if (typeDef == null)
+                            //Compares don't create locals
+                            if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest)
                             {
-                                (typeDef, generics) = Utils.TryLookupTypeDefByName(type.FullName);
+                                theBase = instruction.Operands[0].Base;
+                                var destReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+
+                                _registerAliases.TryGetValue(sourceReg, out var sourceAlias);
+                                _registerTypes.TryGetValue(sourceReg, out var sourceType);
+
+                                var readType = field.FieldType;
+
+                                _registerTypes[destReg] = readType;
+                                _registerAliases[destReg] = $"local{localNum}";
+
+                                _methodFunctionality.Append($"\t\tReads field {field} (type {readType}) from {sourceAlias} (type {sourceType?.Name}) and stores in new local variable local{localNum} in reg {destReg}\n");
+                                localNum++;
                             }
-
-                            if (typeDef != null)
-                            {
-                                var fields = typeDef.Fields.Where(f => f.Constant == null).ToList();
-                                if (fields.Count > fieldNum && fieldNum >= 0)
-                                {
-                                    try
-                                    {
-                                        typeDump.Append($" ; - field read on {fields[fieldNum]} from type {typeDef.Name} that's in reg {sourceReg}");
-
-                                        //Compares do not create locals
-                                        if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp)
-                                        {
-                                            var readType = fields[fieldNum].FieldType;
-                                            _registerAliases.TryGetValue(sourceReg, out var sourceAlias);
-                                            _registerTypes.TryGetValue(sourceReg, out var sourceType);
-
-                                            _registerTypes[destReg] = readType;
-                                            _registerAliases[destReg] = $"local{localNum}";
-
-                                            _methodFunctionality.Append($"\t\tReads field {fields[fieldNum]} from {sourceAlias} (type {sourceType?.Name}) and stores in new local variable local{localNum} in reg {destReg}\n");
-                                            localNum++;
-                                        }
-                                    }
-                                    catch (Exception)
-                                    {
-                                        Console.WriteLine($"Failed to get field {fieldNum} when there are {typeDef.Fields.Count} fields.");
-                                    }
-                                }
-                                else
-                                {
-                                    typeDump.Append($" ; - field read on unknown field from type {typeDef.Name} that's in reg {sourceReg}");
-                                }
-                            }
-                            else
-                            {
-                                typeDump.Append($" ; - field read on unknown field from an unknown/unresolved type that's in reg {sourceReg}");
-                            }
+                        }
+                        else
+                        {
+                            typeDump.Append($" ; - field read on unknown field from an unknown/unresolved type that's in reg {sourceReg}");
                         }
                     }
 
@@ -428,11 +400,11 @@ namespace Cpp2IL
 
                 #endregion
 
-                #region Jump Detection
+                #region (Unconditional) Jump Detection
 
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp || instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
                 {
-                    //JMP instruction, try find function
+//JMP instruction, try find function
 
                     TypeReference returnType = null;
                     if (instruction.Operands[0].Type == ud_type.UD_OP_REG)
@@ -562,7 +534,7 @@ namespace Cpp2IL
                                 var pos = jumpTarget - _methodStart;
                                 typeDump.Append($" - offset 0x{pos:X} in this function");
                             }
-                            else if(instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
+                            else if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
                             {
                                 //Heuristic analysis: Sometimes we call a function by calling its superclass (which isn't defined anywhere so comes up as an undefined function call)
                                 //But we pass in the method reference of the function as an extra param (one more than can actually be used)
@@ -619,6 +591,7 @@ namespace Cpp2IL
                             }
                         }
                     }
+
                     if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall && returnType != null && returnType.Name != "Void")
                     {
                         _registerTypes["rax"] = returnType;
@@ -630,9 +603,65 @@ namespace Cpp2IL
 
                 #endregion
 
+                //Comparison Tests
+                if (instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest)
+                {
+                    lastComparison = new Tuple<object, object>(GetOperandReference(instruction.Operands[0], instruction), GetOperandReference(instruction.Operands[1], instruction));
+                }
+
+                if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijz || instruction.Mnemonic == ud_mnemonic_code.UD_Ijnz || instruction.Mnemonic == ud_mnemonic_code.UD_Ijge || instruction.Mnemonic == ud_mnemonic_code.UD_Ijle
+                    || instruction.Mnemonic == ud_mnemonic_code.UD_Ijg || instruction.Mnemonic == ud_mnemonic_code.UD_Ijl)
+                {
+                    if (lastComparison.Item1 as string == "")
+                    {
+                        typeDump.Append(" ; - WARN Comparison Jump without comparison statement?");
+                        continue;
+                    }
+
+                    var comparisonItemA = lastComparison.Item1;
+                    var comparisonItemB = lastComparison.Item2;
+                    var dest = Utils.GetJumpTarget(instruction, _methodStart);
+                    lastComparison = new Tuple<object, object>("", ""); //Clear last comparison
+                    switch (instruction.Mnemonic)
+                    {
+                        case ud_mnemonic_code.UD_Ijz:
+                            //Jump if zero. If both operands are the same, jumps if the operand is equal to zero. Otherwise jumps if they're not the same.
+                            _methodFunctionality.Append(
+                                comparisonItemA == comparisonItemB
+                                    ? $"\t\tJumps to 0x{dest:X} if {comparisonItemA} is zero or null\n"
+                                    : $"\t\tJumps to 0x{dest:X} if {comparisonItemA} != {comparisonItemB}\n"
+                            );
+                            break;
+                        case ud_mnemonic_code.UD_Ijnz:
+                            //Jump if not zero. If both the same, jump if != 0. Otherwise jumps if they're the same.
+                            _methodFunctionality.Append(
+                                comparisonItemA == comparisonItemB
+                                    ? $"\t\tJumps to 0x{dest:X} if {comparisonItemA} is NOT zero or null\n"
+                                    : $"\t\tJumps to 0x{dest:X} if {comparisonItemA} == {comparisonItemB}\n"
+                            );
+                            break;
+                        case ud_mnemonic_code.UD_Ijge:
+                            //This and those that follow are simple.
+                            //1 >= 2
+                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} >= {comparisonItemB}\n");
+                            break;
+                        case ud_mnemonic_code.UD_Ijle:
+                            //1 <= 2
+                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} <= {comparisonItemB}\n");
+                            break;
+                        case ud_mnemonic_code.UD_Ijg:
+                            //1 > 2
+                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} > { comparisonItemB}\n");
+                            break;
+                        case ud_mnemonic_code.UD_Ijl:
+                            //1 < 2
+                            _methodFunctionality.Append($"\t\tJumps to 0x{dest:X} if {comparisonItemA} < {comparisonItemB}\n");
+                            break;
+                    }
+                }
+
                 typeDump.Append("\n");
             }
-
 
             if (argumentRegisters.Count > 0)
             {
@@ -692,8 +721,10 @@ namespace Cpp2IL
                             success = true;
                             break;
                         }
+
                         continue;
                     }
+
                     _registerTypes.TryGetValue(possibility, out var type);
                     args.Add($"{_registerAliases[possibility]} (type {type?.Name}) as {parameter.Name} in register {possibility}");
                     success = true;
@@ -711,11 +742,10 @@ namespace Cpp2IL
 
             if (args.Count > 0)
                 _methodFunctionality.Append($" with parameters: {string.Join(", ", args)}");
-
             _methodFunctionality.Append("\n");
             return target.ReturnType;
         }
-        
+
         private List<string> DetectPotentialLoops(List<Instruction> instructions)
         {
             return instructions
@@ -725,11 +755,72 @@ namespace Cpp2IL
                 .ToList();
         }
 
-        //Define outside of function for performance
+//Define outside of function for performance
         private Regex _upscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})");
+
         private string UpscaleRegisters(string replaceIn)
         {
             return _upscaleRegex.Replace(replaceIn, "$1r$2");
+        }
+
+        private object GetOperandReference(Operand operand, Instruction i)
+        {
+            var theBase = operand.Base;
+            var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+            switch (operand.Type)
+            {
+                case ud_type.UD_OP_MEM:
+                    //Field read
+                    if (CheckForFieldRead(operand) is { } field)
+                    {
+                        _registerAliases.TryGetValue(sourceReg, out var fieldReadAlias);
+                        if (fieldReadAlias == null)
+                            fieldReadAlias = $"the value in register {sourceReg}";
+                        return $"Field {field.Name} read from {fieldReadAlias}";
+                    }
+
+                    //Check for global
+                    var globalAddr = Utils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
+                    if (_globals.Find(g => g.Offset == globalAddr) is {} glob && glob.Offset == globalAddr)
+                        return $"global_{glob.IdentifierType}_{glob.Name}";
+                    return null;
+                case ud_type.UD_OP_REG:
+                    _registerAliases.TryGetValue(sourceReg, out var alias);
+                    return alias ?? $"value in {sourceReg}";
+                default:
+                    return null;
+            }
+        }
+
+        private FieldDefinition CheckForFieldRead(Operand operand)
+        {
+            var theBase = operand.Base;
+            var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+            var offset = Utils.GetOperandMemoryOffset(operand);
+            _registerTypes.TryGetValue(sourceReg, out var type);
+            if (type == null) return null;
+
+            //Read at offset in type
+            var fieldNum = (int) (offset - 16) / 8;
+
+            var typeDef = type.Resolve();
+            if (typeDef == null)
+            {
+                (typeDef, _) = Utils.TryLookupTypeDefByName(type.FullName);
+            }
+
+            if (typeDef == null) return null;
+
+            var fields = typeDef.Fields.Where(f => f.Constant == null).ToList();
+            if (fields.Count <= fieldNum || fieldNum < 0) return null;
+            try
+            {
+                return fields[fieldNum];
+            }
+            catch (Exception)
+            {
+                return null;
+            }
         }
     }
 }
