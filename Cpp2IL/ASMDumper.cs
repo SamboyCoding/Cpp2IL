@@ -266,8 +266,10 @@ namespace Cpp2IL
                             if (!loopRegisters.Contains(register))
                             {
                                 _registerAliases.Remove(register);
-                                _registerContents.Remove(register);
-                                _registerTypes.Remove(register);
+                                
+                                //Zeroed out, so literally set it to zero/int32
+                                _registerContents[register] = 0;
+                                _registerTypes[register] = Utils.TryLookupTypeDefByName("System.Int32").Item1;
                             }
                         }
 
@@ -616,15 +618,13 @@ namespace Cpp2IL
                                 }
                             }
                         }
-
-
-                        if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall && returnType != null && returnType.Name != "Void")
-                        {
-                            _registerTypes["rax"] = returnType;
-                            _registerAliases["rax"] = $"local{localNum}";
-                            _methodFunctionality.Append($"\t\tCreates local variable local{localNum} of type {returnType?.Name} and sets it to the return value\n");
-                            localNum++;
-                        }
+                    }
+                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall && returnType != null && returnType.Name != "Void")
+                    {
+                        _registerTypes["rax"] = returnType;
+                        _registerAliases["rax"] = $"local{localNum}";
+                        _methodFunctionality.Append($"\t\tCreates local variable local{localNum} of type {returnType?.Name} and sets it to the return value\n");
+                        localNum++;
                     }
                 }
 
@@ -674,7 +674,26 @@ namespace Cpp2IL
                 var success = false;
                 foreach (var possibility in possibilities)
                 {
-                    if (!_registerAliases.ContainsKey(possibility)) continue;
+                    if (!_registerAliases.ContainsKey(possibility))
+                    {
+                        //Could be a numerical value, check
+                        if (parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility))
+                        {
+                            //Coerce if bool
+                            if (parameter.ParameterType.Name == "Boolean")
+                            {
+                                args.Add($"{(int) _registerContents[possibility] != 0} (coerced to bool from {_registerContents[possibility]}) (type CONSTANT) as {parameter.Name} in register {possibility}");
+                            }
+                            else
+                            {
+                                args.Add($"{_registerContents[possibility]} (type CONSTANT) as {parameter.Name} in register {possibility}");
+                            }
+
+                            success = true;
+                            break;
+                        }
+                        continue;
+                    }
                     _registerTypes.TryGetValue(possibility, out var type);
                     args.Add($"{_registerAliases[possibility]} (type {type?.Name}) as {parameter.Name} in register {possibility}");
                     success = true;
