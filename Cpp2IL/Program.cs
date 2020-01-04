@@ -205,9 +205,21 @@ namespace Cpp2IL
                 var allUsedMnemonics = new List<ud_mnemonic_code>();
 
                 var counter = 0;
-                foreach (var (type, methodData) in methods.Where(tuple => tuple.Item1.Module.Assembly == assembly))
+                var toProcess = methods.Where(tuple => tuple.Item1.Module.Assembly == assembly).ToList();
+                var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
+                var nextThreshold = thresholds.First();
+                thresholds.RemoveAt(0);
+                foreach (var (type, methodData) in toProcess)
                 {
                     counter++;
+                    var pct = 100 * ((decimal) counter / toProcess.Count);
+                    if (pct > nextThreshold)
+                    {
+                        Console.WriteLine($"{nextThreshold}%");
+                        nextThreshold = thresholds.First();
+                        thresholds.RemoveAt(0);
+                    }
+
                     // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
                     try
                     {

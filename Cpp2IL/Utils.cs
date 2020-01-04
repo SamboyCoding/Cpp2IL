@@ -455,10 +455,9 @@ namespace Cpp2IL
             }
         }
 
-        public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
+        public static ulong GetMemOpOffset(Operand op)
         {
             if (op.Type != ud_type.UD_OP_MEM) return 0;
-
             var num1 = op.Offset switch
             {
                 8 => (ulong) op.LvalSByte,
@@ -466,6 +465,12 @@ namespace Cpp2IL
                 32 => (ulong) op.LvalSDWord,
                 _ => 0UL
             };
+            return num1;
+        }
+
+        public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
+        {
+            var num1 = GetMemOpOffset(op);
 
             if (num1 == 0) return 0;
             
@@ -475,26 +480,68 @@ namespace Cpp2IL
         public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string name)
         {
             var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
+            
+            //Try subclasses
+            if (definedType == null)
+            {
+                var matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.EndsWith(name.Replace(".", "/"))).ToList();
+                if (matches.Count == 1)
+                    definedType = matches.First();
+            }
 
             //Generics are dumb.
             var genericParams = new string[0];
             if (definedType == null && name.Contains("<"))
             {
                 //Replace < > with the number of generic params after a ` 
-                var genericName = name.Substring(0, name.IndexOf("<", StringComparison.Ordinal)) + "`" + (name.Count(c => c == ',') + 1);
+                var origName = name;
                 genericParams = name.Substring(name.IndexOf("<", StringComparison.Ordinal) + 1).TrimEnd('>').Split(',');
+                name = name.Substring(0, name.IndexOf("<", StringComparison.Ordinal));
+                if(!name.Contains("`"))
+                    name = name + "`" + (origName.Count(c => c == ',') + 1);
 
-                definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == genericName);
-
-                if (definedType == null)
-                {
-                    //Still not got one? Ok, is there only one match for non FQN?
-                    var matches = SharedState.AllTypeDefinitions.Where(t => t.Name == genericName).ToList();
-                    if (matches.Count == 1)
-                        definedType = matches.First();
-                }
+                definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
             }
+            
+            if (definedType == null)
+            {
+                //Still not got one? Ok, is there only one match for non FQN?
+                var matches = SharedState.AllTypeDefinitions.Where(t => t.Name == name).ToList();
+                if (matches.Count == 1)
+                    definedType = matches.First();
+            }
+            
             return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+        }
+        
+        public static TypeReference MakeGenericType (this TypeReference self, params TypeReference [] arguments)
+        {
+            if (self.GenericParameters.Count != arguments.Length)
+                throw new ArgumentException ();
+
+            var instance = new GenericInstanceType (self);
+            foreach (var argument in arguments)
+                instance.GenericArguments.Add (argument);
+
+            return instance;
+        }
+        
+        public static MethodReference MakeGeneric (this MethodReference self, params TypeReference [] arguments)
+        {
+            var reference = new MethodReference(self.Name,self.ReturnType) {
+                DeclaringType = self.DeclaringType.MakeGenericType (arguments),
+                HasThis = self.HasThis,
+                ExplicitThis = self.ExplicitThis,
+                CallingConvention = self.CallingConvention,
+            };
+
+            foreach (var parameter in self.Parameters)
+                reference.Parameters.Add (new ParameterDefinition (parameter.ParameterType));
+
+            foreach (var generic_parameter in self.GenericParameters)
+                reference.GenericParameters.Add (new GenericParameter (generic_parameter.Name, reference));
+
+            return reference;
         }
     }
 }
