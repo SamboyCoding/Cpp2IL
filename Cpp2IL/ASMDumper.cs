@@ -620,7 +620,8 @@ namespace Cpp2IL
 
                     var comparisonItemA = lastComparison.Item1;
                     var comparisonItemB = lastComparison.Item2;
-                    var dest = Utils.GetJumpTarget(instruction, _methodStart);
+                    var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
+
                     lastComparison = new Tuple<object, object>("", ""); //Clear last comparison
                     switch (instruction.Mnemonic)
                     {
