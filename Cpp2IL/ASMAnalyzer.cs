@@ -205,7 +205,9 @@ namespace Cpp2IL
                 var instruction = _instructions[index];
                 index++;
 
-                var line = instruction.ToString();
+                string line;
+                lock(Disassembler.Translator)
+                    line = instruction.ToString();
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
                 line = UpscaleRegisters(line);

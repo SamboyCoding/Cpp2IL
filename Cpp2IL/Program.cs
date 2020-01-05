@@ -102,22 +102,24 @@ namespace Cpp2IL
             Assemblies = AssemblyBuilder.CreateAssemblies(metadata, resolver, moduleParams);
 
             Console.WriteLine("\tPass 2: Setting parents and handling inheritance...");
-            
+
             //Stateful method, no return value
             AssemblyBuilder.ConfigureHierarchy(metadata, theDll);
 
             Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
-            
+
             var methods = new List<Tuple<TypeDefinition, List<CppMethodData>>>();
             for (var imageIndex = 0; imageIndex < metadata.assemblyDefinitions.Length; imageIndex++)
             {
-                Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {metadata.assemblyDefinitions.Length}..."); 
+                Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {metadata.assemblyDefinitions.Length}...");
                 methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(metadata, theDll, metadata.assemblyDefinitions[imageIndex]));
             }
 
             Console.WriteLine("\tPass 4: Handling SerializeFields...");
             //Add serializefield to monobehaviors
+
             #region SerializeFields
+
             var unityEngineAssembly = Assemblies.Find(x => x.MainModule.Types.Any(t => t.Namespace == "UnityEngine" && t.Name == "SerializeField"));
             if (unityEngineAssembly != null)
             {
@@ -129,7 +131,7 @@ namespace Cpp2IL
                     {
                         var typeDef = metadata.typeDefs[typeIndex];
                         var typeDefinition = SharedState.TypeDefsByAddress[typeIndex];
-                        
+
                         //Fields
                         var lastFieldIdx = typeDef.firstFieldIdx + typeDef.field_count;
                         for (var fieldIdx = typeDef.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
@@ -137,7 +139,7 @@ namespace Cpp2IL
                             var fieldDef = metadata.fieldDefs[fieldIdx];
                             var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
                             var fieldDefinition = typeDefinition.Fields.First(x => x.Name == fieldName);
-                            
+
                             //Get attributes and look for the serialize field attribute.
                             var attributeIndex = metadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
                             if (attributeIndex < 0) continue;
@@ -157,21 +159,22 @@ namespace Cpp2IL
                     }
                 }
             }
+
             #endregion
-            
+
             Console.WriteLine("\tPass 5: Locating Globals...");
 
             var globals = AssemblyBuilder.MapGlobalIdentifiers(metadata, theDll);
-            
+
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)} type globals");
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)} method globals");
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.FIELD)} field globals");
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)} string literals");
-            
+
             Console.WriteLine("\tPass 6: Looking for key functions...");
-            
+
             //This part involves decompiling known functions to search for other function calls
-            
+
             Disassembler.Translator.IncludeAddress = true;
             Disassembler.Translator.IncludeBinary = true;
 
@@ -196,7 +199,7 @@ namespace Cpp2IL
                 assembly.Write(dllPath);
 
                 if (assembly.Name.Name != "Assembly-CSharp") continue;
-                
+
                 Console.WriteLine("Dumping method bytes to " + methodOutputDir);
                 Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
                 //Write methods
@@ -209,39 +212,42 @@ namespace Cpp2IL
                 var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
                 var nextThreshold = thresholds.First();
                 thresholds.RemoveAt(0);
-                foreach (var (type, methodData) in toProcess)
-                {
-                    counter++;
-                    var pct = 100 * ((decimal) counter / toProcess.Count);
-                    if (pct > nextThreshold)
+                toProcess
+                    .AsParallel()
+                    .ForAll(tuple =>
                     {
-                        Console.WriteLine($"{nextThreshold}%");
-                        nextThreshold = thresholds.First();
-                        thresholds.RemoveAt(0);
-                    }
-
-                    // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
-                    try
-                    {
-                        var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_") + "_methods.txt");
-                        var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
-
-                        foreach (var method in methodData)
+                        var (type, methodData) = tuple;
+                        counter++;
+                        var pct = 100 * ((decimal) counter / toProcess.Count);
+                        if (pct > nextThreshold)
                         {
-                            var methodDef = metadata.methodDefs[method.MethodId];
-                            var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
-                            var methodDefinition = SharedState.MethodsByAddress[methodStart];
-
-                            new ASMDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                            Console.WriteLine($"{nextThreshold}%");
+                            nextThreshold = thresholds.First();
+                            thresholds.RemoveAt(0);
                         }
 
-                        File.WriteAllText(filename, typeDump.ToString());
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
-                    }
-                }
+                        // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
+                        try
+                        {
+                            var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_") + "_methods.txt");
+                            var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
+
+                            foreach (var method in methodData)
+                            {
+                                var methodDef = metadata.methodDefs[method.MethodId];
+                                var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
+                                var methodDefinition = SharedState.MethodsByAddress[methodStart];
+
+                                new ASMDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                            }
+
+                            File.WriteAllText(filename, typeDump.ToString());
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
+                        }
+                    });
 
                 Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
             }
