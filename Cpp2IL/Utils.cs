@@ -427,6 +427,11 @@ namespace Cpp2IL
             {
                 ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Iadd, ud_mnemonic_code.UD_Ijmp
             };
+            
+            var thirdPattern = new[]
+            {
+                ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall
+            };
 
             if (instructions.Count - idx < 7) return 0;
 
@@ -446,7 +451,7 @@ namespace Cpp2IL
                 instructionsInRange = instructions.GetRange(idx, 7);
                 actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
 
-                if (!alternativePattern.SequenceEqual(actualPattern)) return 0;
+                if (!alternativePattern.SequenceEqual(actualPattern) && !thirdPattern.SequenceEqual(actualPattern)) return 0;
 
                 var callAddr = GetJumpTarget(instructionsInRange[6], offsetInRam + instructionsInRange[6].PC);
 
@@ -557,6 +562,10 @@ namespace Cpp2IL
 
         public static string InvertCondition(string condition)
         {
+            if (condition.Contains("is zero or null"))
+                return condition.Replace("is zero or null", "is NOT zero or null");
+            if(condition.Contains("is NOT zero or null"))
+                return condition.Replace("is NOT zero or null", "is zero or null");
             if (condition.Contains("=="))
                 return condition.Replace("==", "!=");
             if (condition.Contains("!="))

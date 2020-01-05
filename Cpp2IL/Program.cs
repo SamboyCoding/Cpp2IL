@@ -221,9 +221,16 @@ namespace Cpp2IL
                         var pct = 100 * ((decimal) counter / toProcess.Count);
                         if (pct > nextThreshold)
                         {
-                            Console.WriteLine($"{nextThreshold}%");
-                            nextThreshold = thresholds.First();
-                            thresholds.RemoveAt(0);
+                            lock (thresholds)
+                            {
+                                //Check again to prevent races
+                                if (pct > nextThreshold)
+                                {
+                                    Console.WriteLine($"{nextThreshold}%");
+                                    nextThreshold = thresholds.First();
+                                    thresholds.RemoveAt(0);
+                                }
+                            }
                         }
 
                         // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
@@ -241,7 +248,8 @@ namespace Cpp2IL
                                 new ASMDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
                             }
 
-                            File.WriteAllText(filename, typeDump.ToString());
+                            lock (type)
+                                File.WriteAllText(filename, typeDump.ToString());
                         }
                         catch (Exception e)
                         {
