@@ -32,7 +32,7 @@ namespace Cpp2IL
         private int _localNum;
         private List<string> _loopRegisters;
 
-        private Regex _upscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})");
+        private static Regex _upscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
         private Tuple<object, object> _lastComparison;
 
         internal ASMDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
@@ -133,6 +133,7 @@ namespace Cpp2IL
             var counterNum = 1;
             var loopDetails = new List<string>();
 
+            //Define counter variables for all loop registers
             foreach (var loopRegister in _loopRegisters)
             {
                 _registerAliases[loopRegister] = $"counter{counterNum}";
@@ -141,6 +142,7 @@ namespace Cpp2IL
                 counterNum++;
             }
 
+            //Flag up any loops we found in the summary
             if (_loopRegisters.Count > 0)
                 _methodFunctionality.Append($"\t\tPotential Loops: {string.Join(",", loopDetails)}\n");
 
@@ -150,6 +152,7 @@ namespace Cpp2IL
             var registers = new List<string>(new[] {"rcx/xmm0", "rdx/xmm1", "r8/xmm2", "r9/xmm3"});
             var stackIndex = 0;
 
+            //If not static add "this" reference to params
             if (!_methodDefinition.IsStatic)
             {
                 var pos = registers[0];
@@ -162,6 +165,7 @@ namespace Cpp2IL
                 }
             }
 
+            //Handle all actual params
             foreach (var parameter in _methodDefinition.Parameters)
             {
                 object pos;
@@ -195,6 +199,7 @@ namespace Cpp2IL
 
             _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
 
+            //Main instruction loop
             while (index < _instructions.Count - 1)
             {
                 var instruction = _instructions[index];
@@ -202,7 +207,7 @@ namespace Cpp2IL
 
                 var line = instruction.ToString();
 
-                //I'm doing this here because it saves a bunch of time later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
+                //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
                 line = UpscaleRegisters(line);
 
                 //Apply any aliases to the line
