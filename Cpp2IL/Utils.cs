@@ -532,7 +532,7 @@ namespace Cpp2IL
                 DeclaringType = self.DeclaringType.MakeGenericType(arguments),
                 HasThis = self.HasThis,
                 ExplicitThis = self.ExplicitThis,
-                CallingConvention = self.CallingConvention,
+                CallingConvention = self.CallingConvention
             };
 
             foreach (var parameter in self.Parameters)
@@ -553,6 +553,24 @@ namespace Cpp2IL
             }
 
             return ret.ToString();
+        }
+
+        public static string InvertCondition(string condition)
+        {
+            if (condition.Contains("=="))
+                return condition.Replace("==", "!=");
+            if (condition.Contains("!="))
+                return condition.Replace("!=", "==");
+            if (condition.Contains(">="))
+                return condition.Replace(">=", "<");
+            if (condition.Contains("<="))
+                return condition.Replace("<=", ">");
+            if (condition.Contains(">"))
+                return condition.Replace(">", "<=");
+            if (condition.Contains("<"))
+                return condition.Replace("<", ">=");
+
+            return condition;
         }
     }
 }

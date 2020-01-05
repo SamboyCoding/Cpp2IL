@@ -15,6 +15,8 @@ namespace Cpp2IL
 {
     internal class ASMDumper
     {
+        private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
+
         private readonly MethodDefinition _methodDefinition;
         private readonly CppMethodData _method;
         private readonly ulong _methodStart;
@@ -32,8 +34,8 @@ namespace Cpp2IL
         private int _localNum;
         private List<string> _loopRegisters;
 
-        private static Regex _upscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
         private Tuple<object, object> _lastComparison;
+        private List<int> _indentCounts = new List<int>();
 
         internal ASMDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
         {
@@ -121,6 +123,11 @@ namespace Cpp2IL
             //Pass 1: Removal of unneeded generated code
             _instructions = TrimOutIl2CppCrap(_instructions);
 
+            //Int3 is padding, we stop at the first one.
+            var idx = _instructions.FindIndex(i => i.Mnemonic == ud_mnemonic_code.UD_Iint3);
+            if (idx > 0)
+                _instructions = _instructions.Take(idx + 1).ToList();
+
             var distinctMnemonics = new List<ud_mnemonic_code>(_instructions.Select(i => i.Mnemonic).Distinct());
             allUsedMnemonics = new List<ud_mnemonic_code>(allUsedMnemonics.Concat(distinctMnemonics).Distinct());
 
@@ -205,8 +212,12 @@ namespace Cpp2IL
                 var instruction = _instructions[index];
                 index++;
 
+                _blockDepth = _indentCounts.Count;
+
                 string line;
-                lock(Disassembler.Translator)
+
+                //SharpDisasm is a godawful library, and it's not threadsafe (but only for instruction tostrings), but it's the best we've got. So don't do this in parallel.
+                lock (Disassembler.Translator)
                     line = instruction.ToString();
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
@@ -217,37 +228,47 @@ namespace Cpp2IL
 
                 typeDump.Append($"\t\t{line}"); //write the current disassembled instruction to the type dump
 
-                //Detect field writes
-                CheckForFieldWrites(instruction);
-
-                //And check for reads on (non-global) fields.
-                CheckForFieldReads(instruction);
-
-                //Check for XOR Reg, Reg
-                CheckForRegClear(instruction);
-
-                //Check for moving either a global or another register into the register referenced in the first operand.
-                CheckForMoveIntoRegister(instruction);
-
-                //Check for e.g. CALL rax
-                CheckForCallRegister(instruction);
-
-                //Check for a direct method call
-                CheckForCallAddress(instruction);
-
-                //Check for TEST or CMP statements
-                CheckForConditions(instruction);
-                
-                //Check for e.g. JGE statements
-                CheckForConditionalJumps(instruction);
-
-                //Check for INC statements
-                CheckForIncrements(instruction);
+                PerformInstructionChecks(instruction);
 
                 typeDump.Append("\n");
+
+                _indentCounts = _indentCounts
+                    .Select(i => i - 1)
+                    .Where(i => i != 0)
+                    .ToList();
             }
 
             typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n");
+        }
+
+        private void PerformInstructionChecks(Instruction instruction)
+        {
+            //Detect field writes
+            CheckForFieldWrites(instruction);
+
+            //And check for reads on (non-global) fields.
+            CheckForFieldReads(instruction);
+
+            //Check for XOR Reg, Reg
+            CheckForRegClear(instruction);
+
+            //Check for moving either a global or another register into the register referenced in the first operand.
+            CheckForMoveIntoRegister(instruction);
+
+            //Check for e.g. CALL rax
+            CheckForCallRegister(instruction);
+
+            //Check for a direct method call
+            CheckForCallAddress(instruction);
+
+            //Check for TEST or CMP statements
+            CheckForConditions(instruction);
+
+            //Check for e.g. JGE statements
+            CheckForConditionalJumps(instruction);
+
+            //Check for INC statements
+            CheckForIncrements(instruction);
         }
 
         private void HandleFunctionCall(MethodDefinition target, bool processReturnType, TypeReference returnType = null)
@@ -344,7 +365,7 @@ namespace Cpp2IL
         private string UpscaleRegisters(string replaceIn)
         {
             //TODO: Perf: this one liner is responsible for about 20% of the total execution time of the program. Can we speed it up?
-            return _upscaleRegex.Replace(replaceIn, "$1r$2");
+            return UpscaleRegex.Replace(replaceIn, "$1r$2");
         }
 
         private List<string> DetectPotentialLoops(List<Instruction> instructions)
@@ -577,8 +598,16 @@ namespace Cpp2IL
                                 {
                                     _typeDump.Append(" - literal: " + literal);
                                     _registerAliases[destReg] = literal.ToString();
+                                    _registerTypes[destReg] = Utils.TryLookupTypeDefByName("System.String").Item1;
+                                    _registerContents.Remove(destReg);
+                                    return;
                                 }
                             }
+
+                            //Clear register as we don't know what we're moving in
+                            _registerAliases.Remove(destReg);
+                            _registerTypes.Remove(destReg);
+                            _registerContents.Remove(destReg);
                         }
                         catch (Exception)
                         {
@@ -830,10 +859,10 @@ namespace Cpp2IL
             {
                 ud_mnemonic_code.UD_Ijz =>
                 //Jump if zero. If both operands are the same, jumps if the operand is equal to zero. Otherwise jumps if they're not the same.
-                (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is zero or null" : $"{comparisonItemA} == {comparisonItemB}"),
+                (Equals(comparisonItemA, comparisonItemB) ? $"{comparisonItemA} is zero or null" : $"{comparisonItemA} == {comparisonItemB}"),
                 ud_mnemonic_code.UD_Ijnz =>
                 //Jump if not zero. If both the same, jump if != 0. Otherwise jumps if they're the same.
-                (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is NOT zero or null" : $"{comparisonItemA} != {comparisonItemB}"),
+                (Equals(comparisonItemA, comparisonItemB) ? $"{comparisonItemA} is NOT zero or null" : $"{comparisonItemA} != {comparisonItemB}"),
                 ud_mnemonic_code.UD_Ijge =>
                 //This and those that follow are simple.
                 //1 >= 2
@@ -857,7 +886,7 @@ namespace Cpp2IL
             else
             {
                 //If statement
-                if (dest > _methodEnd)
+                if (dest >= _methodEnd)
                 {
                     //TODO: We REALLY need a better way to a) identify EOF so jumps are treated as ifs when they should be and b) not follow stupid recursive jumps.
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {condition}, then:\n");
@@ -869,6 +898,31 @@ namespace Cpp2IL
                 }
                 else
                 {
+                    if (dest < _methodEnd && dest > _methodStart)
+                    {
+                        //Jump within function - invert condition and indent for a certain number of lines
+                        var offset = dest - _methodStart;
+                        var instructionIdx = _instructions.FindIndex(i => i.PC == offset);
+                        if (instructionIdx >= 0)
+                        {
+                            instructionIdx++;
+                            var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
+                            _indentCounts.Add(numToIndent);
+                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {Utils.InvertCondition(condition)}:\n");
+                            // var targetInstruction = _instructions[instructionIdx];
+                            // lock (Disassembler.Translator)
+                            // {
+                            //     Disassembler.Translator.IncludeAddress = false;
+                            //     Disassembler.Translator.IncludeBinary = false;
+                            //     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Jumps to instruction #{instructionIdx + 1} in this function ({targetInstruction}) if {condition}\n");
+                            //     Disassembler.Translator.IncludeAddress = true;
+                            //     Disassembler.Translator.IncludeBinary = true;
+                            // }
+
+                            return;
+                        }
+                    }
+
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Jumps to 0x{dest:X} if {condition}\n");
                 }
             }
@@ -879,10 +933,10 @@ namespace Cpp2IL
             //Checks
             //Need an operand
             if (instruction.Operands.Length < 1) return;
-            
+
             //Needs to be an INC
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Iinc) return;
-            
+
             var register = GetRegisterName(instruction.Operands[0]);
             _registerAliases.TryGetValue(register, out var alias);
             if (alias == null)
