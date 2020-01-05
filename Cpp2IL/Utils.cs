@@ -342,9 +342,9 @@ namespace Cpp2IL
         public static bool CheckForNullCheckAtIndex(ulong offsetInRam, PE.PE cppAssembly, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
         {
             if (instructions.Count - idx < 2) return false;
-            
+
             var insn = instructions[idx];
-            
+
             //Check this is a valid TEST RCX RCX
             if (insn.Mnemonic != ud_mnemonic_code.UD_Itest || insn.Operands.Length != 2 || insn.Operands[0].Base != insn.Operands[1].Base)
                 return false;
@@ -352,10 +352,10 @@ namespace Cpp2IL
             //Get the following instruction and verify it's a JZ
             var jump = instructions[idx + 1];
             if (jump.Mnemonic != ud_mnemonic_code.UD_Ijz) return false;
-            
+
             //Get the target of the JZ
             var addrOfCall = GetJumpTarget(jump, offsetInRam + jump.PC);
-            
+
             //Disassemble 5 bytes at that destination (it should be a call)
             var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
             var callInstruction = DisassembleBytes(bytes).First();
@@ -365,7 +365,7 @@ namespace Cpp2IL
 
             //Get where that call points to
             var addr = GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
-            
+
             //If it's the bailout then the original check was a il2cpp-generated null check
             return addr == kfe.AddrBailOutFunction;
         }
@@ -381,19 +381,19 @@ namespace Cpp2IL
             //Then a mov to the same [irrelevant] as above, setting it to the constant 1 (actually true, as it's a bool)
             //The next instruction is where the JNZ would go to and is where we resume.
             //So all in all, 6 instructions: CMP MOV JNZ MOV CALL MOV
-            
+
             var requiredPattern = new[]
             {
                 ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
             };
-            
+
             var alternativePattern = new[]
             {
                 ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
             };
 
             if (instructions.Count - idx < 6) return 0;
-            
+
             var instructionsInRange = instructions.GetRange(idx, 5);
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
 
@@ -408,9 +408,9 @@ namespace Cpp2IL
 
             instructionsInRange = instructions.GetRange(idx, 6);
             actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-            
+
             if (!requiredPattern.SequenceEqual(actualPattern)) return 0;
-            
+
             callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
 
             return callAddr == kfe.AddrInitFunction ? 5 : 0;
@@ -422,7 +422,7 @@ namespace Cpp2IL
             {
                 ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Icall
             };
-            
+
             var alternativePattern = new[]
             {
                 ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Iadd, ud_mnemonic_code.UD_Ijmp
@@ -442,12 +442,12 @@ namespace Cpp2IL
             else
             {
                 if (instructions.Count - idx < 8) return 0;
-                
+
                 instructionsInRange = instructions.GetRange(idx, 7);
                 actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-                
+
                 if (!alternativePattern.SequenceEqual(actualPattern)) return 0;
-                
+
                 var callAddr = GetJumpTarget(instructionsInRange[6], offsetInRam + instructionsInRange[6].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
@@ -473,21 +473,13 @@ namespace Cpp2IL
             var num1 = GetOperandMemoryOffset(op);
 
             if (num1 == 0) return 0;
-            
+
             return num1 + insn.PC;
         }
 
         public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string name)
         {
             var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
-            
-            //Try subclasses
-            if (definedType == null)
-            {
-                var matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.EndsWith(name.Replace(".", "/"))).ToList();
-                if (matches.Count == 1)
-                    definedType = matches.First();
-            }
 
             //Generics are dumb.
             var genericParams = new string[0];
@@ -497,51 +489,70 @@ namespace Cpp2IL
                 var origName = name;
                 genericParams = name.Substring(name.IndexOf("<", StringComparison.Ordinal) + 1).TrimEnd('>').Split(',');
                 name = name.Substring(0, name.IndexOf("<", StringComparison.Ordinal));
-                if(!name.Contains("`"))
+                if (!name.Contains("`"))
                     name = name + "`" + (origName.Count(c => c == ',') + 1);
 
                 definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
             }
+
+            if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+
+            //Still not got one? Ok, is there only one match for non FQN?
+            var matches = SharedState.AllTypeDefinitions.Where(t => t.Name == name).ToList();
+            if (matches.Count == 1)
+                definedType = matches.First();
+
+            if (definedType != null || !name.Contains(".")) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
             
-            if (definedType == null)
-            {
-                //Still not got one? Ok, is there only one match for non FQN?
-                var matches = SharedState.AllTypeDefinitions.Where(t => t.Name == name).ToList();
-                if (matches.Count == 1)
-                    definedType = matches.First();
-            }
-            
+            //Try subclasses
+            matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.EndsWith(name.Replace(".", "/"))).ToList();
+            if (matches.Count == 1)
+                definedType = matches.First();
+
+
             return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
         }
-        
-        public static TypeReference MakeGenericType (this TypeReference self, params TypeReference [] arguments)
+
+        public static TypeReference MakeGenericType(this TypeReference self, params TypeReference[] arguments)
         {
             if (self.GenericParameters.Count != arguments.Length)
-                throw new ArgumentException ();
+                throw new ArgumentException();
 
-            var instance = new GenericInstanceType (self);
+            var instance = new GenericInstanceType(self);
             foreach (var argument in arguments)
-                instance.GenericArguments.Add (argument);
+                instance.GenericArguments.Add(argument);
 
             return instance;
         }
-        
-        public static MethodReference MakeGeneric (this MethodReference self, params TypeReference [] arguments)
+
+        public static MethodReference MakeGeneric(this MethodReference self, params TypeReference[] arguments)
         {
-            var reference = new MethodReference(self.Name,self.ReturnType) {
-                DeclaringType = self.DeclaringType.MakeGenericType (arguments),
+            var reference = new MethodReference(self.Name, self.ReturnType)
+            {
+                DeclaringType = self.DeclaringType.MakeGenericType(arguments),
                 HasThis = self.HasThis,
                 ExplicitThis = self.ExplicitThis,
                 CallingConvention = self.CallingConvention,
             };
 
             foreach (var parameter in self.Parameters)
-                reference.Parameters.Add (new ParameterDefinition (parameter.ParameterType));
+                reference.Parameters.Add(new ParameterDefinition(parameter.ParameterType));
 
             foreach (var generic_parameter in self.GenericParameters)
-                reference.GenericParameters.Add (new GenericParameter (generic_parameter.Name, reference));
+                reference.GenericParameters.Add(new GenericParameter(generic_parameter.Name, reference));
 
             return reference;
+        }
+
+        public static string Repeat(string input, int count)
+        {
+            var ret = new StringBuilder();
+            for (var i = 0; i < count; i++)
+            {
+                ret.Append(input);
+            }
+
+            return ret.ToString();
         }
     }
 }

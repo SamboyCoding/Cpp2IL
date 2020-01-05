@@ -66,7 +66,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ASMDumper.cs" />
+    <Compile Include="ASMAnalyzer.cs" />
     <Compile Include="AssemblyBuilder.cs" />
     <Compile Include="ClassReadingBinaryReader.cs" />
     <Compile Include="CppMethodData.cs" />

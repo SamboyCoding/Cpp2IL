@@ -201,7 +201,8 @@ namespace Cpp2IL
                 while (true)
                 {
                     var b = cppAssembly.raw[offset];
-                    if (b == 0xCC) break;
+                    if(b == 0xC3 && cppAssembly.raw[offset + 1] == 0xCC) break;
+                    if (b == 0xCC && bytes.Count > 0 && (bytes.Last() == 0xcc || bytes.Last() == 0xc3)) break;
                     bytes.Add(b);
                     offset++;
                 }
