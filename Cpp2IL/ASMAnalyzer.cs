@@ -33,6 +33,7 @@ namespace Cpp2IL
         private List<string> _loopRegisters;
 
         private Regex _upscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})");
+        private Tuple<object, object> _lastComparison;
 
         internal ASMDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
         {
@@ -99,7 +100,7 @@ namespace Cpp2IL
             return ret;
         }
 
-        internal void DumpMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
+        internal void AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
             _typeDump = typeDump;
             _registerAliases = new Dictionary<string, string>();
@@ -189,17 +190,16 @@ namespace Cpp2IL
             typeDump.Append("\tMethod Body (x86 ASM):\n");
 
             _localNum = 1;
-            var lastComparison = new Tuple<object, object>("", "");
+            _lastComparison = new Tuple<object, object>("", "");
             var index = 0;
 
-            _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}");
+            _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
 
             while (index < _instructions.Count - 1)
             {
                 var instruction = _instructions[index];
                 index++;
 
-                //Preprocessing to make it easier to read.
                 var line = instruction.ToString();
 
                 //I'm doing this here because it saves a bunch of time later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
@@ -210,7 +210,7 @@ namespace Cpp2IL
 
                 typeDump.Append($"\t\t{line}"); //write the current disassembled instruction to the type dump
 
-                //Detect field writes into local class
+                //Detect field writes
                 CheckForFieldWrites(instruction);
 
                 //And check for reads on (non-global) fields.
@@ -224,106 +224,18 @@ namespace Cpp2IL
 
                 //Check for e.g. CALL rax
                 CheckForCallRegister(instruction);
-                
+
                 //Check for a direct method call
                 CheckForCallAddress(instruction);
 
-                switch (instruction.Mnemonic)
-                {
-                    //Comparison Tests
-                    case ud_mnemonic_code.UD_Icmp:
-                    case ud_mnemonic_code.UD_Itest:
-                        lastComparison = new Tuple<object, object>(GetNameOfReferencedObject(instruction.Operands[0], instruction), GetNameOfReferencedObject(instruction.Operands[1], instruction));
-                        break;
-                    case ud_mnemonic_code.UD_Ijz:
-                    case ud_mnemonic_code.UD_Ijnz:
-                    case ud_mnemonic_code.UD_Ijge:
-                    case ud_mnemonic_code.UD_Ijle:
-                    case ud_mnemonic_code.UD_Ijg:
-                    case ud_mnemonic_code.UD_Ijl:
-                    {
-                        if (lastComparison.Item1 as string == "")
-                        {
-                            typeDump.Append(" ; - WARN Comparison Jump without comparison statement?");
-                            continue;
-                        }
+                //Check for TEST or CMP statements
+                CheckForConditions(instruction);
+                
+                //Check for e.g. JGE statements
+                CheckForConditionalJumps(instruction);
 
-                        var comparisonItemA = lastComparison.Item1;
-                        var comparisonItemB = lastComparison.Item2;
-                        var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
-
-                        //Going back to an earlier point in the function - loop.
-                        //This works because the compiler puts all if statements *after* the main function body for jumping forward to, then back.
-                        //Still need checks in those jump back cases.
-                        var isLoop = dest < instruction.PC + _methodStart && dest > _methodStart;
-                        // if (isLoop)
-                        // {
-                        //     _methodFunctionality.Append("\t\tLoop Condition Found! Details: ");
-                        // }
-
-                        lastComparison = new Tuple<object, object>("", ""); //Clear last comparison
-                        var condition = instruction.Mnemonic switch
-                        {
-                            ud_mnemonic_code.UD_Ijz =>
-                            //Jump if zero. If both operands are the same, jumps if the operand is equal to zero. Otherwise jumps if they're not the same.
-                            (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is zero or null" : $"{comparisonItemA} == {comparisonItemB}"),
-                            ud_mnemonic_code.UD_Ijnz =>
-                            //Jump if not zero. If both the same, jump if != 0. Otherwise jumps if they're the same.
-                            (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is NOT zero or null" : $"{comparisonItemA} != {comparisonItemB}"),
-                            ud_mnemonic_code.UD_Ijge =>
-                            //This and those that follow are simple.
-                            //1 >= 2
-                            $"{comparisonItemA} >= {comparisonItemB}",
-                            ud_mnemonic_code.UD_Ijle =>
-                            //1 <= 2
-                            $"{comparisonItemA} <= {comparisonItemB}",
-                            ud_mnemonic_code.UD_Ijg =>
-                            //1 > 2
-                            $"{comparisonItemA} > {comparisonItemB}",
-                            ud_mnemonic_code.UD_Ijl =>
-                            //1 < 2
-                            $"{comparisonItemA} < {comparisonItemB}",
-                            _ => null
-                        };
-
-                        if (condition == null) continue;
-
-                        if (isLoop)
-                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Code from 0x{dest:X} until 0x{instruction.PC + _methodStart:X} repeats while {condition}\n");
-                        else
-                        {
-                            //If statement
-                            if (dest > _methodEnd)
-                            {
-                                //TODO: We REALLY need a better way to a) identify EOF so jumps are treated as ifs when they should be and b) not follow stupid recursive jumps.
-                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {condition}, then:\n");
-                                // jumpTable.Add(dest, new List<string>());
-
-                                //This is the biggest pain in the butt. We can't realistically decompile this later as we need the current register states etc.
-                                //So we have to do it now.
-                                var currentOffset = _cppAssembly.MapVirtualAddressToRaw(dest);
-                            }
-                            else
-                            {
-                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Jumps to 0x{dest:X} if {condition}\n");
-                            }
-                        }
-
-                        break;
-                    }
-                    //Loop Detection - make sure we handle INC statements
-                    case ud_mnemonic_code.UD_Iinc:
-                    {
-                        var theBase = instruction.Operands[0].Base;
-                        var register = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
-                        _registerAliases.TryGetValue(register, out var alias);
-                        if (alias == null)
-                            alias = $"the value in register {register}";
-
-                        _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Increases {alias} by one.\n");
-                        break;
-                    }
-                }
+                //Check for INC statements
+                CheckForIncrements(instruction);
 
                 typeDump.Append("\n");
             }
@@ -503,10 +415,10 @@ namespace Cpp2IL
         {
             //Need 2 operands
             if (instruction.Operands.Length < 2) return;
-            
+
             //First/destination has to be a memory offset
             if (instruction.Operands[0].Type != ud_type.UD_OP_MEM) return;
-            
+
             var destinationField = GetFieldReferencedByOperand(instruction.Operands[0]);
 
             if (destinationField == null || instruction.Operands.Length <= 1 || instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
@@ -527,7 +439,7 @@ namespace Cpp2IL
         private void CheckForFieldReads(Instruction instruction)
         {
             //Pre-checks
-            if (instruction.Operands.Length < 2 || instruction.Operands[1].Type != ud_type.UD_OP_MEM || instruction.Operands[1].Base == ud_type.UD_R_RIP) return;
+            if (instruction.Operands.Length < 2 || instruction.Operands[1].Type != ud_type.UD_OP_MEM || instruction.Operands[1].Base == ud_type.UD_R_RIP || instruction.Operands[1].Base == ud_type.UD_R_RSP) return;
 
             //Check for field read
             var field = GetFieldReferencedByOperand(instruction.Operands[1]);
@@ -720,9 +632,9 @@ namespace Cpp2IL
                 _typeDump.Append(" ; Exception occurred locating target");
                 return;
             }
-            
+
             SharedState.MethodsByAddress.TryGetValue(jumpAddress, out var methodAtAddress);
-            
+
             if (methodAtAddress != null)
             {
                 HandleFunctionCall(methodAtAddress, true);
@@ -779,10 +691,10 @@ namespace Cpp2IL
             {
                 _typeDump.Append(" - this is the native lookup function");
                 _registerAliases.TryGetValue("rcx", out var functionName);
-                
+
                 //Native methods usually have an IL counterpart - but that just calls this method with its own name. Even so, we can point at that, for now.
                 if (functionName == null) return;
-                
+
                 //Should be a FQ function name, but with the type and function separated with a ::, cpp style.
                 var split = functionName.Split(new[] {"::"}, StringSplitOptions.None);
 
@@ -798,7 +710,7 @@ namespace Cpp2IL
 
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Looks up native function by name {functionName} => {mDef?.FullName}\n");
                 if (mDef == null) return;
-                
+
                 _registerAliases["rax"] = $"{type.FullName}.{mDef.Name}";
                 _registerContents["rax"] = mDef;
             }
@@ -830,7 +742,7 @@ namespace Cpp2IL
                         {
                             _registerAliases.TryGetValue(register, out var alias);
                             if (alias == null || !alias.StartsWith("global_METHOD")) continue;
-                            
+
                             //Success! Now we want the method ref
                             var methodFullName = alias.Replace("global_METHOD_", "").Replace("_" + register, "");
                             var split = methodFullName.Split(new[] {'.'}, 999, StringSplitOptions.None).ToList();
@@ -854,7 +766,7 @@ namespace Cpp2IL
                             if (method == null) continue;
 
                             var requiredCount = (method.IsStatic ? 0 : 1) + method.Parameters.Count;
-                            
+
                             if (requiredCount != providedParamCount) continue;
 
                             var returnType = method.ReturnType;
@@ -867,6 +779,109 @@ namespace Cpp2IL
                     }
                 }
             }
+        }
+
+        private void CheckForConditions(Instruction instruction)
+        {
+            //Checks
+            //Need 2 operands
+            if (instruction.Operands.Length < 2) return;
+
+            //Needs to be TEST or CMP
+            if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest) return;
+
+            _lastComparison = new Tuple<object, object>(GetNameOfReferencedObject(instruction.Operands[0], instruction), GetNameOfReferencedObject(instruction.Operands[1], instruction));
+        }
+
+        private void CheckForConditionalJumps(Instruction instruction)
+        {
+            //Checks
+            //We need an operand
+            if (instruction.Operands.Length < 1) return;
+
+            //Needs to be a conditional jump
+            if (instruction.Mnemonic != ud_mnemonic_code.UD_Ijz && instruction.Mnemonic != ud_mnemonic_code.UD_Ijnz && instruction.Mnemonic != ud_mnemonic_code.UD_Ijge && instruction.Mnemonic != ud_mnemonic_code.UD_Ijle && instruction.Mnemonic != ud_mnemonic_code.UD_Ijg &&
+                instruction.Mnemonic != ud_mnemonic_code.UD_Ijl) return;
+
+            if (_lastComparison.Item1 as string == "")
+            {
+                _typeDump.Append(" ; - WARN Comparison Jump without comparison statement?");
+                return;
+            }
+
+            var comparisonItemA = _lastComparison.Item1;
+            var comparisonItemB = _lastComparison.Item2;
+            var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
+
+            //Going back to an earlier point in the function - loop.
+            //This works because the compiler puts all if statements *after* the main function body for jumping forward to, then back.
+            //Still need checks in those jump back cases.
+            var isLoop = dest < instruction.PC + _methodStart && dest > _methodStart;
+
+            _lastComparison = new Tuple<object, object>("", ""); //Clear last comparison
+            var condition = instruction.Mnemonic switch
+            {
+                ud_mnemonic_code.UD_Ijz =>
+                //Jump if zero. If both operands are the same, jumps if the operand is equal to zero. Otherwise jumps if they're not the same.
+                (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is zero or null" : $"{comparisonItemA} == {comparisonItemB}"),
+                ud_mnemonic_code.UD_Ijnz =>
+                //Jump if not zero. If both the same, jump if != 0. Otherwise jumps if they're the same.
+                (comparisonItemA == comparisonItemB ? $"{comparisonItemA} is NOT zero or null" : $"{comparisonItemA} != {comparisonItemB}"),
+                ud_mnemonic_code.UD_Ijge =>
+                //This and those that follow are simple.
+                //1 >= 2
+                $"{comparisonItemA} >= {comparisonItemB}",
+                ud_mnemonic_code.UD_Ijle =>
+                //1 <= 2
+                $"{comparisonItemA} <= {comparisonItemB}",
+                ud_mnemonic_code.UD_Ijg =>
+                //1 > 2
+                $"{comparisonItemA} > {comparisonItemB}",
+                ud_mnemonic_code.UD_Ijl =>
+                //1 < 2
+                $"{comparisonItemA} < {comparisonItemB}",
+                _ => null
+            };
+
+            if (condition == null) return;
+
+            if (isLoop)
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Code from 0x{dest:X} until 0x{instruction.PC + _methodStart:X} repeats while {condition}\n");
+            else
+            {
+                //If statement
+                if (dest > _methodEnd)
+                {
+                    //TODO: We REALLY need a better way to a) identify EOF so jumps are treated as ifs when they should be and b) not follow stupid recursive jumps.
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {condition}, then:\n");
+                    // jumpTable.Add(dest, new List<string>());
+
+                    //This is the biggest pain in the butt. We can't realistically decompile this later as we need the current register states etc.
+                    //So we have to do it now.
+                    var currentOffset = _cppAssembly.MapVirtualAddressToRaw(dest);
+                }
+                else
+                {
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Jumps to 0x{dest:X} if {condition}\n");
+                }
+            }
+        }
+
+        private void CheckForIncrements(Instruction instruction)
+        {
+            //Checks
+            //Need an operand
+            if (instruction.Operands.Length < 1) return;
+            
+            //Needs to be an INC
+            if (instruction.Mnemonic != ud_mnemonic_code.UD_Iinc) return;
+            
+            var register = GetRegisterName(instruction.Operands[0]);
+            _registerAliases.TryGetValue(register, out var alias);
+            if (alias == null)
+                alias = $"the value in register {register}";
+
+            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Increases {alias} by one.\n");
         }
     }
 }
