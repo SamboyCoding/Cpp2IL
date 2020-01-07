@@ -316,15 +316,22 @@ namespace Cpp2IL
             return $"<{String.Join(", ", typeNames)}>";
         }
 
+        private static FieldInfo oprMode = typeof(Instruction).GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic);
+
+        public static byte GetOprMode(Instruction instruction)
+        {
+            return (byte) oprMode.GetValue(instruction); //Reflection!
+        }
+
         public static ulong GetJumpTarget(Instruction insn, ulong start)
         {
             var opr = insn.Operands[0];
 
-            var mode = insn.GetType().GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(insn); //Reflection!
+            var mode = GetOprMode(insn);
 
             //Console.WriteLine(mode + " " + mode.GetType());
 
-            var num = ulong.MaxValue >> 64 - (byte) mode;
+            var num = ulong.MaxValue >> 64 - mode;
             return opr.Size switch
             {
                 8 => (start + (ulong) opr.LvalSByte & num),
@@ -427,7 +434,7 @@ namespace Cpp2IL
             {
                 ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Iadd, ud_mnemonic_code.UD_Ijmp
             };
-            
+
             var thirdPattern = new[]
             {
                 ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall
@@ -508,7 +515,7 @@ namespace Cpp2IL
                 definedType = matches.First();
 
             if (definedType != null || !name.Contains(".")) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
-            
+
             //Try subclasses
             matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.EndsWith(name.Replace(".", "/"))).ToList();
             if (matches.Count == 1)
@@ -564,7 +571,7 @@ namespace Cpp2IL
         {
             if (condition.Contains("is zero or null"))
                 return condition.Replace("is zero or null", "is NOT zero or null");
-            if(condition.Contains("is NOT zero or null"))
+            if (condition.Contains("is NOT zero or null"))
                 return condition.Replace("is NOT zero or null", "is zero or null");
             if (condition.Contains("=="))
                 return condition.Replace("==", "!=");
@@ -580,6 +587,49 @@ namespace Cpp2IL
                 return condition.Replace("<", ">=");
 
             return condition;
+        }
+
+        public static ulong GetIMMValue(Instruction insn, Operand op)
+        {
+            ulong num;
+            if (op.Opcode == ud_operand_code.OP_sI && op.Size != GetOprMode(insn))
+            {
+                if (op.Size == 8)
+                {
+                    num = (ulong) op.LvalSByte;
+                }
+                else
+                {
+                    if (op.Size != 32)
+                        throw new InvalidOperationException("Operand size must be 32");
+                    num = (ulong) op.LvalSDWord;
+                }
+
+                if (GetOprMode(insn) < 64)
+                    num &= (ulong) ((1L << GetOprMode(insn)) - 1L);
+            }
+            else
+            {
+                switch (op.Size)
+                {
+                    case 8:
+                        num = op.LvalByte;
+                        break;
+                    case 16:
+                        num = op.LvalUWord;
+                        break;
+                    case 32:
+                        num = op.LvalUDWord;
+                        break;
+                    case 64:
+                        num = op.LvalUQWord;
+                        break;
+                    default:
+                        throw new InvalidOperationException($"Invalid size for operand: {op.Size}");
+                }
+            }
+
+            return num;
         }
     }
 }

@@ -34,7 +34,7 @@ namespace Cpp2IL
         private int _localNum;
         private List<string> _loopRegisters;
 
-        private Tuple<object, object> _lastComparison;
+        private Tuple<string, string> _lastComparison;
         private List<int> _indentCounts = new List<int>();
 
         internal ASMDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
@@ -234,7 +234,7 @@ namespace Cpp2IL
             typeDump.Append("\tMethod Body (x86 ASM):\n");
 
             _localNum = 1;
-            _lastComparison = new Tuple<object, object>("", "");
+            _lastComparison = new Tuple<string, string>("", "");
             var index = 0;
 
             _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
@@ -302,6 +302,9 @@ namespace Cpp2IL
 
             //Check for INC statements
             CheckForIncrements(instruction);
+            
+            //Check for RET
+            CheckForReturn(instruction);
         }
 
         private void HandleFunctionCall(MethodDefinition target, bool processReturnType, TypeReference returnType = null)
@@ -339,7 +342,7 @@ namespace Cpp2IL
                     if (!_registerAliases.ContainsKey(possibility))
                     {
                         //Could be a numerical value, check
-                        if (parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility)  && _registerContents[possibility]?.GetType().IsPrimitive == true)
+                        if (parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
                         {
                             //Coerce if bool
                             if (parameter.ParameterType.Name == "Boolean")
@@ -416,6 +419,7 @@ namespace Cpp2IL
         {
             var theBase = operand.Base;
             var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+            string ret = null;
             switch (operand.Type)
             {
                 case ud_type.UD_OP_MEM:
@@ -425,24 +429,31 @@ namespace Cpp2IL
                         _registerAliases.TryGetValue(sourceReg, out var fieldReadAlias);
                         if (fieldReadAlias == null)
                             fieldReadAlias = $"the value in register {sourceReg}";
-                        return $"Field {field.Name} read from {fieldReadAlias}";
+                        ret = $"Field {field.Name} read from {fieldReadAlias}";
                     }
 
                     //Check for global
                     var globalAddr = Utils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
                     if (_globals.Find(g => g.Offset == globalAddr) is {} glob && glob.Offset == globalAddr)
-                        return $"global_{glob.IdentifierType}_{glob.Name}";
-                    return null;
+                        ret = $"global_{glob.IdentifierType}_{glob.Name}";
+                    break;
                 case ud_type.UD_OP_REG:
                     _registerAliases.TryGetValue(sourceReg, out var alias);
                     _registerContents.TryGetValue(sourceReg, out var constant);
-                    return alias ??
-                           (constant?.GetType().IsPrimitive == true
-                               ? constant.ToString()
-                               : $"value in {sourceReg}");
-                default:
-                    return null;
+                    ret = alias ??
+                          (constant?.GetType().IsPrimitive == true
+                              ? constant.ToString()
+                              : $"value in {sourceReg}");
+                    break;
+                case ud_type.UD_OP_CONST:
+                    ret = operand.LvalUDWord.ToString();
+                    break;
+                case ud_type.UD_OP_IMM:
+                    ret = $"{Utils.GetIMMValue(i, operand)}";
+                    break;
             }
+
+            return ret ?? $"<unknown refobject type = {operand.Type} constantval = {operand.LvalUDWord} base = {operand.Base}>";
         }
 
         private FieldDefinition GetFieldReferencedByOperand(Operand operand)
@@ -488,13 +499,13 @@ namespace Cpp2IL
                 if (!(content is AssemblyBuilder.GlobalIdentifier global)) return null;
 
                 _typeDump.Append($" on a global of name {global.Name}");
-                
+
                 //Ok we have a global, resolve it
                 var (type, generics) = Utils.TryLookupTypeDefByName(global.Name);
                 if (type == null) return null;
 
                 _typeDump.Append($" - which resolves to {type}");
-                
+
                 var fields = type.Fields.Where(f => f.IsStatic).ToList();
                 var fieldNum = (int) (offset - 0xb8) / 8;
 
@@ -541,16 +552,16 @@ namespace Cpp2IL
 
             //Check for field read
             var field = GetFieldReferencedByOperand(instruction.Operands[1]);
-            
+
             var sourceReg = GetRegisterName(instruction.Operands[1]);
             _registerAliases.TryGetValue(sourceReg, out var sourceAlias);
-            
+
             if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0)
             {
                 //Just a regex assignment, but as a mem op. It happens.
                 return;
             }
-            
+
             if (field != null && instruction.Operands[0].Type == ud_type.UD_OP_REG)
             {
                 _typeDump.Append($" ; - field read on {field} from type {field.DeclaringType.Name} in register {sourceReg}");
@@ -849,6 +860,23 @@ namespace Cpp2IL
                 {
                     var pos = jumpAddress - _methodStart;
                     _typeDump.Append($" - offset 0x{pos:X} in this function");
+                    
+                    //Could be an else jump
+                    if (_blockDepth <= 0) return;
+                    
+                    //We're in an if, so it's likely this is to jump over the else
+                    //Clear the most recent block (though it probably has just expired anyway), this is the end of the if
+                    _indentCounts.RemoveAt(_indentCounts.Count - 1);
+                        
+                    //Now we need to find the ELSE length
+                    //This current jump goes to the first instruction after it, so take its address - our PC to find function length
+                    //TODO: This is ok, but still needs work in E.g AudioDriver_Resume
+                    var instructionIdx = _instructions.FindIndex(i => i.PC == pos);
+                    if (instructionIdx < 0) return;
+                    instructionIdx++;
+                    var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
+                    _indentCounts.Add(numToIndent);
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Else:\n"); //This is a +1 not a +2 to remove the indent caused by the current if block
                 }
                 else if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
                 {
@@ -912,9 +940,11 @@ namespace Cpp2IL
             if (instruction.Operands.Length < 2) return;
 
             //Needs to be TEST or CMP
-            if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest && instruction.Mnemonic != ud_mnemonic_code.UD_Iucomiss) return;
+            if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest && instruction.Mnemonic != ud_mnemonic_code.UD_Iucomiss && instruction.Mnemonic != ud_mnemonic_code.UD_Icomiss) return;
 
-            _lastComparison = new Tuple<object, object>(GetNameOfReferencedObject(instruction.Operands[0], instruction), GetNameOfReferencedObject(instruction.Operands[1], instruction));
+            _lastComparison = new Tuple<string, string>(GetNameOfReferencedObject(instruction.Operands[0], instruction), GetNameOfReferencedObject(instruction.Operands[1], instruction));
+
+            _typeDump.Append($" ; - Comparison between {_lastComparison.Item1} and {_lastComparison.Item2}");
         }
 
         private void CheckForConditionalJumps(Instruction instruction)
@@ -925,7 +955,7 @@ namespace Cpp2IL
 
             //Needs to be a conditional jump
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Ijz && instruction.Mnemonic != ud_mnemonic_code.UD_Ijnz && instruction.Mnemonic != ud_mnemonic_code.UD_Ijge && instruction.Mnemonic != ud_mnemonic_code.UD_Ijle && instruction.Mnemonic != ud_mnemonic_code.UD_Ijg &&
-                instruction.Mnemonic != ud_mnemonic_code.UD_Ijl) return;
+                instruction.Mnemonic != ud_mnemonic_code.UD_Ijl && instruction.Mnemonic != ud_mnemonic_code.UD_Ija) return;
 
             if (_lastComparison.Item1 as string == "")
             {
@@ -935,6 +965,7 @@ namespace Cpp2IL
 
             var comparisonItemA = _lastComparison.Item1;
             var comparisonItemB = _lastComparison.Item2;
+
             var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
 
             //Going back to an earlier point in the function - loop.
@@ -952,6 +983,7 @@ namespace Cpp2IL
                 ud_mnemonic_code.UD_Ijg => $"{comparisonItemA} > {comparisonItemB}",
                 ud_mnemonic_code.UD_Ijp => $"{comparisonItemA} > {comparisonItemB}",
                 ud_mnemonic_code.UD_Ijl => $"{comparisonItemA} < {comparisonItemB}",
+                ud_mnemonic_code.UD_Ija => $"unsigned({comparisonItemA} > {comparisonItemB})", //JA = Unsigned greater than (stands for Jump if Above)
                 _ => null
             };
 
@@ -1019,6 +1051,13 @@ namespace Cpp2IL
                 alias = $"the value in register {register}";
 
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Increases {alias} by one.\n");
+        }
+
+        private void CheckForReturn(Instruction instruction)
+        {
+            if (instruction.Mnemonic != ud_mnemonic_code.UD_Iret && instruction.Mnemonic != ud_mnemonic_code.UD_Iretf) return;
+
+            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Returns\n");
         }
     }
 }
