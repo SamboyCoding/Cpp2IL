@@ -489,8 +489,10 @@ namespace Cpp2IL
             return num1 + insn.PC;
         }
 
-        public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string name)
+        public static Tuple<TypeDefinition?, string[]> TryLookupTypeDefByName(string name)
         {
+            if(name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
+            
             var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
 
             //Generics are dumb.

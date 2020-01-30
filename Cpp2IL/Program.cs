@@ -246,7 +246,7 @@ namespace Cpp2IL
                                 var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
                                 var methodDefinition = SharedState.MethodsByAddress[methodStart];
 
-                                new ASMDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                                new AsmDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
                             }
 
                             lock (type)
