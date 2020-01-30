@@ -22,6 +22,7 @@ namespace Cpp2IL
         private Dictionary<string, string> _registerAliases;
         private Dictionary<string, TypeReference> _registerTypes;
         private StringBuilder _methodFunctionality;
+        private StringBuilder _psuedoCode = new StringBuilder();
         private StringBuilder _typeDump;
         private Dictionary<string, object> _registerContents;
         private List<Instruction> _instructions;
@@ -251,7 +252,7 @@ namespace Cpp2IL
                 line = UpscaleRegisters(line);
 
                 //Apply any aliases to the line
-                line = _registerAliases.Aggregate(line, (current, kvp) => current.Replace(kvp.Key, $"{kvp.Value}_{kvp.Key}"));
+                line = _registerAliases.Aggregate(line, (current, kvp) => current.Replace($" {kvp.Key}", $" {kvp.Value}_{kvp.Key}").Replace($"[{kvp.Key}", $"[{kvp.Value}_{kvp.Key}"));
 
                 typeDump.Append($"\t\t{line}"); //write the current disassembled instruction to the type dump
 
@@ -265,7 +266,9 @@ namespace Cpp2IL
                     .ToList();
             }
 
-            typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n");
+            typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n\n");
+
+            typeDump.Append($"\n\tGenerated Pseudocode:\n\n{_psuedoCode}\n");
         }
 
         private void PerformInstructionChecks(Instruction instruction)
@@ -309,6 +312,11 @@ namespace Cpp2IL
             if (returnType == null)
                 returnType = target.ReturnType;
 
+            if (processReturnType && returnType != null && returnType.Name != "Void")
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(returnType.FullName).Append(" ").Append($"local{_localNum} = ");
+            else
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth));
+
 
             _typeDump.Append($" - function {target.FullName}");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Calls {(target.IsStatic ? "static" : "instance")} function {target.FullName}");
@@ -326,9 +334,11 @@ namespace Cpp2IL
                     _registerTypes.TryGetValue(possibility, out var type);
 
                     args.Add($"{_registerAliases[possibility]} (type {type?.Name}) as this in register {possibility}");
+                    _psuedoCode.Append(_registerAliases[possibility] + "." + target.Name + "(");
                     break;
                 }
-            }
+            } else
+                _psuedoCode.Append(target.DeclaringType.FullName + "." + target.Name + "(");
 
             foreach (var parameter in target.Parameters)
             {
@@ -346,13 +356,17 @@ namespace Cpp2IL
                             if (parameter.ParameterType.Name == "Boolean")
                             {
                                 args.Add($"{Convert.ToInt32(_registerContents[possibility]) != 0} (coerced to bool from {_registerContents[possibility]}) (type CONSTANT) as {parameter.Name} in register {possibility}");
+                                _psuedoCode.Append(Convert.ToInt32(_registerContents[possibility]) != 0);
                             }
                             else
                             {
                                 args.Add($"{_registerContents[possibility]} (type CONSTANT) as {parameter.Name} in register {possibility}");
+                                _psuedoCode.Append(_registerContents[possibility]);
                             }
 
                             success = true;
+                            if (target.Parameters.Last() != parameter)
+                                _psuedoCode.Append(", ");
                             break;
                         }
 
@@ -360,28 +374,56 @@ namespace Cpp2IL
                         if (!parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && (_registerContents[possibility] as int?) is {} val && val == 0)
                         {
                             args.Add($"NULL (as a literal) as {parameter.Name} in register {possibility}");
+                            _psuedoCode.Append("null");
 
                             success = true;
+                            if (target.Parameters.Last() != parameter)
+                                _psuedoCode.Append(", ");
                             break;
                         }
 
                         continue;
                     }
 
+                    if (_registerAliases[possibility].StartsWith("global_LITERAL"))
+                    {
+                        var global = GetGlobalInReg(possibility);
+                        if (global.HasValue)
+                        {
+                            args.Add($"'{global.Value.Name}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
+                            _psuedoCode.Append($"'{global.Value.Name}'");
+                            
+                            success = true;
+                            if (target.Parameters.Last() != parameter)
+                                _psuedoCode.Append(", ");
+                            break;
+                        }
+                    }
+
                     _registerTypes.TryGetValue(possibility, out var type);
                     args.Add($"{_registerAliases[possibility]} (type {type?.Name}) as {parameter.Name} in register {possibility}");
+                    _psuedoCode.Append(_registerAliases[possibility]);
                     success = true;
+                    if (target.Parameters.Last() != parameter)
+                        _psuedoCode.Append(", ");
                     break;
                 }
 
                 if (!success)
+                {
+                    _psuedoCode.Append("<unknown>");
+                    if (target.Parameters.Last() != parameter)
+                        _psuedoCode.Append(", ");
                     args.Add($"<unknown> as {parameter.Name} in one of the registers {string.Join("/", possibilities)}");
+                }
 
                 if (paramRegisters.Count != 0) continue;
 
                 args.Add(" ... and more, out of space in registers.");
                 break;
             }
+
+            _psuedoCode.Append(")\n");
 
             if (args.Count > 0)
                 _methodFunctionality.Append($" with parameters: {string.Join(", ", args)}");
@@ -482,9 +524,13 @@ namespace Cpp2IL
         {
             if (operand.Type != ud_type.UD_OP_MEM || operand.Base == ud_type.UD_R_RIP) return null;
 
-            var theBase = operand.Base;
-            var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+            var sourceReg = GetRegisterName(operand);
             var offset = Utils.GetOperandMemoryOffset(operand);
+
+            if (offset == 0 && _registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is FieldDefinition fld)
+                //This register contains a field definition. Return it
+                return fld;
+
             var isStatic = offset >= 0xb8;
             if (!isStatic)
             {
@@ -515,18 +561,14 @@ namespace Cpp2IL
             }
             else
             {
-                _typeDump.Append(" ; - Static field access");
                 //If we're reading a static, check the global in the source reg
                 _registerContents.TryGetValue(sourceReg, out var content);
                 if (!(content is AssemblyBuilder.GlobalIdentifier global)) return null;
 
-                _typeDump.Append($" on a global of name {global.Name}");
 
                 //Ok we have a global, resolve it
                 var (type, _) = Utils.TryLookupTypeDefByName(global.Name);
                 if (type == null) return null;
-
-                _typeDump.Append($" - which resolves to {type}");
 
                 var fields = type.Fields.Where(f => f.IsStatic).ToList();
                 var fieldNum = (int) (offset - 0xb8) / 8;
@@ -548,6 +590,17 @@ namespace Cpp2IL
             {
                 case ud_mnemonic_code.UD_Imulss:
                     return "Multiplies";
+                default:
+                    return "[Unknown Operation Name]";
+            }
+        }
+
+        private string GetArithmeticOperationAssignment(ud_mnemonic_code code)
+        {
+            switch (code)
+            {
+                case ud_mnemonic_code.UD_Imulss:
+                    return "*=";
                 default:
                     return "[Unknown Operation Name]";
             }
@@ -579,6 +632,8 @@ namespace Cpp2IL
                 var constantSingle = BitConverter.ToSingle(constantBytes, 0);
                 _typeDump.Append($" - constant is bytes: {BitConverter.ToString(constantBytes)}, or value {constantSingle}");
 
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(name).Append(" ").Append(GetArithmeticOperationAssignment(instruction.Mnemonic)).Append(" ").Append(constantSingle).Append("\n");
+
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}{GetArithmeticOperationName(instruction.Mnemonic)} {name} (type {type}) by {constantSingle} (System.Single) in-place\n");
             }
             else
@@ -589,11 +644,6 @@ namespace Cpp2IL
 
         private void CheckForFieldWrites(Instruction instruction)
         {
-            //TODO: There is a rather specific case where if a register is loaded with the ADDRESS of a field (not the content), (this is shown in ASM as op #1 being [rxx+0xyyyy], note the []s) and then that is written into,
-            //TODO: then this could be called with UD_OP_REG instead of UD_OP_MEM.
-            //TODO: For an example, See SongCues#Awake - the 7th instruction should be setting SongCues::I (which is static) to <this> but doesn't actually resolve to anything
-            //TODO: However, we need that initial 'field read' to be recognised as a 'field ADDRESS read' instead - and then plop the field ref in _registerContent
-
             //Need 2 operands
             if (instruction.Operands.Length < 2) return;
 
@@ -603,6 +653,8 @@ namespace Cpp2IL
             var destinationField = GetFieldReferencedByOperand(instruction.Operands[0]);
 
             if (destinationField == null || instruction.Operands.Length <= 1 || instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
+
+            _typeDump.Append($" ; - Field Write into {destinationField}");
 
             var destReg = GetRegisterName(instruction.Operands[0]);
             _registerAliases.TryGetValue(destReg, out var destAlias);
@@ -629,6 +681,7 @@ namespace Cpp2IL
             //     sourceAlias = instruction.Operands[1].LvalUDWord.ToString();
             // }
 
+            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destAlias).Append(".").Append(destinationField.Name).Append(" = ").Append(sourceAlias).Append("\n");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set field {destinationField.Name} (type {destinationField.FieldType.FullName}) of {destAlias} to {sourceAlias} (type {sourceType?.FullName})\n");
         }
 
@@ -664,17 +717,30 @@ namespace Cpp2IL
 
                 _registerTypes[destReg] = readType;
                 _registerAliases[destReg] = $"local{_localNum}";
+                _registerContents[destReg] = field;
 
                 if (field.IsStatic)
+                {
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(field.FieldType.FullName).Append(" ").Append("local").Append(_localNum).Append(" = ").Append(field.DeclaringType.FullName).Append(".").Append(field.Name).Append("\n");
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads static field {field} (type {readType}) and stores in new local variable local{_localNum} in reg {destReg}\n");
+                }
                 else
+                {
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(field.FieldType.FullName).Append(" ").Append("local").Append(_localNum).Append(" = ").Append(sourceAlias).Append(".").Append(field.Name).Append("\n");
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads field {field} (type {readType}) from {sourceAlias} (type {sourceType?.Name}) and stores in new local variable local{_localNum} in reg {destReg}\n");
+                }
+
                 _localNum++;
+            }
+            else if (field == null)
+            {
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Field Read: Failed to work out which field we are reading. Indicative of missed generated code or further calibration required, probably\n");
+                _typeDump.Append($" ; - field read on unknown field from an unknown/unresolved type that's in reg {sourceReg}");
             }
             else
             {
-                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Failed resolve of type or field reference. Indicative of missed generated code or further calibration required, probably\n");
-                _typeDump.Append($" ; - field read on unknown field from an unknown/unresolved type that's in reg {sourceReg}");
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Field Read: Don't know what we're doing with field {field}\n");
+                _typeDump.Append(" ; - field read and unknown action");
             }
         }
 
@@ -892,6 +958,7 @@ namespace Cpp2IL
 
                             if (definedType != null)
                             {
+                                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(definedType.FullName).Append(" ").Append("local").Append(_localNum).Append(" = new ").Append(definedType.FullName).Append("()\n");
                                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of type {definedType.FullName}{(genericParams.Length > 0 ? $" with generic parameters {string.Join(",", genericParams)}" : "")}\n");
                                 PushMethodReturnTypeToLocal(definedType);
                                 success = true;
@@ -967,6 +1034,7 @@ namespace Cpp2IL
                     var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
                     _indentCounts.Add(numToIndent);
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Else:\n"); //This is a +1 not a +2 to remove the indent caused by the current if block
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth - 1)).Append("else:\n");
                 }
                 else if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
                 {
@@ -1056,6 +1124,8 @@ namespace Cpp2IL
             var (comparisonItemA, typeA) = _lastComparison.Item1;
             var (comparisonItemB, typeB) = _lastComparison.Item2;
 
+            //TODO: Clear out crap [unknown global] if statements
+
             var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
 
             //Going back to an earlier point in the function - loop.
@@ -1113,12 +1183,14 @@ namespace Cpp2IL
                 {
                     //TODO: We REALLY need a better way to a) identify EOF so jumps are treated as ifs when they should be and b) not follow stupid recursive jumps.
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {condition}, then:\n");
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("if (").Append(condition).Append("):\n");
                     // jumpTable.Add(dest, new List<string>());
 
                     //This is the biggest pain in the butt. We can't realistically decompile this later as we need the current register states etc.
                     //So we have to do it now.
                     var currentOffset = _cppAssembly.MapVirtualAddressToRaw(dest);
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 3)}[If Body at 0x{currentOffset:X}]\n");
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth + 1)).Append("[undeciphered]\n");
                 }
                 else
                 {
@@ -1133,6 +1205,7 @@ namespace Cpp2IL
                             var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
                             _indentCounts.Add(numToIndent);
                             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {Utils.InvertCondition(condition)}:\n");
+                            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("if (").Append(Utils.InvertCondition(condition)).Append("):\n");
                             // var targetInstruction = _instructions[instructionIdx];
                             // lock (Disassembler.Translator)
                             // {
@@ -1166,6 +1239,7 @@ namespace Cpp2IL
             if (alias == null)
                 alias = $"the value in register {register}";
 
+            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(alias).Append("++\n");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Increases {alias} by one.\n");
         }
 
@@ -1174,6 +1248,27 @@ namespace Cpp2IL
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Iret && instruction.Mnemonic != ud_mnemonic_code.UD_Iretf) return;
 
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Returns\n");
+            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("return\n");
+        }
+
+        private AssemblyBuilder.GlobalIdentifier? GetGlobalInReg(string reg)
+        {
+            _registerAliases.TryGetValue(reg, out var glob);
+            if (glob != null)
+            {
+                var match = Regex.Match(glob, "global_([A-Z]+)_([^/]+)");
+                if (match.Success)
+                {
+                    Enum.TryParse<AssemblyBuilder.GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
+                    var global = _globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
+                    if (global.Offset != 0)
+                    {
+                        return global;
+                    }
+                }
+            }
+
+            return null;
         }
     }
 }

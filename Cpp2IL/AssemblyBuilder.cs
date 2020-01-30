@@ -420,7 +420,7 @@ namespace Cpp2IL
                 {
                     IdentifierType = GlobalIdentifier.Type.LITERAL,
                     Offset = cppAssembly.metadataUsages[kvp.Key],
-                    Name = metadata.GetStringFromIndex((int) kvp.Value)
+                    Name = $"{metadata.GetStringLiteralFromIndex(kvp.Value)}"
                 })
             );
             
