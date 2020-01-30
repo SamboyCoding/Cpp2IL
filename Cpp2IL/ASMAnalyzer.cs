@@ -681,7 +681,11 @@ namespace Cpp2IL
             //     sourceAlias = instruction.Operands[1].LvalUDWord.ToString();
             // }
 
-            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destAlias).Append(".").Append(destinationField.Name).Append(" = ").Append(sourceAlias).Append("\n");
+            if(destinationField.IsStatic)
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationField.DeclaringType.FullName).Append(".").Append(destinationField.Name).Append(" = ").Append(sourceAlias).Append("\n");
+            else
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destAlias).Append(".").Append(destinationField.Name).Append(" = ").Append(sourceAlias).Append("\n");
+            
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set field {destinationField.Name} (type {destinationField.FieldType.FullName}) of {destAlias} to {sourceAlias} (type {sourceType?.FullName})\n");
         }
 
