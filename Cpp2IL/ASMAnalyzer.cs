@@ -1118,7 +1118,7 @@ namespace Cpp2IL
                     //This is the biggest pain in the butt. We can't realistically decompile this later as we need the current register states etc.
                     //So we have to do it now.
                     var currentOffset = _cppAssembly.MapVirtualAddressToRaw(dest);
-                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 3)}[If Body at 0x{currentOffset:X}]");
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 3)}[If Body at 0x{currentOffset:X}]\n");
                 }
                 else
                 {

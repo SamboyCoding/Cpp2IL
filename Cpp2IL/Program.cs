@@ -98,7 +98,7 @@ namespace Cpp2IL
 
 
             Console.WriteLine("Building assemblies...");
-            Console.Write("\tPass 1: Creating types...");
+            Console.WriteLine("\tPass 1: Creating types...");
 
             Assemblies = AssemblyBuilder.CreateAssemblies(metadata, resolver, moduleParams);
 
