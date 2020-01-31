@@ -27,9 +27,24 @@ namespace Cpp2IL
         public static void Main(string[] args)
         {
             Console.WriteLine("===AudicaShredder by Samboy063===");
-            var loc = Registry.GetValue(
-                "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1020340",
-                "InstallLocation", null) as string;
+            Console.WriteLine("Running on " + Environment.OSVersion.Platform);
+
+            string loc;
+            if (Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                loc = Registry.GetValue(
+                    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1020340",
+                    "InstallLocation", null) as string;
+            }
+            else if (Environment.OSVersion.Platform == PlatformID.Unix)
+            {
+                // $HOME/.local/share/Steam/steamapps/common/Audica
+                loc = Environment.GetEnvironmentVariable("HOME") + "/.local/share/Steam/steamapps/common/Audica";
+            }
+            else 
+            {
+                loc = null;
+            }
 
             if (args.Length != 1 && loc == null)
             {

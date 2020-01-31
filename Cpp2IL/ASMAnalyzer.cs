@@ -1145,14 +1145,24 @@ namespace Cpp2IL
                 {
                     var isSelfCheck = Equals(comparisonItemA, comparisonItemB);
                     var isBoolean = typeA?.Name == "Boolean";
-                    condition = isSelfCheck ? $"{comparisonItemA} is {(isBoolean ? "false" : "zero or null")}" : $"{comparisonItemA} == {comparisonItemB}";
+                    if(isBoolean)
+                        condition = isSelfCheck ? $"{comparisonItemA} == false" : $"{comparisonItemA} == {comparisonItemB}";
+                    else if(typeA?.IsPrimitive == true)
+                        condition = isSelfCheck ? $"{comparisonItemA} == 0" : $"{comparisonItemA} == {comparisonItemB}";
+                    else
+                        condition = isSelfCheck ? $"{comparisonItemA} == null" : $"{comparisonItemA} == {comparisonItemB}";
                     break;
                 }
                 case ud_mnemonic_code.UD_Ijnz:
                 {
                     var isSelfCheck = Equals(comparisonItemA, comparisonItemB);
                     var isBoolean = typeA?.Name == "Boolean";
-                    condition = isSelfCheck ? $"{comparisonItemA} is {(isBoolean ? "true" : "NOT zero or null")}" : $"{comparisonItemA} != {comparisonItemB}";
+                    if(isBoolean)
+                        condition = isSelfCheck ? $"{comparisonItemA} == true" : $"{comparisonItemA} != {comparisonItemB}";
+                    else if(typeA?.IsPrimitive == true)
+                        condition = isSelfCheck ? $"{comparisonItemA} != 0" : $"{comparisonItemA} != {comparisonItemB}";
+                    else
+                        condition = isSelfCheck ? $"{comparisonItemA} != null" : $"{comparisonItemA} != {comparisonItemB}";
                     break;
                 }
                 case ud_mnemonic_code.UD_Ijge:
