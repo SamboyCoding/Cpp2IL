@@ -259,7 +259,7 @@ namespace Cpp2IL
                             {
                                 var methodDef = metadata.methodDefs[method.MethodId];
                                 var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
-                                var methodDefinition = SharedState.MethodsByAddress[methodStart];
+                                var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
                                 new AsmDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
                             }

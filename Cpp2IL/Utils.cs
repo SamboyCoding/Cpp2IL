@@ -337,7 +337,8 @@ namespace Cpp2IL
                 8 => (start + (ulong) opr.LvalSByte & num),
                 16 => (start + (ulong) opr.LvalSWord & num),
                 32 => (start + (ulong) opr.LvalSDWord & num),
-                _ => throw new InvalidOperationException(String.Format("invalid relative offset size {0}.", opr.Size))
+                64 => (start + (ulong) opr.LvalSQWord & num),
+                _ => throw new InvalidOperationException($"invalid relative offset size {opr.Size}.")
             };
         }
 
@@ -379,48 +380,36 @@ namespace Cpp2IL
 
         public static int CheckForInitCallAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
         {
-            //This is quite a different pattern to the above, but it still can be detected
-            //First it's a CMP [irrelevant] against 0
-            //Then a MOV which must be preserved
-            //Then a JNZ to skip the following code if not needed
-            //Then another MOV (which contains the unique ID of this function as the second param, but that's not important i don't think)
-            //Then a call to the init function
-            //Then a mov to the same [irrelevant] as above, setting it to the constant 1 (actually true, as it's a bool)
+            //Refined Targeting Mechanism
+            //JNZ to skip the following code if not needed
+            //Then MOV (which contains the unique ID of this function)
+            //Then a CALL to the init function
+            //Then Another MOV
             //The next instruction is where the JNZ would go to and is where we resume.
-            //So all in all, 6 instructions: CMP MOV JNZ MOV CALL MOV
-
-            var requiredPattern = new[]
-            {
-                ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
-            };
 
             var alternativePattern = new[]
             {
-                ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
+                ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
             };
 
-            if (instructions.Count - idx < 6) return 0;
+            if (instructions.Count - idx < 4) return 0;
 
-            var instructionsInRange = instructions.GetRange(idx, 5);
+            var instructionsInRange = instructions.GetRange(idx, 4);
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
 
             ulong callAddr;
-            if (alternativePattern.SequenceEqual(actualPattern))
+            if (!alternativePattern.SequenceEqual(actualPattern)) return 0;
+
+            try
             {
-                callAddr = GetJumpTarget(instructionsInRange[3], offsetInRam + instructionsInRange[3].PC);
-                return callAddr == kfe.AddrInitFunction ? 4 : 0;
+                callAddr = GetJumpTarget(instructionsInRange[2], offsetInRam + instructionsInRange[2].PC);
+                return callAddr == kfe.AddrInitFunction ? 3 : 0;
+            }
+            catch (Exception)
+            {
+                return 0;
             }
 
-            if (instructions.Count - idx < 7) return 0;
-
-            instructionsInRange = instructions.GetRange(idx, 6);
-            actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-
-            if (!requiredPattern.SequenceEqual(actualPattern)) return 0;
-
-            callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
-
-            return callAddr == kfe.AddrInitFunction ? 5 : 0;
         }
 
         public static int CheckForStaticClassInitAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
@@ -440,7 +429,7 @@ namespace Cpp2IL
                 ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall
             };
 
-            if (instructions.Count - idx < 7) return 0;
+            if (instructions.Count - idx < 6) return 0;
 
             var instructionsInRange = instructions.GetRange(idx, 6);
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
@@ -493,7 +482,7 @@ namespace Cpp2IL
         {
             if(name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
             
-            var definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
+            var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.CurrentCultureIgnoreCase));
 
             //Generics are dumb.
             var genericParams = new string[0];
@@ -510,9 +499,14 @@ namespace Cpp2IL
             }
 
             if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+            
+            //It's possible they didn't specify a `System.` prefix
+            definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, $"System.{name}", StringComparison.CurrentCultureIgnoreCase));
+            
+            if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
-            var matches = SharedState.AllTypeDefinitions.Where(t => t.Name == name).ToList();
+            var matches = SharedState.AllTypeDefinitions.Where(t => string.Equals(t.Name, name, StringComparison.CurrentCultureIgnoreCase)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 

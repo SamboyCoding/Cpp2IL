@@ -14,6 +14,7 @@ namespace Cpp2IL
         public ulong AddrBailOutFunction;
         public ulong AddrInitStaticFunction;
         public ulong AddrNewFunction;
+        public ulong AddrArrayCreation;
         public ulong AddrNativeLookup;
         public ulong AddrNativeLookupGenMissingMethod;
 
@@ -74,6 +75,7 @@ namespace Cpp2IL
             ret.AddrInitStaticFunction = addr;
             
             //Find `new` function (note this is NOT the constructor) from System.Globalization.DateTimeFormatInfo's ctor
+            //We can actually pick up two methods from here, as the array instantiator is used here too
             methods = methodData.Find(t => t.Item1.Name == "DateTimeFormatInfo" && t.Item1.Namespace == "System.Globalization").Item2;
 
             var ctor = methods.Find(m => m.MethodName == ".ctor");
@@ -84,7 +86,14 @@ namespace Cpp2IL
 
             addr = Utils.GetJumpTarget(calls[1], ctor.MethodOffsetRam + calls[1].PC);
             Console.WriteLine($"\t\tLocated Class Instantiation (`new`) function at 0x{addr:X}");
+            
             ret.AddrNewFunction = addr;
+            
+            //And the fifth for new[]
+            addr = Utils.GetJumpTarget(calls[4], ctor.MethodOffsetRam + calls[4].PC);
+            Console.WriteLine($"\t\tLocated Array Instantiation (`new[]`) function at 0x{addr:X}");
+            
+            ret.AddrArrayCreation = addr;
 
             methods = methodData.Find(t => t.Item1.Name == "Mesh" && t.Item1.Namespace == "UnityEngine").Item2;
 
