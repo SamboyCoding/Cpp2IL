@@ -505,7 +505,6 @@ namespace Cpp2IL
                     {
                         var offset = Utils.GetOperandMemoryOffset(operand);
 
-                        //I'm assuming we're still sticking to the minus-16-divide-8 thing
                         var index = (int) (offset - 0x20) / 8;
 
                         if (index >= 0)
@@ -522,7 +521,7 @@ namespace Cpp2IL
                         _registerAliases.TryGetValue(sourceReg, out var fieldReadAlias);
                         if (fieldReadAlias == null)
                             fieldReadAlias = $"the value in register {sourceReg}";
-                        objectName = $"Field {field.Name} read from {fieldReadAlias}";
+                        objectName = $"{fieldReadAlias}.{field.Name}";
                         objectType = field.FieldType;
                         break;
                     }
@@ -603,7 +602,7 @@ namespace Cpp2IL
                 if (type == null) return null;
 
                 //Read at offset in type
-                var fieldNum = (int) (offset - 16) / 8;
+                var fieldNum = (int) (offset - 0x10) / 8;
 
                 var typeDef = type.Resolve();
                 if (typeDef == null)
