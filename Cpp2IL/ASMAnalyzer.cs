@@ -726,7 +726,7 @@ namespace Cpp2IL
                     destinationFQN = $"{destAlias}.{destinationField.Name}";
             }
 
-            if (destinationFQN == null || instruction.Operands.Length <= 1 || instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
+            if (destinationFQN == null || destinationType == null || instruction.Operands.Length <= 1 || instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
 
             _typeDump.Append($" ; - Write into {destinationField}");
 

@@ -416,43 +416,43 @@ namespace Cpp2IL
         {
             var requiredPattern = new[]
             {
-                ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Icall
+                ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Icall
             };
 
             var alternativePattern = new[]
             {
-                ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Iadd, ud_mnemonic_code.UD_Ijmp
+                ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Iadd, ud_mnemonic_code.UD_Ijmp
             };
 
             var thirdPattern = new[]
             {
-                ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall
+                ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall
             };
 
-            if (instructions.Count - idx < 6) return 0;
+            if (instructions.Count - idx < 5) return 0;
 
-            var instructionsInRange = instructions.GetRange(idx, 6);
+            var instructionsInRange = instructions.GetRange(idx, 5);
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
             if (requiredPattern.SequenceEqual(actualPattern))
             {
-                var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
+                var callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.AddrInitStaticFunction ? 5 : 0;
+                return callAddr == kfe.AddrInitStaticFunction ? 4 : 0;
             }
             else
             {
-                if (instructions.Count - idx < 8) return 0;
+                if (instructions.Count - idx < 7) return 0;
 
-                instructionsInRange = instructions.GetRange(idx, 7);
+                instructionsInRange = instructions.GetRange(idx, 6);
                 actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
 
                 if (!alternativePattern.SequenceEqual(actualPattern) && !thirdPattern.SequenceEqual(actualPattern)) return 0;
 
-                var callAddr = GetJumpTarget(instructionsInRange[6], offsetInRam + instructionsInRange[6].PC);
+                var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.AddrInitStaticFunction ? 6 : 0;
+                return callAddr == kfe.AddrInitStaticFunction ? 5 : 0;
             }
         }
 
