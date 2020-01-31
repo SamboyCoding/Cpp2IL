@@ -23,10 +23,10 @@ namespace Cpp2IL
         private readonly PE.PE _cppAssembly;
         private Dictionary<string, string> _registerAliases;
         private Dictionary<string, TypeReference> _registerTypes;
+        private Dictionary<string, object> _registerContents;
         private StringBuilder _methodFunctionality;
         private StringBuilder _psuedoCode = new StringBuilder();
         private StringBuilder _typeDump;
-        private Dictionary<string, object> _registerContents;
         private List<Instruction> _instructions;
         private int _blockDepth;
         private int _localNum;
@@ -34,6 +34,7 @@ namespace Cpp2IL
 
         private Tuple<(string, TypeReference, object), (string, TypeReference, object)> _lastComparison;
         private List<int> _indentCounts = new List<int>();
+        private Stack<SavedRegisterState> _savedRegisterStates = new Stack<SavedRegisterState>();
 
         internal AsmDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
         {
@@ -267,10 +268,22 @@ namespace Cpp2IL
 
                 typeDump.Append("\n");
 
+                var old = _indentCounts.Count;
+
                 _indentCounts = _indentCounts
                     .Select(i => i - 1)
                     .Where(i => i != 0)
                     .ToList();
+
+                if (_indentCounts.Count < old)
+                {
+                    //Pop cached state
+                    
+                    var savedRegisterState = _savedRegisterStates.Pop();
+                    _registerAliases = savedRegisterState.Aliases;
+                    _registerContents = savedRegisterState.Constants;
+                    _registerTypes = savedRegisterState.Types;
+                }
             }
 
             typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n\n");
@@ -1026,10 +1039,12 @@ namespace Cpp2IL
             if (jumpAddress == _keyFunctionAddresses.AddrBailOutFunction)
             {
                 _typeDump.Append(" - this is the bailout function and will be ignored.");
+                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_BAIL_OUT()\n");
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrInitFunction)
             {
                 _typeDump.Append(" - this is the initialization function and will be ignored.");
+                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_INIT_CLASS()\n");
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrNewFunction)
             {
@@ -1105,6 +1120,7 @@ namespace Cpp2IL
             else if (jumpAddress == _keyFunctionAddresses.AddrInitStaticFunction)
             {
                 _typeDump.Append(" - this is the static class initializer and will be ignored");
+                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_STATIC_INIT_CLASS()\n");
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrNativeLookup)
             {
@@ -1116,6 +1132,12 @@ namespace Cpp2IL
 
                 //Should be a FQ function name, but with the type and function separated with a ::, cpp style.
                 var split = functionName.Split(new[] {"::"}, StringSplitOptions.None);
+
+                if (split.Length < 2)
+                {
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: NativeLookup: {functionName} does not have a :: in it, unable to process\n");
+                    return;
+                }
 
                 var typeName = split[0];
                 var (type, _) = Utils.TryLookupTypeDefByName(typeName);
@@ -1152,6 +1174,12 @@ namespace Cpp2IL
                     //Clear the most recent block (though it probably has just expired anyway), this is the end of the if
                     _indentCounts.RemoveAt(_indentCounts.Count - 1);
 
+                    
+                    var savedRegisterState = _savedRegisterStates.Pop();
+                    _registerAliases = savedRegisterState.Aliases;
+                    _registerContents = savedRegisterState.Constants;
+                    _registerTypes = savedRegisterState.Types;
+
                     //Now we need to find the ELSE length
                     //This current jump goes to the first instruction after it, so take its address - our PC to find function length
                     //TODO: This is ok, but still needs work in E.g AudioDriver_Resume
@@ -1160,6 +1188,8 @@ namespace Cpp2IL
                     instructionIdx++;
                     var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
                     _indentCounts.Add(numToIndent);
+                    
+                    _savedRegisterStates.Push(new SavedRegisterState(_registerAliases, _registerContents, _registerTypes));
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Else:\n"); //This is a +1 not a +2 to remove the indent caused by the current if block
                     _psuedoCode.Append(Utils.Repeat("\t", _blockDepth - 1)).Append("else:\n");
                 }
@@ -1341,6 +1371,8 @@ namespace Cpp2IL
                             instructionIdx++;
                             var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
                             _indentCounts.Add(numToIndent);
+                            
+                            _savedRegisterStates.Push(new SavedRegisterState(_registerAliases, _registerContents, _registerTypes));
                             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {Utils.InvertCondition(condition)}:\n");
                             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("if (").Append(Utils.InvertCondition(condition)).Append("):\n");
                             // var targetInstruction = _instructions[instructionIdx];
@@ -1406,6 +1438,24 @@ namespace Cpp2IL
             }
 
             return null;
+        }
+        
+        private struct SavedRegisterState
+        {
+            public Dictionary<string, string> Aliases;
+            public Dictionary<string, TypeReference> Types;
+            public Dictionary<string, object> Constants;
+
+            public SavedRegisterState(Dictionary<string,string> registerAliases, Dictionary<string,object> registerContents, Dictionary<string,TypeReference> registerTypes)
+            {
+                Aliases = new Dictionary<string, string>();
+                Types = new Dictionary<string, TypeReference>();
+                Constants = new Dictionary<string, object>();
+                
+                foreach (var keyValuePair in registerAliases) Aliases[keyValuePair.Key] = keyValuePair.Value;
+                foreach (var registerContent in registerContents) Constants[registerContent.Key] = registerContent.Value;
+                foreach (var registerType in registerTypes) Types[registerType.Key] = registerType.Value;
+            }
         }
     }
 }
