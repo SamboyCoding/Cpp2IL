@@ -595,7 +595,7 @@ namespace Cpp2IL
             return condition;
         }
 
-        public static ulong GetIMMValue(Instruction insn, Operand op)
+        public static ulong GetImmediateValue(Instruction insn, Operand op)
         {
             ulong num;
             if (op.Opcode == ud_operand_code.OP_sI && op.Size != GetOprMode(insn))

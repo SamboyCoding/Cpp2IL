@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -30,7 +31,7 @@ namespace Cpp2IL
         private int _localNum;
         private List<string> _loopRegisters;
 
-        private Tuple<(string, TypeReference), (string, TypeReference)> _lastComparison;
+        private Tuple<(string, TypeReference, object), (string, TypeReference, object)> _lastComparison;
         private List<int> _indentCounts = new List<int>();
 
         internal AsmDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
@@ -229,7 +230,7 @@ namespace Cpp2IL
             typeDump.Append("\tMethod Body (x86 ASM):\n");
 
             _localNum = 1;
-            _lastComparison = new Tuple<(string, TypeReference), (string, TypeReference)>(("", null), ("", null));
+            _lastComparison = new Tuple<(string, TypeReference, object), (string, TypeReference, object)>(("", null, null), ("", null, null));
             var index = 0;
 
             _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
@@ -337,7 +338,8 @@ namespace Cpp2IL
                     _psuedoCode.Append(_registerAliases[possibility] + "." + target.Name + "(");
                     break;
                 }
-            } else
+            }
+            else
                 _psuedoCode.Append(target.DeclaringType.FullName + "." + target.Name + "(");
 
             foreach (var parameter in target.Parameters)
@@ -392,7 +394,7 @@ namespace Cpp2IL
                         {
                             args.Add($"'{global.Value.Name}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
                             _psuedoCode.Append($"'{global.Value.Name}'");
-                            
+
                             success = true;
                             if (target.Parameters.Last() != parameter)
                                 _psuedoCode.Append(", ");
@@ -469,12 +471,13 @@ namespace Cpp2IL
                 .ToList();
         }
 
-        private (string, TypeReference?) GetDetailsOfReferencedObject(Operand operand, Instruction i)
+        private (string, TypeReference?, object) GetDetailsOfReferencedObject(Operand operand, Instruction i)
         {
             var theBase = operand.Base;
             var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
             string objectName = null;
             TypeReference objectType = null;
+            object constant = null;
             switch (operand.Type)
             {
                 case ud_type.UD_OP_MEM:
@@ -492,15 +495,38 @@ namespace Cpp2IL
                     //Check for global
                     var globalAddr = Utils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
                     if (_globals.Find(g => g.Offset == globalAddr) is {} glob && glob.Offset == globalAddr)
-                        objectName = $"global_{glob.IdentifierType}_{glob.Name}";
+                    {
+                        if (glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                        {
+                            objectName = $"'{glob.Name}'";
+                            objectType = Utils.TryLookupTypeDefByName("System.String").Item1;
+                            constant = glob.Name;
+                        }
+                        else
+                        {
+                            objectName = $"global_{glob.IdentifierType}_{glob.Name}";
+                            objectType = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+                        }
+                    }
                     else
                         objectName = $"[unknown global variable at 0x{globalAddr:X}]";
-                    objectType = Utils.TryLookupTypeDefByName("System.Int64").Item1;
                     break;
                 case ud_type.UD_OP_REG:
                     _registerAliases.TryGetValue(sourceReg, out var alias);
-                    _registerContents.TryGetValue(sourceReg, out var constant);
+                    _registerContents.TryGetValue(sourceReg, out constant);
                     _registerTypes.TryGetValue(sourceReg, out objectType);
+
+                    if (constant is AssemblyBuilder.GlobalIdentifier glob2)
+                    {
+                        if (glob2.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                        {
+                            objectType = Utils.TryLookupTypeDefByName("System.String").Item1;
+                            objectName = $"'{glob2.Name}'";
+                            constant = glob2.Name;
+                            break;
+                        }
+                    }
+                    
                     objectType ??= Utils.TryLookupTypeDefByName(constant?.GetType().FullName).Item1;
                     objectName = alias ??
                                  (constant?.GetType().IsPrimitive == true
@@ -510,14 +536,16 @@ namespace Cpp2IL
                 case ud_type.UD_OP_CONST:
                     objectName = $"0x{operand.LvalUDWord:X}";
                     objectType = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+                    constant = operand.LvalUDWord;
                     break;
                 case ud_type.UD_OP_IMM:
-                    objectName = $"0x{Utils.GetIMMValue(i, operand):X}";
+                    objectName = $"0x{Utils.GetImmediateValue(i, operand):X}";
                     objectType = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+                    constant = Utils.GetImmediateValue(i, operand);
                     break;
             }
 
-            return (objectName ?? $"<unknown refobject type = {operand.Type} constantval = {operand.LvalUDWord} base = {operand.Base}>", objectType);
+            return (objectName ?? $"<unknown refobject type = {operand.Type} constantval = {operand.LvalUDWord} base = {operand.Base}>", objectType, constant);
         }
 
         private FieldDefinition GetFieldReferencedByOperand(Operand operand)
@@ -620,7 +648,7 @@ namespace Cpp2IL
             if (!arithmeticOpcodes.Contains(instruction.Mnemonic)) return;
 
             //The first operand is guaranteed to be an XMM register
-            var (name, type) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
+            var (name, type, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
 
             //The second one COULD be a register, but it could also be a memory location containing a constant (say we're multiplying by 1.5, that'd be a constant)
             if (instruction.Operands[1].Type == ud_type.UD_OP_MEM && instruction.Operands[1].Base == ud_type.UD_R_RIP)
@@ -659,7 +687,7 @@ namespace Cpp2IL
             var destReg = GetRegisterName(instruction.Operands[0]);
             _registerAliases.TryGetValue(destReg, out var destAlias);
 
-            var (sourceAlias, sourceType) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
+            var (sourceAlias, sourceType, constant) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
 
             // if (instruction.Operands[1].Type == ud_type.UD_OP_REG)
             // {
@@ -681,11 +709,26 @@ namespace Cpp2IL
             //     sourceAlias = instruction.Operands[1].LvalUDWord.ToString();
             // }
 
-            if(destinationField.IsStatic)
+            if (destinationField.FieldType.IsPrimitive && constant is ulong num)
+            {
+                var bytes = BitConverter.GetBytes(num);
+                var single = BitConverter.ToSingle(bytes, 0);
+                constant = single;
+                sourceAlias = single.ToString(CultureInfo.InvariantCulture);
+            }
+
+            if (destinationField.FieldType.Name == "Boolean" && constant is float f && Math.Abs(f) > -0.01 && Math.Abs(f) < 1.01)
+            {
+                //1 => true, 0 => false
+                constant = Math.Abs(f - 1) > -0.1;
+                sourceAlias = constant.ToString();
+            }
+
+            if (destinationField.IsStatic)
                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationField.DeclaringType.FullName).Append(".").Append(destinationField.Name).Append(" = ").Append(sourceAlias).Append("\n");
             else
                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destAlias).Append(".").Append(destinationField.Name).Append(" = ").Append(sourceAlias).Append("\n");
-            
+
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set field {destinationField.Name} (type {destinationField.FieldType.FullName}) of {destAlias} to {sourceAlias} (type {sourceType?.FullName})\n");
         }
 
@@ -835,6 +878,23 @@ namespace Cpp2IL
                         _typeDump.Append($" - this is global value {glob.Name} of type {glob.IdentifierType}");
                         _registerAliases[destReg] = $"global_{glob.IdentifierType}_{glob.Name}";
                         _registerContents[destReg] = glob;
+                        switch (glob.IdentifierType)
+                        {
+                            case AssemblyBuilder.GlobalIdentifier.Type.TYPE:
+                                _registerTypes[destReg] = Utils.TryLookupTypeDefByName(glob.Name).Item1;
+                                break;
+                            case AssemblyBuilder.GlobalIdentifier.Type.METHOD:
+                                _registerTypes.Remove(destReg);
+                                break;
+                            case AssemblyBuilder.GlobalIdentifier.Type.FIELD:
+                                _registerTypes.Remove(destReg);
+                                break;
+                            case AssemblyBuilder.GlobalIdentifier.Type.LITERAL:
+                                _registerTypes[destReg] = Utils.TryLookupTypeDefByName("System.String").Item1;
+                                break;
+                            default:
+                                throw new ArgumentOutOfRangeException();
+                        }
                     }
                     else
                     {
@@ -1104,7 +1164,7 @@ namespace Cpp2IL
             //Needs to be TEST or CMP
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest && instruction.Mnemonic != ud_mnemonic_code.UD_Iucomiss && instruction.Mnemonic != ud_mnemonic_code.UD_Icomiss) return;
 
-            _lastComparison = new Tuple<(string, TypeReference), (string, TypeReference)>(GetDetailsOfReferencedObject(instruction.Operands[0], instruction), GetDetailsOfReferencedObject(instruction.Operands[1], instruction));
+            _lastComparison = new Tuple<(string, TypeReference, object), (string, TypeReference, object)>(GetDetailsOfReferencedObject(instruction.Operands[0], instruction), GetDetailsOfReferencedObject(instruction.Operands[1], instruction));
 
             _typeDump.Append($" ; - Comparison between {_lastComparison.Item1.Item1} and {_lastComparison.Item2.Item1}");
         }
@@ -1125,8 +1185,8 @@ namespace Cpp2IL
                 return;
             }
 
-            var (comparisonItemA, typeA) = _lastComparison.Item1;
-            var (comparisonItemB, typeB) = _lastComparison.Item2;
+            var (comparisonItemA, typeA, constA) = _lastComparison.Item1;
+            var (comparisonItemB, typeB, constB) = _lastComparison.Item2;
 
             //TODO: Clear out crap [unknown global] if statements
 
@@ -1145,9 +1205,9 @@ namespace Cpp2IL
                 {
                     var isSelfCheck = Equals(comparisonItemA, comparisonItemB);
                     var isBoolean = typeA?.Name == "Boolean";
-                    if(isBoolean)
+                    if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == false" : $"{comparisonItemA} == {comparisonItemB}";
-                    else if(typeA?.IsPrimitive == true)
+                    else if (typeA?.IsPrimitive == true)
                         condition = isSelfCheck ? $"{comparisonItemA} == 0" : $"{comparisonItemA} == {comparisonItemB}";
                     else
                         condition = isSelfCheck ? $"{comparisonItemA} == null" : $"{comparisonItemA} == {comparisonItemB}";
@@ -1157,9 +1217,9 @@ namespace Cpp2IL
                 {
                     var isSelfCheck = Equals(comparisonItemA, comparisonItemB);
                     var isBoolean = typeA?.Name == "Boolean";
-                    if(isBoolean)
+                    if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == true" : $"{comparisonItemA} != {comparisonItemB}";
-                    else if(typeA?.IsPrimitive == true)
+                    else if (typeA?.IsPrimitive == true)
                         condition = isSelfCheck ? $"{comparisonItemA} != 0" : $"{comparisonItemA} != {comparisonItemB}";
                     else
                         condition = isSelfCheck ? $"{comparisonItemA} != null" : $"{comparisonItemA} != {comparisonItemB}";
