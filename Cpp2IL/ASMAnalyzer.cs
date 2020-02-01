@@ -14,6 +14,10 @@ namespace Cpp2IL
     internal class AsmDumper
     {
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
+        private static readonly TypeReference StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
+        private static readonly TypeReference LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+        private static readonly TypeReference FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
+        private static readonly TypeReference IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
 
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
@@ -180,7 +184,7 @@ namespace Cpp2IL
             foreach (var loopRegister in _loopRegisters)
             {
                 _registerAliases[loopRegister] = $"counter{counterNum}";
-                _registerTypes[loopRegister] = Utils.TryLookupTypeDefByName("System.Int32").Item1;
+                _registerTypes[loopRegister] = IntegerReference;
                 loopDetails.Add($"counter{counterNum} in {loopRegister}");
                 counterNum++;
             }
@@ -533,13 +537,13 @@ namespace Cpp2IL
                         if (glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
                         {
                             objectName = $"'{glob.Name}'";
-                            objectType = Utils.TryLookupTypeDefByName("System.String").Item1;
+                            objectType = StringReference;
                             constant = glob.Name;
                         }
                         else
                         {
                             objectName = $"global_{glob.IdentifierType}_{glob.Name}";
-                            objectType = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+                            objectType = LongReference;
                         }
                     }
                     else
@@ -555,7 +559,7 @@ namespace Cpp2IL
                     {
                         if (glob2.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
                         {
-                            objectType = Utils.TryLookupTypeDefByName("System.String").Item1;
+                            objectType = StringReference;
                             objectName = $"'{glob2.Name}'";
                             constant = glob2.Name;
                             break;
@@ -570,12 +574,12 @@ namespace Cpp2IL
                     break;
                 case ud_type.UD_OP_CONST:
                     objectName = $"0x{operand.LvalUDWord:X}";
-                    objectType = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+                    objectType = LongReference;
                     constant = operand.LvalUDWord;
                     break;
                 case ud_type.UD_OP_IMM:
                     objectName = $"0x{Utils.GetImmediateValue(i, operand):X}";
-                    objectType = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+                    objectType = LongReference;
                     constant = Utils.GetImmediateValue(i, operand);
                     break;
             }
@@ -719,7 +723,7 @@ namespace Cpp2IL
             _registerAliases.TryGetValue(destReg, out var destAlias);
             var destinationField = GetFieldReferencedByOperand(instruction.Operands[0]);
             var destinationType = destinationField?.FieldType;
-            string destinationFQN = null;
+            string destinationFullyQualifiedName = null;
 
             if (destinationField == null && _registerTypes.ContainsKey(destReg) && _registerTypes[destReg]?.IsArray == true)
             {
@@ -728,17 +732,17 @@ namespace Cpp2IL
                 if (alias.Contains("["))
                 {
                     destinationType = type;
-                    destinationFQN = alias;
+                    destinationFullyQualifiedName = alias;
                 }
             } else if (destinationField != null)
             {
                 if (destinationField.IsStatic)
-                    destinationFQN = $"{destinationField.DeclaringType.FullName}.{destinationField.Name}";
+                    destinationFullyQualifiedName = $"{destinationField.DeclaringType.FullName}.{destinationField.Name}";
                 else
-                    destinationFQN = $"{destAlias}.{destinationField.Name}";
+                    destinationFullyQualifiedName = $"{destAlias}.{destinationField.Name}";
             }
 
-            if (destinationFQN == null || destinationType == null || instruction.Operands.Length <= 1 || instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
+            if (destinationFullyQualifiedName == null || destinationType == null || instruction.Operands.Length <= 1 || instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
 
             _typeDump.Append($" ; - Write into {destinationField}");
 
@@ -759,8 +763,8 @@ namespace Cpp2IL
                 sourceAlias = constant.ToString();
             }
 
-            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationFQN).Append(" = ").Append(sourceAlias).Append("\n");
-            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFQN} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})\n");
+            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationFullyQualifiedName).Append(" = ").Append(sourceAlias).Append("\n");
+            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})\n");
         }
 
         private void CheckForFieldReads(Instruction instruction)
@@ -845,12 +849,12 @@ namespace Cpp2IL
             if (instruction.Mnemonic == ud_mnemonic_code.UD_Ixorps)
             {
                 _registerContents[secondReg] = 0.0f;
-                _registerTypes[secondReg] = Utils.TryLookupTypeDefByName("System.Single").Item1;
+                _registerTypes[secondReg] = FloatReference;
             }
             else
             {
                 _registerContents[secondReg] = 0;
-                _registerTypes[secondReg] = Utils.TryLookupTypeDefByName("System.Int32").Item1; //TODO: Consider keeping some key types around for perf
+                _registerTypes[secondReg] = IntegerReference;
             }
         }
 
@@ -921,7 +925,7 @@ namespace Cpp2IL
                                 _registerTypes.Remove(destReg);
                                 break;
                             case AssemblyBuilder.GlobalIdentifier.Type.LITERAL:
-                                _registerTypes[destReg] = Utils.TryLookupTypeDefByName("System.String").Item1;
+                                _registerTypes[destReg] = StringReference;
                                 _typeDump.Append($" - therefore {destReg} now has type String");
                                 break;
                             default:
@@ -949,7 +953,7 @@ namespace Cpp2IL
                                 {
                                     _typeDump.Append(" - literal: " + literal);
                                     _registerAliases[destReg] = literal.ToString();
-                                    _registerTypes[destReg] = Utils.TryLookupTypeDefByName("System.String").Item1;
+                                    _registerTypes[destReg] = StringReference;
                                     _registerContents.Remove(destReg);
                                     return;
                                 }
@@ -971,7 +975,7 @@ namespace Cpp2IL
                     //Immediate - constant
                     _registerContents[destReg] = Utils.GetImmediateValue(instruction, instruction.Operands[1]);
                     _registerAliases[destReg] = _registerContents[destReg].ToString();
-                    _registerTypes[destReg] = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+                    _registerTypes[destReg] = LongReference;
                     _typeDump.Append($" ; - Moves constant of value {_registerContents[destReg]} into {destReg}");
                     break;
                 default:
@@ -1277,8 +1281,8 @@ namespace Cpp2IL
                 return;
             }
 
-            var (comparisonItemA, typeA, constA) = _lastComparison.Item1;
-            var (comparisonItemB, typeB, constB) = _lastComparison.Item2;
+            var (comparisonItemA, typeA, _) = _lastComparison.Item1;
+            var (comparisonItemB, _, _) = _lastComparison.Item2;
 
             //TODO: Clear out crap [unknown global] if statements
 

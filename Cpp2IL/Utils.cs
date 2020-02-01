@@ -482,7 +482,7 @@ namespace Cpp2IL
         {
             if(name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
             
-            var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.CurrentCultureIgnoreCase));
+            var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
 
             //Generics are dumb.
             var genericParams = new string[0];
@@ -501,19 +501,21 @@ namespace Cpp2IL
             if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
             
             //It's possible they didn't specify a `System.` prefix
-            definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, $"System.{name}", StringComparison.CurrentCultureIgnoreCase));
+            var searchString = $"System.{name}";
+            definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
             
             if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
-            var matches = SharedState.AllTypeDefinitions.Where(t => string.Equals(t.Name, name, StringComparison.CurrentCultureIgnoreCase)).ToList();
+            var matches = SharedState.AllTypeDefinitions.Where(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 
             if (definedType != null || !name.Contains(".")) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
 
             //Try subclasses
-            matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.EndsWith(name.Replace(".", "/"))).ToList();
+            searchString = name.Replace(".", "/");
+            matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.EndsWith(searchString)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 

@@ -332,7 +332,7 @@ namespace Cpp2IL
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
 
-            File.WriteAllText(Path.Combine(Path.GetFullPath("audica_shredder_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_") + "_metadata.txt"), typeMetaText.ToString());
+            // File.WriteAllText(Path.Combine(Path.GetFullPath("audica_shredder_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_") + "_metadata.txt"), typeMetaText.ToString());
 
             if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
 
