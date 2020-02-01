@@ -18,6 +18,7 @@ namespace Cpp2IL
         private static readonly TypeReference LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
         private static readonly TypeReference FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
         private static readonly TypeReference IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
+        private static readonly TypeReference BooleanReference  = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
 
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
@@ -605,27 +606,24 @@ namespace Cpp2IL
                 _registerTypes.TryGetValue(sourceReg, out var type);
                 if (type == null) return null;
 
-                //Read at offset in type
-                var fieldNum = (int) (offset - 0x10) / 8;
-
-                var typeDef = type.Resolve();
+                var typeDef = SharedState.AllTypeDefinitions.Find(t => t.FullName == type.FullName);
                 if (typeDef == null)
                 {
                     (typeDef, _) = Utils.TryLookupTypeDefByName(type.FullName);
                 }
 
                 if (typeDef == null) return null;
+                
+                
+                var fields = SharedState.FieldsByType[typeDef];
 
-                var fields = typeDef.Fields.Where(f => f.Constant == null).ToList();
-                if (fields.Count <= fieldNum || fieldNum < 0) return null;
-                try
-                {
-                    return fields[fieldNum];
-                }
-                catch (Exception)
-                {
-                    return null;
-                }
+                var fieldRecord = fields.FirstOrDefault(f => f.Offset == offset);
+
+                if (fieldRecord.Offset != offset) return null;
+
+                var field = typeDef.Fields.FirstOrDefault(f => f.Name == fieldRecord.Name);
+
+                return field;
             }
             else
             {
@@ -751,9 +749,19 @@ namespace Cpp2IL
             if (destinationType.IsPrimitive && constant is ulong num)
             {
                 var bytes = BitConverter.GetBytes(num);
-                var single = BitConverter.ToSingle(bytes, 0);
-                constant = single;
-                sourceAlias = single.ToString(CultureInfo.InvariantCulture);
+                if(destinationType.Name == "Int32") {
+                    var integer = BitConverter.ToInt32(bytes, 0);
+                    sourceAlias = integer.ToString(CultureInfo.InvariantCulture);
+                    sourceType = IntegerReference;
+                    constant = integer;
+                }
+                else
+                {
+                    var single = BitConverter.ToSingle(bytes, 0);
+                    sourceAlias = single.ToString(CultureInfo.InvariantCulture);
+                    sourceType = FloatReference;
+                    constant = single;
+                }
             }
 
             if (destinationType.Name == "Boolean" && constant is float f && Math.Abs(f) > -0.01 && Math.Abs(f) < 1.01)
@@ -761,6 +769,7 @@ namespace Cpp2IL
                 //1 => true, 0 => false
                 constant = Math.Abs(f - 1) > -0.1;
                 sourceAlias = constant.ToString();
+                sourceType = BooleanReference;
             }
 
             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationFullyQualifiedName).Append(" = ").Append(sourceAlias).Append("\n");
@@ -1067,8 +1076,13 @@ namespace Cpp2IL
 
                             if (definedType != null)
                             {
-                                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(definedType.FullName).Append(" ").Append("local").Append(_localNum).Append(" = new ").Append(definedType.FullName).Append("()\n");
-                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of type {definedType.FullName}{(genericParams.Length > 0 ? $" with generic parameters {string.Join(",", genericParams)}" : "")}\n");
+                                var name = definedType.FullName;
+                                if (genericParams.Length != 0)
+                                    name = name.Replace($"`{genericParams.Length}", "");
+                                
+                                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(name).AppendGenerics(genericParams).Append(" ").Append("local").Append(_localNum).Append(" = new ").Append(name).AppendGenerics(genericParams).Append("()\n");
+                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of type {name}{(genericParams.Length > 0 ? $" with generic parameters {string.Join(",", genericParams)}" : "")}\n");
+
                                 PushMethodReturnTypeToLocal(definedType);
                                 success = true;
                             }

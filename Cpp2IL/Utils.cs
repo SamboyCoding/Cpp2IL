@@ -633,5 +633,24 @@ namespace Cpp2IL
 
             return num;
         }
+
+        public static StringBuilder AppendGenerics(this StringBuilder builder, string[] genericParams)
+        {
+            if (genericParams.Length > 0)
+            {
+                builder.Append("<");
+                                    
+                foreach (var genericParam in genericParams)
+                {
+                    builder.Append(genericParam);
+                    if (genericParams.Last() != genericParam)
+                        builder.Append(", ");
+                }
+
+                builder.Append(">");
+            }
+
+            return builder;
+        }
     }
 }

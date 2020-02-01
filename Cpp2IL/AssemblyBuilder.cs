@@ -11,6 +11,24 @@ namespace Cpp2IL
 {
     internal static class AssemblyBuilder
     {
+        private static Dictionary<string, ulong> Primitives = new Dictionary<string, ulong>(14)
+        {
+            {"Byte", 1},
+            {"SByte", 1},
+            {"Boolean", 1},
+            {"Int16", 2},
+            {"UInt16", 2},
+            {"Char", 2},
+            {"Int32", 4},
+            {"UInt32", 4},
+            {"Single", 4},
+            {"Int64", 8},
+            {"UInt64", 8},
+            {"Double", 8},
+            {"IntPtr", (ulong) IntPtr.Size},
+            {"UIntPtr", (ulong) UIntPtr.Size},
+        };
+
         /// <summary>
         /// Creates all the Assemblies defined in the provided metadata, along with (stub) definitions of all the types contained therein, and registers them with the resolver.
         /// </summary>
@@ -146,6 +164,8 @@ namespace Cpp2IL
             }
 
             //field
+            var fields = new List<FieldInType>();
+            ulong fieldOffset = 0x10;
             var lastFieldIdx = cppTypeDefinition.firstFieldIdx + cppTypeDefinition.field_count;
             for (var fieldIdx = cppTypeDefinition.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
             {
@@ -154,8 +174,7 @@ namespace Cpp2IL
                 var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
                 var fieldTypeRef = Utils.ImportTypeInto(ilTypeDefinition, fieldType, cppAssembly, metadata);
 
-                var fieldDefinition =
-                    new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
+                var fieldDefinition = new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
                 ilTypeDefinition.Fields.Add(fieldDefinition);
 
                 //Field default values
@@ -168,12 +187,42 @@ namespace Cpp2IL
                             fieldDefault.typeIndex, metadata, cppAssembly);
                     }
                 }
+                
+                ulong length = 8;
+                if (fieldTypeRef.IsPrimitive)
+                {
+                    Primitives.TryGetValue(fieldTypeRef.Name, out length);
+                }
 
-                typeMetaText.Append($"\n\tField: {fieldName}\n")
-                    .Append(
-                        $"\t\tType: {(fieldTypeRef.Namespace == "" ? "<None>" : fieldTypeRef.Namespace)}.{fieldTypeRef.Name}\n")
-                    .Append($"\t\tDefault Value: {fieldDefinition.Constant}");
+                if (Math.Floor(fieldOffset / (decimal) 8) != Math.Floor((fieldOffset + length - 1) / (decimal) 8))
+                {
+                    //Would cross an alignment boundary, so move to the next multiple of 8
+                    //TODO: 32-bit is boundaries of four and default length should be the same
+                    fieldOffset = (ulong) ((Math.Floor(fieldOffset / (decimal) 8) + 1) * 8);
+                } 
+
+                var field = new FieldInType
+                {
+                    Name = fieldName,
+                    Type = fieldTypeRef,
+                    Offset = fieldOffset,
+                    Static = fieldDefinition.IsStatic,
+                    Constant = fieldDefinition.Constant
+                };
+
+                fieldOffset += length;
+
+                fields.Add(field);
+
+                typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
+                    .Append($"\t\tType: {field.Type.FullName}\n")
+                    .Append($"\t\tOffset in Defining Type: {field.Offset}\n");
+
+                if (field.Constant != null)
+                    typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
             }
+
+            SharedState.FieldsByType[ilTypeDefinition] = fields;
 
             //Methods
             var lastMethodId = cppTypeDefinition.firstMethodId + cppTypeDefinition.method_count;
@@ -201,7 +250,7 @@ namespace Cpp2IL
                 while (true)
                 {
                     var b = cppAssembly.raw[offset];
-                    if(b == 0xC3 && cppAssembly.raw[offset + 1] == 0xCC) break;
+                    if (b == 0xC3 && cppAssembly.raw[offset + 1] == 0xCC) break;
                     if (b == 0xCC && bytes.Count > 0 && (bytes.Last() == 0xcc || bytes.Last() == 0xc3)) break;
                     bytes.Add(b);
                     offset++;
@@ -332,7 +381,7 @@ namespace Cpp2IL
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
 
-            // File.WriteAllText(Path.Combine(Path.GetFullPath("audica_shredder_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_") + "_metadata.txt"), typeMetaText.ToString());
+            File.WriteAllText(Path.Combine(Path.GetFullPath("audica_shredder_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_") + "_metadata.txt"), typeMetaText.ToString());
 
             if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
 
@@ -423,7 +472,7 @@ namespace Cpp2IL
                     Name = $"{metadata.GetStringLiteralFromIndex(kvp.Value)}"
                 })
             );
-            
+
             foreach (var kvp in metadata.metadataUsageDic[6]) //kIl2CppMetadataUsageMethodRef
             {
                 var methodSpec = cppAssembly.methodSpecs[kvp.Value];
@@ -435,12 +484,14 @@ namespace Cpp2IL
                     var classInst = cppAssembly.genericInsts[methodSpec.classIndexIndex];
                     typeName += Utils.GetGenericTypeParams(metadata, cppAssembly, classInst);
                 }
+
                 var methodName = typeName + "." + metadata.GetStringFromIndex(methodDef.nameIndex) + "()";
                 if (methodSpec.methodIndexIndex != -1)
                 {
                     var methodInst = cppAssembly.genericInsts[methodSpec.methodIndexIndex];
                     methodName += Utils.GetGenericTypeParams(metadata, cppAssembly, methodInst);
                 }
+
                 ret.Add(new GlobalIdentifier
                 {
                     Name = methodName,

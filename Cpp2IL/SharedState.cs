@@ -13,5 +13,7 @@ namespace Cpp2IL
         internal static Dictionary<long, GenericParameter> GenericParamsByIndex = new Dictionary<long, GenericParameter>();
         
         internal static List<TypeDefinition> AllTypeDefinitions = new List<TypeDefinition>();
+        
+        internal static Dictionary<TypeDefinition, List<FieldInType>> FieldsByType = new Dictionary<TypeDefinition, List<FieldInType>>();
     }
 }
