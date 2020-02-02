@@ -483,12 +483,10 @@ namespace Cpp2IL
             //Boolean => al
             var reg = returnType.Name == "Single" || returnType.Name == "Double" || returnType.Name == "Decimal"
                 ? "xmm0"
-                : returnType.Name == "Boolean"
-                    ? "al"
-                    : "rax";
+                : "rax";
             _registerTypes[reg] = returnType;
             _registerAliases[reg] = $"local{_localNum}";
-            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable local{_localNum} of type {returnType.Name} and sets it to the return value\n");
+            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable local{_localNum} of type {returnType.Name} in {reg} and sets it to the return value\n");
             _localNum++;
         }
 
@@ -888,7 +886,7 @@ namespace Cpp2IL
                         _registerAliases[destReg] = $"local{_localNum}";
                         _localNum++;
 
-                        _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable {_registerAliases[destReg]} with constant value {result}\n");
+                        _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable {_registerAliases[destReg]} in {destReg} with constant value {result}\n");
                         _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(IntegerReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(result).Append("\n");
                         return;
                     }
