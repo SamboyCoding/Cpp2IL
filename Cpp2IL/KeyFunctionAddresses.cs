@@ -74,39 +74,49 @@ namespace Cpp2IL
             Console.WriteLine($"\t\tLocated Static Class Init function at 0x{addr:X}");
             ret.AddrInitStaticFunction = addr;
             
-            //Find `new` function (note this is NOT the constructor) from System.Globalization.DateTimeFormatInfo's ctor
+            //Find `new` function (note this is NOT the constructor) from System.Security.Cryptography.X509Certificates.X509Extension::FormatUnkownData (yes, there's a typo in the method name lol)
+            //We were using DateTimeFormatInfo but that's not constant between mono versions - this is.
             //We can actually pick up two methods from here, as the array instantiator is used here too
-            methods = methodData.Find(t => t.Item1.Name == "DateTimeFormatInfo" && t.Item1.Namespace == "System.Globalization").Item2;
+            methods = methodData.Find(t => t.Item1.Name == "X509Extension" && t.Item1.Namespace == "System.Security.Cryptography.X509Certificates").Item2;
 
-            var ctor = methods.Find(m => m.MethodName == ".ctor");
-            instructions = Utils.DisassembleBytes(ctor.MethodBytes);
+            var method = methods.Find(m => m.MethodName == "FormatUnkownData"); //Yes, there's a typo
+            instructions = Utils.DisassembleBytes(method.MethodBytes);
             
             //Once again just get the second call
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            addr = Utils.GetJumpTarget(calls[1], ctor.MethodOffsetRam + calls[1].PC);
+            addr = Utils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
             Console.WriteLine($"\t\tLocated Class Instantiation (`new`) function at 0x{addr:X}");
             
             ret.AddrNewFunction = addr;
             
-            //And the fifth for new[]
-            addr = Utils.GetJumpTarget(calls[4], ctor.MethodOffsetRam + calls[4].PC);
+            //Find new[] using BitConverter
+            methods = methodData.Find(t => t.Item1.Name == "BitConverter" && t.Item1.Namespace == "System").Item2;
+
+            method = methods.Find(m => m.MethodName == "GetBytes");
+            
+            instructions = Utils.DisassembleBytes(method.MethodBytes);
+            
+            //Once again just get the second call
+            calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+            
+            addr = Utils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
             Console.WriteLine($"\t\tLocated Array Instantiation (`new[]`) function at 0x{addr:X}");
             
             ret.AddrArrayCreation = addr;
 
             methods = methodData.Find(t => t.Item1.Name == "Mesh" && t.Item1.Namespace == "UnityEngine").Item2;
 
-            ctor = methods.Find(m => m.MethodName == ".ctor");
-            instructions = Utils.DisassembleBytes(ctor.MethodBytes);
+            method = methods.Find(m => m.MethodName == ".ctor");
+            instructions = Utils.DisassembleBytes(method.MethodBytes);
             
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
             
-            addr = Utils.GetJumpTarget(calls[2], ctor.MethodOffsetRam + calls[2].PC);
+            addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
             Console.WriteLine($"\t\tLocated Native Method Lookup function at 0x{addr:X}");
             ret.AddrNativeLookup = addr;
             
-            addr = Utils.GetJumpTarget(calls[3], ctor.MethodOffsetRam + calls[3].PC);
+            addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
             Console.WriteLine($"\t\tLocated Native Method Bailout function at 0x{addr:X}");
             ret.AddrNativeLookupGenMissingMethod = addr;
             

@@ -275,6 +275,9 @@ namespace Cpp2IL
 
                 Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
             }
+            
+            Console.WriteLine("[Finished. Press enter to exit]");
+            Console.ReadLine();
         }
 
 

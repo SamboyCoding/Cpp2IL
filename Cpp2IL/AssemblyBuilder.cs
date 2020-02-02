@@ -127,6 +127,8 @@ namespace Cpp2IL
                     var interfaceTypeRef = Utils.ImportTypeInto(definition, interfaceType, theDll, metadata);
                     definition.Interfaces.Add(new InterfaceImplementation(interfaceTypeRef));
                 }
+
+                SharedState.TypeDefsByAddress[typeIndex] = definition;
             }
         }
 
@@ -156,7 +158,8 @@ namespace Cpp2IL
         {
             var typeMetaText = new StringBuilder();
             typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
-                .Append("\n\tParent Classes/Interfaces:\n");
+                .Append($"\n\tBase Class: \n\t\t{ilTypeDefinition.BaseType}\n")
+                .Append("\n\tInterfaces:\n");
 
             foreach (var iface in ilTypeDefinition.Interfaces)
             {
@@ -165,7 +168,27 @@ namespace Cpp2IL
 
             //field
             var fields = new List<FieldInType>();
-            ulong fieldOffset = 0x10;
+
+            var baseFields = new List<FieldDefinition>();
+
+            var current = ilTypeDefinition;
+            while (current.BaseType != null)
+            {
+                var targetName = current.BaseType.FullName;
+                current = SharedState.AllTypeDefinitions.Find(t => t.FullName == targetName);
+
+                if (current == null)
+                {
+                    typeMetaText.Append("WARN: Type " + targetName + " is not defined yet\n");
+                    break;
+                }
+
+                baseFields.AddRange(current.Fields.Where(f => !f.IsStatic));
+            }
+
+            //Handle base fields
+            var fieldOffset = baseFields.Aggregate<FieldDefinition, ulong>(0x10, (current1, baseField) => HandleField(baseField.FieldType, current1, baseField.Name, baseField, fields, typeMetaText));
+
             var lastFieldIdx = cppTypeDefinition.firstFieldIdx + cppTypeDefinition.field_count;
             for (var fieldIdx = cppTypeDefinition.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
             {
@@ -187,39 +210,9 @@ namespace Cpp2IL
                             fieldDefault.typeIndex, metadata, cppAssembly);
                     }
                 }
-                
-                ulong length = 8;
-                if (fieldTypeRef.IsPrimitive)
-                {
-                    Primitives.TryGetValue(fieldTypeRef.Name, out length);
-                }
 
-                if (Math.Floor(fieldOffset / (decimal) 8) != Math.Floor((fieldOffset + length - 1) / (decimal) 8))
-                {
-                    //Would cross an alignment boundary, so move to the next multiple of 8
-                    //TODO: 32-bit is boundaries of four and default length should be the same
-                    fieldOffset = (ulong) ((Math.Floor(fieldOffset / (decimal) 8) + 1) * 8);
-                } 
-
-                var field = new FieldInType
-                {
-                    Name = fieldName,
-                    Type = fieldTypeRef,
-                    Offset = fieldOffset,
-                    Static = fieldDefinition.IsStatic,
-                    Constant = fieldDefinition.Constant
-                };
-
-                fieldOffset += length;
-
-                fields.Add(field);
-
-                typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
-                    .Append($"\t\tType: {field.Type.FullName}\n")
-                    .Append($"\t\tOffset in Defining Type: {field.Offset}\n");
-
-                if (field.Constant != null)
-                    typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
+                if(!fieldDefinition.IsStatic)
+                    fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, fields, typeMetaText);
             }
 
             SharedState.FieldsByType[ilTypeDefinition] = fields;
@@ -407,6 +400,43 @@ namespace Cpp2IL
             }
 
             return typeMethods;
+        }
+
+        private static ulong HandleField(TypeReference fieldTypeRef, ulong fieldOffset, string fieldName, FieldDefinition fieldDefinition, List<FieldInType> fields, StringBuilder typeMetaText)
+        {
+            ulong length = 8;
+            if (fieldTypeRef.IsPrimitive)
+            {
+                Primitives.TryGetValue(fieldTypeRef.Name, out length);
+            }
+
+            if (Math.Floor(fieldOffset / (decimal) 8) != Math.Floor((fieldOffset + length - 1) / (decimal) 8))
+            {
+                //Would cross an alignment boundary, so move to the next multiple of 8
+                //TODO: 32-bit is boundaries of four and default length should be the same
+                fieldOffset = (ulong) ((Math.Floor(fieldOffset / (decimal) 8) + 1) * 8);
+            }
+
+            var field = new FieldInType
+            {
+                Name = fieldName,
+                Type = fieldTypeRef,
+                Offset = fieldOffset,
+                Static = fieldDefinition.IsStatic,
+                Constant = fieldDefinition.Constant
+            };
+
+            fieldOffset += length;
+
+            fields.Add(field);
+
+            typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
+                .Append($"\t\tType: {field.Type.FullName}\n")
+                .Append($"\t\tOffset in Defining Type: {field.Offset}\n");
+
+            if (field.Constant != null)
+                typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
+            return fieldOffset;
         }
 
         internal static List<GlobalIdentifier> MapGlobalIdentifiers(Il2CppMetadata metadata, PE.PE cppAssembly)

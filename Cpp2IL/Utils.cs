@@ -456,22 +456,22 @@ namespace Cpp2IL
             }
         }
 
-        public static ulong GetOperandMemoryOffset(Operand op)
+        public static int GetOperandMemoryOffset(Operand op)
         {
             if (op.Type != ud_type.UD_OP_MEM) return 0;
             var num1 = op.Offset switch
             {
-                8 => (ulong) op.LvalSByte,
-                16 => (ulong) op.LvalSWord,
-                32 => (ulong) op.LvalSDWord,
-                _ => 0UL
+                8 => (int) op.LvalSByte,
+                16 => (int) op.LvalSWord,
+                32 => op.LvalSDWord,
+                _ => 0
             };
             return num1;
         }
 
         public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
         {
-            var num1 = GetOperandMemoryOffset(op);
+            var num1 = (ulong) GetOperandMemoryOffset(op);
 
             if (num1 == 0) return 0;
 
