@@ -20,6 +20,7 @@ namespace Cpp2IL
         private static readonly TypeReference FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
         private static readonly TypeReference IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
         private static readonly TypeReference BooleanReference = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
+        private static readonly TypeReference TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
 
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
@@ -498,10 +499,11 @@ namespace Cpp2IL
 
         private string UpscaleRegisters(string replaceIn)
         {
-            //Specical case: "al" => "rax"
+            //Special case: "al" => "rax"
             if (replaceIn == "al")
                 return "rax";
 
+            //R9d, etc.
             if (replaceIn.StartsWith("r") && replaceIn.EndsWith("d"))
                 return replaceIn.Substring(0, replaceIn.Length - 1);
 
@@ -569,6 +571,7 @@ namespace Cpp2IL
                             {
                                 objectName = $"global_{glob.IdentifierType}_{glob.Name}";
                                 objectType = LongReference;
+                                constant = glob;
                             }
                         }
                         else
@@ -581,7 +584,7 @@ namespace Cpp2IL
                     _registerContents.TryGetValue(sourceReg, out constant);
                     _registerTypes.TryGetValue(sourceReg, out objectType);
 
-                    if (constant is AssemblyBuilder.GlobalIdentifier glob2)
+                    if (alias?.StartsWith("global_") != false && constant is AssemblyBuilder.GlobalIdentifier glob2)
                     {
                         if (glob2.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
                         {
@@ -895,6 +898,47 @@ namespace Cpp2IL
                         //Ignore
                     }
                 }
+                
+                //Check for the bizarre case of reading the type of an array.
+                if (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true)
+                {
+                    var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+                    var arrayIndex = (offset - 0x20) / 8;
+
+                    if (_registerContents.ContainsKey(sourceReg))
+                    {
+                        try
+                        {                            
+                            //If we have this situation then the constant tells us the length of the array
+                            var arrayLength = (int) _registerContents[sourceReg];
+
+                            if (arrayIndex == arrayLength)
+                            {
+                                //Accessing one more value than we have is used to get the type of the array
+                                var destReg = GetRegisterName(instruction.Operands[0]);
+
+                                var arrayType = (ArrayType) _registerTypes[sourceReg];
+
+                                _registerTypes[destReg] = TypeReference;
+                                _registerAliases[destReg] = $"local{_localNum}";
+                                _registerContents[destReg] = arrayType.GetElementType();
+                                _localNum++;
+
+                                _typeDump.Append($" ; - loads the type of the array ({arrayType.GetElementType().FullName}) into {destReg}");
+
+                                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(TypeReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(_registerAliases[sourceReg]).Append(".GetType().GetElementType() //Get the type of the array\n");
+                                _methodFunctionality.Append(
+                                    $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType.GetElementType().FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
+
+                                return;
+                            }
+                        }
+                        catch (InvalidCastException)
+                        {
+                            //Ignore
+                        }
+                    }
+                }
 
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Field Read: Failed to work out which field we are reading. Indicative of missed generated code or further calibration required, probably\n");
                 _typeDump.Append($" ; - field read on unknown field from an unknown/unresolved type that's in reg {sourceReg}");
@@ -1006,6 +1050,11 @@ namespace Cpp2IL
                         {
                             _registerTypes[destReg] = _registerTypes[sourceReg];
                             _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s type {_registerTypes[sourceReg]}");
+                        }
+                        if (_registerContents.ContainsKey(sourceReg))
+                        {
+                            _registerContents[destReg] = _registerContents[sourceReg];
+                            _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s constant value of {_registerContents[sourceReg]}");
                         }
                     }
                     else if (_registerAliases.ContainsKey(destReg))
@@ -1227,6 +1276,7 @@ namespace Cpp2IL
                             {
                                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(definedType.FullName).Append("[] ").Append("local").Append(_localNum).Append(" = new ").Append(definedType.FullName).Append("[").Append(arraySize).Append("]\n");
                                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of type {definedType.FullName}[]{(genericParams.Length > 0 ? $" with generic parameters {string.Join(",", genericParams)}" : "")} of size {arraySize}\n");
+                                _registerContents["rax"] = (int) arraySize; //Store array size in here for bounds checks
                                 PushMethodReturnTypeToLocal(definedType.MakeArrayType());
                                 success = true;
                             }
@@ -1283,6 +1333,64 @@ namespace Cpp2IL
             else if (jumpAddress == _keyFunctionAddresses.AddrNativeLookupGenMissingMethod)
             {
                 _typeDump.Append(" - this is the native lookup bailout function");
+            }
+            else if (jumpAddress == _keyFunctionAddresses.AddrBoxValueMethod)
+            {
+                _typeDump.Append(" - this is the box value function.");
+                //rcx has the destination type global, rdx has what we're casting
+                _registerContents.TryGetValue("rcx", out var g);
+                _registerAliases.TryGetValue("rdx", out var castTarget);
+
+                if (g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0 && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
+                {
+                    _typeDump.Append($" - Casts the primitive value {castTarget} to {glob.Name}");
+                }
+            }
+            else if (jumpAddress == _keyFunctionAddresses.AddrSafeCastMethod)
+            {
+                _typeDump.Append(" - this is the safe cast function.");
+                //rdx has the destination type, rcx has what we're casting
+                _registerContents.TryGetValue("rdx", out var t);
+                object castTarget;
+                AssemblyBuilder.GlobalIdentifier globalIdentifier = default;
+                _registerAliases.TryGetValue("rcx", out var castAlias);
+                if (castAlias?.StartsWith("global") == true)
+                {
+                    _registerContents.TryGetValue("rcx", out var g);
+                    if (g is AssemblyBuilder.GlobalIdentifier glob)
+                    {
+                        castTarget = glob.Name;
+                        globalIdentifier = glob;
+                    }
+                    else
+                        castTarget = g;
+                }
+                else
+                    castTarget = castAlias;
+
+                if (t is TypeReference type)
+                {
+                    _typeDump.Append($" - Safe casts {castTarget} to {type.FullName}");
+
+                    //Push a local
+                    _registerAliases["rax"] = $"local{_localNum}";
+                    _registerContents["rax"] = globalIdentifier.Offset == 0 ? castTarget : globalIdentifier;
+                    _registerTypes["rax"] = type;
+
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Safe casts {castTarget} to new local {_registerAliases["rax"]}\n");
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(type.FullName).Append(" ").Append(_registerAliases["rax"]).Append(" = (").Append(type.FullName).Append(") ");
+                    
+                    if (globalIdentifier.Offset == 0 || globalIdentifier.IdentifierType != AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                    {
+                        _psuedoCode.Append(globalIdentifier.Name ?? castTarget);
+                    }
+                    else
+                    {
+                        _psuedoCode.Append($"'{globalIdentifier.Name}'");
+                    }
+
+                    _psuedoCode.Append("\n");
+                }
             }
             else
             {

@@ -17,6 +17,8 @@ namespace Cpp2IL
         public ulong AddrArrayCreation;
         public ulong AddrNativeLookup;
         public ulong AddrNativeLookupGenMissingMethod;
+        public ulong AddrBoxValueMethod;
+        public ulong AddrSafeCastMethod;
 
         public static KeyFunctionAddresses Find(List<Tuple<TypeDefinition, List<CppMethodData>>> methodData, PE.PE cppAssembly)
         {
@@ -119,6 +121,27 @@ namespace Cpp2IL
             addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
             Console.WriteLine($"\t\tLocated Native Method Bailout function at 0x{addr:X}");
             ret.AddrNativeLookupGenMissingMethod = addr;
+            
+            methods = methodData.Find(t => t.Item1.Name == "Int16Converter" && t.Item1.Namespace == "System.ComponentModel").Item2;
+            method = methods.Find(m => m.MethodName == "ConvertFromString");
+            instructions = Utils.DisassembleBytes(method.MethodBytes);
+
+            calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+
+            addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+            Console.WriteLine($"\t\tLocated Primitive Boxing function at 0x{addr:X}");
+
+            ret.AddrBoxValueMethod = addr;
+            
+            methods = methodData.Find(t => t.Item1.Name == "String" && t.Item1.Namespace == "System").Item2;
+            method = methods.Find(m => m.MethodName == "Format");
+            instructions = Utils.DisassembleBytes(method.MethodBytes);
+
+            calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+
+            addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+            Console.WriteLine($"\t\tLocated Safe Cast function at 0x{addr:X}");
+            ret.AddrSafeCastMethod = addr;
             
             return ret;
         }
