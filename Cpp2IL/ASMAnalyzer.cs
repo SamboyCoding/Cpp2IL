@@ -285,17 +285,25 @@ namespace Cpp2IL
 
                 _indentCounts = _indentCounts
                     .Select(i => i - 1)
-                    .Where(i => i != 0)
+                    .Where(i => i > 0)
                     .ToList();
 
                 if (_indentCounts.Count < old)
                 {
-                    //Pop cached state
+                    var count = old - _indentCounts.Count;
 
-                    var savedRegisterState = _savedRegisterStates.Pop();
-                    _registerAliases = savedRegisterState.Aliases;
-                    _registerContents = savedRegisterState.Constants;
-                    _registerTypes = savedRegisterState.Types;
+                    while (count > 0)
+                    {
+                        //Pop cached state
+                        var savedRegisterState = _savedRegisterStates.Pop();
+                        _registerAliases = savedRegisterState.Aliases;
+                        _registerContents = savedRegisterState.Constants;
+                        _registerTypes = savedRegisterState.Types;
+                        
+                        _psuedoCode.Append(Utils.Repeat("\t", _blockDepth - 1)).Append("}").Append("\n");
+                        _blockDepth--;
+                        count--;
+                    }
                 }
             }
 
@@ -533,6 +541,14 @@ namespace Cpp2IL
                     if (_registerTypes.ContainsKey(sourceReg) && _registerAliases.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true)
                     {
                         var offset = Utils.GetOperandMemoryOffset(operand);
+
+                        if (offset == 0x18)
+                        {
+                            //Array length
+                            objectName = $"{_registerAliases[sourceReg]}.Length";
+                            objectType = IntegerReference;
+                            break;
+                        }
 
                         var index = (offset - 0x20) / 8;
 
@@ -899,10 +915,11 @@ namespace Cpp2IL
                     }
                 }
                 
-                //Check for the bizarre case of reading the type of an array.
+                //Check for the bizarre case of reading the type or length of an array.
                 if (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true)
                 {
                     var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+
                     var arrayIndex = (offset - 0x20) / 8;
 
                     if (_registerContents.ContainsKey(sourceReg))
@@ -1618,11 +1635,22 @@ namespace Cpp2IL
                         {
                             instructionIdx++;
                             var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
-                            _indentCounts.Add(numToIndent);
+                            
+                            var lastCount = _indentCounts.Count == 0 ? int.MaxValue : _indentCounts.Last();
+
+                            var toAdd = Math.Min(_indentCounts.Count > 0 ? _indentCounts.Min() : int.MaxValue, numToIndent); 
+                            if (lastCount <= 2)
+                            {
+                                _indentCounts.RemoveAt(_indentCounts.Count - 1);
+                                toAdd = Math.Min(_indentCounts.Count > 0 ? _indentCounts.Min() : int.MaxValue, numToIndent);
+                                _indentCounts.Add(toAdd);
+                            }
+
+                            _indentCounts.Add(toAdd);
 
                             _savedRegisterStates.Push(new SavedRegisterState(_registerAliases, _registerContents, _registerTypes));
-                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {Utils.InvertCondition(condition)}:\n");
-                            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("if (").Append(Utils.InvertCondition(condition)).Append("):\n");
+                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {Utils.InvertCondition(condition)} {{\n");
+                            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("if (").Append(Utils.InvertCondition(condition)).Append(") {\n");
 
                             return;
                         }
