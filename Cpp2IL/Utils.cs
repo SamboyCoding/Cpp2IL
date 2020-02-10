@@ -13,6 +13,32 @@ namespace Cpp2IL
 {
     public static class Utils
     {
+        private static TypeDefinition StringReference ;
+        private static TypeDefinition Int64Reference ;
+        private static TypeDefinition SingleReference ;
+        private static TypeDefinition Int32Reference ;
+        private static TypeDefinition BooleanReference;
+
+        private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
+
+        public static void BuildPrimitiveMappings()
+        {
+            StringReference = TryLookupTypeDefByName("System.String").Item1;
+            Int64Reference = TryLookupTypeDefByName("System.Int64").Item1;
+            SingleReference = TryLookupTypeDefByName("System.Single").Item1;
+            Int32Reference = TryLookupTypeDefByName("System.Int32").Item1;
+            BooleanReference = TryLookupTypeDefByName("System.Boolean").Item1;
+            
+            primitiveTypeMappings = new Dictionary<string, TypeDefinition>
+            {
+                {"string", StringReference},
+                {"long", Int64Reference},
+                {"float", SingleReference},
+                {"int", Int32Reference},
+                {"bool", BooleanReference},
+            };
+        }
+
         public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport, PE.PE theDll, Il2CppMetadata metadata)
         {
             var moduleDefinition = importInto.Module;
@@ -409,7 +435,6 @@ namespace Cpp2IL
             {
                 return 0;
             }
-
         }
 
         public static int CheckForStaticClassInitAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
@@ -480,8 +505,11 @@ namespace Cpp2IL
 
         public static Tuple<TypeDefinition?, string[]> TryLookupTypeDefByName(string name)
         {
-            if(name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
-            
+            if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
+
+            if (primitiveTypeMappings.ContainsKey(name))
+                return new Tuple<TypeDefinition, string[]>(primitiveTypeMappings[name], new string[0]);
+
             var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
 
             //Generics are dumb.
@@ -499,11 +527,11 @@ namespace Cpp2IL
             }
 
             if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
-            
+
             //It's possible they didn't specify a `System.` prefix
             var searchString = $"System.{name}";
             definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
-            
+
             if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
@@ -567,10 +595,10 @@ namespace Cpp2IL
 
         public static string InvertCondition(string condition)
         {
-            if (condition.Contains("is false"))
-                return condition.Replace("is false", "is true");
-            if (condition.Contains("is true"))
-                return condition.Replace("is true", "is false");
+            if (condition.Contains("== false"))
+                return condition.Replace("== false", "");
+            if (condition.Contains("== true"))
+                return condition.Replace("== true", "== false");
             if (condition.Contains("is zero or null"))
                 return condition.Replace("is zero or null", "is NOT zero or null");
             if (condition.Contains("is NOT zero or null"))
@@ -639,7 +667,7 @@ namespace Cpp2IL
             if (genericParams.Length > 0)
             {
                 builder.Append("<");
-                                    
+
                 foreach (var genericParam in genericParams)
                 {
                     builder.Append(genericParam);

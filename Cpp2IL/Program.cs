@@ -198,6 +198,8 @@ namespace Cpp2IL
 
             #endregion
 
+            Utils.BuildPrimitiveMappings();
+            
             var outputPath = Path.GetFullPath("audica_shredder_out");
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);

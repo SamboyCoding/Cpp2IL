@@ -41,7 +41,12 @@ namespace Cpp2IL
 
         private Tuple<(string, TypeReference, object), (string, TypeReference, object)> _lastComparison;
         private List<int> _indentCounts = new List<int>();
-        private Stack<SavedRegisterState> _savedRegisterStates = new Stack<SavedRegisterState>();
+        private Stack<PreBlockCache> _savedRegisterStates = new Stack<PreBlockCache>();
+        
+        private Dictionary<int, string> _stackAliases = new Dictionary<int, string>();
+        private Dictionary<int, TypeReference> _stackTypes = new Dictionary<int, TypeReference>();
+
+        private BlockType _currentBlockType = BlockType.NONE;
 
         private readonly ud_mnemonic_code[] _arithmeticOpcodes =
         {
@@ -280,6 +285,9 @@ namespace Cpp2IL
                 PerformInstructionChecks(instruction);
 
                 typeDump.Append("\n");
+                
+                if(instruction.Mnemonic == ud_mnemonic_code.UD_Iret && _blockDepth == 0)
+                    break; //Can't continue
 
                 var old = _indentCounts.Count;
 
@@ -294,14 +302,7 @@ namespace Cpp2IL
 
                     while (count > 0)
                     {
-                        //Pop cached state
-                        var savedRegisterState = _savedRegisterStates.Pop();
-                        _registerAliases = savedRegisterState.Aliases;
-                        _registerContents = savedRegisterState.Constants;
-                        _registerTypes = savedRegisterState.Types;
-                        
-                        _psuedoCode.Append(Utils.Repeat("\t", _blockDepth - 1)).Append("}").Append("\n");
-                        _blockDepth--;
+                        PopBlock();
                         count--;
                     }
                 }
@@ -312,13 +313,38 @@ namespace Cpp2IL
             typeDump.Append($"\n\tGenerated Pseudocode:\n\n{_psuedoCode}\n");
         }
 
+        private void PushBlock(int toAdd, BlockType type)
+        {
+            _indentCounts.Add(toAdd);
+
+            _savedRegisterStates.Push(new PreBlockCache(_registerAliases, _registerContents, _registerTypes, _currentBlockType));
+
+            _currentBlockType = type;
+
+            _blockDepth++;
+        }
+
+        private void PopBlock()
+        {
+            //Pop cached state
+            var savedRegisterState = _savedRegisterStates.Pop();
+            _registerAliases = savedRegisterState.Aliases;
+            _registerContents = savedRegisterState.Constants;
+            _registerTypes = savedRegisterState.Types;
+
+            _currentBlockType = savedRegisterState.BlockType;
+                        
+            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth - 1)).Append("}").Append("\n");
+            _blockDepth--;
+        }
+
         private void PerformInstructionChecks(Instruction instruction)
         {
             //Detect field writes
             CheckForFieldWrites(instruction);
 
             //And check for reads on (non-global) fields.
-            CheckForFieldReads(instruction);
+            CheckForFieldAndStacReads(instruction);
 
             //Check for XOR Reg, Reg
             CheckForRegClear(instruction);
@@ -400,7 +426,7 @@ namespace Cpp2IL
                 var success = false;
                 foreach (var possibility in possibilities)
                 {
-                    if (!_registerAliases.ContainsKey(possibility))
+                    if (!_registerAliases.ContainsKey(possibility) || _registerAliases[possibility] == null)
                     {
                         //Could be a numerical value, check
                         if (parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
@@ -453,9 +479,17 @@ namespace Cpp2IL
                         }
                     }
 
+                    _registerAliases.TryGetValue(possibility, out var alias);
+
+                    if (_registerContents.ContainsKey(possibility) && _registerContents[possibility] is StackPointer sPtr)
+                    {
+                        //TODO: types, actually set this on idk reg move or field read or smth maybe both 
+                        alias = _stackAliases.ContainsKey(sPtr.Address) ? _stackAliases[sPtr.Address] : $"[unknown value in stack at offset 0x{sPtr.Address:X}]";
+                    }
+
                     _registerTypes.TryGetValue(possibility, out var type);
-                    args.Add($"{_registerAliases[possibility]} (type {type?.Name}) as {parameter.Name} in register {possibility}");
-                    _psuedoCode.Append(_registerAliases[possibility]);
+                    args.Add($"{alias} (type {type?.Name}) as {parameter.Name} in register {possibility}");
+                    _psuedoCode.Append(alias);
                     success = true;
                     if (target.Parameters.Last() != parameter)
                         _psuedoCode.Append(", ");
@@ -681,7 +715,7 @@ namespace Cpp2IL
                 if (type == null) return null;
 
                 var fields = type.Fields.Where(f => f.IsStatic).ToList();
-                var fieldNum = (int) (offset - 0xb8) / 8;
+                var fieldNum = (offset - 0xb8) / 8;
 
                 try
                 {
@@ -853,17 +887,62 @@ namespace Cpp2IL
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})\n");
         }
 
-        private void CheckForFieldReads(Instruction instruction)
+        private void CheckForFieldAndStacReads(Instruction instruction)
         {
             //Pre-checks
-            if (instruction.Operands.Length < 2 || instruction.Operands[1].Type != ud_type.UD_OP_MEM || instruction.Operands[1].Base == ud_type.UD_R_RIP || instruction.Operands[1].Base == ud_type.UD_R_RSP) return;
+            if (instruction.Operands.Length < 2 || instruction.Operands[1].Type != ud_type.UD_OP_MEM || instruction.Operands[1].Base == ud_type.UD_R_RIP) return;
 
             //Don't handle arithmetic
             if (_arithmeticOpcodes.Contains(instruction.Mnemonic)) return;
 
+            //Special case: Stack pointers
+            if (instruction.Operands[1].Base == ud_type.UD_R_RSP)
+            {
+                var stackOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+                if (instruction.Mnemonic == ud_mnemonic_code.UD_Ilea)
+                {
+                    //Register now has a pointer to the stack
+                    var destReg = GetRegisterName(instruction.Operands[0]);
+                    _typeDump.Append($" ; - Move reference to value in stack at offset 0x{stackOffset:X} to reg {destReg}");
+                    
+                    _registerAliases[destReg] = $"stackPtr_0x{stackOffset:X}";
+                    _registerContents[destReg] = new StackPointer(stackOffset);
+
+                    var type = LongReference;
+
+                    if (_stackTypes.TryGetValue(stackOffset, out var t))
+                        type = t;
+                    
+                    _registerTypes[destReg] = type;
+                }
+                else if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov)
+                {
+                    //Register now has the value from the stack
+                    var destReg = GetRegisterName(instruction.Operands[0]);
+
+                    _registerAliases[destReg] = _stackAliases.ContainsKey(stackOffset) ? _stackAliases[stackOffset] : $"unknown_stack_val_0x{stackOffset:X}";
+                    
+                    _typeDump.Append($" ; - Move value in stack at offset 0x{stackOffset:X} (which is {_registerAliases[destReg]}) to reg {destReg}");
+                    
+                    _registerContents.Remove(destReg); //TODO: need to handle consts?
+
+                    var type = LongReference;
+
+                    if (_stackTypes.TryGetValue(stackOffset, out var t))
+                        type = t;
+                    
+                    _registerTypes[destReg] = type;
+                }
+                else
+                {
+                    _typeDump.Append($" ; - do something with stack pointer at offset 0x{stackOffset:X} into the stack");
+                }
+                return;
+            }
+
             //Check for field read
             var field = GetFieldReferencedByOperand(instruction.Operands[1]);
-
+            
             var sourceReg = GetRegisterName(instruction.Operands[1]);
 
             if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0)
@@ -1043,8 +1122,8 @@ namespace Cpp2IL
             //Need 2 operands
             if (instruction.Operands.Length < 2) return;
 
-            //Destination must be a register
-            if (instruction.Operands[0].Type != ud_type.UD_OP_REG) return;
+            //Destination must be a register or a stack addr
+            if (instruction.Operands[0].Type != ud_type.UD_OP_REG && (instruction.Operands[0].Type != ud_type.UD_OP_MEM || instruction.Operands[0].Base != ud_type.UD_R_RSP)) return;
 
             //Must be some sort of move
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Imov && instruction.Mnemonic != ud_mnemonic_code.UD_Imovaps && instruction.Mnemonic != ud_mnemonic_code.UD_Imovss
@@ -1052,29 +1131,39 @@ namespace Cpp2IL
                 return;
 
             var destReg = GetRegisterName(instruction.Operands[0]);
+            var isStack = destReg == "rsp";
+            var stackAddr = isStack ? Utils.GetOperandMemoryOffset(instruction.Operands[0]) : -1;
 
             //Ok now decide what to do based on what the second register is
             switch (instruction.Operands[1].Type)
             {
                 case ud_type.UD_OP_REG:
                 case ud_type.UD_OP_MEM when Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0:
-                    //Simple case, reg => reg
+                    //Simple case, reg => reg/stack
                     var sourceReg = GetRegisterName(instruction.Operands[1]);
                     if (_registerAliases.ContainsKey(sourceReg))
                     {
-                        _registerAliases[destReg] = _registerAliases[sourceReg];
+                        if (isStack)
+                            _stackAliases[stackAddr] = _registerAliases[sourceReg];
+                        else
+                            _registerAliases[destReg] = _registerAliases[sourceReg];
                         if (_registerTypes.ContainsKey(sourceReg))
                         {
-                            _registerTypes[destReg] = _registerTypes[sourceReg];
-                            _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s type {_registerTypes[sourceReg]}");
+                            if (isStack)
+                                _stackTypes[stackAddr] = _registerTypes[sourceReg];
+                            else
+                            {
+                                _registerTypes[destReg] = _registerTypes[sourceReg];
+                                _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s type {_registerTypes[sourceReg]}");
+                            }
                         }
-                        if (_registerContents.ContainsKey(sourceReg))
+                        if (_registerContents.ContainsKey(sourceReg) && !isStack)
                         {
                             _registerContents[destReg] = _registerContents[sourceReg];
                             _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s constant value of {_registerContents[sourceReg]}");
                         }
                     }
-                    else if (_registerAliases.ContainsKey(destReg))
+                    else if (!isStack && _registerAliases.ContainsKey(destReg))
                     {
                         _registerAliases.Remove(destReg); //If we have one for the dest but not the source, clear the dest's alias.
                         _registerTypes.Remove(destReg); //And its type
@@ -1085,6 +1174,8 @@ namespace Cpp2IL
                     //Don't need to handle this case as it's a field read to reg which is done elsewhere
                     return;
                 case ud_type.UD_OP_MEM when instruction.Operands[1].Base == ud_type.UD_R_RIP:
+                    //TODO: do we ever actually do this with the stack? Might do via a reg first
+                    
                     //Reading either a global or a string literal into the register
                     var offset = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
                     if (offset == 0) break;
@@ -1357,10 +1448,22 @@ namespace Cpp2IL
                 //rcx has the destination type global, rdx has what we're casting
                 _registerContents.TryGetValue("rcx", out var g);
                 _registerAliases.TryGetValue("rdx", out var castTarget);
+                _registerContents.TryGetValue("rdx", out var cSp); //Potential stack pointer
+
+                if (cSp is StackPointer castStackPointer)
+                {
+                    _stackAliases.TryGetValue(castStackPointer.Address, out castTarget);
+                }
 
                 if (g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0 && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
                 {
-                    _typeDump.Append($" - Casts the primitive value {castTarget} to {glob.Name}");
+                    var destType = Utils.TryLookupTypeDefByName(glob.Name).Item1; 
+                    _typeDump.Append($" - Boxes the primitive value {castTarget} to {destType?.FullName} (resolved from {glob.Name})");
+                    _registerAliases["rax"] = castTarget;
+                    if (destType != null)
+                        _registerTypes["rax"] = destType;
+                    else
+                        _registerTypes.Remove("rax");
                 }
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrSafeCastMethod)
@@ -1424,24 +1527,25 @@ namespace Cpp2IL
                     //Clear the most recent block (though it probably has just expired anyway), this is the end of the if
                     _indentCounts.RemoveAt(_indentCounts.Count - 1);
 
+                    var wasInIf = _currentBlockType == BlockType.IF;
+                    
+                    PopBlock();
 
-                    var savedRegisterState = _savedRegisterStates.Pop();
-                    _registerAliases = savedRegisterState.Aliases;
-                    _registerContents = savedRegisterState.Constants;
-                    _registerTypes = savedRegisterState.Types;
+                    if (wasInIf)
+                    {
+                        //Now we need to find the ELSE length
+                        //This current jump goes to the first instruction after it, so take its address - our PC to find function length
+                        //TODO: This is ok, but still needs work in E.g AudioDriver_Resume
+                        var instructionIdx = _instructions.FindIndex(i => i.PC == pos);
+                        if (instructionIdx < 0) return;
+                        instructionIdx++;
+                        var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
 
-                    //Now we need to find the ELSE length
-                    //This current jump goes to the first instruction after it, so take its address - our PC to find function length
-                    //TODO: This is ok, but still needs work in E.g AudioDriver_Resume
-                    var instructionIdx = _instructions.FindIndex(i => i.PC == pos);
-                    if (instructionIdx < 0) return;
-                    instructionIdx++;
-                    var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
-                    _indentCounts.Add(numToIndent);
+                        _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Else:\n"); //This is a +1 not a +2 to remove the indent caused by the current if block
+                        _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("else:\n");
 
-                    _savedRegisterStates.Push(new SavedRegisterState(_registerAliases, _registerContents, _registerTypes));
-                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Else:\n"); //This is a +1 not a +2 to remove the indent caused by the current if block
-                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth - 1)).Append("else:\n");
+                        PushBlock(numToIndent, BlockType.ELSE);
+                    }
                 }
                 else if (instruction.Mnemonic == ud_mnemonic_code.UD_Icall)
                 {
@@ -1645,13 +1749,12 @@ namespace Cpp2IL
                                 toAdd = Math.Min(_indentCounts.Count > 0 ? _indentCounts.Min() : int.MaxValue, numToIndent);
                                 _indentCounts.Add(toAdd);
                             }
-
-                            _indentCounts.Add(toAdd);
-
-                            _savedRegisterStates.Push(new SavedRegisterState(_registerAliases, _registerContents, _registerTypes));
+                            
                             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {Utils.InvertCondition(condition)} {{\n");
                             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("if (").Append(Utils.InvertCondition(condition)).Append(") {\n");
 
+                            PushBlock(toAdd, BlockType.IF);
+                            
                             return;
                         }
                     }
@@ -1707,13 +1810,14 @@ namespace Cpp2IL
             return null;
         }
 
-        private struct SavedRegisterState
+        private struct PreBlockCache
         {
             public Dictionary<string, string> Aliases;
             public Dictionary<string, TypeReference> Types;
             public Dictionary<string, object> Constants;
+            public BlockType BlockType;
 
-            public SavedRegisterState(Dictionary<string, string> registerAliases, Dictionary<string, object> registerContents, Dictionary<string, TypeReference> registerTypes)
+            public PreBlockCache(Dictionary<string, string> registerAliases, Dictionary<string, object> registerContents, Dictionary<string, TypeReference> registerTypes, BlockType type)
             {
                 Aliases = new Dictionary<string, string>();
                 Types = new Dictionary<string, TypeReference>();
@@ -1722,7 +1826,24 @@ namespace Cpp2IL
                 foreach (var keyValuePair in registerAliases) Aliases[keyValuePair.Key] = keyValuePair.Value;
                 foreach (var registerContent in registerContents) Constants[registerContent.Key] = registerContent.Value;
                 foreach (var registerType in registerTypes) Types[registerType.Key] = registerType.Value;
+
+                BlockType = type;
             }
+        }
+
+        private class StackPointer
+        {
+            public readonly int Address;
+
+            public StackPointer(int address)
+            {
+                Address = address;
+            }
+        }
+
+        private enum BlockType
+        {
+            NONE, IF, ELSE
         }
     }
 }
