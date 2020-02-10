@@ -596,7 +596,7 @@ namespace Cpp2IL
         public static string InvertCondition(string condition)
         {
             if (condition.Contains("== false"))
-                return condition.Replace("== false", "");
+                return condition.Replace(" == false", "");
             if (condition.Contains("== true"))
                 return condition.Replace("== true", "== false");
             if (condition.Contains("is zero or null"))

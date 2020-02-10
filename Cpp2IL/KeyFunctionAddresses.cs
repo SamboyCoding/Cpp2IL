@@ -30,9 +30,13 @@ namespace Cpp2IL
             //Chosen Target: ArgumentCache#TidyAssemblyTypeName
             //That's in UnityEngine.CoreModule.dll but close enough
             //I don't even know what that method does but whatever
+
             var methods = methodData.Find(t => t.Item1.Name == "ArgumentCache" && t.Item1.Namespace == "UnityEngine.Events").Item2;
 
             var tatn = methods.Find(m => m.MethodName == "TidyAssemblyTypeName");
+            
+            Console.WriteLine($"Searching for function init function near offset 0x{tatn.MethodOffsetRam:X}...");
+            
             var instructions = Utils.DisassembleBytes(tatn.MethodBytes);
             
             var targetCall = instructions.First(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
@@ -46,6 +50,8 @@ namespace Cpp2IL
             //Same function will do nicely.
             //These are always generated using the ASM `TEST RCX,RCX` folowed by `JZ [instruction which calls the function we want]`
             //So let's try to find a TEST RCX, RCX
+            
+            Console.WriteLine($"Searching for bailout function near offset 0x{tatn.MethodOffsetRam:X}...");
 
             var targetTest = instructions.Find(insn => insn.Mnemonic == ud_mnemonic_code.UD_Itest && insn.Operands.Length == 2 && insn.Operands[0].Base == ud_type.UD_R_RCX && insn.Operands[1].Base == ud_type.UD_R_RCX);
             var targetJz = instructions[instructions.IndexOf(targetTest) + 1];
@@ -67,6 +73,9 @@ namespace Cpp2IL
             
             //There are two of these but it doesn't matter which we get.
             var logWarn = methods.Find(m => m.MethodName == "LogWarning");
+            
+            Console.WriteLine($"Searching for static class init function near offset 0x{logWarn.MethodOffsetRam:X}...");
+            
             instructions = Utils.DisassembleBytes(logWarn.MethodBytes);
             
             //Method: Find the second CALL as it points at what we want. (The first is the init method)
@@ -82,6 +91,9 @@ namespace Cpp2IL
             methods = methodData.Find(t => t.Item1.Name == "X509Extension" && t.Item1.Namespace == "System.Security.Cryptography.X509Certificates").Item2;
 
             var method = methods.Find(m => m.MethodName == "FormatUnkownData"); //Yes, there's a typo
+            
+            Console.WriteLine($"Searching for class instantiation function near offset 0x{method.MethodOffsetRam:X}...");
+            
             instructions = Utils.DisassembleBytes(method.MethodBytes);
             
             //Once again just get the second call
@@ -97,6 +109,8 @@ namespace Cpp2IL
 
             method = methods.Find(m => m.MethodName == "GetBytes");
             
+            Console.WriteLine($"Searching for array instantiation function near offset 0x{method.MethodOffsetRam:X}...");
+            
             instructions = Utils.DisassembleBytes(method.MethodBytes);
             
             //Once again just get the second call
@@ -110,6 +124,9 @@ namespace Cpp2IL
             methods = methodData.Find(t => t.Item1.Name == "Mesh" && t.Item1.Namespace == "UnityEngine").Item2;
 
             method = methods.Find(m => m.MethodName == ".ctor");
+            
+            Console.WriteLine($"Searching for native lookup and bailout functions near offset 0x{method.MethodOffsetRam:X}...");
+            
             instructions = Utils.DisassembleBytes(method.MethodBytes);
             
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
@@ -124,6 +141,11 @@ namespace Cpp2IL
             
             methods = methodData.Find(t => t.Item1.Name == "Int16Converter" && t.Item1.Namespace == "System.ComponentModel").Item2;
             method = methods.Find(m => m.MethodName == "ConvertFromString");
+            if(method.MethodOffsetRam == 0)
+                method = methods.Find(m => m.MethodName == "FromString");
+            
+            Console.WriteLine($"Searching for primitive boxing function near offset 0x{method.MethodOffsetRam:X}...");
+            
             instructions = Utils.DisassembleBytes(method.MethodBytes);
 
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
@@ -133,13 +155,16 @@ namespace Cpp2IL
 
             ret.AddrBoxValueMethod = addr;
             
-            methods = methodData.Find(t => t.Item1.Name == "String" && t.Item1.Namespace == "System").Item2;
-            method = methods.Find(m => m.MethodName == "Format");
+            methods = methodData.Find(t => t.Item1.Name == "Ray" && t.Item1.Namespace == "UnityEngine").Item2;
+            method = methods.Find(m => m.MethodName == "ToString");
+            
+            Console.WriteLine($"Searching for safe cast function near offset 0x{method.MethodOffsetRam:X}...");
+            
             instructions = Utils.DisassembleBytes(method.MethodBytes);
 
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+            addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
             Console.WriteLine($"\t\tLocated Safe Cast function at 0x{addr:X}");
             ret.AddrSafeCastMethod = addr;
             
