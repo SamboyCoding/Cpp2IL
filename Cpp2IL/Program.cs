@@ -21,12 +21,13 @@ namespace Cpp2IL
 
         public static void PrintUsage()
         {
-            Console.WriteLine("Usage: AudicaShredder <path to audica folder>");
+            Console.WriteLine("Usage: Cpp2IL <path to game folder>");
         }
 
         public static void Main(string[] args)
         {
-            Console.WriteLine("===AudicaShredder by Samboy063===");
+            Console.WriteLine("===Cpp2IL by Samboy063===");
+            Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
             Console.WriteLine("Running on " + Environment.OSVersion.Platform);
 
             string loc;
@@ -85,7 +86,7 @@ namespace Cpp2IL
             var split = unityVer.Split(new[] {'.'}, StringSplitOptions.RemoveEmptyEntries);
             var unityVerUseful = split.SubArray(0, 2).Select(int.Parse).ToArray();
 
-            Console.WriteLine("This version of Audica is built on unity " + string.Join(".", unityVerUseful));
+            Console.WriteLine("This game is built with Unity version " + string.Join(".", unityVerUseful));
 
             Console.WriteLine("Reading metadata...");
             var metadata = Il2CppMetadata.ReadFrom(metadataPath, unityVerUseful);
@@ -200,7 +201,7 @@ namespace Cpp2IL
 
             Utils.BuildPrimitiveMappings();
             
-            var outputPath = Path.GetFullPath("audica_shredder_out");
+            var outputPath = Path.GetFullPath("cpp2il_out");
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
 
