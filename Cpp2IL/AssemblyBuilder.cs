@@ -187,7 +187,7 @@ namespace Cpp2IL
             }
 
             //Handle base fields
-            var fieldOffset = baseFields.Aggregate<FieldDefinition, ulong>(0x10, (current1, baseField) => HandleField(baseField.FieldType, current1, baseField.Name, baseField, fields, typeMetaText));
+            var fieldOffset = baseFields.Aggregate((ulong) (ilTypeDefinition.MetadataType == MetadataType.Class ? 0x10 : 0x0), (current1, baseField) => HandleField(baseField.FieldType, current1, baseField.Name, baseField, fields, typeMetaText));
 
             var lastFieldIdx = cppTypeDefinition.firstFieldIdx + cppTypeDefinition.field_count;
             for (var fieldIdx = cppTypeDefinition.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
@@ -211,7 +211,7 @@ namespace Cpp2IL
                     }
                 }
 
-                if(!fieldDefinition.IsStatic)
+                if (!fieldDefinition.IsStatic)
                     fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, fields, typeMetaText);
             }
 
