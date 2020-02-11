@@ -67,7 +67,7 @@ namespace Cpp2IL
             }
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
-            var exeName = Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !f.StartsWith("UnityCrashHandler")).Replace(".exe", "");
+            var exeName = Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !f.Contains("UnityCrashHandler")).Replace(".exe", "");
             var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
             var metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata",
                 "global-metadata.dat");

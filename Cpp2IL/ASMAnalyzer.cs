@@ -407,17 +407,20 @@ namespace Cpp2IL
                     if (_registerAliases[possibility] == "this" && target.DeclaringType.FullName != _methodDefinition.DeclaringType.FullName)
                     {
                         //Supercall
-                        _psuedoCode.Append("base.").Append(target.Name).Append("(");
+                        _psuedoCode.Append("base.").Append(target.Name);
                     }
                     else
                     {
-                        _psuedoCode.Append(_registerAliases[possibility] + "." + target.Name + "(");
+                        _psuedoCode.Append(_registerAliases[possibility]).Append(".").Append(target.Name);
                     }
+
                     break;
                 }
             }
             else
-                _psuedoCode.Append(target.DeclaringType.FullName + "." + target.Name + "(");
+                _psuedoCode.Append(target.DeclaringType.FullName).Append(".").Append(target.Name);
+            
+            var paramNames = new List<string>();
 
             foreach (var parameter in target.Parameters)
             {
@@ -435,17 +438,15 @@ namespace Cpp2IL
                             if (parameter.ParameterType.Name == "Boolean")
                             {
                                 args.Add($"{Convert.ToInt32(_registerContents[possibility]) != 0} (coerced to bool from {_registerContents[possibility]}) (type CONSTANT) as {parameter.Name} in register {possibility}");
-                                _psuedoCode.Append(Convert.ToInt32(_registerContents[possibility]) != 0);
+                                paramNames.Add((Convert.ToInt32(_registerContents[possibility]) != 0).ToString());
                             }
                             else
                             {
                                 args.Add($"{_registerContents[possibility]} (type CONSTANT) as {parameter.Name} in register {possibility}");
-                                _psuedoCode.Append(_registerContents[possibility]);
+                                paramNames.Add(_registerContents[possibility]?.ToString());
                             }
 
                             success = true;
-                            if (target.Parameters.Last() != parameter)
-                                _psuedoCode.Append(", ");
                             break;
                         }
 
@@ -453,11 +454,9 @@ namespace Cpp2IL
                         if (!parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && (_registerContents[possibility] as int?) is {} val && val == 0)
                         {
                             args.Add($"NULL (as a literal) as {parameter.Name} in register {possibility}");
-                            _psuedoCode.Append("null");
+                            paramNames.Add("null");
 
                             success = true;
-                            if (target.Parameters.Last() != parameter)
-                                _psuedoCode.Append(", ");
                             break;
                         }
 
@@ -470,47 +469,67 @@ namespace Cpp2IL
                         if (global.HasValue)
                         {
                             args.Add($"'{global.Value.Name}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
-                            _psuedoCode.Append($"'{global.Value.Name}'");
+                            paramNames.Add($"'{global.Value.Name}'");
 
                             success = true;
-                            if (target.Parameters.Last() != parameter)
-                                _psuedoCode.Append(", ");
                             break;
                         }
                     }
 
                     _registerAliases.TryGetValue(possibility, out var alias);
+                    _registerTypes.TryGetValue(possibility, out var type);
 
                     if (_registerContents.ContainsKey(possibility) && _registerContents[possibility] is StackPointer sPtr)
                     {
                         //TODO: types, actually set this on idk reg move or field read or smth maybe both 
                         alias = _stackAliases.ContainsKey(sPtr.Address) ? _stackAliases[sPtr.Address] : $"[unknown value in stack at offset 0x{sPtr.Address:X}]";
+                        type = _stackTypes.ContainsKey(sPtr.Address) ? _stackTypes[sPtr.Address] : LongReference;
                     }
-
-                    _registerTypes.TryGetValue(possibility, out var type);
+                    
                     args.Add($"{alias} (type {type?.Name}) as {parameter.Name} in register {possibility}");
-                    _psuedoCode.Append(alias);
+                    paramNames.Add(alias);
                     success = true;
-                    if (target.Parameters.Last() != parameter)
-                        _psuedoCode.Append(", ");
                     break;
                 }
 
                 if (!success)
                 {
-                    _psuedoCode.Append("<unknown>");
-                    if (target.Parameters.Last() != parameter)
-                        _psuedoCode.Append(", ");
                     args.Add($"<unknown> as {parameter.Name} in one of the registers {string.Join("/", possibilities)}");
+                    paramNames.Add("<unknown>");
                 }
 
                 if (paramRegisters.Count != 0) continue;
 
                 args.Add(" ... and more, out of space in registers.");
                 break;
+            } //End for parameter in parameters
+
+            if (target.HasGenericParameters && paramRegisters.Count > 0)
+            {
+                _typeDump.Append(" ; - method should be generic");
+                var possibilities = paramRegisters.First().Split('/');
+                paramRegisters.RemoveAt(0);
+                foreach (var possibility in possibilities)
+                {
+                    _registerContents.TryGetValue(possibility, out var potentialGlob);
+                    if (potentialGlob is AssemblyBuilder.GlobalIdentifier g && g.Offset != 0 && g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)
+                    {
+                        _typeDump.Append($" ; - generic method def located, is {g.Name}");
+                        var genericParams = g.Name.Substring(g.Name.LastIndexOf("<", StringComparison.Ordinal) + 1);
+                        genericParams = genericParams.Remove(genericParams.Length - 1);
+
+                        var genericCount = genericParams.Split(',').Length;
+
+                        if (genericCount == 1)
+                            returnType = Utils.TryLookupTypeDefByName(genericParams).Item1;
+
+                        _psuedoCode.Append("<").Append(genericParams).Append(">");
+                        _methodFunctionality.Append(" with generic params ").Append(genericParams);
+                    }
+                }
             }
 
-            _psuedoCode.Append(")\n");
+            _psuedoCode.Append("(").Append(string.Join(", ", paramNames)).Append(")\n");
 
             if (args.Count > 0)
                 _methodFunctionality.Append($" with parameters: {string.Join(", ", args)}");
