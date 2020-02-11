@@ -15,14 +15,15 @@ namespace Cpp2IL
     internal class AsmDumper
     {
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
-        private static readonly TypeReference TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
-        private static readonly TypeReference StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
-        private static readonly TypeReference BooleanReference = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
-        private static readonly TypeReference FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
-        private static readonly TypeReference ByteReference = Utils.TryLookupTypeDefByName("System.Byte").Item1;
-        private static readonly TypeReference ShortReference = Utils.TryLookupTypeDefByName("System.Int16").Item1;
-        private static readonly TypeReference IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
-        private static readonly TypeReference LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+        private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
+        private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
+        private static readonly TypeDefinition BooleanReference = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
+        private static readonly TypeDefinition FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
+        private static readonly TypeDefinition ByteReference = Utils.TryLookupTypeDefByName("System.Byte").Item1;
+        private static readonly TypeDefinition ShortReference = Utils.TryLookupTypeDefByName("System.Int16").Item1;
+        private static readonly TypeDefinition IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
+        private static readonly TypeDefinition LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
+        private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefByName("System.Array").Item1;
 
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
@@ -31,7 +32,7 @@ namespace Cpp2IL
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly PE.PE _cppAssembly;
         private Dictionary<string, string> _registerAliases;
-        private Dictionary<string, TypeReference> _registerTypes;
+        private Dictionary<string, TypeDefinition> _registerTypes;
         private Dictionary<string, object> _registerContents;
         private StringBuilder _methodFunctionality;
         private StringBuilder _psuedoCode = new StringBuilder();
@@ -41,12 +42,14 @@ namespace Cpp2IL
         private int _localNum;
         private List<string> _loopRegisters;
 
-        private Tuple<(string, TypeReference, object), (string, TypeReference, object)> _lastComparison;
+        private Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)> _lastComparison;
         private List<int> _indentCounts = new List<int>();
         private Stack<PreBlockCache> _savedRegisterStates = new Stack<PreBlockCache>();
         
         private Dictionary<int, string> _stackAliases = new Dictionary<int, string>();
-        private Dictionary<int, TypeReference> _stackTypes = new Dictionary<int, TypeReference>();
+        private Dictionary<int, TypeDefinition> _stackTypes = new Dictionary<int, TypeDefinition>();
+
+        private bool _tainted = false;
 
         private BlockType _currentBlockType = BlockType.NONE;
 
@@ -78,6 +81,16 @@ namespace Cpp2IL
 
             //Pass 0: Disassemble
             _instructions = Utils.DisassembleBytes(method.MethodBytes);
+        }
+
+        private void TaintMethod(TaintReason reason)
+        {
+            if (_tainted) return;
+            
+            _tainted = true;
+            _typeDump.Append($" ; !!! METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason}) !!!");
+            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//!!!METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason})!!!\n");
+            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}!!! METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason}) !!!\n");
         }
 
         private List<Instruction> TrimOutIl2CppCrap(List<Instruction> instructions)
@@ -161,11 +174,11 @@ namespace Cpp2IL
             return ret;
         }
 
-        internal void AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
+        internal bool AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
             _typeDump = typeDump;
             _registerAliases = new Dictionary<string, string>();
-            _registerTypes = new Dictionary<string, TypeReference>();
+            _registerTypes = new Dictionary<string, TypeDefinition>();
             _registerContents = new Dictionary<string, object>();
 
             //Map of jumped-to addresses to functionality summaries (for if statements)
@@ -253,7 +266,7 @@ namespace Cpp2IL
                     foreach (var reg in regPair.Split('/'))
                     {
                         _registerAliases[reg] = parameter.Name;
-                        _registerTypes[reg] = parameter.ParameterType;
+                        _registerTypes[reg] = Utils.TryLookupTypeDefByName(parameter.ParameterType.FullName).Item1;
                     }
                 }
                 else
@@ -268,7 +281,7 @@ namespace Cpp2IL
             typeDump.Append("\tMethod Body (x86 ASM):\n");
 
             _localNum = 1;
-            _lastComparison = new Tuple<(string, TypeReference, object), (string, TypeReference, object)>(("", null, null), ("", null, null));
+            _lastComparison = new Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)>(("", null, null), ("", null, null));
             var index = 0;
 
             _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
@@ -324,6 +337,8 @@ namespace Cpp2IL
             typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n\n");
 
             typeDump.Append($"\n\tGenerated Pseudocode:\n\n{_psuedoCode}\n");
+
+            return _tainted;
         }
 
         private void PushBlock(int toAdd, BlockType type)
@@ -389,10 +404,10 @@ namespace Cpp2IL
             CheckForReturn(instruction);
         }
 
-        private void HandleFunctionCall(MethodDefinition target, bool processReturnType, Instruction instruction, TypeReference returnType = null)
+        private void HandleFunctionCall(MethodDefinition target, bool processReturnType, Instruction instruction, TypeDefinition returnType = null)
         {
             if (returnType == null)
-                returnType = target.ReturnType;
+                returnType = Utils.TryLookupTypeDefByName(target.ReturnType.FullName).Item1;
 
             _typeDump.Append($" - function {target.FullName}");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Calls {(target.IsStatic ? "static" : "instance")} function {target.FullName}");
@@ -439,37 +454,38 @@ namespace Cpp2IL
                 var success = false;
                 foreach (var possibility in possibilities)
                 {
+                    //Could be a numerical value, check
+                    if (parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
+                    {
+                        //Coerce if bool
+                        if (parameter.ParameterType.Name == "Boolean")
+                        {
+                            args.Add($"{Convert.ToInt64(_registerContents[possibility]) != 0} (coerced to bool from {_registerContents[possibility]}) (type CONSTANT) as {parameter.Name} in register {possibility}");
+                            paramNames.Add((Convert.ToInt64(_registerContents[possibility]) != 0).ToString());
+                        }
+                        else
+                        {
+                            args.Add($"{_registerContents[possibility]} (type CONSTANT) as {parameter.Name} in register {possibility}");
+                            paramNames.Add(_registerContents[possibility]?.ToString());
+                        }
+
+                        success = true;
+                        break;
+                    }
+
+                    //Check for null as a literal
+                    if (!parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && (_registerContents[possibility] as int?) is {} val && val == 0)
+                    {
+                        args.Add($"NULL (as a literal) as {parameter.Name} in register {possibility}");
+                        paramNames.Add("null");
+                            
+
+                        success = true;
+                        break;
+                    }
+                    
                     if (!_registerAliases.ContainsKey(possibility) || _registerAliases[possibility] == null)
                     {
-                        //Could be a numerical value, check
-                        if (parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
-                        {
-                            //Coerce if bool
-                            if (parameter.ParameterType.Name == "Boolean")
-                            {
-                                args.Add($"{Convert.ToInt32(_registerContents[possibility]) != 0} (coerced to bool from {_registerContents[possibility]}) (type CONSTANT) as {parameter.Name} in register {possibility}");
-                                paramNames.Add((Convert.ToInt32(_registerContents[possibility]) != 0).ToString());
-                            }
-                            else
-                            {
-                                args.Add($"{_registerContents[possibility]} (type CONSTANT) as {parameter.Name} in register {possibility}");
-                                paramNames.Add(_registerContents[possibility]?.ToString());
-                            }
-
-                            success = true;
-                            break;
-                        }
-
-                        //Check for null as a literal
-                        if (!parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && (_registerContents[possibility] as int?) is {} val && val == 0)
-                        {
-                            args.Add($"NULL (as a literal) as {parameter.Name} in register {possibility}");
-                            paramNames.Add("null");
-
-                            success = true;
-                            break;
-                        }
-
                         continue;
                     }
 
@@ -480,6 +496,9 @@ namespace Cpp2IL
                         {
                             args.Add($"'{global.Value.Name}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
                             paramNames.Add($"'{global.Value.Name}'");
+                            
+                            if(parameter.ParameterType.Name != "String") 
+                                TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
 
                             success = true;
                             break;
@@ -501,17 +520,24 @@ namespace Cpp2IL
                     args.Add($"{alias} (type {type?.Name}) as {parameter.Name} in register {possibility}");
                     paramNames.Add(alias);
                     success = true;
+                    
+                    //TODO: This isn't working properly with interfaces - e.g. Control_GlobalTime extends MonoBehavior which implements UnityEngine.Object, but this returns false
+                    if(type == null || parameter.ParameterType.IsAssignableFrom(type)) //TODO: This is a genuine issue with floats - if the param is a floating point type we should prefer xmm registers over standard. cause you know that's how it works.
+                        TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
+                    
                     break;
                 }
 
                 if (!success)
                 {
+                    TaintMethod(TaintReason.METHOD_PARAM_MISSING);
                     args.Add($"<unknown> as {parameter.Name} in one of the registers {string.Join("/", possibilities)}");
                     paramNames.Add("<unknown>");
                 }
 
                 if (paramRegisters.Count != 0) continue;
 
+                TaintMethod(TaintReason.METHOD_PARAM_MISSING);
                 args.Add(" ... and more, out of space in registers.");
                 break;
             } //End for parameter in parameters
@@ -538,6 +564,10 @@ namespace Cpp2IL
                         methodName += "<" + genericParams + ">";
                         _methodFunctionality.Append(" with generic params ").Append(genericParams);
                     }
+                    else
+                    {
+                        TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
+                    }
                 }
             }
             
@@ -562,7 +592,7 @@ namespace Cpp2IL
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");
         }
 
-        private void PushMethodReturnTypeToLocal(TypeReference returnType)
+        private void PushMethodReturnTypeToLocal(TypeDefinition returnType)
         {
             //Floating point => xmm0
             //Boolean => al
@@ -603,18 +633,18 @@ namespace Cpp2IL
                 .ToList();
         }
 
-        private (string, TypeReference?, object) GetDetailsOfReferencedObject(Operand operand, Instruction i)
+        private (string, TypeDefinition?, object) GetDetailsOfReferencedObject(Operand operand, Instruction i)
         {
             var theBase = operand.Base;
             var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
             string objectName = null;
-            TypeReference objectType = null;
+            TypeDefinition objectType = null;
             object constant = null;
             switch (operand.Type)
             {
                 case ud_type.UD_OP_MEM:
                     //Check array read
-                    if (_registerTypes.ContainsKey(sourceReg) && _registerAliases.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true)
+                    if (_registerContents.ContainsKey(sourceReg) && _registerAliases.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData aData)
                     {
                         var offset = Utils.GetOperandMemoryOffset(operand);
 
@@ -631,7 +661,7 @@ namespace Cpp2IL
                         if (index >= 0)
                         {
                             objectName = $"{_registerAliases[sourceReg]}[{index}]";
-                            objectType = _registerTypes[sourceReg].GetElementType();
+                            objectType = aData.ElementType;
                             break;
                         }
                     }
@@ -643,7 +673,7 @@ namespace Cpp2IL
                         if (fieldReadAlias == null)
                             fieldReadAlias = $"the value in register {sourceReg}";
                         objectName = $"{fieldReadAlias}.{field.Name}";
-                        objectType = field.FieldType;
+                        objectType = Utils.TryLookupTypeDefByName(field.FieldType.FullName).Item1;
                         break;
                     }
 
@@ -1043,30 +1073,30 @@ namespace Cpp2IL
 
                     var arrayIndex = (offset - 0x20) / 8;
 
-                    if (_registerContents.ContainsKey(sourceReg))
+                    if (_registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData arrayData)
                     {
                         try
                         {                            
                             //If we have this situation then the constant tells us the length of the array
-                            var arrayLength = (int) _registerContents[sourceReg];
+                            var arrayLength = (int) arrayData.Length;
 
                             if (arrayIndex == arrayLength)
                             {
                                 //Accessing one more value than we have is used to get the type of the array
                                 var destReg = GetRegisterName(instruction.Operands[0]);
-
-                                var arrayType = (ArrayType) _registerTypes[sourceReg];
+ 
+                                var arrayType = arrayData.ElementType;
 
                                 _registerTypes[destReg] = TypeReference;
                                 _registerAliases[destReg] = $"local{_localNum}";
                                 _registerContents[destReg] = arrayType.GetElementType();
                                 _localNum++;
 
-                                _typeDump.Append($" ; - loads the type of the array ({arrayType.GetElementType().FullName}) into {destReg}");
+                                _typeDump.Append($" ; - loads the type of the array ({arrayType.FullName}) into {destReg}");
 
                                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(TypeReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(_registerAliases[sourceReg]).Append(".GetType().GetElementType() //Get the type of the array\n");
                                 _methodFunctionality.Append(
-                                    $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType.GetElementType().FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
+                                    $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
 
                                 return;
                             }
@@ -1079,11 +1109,13 @@ namespace Cpp2IL
                 }
 
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Field Read: Failed to work out which field we are reading. Indicative of missed generated code or further calibration required, probably\n");
+                TaintMethod(TaintReason.UNRESOLVED_FIELD);
                 _typeDump.Append($" ; - field read on unknown field from an unknown/unresolved type that's in reg {sourceReg}");
             }
             else
             {
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Field Read: Don't know what we're doing with field {field} as first operand is not a register\n");
+                TaintMethod(TaintReason.UNRESOLVED_FIELD);
                 _typeDump.Append(" ; - field read and unknown action");
             }
         }
@@ -1093,7 +1125,7 @@ namespace Cpp2IL
             var sourceAlias = _registerAliases[sourceReg];
             _registerTypes.TryGetValue(sourceReg, out var sourceType);
 
-            var readType = field.FieldType;
+            var readType = Utils.TryLookupTypeDefByName(field.FieldType.FullName).Item1;
 
             _registerTypes[destReg] = readType;
             _registerAliases[destReg] = $"local{_localNum}";
@@ -1389,6 +1421,7 @@ namespace Cpp2IL
             catch (Exception)
             {
                 _typeDump.Append(" ; Exception occurred locating target");
+                TaintMethod(TaintReason.UNRESOLVED_METHOD);
                 return;
             }
 
@@ -1404,11 +1437,13 @@ namespace Cpp2IL
             {
                 _typeDump.Append(" - this is the bailout function and will be ignored.");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_BAIL_OUT()\n");
+                TaintMethod(TaintReason.NON_REMOVED_INTERNAL_FUNCTION);
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrInitFunction)
             {
                 _typeDump.Append(" - this is the initialization function and will be ignored.");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_INIT_CLASS()\n");
+                TaintMethod(TaintReason.NON_REMOVED_INTERNAL_FUNCTION);
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrNewFunction)
             {
@@ -1448,7 +1483,10 @@ namespace Cpp2IL
                 }
 
                 if (!success)
+                {
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of [something]\n");
+                    TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
+                }
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrArrayCreation)
             {
@@ -1471,13 +1509,14 @@ namespace Cpp2IL
                             {
                                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(definedType.FullName).Append("[] ").Append("local").Append(_localNum).Append(" = new ").Append(definedType.FullName).Append("[").Append(arraySize).Append("]\n");
                                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of type {definedType.FullName}[]{(genericParams.Length > 0 ? $" with generic parameters {string.Join(",", genericParams)}" : "")} of size {arraySize}\n");
-                                _registerContents["rax"] = (int) arraySize; //Store array size in here for bounds checks
-                                PushMethodReturnTypeToLocal(definedType.MakeArrayType());
+                                _registerContents["rax"] = new ArrayData(arraySize, definedType); //Store array size in here for bounds checks
+                                PushMethodReturnTypeToLocal(ArrayReference);
                                 success = true;
                             }
                             else
                             {
                                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of (unresolved) type {global.Name} and size {arraySize}\n");
+                                TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                                 success = true;
                             }
                         }
@@ -1485,12 +1524,16 @@ namespace Cpp2IL
                 }
 
                 if (!success)
+                {
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of [something]s and an unknown length\n");
+                    TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
+                }
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrInitStaticFunction)
             {
                 _typeDump.Append(" - this is the static class initializer and will be ignored");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_STATIC_INIT_CLASS()\n");
+                TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrNativeLookup)
             {
@@ -1520,7 +1563,11 @@ namespace Cpp2IL
                     mDef = type.Methods.First(mtd => mtd.Name.EndsWith(methodName));
 
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Looks up native function by name {functionName} => {mDef?.FullName}\n");
-                if (mDef == null) return;
+                if (mDef == null)
+                {
+                    TaintMethod(TaintReason.UNRESOLVED_METHOD);
+                    return;
+                }
 
                 _registerAliases["rax"] = $"{type.FullName}.{mDef.Name}";
                 _registerContents["rax"] = mDef;
@@ -1528,6 +1575,7 @@ namespace Cpp2IL
             else if (jumpAddress == _keyFunctionAddresses.AddrNativeLookupGenMissingMethod)
             {
                 _typeDump.Append(" - this is the native lookup bailout function");
+                TaintMethod(TaintReason.NON_REMOVED_INTERNAL_FUNCTION);
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrBoxValueMethod)
             {
@@ -1550,7 +1598,11 @@ namespace Cpp2IL
                     if (destType != null)
                         _registerTypes["rax"] = destType;
                     else
+                    {
                         _registerTypes.Remove("rax");
+                        _typeDump.Append(" ; - failed to get dest type for box");
+                        TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
+                    }
                 }
             }
             else if (jumpAddress == _keyFunctionAddresses.AddrSafeCastMethod)
@@ -1575,7 +1627,7 @@ namespace Cpp2IL
                 else
                     castTarget = castAlias;
 
-                if (t is TypeReference type)
+                if (t is TypeDefinition type)
                 {
                     _typeDump.Append($" - Safe casts {castTarget} to {type.FullName}");
 
@@ -1597,6 +1649,11 @@ namespace Cpp2IL
                     }
 
                     _psuedoCode.Append("\n");
+                }
+                else
+                {
+                    TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
+                    _typeDump.Append(" ; - failed to find safe cast target type");
                 }
             }
             else
@@ -1667,7 +1724,7 @@ namespace Cpp2IL
 
                             var (definedType, genericParams) = Utils.TryLookupTypeDefByName(typeName);
 
-                            var genericTypes = genericParams.Select(Utils.TryLookupTypeDefByName).Select(t => (TypeReference) t.Item1).ToList();
+                            var genericTypes = genericParams.Select(Utils.TryLookupTypeDefByName).Select(t => t.Item1).ToList();
 
                             var method = definedType?.Methods?.FirstOrDefault(methd => methd.Name.Split('.').Last() == methodName);
 
@@ -1677,9 +1734,9 @@ namespace Cpp2IL
 
                             if (requiredCount != providedParamCount) continue;
 
-                            var returnType = method.ReturnType;
+                            var returnType = Utils.TryLookupTypeDefByName(method.ReturnType.FullName).Item1;
 
-                            if (returnType.Name == "Object" && genericTypes.Count == 1 && genericTypes.All(t => t != null))
+                            if (returnType != null && returnType.Name == "Object" && genericTypes.Count == 1 && genericTypes.All(t => t != null))
                                 returnType = genericTypes.First();
 
                             HandleFunctionCall(method, true, instruction, returnType);
@@ -1691,6 +1748,7 @@ namespace Cpp2IL
                     //so this is an unknown function call
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Unknown function call to address 0x{jumpAddress:X}\n");
                     _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}UnknownFun_{jumpAddress:X}()\n");
+                    TaintMethod(TaintReason.UNRESOLVED_METHOD);
                     if(instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
                         //Jmp = not coming back to this function
                         _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");
@@ -1716,7 +1774,7 @@ namespace Cpp2IL
             }
 
 
-            _lastComparison = new Tuple<(string, TypeReference, object), (string, TypeReference, object)>(GetDetailsOfReferencedObject(instruction.Operands[0], instruction), GetDetailsOfReferencedObject(instruction.Operands[1], instruction));
+            _lastComparison = new Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)>(GetDetailsOfReferencedObject(instruction.Operands[0], instruction), GetDetailsOfReferencedObject(instruction.Operands[1], instruction));
 
             _typeDump.Append($" ; - Comparison between {_lastComparison.Item1.Item1} and {_lastComparison.Item2.Item1}");
         }
@@ -1734,13 +1792,17 @@ namespace Cpp2IL
             if (_lastComparison.Item1.Item1 == "")
             {
                 _typeDump.Append(" ; - WARN Comparison Jump without comparison statement?");
+                TaintMethod(TaintReason.BAD_CONDITION);
                 return;
             }
 
             var (comparisonItemA, typeA, _) = _lastComparison.Item1;
-            var (comparisonItemB, _, _) = _lastComparison.Item2;
+            var (comparisonItemB, typeB, _) = _lastComparison.Item2;
 
             //TODO: Clear out crap [unknown global] if statements
+            
+            if(comparisonItemA.Contains("unknown global") || comparisonItemB.Contains("unknown global") || comparisonItemA.Contains("value in") || comparisonItemB.Contains("value in") || comparisonItemA.Contains("unknown refobject") || comparisonItemB.Contains("unknown refobject"))
+                TaintMethod(TaintReason.BAD_CONDITION);
 
             var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
 
@@ -1750,6 +1812,7 @@ namespace Cpp2IL
             var isLoop = dest < instruction.PC + _methodStart && dest > _methodStart;
 
             // _lastComparison = new Tuple<object, object>("", ""); //Clear last comparison
+            var checkTypes = true;
             string condition;
             switch (instruction.Mnemonic)
             {
@@ -1759,10 +1822,14 @@ namespace Cpp2IL
                     var isBoolean = typeA?.Name == "Boolean";
                     if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == false" : $"{comparisonItemA} == {comparisonItemB}";
-                    else if (typeA?.IsPrimitive == true)
+                    else if (typeA?.IsPrimitive == true) 
                         condition = isSelfCheck ? $"{comparisonItemA} == 0" : $"{comparisonItemA} == {comparisonItemB}";
                     else
                         condition = isSelfCheck ? $"{comparisonItemA} == null" : $"{comparisonItemA} == {comparisonItemB}";
+
+                    if (isSelfCheck)
+                        checkTypes = false;
+
                     break;
                 }
                 case ud_mnemonic_code.UD_Ijnz:
@@ -1775,6 +1842,10 @@ namespace Cpp2IL
                         condition = isSelfCheck ? $"{comparisonItemA} != 0" : $"{comparisonItemA} != {comparisonItemB}";
                     else
                         condition = isSelfCheck ? $"{comparisonItemA} != null" : $"{comparisonItemA} != {comparisonItemB}";
+
+                    if (isSelfCheck)
+                        checkTypes = false;
+                    
                     break;
                 }
                 case ud_mnemonic_code.UD_Ijge:
@@ -1795,10 +1866,14 @@ namespace Cpp2IL
                     break;
                 default:
                     condition = null;
+                    TaintMethod(TaintReason.BAD_CONDITION);
                     break;
             }
 
             if (condition == null) return;
+            
+            if(checkTypes && typeA?.FullName != typeB?.FullName)
+                TaintMethod(TaintReason.NONSENSICAL_COMPARISON);
 
             if (isLoop)
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Code from 0x{dest:X} until 0x{instruction.PC + _methodStart:X} repeats while {condition}\n");
@@ -1817,6 +1892,7 @@ namespace Cpp2IL
                     var currentOffset = _cppAssembly.MapVirtualAddressToRaw(dest);
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 3)}[If Body at 0x{currentOffset:X}]\n");
                     _psuedoCode.Append(Utils.Repeat("\t", _blockDepth + 1)).Append("[undeciphered]\n");
+                    TaintMethod(TaintReason.MISSING_IF_BODY);
                 }
                 else
                 {
@@ -1903,14 +1979,14 @@ namespace Cpp2IL
         private struct PreBlockCache
         {
             public Dictionary<string, string> Aliases;
-            public Dictionary<string, TypeReference> Types;
+            public Dictionary<string, TypeDefinition> Types;
             public Dictionary<string, object> Constants;
             public BlockType BlockType;
 
-            public PreBlockCache(Dictionary<string, string> registerAliases, Dictionary<string, object> registerContents, Dictionary<string, TypeReference> registerTypes, BlockType type)
+            public PreBlockCache(Dictionary<string, string> registerAliases, Dictionary<string, object> registerContents, Dictionary<string, TypeDefinition> registerTypes, BlockType type)
             {
                 Aliases = new Dictionary<string, string>();
-                Types = new Dictionary<string, TypeReference>();
+                Types = new Dictionary<string, TypeDefinition>();
                 Constants = new Dictionary<string, object>();
 
                 foreach (var keyValuePair in registerAliases) Aliases[keyValuePair.Key] = keyValuePair.Value;
@@ -1931,9 +2007,35 @@ namespace Cpp2IL
             }
         }
 
+        private class ArrayData
+        {
+            public readonly ulong Length;
+            public readonly TypeDefinition ElementType;
+
+            public ArrayData(ulong length, TypeDefinition elementType)
+            {
+                Length = length;
+                ElementType = elementType;
+            }
+        }
+
         private enum BlockType
         {
             NONE, IF, ELSE
+        }
+
+        private enum TaintReason
+        {
+            UNRESOLVED_METHOD = 1,
+            UNRESOLVED_FIELD = 2,
+            UNRESOLVED_STACK_VAL = 3,
+            BAD_CONDITION = 4,
+            METHOD_PARAM_MISSING = 5,
+            NON_REMOVED_INTERNAL_FUNCTION = 6,
+            FAILED_TYPE_RESOLVE = 7,
+            METHOD_PARAM_MISMATCH = 8,
+            NONSENSICAL_COMPARISON = 9,
+            MISSING_IF_BODY = 10,
         }
     }
 }

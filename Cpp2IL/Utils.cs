@@ -680,5 +680,13 @@ namespace Cpp2IL
 
             return builder;
         }
+
+        public static bool IsAssignableFrom(this TypeReference reference, TypeReference other)
+        {
+            if(other is TypeDefinition otherDef)
+                return reference.FullName == otherDef.FullName || otherDef.BaseType != null && reference.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1) || otherDef.Interfaces.Any(i => reference.IsAssignableFrom(i.InterfaceType));
+            
+            return reference.FullName == other.FullName; //Simple check
+        }
     }
 }

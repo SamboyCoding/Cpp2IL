@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
 using Microsoft.Win32;
@@ -230,6 +231,12 @@ namespace Cpp2IL
                 var toProcess = methods.Where(tuple => tuple.Item1.Module.Assembly == assembly).ToList();
                 var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
                 var nextThreshold = thresholds.First();
+                
+                var successfullyProcessed = 0;
+                var failedProcess = 0;
+
+                var startTime = DateTime.Now.Ticks;
+                
                 thresholds.RemoveAt(0);
                 toProcess
                     .AsParallel()
@@ -264,7 +271,12 @@ namespace Cpp2IL
                                 var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
-                                new AsmDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                                var tainted = new AsmDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
+
+                                if (tainted)
+                                    Interlocked.Increment(ref failedProcess);
+                                else
+                                    Interlocked.Increment(ref successfullyProcessed);
                             }
 
                             lock (type)
@@ -276,6 +288,11 @@ namespace Cpp2IL
                         }
                     });
 
+                var total = successfullyProcessed + failedProcess;
+
+                var elapsed = DateTime.Now.Ticks - startTime;
+                Console.WriteLine($"Finished method processing in {elapsed} ticks (about {elapsed / 10000000L} seconds)");
+                Console.WriteLine($"Processed {total} methods, {successfullyProcessed} ({Math.Round(successfullyProcessed * 100.0 / total, 2)}%) successfully, {failedProcess} ({Math.Round(failedProcess * 100.0 / total, 2)}%) with errors.");
                 Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
             }
             
