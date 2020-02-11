@@ -15,12 +15,14 @@ namespace Cpp2IL
     internal class AsmDumper
     {
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
-        private static readonly TypeReference StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
-        private static readonly TypeReference LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
-        private static readonly TypeReference FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
-        private static readonly TypeReference IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
-        private static readonly TypeReference BooleanReference = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
         private static readonly TypeReference TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
+        private static readonly TypeReference StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
+        private static readonly TypeReference BooleanReference = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
+        private static readonly TypeReference FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
+        private static readonly TypeReference ByteReference = Utils.TryLookupTypeDefByName("System.Byte").Item1;
+        private static readonly TypeReference ShortReference = Utils.TryLookupTypeDefByName("System.Int16").Item1;
+        private static readonly TypeReference IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
+        private static readonly TypeReference LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
 
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
@@ -1182,7 +1184,10 @@ namespace Cpp2IL
                     if (_registerAliases.ContainsKey(sourceReg))
                     {
                         if (isStack)
+                        {
                             _stackAliases[stackAddr] = _registerAliases[sourceReg];
+                            _typeDump.Append($" ; - pushes {_registerAliases[sourceReg]} onto the stack at address 0x{stackAddr:X}");
+                        }
                         else
                             _registerAliases[destReg] = _registerAliases[sourceReg];
                         if (_registerTypes.ContainsKey(sourceReg))
@@ -1246,13 +1251,57 @@ namespace Cpp2IL
                     }
                     else
                     {
-                        //Try to read literal - used for native method name lookups
+                        //Try to read literal - used for native method name lookups and numerical constants
                         try
                         {
                             var actualAddress = _cppAssembly.MapVirtualAddressToRaw(addr);
-                            _typeDump.Append(" - might be in file at " + actualAddress);
+                            _typeDump.Append(" - might be in file at " + actualAddress + $" ; memory block size is {instruction.Operands[1].Size}");
+
+                            if (instruction.Operands[1].Size > 0)
+                            {
+                                //Try read const
+                                _typeDump.Append(" ; - potentially an il2cpp numerical constant");
+
+                                //MSBuild is really not happy about this line :(
+                                var constBytes = _cppAssembly.raw.SubArray((int) Convert.ToInt32(actualAddress), /*in bits, convert to bytes*/ instruction.Operands[1].Size / 8);
+
+                                object constant;
+                                var constantType = LongReference;
+                                switch (instruction.Operands[1].Size)
+                                {
+                                    case 8:
+                                        constant = constBytes[0];
+                                        constantType = ByteReference;
+                                        break;
+                                    case 16:
+                                        constant = BitConverter.ToInt16(constBytes, 0);
+                                        constantType = ShortReference;
+                                        break;
+                                    case 32:
+                                        constant = BitConverter.ToInt32(constBytes, 0);
+                                        constantType = IntegerReference;
+                                        break;
+                                    case 64:
+                                        constant = BitConverter.ToInt64(constBytes, 0);
+                                        constantType = LongReference;
+                                        break;
+                                    default:
+                                        constant = null;
+                                        break;
+                                }
+
+                                if (constant != null)
+                                {
+                                    _typeDump.Append($" ; - constant value of {constant} and type {constantType}");
+                                    _registerAliases[destReg] = $"const_{constant}";
+                                    _registerContents[destReg] = constant;
+                                    _registerTypes[destReg] = constantType;
+                                    return;
+                                }
+                            }
+                            
                             var c = Convert.ToChar(_cppAssembly.raw[actualAddress]);
-                            if (char.IsLetter(c) && c < 'z')
+                            if (char.IsLetter(c) && c < 'z') //includes uppercase
                             {
                                 var literal = new StringBuilder();
                                 while (_cppAssembly.raw[actualAddress] != 0 && literal.Length < 250)
@@ -1266,7 +1315,7 @@ namespace Cpp2IL
                                     _typeDump.Append(" - literal: " + literal);
                                     _registerAliases[destReg] = literal.ToString();
                                     _registerTypes[destReg] = StringReference;
-                                    _registerContents.Remove(destReg);
+                                    _registerContents[destReg] = literal;
                                     return;
                                 }
                             }
