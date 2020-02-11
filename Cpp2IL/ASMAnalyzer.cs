@@ -55,6 +55,17 @@ namespace Cpp2IL
             ud_mnemonic_code.UD_Iadd, //Add
         };
 
+        private readonly ud_mnemonic_code[] _moveOpcodes =
+        {
+            ud_mnemonic_code.UD_Imov, //General move
+            ud_mnemonic_code.UD_Imovaps,
+            ud_mnemonic_code.UD_Imovss, //Move scalar single
+            ud_mnemonic_code.UD_Imovsd, //Move scalar double
+            ud_mnemonic_code.UD_Imovzx,
+            ud_mnemonic_code.UD_Ilea, //Load effective address
+            ud_mnemonic_code.UD_Imovups
+        };
+
         internal AsmDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
         {
             _methodDefinition = methodDefinition;
@@ -344,7 +355,7 @@ namespace Cpp2IL
             CheckForFieldWrites(instruction);
 
             //And check for reads on (non-global) fields.
-            CheckForFieldAndStacReads(instruction);
+            CheckForFieldAndStackReads(instruction);
 
             //Check for XOR Reg, Reg
             CheckForRegClear(instruction);
@@ -376,20 +387,16 @@ namespace Cpp2IL
             CheckForReturn(instruction);
         }
 
-        private void HandleFunctionCall(MethodDefinition target, bool processReturnType, TypeReference returnType = null)
+        private void HandleFunctionCall(MethodDefinition target, bool processReturnType, Instruction instruction, TypeReference returnType = null)
         {
             if (returnType == null)
                 returnType = target.ReturnType;
 
-            if (processReturnType && returnType != null && returnType.Name != "Void")
-                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(returnType.FullName).Append(" ").Append($"local{_localNum} = ");
-            else
-                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth));
-
-
             _typeDump.Append($" - function {target.FullName}");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Calls {(target.IsStatic ? "static" : "instance")} function {target.FullName}");
             var args = new List<string>();
+
+            string methodName = null;
 
             var paramRegisters = new List<string>(new[] {"rcx/xmm0", "rdx/xmm1", "r8/xmm2", "r9/xmm3"});
             if (!target.IsStatic)
@@ -407,18 +414,19 @@ namespace Cpp2IL
                     if (_registerAliases[possibility] == "this" && target.DeclaringType.FullName != _methodDefinition.DeclaringType.FullName)
                     {
                         //Supercall
-                        _psuedoCode.Append("base.").Append(target.Name);
+                        methodName = $"base.{target.Name}";
                     }
                     else
                     {
-                        _psuedoCode.Append(_registerAliases[possibility]).Append(".").Append(target.Name);
+                        methodName = $"{_registerAliases[possibility]}.{target.Name}";
                     }
 
                     break;
                 }
+                
             }
             else
-                _psuedoCode.Append(target.DeclaringType.FullName).Append(".").Append(target.Name);
+                methodName = $"{target.DeclaringType.FullName}.{target.Name}";
             
             var paramNames = new List<string>();
 
@@ -481,7 +489,9 @@ namespace Cpp2IL
 
                     if (_registerContents.ContainsKey(possibility) && _registerContents[possibility] is StackPointer sPtr)
                     {
-                        //TODO: types, actually set this on idk reg move or field read or smth maybe both 
+                        if(!_stackAliases.ContainsKey(sPtr.Address))
+                            continue; //Try next register - we don't have a value here.
+                        
                         alias = _stackAliases.ContainsKey(sPtr.Address) ? _stackAliases[sPtr.Address] : $"[unknown value in stack at offset 0x{sPtr.Address:X}]";
                         type = _stackTypes.ContainsKey(sPtr.Address) ? _stackTypes[sPtr.Address] : LongReference;
                     }
@@ -523,11 +533,18 @@ namespace Cpp2IL
                         if (genericCount == 1)
                             returnType = Utils.TryLookupTypeDefByName(genericParams).Item1;
 
-                        _psuedoCode.Append("<").Append(genericParams).Append(">");
+                        methodName += "<" + genericParams + ">";
                         _methodFunctionality.Append(" with generic params ").Append(genericParams);
                     }
                 }
             }
+            
+            if (processReturnType && returnType != null && returnType.Name != "Void")
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(returnType.FullName).Append(" ").Append($"local{_localNum} = ");
+            else
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth));
+
+            _psuedoCode.Append(methodName);
 
             _psuedoCode.Append("(").Append(string.Join(", ", paramNames)).Append(")\n");
 
@@ -537,6 +554,10 @@ namespace Cpp2IL
 
             if (processReturnType && returnType != null && returnType.Name != "Void")
                 PushMethodReturnTypeToLocal(returnType);
+            
+            if(instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
+                //Jmp = not coming back to this function
+                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");
         }
 
         private void PushMethodReturnTypeToLocal(TypeReference returnType)
@@ -906,7 +927,7 @@ namespace Cpp2IL
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})\n");
         }
 
-        private void CheckForFieldAndStacReads(Instruction instruction)
+        private void CheckForFieldAndStackReads(Instruction instruction)
         {
             //Pre-checks
             if (instruction.Operands.Length < 2 || instruction.Operands[1].Type != ud_type.UD_OP_MEM || instruction.Operands[1].Base == ud_type.UD_R_RIP) return;
@@ -934,7 +955,7 @@ namespace Cpp2IL
                     
                     _registerTypes[destReg] = type;
                 }
-                else if (instruction.Mnemonic == ud_mnemonic_code.UD_Imov)
+                else if (_moveOpcodes.Contains(instruction.Mnemonic))
                 {
                     //Register now has the value from the stack
                     var destReg = GetRegisterName(instruction.Operands[0]);
@@ -1145,9 +1166,7 @@ namespace Cpp2IL
             if (instruction.Operands[0].Type != ud_type.UD_OP_REG && (instruction.Operands[0].Type != ud_type.UD_OP_MEM || instruction.Operands[0].Base != ud_type.UD_R_RSP)) return;
 
             //Must be some sort of move
-            if (instruction.Mnemonic != ud_mnemonic_code.UD_Imov && instruction.Mnemonic != ud_mnemonic_code.UD_Imovaps && instruction.Mnemonic != ud_mnemonic_code.UD_Imovss
-                && instruction.Mnemonic != ud_mnemonic_code.UD_Imovzx && instruction.Mnemonic != ud_mnemonic_code.UD_Ilea && instruction.Mnemonic != ud_mnemonic_code.UD_Imovups)
-                return;
+            if (!_moveOpcodes.Contains(instruction.Mnemonic)) return;
 
             var destReg = GetRegisterName(instruction.Operands[0]);
             var isStack = destReg == "rsp";
@@ -1296,7 +1315,7 @@ namespace Cpp2IL
             _registerContents.TryGetValue(register, out var o);
             if (o != null && o is MethodDefinition method)
             {
-                HandleFunctionCall(method, true);
+                HandleFunctionCall(method, true, instruction);
             }
         }
 
@@ -1328,7 +1347,7 @@ namespace Cpp2IL
 
             if (methodAtAddress != null)
             {
-                HandleFunctionCall(methodAtAddress, true);
+                HandleFunctionCall(methodAtAddress, true, instruction);
                 return;
             }
 
@@ -1614,7 +1633,7 @@ namespace Cpp2IL
                             if (returnType.Name == "Object" && genericTypes.Count == 1 && genericTypes.All(t => t != null))
                                 returnType = genericTypes.First();
 
-                            HandleFunctionCall(method, true, returnType);
+                            HandleFunctionCall(method, true, instruction, returnType);
                             return;
                         }
                     }
@@ -1623,6 +1642,9 @@ namespace Cpp2IL
                     //so this is an unknown function call
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Unknown function call to address 0x{jumpAddress:X}\n");
                     _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}UnknownFun_{jumpAddress:X}()\n");
+                    if(instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
+                        //Jmp = not coming back to this function
+                        _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");
                 }
             }
         }
