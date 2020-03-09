@@ -70,6 +70,7 @@
   <ItemGroup>
     <Compile Include="ASMAnalyzer.cs" />
     <Compile Include="AssemblyBuilder.cs" />
+    <Compile Include="BoyerMooreHorspool.cs" />
     <Compile Include="ClassReadingBinaryReader.cs" />
     <Compile Include="CppMethodData.cs" />
     <Compile Include="Extensions.cs" />

@@ -89,7 +89,6 @@ namespace Cpp2IL.PE
 
         private bool AutoInit(ulong codeRegistration, ulong metadataRegistration)
         {
-            Console.WriteLine("Initializing from auto-detected registration functions...");
             Console.WriteLine("\tCodeRegistration : {0:x}", codeRegistration);
             Console.WriteLine("\tMetadataRegistration : {0:x}", metadataRegistration);
             if (codeRegistration == 0 || metadataRegistration == 0) return false;
@@ -256,6 +255,9 @@ namespace Cpp2IL.PE
 
             ulong codeRegistration;
             ulong metadataRegistration;
+            
+            Console.WriteLine("Attempting to locate code and metadata registration functions...");
+            
             var plusSearch = new PlusSearch(this, methodCount, typeDefinitionsCount, maxMetadataUsages);
             var dataSections = dataList.ToArray();
             var execSections = execList.ToArray();
@@ -264,12 +266,14 @@ namespace Cpp2IL.PE
             plusSearch.SetExecSections(imageBase, execSections);
             if (is32Bit)
             {
+                Console.WriteLine("\t(32-bit PE)");
                 codeRegistration = plusSearch.FindCodeRegistration();
                 plusSearch.SetExecSections(imageBase, dataSections);
                 metadataRegistration = plusSearch.FindMetadataRegistration();
             }
             else
             {
+                Console.WriteLine("\t(64-bit PE)");
                 codeRegistration = plusSearch.FindCodeRegistration64Bit();
                 plusSearch.SetExecSections(imageBase, dataSections);
                 metadataRegistration = plusSearch.FindMetadataRegistration64Bit();

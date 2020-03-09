@@ -31,7 +31,7 @@ namespace Cpp2IL.Metadata
         public Il2CppFieldRef[] fieldRefs;
         public Il2CppGenericParameter[] genericParameters;
         
-        public static Il2CppMetadata ReadFrom(string path, int[] unityVer)
+        public static Il2CppMetadata? ReadFrom(string path, int[] unityVer)
         {
             var bytes = File.ReadAllBytes(path);
             if (BitConverter.ToUInt32(bytes, 0) != 0xFAB11BAF)
@@ -52,6 +52,8 @@ namespace Cpp2IL.Metadata
             if (unityVer[0] >= 2019) actualVersion = 24.2f;
             else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f;
             else actualVersion = version;
+            
+            Console.WriteLine($"Using IL2CPP Metadata version {actualVersion}");
 
             Program.MetadataVersion = actualVersion;
             

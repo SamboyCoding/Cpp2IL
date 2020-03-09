@@ -92,7 +92,10 @@ namespace Cpp2IL
             Console.WriteLine("Reading metadata...");
             var metadata = Il2CppMetadata.ReadFrom(metadataPath, unityVerUseful);
 
+            Console.WriteLine("Reading binary / game assembly...");
             var PEBytes = File.ReadAllBytes(assemblyPath);
+            
+            Console.WriteLine($"\t-Initializing MemoryStream of {PEBytes.Length} bytes, parsing sections, and initializing with auto+ mode.");
 
             var theDll = new PE.PE(new MemoryStream(PEBytes, 0, PEBytes.Length, false, true), metadata.maxMetadataUsages);
             if (!theDll.PlusSearch(metadata.methodDefs.Count(x => x.methodIndex >= 0), metadata.typeDefs.Length))
