@@ -132,7 +132,10 @@ namespace Cpp2IL
                     var secContent = _pe.ReadBytes((int) (section.RawEndAddress - section.RawStartAddress));
 
                     //Find every virtual address of an occurrence of the search bytes
-                    var virtualAddressesOfSearchBytes = secContent.Search(featureBytes2019).Select(p => (ulong) p + section.VirtualStartAddress).ToList();
+                    var virtualAddressesOfSearchBytes = secContent
+                        .Search(featureBytes2019)
+                        .Select(p => (ulong) p + section.VirtualStartAddress)
+                        .ToList();
 
                     var locatedPositions = virtualAddressesOfSearchBytes.Select(va =>
                         {
@@ -171,7 +174,9 @@ namespace Cpp2IL
                 .Where(p => p != 0UL)
                 .ToList();
 
-            var ret = matchingAddresses.Count == 0 ? 0UL : matchingAddresses.First();
+            if (matchingAddresses.Count == 0) return 0UL;
+
+            var ret = matchingAddresses.First();
 
             if (Program.MetadataVersion > 24.2f) return ret - 120;
 
