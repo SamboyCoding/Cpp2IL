@@ -240,6 +240,8 @@ namespace Cpp2IL
 
                 var startTime = DateTime.Now.Ticks;
                 
+                var methodTaintDict = new Dictionary<string, AsmDumper.TaintReason>();
+                
                 thresholds.RemoveAt(0);
                 toProcess
                     .AsParallel()
@@ -274,9 +276,12 @@ namespace Cpp2IL
                                 var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
-                                var tainted = new AsmDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll).AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll)
+                                    .AnalyzeMethod(typeDump, ref allUsedMnemonics);
 
-                                if (tainted)
+                                methodTaintDict[methodDefinition.FullName] = taintResult;
+
+                                if (taintResult != AsmDumper.TaintReason.UNTAINTED)
                                     Interlocked.Increment(ref failedProcess);
                                 else
                                     Interlocked.Increment(ref successfullyProcessed);
@@ -296,7 +301,23 @@ namespace Cpp2IL
                 var elapsed = DateTime.Now.Ticks - startTime;
                 Console.WriteLine($"Finished method processing in {elapsed} ticks (about {elapsed / 10000000L} seconds)");
                 Console.WriteLine($"Processed {total} methods, {successfullyProcessed} ({Math.Round(successfullyProcessed * 100.0 / total, 2)}%) successfully, {failedProcess} ({Math.Round(failedProcess * 100.0 / total, 2)}%) with errors.");
-                Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
+                
+                var summary = new StringBuilder();
+                foreach (var keyValuePair in methodTaintDict)
+                {
+                    summary.Append(keyValuePair.Key)
+                        .Append(Utils.Repeat(" ", 250 - keyValuePair.Key.Length))
+                        .Append(keyValuePair.Value)
+                        .Append(" (")
+                        .Append((int) keyValuePair.Value)
+                        .Append(")")
+                        .Append("\n");
+                }
+                
+                File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
+                Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
+                
+                // Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
             }
             
             Console.WriteLine("[Finished. Press enter to exit]");

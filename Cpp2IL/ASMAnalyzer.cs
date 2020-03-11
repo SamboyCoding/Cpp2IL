@@ -49,7 +49,7 @@ namespace Cpp2IL
         private Dictionary<int, string> _stackAliases = new Dictionary<int, string>();
         private Dictionary<int, TypeDefinition> _stackTypes = new Dictionary<int, TypeDefinition>();
 
-        private bool _tainted = false;
+        private TaintReason _taintReason = TaintReason.UNTAINTED;
 
         private BlockType _currentBlockType = BlockType.NONE;
 
@@ -85,9 +85,9 @@ namespace Cpp2IL
 
         private void TaintMethod(TaintReason reason)
         {
-            if (_tainted) return;
+            if (_taintReason != TaintReason.UNTAINTED) return;
             
-            _tainted = true;
+            _taintReason = reason;
             _typeDump.Append($" ; !!! METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason}) !!!");
             _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//!!!METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason})!!!\n");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}!!! METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason}) !!!\n");
@@ -174,7 +174,7 @@ namespace Cpp2IL
             return ret;
         }
 
-        internal bool AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
+        internal TaintReason AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
             _typeDump = typeDump;
             _registerAliases = new Dictionary<string, string>();
@@ -338,7 +338,7 @@ namespace Cpp2IL
 
             typeDump.Append($"\n\tGenerated Pseudocode:\n\n{_psuedoCode}\n");
 
-            return _tainted;
+            return _taintReason;
         }
 
         private void PushBlock(int toAdd, BlockType type)
@@ -2024,8 +2024,9 @@ namespace Cpp2IL
             NONE, IF, ELSE
         }
 
-        private enum TaintReason
+        internal enum TaintReason
         {
+            UNTAINTED = 0,
             UNRESOLVED_METHOD = 1,
             UNRESOLVED_FIELD = 2,
             UNRESOLVED_STACK_VAL = 3,
