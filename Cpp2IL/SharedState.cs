@@ -15,5 +15,9 @@ namespace Cpp2IL
         internal static List<TypeDefinition> AllTypeDefinitions = new List<TypeDefinition>();
         
         internal static Dictionary<TypeDefinition, List<FieldInType>> FieldsByType = new Dictionary<TypeDefinition, List<FieldInType>>();
+        
+        internal static readonly List<AssemblyBuilder.GlobalIdentifier> Globals = new List<AssemblyBuilder.GlobalIdentifier>();
+        
+        internal static readonly Dictionary<ulong, AssemblyBuilder.GlobalIdentifier> GlobalsDict = new Dictionary<ulong, AssemblyBuilder.GlobalIdentifier>();
     }
 }

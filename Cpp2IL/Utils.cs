@@ -20,6 +20,7 @@ namespace Cpp2IL
         private static TypeDefinition BooleanReference;
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
+        private static readonly Dictionary<string, Tuple<TypeDefinition, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition, string[]>>();
 
         public static void BuildPrimitiveMappings()
         {
@@ -486,8 +487,8 @@ namespace Cpp2IL
             if (op.Type != ud_type.UD_OP_MEM) return 0;
             var num1 = op.Offset switch
             {
-                8 => (int) op.LvalSByte,
-                16 => (int) op.LvalSWord,
+                8 => op.LvalSByte,
+                16 => op.LvalSWord,
                 32 => op.LvalSDWord,
                 _ => 0
             };
@@ -503,10 +504,24 @@ namespace Cpp2IL
             return num1 + insn.PC;
         }
 
-        public static Tuple<TypeDefinition?, string[]> TryLookupTypeDefByName(string name)
+        public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string name)
         {
-            if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
+            if(name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
+            
+            var key = name.ToLower();
 
+            if (_cachedTypeDefsByName.TryGetValue(key, out var ret))
+                return ret;
+            
+            var result = InternalTryLookupTypeDefByName(name);
+
+            _cachedTypeDefsByName[key] = result;
+
+            return result;
+        }
+
+        private static Tuple<TypeDefinition, string[]> InternalTryLookupTypeDefByName(string name)
+        {
             if (primitiveTypeMappings.ContainsKey(name))
                 return new Tuple<TypeDefinition, string[]>(primitiveTypeMappings[name], new string[0]);
 
@@ -681,8 +696,10 @@ namespace Cpp2IL
             return builder;
         }
 
-        public static bool IsAssignableFrom(this TypeReference reference, TypeReference other)
+        public static bool IsAssignableFrom(this TypeReference reference, TypeReference? other)
         {
+            if (reference == null || other == null) return false;
+            
             if(other is TypeDefinition otherDef)
                 return reference.FullName == otherDef.FullName || otherDef.BaseType != null && reference.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1) || otherDef.Interfaces.Any(i => reference.IsAssignableFrom(i.InterfaceType));
             

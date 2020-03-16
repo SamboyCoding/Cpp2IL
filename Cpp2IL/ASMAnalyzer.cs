@@ -28,7 +28,6 @@ namespace Cpp2IL
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
         private ulong _methodEnd;
-        private readonly List<AssemblyBuilder.GlobalIdentifier> _globals;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly PE.PE _cppAssembly;
         private Dictionary<string, string> _registerAliases;
@@ -45,7 +44,7 @@ namespace Cpp2IL
         private Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)> _lastComparison;
         private List<int> _indentCounts = new List<int>();
         private Stack<PreBlockCache> _savedRegisterStates = new Stack<PreBlockCache>();
-        
+
         private Dictionary<int, string> _stackAliases = new Dictionary<int, string>();
         private Dictionary<int, TypeDefinition> _stackTypes = new Dictionary<int, TypeDefinition>();
 
@@ -71,11 +70,11 @@ namespace Cpp2IL
             ud_mnemonic_code.UD_Imovups
         };
 
-        internal AsmDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, List<AssemblyBuilder.GlobalIdentifier> globals, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
+        internal AsmDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses, PE.PE cppAssembly)
         {
             _methodDefinition = methodDefinition;
             _methodStart = methodStart;
-            _globals = globals;
+
             _keyFunctionAddresses = keyFunctionAddresses;
             _cppAssembly = cppAssembly;
 
@@ -86,7 +85,7 @@ namespace Cpp2IL
         private void TaintMethod(TaintReason reason)
         {
             if (_taintReason != TaintReason.UNTAINTED) return;
-            
+
             _taintReason = reason;
             _typeDump.Append($" ; !!! METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason}) !!!");
             _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//!!!METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason})!!!\n");
@@ -311,8 +310,8 @@ namespace Cpp2IL
                 PerformInstructionChecks(instruction);
 
                 typeDump.Append("\n");
-                
-                if(instruction.Mnemonic == ud_mnemonic_code.UD_Iret && _blockDepth == 0)
+
+                if (instruction.Mnemonic == ud_mnemonic_code.UD_Iret && _blockDepth == 0)
                     break; //Can't continue
 
                 var old = _indentCounts.Count;
@@ -361,7 +360,7 @@ namespace Cpp2IL
             _registerTypes = savedRegisterState.Types;
 
             _currentBlockType = savedRegisterState.BlockType;
-                        
+
             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth - 1)).Append("}").Append("\n");
             _blockDepth--;
         }
@@ -440,11 +439,10 @@ namespace Cpp2IL
 
                     break;
                 }
-                
             }
             else
                 methodName = $"{target.DeclaringType.FullName}.{target.Name}";
-            
+
             var paramNames = new List<string>();
 
             foreach (var parameter in target.Parameters)
@@ -478,12 +476,12 @@ namespace Cpp2IL
                     {
                         args.Add($"NULL (as a literal) as {parameter.Name} in register {possibility}");
                         paramNames.Add("null");
-                            
+
 
                         success = true;
                         break;
                     }
-                    
+
                     if (!_registerAliases.ContainsKey(possibility) || _registerAliases[possibility] == null)
                     {
                         continue;
@@ -496,8 +494,8 @@ namespace Cpp2IL
                         {
                             args.Add($"'{global.Value.Name}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
                             paramNames.Add($"'{global.Value.Name}'");
-                            
-                            if(parameter.ParameterType.Name != "String") 
+
+                            if (parameter.ParameterType.Name != "String")
                                 TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
 
                             success = true;
@@ -510,21 +508,21 @@ namespace Cpp2IL
 
                     if (_registerContents.ContainsKey(possibility) && _registerContents[possibility] is StackPointer sPtr)
                     {
-                        if(!_stackAliases.ContainsKey(sPtr.Address))
+                        if (!_stackAliases.ContainsKey(sPtr.Address))
                             continue; //Try next register - we don't have a value here.
-                        
+
                         alias = _stackAliases.ContainsKey(sPtr.Address) ? _stackAliases[sPtr.Address] : $"[unknown value in stack at offset 0x{sPtr.Address:X}]";
                         type = _stackTypes.ContainsKey(sPtr.Address) ? _stackTypes[sPtr.Address] : LongReference;
                     }
-                    
+
                     args.Add($"{alias} (type {type?.Name}) as {parameter.Name} in register {possibility}");
                     paramNames.Add(alias);
                     success = true;
-                    
+
                     //TODO: This isn't working properly with interfaces - e.g. Control_GlobalTime extends MonoBehavior which implements UnityEngine.Object, but this returns false
-                    if(type == null || parameter.ParameterType.IsAssignableFrom(type)) //TODO: This is a genuine issue with floats - if the param is a floating point type we should prefer xmm registers over standard. cause you know that's how it works.
+                    if (type == null || parameter.ParameterType.IsAssignableFrom(type)) //TODO: This is a genuine issue with floats - if the param is a floating point type we should prefer xmm registers over standard. cause you know that's how it works.
                         TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
-                    
+
                     break;
                 }
 
@@ -570,7 +568,7 @@ namespace Cpp2IL
                     }
                 }
             }
-            
+
             if (processReturnType && returnType != null && returnType.Name != "Void")
                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(returnType.FullName).Append(" ").Append($"local{_localNum} = ");
             else
@@ -586,8 +584,8 @@ namespace Cpp2IL
 
             if (processReturnType && returnType != null && returnType.Name != "Void")
                 PushMethodReturnTypeToLocal(returnType);
-            
-            if(instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
+
+            if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
                 //Jmp = not coming back to this function
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");
         }
@@ -681,7 +679,7 @@ namespace Cpp2IL
                     if (operand.Base == ud_type.UD_R_RIP)
                     {
                         var globalAddr = Utils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
-                        if (_globals.Find(g => g.Offset == globalAddr) is {} glob && glob.Offset == globalAddr)
+                        if (SharedState.GlobalsDict.TryGetValue(globalAddr, out var glob))
                         {
                             if (glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
                             {
@@ -955,8 +953,18 @@ namespace Cpp2IL
                 sourceType = BooleanReference;
             }
 
-            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationFullyQualifiedName).Append(" = ").Append(sourceAlias).Append("\n");
-            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})\n");
+            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationFullyQualifiedName).Append(" = ").Append(sourceAlias);
+            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})");
+
+            if (!destinationType.IsAssignableFrom(sourceType))
+            {
+                TaintMethod(TaintReason.FIELD_TYPE_MISMATCH);
+            }
+            else
+            {
+                _psuedoCode.Append("\n");
+                _methodFunctionality.Append("\n");
+            }
         }
 
         private void CheckForFieldAndStackReads(Instruction instruction)
@@ -976,7 +984,7 @@ namespace Cpp2IL
                     //Register now has a pointer to the stack
                     var destReg = GetRegisterName(instruction.Operands[0]);
                     _typeDump.Append($" ; - Move reference to value in stack at offset 0x{stackOffset:X} to reg {destReg}");
-                    
+
                     _registerAliases[destReg] = $"stackPtr_0x{stackOffset:X}";
                     _registerContents[destReg] = new StackPointer(stackOffset);
 
@@ -984,7 +992,7 @@ namespace Cpp2IL
 
                     if (_stackTypes.TryGetValue(stackOffset, out var t))
                         type = t;
-                    
+
                     _registerTypes[destReg] = type;
                 }
                 else if (_moveOpcodes.Contains(instruction.Mnemonic))
@@ -993,28 +1001,29 @@ namespace Cpp2IL
                     var destReg = GetRegisterName(instruction.Operands[0]);
 
                     _registerAliases[destReg] = _stackAliases.ContainsKey(stackOffset) ? _stackAliases[stackOffset] : $"unknown_stack_val_0x{stackOffset:X}";
-                    
+
                     _typeDump.Append($" ; - Move value in stack at offset 0x{stackOffset:X} (which is {_registerAliases[destReg]}) to reg {destReg}");
-                    
+
                     _registerContents.Remove(destReg); //TODO: need to handle consts?
 
                     var type = LongReference;
 
                     if (_stackTypes.TryGetValue(stackOffset, out var t))
                         type = t;
-                    
+
                     _registerTypes[destReg] = type;
                 }
                 else
                 {
                     _typeDump.Append($" ; - do something with stack pointer at offset 0x{stackOffset:X} into the stack");
                 }
+
                 return;
             }
 
             //Check for field read
             var field = GetFieldReferencedByOperand(instruction.Operands[1]);
-            
+
             var sourceReg = GetRegisterName(instruction.Operands[1]);
 
             if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0)
@@ -1065,7 +1074,7 @@ namespace Cpp2IL
                         //Ignore
                     }
                 }
-                
+
                 //Check for the bizarre case of reading the type or length of an array.
                 if (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true)
                 {
@@ -1076,7 +1085,7 @@ namespace Cpp2IL
                     if (_registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData arrayData)
                     {
                         try
-                        {                            
+                        {
                             //If we have this situation then the constant tells us the length of the array
                             var arrayLength = (int) arrayData.Length;
 
@@ -1084,7 +1093,7 @@ namespace Cpp2IL
                             {
                                 //Accessing one more value than we have is used to get the type of the array
                                 var destReg = GetRegisterName(instruction.Operands[0]);
- 
+
                                 var arrayType = arrayData.ElementType;
 
                                 _registerTypes[destReg] = TypeReference;
@@ -1222,6 +1231,7 @@ namespace Cpp2IL
                         }
                         else
                             _registerAliases[destReg] = _registerAliases[sourceReg];
+
                         if (_registerTypes.ContainsKey(sourceReg))
                         {
                             if (isStack)
@@ -1232,6 +1242,7 @@ namespace Cpp2IL
                                 _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s type {_registerTypes[sourceReg]}");
                             }
                         }
+
                         if (_registerContents.ContainsKey(sourceReg) && !isStack)
                         {
                             _registerContents[destReg] = _registerContents[sourceReg];
@@ -1250,14 +1261,13 @@ namespace Cpp2IL
                     return;
                 case ud_type.UD_OP_MEM when instruction.Operands[1].Base == ud_type.UD_R_RIP:
                     //TODO: do we ever actually do this with the stack? Might do via a reg first
-                    
+
                     //Reading either a global or a string literal into the register
                     var offset = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
                     if (offset == 0) break;
                     var addr = _methodStart + offset;
                     _typeDump.Append($"; - Read on memory location 0x{addr:X}");
-                    var glob = _globals.Find(g => g.Offset == addr); //TODO: Perf: make this a dictionary
-                    if (glob.Offset == addr)
+                    if (SharedState.GlobalsDict.TryGetValue(addr, out var glob))
                     {
                         _typeDump.Append($" - this is global value {glob.Name} of type {glob.IdentifierType}");
                         _registerAliases[destReg] = $"global_{glob.IdentifierType}_{glob.Name}";
@@ -1331,20 +1341,26 @@ namespace Cpp2IL
                                     return;
                                 }
                             }
-                            
+
                             var c = Convert.ToChar(_cppAssembly.raw[actualAddress]);
+                            _typeDump.Append($" ; - first char is {c}");
                             if (char.IsLetter(c) && c < 'z') //includes uppercase
                             {
+                                var isUnicode = _cppAssembly.raw[actualAddress + 1] == 0;
+                                _typeDump.Append(" ; - probably a literal");
                                 var literal = new StringBuilder();
-                                while (_cppAssembly.raw[actualAddress] != 0 && literal.Length < 250)
+                                while ((_cppAssembly.raw[actualAddress] != 0 || _cppAssembly.raw[actualAddress + 1] != 0) && literal.Length < 250)
                                 {
                                     literal.Append(Convert.ToChar(_cppAssembly.raw[actualAddress]));
                                     actualAddress++;
+                                    if (isUnicode) actualAddress++;
                                 }
+
+                                _typeDump.Append($" - potential literal match: {literal}");
 
                                 if (literal.Length > 4)
                                 {
-                                    _typeDump.Append(" - literal: " + literal);
+                                    _typeDump.Append(" - resolved as literal: " + literal);
                                     _registerAliases[destReg] = literal.ToString();
                                     _registerTypes[destReg] = StringReference;
                                     _registerContents[destReg] = literal;
@@ -1449,20 +1465,21 @@ namespace Cpp2IL
             {
                 _typeDump.Append(" - this is the constructor function.");
                 var success = false;
-                _registerAliases.TryGetValue("rcx", out var glob);
-                if (glob != null)
+                //Look up the global identifier in the constants dict
+                if (_registerContents.TryGetValue("rcx", out var g) && g != null)
                 {
-                    var match = Regex.Match(glob, "global_([A-Z]+)_([^/]+)");
-                    if (match.Success)
+                    //Check we actually have a global
+                    if (g is AssemblyBuilder.GlobalIdentifier glob)
                     {
-                        Enum.TryParse<AssemblyBuilder.GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
-                        var global = _globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
-                        if (global.Offset != 0)
+                        //Check it's valid (which it should be?)
+                        if (glob.Offset != 0 && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
                         {
-                            var (definedType, genericParams) = Utils.TryLookupTypeDefByName(global.Name);
+                            //Look up type
+                            var (definedType, genericParams) = Utils.TryLookupTypeDefByName(glob.Name);
 
                             if (definedType != null)
                             {
+                                //If we've got it we can handle this as instance creation
                                 var name = definedType.FullName;
                                 if (genericParams.Length != 0)
                                     name = name.Replace($"`{genericParams.Length}", "");
@@ -1475,11 +1492,21 @@ namespace Cpp2IL
                             }
                             else
                             {
-                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of (unresolved) type {global.Name}\n");
+                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of (unresolved) type {glob.Name}\n");
                                 success = true;
                             }
                         }
+                        else
+                        {
+                            _typeDump.Append($" ; - but the global in rcx is not a type, it's a {glob.IdentifierType}");
+                            TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
+                        }
                     }
+                }
+                else
+                {
+                    _typeDump.Append(" ; - but we don't have a global in register rcx?");
+                    TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                 }
 
                 if (!success)
@@ -1500,7 +1527,7 @@ namespace Cpp2IL
                     if (match.Success)
                     {
                         Enum.TryParse<AssemblyBuilder.GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
-                        var global = _globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
+                        var global = SharedState.Globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
                         if (global.Offset != 0)
                         {
                             var (definedType, genericParams) = Utils.TryLookupTypeDefByName(global.Name.Replace("[]", ""));
@@ -1592,7 +1619,7 @@ namespace Cpp2IL
 
                 if (g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0 && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
                 {
-                    var destType = Utils.TryLookupTypeDefByName(glob.Name).Item1; 
+                    var destType = Utils.TryLookupTypeDefByName(glob.Name).Item1;
                     _typeDump.Append($" - Boxes the primitive value {castTarget} to {destType?.FullName} (resolved from {glob.Name})");
                     _registerAliases["rax"] = castTarget;
                     if (destType != null)
@@ -1638,7 +1665,7 @@ namespace Cpp2IL
 
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Safe casts {castTarget} to new local {_registerAliases["rax"]}\n");
                     _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(type.FullName).Append(" ").Append(_registerAliases["rax"]).Append(" = (").Append(type.FullName).Append(") ");
-                    
+
                     if (globalIdentifier.Offset == 0 || globalIdentifier.IdentifierType != AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
                     {
                         _psuedoCode.Append(globalIdentifier.Name ?? castTarget);
@@ -1672,7 +1699,7 @@ namespace Cpp2IL
                     _indentCounts.RemoveAt(_indentCounts.Count - 1);
 
                     var wasInIf = _currentBlockType == BlockType.IF;
-                    
+
                     PopBlock();
 
                     if (wasInIf)
@@ -1749,7 +1776,7 @@ namespace Cpp2IL
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Unknown function call to address 0x{jumpAddress:X}\n");
                     _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}UnknownFun_{jumpAddress:X}()\n");
                     TaintMethod(TaintReason.UNRESOLVED_METHOD);
-                    if(instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
+                    if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
                         //Jmp = not coming back to this function
                         _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");
                 }
@@ -1769,7 +1796,7 @@ namespace Cpp2IL
             if (instruction.Mnemonic == ud_mnemonic_code.UD_Icmp && instruction.Operands[1].Type == ud_type.UD_OP_IMM && GetFieldReferencedByOperand(instruction.Operands[0]) is { } field && Utils.GetImmediateValue(instruction, instruction.Operands[1]) == 0)
             {
                 var registerName = GetRegisterName(instruction.Operands[0]);
-                if(_registerAliases.ContainsKey(registerName))
+                if (_registerAliases.ContainsKey(registerName))
                     CreateLocalFromField(registerName, field, "rax");
             }
 
@@ -1800,8 +1827,8 @@ namespace Cpp2IL
             var (comparisonItemB, typeB, _) = _lastComparison.Item2;
 
             //TODO: Clear out crap [unknown global] if statements
-            
-            if(comparisonItemA.Contains("unknown global") || comparisonItemB.Contains("unknown global") || comparisonItemA.Contains("value in") || comparisonItemB.Contains("value in") || comparisonItemA.Contains("unknown refobject") || comparisonItemB.Contains("unknown refobject"))
+
+            if (comparisonItemA.Contains("unknown global") || comparisonItemB.Contains("unknown global") || comparisonItemA.Contains("value in") || comparisonItemB.Contains("value in") || comparisonItemA.Contains("unknown refobject") || comparisonItemB.Contains("unknown refobject"))
                 TaintMethod(TaintReason.BAD_CONDITION);
 
             var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
@@ -1822,7 +1849,7 @@ namespace Cpp2IL
                     var isBoolean = typeA?.Name == "Boolean";
                     if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == false" : $"{comparisonItemA} == {comparisonItemB}";
-                    else if (typeA?.IsPrimitive == true) 
+                    else if (typeA?.IsPrimitive == true)
                         condition = isSelfCheck ? $"{comparisonItemA} == 0" : $"{comparisonItemA} == {comparisonItemB}";
                     else
                         condition = isSelfCheck ? $"{comparisonItemA} == null" : $"{comparisonItemA} == {comparisonItemB}";
@@ -1845,7 +1872,7 @@ namespace Cpp2IL
 
                     if (isSelfCheck)
                         checkTypes = false;
-                    
+
                     break;
                 }
                 case ud_mnemonic_code.UD_Ijge:
@@ -1871,8 +1898,8 @@ namespace Cpp2IL
             }
 
             if (condition == null) return;
-            
-            if(checkTypes && typeA?.FullName != typeB?.FullName)
+
+            if (checkTypes && typeA?.FullName != typeB?.FullName)
                 TaintMethod(TaintReason.NONSENSICAL_COMPARISON);
 
             if (isLoop)
@@ -1905,22 +1932,22 @@ namespace Cpp2IL
                         {
                             instructionIdx++;
                             var numToIndent = instructionIdx - _instructions.IndexOf(instruction);
-                            
+
                             var lastCount = _indentCounts.Count == 0 ? int.MaxValue : _indentCounts.Last();
 
-                            var toAdd = Math.Min(_indentCounts.Count > 0 ? _indentCounts.Min() : int.MaxValue, numToIndent); 
+                            var toAdd = Math.Min(_indentCounts.Count > 0 ? _indentCounts.Min() : int.MaxValue, numToIndent);
                             if (lastCount <= 2)
                             {
                                 _indentCounts.RemoveAt(_indentCounts.Count - 1);
                                 toAdd = Math.Min(_indentCounts.Count > 0 ? _indentCounts.Min() : int.MaxValue, numToIndent);
                                 _indentCounts.Add(toAdd);
                             }
-                            
+
                             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}If {Utils.InvertCondition(condition)} {{\n");
                             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("if (").Append(Utils.InvertCondition(condition)).Append(") {\n");
 
                             PushBlock(toAdd, BlockType.IF);
-                            
+
                             return;
                         }
                     }
@@ -1958,14 +1985,16 @@ namespace Cpp2IL
 
         private AssemblyBuilder.GlobalIdentifier? GetGlobalInReg(string reg)
         {
-            _registerAliases.TryGetValue(reg, out var glob);
-            if (glob != null)
+            if (_registerContents.TryGetValue(reg, out var g) && g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0)
+                return glob;
+            
+            if (_registerAliases.TryGetValue(reg, out var globAlias) && globAlias != null)
             {
-                var match = Regex.Match(glob, "global_([A-Z]+)_([^/]+)");
+                var match = Regex.Match(globAlias, "global_([A-Z]+)_([^/]+)");
                 if (match.Success)
                 {
                     Enum.TryParse<AssemblyBuilder.GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
-                    var global = _globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
+                    var global = SharedState.Globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
                     if (global.Offset != 0)
                     {
                         return global;
@@ -2021,7 +2050,9 @@ namespace Cpp2IL
 
         private enum BlockType
         {
-            NONE, IF, ELSE
+            NONE,
+            IF,
+            ELSE
         }
 
         internal enum TaintReason
@@ -2035,8 +2066,9 @@ namespace Cpp2IL
             NON_REMOVED_INTERNAL_FUNCTION = 6,
             FAILED_TYPE_RESOLVE = 7,
             METHOD_PARAM_MISMATCH = 8,
-            NONSENSICAL_COMPARISON = 9,
-            MISSING_IF_BODY = 10,
+            FIELD_TYPE_MISMATCH = 9,
+            NONSENSICAL_COMPARISON = 10,
+            MISSING_IF_BODY = 11,
         }
     }
 }

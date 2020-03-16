@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -192,6 +193,11 @@ namespace Cpp2IL
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.FIELD)} field globals");
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)} string literals");
 
+            SharedState.Globals.AddRange(globals);
+            
+            foreach (var globalIdentifier in globals)
+                SharedState.GlobalsDict[globalIdentifier.Offset] = globalIdentifier;
+
             Console.WriteLine("\tPass 6: Looking for key functions...");
 
             //This part involves decompiling known functions to search for other function calls
@@ -240,7 +246,7 @@ namespace Cpp2IL
 
                 var startTime = DateTime.Now.Ticks;
                 
-                var methodTaintDict = new Dictionary<string, AsmDumper.TaintReason>();
+                var methodTaintDict = new ConcurrentDictionary<string, AsmDumper.TaintReason>();
                 
                 thresholds.RemoveAt(0);
                 toProcess
@@ -276,7 +282,7 @@ namespace Cpp2IL
                                 var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
-                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, globals, keyFunctionAddresses, theDll)
+                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses, theDll)
                                     .AnalyzeMethod(typeDump, ref allUsedMnemonics);
 
                                 methodTaintDict[methodDefinition.FullName] = taintResult;
