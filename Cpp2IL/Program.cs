@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Runtime;
 using System.Text;
 using System.Threading;
 using Cpp2IL.Metadata;
@@ -220,6 +221,8 @@ namespace Cpp2IL
                 Directory.CreateDirectory(methodOutputDir);
 
             Console.WriteLine("Saving Header DLLs to " + outputPath + "...");
+
+            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
 
             foreach (var assembly in Assemblies)
             {

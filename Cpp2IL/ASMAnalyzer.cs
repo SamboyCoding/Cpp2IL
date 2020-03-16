@@ -1,12 +1,11 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Security.Permissions;
 using System.Text;
 using System.Text.RegularExpressions;
 using Mono.Cecil;
-using Mono.Cecil.Rocks;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 
@@ -24,6 +23,8 @@ namespace Cpp2IL
         private static readonly TypeDefinition IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
         private static readonly TypeDefinition LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
         private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefByName("System.Array").Item1;
+        
+        private static readonly ConcurrentDictionary<ud_type, string> CachedRegNames = new ConcurrentDictionary<ud_type, string>();
 
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
@@ -606,7 +607,13 @@ namespace Cpp2IL
         private string GetRegisterName(Operand operand)
         {
             var theBase = operand.Base;
-            return UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+            if (!CachedRegNames.TryGetValue(theBase, out var ret))
+            {
+                ret = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+                CachedRegNames[theBase] = ret;
+            }
+
+            return ret;
         }
 
         private string UpscaleRegisters(string replaceIn)
@@ -616,7 +623,7 @@ namespace Cpp2IL
                 return "rax";
 
             //R9d, etc.
-            if (replaceIn.StartsWith("r") && replaceIn.EndsWith("d"))
+            if (replaceIn[0] == 'r' && replaceIn[replaceIn.Length - 1] == 'd')
                 return replaceIn.Substring(0, replaceIn.Length - 1);
 
             return UpscaleRegex.Replace(replaceIn, "$1r$2");
@@ -754,6 +761,7 @@ namespace Cpp2IL
                 _registerTypes.TryGetValue(sourceReg, out var type);
                 if (type == null) return null;
 
+                //TODO FUTURE: This accounts for about 2.75 seconds of execution time total (out of about 15 sec total processing time, i.e. about 12.5%, both times on my pc, for audica). A name => type dict would fix this.
                 var typeDef = SharedState.AllTypeDefinitions.Find(t => t.FullName == type.FullName);
                 if (typeDef == null)
                 {
