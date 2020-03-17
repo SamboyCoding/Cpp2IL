@@ -20,7 +20,7 @@ namespace Cpp2IL
         public ulong AddrBoxValueMethod;
         public ulong AddrSafeCastMethod;
 
-        public static KeyFunctionAddresses Find(List<Tuple<TypeDefinition, List<CppMethodData>>> methodData, PE.PE cppAssembly)
+        public static KeyFunctionAddresses Find(List<(TypeDefinition type, List<CppMethodData> methods)> methodData, PE.PE cppAssembly)
         {
             var ret = new KeyFunctionAddresses();
 
@@ -31,7 +31,7 @@ namespace Cpp2IL
             //That's in UnityEngine.CoreModule.dll but close enough
             //I don't even know what that method does but whatever
 
-            var methods = methodData.Find(t => t.Item1.Name == "ArgumentCache" && t.Item1.Namespace == "UnityEngine.Events").Item2;
+            var methods = methodData.Find(t => t.type.Name == "ArgumentCache" && t.type.Namespace == "UnityEngine.Events").methods;
 
             var tatn = methods.Find(m => m.MethodName == "TidyAssemblyTypeName");
             
@@ -69,7 +69,7 @@ namespace Cpp2IL
             ret.AddrBailOutFunction = addr;
             
             //Now we're on the "Init Static Class" one. Easiest place for this is in UnityEngine.Debug$$LogWarning
-            methods = methodData.Find(t => t.Item1.Name == "Debug" && t.Item1.Namespace == "UnityEngine").Item2;
+            methods = methodData.Find(t => t.type.Name == "Debug" && t.type.Namespace == "UnityEngine").methods;
             
             //There are two of these but it doesn't matter which we get.
             var logWarn = methods.Find(m => m.MethodName == "LogWarning");
@@ -88,7 +88,7 @@ namespace Cpp2IL
             //Find `new` function (note this is NOT the constructor) from System.Security.Cryptography.X509Certificates.X509Extension::FormatUnkownData (yes, there's a typo in the method name lol)
             //We were using DateTimeFormatInfo but that's not constant between mono versions - this is.
             //We can actually pick up two methods from here, as the array instantiator is used here too
-            methods = methodData.Find(t => t.Item1.Name == "X509Extension" && t.Item1.Namespace == "System.Security.Cryptography.X509Certificates").Item2;
+            methods = methodData.Find(t => t.type.Name == "X509Extension" && t.type.Namespace == "System.Security.Cryptography.X509Certificates").methods;
 
             var method = methods.Find(m => m.MethodName == "FormatUnkownData"); //Yes, there's a typo
             
@@ -105,7 +105,7 @@ namespace Cpp2IL
             ret.AddrNewFunction = addr;
             
             //Find new[] using BitConverter
-            methods = methodData.Find(t => t.Item1.Name == "BitConverter" && t.Item1.Namespace == "System").Item2;
+            methods = methodData.Find(t => t.type.Name == "BitConverter" && t.type.Namespace == "System").methods;
 
             method = methods.Find(m => m.MethodName == "GetBytes");
             
@@ -121,7 +121,7 @@ namespace Cpp2IL
             
             ret.AddrArrayCreation = addr;
 
-            methods = methodData.Find(t => t.Item1.Name == "Mesh" && t.Item1.Namespace == "UnityEngine").Item2;
+            methods = methodData.Find(t => t.type.Name == "Mesh" && t.type.Namespace == "UnityEngine").methods;
 
             method = methods.Find(m => m.MethodName == ".ctor");
             
@@ -139,7 +139,7 @@ namespace Cpp2IL
             Console.WriteLine($"\t\tLocated Native Method Bailout function at 0x{addr:X}");
             ret.AddrNativeLookupGenMissingMethod = addr;
             
-            methods = methodData.Find(t => t.Item1.Name == "Int16Converter" && t.Item1.Namespace == "System.ComponentModel").Item2;
+            methods = methodData.Find(t => t.type.Name == "Int16Converter" && t.type.Namespace == "System.ComponentModel").methods;
             method = methods.Find(m => m.MethodName == "ConvertFromString");
             if(method.MethodOffsetRam == 0)
                 method = methods.Find(m => m.MethodName == "FromString");
@@ -155,7 +155,7 @@ namespace Cpp2IL
 
             ret.AddrBoxValueMethod = addr;
             
-            methods = methodData.Find(t => t.Item1.Name == "Ray" && t.Item1.Namespace == "UnityEngine").Item2;
+            methods = methodData.Find(t => t.type.Name == "Ray" && t.type.Namespace == "UnityEngine").methods;
             method = methods.Find(m => m.MethodName == "ToString");
             
             Console.WriteLine($"Searching for safe cast function near offset 0x{method.MethodOffsetRam:X}...");

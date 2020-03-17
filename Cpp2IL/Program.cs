@@ -131,7 +131,7 @@ namespace Cpp2IL
 
             Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
 
-            var methods = new List<Tuple<TypeDefinition, List<CppMethodData>>>();
+            var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
             for (var imageIndex = 0; imageIndex < metadata.assemblyDefinitions.Length; imageIndex++)
             {
                 Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {metadata.assemblyDefinitions.Length}...");
@@ -240,14 +240,17 @@ namespace Cpp2IL
                 var allUsedMnemonics = new List<ud_mnemonic_code>();
 
                 var counter = 0;
-                var toProcess = methods.Where(tuple => tuple.Item1.Module.Assembly == assembly).ToList();
+                var toProcess = methods.Where(tuple => tuple.type.Module.Assembly == assembly).ToList();
+                
+                //Sort alphabetically by type.
+                toProcess.Sort((a, b) => String.Compare(a.type.FullName, b.type.FullName, StringComparison.Ordinal));
                 var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
                 var nextThreshold = thresholds.First();
                 
                 var successfullyProcessed = 0;
                 var failedProcess = 0;
 
-                var startTime = DateTime.Now.Ticks;
+                var startTime = DateTime.Now;
                 
                 var methodTaintDict = new ConcurrentDictionary<string, AsmDumper.TaintReason>();
                 
@@ -266,7 +269,10 @@ namespace Cpp2IL
                                 //Check again to prevent races
                                 if (pct > nextThreshold)
                                 {
-                                    Console.WriteLine($"{nextThreshold}%");
+                                    var elapsedSoFar = DateTime.Now - startTime;
+                                    var rate = counter / elapsedSoFar.TotalSeconds;
+                                    var remaining = toProcess.Count - counter;
+                                    Console.WriteLine($"{nextThreshold}% ({counter} methods in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} methods / sec, {remaining} methods remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
                                     nextThreshold = thresholds.First();
                                     thresholds.RemoveAt(0);
                                 }
@@ -307,8 +313,8 @@ namespace Cpp2IL
 
                 var total = successfullyProcessed + failedProcess;
 
-                var elapsed = DateTime.Now.Ticks - startTime;
-                Console.WriteLine($"Finished method processing in {elapsed} ticks (about {elapsed / 10000000L} seconds)");
+                var elapsed = DateTime.Now - startTime;
+                Console.WriteLine($"Finished method processing in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
                 Console.WriteLine($"Processed {total} methods, {successfullyProcessed} ({Math.Round(successfullyProcessed * 100.0 / total, 2)}%) successfully, {failedProcess} ({Math.Round(failedProcess * 100.0 / total, 2)}%) with errors.");
                 
                 var summary = new StringBuilder();

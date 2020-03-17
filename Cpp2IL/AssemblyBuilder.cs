@@ -132,7 +132,7 @@ namespace Cpp2IL
             }
         }
 
-        public static List<Tuple<TypeDefinition, List<CppMethodData>>> ProcessAssemblyTypes(Il2CppMetadata metadata, PE.PE theDll, Il2CppAssemblyDefinition imageDef)
+        public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE.PE theDll, Il2CppAssemblyDefinition imageDef)
         {
             var firstTypeDefinition = SharedState.TypeDefsByAddress[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
@@ -141,14 +141,14 @@ namespace Cpp2IL
             Directory.CreateDirectory(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", currentAssembly.Name.Name));
 
             var lastTypeIndex = imageDef.firstTypeIndex + imageDef.typeCount;
-            var methods = new List<Tuple<TypeDefinition, List<CppMethodData>>>();
+            var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
             for (var index = imageDef.firstTypeIndex; index < lastTypeIndex; index++)
             {
                 var typeDef = metadata.typeDefs[index];
                 var typeDefinition = SharedState.TypeDefsByAddress[index];
                 SharedState.AllTypeDefinitions.Add(typeDefinition);
 
-                methods.Add(new Tuple<TypeDefinition, List<CppMethodData>>(typeDefinition, ProcessTypeContents(metadata, theDll, typeDef, typeDefinition)));
+                methods.Add((type: typeDefinition, methods: ProcessTypeContents(metadata, theDll, typeDef, typeDefinition)));
             }
 
             return methods;

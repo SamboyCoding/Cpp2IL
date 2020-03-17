@@ -31,9 +31,9 @@ namespace Cpp2IL
         private ulong _methodEnd;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly PE.PE _cppAssembly;
-        private Dictionary<string, string> _registerAliases;
-        private Dictionary<string, TypeDefinition> _registerTypes;
-        private Dictionary<string, object> _registerContents;
+        private ConcurrentDictionary<string, string> _registerAliases;
+        private ConcurrentDictionary<string, TypeDefinition> _registerTypes;
+        private ConcurrentDictionary<string, object> _registerContents;
         private StringBuilder _methodFunctionality;
         private StringBuilder _psuedoCode = new StringBuilder();
         private StringBuilder _typeDump;
@@ -177,9 +177,9 @@ namespace Cpp2IL
         internal TaintReason AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
             _typeDump = typeDump;
-            _registerAliases = new Dictionary<string, string>();
-            _registerTypes = new Dictionary<string, TypeDefinition>();
-            _registerContents = new Dictionary<string, object>();
+            _registerAliases = new ConcurrentDictionary<string, string>();
+            _registerTypes = new ConcurrentDictionary<string, TypeDefinition>();
+            _registerContents = new ConcurrentDictionary<string, object>();
 
             //Map of jumped-to addresses to functionality summaries (for if statements)
             var jumpTable = new Dictionary<ulong, List<string>>();
@@ -640,8 +640,7 @@ namespace Cpp2IL
 
         private (string, TypeDefinition?, object) GetDetailsOfReferencedObject(Operand operand, Instruction i)
         {
-            var theBase = operand.Base;
-            var sourceReg = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+            var sourceReg = GetRegisterName(operand);
             string objectName = null;
             TypeDefinition objectType = null;
             object constant = null;
@@ -961,6 +960,8 @@ namespace Cpp2IL
                 sourceType = BooleanReference;
             }
 
+            _typeDump.Append(" from ").Append(sourceAlias);
+
             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationFullyQualifiedName).Append(" = ").Append(sourceAlias);
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})");
 
@@ -1008,11 +1009,13 @@ namespace Cpp2IL
                     //Register now has the value from the stack
                     var destReg = GetRegisterName(instruction.Operands[0]);
 
-                    _registerAliases[destReg] = _stackAliases.ContainsKey(stackOffset) ? _stackAliases[stackOffset] : $"unknown_stack_val_0x{stackOffset:X}";
+                    var key = _stackAliases.ContainsKey(stackOffset) ? _stackAliases[stackOffset] : $"unknown_stack_val_0x{stackOffset:X}";
 
-                    _typeDump.Append($" ; - Move value in stack at offset 0x{stackOffset:X} (which is {_registerAliases[destReg]}) to reg {destReg}");
+                    _registerAliases[destReg] = key;
+                    
+                    _typeDump.Append($" ; - Move value in stack at offset 0x{stackOffset:X} (which is {key}) to reg {destReg}");
 
-                    _registerContents.Remove(destReg); //TODO: need to handle consts?
+                    _registerContents.TryRemove(destReg, out _); //TODO: need to handle consts?
 
                     var type = LongReference;
 
@@ -1259,8 +1262,8 @@ namespace Cpp2IL
                     }
                     else if (!isStack && _registerAliases.ContainsKey(destReg))
                     {
-                        _registerAliases.Remove(destReg); //If we have one for the dest but not the source, clear the dest's alias.
-                        _registerTypes.Remove(destReg); //And its type
+                        _registerAliases.TryRemove(destReg, out _); //If we have one for the dest but not the source, clear the dest's alias.
+                        _registerTypes.TryRemove(destReg, out _); //And its type
                     }
 
                     break;
@@ -1286,10 +1289,10 @@ namespace Cpp2IL
                                 _registerTypes[destReg] = Utils.TryLookupTypeDefByName(glob.Name).Item1;
                                 break;
                             case AssemblyBuilder.GlobalIdentifier.Type.METHOD:
-                                _registerTypes.Remove(destReg);
+                                _registerTypes.TryRemove(destReg, out _);
                                 break;
                             case AssemblyBuilder.GlobalIdentifier.Type.FIELD:
-                                _registerTypes.Remove(destReg);
+                                _registerTypes.TryRemove(destReg, out _);
                                 break;
                             case AssemblyBuilder.GlobalIdentifier.Type.LITERAL:
                                 _registerTypes[destReg] = StringReference;
@@ -1377,9 +1380,9 @@ namespace Cpp2IL
                             }
 
                             //Clear register as we don't know what we're moving in
-                            _registerAliases.Remove(destReg);
-                            _registerTypes.Remove(destReg);
-                            _registerContents.Remove(destReg);
+                            _registerAliases.TryRemove(destReg, out _);
+                            _registerTypes.TryRemove(destReg, out _);
+                            _registerContents.TryRemove(destReg, out _);
                         }
                         catch (Exception)
                         {
@@ -1634,7 +1637,7 @@ namespace Cpp2IL
                         _registerTypes["rax"] = destType;
                     else
                     {
-                        _registerTypes.Remove("rax");
+                        _registerTypes.TryRemove("rax", out _);
                         _typeDump.Append(" ; - failed to get dest type for box");
                         TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                     }
@@ -2015,16 +2018,16 @@ namespace Cpp2IL
 
         private struct PreBlockCache
         {
-            public Dictionary<string, string> Aliases;
-            public Dictionary<string, TypeDefinition> Types;
-            public Dictionary<string, object> Constants;
+            public ConcurrentDictionary<string, string> Aliases;
+            public ConcurrentDictionary<string, TypeDefinition> Types;
+            public ConcurrentDictionary<string, object> Constants;
             public BlockType BlockType;
 
-            public PreBlockCache(Dictionary<string, string> registerAliases, Dictionary<string, object> registerContents, Dictionary<string, TypeDefinition> registerTypes, BlockType type)
+            public PreBlockCache(ConcurrentDictionary<string, string> registerAliases, ConcurrentDictionary<string, object> registerContents, ConcurrentDictionary<string, TypeDefinition> registerTypes, BlockType type)
             {
-                Aliases = new Dictionary<string, string>();
-                Types = new Dictionary<string, TypeDefinition>();
-                Constants = new Dictionary<string, object>();
+                Aliases = new ConcurrentDictionary<string, string>();
+                Types = new ConcurrentDictionary<string, TypeDefinition>();
+                Constants = new ConcurrentDictionary<string, object>();
 
                 foreach (var keyValuePair in registerAliases) Aliases[keyValuePair.Key] = keyValuePair.Value;
                 foreach (var registerContent in registerContents) Constants[registerContent.Key] = registerContent.Value;
