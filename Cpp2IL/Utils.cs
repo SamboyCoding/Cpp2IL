@@ -6,6 +6,7 @@ using System.Text;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
 using Mono.Cecil;
+using Mono.Cecil.Rocks;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 
@@ -527,6 +528,13 @@ namespace Cpp2IL
 
             var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
 
+            if (name.EndsWith("[]"))
+            {
+                var without = name.Substring(0, name.Length - 2);
+                var result = TryLookupTypeDefByName(without);
+                return result;
+            }
+
             //Generics are dumb.
             var genericParams = new string[0];
             if (definedType == null && name.Contains("<"))
@@ -613,7 +621,7 @@ namespace Cpp2IL
             if (condition.Contains("== false"))
                 return condition.Replace(" == false", "");
             if (condition.Contains("== true"))
-                return condition.Replace("== true", "== false");
+                return "!" + condition.Replace(" == true", "");
             if (condition.Contains("is zero or null"))
                 return condition.Replace("is zero or null", "is NOT zero or null");
             if (condition.Contains("is NOT zero or null"))

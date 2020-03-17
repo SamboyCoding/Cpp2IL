@@ -23,7 +23,7 @@ namespace Cpp2IL
         private static readonly TypeDefinition IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
         private static readonly TypeDefinition LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
         private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefByName("System.Array").Item1;
-        
+
         private static readonly ConcurrentDictionary<ud_type, string> CachedRegNames = new ConcurrentDictionary<ud_type, string>();
         private static readonly ConcurrentDictionary<ulong, TypeDefinition> exceptionThrowerAddresses = new ConcurrentDictionary<ulong, TypeDefinition>();
 
@@ -373,7 +373,7 @@ namespace Cpp2IL
             CheckForFieldWrites(instruction);
 
             //And check for reads on (non-global) fields.
-            CheckForFieldAndStackReads(instruction);
+            CheckForFieldArrayAndStackReads(instruction);
 
             //Check for XOR Reg, Reg
             CheckForRegClear(instruction);
@@ -455,13 +455,39 @@ namespace Cpp2IL
                 foreach (var possibility in possibilities)
                 {
                     //Could be a numerical value, check
-                    if (parameter.ParameterType.IsPrimitive && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
+                    if ((parameter.ParameterType.IsPrimitive || parameter.ParameterType.Resolve()?.IsEnum == true) && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
                     {
                         //Coerce if bool
                         if (parameter.ParameterType.Name == "Boolean")
                         {
                             args.Add($"{Convert.ToInt64(_registerContents[possibility]) != 0} (coerced to bool from {_registerContents[possibility]}) (type CONSTANT) as {parameter.Name} in register {possibility}");
                             paramNames.Add((Convert.ToInt64(_registerContents[possibility]) != 0).ToString());
+                        }
+                        else if (parameter.ParameterType.Resolve() is {} def && def.IsEnum)
+                        {
+                            var second = _registerContents[possibility];
+                            var targetValue = def.Fields
+                                .Where(f => f.Name != "value__")
+                                .FirstOrDefault(f =>
+                                {
+                                    try
+                                    {
+                                        return (int) f.Constant == (int) second;
+                                    }
+                                    catch (Exception)
+                                    {
+                                        return f.Constant == second;
+                                    }
+                                });
+
+                            if (targetValue != null)
+                            {
+                                args.Add($"{targetValue.Name} (value from enum {def.FullName}) as {parameter.Name} in register {possibility}");
+                                paramNames.Add($"{def.FullName}.{targetValue.Name}");
+                                _registerTypes[possibility] = def;
+                            }
+                            else
+                                continue;
                         }
                         else
                         {
@@ -497,8 +523,11 @@ namespace Cpp2IL
                             args.Add($"'{global.Value.Name}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
                             paramNames.Add($"'{global.Value.Name}'");
 
-                            if (parameter.ParameterType.Name != "String")
+                            if (!parameter.ParameterType.IsAssignableFrom(StringReference))
+                            {
                                 TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
+                                _typeDump.Append($" ; - parameter {parameter.Name} expects a {parameter.ParameterType.FullName} but got a string (literal)");
+                            }
 
                             success = true;
                             break;
@@ -522,12 +551,24 @@ namespace Cpp2IL
                     success = true;
 
                     //TODO: This isn't working properly with interfaces - e.g. Control_GlobalTime extends MonoBehavior which implements UnityEngine.Object, but this returns false
-                    if (type == null || parameter.ParameterType.IsAssignableFrom(type)) //TODO: This is a genuine issue with floats - if the param is a floating point type we should prefer xmm registers over standard. cause you know that's how it works.
+                    if (type == null || !parameter.ParameterType.IsAssignableFrom(type))
+                    {
+                        if (parameter.ParameterType.IsArray && _registerContents.TryGetValue(possibility, out var cons))
+                        {
+                            if (cons is ArrayData arrayData && parameter.ParameterType.GetElementType().FullName == arrayData.ElementType.FullName)
+                            {
+                                goto typematch; //I apologise.
+                            }
+                        }
+                        //TODO: This is a genuine issue with floats - if the param is a floating point type we should prefer xmm registers over standard. cause you know that's how it works.
                         TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
+                        _typeDump.Append(" ; - mismatched param - type " + (type?.FullName ?? "null") + $" is not assignable from {parameter.ParameterType.FullName}");
+                    }
 
                     break;
                 }
 
+                typematch:
                 if (!success)
                 {
                     TaintMethod(TaintReason.METHOD_PARAM_MISSING);
@@ -585,7 +626,16 @@ namespace Cpp2IL
             _methodFunctionality.Append("\n");
 
             if (processReturnType && returnType != null && returnType.Name != "Void")
+            {
                 PushMethodReturnTypeToLocal(returnType);
+                if (target.ReturnType?.Name?.EndsWith("[]") == true) //Goddamit cecil why don't array types have typedefinition things. 
+                    _registerContents["rax"] = new ArrayData(0UL, returnType);
+            }
+            else if (returnType == null)
+            {
+                _typeDump.Append($"; - Could not resolve method return type (is {target.ReturnType} / {target.MethodReturnType}");
+                TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
+            }
 
             if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
                 //Jmp = not coming back to this function
@@ -601,7 +651,11 @@ namespace Cpp2IL
                 : "rax";
             _registerTypes[reg] = returnType;
             _registerAliases[reg] = $"local{_localNum}";
-            _registerContents.TryRemove(reg, out _);
+            if (_registerContents.TryRemove(reg, out _))
+            {
+                _typeDump.Append($" ; - {reg} loses its constant value here due to the return value.");
+            }
+
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable local{_localNum} of type {returnType.Name} in {reg} and sets it to the return value\n");
             _localNum++;
 
@@ -623,7 +677,7 @@ namespace Cpp2IL
         private string UpscaleRegisters(string replaceIn)
         {
             if (replaceIn.Length < 2) return replaceIn;
-            
+
             //Special case: "al" => "rax"
             if (replaceIn == "al")
                 return "rax";
@@ -654,9 +708,12 @@ namespace Cpp2IL
             {
                 case ud_type.UD_OP_MEM:
                     //Check array read
-                    if (_registerContents.ContainsKey(sourceReg) && _registerAliases.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData aData)
+                    if (_registerContents.ContainsKey(sourceReg) && (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true || _registerAliases.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData))
                     {
+                        _typeDump.Append($" ; - probably an array read as we have an aliased arraydata in reg {sourceReg}");
                         var offset = Utils.GetOperandMemoryOffset(operand);
+
+                        _typeDump.Append($" ; offset is 0x{offset:X}");
 
                         if (offset == 0x18)
                         {
@@ -668,10 +725,18 @@ namespace Cpp2IL
 
                         var index = (offset - 0x20) / 8;
 
+                        _typeDump.Append($" ; index is {index}");
+
                         if (index >= 0)
                         {
                             objectName = $"{_registerAliases[sourceReg]}[{index}]";
-                            objectType = aData.ElementType;
+                            if (_registerContents.ContainsKey(sourceReg))
+                                objectType = ((ArrayData) _registerContents[sourceReg]).ElementType;
+                            else
+                                objectType = _registerTypes[sourceReg].GetElementType().Resolve();
+
+                            _typeDump.Append($" ; name is {objectName}");
+                            
                             break;
                         }
                     }
@@ -734,12 +799,19 @@ namespace Cpp2IL
                                      : $"[value in {sourceReg}]");
                     break;
                 case ud_type.UD_OP_CONST:
-                    objectName = $"0x{operand.LvalUDWord:X}";
+                    if (operand.LvalUDWord == 0)
+                        objectName = "0 / null";
+                    else
+                        objectName = $"0x{operand.LvalUDWord:X}";
                     objectType = LongReference;
                     constant = operand.LvalUDWord;
                     break;
                 case ud_type.UD_OP_IMM:
-                    objectName = $"0x{Utils.GetImmediateValue(i, operand):X}";
+                    var imm = Utils.GetImmediateValue(i, operand);
+                    if (imm == 0)
+                        objectName = "0 / null";
+                    else
+                        objectName = $"0x{imm:X}";
                     objectType = LongReference;
                     constant = Utils.GetImmediateValue(i, operand);
                     break;
@@ -758,6 +830,10 @@ namespace Cpp2IL
             if (offset == 0 && _registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is FieldDefinition fld)
                 //This register contains a field definition. Return it
                 return fld;
+
+            //Don't read fields on arrays
+            if (_registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData) return null;
+            if (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true) return null;
 
 
             var isStatic = offset >= 0xb8;
@@ -915,7 +991,7 @@ namespace Cpp2IL
             var destinationType = destinationField?.FieldType;
             string destinationFullyQualifiedName = null;
 
-            if (destinationField == null && _registerTypes.ContainsKey(destReg) && _registerTypes[destReg]?.IsArray == true)
+            if (destinationField == null && _registerTypes.ContainsKey(destReg) && _registerContents.TryGetValue(destReg, out var arrayDestConst) && arrayDestConst is ArrayData arrayData)
             {
                 //Check array write
                 var (alias, type, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
@@ -935,7 +1011,7 @@ namespace Cpp2IL
 
             if (destinationFullyQualifiedName == null || destinationType == null || instruction.Operands.Length <= 1 || instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
 
-            _typeDump.Append($" ; - Write into {destinationField}");
+            _typeDump.Append($" ; - Write into {destinationField?.FullName ?? destinationFullyQualifiedName}");
 
             var (sourceAlias, sourceType, constant) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
 
@@ -971,8 +1047,10 @@ namespace Cpp2IL
             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(destinationFullyQualifiedName).Append(" = ").Append(sourceAlias);
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})");
 
-            if (!destinationType.IsAssignableFrom(sourceType))
+            //Either directly assignable, or is an array that the base type matches and the constant contains array data. Eugh. Damn you cecil for making this required.
+            if (!destinationType.IsAssignableFrom(sourceType) && (!(destinationType is ArrayType arr) || !arr.GetElementType().IsAssignableFrom(sourceType) || !_registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var cons) || !(cons is ArrayData)))
             {
+                _typeDump.Append($" ; - Field type mismatch, {destinationType?.FullName} is not assignable from {sourceType?.FullName}");
                 TaintMethod(TaintReason.FIELD_TYPE_MISMATCH);
             }
             else
@@ -982,7 +1060,7 @@ namespace Cpp2IL
             }
         }
 
-        private void CheckForFieldAndStackReads(Instruction instruction)
+        private void CheckForFieldArrayAndStackReads(Instruction instruction)
         {
             //Pre-checks
             if (instruction.Operands.Length < 2 || instruction.Operands[1].Type != ud_type.UD_OP_MEM || instruction.Operands[1].Base == ud_type.UD_R_RIP) return;
@@ -1018,7 +1096,7 @@ namespace Cpp2IL
                     var key = _stackAliases.ContainsKey(stackOffset) ? _stackAliases[stackOffset] : $"unknown_stack_val_0x{stackOffset:X}";
 
                     _registerAliases[destReg] = key;
-                    
+
                     _typeDump.Append($" ; - Move value in stack at offset 0x{stackOffset:X} (which is {key}) to reg {destReg}");
 
                     _registerContents.TryRemove(destReg, out _); //TODO: need to handle consts?
@@ -1092,49 +1170,70 @@ namespace Cpp2IL
                     }
                 }
 
-                //Check for the bizarre case of reading the type or length of an array.
-                if (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true)
+                //Arrays
+                if (_registerTypes.ContainsKey(sourceReg) && _registerContents.TryGetValue(sourceReg, out var cons) && cons is ArrayData arrayData)
                 {
                     var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
 
                     var arrayIndex = (offset - 0x20) / 8;
-
-                    if (_registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData arrayData)
+                    try
                     {
-                        try
+                        //If we have this situation then the constant tells us the length of the array
+                        var arrayLength = (int) arrayData.Length;
+
+                        if (arrayIndex == arrayLength)
                         {
-                            //If we have this situation then the constant tells us the length of the array
-                            var arrayLength = (int) arrayData.Length;
+                            //Accessing one more value than we have is used to get the type of the array
+                            var destReg = GetRegisterName(instruction.Operands[0]);
 
-                            if (arrayIndex == arrayLength)
-                            {
-                                //Accessing one more value than we have is used to get the type of the array
-                                var destReg = GetRegisterName(instruction.Operands[0]);
+                            var arrayType = arrayData.ElementType;
 
-                                var arrayType = arrayData.ElementType;
+                            _registerTypes[destReg] = TypeReference;
+                            _registerAliases[destReg] = $"local{_localNum}";
+                            _registerContents[destReg] = arrayType.GetElementType();
+                            _localNum++;
 
-                                _registerTypes[destReg] = TypeReference;
-                                _registerAliases[destReg] = $"local{_localNum}";
-                                _registerContents[destReg] = arrayType.GetElementType();
-                                _localNum++;
+                            _typeDump.Append($" ; - loads the type of the array ({arrayType.FullName}) into {destReg}");
 
-                                _typeDump.Append($" ; - loads the type of the array ({arrayType.FullName}) into {destReg}");
-
-                                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(TypeReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(_registerAliases[sourceReg]).Append(".GetType().GetElementType() //Get the type of the array\n");
-                                _methodFunctionality.Append(
-                                    $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
-
-                                return;
-                            }
+                            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(TypeReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(_registerAliases[sourceReg]).Append(".GetType().GetElementType() //Get the type of the array\n");
+                            _methodFunctionality.Append(
+                                $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
                         }
-                        catch (InvalidCastException)
+                        else if (arrayIndex >= 0 && arrayIndex < arrayLength)
                         {
-                            //Ignore
+                            var destReg = GetRegisterName(instruction.Operands[0]);
+                            _registerAliases.TryGetValue(sourceReg, out var arrayAlias);
+                            _typeDump.Append($" ; - reads the value at index {arrayIndex} into the array {arrayAlias} stored in {sourceReg}");
+
+                            var localName = $"local{_localNum}";
+                            _registerAliases[destReg] = localName;
+                            _registerTypes[destReg] = arrayData.ElementType;
+                            _registerContents.TryRemove(destReg, out _);
+
+                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the value at index {arrayIndex} into the array {arrayAlias} and stores the result in a new local {localName} of type {arrayData.ElementType.FullName} in {destReg}");
+                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{arrayData.ElementType.FullName} {localName} = {arrayAlias}[{arrayIndex}]\n");
+
+                            _localNum++;
                         }
+
+                        return;
+                    }
+                    catch (InvalidCastException)
+                    {
+                        //Ignore
                     }
                 }
+                else if (_registerTypes.TryGetValue(sourceReg, out var type))
+                {
+                    _registerAliases.TryGetValue(sourceReg, out var alias);
+                    var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}UNKNOWN FIELD READ (address 0x{offset:X}, reg alias {alias}, type {type?.FullName}, in register {sourceReg})\n");
+                }
+                else
+                {
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}UNKNOWN FIELD READ (unknown type in register {sourceReg}!)\n");
+                }
 
-                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Field Read: Failed to work out which field we are reading. Indicative of missed generated code or further calibration required, probably\n");
                 TaintMethod(TaintReason.UNRESOLVED_FIELD);
                 _typeDump.Append($" ; - field read on unknown field from an unknown/unresolved type that's in reg {sourceReg}");
             }
@@ -1155,9 +1254,12 @@ namespace Cpp2IL
 
             _registerTypes[destReg] = readType;
             _registerAliases[destReg] = $"local{_localNum}";
-            _registerContents[destReg] = field;
+            if(field.FieldType.IsArray)
+                _registerContents[destReg] = new ArrayData(ulong.MaxValue, field.FieldType.GetElementType().Resolve() ?? LongReference);
+            else
+                _registerContents[destReg] = field;
 
-            _typeDump.Append($" ; - creation of {_registerAliases[destReg]} from {field.FullName}");
+            _typeDump.Append($" ; - creation of {_registerAliases[destReg]} (type {_registerTypes[destReg]}) from {field.FullName}");
 
             if (field.IsStatic)
             {
@@ -1264,6 +1366,11 @@ namespace Cpp2IL
                         {
                             _registerContents[destReg] = _registerContents[sourceReg];
                             _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s constant value of {_registerContents[sourceReg]}");
+                        }
+                        else if (_registerContents.ContainsKey(destReg))
+                        {
+                            _registerContents.TryRemove(destReg, out _);
+                            _typeDump.Append($" ; - {destReg} loses its constant value here due to being overwritten");
                         }
                     }
                     else if (!isStack && _registerAliases.ContainsKey(destReg))
@@ -1548,8 +1655,8 @@ namespace Cpp2IL
                             {
                                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(definedType.FullName).Append("[] ").Append("local").Append(_localNum).Append(" = new ").Append(definedType.FullName).Append("[").Append(arraySize).Append("]\n");
                                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of type {definedType.FullName}[]{(genericParams.Length > 0 ? $" with generic parameters {string.Join(",", genericParams)}" : "")} of size {arraySize}\n");
-                                _registerContents["rax"] = new ArrayData(arraySize, definedType); //Store array size in here for bounds checks
                                 PushMethodReturnTypeToLocal(ArrayReference);
+                                _registerContents["rax"] = new ArrayData(arraySize, definedType); //Store array size in here for bounds checks
                                 success = true;
                             }
                             else
@@ -1792,7 +1899,7 @@ namespace Cpp2IL
                             return;
                         }
                     }
-                    
+
                     //See if we're throwing
                     if (!exceptionThrowerAddresses.TryGetValue(jumpAddress, out var exceptionType))
                     {
@@ -1823,12 +1930,12 @@ namespace Cpp2IL
                             _typeDump.Append($" ; - constructor for exception {fqn}");
 
                             (exceptionType, _) = Utils.TryLookupTypeDefByName(fqn);
-                            
+
                             _typeDump.Append($" ; - which resolves to {exceptionType?.FullName ?? "null"}");
-                            
+
                             exceptionThrowerAddresses[jumpAddress] = exceptionType;
-                            
-                            if(exceptionType != null)
+
+                            if (exceptionType != null)
                                 Console.WriteLine($"Found exception generation function: 0x{jumpAddress:X} => {exceptionType.FullName}");
                         }
                         else
@@ -1844,14 +1951,14 @@ namespace Cpp2IL
                         _typeDump.Append($"; - creates an {exceptionType.FullName}");
 
                         _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Invokes the exception construction function for exception type {exceptionType.FullName}");
-                        
+
                         if (message != null)
                             _methodFunctionality.Append($" with message {message}");
                         else
                             _methodFunctionality.Append(" with no message");
-                        
+
                         _methodFunctionality.Append("\n");
-                        
+
                         var destReg = PushMethodReturnTypeToLocal(exceptionType);
                         _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{exceptionType.FullName} {_registerAliases[destReg]} = new {exceptionType.FullName}(");
 
@@ -1865,7 +1972,7 @@ namespace Cpp2IL
                             _typeDump.Append(" with no message");
                             _psuedoCode.Append("null");
                         }
-                        
+
                         _psuedoCode.Append(")\n");
                         return;
                     }
@@ -1923,7 +2030,7 @@ namespace Cpp2IL
             }
 
             var (comparisonItemA, typeA, _) = _lastComparison.Item1;
-            var (comparisonItemB, typeB, _) = _lastComparison.Item2;
+            var (comparisonItemB, typeB, constantB) = _lastComparison.Item2;
 
             //TODO: Clear out crap [unknown global] if statements
 
@@ -1949,9 +2056,9 @@ namespace Cpp2IL
                     if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == false" : $"{comparisonItemA} == {comparisonItemB}";
                     else if (typeA?.IsPrimitive == true)
-                        condition = isSelfCheck ? $"{comparisonItemA} == 0" : $"{comparisonItemA} == {comparisonItemB}";
+                        condition = isSelfCheck ? $"{comparisonItemA} == 0" : $"{comparisonItemA} == {(constantB is ulong i && i == 0 ? "0" : comparisonItemB)}";
                     else
-                        condition = isSelfCheck ? $"{comparisonItemA} == null" : $"{comparisonItemA} == {comparisonItemB}";
+                        condition = isSelfCheck ? $"{comparisonItemA} == null" : $"{comparisonItemA} == {(constantB is ulong i && i == 0 ? "null" : comparisonItemB)}";
 
                     if (isSelfCheck)
                         checkTypes = false;
@@ -1965,9 +2072,9 @@ namespace Cpp2IL
                     if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == true" : $"{comparisonItemA} != {comparisonItemB}";
                     else if (typeA?.IsPrimitive == true)
-                        condition = isSelfCheck ? $"{comparisonItemA} != 0" : $"{comparisonItemA} != {comparisonItemB}";
+                        condition = isSelfCheck ? $"{comparisonItemA} != 0" : $"{comparisonItemA} != {(constantB is ulong i && i == 0 ? "0" : comparisonItemB)}";
                     else
-                        condition = isSelfCheck ? $"{comparisonItemA} != null" : $"{comparisonItemA} != {comparisonItemB}";
+                        condition = isSelfCheck ? $"{comparisonItemA} != null" : $"{comparisonItemA} != {(constantB is ulong i && i == 0 ? "null" : comparisonItemB)}";
 
                     if (isSelfCheck)
                         checkTypes = false;
@@ -1999,7 +2106,17 @@ namespace Cpp2IL
             if (condition == null) return;
 
             if (checkTypes && typeA?.FullName != typeB?.FullName)
-                TaintMethod(TaintReason.NONSENSICAL_COMPARISON);
+            {
+                if (constantB is ulong i2 && i2 == 0)
+                {
+                    //Null literal, this is fine
+                }
+                else
+                {
+                    _typeDump.Append($" ; - nonsensical comparison, typeA is {typeA?.FullName}, typeB is {typeB?.FullName}, constantB is {constantB} of type {constantB?.GetType()}");
+                    TaintMethod(TaintReason.NONSENSICAL_COMPARISON);
+                }
+            }
 
             if (isLoop)
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 1)}Code from 0x{dest:X} until 0x{instruction.PC + _methodStart:X} repeats while {condition}\n");
@@ -2086,7 +2203,7 @@ namespace Cpp2IL
         {
             if (_registerContents.TryGetValue(reg, out var g) && g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0)
                 return glob;
-            
+
             if (_registerAliases.TryGetValue(reg, out var globAlias) && globAlias != null)
             {
                 var match = Regex.Match(globAlias, "global_([A-Z]+)_([^/]+)");
