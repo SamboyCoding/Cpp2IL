@@ -1,14 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.ComponentModel;
 using System.Linq;
 using Mono.Cecil;
-using SharpDisasm;
 using SharpDisasm.Udis86;
 
 namespace Cpp2IL
 {
-    public struct KeyFunctionAddresses
+    public class KeyFunctionAddresses
     {
         public ulong AddrInitFunction;
         public ulong AddrBailOutFunction;
@@ -20,6 +18,7 @@ namespace Cpp2IL
         public ulong AddrBoxValueMethod;
         public ulong AddrSafeCastMethod;
         public ulong AddrThrowMethod;
+        public ulong AddrPInvokeLookup;
 
         public static KeyFunctionAddresses Find(List<(TypeDefinition type, List<CppMethodData> methods)> methodData, PE.PE cppAssembly)
         {

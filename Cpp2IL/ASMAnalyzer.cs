@@ -53,6 +53,8 @@ namespace Cpp2IL
         private TaintReason _taintReason = TaintReason.UNTAINTED;
 
         private BlockType _currentBlockType = BlockType.NONE;
+        
+        private readonly List<ulong> unknownMethodAddresses = new List<ulong>();
 
         private readonly ud_mnemonic_code[] _arithmeticOpcodes =
         {
@@ -1228,6 +1230,7 @@ namespace Cpp2IL
                     _registerAliases.TryGetValue(sourceReg, out var alias);
                     var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}UNKNOWN FIELD READ (address 0x{offset:X}, reg alias {alias}, type {type?.FullName}, in register {sourceReg})\n");
+                    _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//Missing a field read on {alias ?? "[something]"} here.\n");
                 }
                 else
                 {
@@ -1811,6 +1814,12 @@ namespace Cpp2IL
 
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Throws {exceptionToThrowAlias}\n");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}throw {exceptionToThrowAlias};\n");
+            } else if (jumpAddress == _keyFunctionAddresses.AddrPInvokeLookup)
+            {
+                _typeDump.Append("; - this is the p/invoke native entry point lookup function");
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Looks some p/invoke function up idk\n");
+                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//P/invoke call goes here lol\n");
+                //TODO: Work out how tf this works lol
             }
             else
             {
@@ -1966,6 +1975,14 @@ namespace Cpp2IL
                         {
                             _typeDump.Append($" with message {message}");
                             _psuedoCode.Append('"').Append(message).Append('"');
+
+                            if (message is string str && _keyFunctionAddresses.AddrPInvokeLookup == 0 && str.Contains("Unable to find method for p/invoke") && unknownMethodAddresses.Count == 1)
+                            {
+                                //TODO: We're gonna have to go back and do this method again or something
+                                var addr = unknownMethodAddresses[0];
+                                Console.WriteLine($"Found P/Invoke lookup function at 0x{addr:X} in method {_methodDefinition.FullName}");
+                                _keyFunctionAddresses.AddrPInvokeLookup = addr;
+                            }
                         }
                         else
                         {
@@ -1982,6 +1999,7 @@ namespace Cpp2IL
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Unknown function call to address 0x{jumpAddress:X}\n");
                     _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}UnknownFun_{jumpAddress:X}()\n");
                     TaintMethod(TaintReason.UNRESOLVED_METHOD);
+                    unknownMethodAddresses.Add(jumpAddress);
                     if (instruction.Mnemonic == ud_mnemonic_code.UD_Ijmp)
                         //Jmp = not coming back to this function
                         _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");

@@ -744,7 +744,7 @@ namespace Cpp2IL
             {
                 var isUnicode = theDll.raw[addr + 1] == 0;
                 var literal = new StringBuilder();
-                while ((theDll.raw[addr] != 0 || theDll.raw[addr + 1] != 0) && literal.Length < 250)
+                while ((theDll.raw[addr] != 0 || isUnicode && theDll.raw[addr + 1] != 0) && literal.Length < 250)
                 {
                     literal.Append(Convert.ToChar(theDll.raw[addr]));
                     addr++;
