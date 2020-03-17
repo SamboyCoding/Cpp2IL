@@ -272,7 +272,7 @@ namespace Cpp2IL
                                     var elapsedSoFar = DateTime.Now - startTime;
                                     var rate = counter / elapsedSoFar.TotalSeconds;
                                     var remaining = toProcess.Count - counter;
-                                    Console.WriteLine($"{nextThreshold}% ({counter} methods in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} methods / sec, {remaining} methods remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
+                                    Console.WriteLine($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
                                     nextThreshold = thresholds.First();
                                     thresholds.RemoveAt(0);
                                 }
@@ -288,13 +288,19 @@ namespace Cpp2IL
                             foreach (var method in methodData)
                             {
                                 var methodDef = metadata.methodDefs[method.MethodId];
-                                var methodStart = theDll.GetMethodPointer(methodDef.methodIndex, method.MethodId, imageIndex, methodDef.token);
+                                var methodStart = method.MethodOffsetRam;
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
                                 var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses, theDll)
                                     .AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                                
+                                var key = new StringBuilder();
 
-                                methodTaintDict[methodDefinition.FullName] = taintResult;
+                                key.Append(methodDefinition.DeclaringType.FullName).Append("::").Append(methodDefinition.Name);
+                                
+                                methodDefinition.MethodSignatureFullName(key);
+
+                                methodTaintDict[key.ToString()] = taintResult;
 
                                 if (taintResult != AsmDumper.TaintReason.UNTAINTED)
                                     Interlocked.Increment(ref failedProcess);
@@ -314,8 +320,15 @@ namespace Cpp2IL
                 var total = successfullyProcessed + failedProcess;
 
                 var elapsed = DateTime.Now - startTime;
-                Console.WriteLine($"Finished method processing in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
+                Console.WriteLine($"Finished method processing in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
                 Console.WriteLine($"Processed {total} methods, {successfullyProcessed} ({Math.Round(successfullyProcessed * 100.0 / total, 2)}%) successfully, {failedProcess} ({Math.Round(failedProcess * 100.0 / total, 2)}%) with errors.");
+                
+                Console.WriteLine("Breakdown By Taint Reason:");
+                foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                {
+                    var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
+                    Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
+                }
                 
                 var summary = new StringBuilder();
                 foreach (var keyValuePair in methodTaintDict)

@@ -705,5 +705,52 @@ namespace Cpp2IL
             
             return reference.FullName == other.FullName; //Simple check
         }
+
+        public static List<Instruction> GetMethodBodyAt(PE.PE theDll, ulong addr, bool peek)
+        {
+            var ret = new List<Instruction>();
+            var con = true;
+            var buff = new List<byte>();
+            while (con)
+            {
+                buff.Add(theDll.raw[addr]);
+
+                ret = DisassembleBytes(buff.ToArray());
+
+                if (ret.All(i => !i.Error) && ret.Any(i => i.Mnemonic == ud_mnemonic_code.UD_Iint3))
+                    con = false;
+
+                if (peek && buff.Count > 50)
+                    con = false;
+
+                addr++;
+            }
+
+            return ret/*.Where(i => !i.Error).ToList()*/;
+        }
+
+        public static string TryGetLiteralAt(PE.PE theDll, ulong addr)
+        {
+            var c = Convert.ToChar(theDll.raw[addr]);
+            if (char.IsLetter(c) && c < 'z') //includes uppercase
+            {
+                var isUnicode = theDll.raw[addr + 1] == 0;
+                var literal = new StringBuilder();
+                while ((theDll.raw[addr] != 0 || theDll.raw[addr + 1] != 0) && literal.Length < 250)
+                {
+                    literal.Append(Convert.ToChar(theDll.raw[addr]));
+                    addr++;
+                    if (isUnicode) addr++;
+                }
+
+
+                if (literal.Length > 4)
+                {
+                    return literal.ToString();
+                }
+            }
+
+            return null;
+        }
     }
 }

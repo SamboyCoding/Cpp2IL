@@ -105,10 +105,14 @@ namespace Cpp2IL.PE
                 throw new OverflowException($"Provided address, {uiAddr}, was less than image base, {imageBase}");
 
             var last = sections[sections.Length - 1];
-            if(addr > last.VirtualAddress + last.VirtualSize) 
-                throw new ArgumentOutOfRangeException($"Provided address maps to image offset {addr} which is outside the range of the file (last section ends at {last.VirtualAddress + last.VirtualSize})");
+            if (addr > last.VirtualAddress + last.VirtualSize)
+                // throw new ArgumentOutOfRangeException($"Provided address maps to image offset {addr} which is outside the range of the file (last section ends at {last.VirtualAddress + last.VirtualSize})");
+                return 0UL;
             
-            var section = sections.First(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
+            var section = sections.FirstOrDefault(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
+
+            if (section == null) return 0UL;
+            
             return addr - (section.VirtualAddress - section.PointerToRawData);
         }
 

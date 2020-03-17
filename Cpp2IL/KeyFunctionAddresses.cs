@@ -19,6 +19,7 @@ namespace Cpp2IL
         public ulong AddrNativeLookupGenMissingMethod;
         public ulong AddrBoxValueMethod;
         public ulong AddrSafeCastMethod;
+        public ulong AddrThrowMethod;
 
         public static KeyFunctionAddresses Find(List<(TypeDefinition type, List<CppMethodData> methods)> methodData, PE.PE cppAssembly)
         {
@@ -168,6 +169,38 @@ namespace Cpp2IL
             Console.WriteLine($"\t\tLocated Safe Cast function at 0x{addr:X}");
             ret.AddrSafeCastMethod = addr;
             
+            methods = methodData.Find(t => t.type.Name == "RuntimeFieldHandle" && t.type.Namespace == "System").methods;
+            method = methods.Find(m => m.MethodName == "GetObjectData");
+            
+            Console.WriteLine($"Searching for throw function near offset 0x{method.MethodOffsetRam:X}...");
+            
+            instructions = Utils.DisassembleBytes(method.MethodBytes);
+
+            calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+
+            var indexBefore = calls.ToList().FindIndex(call =>
+            {
+                var targetAddrVirt = Utils.GetJumpTarget(call, method.MethodOffsetRam + call.PC);
+                if (SharedState.MethodsByAddress.TryGetValue(targetAddrVirt, out var methodDef))
+                {
+                    if (methodDef.Name == ".ctor" && methodDef.DeclaringType.Name == "ArgumentException")
+                        return true;
+                }
+
+                return false;
+            });
+
+            if (indexBefore >= 0)
+            {
+                addr = Utils.GetJumpTarget(calls[indexBefore + 1], method.MethodOffsetRam + calls[indexBefore + 1].PC);
+                Console.WriteLine($"\t\tLocated Throw function at 0x{addr:X}");
+                ret.AddrThrowMethod = addr;
+            }
+            else
+            {
+                Console.WriteLine("ERROR: Failed to find throw function - failed to find a call to ArgumentException..ctor");
+            }
+
             return ret;
         }
     }

@@ -229,7 +229,7 @@ namespace Cpp2IL
                 var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags,
                     ilTypeDefinition.Module.ImportReference(typeof(void)));
 
-                //TODO: If audica ever updates to Unity 2019 we'll need to fix the imageindex param from 0 to the actual index, until then it's fine.
+                //TODO: For Unity 2019 we'll need to fix the imageindex param from 0 to the actual index
                 var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, 0, methodDef.token);
 
 

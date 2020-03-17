@@ -25,6 +25,7 @@ namespace Cpp2IL
         private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefByName("System.Array").Item1;
         
         private static readonly ConcurrentDictionary<ud_type, string> CachedRegNames = new ConcurrentDictionary<ud_type, string>();
+        private static readonly ConcurrentDictionary<ulong, TypeDefinition> exceptionThrowerAddresses = new ConcurrentDictionary<ulong, TypeDefinition>();
 
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
@@ -591,7 +592,7 @@ namespace Cpp2IL
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}return\n");
         }
 
-        private void PushMethodReturnTypeToLocal(TypeDefinition returnType)
+        private string PushMethodReturnTypeToLocal(TypeDefinition returnType)
         {
             //Floating point => xmm0
             //Boolean => al
@@ -600,8 +601,11 @@ namespace Cpp2IL
                 : "rax";
             _registerTypes[reg] = returnType;
             _registerAliases[reg] = $"local{_localNum}";
+            _registerContents.TryRemove(reg, out _);
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable local{_localNum} of type {returnType.Name} in {reg} and sets it to the return value\n");
             _localNum++;
+
+            return reg;
         }
 
         private string GetRegisterName(Operand operand)
@@ -618,6 +622,8 @@ namespace Cpp2IL
 
         private string UpscaleRegisters(string replaceIn)
         {
+            if (replaceIn.Length < 2) return replaceIn;
+            
             //Special case: "al" => "rax"
             if (replaceIn == "al")
                 return "rax";
@@ -1353,30 +1359,15 @@ namespace Cpp2IL
                                 }
                             }
 
-                            var c = Convert.ToChar(_cppAssembly.raw[actualAddress]);
-                            _typeDump.Append($" ; - first char is {c}");
-                            if (char.IsLetter(c) && c < 'z') //includes uppercase
+                            var literal = Utils.TryGetLiteralAt(_cppAssembly, (ulong) actualAddress);
+
+                            if (literal != null)
                             {
-                                var isUnicode = _cppAssembly.raw[actualAddress + 1] == 0;
-                                _typeDump.Append(" ; - probably a literal");
-                                var literal = new StringBuilder();
-                                while ((_cppAssembly.raw[actualAddress] != 0 || _cppAssembly.raw[actualAddress + 1] != 0) && literal.Length < 250)
-                                {
-                                    literal.Append(Convert.ToChar(_cppAssembly.raw[actualAddress]));
-                                    actualAddress++;
-                                    if (isUnicode) actualAddress++;
-                                }
-
-                                _typeDump.Append($" - potential literal match: {literal}");
-
-                                if (literal.Length > 4)
-                                {
-                                    _typeDump.Append(" - resolved as literal: " + literal);
-                                    _registerAliases[destReg] = literal.ToString();
-                                    _registerTypes[destReg] = StringReference;
-                                    _registerContents[destReg] = literal;
-                                    return;
-                                }
+                                _typeDump.Append(" - resolved as literal: " + literal);
+                                _registerAliases[destReg] = literal;
+                                _registerTypes[destReg] = StringReference;
+                                _registerContents[destReg] = literal;
+                                return;
                             }
 
                             //Clear register as we don't know what we're moving in
@@ -1438,6 +1429,16 @@ namespace Cpp2IL
 
             //Must NOT be a register we're calling
             if (instruction.Operands[0].Type == ud_type.UD_OP_REG) return;
+
+            if (instruction.Operands[0].Type == ud_type.UD_OP_MEM && instruction.Operands[0].Base != ud_type.UD_R_RIP)
+            {
+                //e.g. call [rax+0x178]
+                //can't resolve this (TODO how do we?)
+                //so flag it
+                _typeDump.Append(" ; - Unresolvable call to calculated address.");
+                TaintMethod(TaintReason.UNRESOLVED_METHOD);
+                return;
+            }
 
             ulong jumpAddress;
             try
@@ -1694,6 +1695,16 @@ namespace Cpp2IL
                     _typeDump.Append(" ; - failed to find safe cast target type");
                 }
             }
+            else if (jumpAddress == _keyFunctionAddresses.AddrThrowMethod)
+            {
+                _typeDump.Append("; - this is the throw function");
+                _registerAliases.TryGetValue("rcx", out var exceptionToThrowAlias);
+
+                exceptionToThrowAlias ??= "[value in rcx]";
+
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Throws {exceptionToThrowAlias}\n");
+                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}throw {exceptionToThrowAlias};\n");
+            }
             else
             {
                 //Is this somewhere in this function?
@@ -1780,6 +1791,83 @@ namespace Cpp2IL
                             HandleFunctionCall(method, true, instruction, returnType);
                             return;
                         }
+                    }
+                    
+                    //See if we're throwing
+                    if (!exceptionThrowerAddresses.TryGetValue(jumpAddress, out var exceptionType))
+                    {
+                        var actualAddr = (ulong) _cppAssembly.MapVirtualAddressToRaw(jumpAddress);
+
+                        var body = Utils.GetMethodBodyAt(_cppAssembly, actualAddr, peek: true);
+
+                        var leas = body.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea).ToList();
+
+                        var offsets = leas.Select(i => Utils.GetOffsetFromMemoryAccess(i, i.Operands[1])).ToList();
+
+                        var targets = offsets.Select(offset => offset + jumpAddress).ToList();
+
+                        // _typeDump.Append($" ; - virtual targets are {targets.ToStringEnumerable()}");
+
+                        var actualAddresses = targets.Select(addr => (ulong) _cppAssembly.MapVirtualAddressToRaw(addr)).Where(addr => addr != 0UL).ToList();
+
+                        // _typeDump.Append($" ; - maps to real addresses {actualAddresses.ToStringEnumerable()}");
+
+                        var literals = actualAddresses.Select(addr => Utils.TryGetLiteralAt(_cppAssembly, addr)).ToList();
+
+                        // _typeDump.Append($" ; - literals obtained: {literals.ToStringEnumerable()}");
+
+                        if (literals.Count == 2)
+                        {
+                            //Exception, Namespace
+                            var fqn = literals[1] + "." + literals[0];
+                            _typeDump.Append($" ; - constructor for exception {fqn}");
+
+                            (exceptionType, _) = Utils.TryLookupTypeDefByName(fqn);
+                            
+                            _typeDump.Append($" ; - which resolves to {exceptionType?.FullName ?? "null"}");
+                            
+                            exceptionThrowerAddresses[jumpAddress] = exceptionType;
+                            
+                            if(exceptionType != null)
+                                Console.WriteLine($"Found exception generation function: 0x{jumpAddress:X} => {exceptionType.FullName}");
+                        }
+                        else
+                        {
+                            exceptionThrowerAddresses[jumpAddress] = null; //Mark as invalid
+                        }
+                    }
+
+                    if (exceptionType != null)
+                    {
+                        //Got an exception
+                        _registerContents.TryGetValue("rcx", out var message);
+                        _typeDump.Append($"; - creates an {exceptionType.FullName}");
+
+                        _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Invokes the exception construction function for exception type {exceptionType.FullName}");
+                        
+                        if (message != null)
+                            _methodFunctionality.Append($" with message {message}");
+                        else
+                            _methodFunctionality.Append(" with no message");
+                        
+                        _methodFunctionality.Append("\n");
+                        
+                        var destReg = PushMethodReturnTypeToLocal(exceptionType);
+                        _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{exceptionType.FullName} {_registerAliases[destReg]} = new {exceptionType.FullName}(");
+
+                        if (message != null)
+                        {
+                            _typeDump.Append($" with message {message}");
+                            _psuedoCode.Append('"').Append(message).Append('"');
+                        }
+                        else
+                        {
+                            _typeDump.Append(" with no message");
+                            _psuedoCode.Append("null");
+                        }
+                        
+                        _psuedoCode.Append(")\n");
+                        return;
                     }
 
                     //Got to here = no generic function
