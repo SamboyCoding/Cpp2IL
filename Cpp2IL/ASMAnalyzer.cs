@@ -401,7 +401,11 @@ namespace Cpp2IL
             //Check for floating-point arithmetic (MULSS, etc)
             CheckForArithmeticOperations(instruction);
 
+            //Check for boolean in-place invert
             CheckForBooleanInvert(instruction);
+            
+            //Check for push and pop operations which shift the stack
+            CheckForPushPop(instruction);
 
             //Check for RET
             CheckForReturn(instruction);
@@ -919,16 +923,57 @@ namespace Cpp2IL
             }
         }
 
+        private void ShiftStack(int changeAmount)
+        {
+            _typeDump.Append($" ; - all stack values are shifted by 0x{changeAmount:X}");
+            var newAliases = new Dictionary<int, string>();
+            foreach (var keyValuePair in _stackAliases)
+                newAliases[keyValuePair.Key + changeAmount] = keyValuePair.Value;
+
+            _stackAliases = newAliases;
+
+            var newTypes = new Dictionary<int, TypeDefinition>();
+            foreach (var keyValuePair in _stackTypes)
+                newTypes[keyValuePair.Key + changeAmount] = keyValuePair.Value;
+
+            _stackTypes = newTypes;
+        }
+
         private void CheckForArithmeticOperations(Instruction instruction)
         {
             //Need 2 operand
             if (instruction.Operands.Length < 2) return;
 
+            //RSP operations are special cases
+            if (GetRegisterName(instruction.Operands[0]) == "rsp")
+            {
+                var (_, _, a) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
+
+                int changeAmount;
+
+                if (!(a is ulong amount)) return;
+                
+                //Need to adjust stack pointer, and only need to handle add and sub
+                if (instruction.Mnemonic == ud_mnemonic_code.UD_Iadd)
+                {
+                    _typeDump.Append($" ; - increases stack pointer by 0x{a:X}, so all current stack indexes are decreased by that much.");
+                    changeAmount = (int) (0-amount);
+                    //TODO: Actually adjust pointers - iterate on stack maps.
+                } else if (instruction.Mnemonic == ud_mnemonic_code.UD_Isub)
+                {
+                    _typeDump.Append($" ; - decreases stack pointer by 0x{a:X}, so all current stack indexes are increased by that much.");
+                    changeAmount = (int) amount;
+                }
+                else
+                    return;
+
+                ShiftStack(changeAmount);
+
+                return;
+            }
+            
             //Needs to be a valid opcode
             if (!_arithmeticOpcodes.Contains(instruction.Mnemonic)) return;
-
-            //RSP operations are OOS for this method
-            if (instruction.Operands[0].Base == ud_type.UD_R_RSP) return;
 
             //The first operand is guaranteed to be a register
             var (name, type, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
@@ -1737,6 +1782,11 @@ namespace Cpp2IL
                 if (cSp is StackPointer castStackPointer)
                 {
                     _stackAliases.TryGetValue(castStackPointer.Address, out castTarget);
+                    if (castTarget == null)
+                    {
+                        castTarget = $"[value in stack at 0x{castStackPointer.Address:X}]";
+                        TaintMethod(TaintReason.UNRESOLVED_STACK_VAL);
+                    }
                 }
 
                 if (g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0 && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
@@ -1912,6 +1962,7 @@ namespace Cpp2IL
                     //See if we're throwing
                     if (!exceptionThrowerAddresses.TryGetValue(jumpAddress, out var exceptionType))
                     {
+                        // Console.WriteLine($"Trying to find an exception throwing function at unknown function address 0x{jumpAddress:X}...");
                         var actualAddr = (ulong) _cppAssembly.MapVirtualAddressToRaw(jumpAddress);
 
                         var body = Utils.GetMethodBodyAt(_cppAssembly, actualAddr, peek: true);
@@ -1921,6 +1972,8 @@ namespace Cpp2IL
                         var offsets = leas.Select(i => Utils.GetOffsetFromMemoryAccess(i, i.Operands[1])).ToList();
 
                         var targets = offsets.Select(offset => offset + jumpAddress).ToList();
+                        
+                        // Console.WriteLine($"\tContains {targets.Count} LEA instructions...");
 
                         // _typeDump.Append($" ; - virtual targets are {targets.ToStringEnumerable()}");
 
@@ -1929,6 +1982,8 @@ namespace Cpp2IL
                         // _typeDump.Append($" ; - maps to real addresses {actualAddresses.ToStringEnumerable()}");
 
                         var literals = actualAddresses.Select(addr => Utils.TryGetLiteralAt(_cppAssembly, addr)).ToList();
+                        
+                        // Console.WriteLine($"\tOr {literals.Count} string literals: {literals.ToStringEnumerable()}");
 
                         // _typeDump.Append($" ; - literals obtained: {literals.ToStringEnumerable()}");
 
@@ -1945,7 +2000,7 @@ namespace Cpp2IL
                             exceptionThrowerAddresses[jumpAddress] = exceptionType;
 
                             if (exceptionType != null)
-                                Console.WriteLine($"Found exception generation function: 0x{jumpAddress:X} => {exceptionType.FullName}");
+                                Console.WriteLine($"\tResolved exception generation function: 0x{jumpAddress:X} => {exceptionType.FullName}");
                         }
                         else
                         {
@@ -1996,7 +2051,7 @@ namespace Cpp2IL
 
                     //Got to here = no generic function
                     //so this is an unknown function call
-                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Unknown function call to address 0x{jumpAddress:X}\n");
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}WARN: Unknown function call to address 0x{jumpAddress:X} which might be in file 0x{_cppAssembly.MapVirtualAddressToRaw(jumpAddress):X}\n");
                     _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}UnknownFun_{jumpAddress:X}()\n");
                     TaintMethod(TaintReason.UNRESOLVED_METHOD);
                     unknownMethodAddresses.Add(jumpAddress);
@@ -2207,6 +2262,22 @@ namespace Cpp2IL
 
             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(alias).Append("++\n");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Increases {alias} by one.\n");
+        }
+
+        private void CheckForPushPop(Instruction instruction)
+        {
+            if (instruction.Mnemonic != ud_mnemonic_code.UD_Ipush && instruction.Mnemonic != ud_mnemonic_code.UD_Ipop)
+                return;
+
+            if (instruction.Mnemonic == ud_mnemonic_code.UD_Ipush)
+            {
+                //Push to stack & shift stack further away (as we're decrementing stack pointer)
+                ShiftStack(8); //TODO Need a changed offset or is this always ok? And do we need to ever actually copy alias over etc?
+            } else if (instruction.Mnemonic == ud_mnemonic_code.UD_Ipop)
+            {
+                //Pop from stack and shift closer (as we're incrementing stack pointer)
+                ShiftStack(-8);
+            }
         }
 
         private void CheckForReturn(Instruction instruction)

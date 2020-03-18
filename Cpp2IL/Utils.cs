@@ -18,6 +18,7 @@ namespace Cpp2IL
         private static TypeDefinition Int64Reference ;
         private static TypeDefinition SingleReference ;
         private static TypeDefinition Int32Reference ;
+        private static TypeDefinition UInt32Reference ;
         private static TypeDefinition BooleanReference;
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
@@ -29,6 +30,7 @@ namespace Cpp2IL
             Int64Reference = TryLookupTypeDefByName("System.Int64").Item1;
             SingleReference = TryLookupTypeDefByName("System.Single").Item1;
             Int32Reference = TryLookupTypeDefByName("System.Int32").Item1;
+            UInt32Reference = TryLookupTypeDefByName("System.UInt32").Item1;
             BooleanReference = TryLookupTypeDefByName("System.Boolean").Item1;
             
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
@@ -38,6 +40,7 @@ namespace Cpp2IL
                 {"float", SingleReference},
                 {"int", Int32Reference},
                 {"bool", BooleanReference},
+                {"uint", UInt32Reference}
             };
         }
 
