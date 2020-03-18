@@ -270,6 +270,11 @@ namespace Cpp2IL
                     {
                         _registerAliases[reg] = parameter.Name;
                         _registerTypes[reg] = Utils.TryLookupTypeDefByName(parameter.ParameterType.FullName).Item1;
+                        if (parameter.ParameterType.IsArray)
+                        {
+                            _registerTypes[reg] = parameter.ParameterType.GetElementType().Resolve();
+                            _registerContents[reg] = new ArrayData(int.MaxValue, _registerTypes[reg]);
+                        }
                     }
                 }
                 else
@@ -1218,33 +1223,35 @@ namespace Cpp2IL
                 }
 
                 //Arrays
-                if (_registerTypes.ContainsKey(sourceReg) && _registerContents.TryGetValue(sourceReg, out var cons) && cons is ArrayData arrayData)
+                if (_registerTypes.ContainsKey(sourceReg) && _registerContents.TryGetValue(sourceReg, out var cons) && (cons is ArrayData || _registerTypes[sourceReg]?.IsArray == true))
                 {
                     var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+
+                    _typeDump.Append(" ; - array operation");
 
                     var arrayIndex = (offset - 0x20) / 8;
                     try
                     {
                         //If we have this situation then the constant tells us the length of the array
-                        var arrayLength = (int) arrayData.Length;
+                        var arrayLength = cons is ArrayData ? (int) ((ArrayData) cons).Length : int.MaxValue;
 
+                        var arrayType = cons is ArrayData ?  ((ArrayData) cons).ElementType : _registerTypes[sourceReg]?.GetElementType();
+                        
                         if (arrayIndex == arrayLength)
                         {
                             //Accessing one more value than we have is used to get the type of the array
                             var destReg = GetRegisterName(instruction.Operands[0]);
 
-                            var arrayType = arrayData.ElementType;
-
                             _registerTypes[destReg] = TypeReference;
                             _registerAliases[destReg] = $"local{_localNum}";
-                            _registerContents[destReg] = arrayType.GetElementType();
+                            _registerContents[destReg] = arrayType?.GetElementType();
                             _localNum++;
 
-                            _typeDump.Append($" ; - loads the type of the array ({arrayType.FullName}) into {destReg}");
+                            _typeDump.Append($" ; - loads the type of the array ({arrayType?.FullName}) into {destReg}");
 
                             _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(TypeReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(_registerAliases[sourceReg]).Append(".GetType().GetElementType() //Get the type of the array\n");
                             _methodFunctionality.Append(
-                                $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
+                                $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType?.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
                         }
                         else if (arrayIndex >= 0 && arrayIndex < arrayLength)
                         {
@@ -1254,12 +1261,25 @@ namespace Cpp2IL
 
                             var localName = $"local{_localNum}";
                             _registerAliases[destReg] = localName;
-                            _registerTypes[destReg] = arrayData.ElementType;
+                            _registerTypes[destReg] = arrayType?.Resolve();
                             _registerContents.TryRemove(destReg, out _);
 
-                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the value at index {arrayIndex} into the array {arrayAlias} and stores the result in a new local {localName} of type {arrayData.ElementType.FullName} in {destReg}");
-                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{arrayData.ElementType.FullName} {localName} = {arrayAlias}[{arrayIndex}]\n");
+                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the value at index {arrayIndex} into the array {arrayAlias} and stores the result in a new local {localName} of type {arrayType?.FullName} in {destReg}");
+                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{arrayType?.FullName} {localName} = {arrayAlias}[{arrayIndex}]\n");
 
+                            _localNum++;
+                        } else if (offset == 0x18)
+                        {
+                            //Array length 
+                            var destReg = GetRegisterName(instruction.Operands[0]);
+                            
+                            _registerAliases[destReg] = $"local{_localNum}";
+                            _registerTypes[destReg] = IntegerReference;
+
+                            _typeDump.Append($" ; - reads the length of the array {_registerAliases[sourceReg]}");
+                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{IntegerReference.FullName} {_registerAliases[destReg]} = {_registerAliases[sourceReg]}.Length\n");
+                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the length of the array {_registerAliases[sourceReg]} (in {sourceReg}) into new local {_registerAliases[destReg]} in {destReg}\n");
+                            
                             _localNum++;
                         }
 

@@ -45,7 +45,7 @@ namespace Cpp2IL
                 // $HOME/.local/share/Steam/steamapps/common/Audica
                 loc = Environment.GetEnvironmentVariable("HOME") + "/.local/share/Steam/steamapps/common/Audica";
             }
-            else 
+            else
             {
                 loc = null;
             }
@@ -96,7 +96,7 @@ namespace Cpp2IL
 
             Console.WriteLine("Reading binary / game assembly...");
             var PEBytes = File.ReadAllBytes(assemblyPath);
-            
+
             Console.WriteLine($"\t-Initializing MemoryStream of {PEBytes.Length} bytes, parsing sections, and initializing with auto+ mode.");
 
             var theDll = new PE.PE(new MemoryStream(PEBytes, 0, PEBytes.Length, false, true), metadata.maxMetadataUsages);
@@ -195,7 +195,7 @@ namespace Cpp2IL
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)} string literals");
 
             SharedState.Globals.AddRange(globals);
-            
+
             foreach (var globalIdentifier in globals)
                 SharedState.GlobalsDict[globalIdentifier.Offset] = globalIdentifier;
 
@@ -211,7 +211,7 @@ namespace Cpp2IL
             #endregion
 
             Utils.BuildPrimitiveMappings();
-            
+
             var outputPath = Path.GetFullPath("cpp2il_out");
             if (!Directory.Exists(outputPath))
                 Directory.CreateDirectory(outputPath);
@@ -241,19 +241,19 @@ namespace Cpp2IL
 
                 var counter = 0;
                 var toProcess = methods.Where(tuple => tuple.type.Module.Assembly == assembly).ToList();
-                
+
                 //Sort alphabetically by type.
                 toProcess.Sort((a, b) => String.Compare(a.type.FullName, b.type.FullName, StringComparison.Ordinal));
                 var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
                 var nextThreshold = thresholds.First();
-                
+
                 var successfullyProcessed = 0;
                 var failedProcess = 0;
 
                 var startTime = DateTime.Now;
-                
+
                 var methodTaintDict = new ConcurrentDictionary<string, AsmDumper.TaintReason>();
-                
+
                 thresholds.RemoveAt(0);
                 toProcess
                     .AsParallel()
@@ -293,11 +293,11 @@ namespace Cpp2IL
 
                                 var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses, theDll)
                                     .AnalyzeMethod(typeDump, ref allUsedMnemonics);
-                                
+
                                 var key = new StringBuilder();
 
                                 key.Append(methodDefinition.DeclaringType.FullName).Append("::").Append(methodDefinition.Name);
-                                
+
                                 methodDefinition.MethodSignatureFullName(key);
 
                                 methodTaintDict[key.ToString()] = taintResult;
@@ -322,18 +322,19 @@ namespace Cpp2IL
                 var elapsed = DateTime.Now - startTime;
                 Console.WriteLine($"Finished method processing in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
                 Console.WriteLine($"Processed {total} methods, {successfullyProcessed} ({Math.Round(successfullyProcessed * 100.0 / total, 2)}%) successfully, {failedProcess} ({Math.Round(failedProcess * 100.0 / total, 2)}%) with errors.");
-                
+
                 Console.WriteLine("Breakdown By Taint Reason:");
                 foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
                 {
                     var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
                     Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
                 }
-                
+
                 var summary = new StringBuilder();
                 foreach (var keyValuePair in methodTaintDict)
                 {
-                    summary.Append(keyValuePair.Key)
+                    summary.Append("\t")
+                        .Append(keyValuePair.Key)
                         .Append(Utils.Repeat(" ", 250 - keyValuePair.Key.Length))
                         .Append(keyValuePair.Value)
                         .Append(" (")
@@ -341,13 +342,42 @@ namespace Cpp2IL
                         .Append(")")
                         .Append("\n");
                 }
-                
+
+                Console.WriteLine("By Package:");
+                var keys = methodTaintDict
+                    .Select(kvp => kvp.Key)
+                    .GroupBy(
+                        GetPackageName,
+                        className => className,
+                        (packageName, keys) => new
+                        {
+                            package = packageName,
+                            classes = keys.ToList()
+                        })
+                    .ToList();
+
+                foreach (var key in keys)
+                {
+                    var resultLine = new StringBuilder();
+                    var totalClassCount = key.classes.Count;
+                    resultLine.Append($"\tIn package {key.package} ({totalClassCount} classes):   ");
+
+                    foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                    {
+                        var count = (decimal) methodTaintDict.Where(kvp => key.classes.Contains(kvp.Key)).Count(v => v.Value == (AsmDumper.TaintReason) reason);
+                        resultLine.Append(reason).Append(":").Append(count).Append($" ({Math.Round(count * 100 / totalClassCount, 1)}%)   ");
+                    }
+                    
+                    Console.WriteLine(resultLine.ToString());
+                }
+
+
                 File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
                 Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
-                
+
                 // Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
             }
-            
+
             Console.WriteLine("[Finished. Press enter to exit]");
             Console.ReadLine();
         }
@@ -356,5 +386,17 @@ namespace Cpp2IL
         #region Assembly Generation Helper Functions
 
         #endregion
+
+        private static string GetPackageName(string fullName)
+        {
+            if (fullName.Contains("::"))
+                fullName = fullName.Substring(0, fullName.IndexOf("::", StringComparison.Ordinal));
+
+            var split = fullName.Split('.').ToList();
+            var type = split.Last();
+            split.Remove(type);
+
+            return string.Join(".", split);
+        }
     }
 }
