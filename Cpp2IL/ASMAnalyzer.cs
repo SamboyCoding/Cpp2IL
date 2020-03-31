@@ -53,7 +53,7 @@ namespace Cpp2IL
         private TaintReason _taintReason = TaintReason.UNTAINTED;
 
         private BlockType _currentBlockType = BlockType.NONE;
-        
+
         private readonly List<ulong> unknownMethodAddresses = new List<ulong>();
 
         private readonly ud_mnemonic_code[] _arithmeticOpcodes =
@@ -69,7 +69,7 @@ namespace Cpp2IL
             ud_mnemonic_code.UD_Imovaps,
             ud_mnemonic_code.UD_Imovss, //Move scalar single
             ud_mnemonic_code.UD_Imovsd, //Move scalar double
-            ud_mnemonic_code.UD_Imovzx,
+            ud_mnemonic_code.UD_Imovzx, //Move negated
             ud_mnemonic_code.UD_Ilea, //Load effective address
             ud_mnemonic_code.UD_Imovups
         };
@@ -408,7 +408,7 @@ namespace Cpp2IL
 
             //Check for boolean in-place invert
             CheckForBooleanInvert(instruction);
-            
+
             //Check for push and pop operations which shift the stack
             CheckForPushPop(instruction);
 
@@ -571,6 +571,7 @@ namespace Cpp2IL
                                 goto typematch; //I apologise.
                             }
                         }
+
                         //TODO: This is a genuine issue with floats - if the param is a floating point type we should prefer xmm registers over standard. cause you know that's how it works.
                         TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
                         _typeDump.Append(" ; - mismatched param - type " + (type?.FullName ?? "null") + $" is not assignable from {parameter.ParameterType.FullName}");
@@ -689,9 +690,13 @@ namespace Cpp2IL
         {
             if (replaceIn.Length < 2) return replaceIn;
 
-            //Special case: "al" => "rax"
+            //Special case the few 8-bit register: "al" => "rax" etc
             if (replaceIn == "al")
                 return "rax";
+            if (replaceIn == "bl")
+                return "rbx";
+            if (replaceIn == "dl")
+                return "rdx";
 
             //R9d, etc.
             if (replaceIn[0] == 'r' && replaceIn[replaceIn.Length - 1] == 'd')
@@ -747,7 +752,7 @@ namespace Cpp2IL
                                 objectType = _registerTypes[sourceReg].GetElementType().Resolve();
 
                             _typeDump.Append($" ; name is {objectName}");
-                            
+
                             break;
                         }
                     }
@@ -957,14 +962,15 @@ namespace Cpp2IL
                 int changeAmount;
 
                 if (!(a is ulong amount)) return;
-                
+
                 //Need to adjust stack pointer, and only need to handle add and sub
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Iadd)
                 {
                     _typeDump.Append($" ; - increases stack pointer by 0x{a:X}, so all current stack indexes are decreased by that much.");
-                    changeAmount = (int) (0-amount);
+                    changeAmount = (int) (0 - amount);
                     //TODO: Actually adjust pointers - iterate on stack maps.
-                } else if (instruction.Mnemonic == ud_mnemonic_code.UD_Isub)
+                }
+                else if (instruction.Mnemonic == ud_mnemonic_code.UD_Isub)
                 {
                     _typeDump.Append($" ; - decreases stack pointer by 0x{a:X}, so all current stack indexes are increased by that much.");
                     changeAmount = (int) amount;
@@ -976,7 +982,7 @@ namespace Cpp2IL
 
                 return;
             }
-            
+
             //Needs to be a valid opcode
             if (!_arithmeticOpcodes.Contains(instruction.Mnemonic)) return;
 
@@ -1235,8 +1241,8 @@ namespace Cpp2IL
                         //If we have this situation then the constant tells us the length of the array
                         var arrayLength = cons is ArrayData ? (int) ((ArrayData) cons).Length : int.MaxValue;
 
-                        var arrayType = cons is ArrayData ?  ((ArrayData) cons).ElementType : _registerTypes[sourceReg]?.GetElementType();
-                        
+                        var arrayType = cons is ArrayData ? ((ArrayData) cons).ElementType : _registerTypes[sourceReg]?.GetElementType();
+
                         if (arrayIndex == arrayLength)
                         {
                             //Accessing one more value than we have is used to get the type of the array
@@ -1268,18 +1274,19 @@ namespace Cpp2IL
                             _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{arrayType?.FullName} {localName} = {arrayAlias}[{arrayIndex}]\n");
 
                             _localNum++;
-                        } else if (offset == 0x18)
+                        }
+                        else if (offset == 0x18)
                         {
                             //Array length 
                             var destReg = GetRegisterName(instruction.Operands[0]);
-                            
+
                             _registerAliases[destReg] = $"local{_localNum}";
                             _registerTypes[destReg] = IntegerReference;
 
                             _typeDump.Append($" ; - reads the length of the array {_registerAliases[sourceReg]}");
                             _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{IntegerReference.FullName} {_registerAliases[destReg]} = {_registerAliases[sourceReg]}.Length\n");
                             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the length of the array {_registerAliases[sourceReg]} (in {sourceReg}) into new local {_registerAliases[destReg]} in {destReg}\n");
-                            
+
                             _localNum++;
                         }
 
@@ -1322,7 +1329,7 @@ namespace Cpp2IL
 
             _registerTypes[destReg] = readType;
             _registerAliases[destReg] = $"local{_localNum}";
-            if(field.FieldType.IsArray)
+            if (field.FieldType.IsArray)
                 _registerContents[destReg] = new ArrayData(ulong.MaxValue, field.FieldType.GetElementType().Resolve() ?? LongReference);
             else
                 _registerContents[destReg] = field;
@@ -1411,13 +1418,31 @@ namespace Cpp2IL
                     var sourceReg = GetRegisterName(instruction.Operands[1]);
                     if (_registerAliases.ContainsKey(sourceReg))
                     {
-                        if (isStack)
+                        string newAlias;
+                        string sourceAlias;
+                        if (instruction.Mnemonic == ud_mnemonic_code.UD_Imovzx)
                         {
-                            _stackAliases[stackAddr] = _registerAliases[sourceReg];
-                            _typeDump.Append($" ; - pushes {_registerAliases[sourceReg]} onto the stack at address 0x{stackAddr:X}");
+                            //Negated move, need to make a local
+                            newAlias = $"local{_localNum}";
+                            sourceAlias = "!" + _registerAliases[sourceReg];
+
+                            _typeDump.Append($" ; - {newAlias} created from {sourceAlias}");
+                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Negates {sourceAlias.Substring(1)} and stores the result in new local {newAlias}\n");
+                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}System.Boolean {newAlias} = {sourceAlias}\n");
                         }
                         else
-                            _registerAliases[destReg] = _registerAliases[sourceReg];
+                        {
+                            sourceAlias = _registerAliases[sourceReg];
+                            newAlias = sourceAlias;
+                        }
+
+                        if (isStack)
+                        {
+                            _stackAliases[stackAddr] = newAlias;
+                            _typeDump.Append($" ; - pushes {sourceAlias} onto the stack at address 0x{stackAddr:X}");
+                        }
+                        else
+                            _registerAliases[destReg] = newAlias;
 
                         if (_registerTypes.ContainsKey(sourceReg))
                         {
@@ -1430,7 +1455,7 @@ namespace Cpp2IL
                             }
                         }
 
-                        if (_registerContents.ContainsKey(sourceReg) && !isStack)
+                        if (_registerContents.ContainsKey(sourceReg) && !isStack && sourceAlias == newAlias) //Check sourceAlias == newAlias so as to not copy constant in negations
                         {
                             _registerContents[destReg] = _registerContents[sourceReg];
                             _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s constant value of {_registerContents[sourceReg]}");
@@ -1884,7 +1909,8 @@ namespace Cpp2IL
 
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Throws {exceptionToThrowAlias}\n");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}throw {exceptionToThrowAlias};\n");
-            } else if (jumpAddress == _keyFunctionAddresses.AddrPInvokeLookup)
+            }
+            else if (jumpAddress == _keyFunctionAddresses.AddrPInvokeLookup)
             {
                 _typeDump.Append("; - this is the p/invoke native entry point lookup function");
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Looks some p/invoke function up idk\n");
@@ -1992,7 +2018,7 @@ namespace Cpp2IL
                         var offsets = leas.Select(i => Utils.GetOffsetFromMemoryAccess(i, i.Operands[1])).ToList();
 
                         var targets = offsets.Select(offset => offset + jumpAddress).ToList();
-                        
+
                         // Console.WriteLine($"\tContains {targets.Count} LEA instructions...");
 
                         // _typeDump.Append($" ; - virtual targets are {targets.ToStringEnumerable()}");
@@ -2002,7 +2028,7 @@ namespace Cpp2IL
                         // _typeDump.Append($" ; - maps to real addresses {actualAddresses.ToStringEnumerable()}");
 
                         var literals = actualAddresses.Select(addr => Utils.TryGetLiteralAt(_cppAssembly, addr)).ToList();
-                        
+
                         // Console.WriteLine($"\tOr {literals.Count} string literals: {literals.ToStringEnumerable()}");
 
                         // _typeDump.Append($" ; - literals obtained: {literals.ToStringEnumerable()}");
@@ -2148,7 +2174,7 @@ namespace Cpp2IL
                     var isBoolean = typeA?.Name == "Boolean";
                     if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == false" : $"{comparisonItemA} == {comparisonItemB}";
-                    else if (typeA?.IsPrimitive == true)
+                    else if (typeA?.IsPrimitive == true || typeA?.IsEnum == true)
                         condition = isSelfCheck ? $"{comparisonItemA} == 0" : $"{comparisonItemA} == {(constantB is ulong i && i == 0 ? "0" : comparisonItemB)}";
                     else
                         condition = isSelfCheck ? $"{comparisonItemA} == null" : $"{comparisonItemA} == {(constantB is ulong i && i == 0 ? "null" : comparisonItemB)}";
@@ -2164,7 +2190,7 @@ namespace Cpp2IL
                     var isBoolean = typeA?.Name == "Boolean";
                     if (isBoolean)
                         condition = isSelfCheck ? $"{comparisonItemA} == true" : $"{comparisonItemA} != {comparisonItemB}";
-                    else if (typeA?.IsPrimitive == true)
+                    else if (typeA?.IsPrimitive == true || typeA?.IsEnum == true)
                         condition = isSelfCheck ? $"{comparisonItemA} != 0" : $"{comparisonItemA} != {(constantB is ulong i && i == 0 ? "0" : comparisonItemB)}";
                     else
                         condition = isSelfCheck ? $"{comparisonItemA} != null" : $"{comparisonItemA} != {(constantB is ulong i && i == 0 ? "null" : comparisonItemB)}";
@@ -2203,6 +2229,11 @@ namespace Cpp2IL
                 if (constantB is ulong i2 && i2 == 0)
                 {
                     //Null literal, this is fine
+                }
+                else if (typeA?.IsEnum == true && (typeB?.IsPrimitive == true || constantB?.GetType().IsPrimitive == true)
+                         || typeB?.IsEnum == true && (typeA?.IsPrimitive == true || constantB?.GetType().IsPrimitive == true))
+                {
+                    //Comparing an enum to a primitive is fine because some enum values are stripped :(
                 }
                 else
                 {
@@ -2293,7 +2324,8 @@ namespace Cpp2IL
             {
                 //Push to stack & shift stack further away (as we're decrementing stack pointer)
                 ShiftStack(8); //TODO Need a changed offset or is this always ok? And do we need to ever actually copy alias over etc?
-            } else if (instruction.Mnemonic == ud_mnemonic_code.UD_Ipop)
+            }
+            else if (instruction.Mnemonic == ud_mnemonic_code.UD_Ipop)
             {
                 //Pop from stack and shift closer (as we're incrementing stack pointer)
                 ShiftStack(-8);
@@ -2304,8 +2336,43 @@ namespace Cpp2IL
         {
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Iret && instruction.Mnemonic != ud_mnemonic_code.UD_Iretf) return;
 
-            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Returns\n");
-            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("return\n");
+            //What do we return?
+            string returnAlias = null;
+            object returnConstant = null;
+            if (_methodDefinition.ReturnType.Name != "Void")
+            {
+                if (Utils.ShouldBeInFloatingPointRegister(_methodDefinition.ReturnType))
+                {
+                    if (_registerContents.TryGetValue("xmm0", out returnConstant))
+                        if (!_registerAliases.TryGetValue("xmm0", out returnAlias))
+                            returnAlias = "[value in xmm0]";
+                }
+                else if (_registerContents.TryGetValue("rax", out returnConstant))
+                    if (!_registerAliases.TryGetValue("rax", out returnAlias))
+                        returnAlias = "[value in rax]";
+            }
+
+            if (returnConstant != null)
+            {
+                if (returnConstant is AssemblyBuilder.GlobalIdentifier glob && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                    returnConstant = glob.Name;
+                    
+                if (returnConstant is string)
+                    returnConstant = $"\"{returnConstant}\"";
+                
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Returns {returnConstant}\n");
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append($"return {returnConstant}\n");
+            }
+            else if (returnAlias != null)
+            {
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Returns {returnAlias}\n");
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append($"return {returnAlias}\n");
+            }
+            else
+            {
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Returns\n");
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append("return\n");
+            }
         }
 
         private AssemblyBuilder.GlobalIdentifier? GetGlobalInReg(string reg)

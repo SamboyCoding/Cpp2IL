@@ -14,11 +14,11 @@ namespace Cpp2IL
 {
     public static class Utils
     {
-        private static TypeDefinition StringReference ;
-        private static TypeDefinition Int64Reference ;
-        private static TypeDefinition SingleReference ;
-        private static TypeDefinition Int32Reference ;
-        private static TypeDefinition UInt32Reference ;
+        private static TypeDefinition StringReference;
+        private static TypeDefinition Int64Reference;
+        private static TypeDefinition SingleReference;
+        private static TypeDefinition Int32Reference;
+        private static TypeDefinition UInt32Reference;
         private static TypeDefinition BooleanReference;
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
@@ -32,7 +32,7 @@ namespace Cpp2IL
             Int32Reference = TryLookupTypeDefByName("System.Int32").Item1;
             UInt32Reference = TryLookupTypeDefByName("System.UInt32").Item1;
             BooleanReference = TryLookupTypeDefByName("System.Boolean").Item1;
-            
+
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
             {
                 {"string", StringReference},
@@ -510,13 +510,13 @@ namespace Cpp2IL
 
         public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string name)
         {
-            if(name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
-            
+            if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
+
             var key = name.ToLower();
 
             if (_cachedTypeDefsByName.TryGetValue(key, out var ret))
                 return ret;
-            
+
             var result = InternalTryLookupTypeDefByName(name);
 
             _cachedTypeDefsByName[key] = result;
@@ -710,10 +710,10 @@ namespace Cpp2IL
         public static bool IsAssignableFrom(this TypeReference reference, TypeReference? other)
         {
             if (reference == null || other == null) return false;
-            
-            if(other is TypeDefinition otherDef)
+
+            if (other is TypeDefinition otherDef)
                 return reference.FullName == otherDef.FullName || otherDef.BaseType != null && reference.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1) || otherDef.Interfaces.Any(i => reference.IsAssignableFrom(i.InterfaceType));
-            
+
             return reference.FullName == other.FullName; //Simple check
         }
 
@@ -737,7 +737,7 @@ namespace Cpp2IL
                 addr++;
             }
 
-            return ret/*.Where(i => !i.Error).ToList()*/;
+            return ret /*.Where(i => !i.Error).ToList()*/;
         }
 
         public static string TryGetLiteralAt(PE.PE theDll, ulong addr)
@@ -762,6 +762,20 @@ namespace Cpp2IL
             }
 
             return null;
+        }
+
+        public static bool ShouldBeInFloatingPointRegister(TypeReference type)
+        {
+            if (type == null) return false;
+
+            switch (type.Name)
+            {
+                case "Single":
+                case "Double":
+                    return true;
+                default:
+                    return false;
+            }
         }
     }
 }
