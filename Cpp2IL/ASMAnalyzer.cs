@@ -776,7 +776,7 @@ namespace Cpp2IL
                         {
                             if (glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
                             {
-                                objectName = $"'{glob.Name}'";
+                                objectName = $"\"{glob.Name}\"";
                                 objectType = StringReference;
                                 constant = glob.Name;
                             }
@@ -867,8 +867,9 @@ namespace Cpp2IL
 
                 if (typeDef == null) return null;
 
-
                 var fields = SharedState.FieldsByType[typeDef];
+
+                offset -= 0x10; //To account for the two internal il2cpp pointers
 
                 var fieldRecord = fields.FirstOrDefault(f => f.Offset == (ulong) offset);
 
@@ -2150,6 +2151,15 @@ namespace Cpp2IL
 
             var (comparisonItemA, typeA, _) = _lastComparison.Item1;
             var (comparisonItemB, typeB, constantB) = _lastComparison.Item2;
+            
+            //Try to do some type coercion such as int -> char
+            if (TryCastToMatchType(typeA, ref typeB, ref constantB))
+            {
+                comparisonItemB = constantB.ToString();
+            }
+
+            if (constantB is char)
+                comparisonItemB = $"'{comparisonItemB}'";
 
             //TODO: Clear out crap [unknown global] if statements
 
@@ -2295,6 +2305,33 @@ namespace Cpp2IL
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Jumps to 0x{dest:X} if {condition}\n");
                 }
             }
+        }
+
+        private bool TryCastToMatchType(TypeDefinition castToMatch, ref TypeDefinition originalType, ref object constantValue)
+        {
+            if (originalType == null || castToMatch == null || constantValue == null) return false; //Invalid call to this function
+
+            if (originalType.FullName == castToMatch.FullName) return false; //No need to do anything
+            
+            //Numerical to char
+            if (castToMatch.FullName == "System.Char" && int.TryParse(constantValue.ToString(), out var constantInt))
+            {
+                constantValue = (char) constantInt;
+                originalType = castToMatch;
+
+                return true;
+            }
+            
+            //Different integer types
+            if (castToMatch.IsPrimitive && originalType.IsPrimitive && long.TryParse(constantValue.ToString(), out var constantLong))
+            {
+                originalType = castToMatch;
+                constantValue = constantLong;
+
+                return true;
+            }
+
+            return false;
         }
 
         private void CheckForIncrements(Instruction instruction)

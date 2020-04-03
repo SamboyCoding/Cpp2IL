@@ -343,32 +343,35 @@ namespace Cpp2IL
                         .Append("\n");
                 }
 
-                Console.WriteLine("By Package:");
-                var keys = methodTaintDict
-                    .Select(kvp => kvp.Key)
-                    .GroupBy(
-                        GetPackageName,
-                        className => className,
-                        (packageName, keys) => new
-                        {
-                            package = packageName,
-                            classes = keys.ToList()
-                        })
-                    .ToList();
-
-                foreach (var key in keys)
+                if (false)
                 {
-                    var resultLine = new StringBuilder();
-                    var totalClassCount = key.classes.Count;
-                    resultLine.Append($"\tIn package {key.package} ({totalClassCount} classes):   ");
+                    Console.WriteLine("By Package:");
+                    var keys = methodTaintDict
+                        .Select(kvp => kvp.Key)
+                        .GroupBy(
+                            GetPackageName,
+                            className => className,
+                            (packageName, keys) => new
+                            {
+                                package = packageName,
+                                classes = keys.ToList()
+                            })
+                        .ToList();
 
-                    foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                    foreach (var key in keys)
                     {
-                        var count = (decimal) methodTaintDict.Where(kvp => key.classes.Contains(kvp.Key)).Count(v => v.Value == (AsmDumper.TaintReason) reason);
-                        resultLine.Append(reason).Append(":").Append(count).Append($" ({Math.Round(count * 100 / totalClassCount, 1)}%)   ");
+                        var resultLine = new StringBuilder();
+                        var totalClassCount = key.classes.Count;
+                        resultLine.Append($"\tIn package {key.package} ({totalClassCount} classes):   ");
+
+                        foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                        {
+                            var count = (decimal) methodTaintDict.Where(kvp => key.classes.Contains(kvp.Key)).Count(v => v.Value == (AsmDumper.TaintReason) reason);
+                            resultLine.Append(reason).Append(":").Append(count).Append($" ({Math.Round(count * 100 / totalClassCount, 1)}%)   ");
+                        }
+
+                        Console.WriteLine(resultLine.ToString());
                     }
-                    
-                    Console.WriteLine(resultLine.ToString());
                 }
 
 
