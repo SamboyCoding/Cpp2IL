@@ -977,6 +977,59 @@ namespace Cpp2IL
 
         private void CheckForArithmeticOperations(Instruction instruction)
         {
+            //OH BOY SPECIAL CASES? WE LOVE THOSE!
+            //WHY THE HELL IS IMUL A THING. I WANT TO SHOOT SOMEONE.
+            if (instruction.Mnemonic == ud_mnemonic_code.UD_Iimul && instruction.Operands.Length <= 3 && instruction.Operands.Length > 0)
+            {
+                string destReg;
+                string firstArgName;
+                string secondArgName;
+
+                switch (instruction.Operands.Length)
+                {
+                    case 1:
+                        destReg = "rdx";
+                        if (!_registerAliases.TryGetValue("rax", out firstArgName))
+                            firstArgName = $"[value in rax]";
+
+                        (secondArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
+                        break;
+                    case 2:
+                        destReg = GetRegisterName(instruction.Operands[0]);
+                        (firstArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
+                        (secondArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
+                        // firstSourceReg = GetRegisterName(instruction.Operands[0]);
+                        // secondSourceReg = GetRegisterName(instruction.Operands[1]);
+                        break;
+                    case 3:
+                        destReg = GetRegisterName(instruction.Operands[0]);
+                        // firstSourceReg = GetRegisterName(instruction.Operands[1]);
+                        // secondSourceReg = GetRegisterName(instruction.Operands[2]);
+                        (firstArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
+                        (secondArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[2], instruction);
+                        break;
+                    default:
+                        throw new Exception("WHAT THE HELL MATHS DOESN'T EXIST ANYMORE.");
+                }
+
+                var localName = $"local{_localNum}";
+                _localNum++;
+
+                // if (!_registerAliases.TryGetValue(firstSourceReg, out var firstArgName))
+                //     firstArgName = $"[value in {firstSourceReg}]";
+                //
+                // if (!_registerAliases.TryGetValue(secondSourceReg, out var secondArgName))
+                //     secondArgName = $"[value in {secondSourceReg}]";
+                
+                _registerAliases[destReg] = localName;
+
+                _typeDump.Append("; - identified and processed one of them there godforsaken imul instructions.");
+                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(LongReference.FullName).Append(" ").Append(localName).Append(" = ").Append(firstArgName).Append(" * ").Append(secondArgName).Append("\n");
+                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Multiplies {firstArgName} by {secondArgName} and stores the result in new local {localName} in register {destReg}\n");
+
+                return;
+            }
+
             //Need 2 operand
             if (instruction.Operands.Length < 2) return;
 
@@ -1389,7 +1442,7 @@ namespace Cpp2IL
                                 _registerTypes[destReg] = arrayType?.Resolve();
                                 _registerContents.TryRemove(destReg, out _);
 
-                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the value at index {arrayIndex} into the array {arrayAlias} and stores the result in a new local {localName} of type {arrayType?.FullName} in {destReg}");
+                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the value at index {arrayIndex} into the array {arrayAlias} and stores the result in a new local {localName} of type {arrayType?.FullName} in {destReg}\n");
                                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{arrayType?.FullName} {localName} = {arrayAlias}[{arrayIndex}]\n");
 
                                 _localNum++;
