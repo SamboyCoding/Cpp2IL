@@ -6,28 +6,13 @@ using System.Text;
 using Cpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL
 {
     internal static class AssemblyBuilder
     {
-        private static Dictionary<string, ulong> Primitives = new Dictionary<string, ulong>(14)
-        {
-            {"Byte", 1},
-            {"SByte", 1},
-            {"Boolean", 1},
-            {"Int16", 2},
-            {"UInt16", 2},
-            {"Char", 2},
-            {"Int32", 4},
-            {"UInt32", 4},
-            {"Single", 4},
-            {"Int64", 8},
-            {"UInt64", 8},
-            {"Double", 8},
-            {"IntPtr", (ulong) IntPtr.Size},
-            {"UIntPtr", (ulong) UIntPtr.Size},
-        };
+        
 
         /// <summary>
         /// Creates all the Assemblies defined in the provided metadata, along with (stub) definitions of all the types contained therein, and registers them with the resolver.
@@ -215,6 +200,7 @@ namespace Cpp2IL
                     fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, fields, typeMetaText);
             }
 
+            fields.Sort(); //By offset
             SharedState.FieldsByType[ilTypeDefinition] = fields;
 
             //Methods
@@ -404,11 +390,7 @@ namespace Cpp2IL
 
         private static ulong HandleField(TypeReference fieldTypeRef, ulong fieldOffset, string fieldName, FieldDefinition fieldDefinition, List<FieldInType> fields, StringBuilder typeMetaText)
         {
-            ulong length = 8;
-            if (fieldTypeRef.IsPrimitive)
-            {
-                Primitives.TryGetValue(fieldTypeRef.Name, out length);
-            }
+            var length = Utils.GetSizeOfObject(fieldTypeRef);
 
             if (Math.Floor(fieldOffset / (decimal) 8) != Math.Floor((fieldOffset + length - 1) / (decimal) 8))
             {
@@ -416,6 +398,10 @@ namespace Cpp2IL
                 //TODO: 32-bit is boundaries of four and default length should be the same
                 fieldOffset = (ulong) ((Math.Floor(fieldOffset / (decimal) 8) + 1) * 8);
             }
+            
+            //ONE correction. String#start_char is remapped to a char[] not a char because the block allocated for all chars is directly sequential to the length of the string, because that's how c++ works.
+            if (fieldDefinition.DeclaringType.FullName == "System.String" && fieldTypeRef.FullName == "System.Char")
+                fieldTypeRef = fieldTypeRef.MakeArrayType();
 
             var field = new FieldInType
             {

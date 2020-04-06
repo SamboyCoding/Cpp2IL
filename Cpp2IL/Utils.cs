@@ -24,6 +24,24 @@ namespace Cpp2IL
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
         private static readonly Dictionary<string, Tuple<TypeDefinition, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition, string[]>>();
 
+        private static Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
+        {
+            {"Byte", 1},
+            {"SByte", 1},
+            {"Boolean", 1},
+            {"Int16", 2},
+            {"UInt16", 2},
+            {"Char", 2},
+            {"Int32", 4},
+            {"UInt32", 4},
+            {"Single", 4},
+            {"Int64", 8},
+            {"UInt64", 8},
+            {"Double", 8},
+            {"IntPtr", (ulong) IntPtr.Size},
+            {"UIntPtr", (ulong) UIntPtr.Size},
+        };
+
         public static void BuildPrimitiveMappings()
         {
             StringReference = TryLookupTypeDefByName("System.String").Item1;
@@ -776,6 +794,13 @@ namespace Cpp2IL
                 default:
                     return false;
             }
+        }
+
+        public static ulong GetSizeOfObject(TypeReference type)
+        {
+            return PrimitiveSizes.TryGetValue(type.Name, out var result)
+                ? result
+                : PrimitiveSizes["IntPtr"];
         }
     }
 }

@@ -56,11 +56,20 @@ namespace Cpp2IL
 
         private readonly List<ulong> unknownMethodAddresses = new List<ulong>();
 
-        private readonly ud_mnemonic_code[] _arithmeticOpcodes =
+        private readonly ud_mnemonic_code[] _inlineArithmeticOpcodes =
         {
+            ud_mnemonic_code.UD_Imul, //Multiply
+            ud_mnemonic_code.UD_Iimul, //Signed multiply
             ud_mnemonic_code.UD_Imulss, //Multiply Scalar Single
             ud_mnemonic_code.UD_Isubss, //Subtract Scalar Single
+            ud_mnemonic_code.UD_Isub, //Subtract
             ud_mnemonic_code.UD_Iadd, //Add
+        };
+
+        private readonly ud_mnemonic_code[] _localCreatingArithmeticOpcodes =
+        {
+            ud_mnemonic_code.UD_Isar, //Shift, Arithmetic, Right
+            ud_mnemonic_code.UD_Ishr, //Shift right (logical)
         };
 
         private readonly ud_mnemonic_code[] _moveOpcodes =
@@ -697,6 +706,10 @@ namespace Cpp2IL
                 return "rbx";
             if (replaceIn == "dl")
                 return "rdx";
+            if (replaceIn == "ax")
+                return "rax";
+            if (replaceIn == "cx" || replaceIn == "cl")
+                return "rcx";
 
             //R9d, etc.
             if (replaceIn[0] == 'r' && replaceIn[replaceIn.Length - 1] == 'd')
@@ -909,11 +922,17 @@ namespace Cpp2IL
             switch (code)
             {
                 case ud_mnemonic_code.UD_Imulss:
+                case ud_mnemonic_code.UD_Imul:
+                case ud_mnemonic_code.UD_Iimul:
                     return "Multiplies";
                 case ud_mnemonic_code.UD_Isubss:
+                case ud_mnemonic_code.UD_Isub:
                     return "Subtracts";
                 case ud_mnemonic_code.UD_Iadd:
                     return "Adds";
+                case ud_mnemonic_code.UD_Isar:
+                case ud_mnemonic_code.UD_Ishr:
+                    return "Shifts Right";
                 default:
                     return "[Unknown Operation Name]";
             }
@@ -924,11 +943,17 @@ namespace Cpp2IL
             switch (code)
             {
                 case ud_mnemonic_code.UD_Imulss:
+                case ud_mnemonic_code.UD_Imul:
+                case ud_mnemonic_code.UD_Iimul:
                     return "*=";
                 case ud_mnemonic_code.UD_Isubss:
+                case ud_mnemonic_code.UD_Isub:
                     return "-=";
                 case ud_mnemonic_code.UD_Iadd:
                     return "+=";
+                case ud_mnemonic_code.UD_Isar:
+                case ud_mnemonic_code.UD_Ishr:
+                    return ">>";
                 default:
                     return "[Unknown Operation Name]";
             }
@@ -985,32 +1010,81 @@ namespace Cpp2IL
             }
 
             //Needs to be a valid opcode
-            if (!_arithmeticOpcodes.Contains(instruction.Mnemonic)) return;
+            if (!_inlineArithmeticOpcodes.Contains(instruction.Mnemonic) && !_localCreatingArithmeticOpcodes.Contains(instruction.Mnemonic)) return;
+
+            var isInline = _inlineArithmeticOpcodes.Contains(instruction.Mnemonic);
 
             //The first operand is guaranteed to be a register
             var (name, type, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
 
             //The second one COULD be a register, but it could also be a memory location containing a constant (say we're multiplying by 1.5, that'd be a constant)
-            if (instruction.Operands[1].Type == ud_type.UD_OP_MEM && instruction.Operands[1].Base == ud_type.UD_R_RIP)
+            if (instruction.Operands[1].Type == ud_type.UD_OP_IMM || instruction.Operands[1].Type == ud_type.UD_OP_MEM && instruction.Operands[1].Base == ud_type.UD_R_RIP)
             {
-                var virtualAddress = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]) + _methodStart;
-                _typeDump.Append($" ; - Arithmetic operation between {name} and constant stored at 0x{virtualAddress:X}");
-                uint rawAddr = _cppAssembly.MapVirtualAddressToRaw(virtualAddress);
-                var constantBytes = _cppAssembly.raw.SubArray((int) rawAddr, 4);
-                var constantSingle = BitConverter.ToSingle(constantBytes, 0);
-                _typeDump.Append($" - constant is bytes: {BitConverter.ToString(constantBytes)}, or value {constantSingle}");
+                decimal constantValue;
 
-                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(name).Append(" ").Append(GetArithmeticOperationAssignment(instruction.Mnemonic)).Append(" ").Append(constantSingle).Append("\n");
+                if (instruction.Operands[1].Type == ud_type.UD_OP_IMM)
+                {
+                    var immediateValue = Utils.GetImmediateValue(instruction, instruction.Operands[1]);
+                    constantValue = immediateValue;
+                    _typeDump.Append($" ; - Arithmetic operation between {name} and constant value: {constantValue}");
+                }
+                else
+                {
+                    var virtualAddress = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]) + _methodStart;
+                    _typeDump.Append($" ; - Arithmetic operation between {name} and constant stored at 0x{virtualAddress:X}");
+                    uint rawAddr = _cppAssembly.MapVirtualAddressToRaw(virtualAddress);
+                    var constantBytes = _cppAssembly.raw.SubArray((int) rawAddr, 4);
+                    var constantSingle = BitConverter.ToSingle(constantBytes, 0);
+                    _typeDump.Append($" - constant is bytes: {BitConverter.ToString(constantBytes)}, or value {constantSingle}");
+                    constantValue = (decimal) constantSingle;
+                }
 
-                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}{GetArithmeticOperationName(instruction.Mnemonic)} {name} (type {type}) and {constantSingle} (System.Single) in-place\n");
+                if (isInline)
+                {
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(name).Append(" ").Append(GetArithmeticOperationAssignment(instruction.Mnemonic)).Append(" ").Append(constantValue).Append("\n");
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}{GetArithmeticOperationName(instruction.Mnemonic)} {name} (type {type}) and {constantValue} (System.Decimal) in-place\n");
+                }
+                else
+                {
+                    var localName = $"local{_localNum}";
+                    _localNum++;
+
+                    var destReg = GetRegisterName(instruction.Operands[0]);
+
+                    _registerAliases[destReg] = localName;
+                    _registerTypes[destReg] = LongReference;
+                    _registerContents.TryRemove(destReg, out _);
+
+                    //System.Int64 localX = name [operation] constant\n
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(LongReference.FullName).Append(" ").Append(localName).Append(" = ").Append(name).Append(" ").Append(GetArithmeticOperationAssignment(instruction.Mnemonic)).Append(" ").Append(constantValue).Append("\n");
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}{GetArithmeticOperationName(instruction.Mnemonic)} {name} (type {type}) by {constantValue} (System.Decimal) and stores the result in new local {localName} in register {destReg}\n");
+                }
             }
             else if (instruction.Operands[1].Type == ud_type.UD_OP_MEM || instruction.Operands[1].Type == ud_type.UD_OP_REG)
             {
                 var (secondName, secondType, _) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
                 _typeDump.Append($" ; - Arithmetic operation between {name} and {secondName}");
 
-                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(name).Append(" ").Append(GetArithmeticOperationAssignment(instruction.Mnemonic)).Append(" ").Append(secondName).Append("\n");
-                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}{GetArithmeticOperationName(instruction.Mnemonic)} {name} (type {type}) and {secondName} ({secondType}) in-place\n");
+                if (isInline)
+                {
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(name).Append(" ").Append(GetArithmeticOperationAssignment(instruction.Mnemonic)).Append(" ").Append(secondName).Append("\n");
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}{GetArithmeticOperationName(instruction.Mnemonic)} {name} (type {type}) and {secondName} ({secondType}) in-place\n");
+                }
+                else
+                {
+                    var localName = $"local{_localNum}";
+                    _localNum++;
+
+                    var destReg = GetRegisterName(instruction.Operands[0]);
+
+                    _registerAliases[destReg] = localName;
+                    _registerTypes[destReg] = LongReference;
+                    _registerContents.TryRemove(destReg, out _);
+
+                    //System.Int64 localX = name [operation] constant\n
+                    _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(LongReference.FullName).Append(" ").Append(localName).Append(" = ").Append(name).Append(" ").Append(GetArithmeticOperationAssignment(instruction.Mnemonic)).Append(" ").Append(secondName).Append("\n");
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}{GetArithmeticOperationName(instruction.Mnemonic)} {name} (type {type}) by {secondName} ({secondType?.FullName}) and stores the result in new local {localName} in register {destReg}\n");
+                }
             }
             else
             {
@@ -1125,7 +1199,7 @@ namespace Cpp2IL
             if (instruction.Operands.Length < 2 || instruction.Operands[1].Type != ud_type.UD_OP_MEM || instruction.Operands[1].Base == ud_type.UD_R_RIP) return;
 
             //Don't handle arithmetic
-            if (_arithmeticOpcodes.Contains(instruction.Mnemonic)) return;
+            if (_inlineArithmeticOpcodes.Contains(instruction.Mnemonic)) return;
 
             //Special case: Stack pointers
             if (instruction.Operands[1].Base == ud_type.UD_R_RSP)
@@ -1199,16 +1273,16 @@ namespace Cpp2IL
             }
             else if (field == null)
             {
+                var fieldReadOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+
                 //For some godawful reason the compiler sometimes uses LEA on a known constant and offset to get another constant (e.g. LEA dest, [regWithNullPtr+0x01] => put 1 into dest; LEA dest, [regWith1-0x02] => put -1 into dest; etc)
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Ilea && _registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg].GetType().IsPrimitive)
                 {
                     try
                     {
-                        var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
-
                         var constant = (int) _registerContents[sourceReg];
 
-                        var result = constant + offset;
+                        var result = constant + fieldReadOffset;
 
                         var destReg = GetRegisterName(instruction.Operands[0]);
 
@@ -1230,80 +1304,124 @@ namespace Cpp2IL
                 }
 
                 //Arrays
-                if (_registerTypes.ContainsKey(sourceReg) && _registerContents.TryGetValue(sourceReg, out var cons) && (cons is ArrayData || _registerTypes[sourceReg]?.IsArray == true))
+                if (_registerTypes.TryGetValue(sourceReg, out var typeInReg) && typeInReg != null)
                 {
-                    var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+                    var arrayIndex = -1;
+                    var arrayLength = int.MaxValue;
+                    TypeReference arrayType = null;
 
-                    _typeDump.Append(" ; - array operation");
+                    typeInReg = SharedState.AllTypeDefinitions.Find(t => t.FullName == typeInReg.FullName);
+                    
+                    SharedState.FieldsByType.TryGetValue(typeInReg, out var fieldsForTypeInReg);
+                    var lastFieldOptional = fieldsForTypeInReg?.LastOrDefault();
 
-                    var arrayIndex = (offset - 0x20) / 8;
-                    try
+                    //Array handling - if the last field in an object is an array it MAY be inline (see: string) and we can treat it as an array read
+                    if (fieldsForTypeInReg != null && lastFieldOptional.Value.Type?.IsArray == true)
                     {
-                        //If we have this situation then the constant tells us the length of the array
-                        var arrayLength = cons is ArrayData ? (int) ((ArrayData) cons).Length : int.MaxValue;
-
-                        var arrayType = cons is ArrayData ? ((ArrayData) cons).ElementType : _registerTypes[sourceReg]?.GetElementType();
-
-                        if (arrayIndex == arrayLength)
+                        var lastField = lastFieldOptional.Value;
+                        
+                        //Ok, we have an array type.
+                        //This is experimental, but should work for il2cpp-generated checks and optimizations (can i can an "ew", anyone?)
+                        _typeDump.Append(" ; - last field is an array and we couldn't directly resolve a field");
+                        if ((ulong) fieldReadOffset > lastField.Offset)
                         {
-                            //Accessing one more value than we have is used to get the type of the array
-                            var destReg = GetRegisterName(instruction.Operands[0]);
+                            _typeDump.Append(" - and the index we're trying to read is greater than the last field. Looking like an inline array read");
 
-                            _registerTypes[destReg] = TypeReference;
-                            _registerAliases[destReg] = $"local{_localNum}";
-                            _registerContents[destReg] = arrayType?.GetElementType();
-                            _localNum++;
+                            arrayType = lastField.Type.GetElementType();
 
-                            _typeDump.Append($" ; - loads the type of the array ({arrayType?.FullName}) into {destReg}");
+                            var arrayReadOffset = fieldReadOffset - 0x10 - (int) lastField.Offset;
+                            var sizeOfObject = Utils.GetSizeOfObject(arrayType);
 
-                            _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(TypeReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(_registerAliases[sourceReg]).Append(".GetType().GetElementType() //Get the type of the array\n");
-                            _methodFunctionality.Append(
-                                $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType?.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
+                            arrayIndex = arrayReadOffset / (int) sizeOfObject;
+
+                            _typeDump.Append($" - array type is {arrayType}, read offset is {arrayReadOffset}, size of object is {sizeOfObject}, leaving array index {arrayIndex}");
                         }
-                        else if (arrayIndex >= 0 && arrayIndex < arrayLength)
-                        {
-                            var destReg = GetRegisterName(instruction.Operands[0]);
-                            _registerAliases.TryGetValue(sourceReg, out var arrayAlias);
-                            _typeDump.Append($" ; - reads the value at index {arrayIndex} into the array {arrayAlias} stored in {sourceReg}");
-
-                            var localName = $"local{_localNum}";
-                            _registerAliases[destReg] = localName;
-                            _registerTypes[destReg] = arrayType?.Resolve();
-                            _registerContents.TryRemove(destReg, out _);
-
-                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the value at index {arrayIndex} into the array {arrayAlias} and stores the result in a new local {localName} of type {arrayType?.FullName} in {destReg}");
-                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{arrayType?.FullName} {localName} = {arrayAlias}[{arrayIndex}]\n");
-
-                            _localNum++;
-                        }
-                        else if (offset == 0x18)
-                        {
-                            //Array length 
-                            var destReg = GetRegisterName(instruction.Operands[0]);
-
-                            _registerAliases[destReg] = $"local{_localNum}";
-                            _registerTypes[destReg] = IntegerReference;
-
-                            _typeDump.Append($" ; - reads the length of the array {_registerAliases[sourceReg]}");
-                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{IntegerReference.FullName} {_registerAliases[destReg]} = {_registerAliases[sourceReg]}.Length\n");
-                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the length of the array {_registerAliases[sourceReg]} (in {sourceReg}) into new local {_registerAliases[destReg]} in {destReg}\n");
-
-                            _localNum++;
-                        }
-
-                        return;
                     }
-                    catch (InvalidCastException)
+                    else if (_registerContents.TryGetValue(sourceReg, out var cons) && (cons is ArrayData || typeInReg.IsArray))
                     {
-                        //Ignore
+                        var arrayOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
+
+                        _typeDump.Append(" ; - array operation");
+
+                        arrayIndex = (arrayOffset - 0x20) / 8;
+
+                        if (cons is ArrayData arrayData)
+                        {
+                            //If we have this situation then the constant tells us the length of the array
+                            arrayLength = (int) arrayData.Length;
+                            arrayType = arrayData.ElementType;
+                        }
+                        else
+                        {
+                            arrayType = typeInReg.GetElementType();
+                        }
                     }
-                }
-                else if (_registerTypes.TryGetValue(sourceReg, out var type))
-                {
-                    _registerAliases.TryGetValue(sourceReg, out var alias);
-                    var offset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
-                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}UNKNOWN FIELD READ (address 0x{offset:X}, reg alias {alias}, type {type?.FullName}, in register {sourceReg})\n");
-                    _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//Missing a field read on {alias ?? "[something]"} here.\n");
+
+                    if (arrayIndex >= 0)
+                    {
+                        //We succeeding in resolving an array index, process it.
+                        try
+                        {
+                            if (arrayIndex == arrayLength)
+                            {
+                                //Accessing one more value than we have is used to get the type of the array
+                                var destReg = GetRegisterName(instruction.Operands[0]);
+
+                                _registerTypes[destReg] = TypeReference;
+                                _registerAliases[destReg] = $"local{_localNum}";
+                                _registerContents[destReg] = arrayType?.GetElementType();
+                                _localNum++;
+
+                                _typeDump.Append($" ; - loads the type of the array ({arrayType?.FullName}) into {destReg}");
+
+                                _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(TypeReference.FullName).Append(" ").Append(_registerAliases[destReg]).Append(" = ").Append(_registerAliases[sourceReg]).Append(".GetType().GetElementType() //Get the type of the array\n");
+                                _methodFunctionality.Append(
+                                    $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType?.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
+                            }
+                            else if (arrayIndex >= 0 && arrayIndex < arrayLength)
+                            {
+                                var destReg = GetRegisterName(instruction.Operands[0]);
+                                _registerAliases.TryGetValue(sourceReg, out var arrayAlias);
+                                _typeDump.Append($" ; - reads the value at index {arrayIndex} into the array {arrayAlias} stored in {sourceReg}");
+
+                                var localName = $"local{_localNum}";
+                                _registerAliases[destReg] = localName;
+                                _registerTypes[destReg] = arrayType?.Resolve();
+                                _registerContents.TryRemove(destReg, out _);
+
+                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the value at index {arrayIndex} into the array {arrayAlias} and stores the result in a new local {localName} of type {arrayType?.FullName} in {destReg}");
+                                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{arrayType?.FullName} {localName} = {arrayAlias}[{arrayIndex}]\n");
+
+                                _localNum++;
+                            }
+                            else if (arrayIndex == 0x18)
+                            {
+                                //Array length 
+                                var destReg = GetRegisterName(instruction.Operands[0]);
+
+                                _registerAliases[destReg] = $"local{_localNum}";
+                                _registerTypes[destReg] = IntegerReference;
+
+                                _typeDump.Append($" ; - reads the length of the array {_registerAliases[sourceReg]}");
+                                _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}{IntegerReference.FullName} {_registerAliases[destReg]} = {_registerAliases[sourceReg]}.Length\n");
+                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Reads the length of the array {_registerAliases[sourceReg]} (in {sourceReg}) into new local {_registerAliases[destReg]} in {destReg}\n");
+
+                                _localNum++;
+                            }
+
+                            return;
+                        }
+                        catch (InvalidCastException)
+                        {
+                            //Ignore
+                        }
+                    }
+                    else if (_registerTypes.TryGetValue(sourceReg, out var type))
+                    {
+                        _registerAliases.TryGetValue(sourceReg, out var alias);
+                        _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}UNKNOWN FIELD READ (address 0x{fieldReadOffset:X}, reg alias {alias}, type {type?.FullName}, in register {sourceReg})\n");
+                        _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//Missing a field read on {alias ?? "[something]"} here.\n");
+                    }
                 }
                 else
                 {
@@ -1323,7 +1441,12 @@ namespace Cpp2IL
 
         private void CreateLocalFromField(string sourceReg, FieldDefinition field, string destReg)
         {
-            var sourceAlias = _registerAliases[sourceReg];
+            if (!_registerAliases.TryGetValue(sourceReg, out var sourceAlias))
+            {
+                sourceAlias = $"[value in {sourceReg} -- why don't we have a name??]";
+                TaintMethod(TaintReason.UNRESOLVED_FIELD);
+            }
+
             _registerTypes.TryGetValue(sourceReg, out var sourceType);
 
             var readType = Utils.TryLookupTypeDefByName(field.FieldType.FullName).Item1;
@@ -1421,21 +1544,23 @@ namespace Cpp2IL
                     {
                         string newAlias;
                         string sourceAlias;
-                        if (instruction.Mnemonic == ud_mnemonic_code.UD_Imovzx)
-                        {
-                            //Negated move, need to make a local
-                            newAlias = $"local{_localNum}";
-                            sourceAlias = "!" + _registerAliases[sourceReg];
-
-                            _typeDump.Append($" ; - {newAlias} created from {sourceAlias}");
-                            _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Negates {sourceAlias.Substring(1)} and stores the result in new local {newAlias}\n");
-                            _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}System.Boolean {newAlias} = {sourceAlias}\n");
-                        }
-                        else
-                        {
-                            sourceAlias = _registerAliases[sourceReg];
-                            newAlias = sourceAlias;
-                        }
+                        // if (instruction.Mnemonic == ud_mnemonic_code.UD_Imovzx)
+                        // {
+                        //     //Negated move, need to make a local
+                        //     //TODO: This appears to just be "move zero-extended", but it also appears to negate booleans - how does this work?
+                        //     //TODO: This ^ might be mov__S__x (which is move sign-extended) which prepends a 1, which MIGHT account for this behavior. Investigate further.
+                        //     newAlias = $"local{_localNum}";
+                        //     sourceAlias = "!" + _registerAliases[sourceReg];
+                        //
+                        //     _typeDump.Append($" ; - {newAlias} created from {sourceAlias}");
+                        //     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Negates {sourceAlias.Substring(1)} and stores the result in new local {newAlias}\n");
+                        //     _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}System.Boolean {newAlias} = {sourceAlias}\n");
+                        // }
+                        // else
+                        // {
+                        sourceAlias = _registerAliases[sourceReg];
+                        newAlias = sourceAlias;
+                        // }
 
                         if (isStack)
                         {
@@ -2151,9 +2276,9 @@ namespace Cpp2IL
 
             var (comparisonItemA, typeA, _) = _lastComparison.Item1;
             var (comparisonItemB, typeB, constantB) = _lastComparison.Item2;
-            
+
             //Try to do some type coercion such as int -> char
-            if (TryCastToMatchType(typeA, ref typeB, ref constantB))
+            if (TryCastToMatchType(typeA, ref typeB, ref constantB) && constantB != null)
             {
                 comparisonItemB = constantB.ToString();
             }
@@ -2309,24 +2434,26 @@ namespace Cpp2IL
 
         private bool TryCastToMatchType(TypeDefinition castToMatch, ref TypeDefinition originalType, ref object constantValue)
         {
-            if (originalType == null || castToMatch == null || constantValue == null) return false; //Invalid call to this function
+            if (originalType == null || castToMatch == null) return false; //Invalid call to this function
 
             if (originalType.FullName == castToMatch.FullName) return false; //No need to do anything
-            
+
             //Numerical to char
-            if (castToMatch.FullName == "System.Char" && int.TryParse(constantValue.ToString(), out var constantInt))
+            if (castToMatch.FullName == "System.Char" && constantValue != null && int.TryParse(constantValue.ToString(), out var constantInt))
             {
                 constantValue = (char) constantInt;
                 originalType = castToMatch;
 
                 return true;
             }
-            
-            //Different integer types
-            if (castToMatch.IsPrimitive && originalType.IsPrimitive && long.TryParse(constantValue.ToString(), out var constantLong))
+
+            //Different integer types can be freely cast between
+            if (castToMatch.IsPrimitive && originalType.IsPrimitive)
             {
                 originalType = castToMatch;
-                constantValue = constantLong;
+                
+                if(constantValue != null && long.TryParse(constantValue.ToString(), out var constantLong))
+                    constantValue = constantLong;
 
                 return true;
             }
@@ -2393,10 +2520,10 @@ namespace Cpp2IL
             {
                 if (returnConstant is AssemblyBuilder.GlobalIdentifier glob && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
                     returnConstant = glob.Name;
-                    
+
                 if (returnConstant is string)
                     returnConstant = $"\"{returnConstant}\"";
-                
+
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Returns {returnConstant}\n");
                 _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append($"return {returnConstant}\n");
             }
