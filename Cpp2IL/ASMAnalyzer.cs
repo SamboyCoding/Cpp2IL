@@ -474,6 +474,9 @@ namespace Cpp2IL
                 var success = false;
                 foreach (var possibility in possibilities)
                 {
+                    if(Utils.ShouldBeInFloatingPointRegister(parameter.ParameterType) && !possibility.StartsWith("xmm")) 
+                        continue;
+                    
                     //Could be a numerical value, check
                     if ((parameter.ParameterType.IsPrimitive || parameter.ParameterType.Resolve()?.IsEnum == true) && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
                     {
@@ -625,9 +628,12 @@ namespace Cpp2IL
 
                         methodName += "<" + genericParams + ">";
                         _methodFunctionality.Append(" with generic params ").Append(genericParams);
+                        break;
                     }
                     else
                     {
+                        //TODO: Move to outside of loop.
+                        _typeDump.Append(" ; - failed to locate generic method def, tainting!");
                         TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                     }
                 }
@@ -864,7 +870,6 @@ namespace Cpp2IL
             if (_registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData) return null;
             if (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true) return null;
 
-
             var isStatic = offset >= 0xb8;
             if (!isStatic)
             {
@@ -878,11 +883,15 @@ namespace Cpp2IL
                     (typeDef, _) = Utils.TryLookupTypeDefByName(type.FullName);
                 }
 
-                if (typeDef == null) return null;
+                if (typeDef == null)
+                {
+                    _typeDump.Append($" ; - WARN while getting referenced field, could not resolve type {type.FullName}");
+                    return null;
+                }
 
                 var fields = SharedState.FieldsByType[typeDef];
 
-                offset -= 0x10; //To account for the two internal il2cpp pointers
+                // offset -= 0x10; //To account for the two internal il2cpp pointers
 
                 var fieldRecord = fields.FirstOrDefault(f => f.Offset == (ulong) offset);
 
@@ -1366,6 +1375,10 @@ namespace Cpp2IL
                     typeInReg = SharedState.AllTypeDefinitions.Find(t => t.FullName == typeInReg.FullName);
                     
                     SharedState.FieldsByType.TryGetValue(typeInReg, out var fieldsForTypeInReg);
+
+                    if (fieldsForTypeInReg == null)
+                        _typeDump.Append($" ; - WARN could not get list of fields in type {typeInReg.FullName}");
+                    
                     var lastFieldOptional = fieldsForTypeInReg?.LastOrDefault();
 
                     //Array handling - if the last field in an object is an array it MAY be inline (see: string) and we can treat it as an array read
@@ -1902,6 +1915,7 @@ namespace Cpp2IL
 
                 if (!success)
                 {
+                    _typeDump.Append(" ; - failed to work out what we're constructing, tainting method.");
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of [something]\n");
                     TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                 }
@@ -1933,6 +1947,7 @@ namespace Cpp2IL
                             }
                             else
                             {
+                                _typeDump.Append($" - got expected type name {global.Name} for array but could not resolve to an actual type");
                                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of (unresolved) type {global.Name} and size {arraySize}\n");
                                 TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                                 success = true;
@@ -1943,6 +1958,7 @@ namespace Cpp2IL
 
                 if (!success)
                 {
+                    _typeDump.Append(" ; - failed to find a name for the array type, tainting.");
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of [something]s and an unknown length\n");
                     TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                 }

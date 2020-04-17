@@ -172,7 +172,7 @@ namespace Cpp2IL
             }
 
             //Handle base fields
-            var fieldOffset = baseFields.Aggregate((ulong) (ilTypeDefinition.MetadataType == MetadataType.Class ? 0x10 : 0x0), (current1, baseField) => HandleField(baseField.FieldType, current1, baseField.Name, baseField, fields, typeMetaText));
+            var fieldOffset = baseFields.Aggregate((ulong) (ilTypeDefinition.MetadataType == MetadataType.Class ? 0x10 : 0x0), (currentOffset, baseField) => HandleField(baseField.FieldType, currentOffset, baseField.Name, baseField, ref fields, typeMetaText));
 
             var lastFieldIdx = cppTypeDefinition.firstFieldIdx + cppTypeDefinition.field_count;
             for (var fieldIdx = cppTypeDefinition.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
@@ -197,7 +197,7 @@ namespace Cpp2IL
                 }
 
                 if (!fieldDefinition.IsStatic)
-                    fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, fields, typeMetaText);
+                    fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
             }
 
             fields.Sort(); //By offset
@@ -388,7 +388,7 @@ namespace Cpp2IL
             return typeMethods;
         }
 
-        private static ulong HandleField(TypeReference fieldTypeRef, ulong fieldOffset, string fieldName, FieldDefinition fieldDefinition, List<FieldInType> fields, StringBuilder typeMetaText)
+        private static ulong HandleField(TypeReference fieldTypeRef, ulong fieldOffset, string fieldName, FieldDefinition fieldDefinition, ref List<FieldInType> fields, StringBuilder typeMetaText)
         {
             var length = Utils.GetSizeOfObject(fieldTypeRef);
 
@@ -418,7 +418,7 @@ namespace Cpp2IL
 
             typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
                 .Append($"\t\tType: {field.Type.FullName}\n")
-                .Append($"\t\tOffset in Defining Type: {field.Offset}\n");
+                .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n");
 
             if (field.Constant != null)
                 typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
