@@ -584,7 +584,6 @@ namespace Cpp2IL
                             }
                         }
 
-                        //TODO: This is a genuine issue with floats - if the param is a floating point type we should prefer xmm registers over standard. cause you know that's how it works.
                         TaintMethod(TaintReason.METHOD_PARAM_MISMATCH);
                         _typeDump.Append(" ; - mismatched param - type " + (type?.FullName ?? "null") + $" is not assignable from {parameter.ParameterType.FullName}");
                     }
@@ -1859,13 +1858,13 @@ namespace Cpp2IL
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_BAIL_OUT()\n");
                 TaintMethod(TaintReason.NON_REMOVED_INTERNAL_FUNCTION);
             }
-            else if (jumpAddress == _keyFunctionAddresses.AddrInitFunction)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_codegen_initialize_method)
             {
                 _typeDump.Append(" - this is the initialization function and will be ignored.");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_INIT_CLASS()\n");
                 TaintMethod(TaintReason.NON_REMOVED_INTERNAL_FUNCTION);
             }
-            else if (jumpAddress == _keyFunctionAddresses.AddrNewFunction)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_codegen_object_new || jumpAddress == _keyFunctionAddresses.il2cpp_vm_object_new)
             {
                 _typeDump.Append(" - this is the constructor function.");
                 var success = false;
@@ -1963,7 +1962,7 @@ namespace Cpp2IL
                     TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                 }
             }
-            else if (jumpAddress == _keyFunctionAddresses.AddrInitStaticFunction)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_runtime_class_init)
             {
                 _typeDump.Append(" - this is the static class initializer and will be ignored");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_STATIC_INIT_CLASS()\n");
@@ -2095,7 +2094,7 @@ namespace Cpp2IL
                     _typeDump.Append(" ; - failed to find safe cast target type");
                 }
             }
-            else if (jumpAddress == _keyFunctionAddresses.AddrThrowMethod)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_raise_managed_exception)
             {
                 _typeDump.Append("; - this is the throw function");
                 _registerAliases.TryGetValue("rcx", out var exceptionToThrowAlias);
@@ -2206,7 +2205,7 @@ namespace Cpp2IL
                         // Console.WriteLine($"Trying to find an exception throwing function at unknown function address 0x{jumpAddress:X}...");
                         var actualAddr = (ulong) _cppAssembly.MapVirtualAddressToRaw(jumpAddress);
 
-                        var body = Utils.GetMethodBodyAt(_cppAssembly, actualAddr, peek: true);
+                        var body = Utils.GetMethodBodyAtRawAddress(_cppAssembly, actualAddr, peek: true);
 
                         var leas = body.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea).ToList();
 

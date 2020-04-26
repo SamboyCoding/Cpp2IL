@@ -452,7 +452,7 @@ namespace Cpp2IL
             try
             {
                 callAddr = GetJumpTarget(instructionsInRange[2], offsetInRam + instructionsInRange[2].PC);
-                return callAddr == kfe.AddrInitFunction ? 3 : 0;
+                return callAddr == kfe.il2cpp_codegen_initialize_method ? 3 : 0;
             }
             catch (Exception)
             {
@@ -486,7 +486,7 @@ namespace Cpp2IL
                 var callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.AddrInitStaticFunction ? 4 : 0;
+                return callAddr == kfe.il2cpp_runtime_class_init ? 4 : 0;
             }
             else
             {
@@ -500,7 +500,7 @@ namespace Cpp2IL
                 var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.AddrInitStaticFunction ? 5 : 0;
+                return callAddr == kfe.il2cpp_runtime_class_init ? 5 : 0;
             }
         }
 
@@ -735,7 +735,7 @@ namespace Cpp2IL
             return reference.FullName == other.FullName; //Simple check
         }
 
-        public static List<Instruction> GetMethodBodyAt(PE.PE theDll, ulong addr, bool peek)
+        public static List<Instruction> GetMethodBodyAtRawAddress(PE.PE theDll, ulong addr, bool peek)
         {
             var ret = new List<Instruction>();
             var con = true;

@@ -222,7 +222,8 @@ namespace Cpp2IL
                 long offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
                 typeMetaText.Append($"\n\tMethod: {methodName}:\n")
                     .Append($"\t\tFile Offset 0x{offsetInFile:X8}\n")
-                    .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n");
+                    .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n")
+                    .Append($"\t\tVirtual Method Slot: {methodDef.slot}\n");
 
                 var bytes = new List<byte>();
                 var offset = offsetInFile;
@@ -525,6 +526,11 @@ namespace Cpp2IL
             public ulong Offset;
             public string Name;
             public Type IdentifierType;
+
+            public override string ToString()
+            {
+                return $"Cpp2IL Global Identifier (Name = {Name}, Offset = 0x{Offset:X}, Type = {IdentifierType})";
+            }
 
             public enum Type
             {
