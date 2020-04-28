@@ -68,13 +68,18 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ASMAnalyzer.cs" />
+    <Compile Include="Analysis\ArrayData.cs" />
+    <Compile Include="Analysis\ASMAnalyzer.cs" />
+    <Compile Include="Analysis\FieldInType.cs" />
+    <Compile Include="Analysis\Il2CppClassIdentifier.cs" />
+    <Compile Include="Analysis\PreBlockCache.cs" />
+    <Compile Include="Analysis\StackPointer.cs" />
     <Compile Include="AssemblyBuilder.cs" />
     <Compile Include="BoyerMooreHorspool.cs" />
     <Compile Include="ClassReadingBinaryReader.cs" />
     <Compile Include="CppMethodData.cs" />
     <Compile Include="Extensions.cs" />
-    <Compile Include="FieldInType.cs" />
+    <Compile Include="GlobalIdentifier.cs" />
     <Compile Include="KeyFunctionAddresses.cs" />
     <Compile Include="Metadata\Il2CppCustomAttributeTypeRange.cs" />
     <Compile Include="Metadata\Il2CppEventDefinition.cs" />

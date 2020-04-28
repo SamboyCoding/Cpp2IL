@@ -11,8 +11,10 @@ using SharpDisasm.Udis86;
 
 namespace Cpp2IL
 {
-    internal class AsmDumper
+    internal partial class AsmDumper
     {
+        private const bool DEBUG_PRINT_OPERAND_DATA = false;
+        
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
         private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
         private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
@@ -325,6 +327,11 @@ namespace Cpp2IL
 
                 typeDump.Append($"\t\t{line}"); //write the current disassembled instruction to the type dump
 
+                typeDump.Append(" ; ");
+
+                if(DEBUG_PRINT_OPERAND_DATA)
+                    typeDump.Append(string.Join(" | ", instruction.Operands.Select((op, pos) => $"Op{pos}: {op.Type}")));
+
                 PerformInstructionChecks(instruction);
 
                 typeDump.Append("\n");
@@ -474,9 +481,9 @@ namespace Cpp2IL
                 var success = false;
                 foreach (var possibility in possibilities)
                 {
-                    if(Utils.ShouldBeInFloatingPointRegister(parameter.ParameterType) && !possibility.StartsWith("xmm")) 
+                    if (Utils.ShouldBeInFloatingPointRegister(parameter.ParameterType) && !possibility.StartsWith("xmm"))
                         continue;
-                    
+
                     //Could be a numerical value, check
                     if ((parameter.ParameterType.IsPrimitive || parameter.ParameterType.Resolve()?.IsEnum == true) && _registerContents.ContainsKey(possibility) && _registerContents[possibility]?.GetType().IsPrimitive == true)
                     {
@@ -740,6 +747,29 @@ namespace Cpp2IL
             object constant = null;
             switch (operand.Type)
             {
+                case ud_type.UD_OP_REG:
+                case ud_type.UD_OP_MEM when Utils.GetOperandMemoryOffset(operand) == 0:
+                    _registerAliases.TryGetValue(sourceReg, out var alias);
+                    _registerContents.TryGetValue(sourceReg, out constant);
+                    _registerTypes.TryGetValue(sourceReg, out objectType);
+
+                    if (alias?.StartsWith("global_") != false && constant is AssemblyBuilder.GlobalIdentifier glob2)
+                    {
+                        if (glob2.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                        {
+                            objectType = StringReference;
+                            objectName = $"'{glob2.Name}'";
+                            constant = glob2.Name;
+                            break;
+                        }
+                    }
+
+                    objectType ??= Utils.TryLookupTypeDefByName(constant?.GetType().FullName).Item1;
+                    objectName = alias ??
+                                 (constant?.GetType().IsPrimitive == true
+                                     ? constant.ToString()
+                                     : $"[value in {sourceReg}]");
+                    break;
                 case ud_type.UD_OP_MEM:
                     //Check array read
                     if (_registerContents.ContainsKey(sourceReg) && (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true || _registerAliases.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData))
@@ -809,28 +839,6 @@ namespace Cpp2IL
                             objectName = $"[unknown global variable at 0x{globalAddr:X}]";
                     }
 
-                    break;
-                case ud_type.UD_OP_REG:
-                    _registerAliases.TryGetValue(sourceReg, out var alias);
-                    _registerContents.TryGetValue(sourceReg, out constant);
-                    _registerTypes.TryGetValue(sourceReg, out objectType);
-
-                    if (alias?.StartsWith("global_") != false && constant is AssemblyBuilder.GlobalIdentifier glob2)
-                    {
-                        if (glob2.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
-                        {
-                            objectType = StringReference;
-                            objectName = $"'{glob2.Name}'";
-                            constant = glob2.Name;
-                            break;
-                        }
-                    }
-
-                    objectType ??= Utils.TryLookupTypeDefByName(constant?.GetType().FullName).Item1;
-                    objectName = alias ??
-                                 (constant?.GetType().IsPrimitive == true
-                                     ? constant.ToString()
-                                     : $"[value in {sourceReg}]");
                     break;
                 case ud_type.UD_OP_CONST:
                     if (operand.LvalUDWord == 0)
@@ -1028,7 +1036,7 @@ namespace Cpp2IL
                 //
                 // if (!_registerAliases.TryGetValue(secondSourceReg, out var secondArgName))
                 //     secondArgName = $"[value in {secondSourceReg}]";
-                
+
                 _registerAliases[destReg] = localName;
 
                 _typeDump.Append("; - identified and processed one of them there godforsaken imul instructions.");
@@ -1309,6 +1317,18 @@ namespace Cpp2IL
 
                 return;
             }
+            
+            //Klass pointers
+            if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klassPointer)
+            {
+                var method = GetMethodFromReadKlassOffset(offset);
+
+                if (method != null)
+                {
+                    _typeDump.Append($" ; - virtual method object lookup from vtable, resolves to {method.FullName}");
+                    return;
+                }
+            }
 
             //Check for field read
             var field = GetFieldReferencedByOperand(instruction.Operands[1]);
@@ -1317,7 +1337,7 @@ namespace Cpp2IL
 
             if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0)
             {
-                //Just a register assignment, but as a mem op. It happens. And it's probably SharpDisasm's fault.
+                //Probably a klass pointer read, handled in checkformoveintoregister
                 return;
             }
 
@@ -1372,19 +1392,19 @@ namespace Cpp2IL
                     TypeReference arrayType = null;
 
                     typeInReg = SharedState.AllTypeDefinitions.Find(t => t.FullName == typeInReg.FullName);
-                    
+
                     SharedState.FieldsByType.TryGetValue(typeInReg, out var fieldsForTypeInReg);
 
                     if (fieldsForTypeInReg == null)
                         _typeDump.Append($" ; - WARN could not get list of fields in type {typeInReg.FullName}");
-                    
+
                     var lastFieldOptional = fieldsForTypeInReg?.LastOrDefault();
 
                     //Array handling - if the last field in an object is an array it MAY be inline (see: string) and we can treat it as an array read
                     if (fieldsForTypeInReg != null && lastFieldOptional.Value.Type?.IsArray == true)
                     {
                         var lastField = lastFieldOptional.Value;
-                        
+
                         //Ok, we have an array type.
                         //This is experimental, but should work for il2cpp-generated checks and optimizations (can i can an "ew", anyone?)
                         _typeDump.Append(" ; - last field is an array and we couldn't directly resolve a field");
@@ -1504,6 +1524,28 @@ namespace Cpp2IL
             }
         }
 
+        private static MethodDefinition? GetMethodFromReadKlassOffset(int offset)
+        {
+            var offsetInVtable = offset - 0x128; //0x128 being the address of the vtable in an Il2CppClass
+
+            if (offsetInVtable % 0x10 != 0 && offsetInVtable % 0x8 == 0)
+                offsetInVtable -= 0x8; //Handle read of the second pointer in the struct.
+            
+            if (offsetInVtable > 0)
+            {
+                var slotNum = (decimal) offsetInVtable / 0x10;
+
+                if (Math.Round(slotNum) == slotNum)
+                {
+                    //Actual whole-number slot number, we can lookup the method
+                    var slotShort = (ushort) slotNum;
+                    return SharedState.VirtualMethodsBySlot[slotShort];
+                }
+            }
+
+            return null;
+        }
+
         private void CreateLocalFromField(string sourceReg, FieldDefinition field, string destReg)
         {
             if (!_registerAliases.TryGetValue(sourceReg, out var sourceAlias))
@@ -1595,16 +1637,42 @@ namespace Cpp2IL
             if (!_moveOpcodes.Contains(instruction.Mnemonic)) return;
 
             var destReg = GetRegisterName(instruction.Operands[0]);
+            var sourceReg = GetRegisterName(instruction.Operands[1]);
             var isStack = destReg == "rsp";
             var stackAddr = isStack ? Utils.GetOperandMemoryOffset(instruction.Operands[0]) : -1;
 
             //Ok now decide what to do based on what the second register is
             switch (instruction.Operands[1].Type)
             {
-                case ud_type.UD_OP_REG:
                 case ud_type.UD_OP_MEM when Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0:
+                    var (alias, type, constantVal) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
+
+                    if (type != null && !type.IsPrimitive)
+                    {
+                        //Deref of internal "klass" pointer - we create an Il2CppClassIdentifier
+                        var newClassIdentifier = new Il2CppClassIdentifier
+                        {
+                            associatedDefinition = type,
+                            objectAlias = alias
+                        };
+
+                        _registerTypes[destReg] = _registerTypes[sourceReg];
+                        _registerAliases[destReg] = $"klasspointer_{alias}";
+                        _registerContents[destReg] = newClassIdentifier;
+
+                        //TODO: We probably don't want to make a local for this as it's not displayed in pseudocode, just keep the ref in mind. Also, this doesn't actually fire...
+                        _typeDump.Append($" ;  - klass pointer move, {sourceReg} -> {destReg}");
+                        _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Moves the klass pointer for {alias} (in reg {sourceReg}) into {destReg}\n");
+                        //No pseudocode entry, depends what we do with it from here.
+
+                        break;
+                    }
+
+                    _typeDump.Append($" ; - fits the structure of a klass ptr move, but type is {type} - primitive {type?.IsPrimitive}");
+                    //Fallthrough to generic handling if we can't get a type
+                    goto case ud_type.UD_OP_REG;
+                case ud_type.UD_OP_REG:
                     //Simple case, reg => reg/stack
-                    var sourceReg = GetRegisterName(instruction.Operands[1]);
                     if (_registerAliases.ContainsKey(sourceReg))
                     {
                         string newAlias;
@@ -1823,9 +1891,18 @@ namespace Cpp2IL
 
             if (instruction.Operands[0].Type == ud_type.UD_OP_MEM && instruction.Operands[0].Base != ud_type.UD_R_RIP)
             {
-                //e.g. call [rax+0x178]
-                //can't resolve this (TODO how do we?)
-                //so flag it
+                if (_registerContents.TryGetValue(GetRegisterName(instruction.Operands[0]), out var con) && con is Il2CppClassIdentifier)
+                {
+                    //Call to a Vtable func
+                    var vTableMethod = GetMethodFromReadKlassOffset(Utils.GetOperandMemoryOffset(instruction.Operands[0]));
+
+                    if (vTableMethod != null)
+                    {
+                        //Call this method
+                        HandleFunctionCall(vTableMethod, true, instruction);
+                        return;
+                    }
+                }
                 _typeDump.Append(" ; - Unresolvable call to calculated address.");
                 TaintMethod(TaintReason.UNRESOLVED_METHOD);
                 return;
@@ -2048,6 +2125,12 @@ namespace Cpp2IL
                 _typeDump.Append(" - this is the safe cast function.");
                 //rdx has the destination type, rcx has what we're casting
                 _registerContents.TryGetValue("rdx", out var t);
+
+                if (t is AssemblyBuilder.GlobalIdentifier typeGlobal && typeGlobal.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
+                {
+                    (t, _) = Utils.TryLookupTypeDefByName(typeGlobal.Name);
+                }
+                
                 object castTarget;
                 AssemblyBuilder.GlobalIdentifier globalIdentifier = default;
                 _registerAliases.TryGetValue("rcx", out var castAlias);
@@ -2071,10 +2154,11 @@ namespace Cpp2IL
 
                     //Push a local
                     _registerAliases["rax"] = $"local{_localNum}";
+                    _localNum++;
                     _registerContents["rax"] = globalIdentifier.Offset == 0 ? castTarget : globalIdentifier;
                     _registerTypes["rax"] = type;
 
-                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Safe casts {castTarget} to new local {_registerAliases["rax"]}\n");
+                    _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Safe casts {castTarget} to new local {_registerAliases["rax"]} of type {type.FullName}\n");
                     _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(type.FullName).Append(" ").Append(_registerAliases["rax"]).Append(" = (").Append(type.FullName).Append(") ");
 
                     if (globalIdentifier.Offset == 0 || globalIdentifier.IdentifierType != AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
@@ -2519,8 +2603,8 @@ namespace Cpp2IL
             if (castToMatch.IsPrimitive && originalType.IsPrimitive)
             {
                 originalType = castToMatch;
-                
-                if(constantValue != null && long.TryParse(constantValue.ToString(), out var constantLong))
+
+                if (constantValue != null && long.TryParse(constantValue.ToString(), out var constantLong))
                     constantValue = constantLong;
 
                 return true;
@@ -2627,49 +2711,6 @@ namespace Cpp2IL
             }
 
             return null;
-        }
-
-        private struct PreBlockCache
-        {
-            public ConcurrentDictionary<string, string> Aliases;
-            public ConcurrentDictionary<string, TypeDefinition> Types;
-            public ConcurrentDictionary<string, object> Constants;
-            public BlockType BlockType;
-
-            public PreBlockCache(ConcurrentDictionary<string, string> registerAliases, ConcurrentDictionary<string, object> registerContents, ConcurrentDictionary<string, TypeDefinition> registerTypes, BlockType type)
-            {
-                Aliases = new ConcurrentDictionary<string, string>();
-                Types = new ConcurrentDictionary<string, TypeDefinition>();
-                Constants = new ConcurrentDictionary<string, object>();
-
-                foreach (var keyValuePair in registerAliases) Aliases[keyValuePair.Key] = keyValuePair.Value;
-                foreach (var registerContent in registerContents) Constants[registerContent.Key] = registerContent.Value;
-                foreach (var registerType in registerTypes) Types[registerType.Key] = registerType.Value;
-
-                BlockType = type;
-            }
-        }
-
-        private class StackPointer
-        {
-            public readonly int Address;
-
-            public StackPointer(int address)
-            {
-                Address = address;
-            }
-        }
-
-        private class ArrayData
-        {
-            public readonly ulong Length;
-            public readonly TypeDefinition ElementType;
-
-            public ArrayData(ulong length, TypeDefinition elementType)
-            {
-                Length = length;
-                ElementType = elementType;
-            }
         }
 
         private enum BlockType

@@ -10,7 +10,7 @@ using Mono.Cecil.Rocks;
 
 namespace Cpp2IL
 {
-    internal static class AssemblyBuilder
+    internal static partial class AssemblyBuilder
     {
         
 
@@ -310,6 +310,11 @@ namespace Cpp2IL
                     }
                 }
 
+                if (methodDef.slot < ushort.MaxValue)
+                {
+                    SharedState.VirtualMethodsBySlot[methodDef.slot] = methodDefinition;
+                }
+
                 SharedState.MethodsByAddress[offsetInRam] = methodDefinition;
             }
 
@@ -518,27 +523,6 @@ namespace Cpp2IL
             }
 
             return ret;
-        }
-
-
-        internal struct GlobalIdentifier
-        {
-            public ulong Offset;
-            public string Name;
-            public Type IdentifierType;
-
-            public override string ToString()
-            {
-                return $"Cpp2IL Global Identifier (Name = {Name}, Offset = 0x{Offset:X}, Type = {IdentifierType})";
-            }
-
-            public enum Type
-            {
-                TYPE,
-                METHOD,
-                FIELD,
-                LITERAL
-            }
         }
     }
 }

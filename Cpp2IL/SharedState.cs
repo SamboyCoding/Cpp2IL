@@ -5,6 +5,8 @@ namespace Cpp2IL
 {
     public static class SharedState
     {
+        internal static Dictionary<ushort, MethodDefinition> VirtualMethodsBySlot = new Dictionary<ushort, MethodDefinition>();
+        
         internal static Dictionary<long, TypeDefinition> TypeDefsByAddress = new Dictionary<long, TypeDefinition>();
         internal static Dictionary<long, MethodDefinition> MethodsByIndex = new Dictionary<long, MethodDefinition>();
 
