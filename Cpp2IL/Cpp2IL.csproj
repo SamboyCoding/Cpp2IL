@@ -90,6 +90,7 @@
     <Compile Include="Metadata\Il2CppGenericParameter.cs" />
     <Compile Include="Metadata\Il2CppGlobalMetadataHeader.cs" />
     <Compile Include="Metadata\Il2CppAssemblyDefinition.cs" />
+    <Compile Include="Metadata\Il2CppInterfaceOffset.cs" />
     <Compile Include="Metadata\Il2CppMetadata.cs" />
     <Compile Include="Metadata\Il2CppMetadataUsageList.cs" />
     <Compile Include="Metadata\Il2CppMetadataUsagePair.cs" />

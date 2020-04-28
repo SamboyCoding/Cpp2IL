@@ -7,7 +7,7 @@ namespace Cpp2IL
     /// </summary>
     public struct Il2CppClassIdentifier
     {
-        public TypeDefinition associatedDefinition;
+        public TypeDefinition backingType;
         public string objectAlias;
     }
 }

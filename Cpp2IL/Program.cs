@@ -21,6 +21,7 @@ namespace Cpp2IL
         public static float MetadataVersion = 24f;
 
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
+        internal static Il2CppMetadata? Metadata;
 
         public static void PrintUsage()
         {
@@ -92,15 +93,15 @@ namespace Cpp2IL
             Console.WriteLine("This game is built with Unity version " + string.Join(".", unityVerUseful));
 
             Console.WriteLine("Reading metadata...");
-            var metadata = Il2CppMetadata.ReadFrom(metadataPath, unityVerUseful);
+            Metadata = Il2CppMetadata.ReadFrom(metadataPath, unityVerUseful);
 
             Console.WriteLine("Reading binary / game assembly...");
             var PEBytes = File.ReadAllBytes(assemblyPath);
 
             Console.WriteLine($"\t-Initializing MemoryStream of {PEBytes.Length} bytes, parsing sections, and initializing with auto+ mode.");
 
-            var theDll = new PE.PE(new MemoryStream(PEBytes, 0, PEBytes.Length, false, true), metadata.maxMetadataUsages);
-            if (!theDll.PlusSearch(metadata.methodDefs.Count(x => x.methodIndex >= 0), metadata.typeDefs.Length))
+            var theDll = new PE.PE(new MemoryStream(PEBytes, 0, PEBytes.Length, false, true), Metadata.maxMetadataUsages);
+            if (!theDll.PlusSearch(Metadata.methodDefs.Count(x => x.methodIndex >= 0), Metadata.typeDefs.Length))
             {
                 Console.WriteLine("Initialize failed. Aborting.");
                 return;
@@ -122,20 +123,20 @@ namespace Cpp2IL
             Console.WriteLine("Building assemblies...");
             Console.WriteLine("\tPass 1: Creating types...");
 
-            Assemblies = AssemblyBuilder.CreateAssemblies(metadata, resolver, moduleParams);
+            Assemblies = AssemblyBuilder.CreateAssemblies(Metadata, resolver, moduleParams);
 
             Console.WriteLine("\tPass 2: Setting parents and handling inheritance...");
 
             //Stateful method, no return value
-            AssemblyBuilder.ConfigureHierarchy(metadata, theDll);
+            AssemblyBuilder.ConfigureHierarchy(Metadata, theDll);
 
             Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
 
             var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
-            for (var imageIndex = 0; imageIndex < metadata.assemblyDefinitions.Length; imageIndex++)
+            for (var imageIndex = 0; imageIndex < Metadata.assemblyDefinitions.Length; imageIndex++)
             {
-                Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {metadata.assemblyDefinitions.Length}...");
-                methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(metadata, theDll, metadata.assemblyDefinitions[imageIndex]));
+                Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {Metadata.assemblyDefinitions.Length}...");
+                methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(Metadata, theDll, Metadata.assemblyDefinitions[imageIndex]));
             }
 
             Console.WriteLine("\tPass 4: Handling SerializeFields...");
@@ -147,33 +148,33 @@ namespace Cpp2IL
             if (unityEngineAssembly != null)
             {
                 var serializeFieldMethod = unityEngineAssembly.MainModule.Types.First(x => x.Name == "SerializeField").Methods.First();
-                foreach (var imageDef in metadata.assemblyDefinitions)
+                foreach (var imageDef in Metadata.assemblyDefinitions)
                 {
                     var lastTypeIndex = imageDef.firstTypeIndex + imageDef.typeCount;
                     for (var typeIndex = imageDef.firstTypeIndex; typeIndex < lastTypeIndex; typeIndex++)
                     {
-                        var typeDef = metadata.typeDefs[typeIndex];
-                        var typeDefinition = SharedState.TypeDefsByAddress[typeIndex];
+                        var typeDef = Metadata.typeDefs[typeIndex];
+                        var typeDefinition = SharedState.TypeDefsByIndex[typeIndex];
 
                         //Fields
                         var lastFieldIdx = typeDef.firstFieldIdx + typeDef.field_count;
                         for (var fieldIdx = typeDef.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
                         {
-                            var fieldDef = metadata.fieldDefs[fieldIdx];
-                            var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
+                            var fieldDef = Metadata.fieldDefs[fieldIdx];
+                            var fieldName = Metadata.GetStringFromIndex(fieldDef.nameIndex);
                             var fieldDefinition = typeDefinition.Fields.First(x => x.Name == fieldName);
 
                             //Get attributes and look for the serialize field attribute.
-                            var attributeIndex = metadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
+                            var attributeIndex = Metadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
                             if (attributeIndex < 0) continue;
-                            var attributeTypeRange = metadata.attributeTypeRanges[attributeIndex];
+                            var attributeTypeRange = Metadata.attributeTypeRanges[attributeIndex];
                             for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
                             {
-                                var attributeTypeIndex = metadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
+                                var attributeTypeIndex = Metadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
                                 var attributeType = theDll.types[attributeTypeIndex];
                                 if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS) continue;
-                                var cppAttribType = metadata.typeDefs[attributeType.data.classIndex];
-                                var attributeName = metadata.GetStringFromIndex(cppAttribType.nameIndex);
+                                var cppAttribType = Metadata.typeDefs[attributeType.data.classIndex];
+                                var attributeName = Metadata.GetStringFromIndex(cppAttribType.nameIndex);
                                 if (attributeName != "SerializeField") continue;
                                 var customAttribute = new CustomAttribute(typeDefinition.Module.ImportReference(serializeFieldMethod));
                                 fieldDefinition.CustomAttributes.Add(customAttribute);
@@ -187,7 +188,7 @@ namespace Cpp2IL
 
             Console.WriteLine("\tPass 5: Locating Globals...");
 
-            var globals = AssemblyBuilder.MapGlobalIdentifiers(metadata, theDll);
+            var globals = AssemblyBuilder.MapGlobalIdentifiers(Metadata, theDll);
 
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)} type globals");
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)} method globals");
@@ -287,7 +288,7 @@ namespace Cpp2IL
 
                             foreach (var method in methodData)
                             {
-                                var methodDef = metadata.methodDefs[method.MethodId];
+                                var methodDef = Metadata.methodDefs[method.MethodId];
                                 var methodStart = method.MethodOffsetRam;
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 

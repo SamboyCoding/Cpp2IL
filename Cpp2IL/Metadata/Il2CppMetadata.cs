@@ -11,6 +11,7 @@ namespace Cpp2IL.Metadata
         private Il2CppGlobalMetadataHeader metadataHeader;
         public Il2CppAssemblyDefinition[] assemblyDefinitions;
         public Il2CppTypeDefinition[] typeDefs;
+        internal Il2CppInterfaceOffset[] interfaceOffsets;
         public Il2CppMethodDefinition[] methodDefs;
         public Il2CppParameterDefinition[] parameterDefs;
         public Il2CppFieldDefinition[] fieldDefs;
@@ -30,7 +31,7 @@ namespace Cpp2IL.Metadata
         public Il2CppGenericContainer[] genericContainers;
         public Il2CppFieldRef[] fieldRefs;
         public Il2CppGenericParameter[] genericParameters;
-        
+
         public static Il2CppMetadata? ReadFrom(string path, int[] unityVer)
         {
             var bytes = File.ReadAllBytes(path);
@@ -80,6 +81,11 @@ namespace Cpp2IL.Metadata
             typeDefs = ReadMetadataClassArray<Il2CppTypeDefinition>(metadataHeader.typeDefinitionsOffset, metadataHeader.typeDefinitionsCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
+            Console.Write("\tReading interface offsets...");
+            start = DateTime.Now;
+            interfaceOffsets = ReadMetadataClassArray<Il2CppInterfaceOffset>(metadataHeader.interfaceOffsetsOffset, metadataHeader.interfaceOffsetsCount);
+            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
             Console.Write("\tReading method definitions...");
             start = DateTime.Now;
             methodDefs = ReadMetadataClassArray<Il2CppMethodDefinition>(metadataHeader.methodsOffset, metadataHeader.methodsCount);

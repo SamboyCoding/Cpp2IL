@@ -1319,14 +1319,41 @@ namespace Cpp2IL
             }
             
             //Klass pointers
-            if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klassPointer)
+            if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klass)
             {
-                var method = GetMethodFromReadKlassOffset(offset);
-
-                if (method != null)
+                if (offset >= 0x128)
                 {
-                    _typeDump.Append($" ; - virtual method object lookup from vtable, resolves to {method.FullName}");
-                    return;
+                    //For address values > 0x128
+                    var method = GetMethodFromReadKlassOffset(offset);
+
+                    if (method != null)
+                    {
+                        //Just note it, we don't need to do anything with it, except avoid an invalid field warning
+                        _typeDump.Append($" ; - virtual method object lookup from vtable, resolves to {method.FullName}");
+                        return;
+                    }
+                }
+                else
+                {
+                    //Check for some known ones
+                    switch (offset)
+                    {
+                        case 0x11E:
+                            //Interface offset list
+                            try
+                            {
+                                var il2cppTypeDef = SharedState.MonoToCppTypeDefs[klass.backingType];
+                                _typeDump.Append($" ; - looks up interface offset list for type {klass.backingType.FullName} - which contains {il2cppTypeDef.InterfaceOffsets.Length} entries");
+                            }
+                            catch (Exception)
+                            {
+                                //ignore
+                            }
+
+                            return;
+                        default:
+                            break;
+                    }
                 }
             }
 
@@ -1652,7 +1679,7 @@ namespace Cpp2IL
                         //Deref of internal "klass" pointer - we create an Il2CppClassIdentifier
                         var newClassIdentifier = new Il2CppClassIdentifier
                         {
-                            associatedDefinition = type,
+                            backingType = type,
                             objectAlias = alias
                         };
 
@@ -1660,7 +1687,6 @@ namespace Cpp2IL
                         _registerAliases[destReg] = $"klasspointer_{alias}";
                         _registerContents[destReg] = newClassIdentifier;
 
-                        //TODO: We probably don't want to make a local for this as it's not displayed in pseudocode, just keep the ref in mind. Also, this doesn't actually fire...
                         _typeDump.Append($" ;  - klass pointer move, {sourceReg} -> {destReg}");
                         _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Moves the klass pointer for {alias} (in reg {sourceReg}) into {destReg}\n");
                         //No pseudocode entry, depends what we do with it from here.
@@ -1893,7 +1919,9 @@ namespace Cpp2IL
             {
                 if (_registerContents.TryGetValue(GetRegisterName(instruction.Operands[0]), out var con) && con is Il2CppClassIdentifier)
                 {
-                    //Call to a Vtable func
+                    //Call to a Vtable func on a klass pointer
+                    
+                    //Valid for offset > 0x128
                     var vTableMethod = GetMethodFromReadKlassOffset(Utils.GetOperandMemoryOffset(instruction.Operands[0]));
 
                     if (vTableMethod != null)

@@ -57,14 +57,14 @@ namespace Cpp2IL
                     if (type.declaringTypeIndex != -1)
                     {
                         //This is a type declared within another (inner class/type)
-                        definition = SharedState.TypeDefsByAddress[defNumber];
+                        definition = SharedState.TypeDefsByIndex[defNumber];
                     }
                     else
                     {
                         //This is a new type so ensure it's registered
                         definition = new TypeDefinition(ns, name, (TypeAttributes) type.flags);
                         mainModule.Types.Add(definition);
-                        SharedState.TypeDefsByAddress.Add(defNumber, definition);
+                        SharedState.TypeDefsByIndex.Add(defNumber, definition);
                     }
 
                     //Ensure we include all inner types within this type.
@@ -79,7 +79,7 @@ namespace Cpp2IL
                             metadata.GetStringFromIndex(nested.nameIndex), (TypeAttributes) nested.flags);
 
                         definition.NestedTypes.Add(nestedDef);
-                        SharedState.TypeDefsByAddress.Add(nestedIndex, nestedDef);
+                        SharedState.TypeDefsByIndex.Add(nestedIndex, nestedDef);
                     }
                 }
 
@@ -95,7 +95,7 @@ namespace Cpp2IL
             for (var typeIndex = 0; typeIndex < metadata.typeDefs.Length; typeIndex++)
             {
                 var type = metadata.typeDefs[typeIndex];
-                var definition = SharedState.TypeDefsByAddress[typeIndex];
+                var definition = SharedState.TypeDefsByIndex[typeIndex];
 
                 //Resolve this type's base class and import if required.
                 if (type.parentIndex >= 0)
@@ -113,13 +113,13 @@ namespace Cpp2IL
                     definition.Interfaces.Add(new InterfaceImplementation(interfaceTypeRef));
                 }
 
-                SharedState.TypeDefsByAddress[typeIndex] = definition;
+                SharedState.TypeDefsByIndex[typeIndex] = definition;
             }
         }
 
         public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE.PE theDll, Il2CppAssemblyDefinition imageDef)
         {
-            var firstTypeDefinition = SharedState.TypeDefsByAddress[imageDef.firstTypeIndex];
+            var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
 
             //Ensure type directory exists
@@ -130,8 +130,9 @@ namespace Cpp2IL
             for (var index = imageDef.firstTypeIndex; index < lastTypeIndex; index++)
             {
                 var typeDef = metadata.typeDefs[index];
-                var typeDefinition = SharedState.TypeDefsByAddress[index];
+                var typeDefinition = SharedState.TypeDefsByIndex[index];
                 SharedState.AllTypeDefinitions.Add(typeDefinition);
+                SharedState.MonoToCppTypeDefs[typeDefinition] = typeDef;
 
                 methods.Add((type: typeDefinition, methods: ProcessTypeContents(metadata, theDll, typeDef, typeDefinition)));
             }

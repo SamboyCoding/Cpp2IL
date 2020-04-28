@@ -106,7 +106,7 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
-                    var typeDefinition = SharedState.TypeDefsByAddress[toImport.data.classIndex];
+                    var typeDefinition = SharedState.TypeDefsByIndex[toImport.data.classIndex];
                     return moduleDefinition.ImportReference(typeDefinition);
                 }
 
@@ -121,7 +121,7 @@ namespace Cpp2IL
                 {
                     var genericClass =
                         theDll.ReadClassAtVirtualAddress<Il2CppGenericClass>(toImport.data.generic_class);
-                    var typeDefinition = SharedState.TypeDefsByAddress[genericClass.typeDefinitionIndex];
+                    var typeDefinition = SharedState.TypeDefsByIndex[genericClass.typeDefinitionIndex];
                     var genericInstanceType = new GenericInstanceType(moduleDefinition.ImportReference(typeDefinition));
                     var genericInst =
                         theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
