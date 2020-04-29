@@ -72,7 +72,9 @@
     <Compile Include="Analysis\ASMAnalyzer.cs" />
     <Compile Include="Analysis\FieldInType.cs" />
     <Compile Include="Analysis\Il2CppClassIdentifier.cs" />
+    <Compile Include="Analysis\InterfaceOffsetPairList.cs" />
     <Compile Include="Analysis\PreBlockCache.cs" />
+    <Compile Include="Analysis\SafeCastResult.cs" />
     <Compile Include="Analysis\StackPointer.cs" />
     <Compile Include="AssemblyBuilder.cs" />
     <Compile Include="BoyerMooreHorspool.cs" />

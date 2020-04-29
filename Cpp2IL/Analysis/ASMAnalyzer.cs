@@ -14,7 +14,7 @@ namespace Cpp2IL
     internal partial class AsmDumper
     {
         private const bool DEBUG_PRINT_OPERAND_DATA = false;
-        
+
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
         private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
         private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
@@ -57,6 +57,8 @@ namespace Cpp2IL
         private BlockType _currentBlockType = BlockType.NONE;
 
         private readonly List<ulong> unknownMethodAddresses = new List<ulong>();
+
+        private TypeDefinition? interfaceOffsetTargetInterface;
 
         private readonly ud_mnemonic_code[] _inlineArithmeticOpcodes =
         {
@@ -327,10 +329,11 @@ namespace Cpp2IL
 
                 typeDump.Append($"\t\t{line}"); //write the current disassembled instruction to the type dump
 
-                typeDump.Append(" ; ");
-
-                if(DEBUG_PRINT_OPERAND_DATA)
+                if (DEBUG_PRINT_OPERAND_DATA)
+                {
+                    typeDump.Append(" ; ");
                     typeDump.Append(string.Join(" | ", instruction.Operands.Select((op, pos) => $"Op{pos}: {op.Type}")));
+                }
 
                 PerformInstructionChecks(instruction);
 
@@ -1317,7 +1320,7 @@ namespace Cpp2IL
 
                 return;
             }
-            
+
             //Klass pointers
             if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klass)
             {
@@ -1335,21 +1338,32 @@ namespace Cpp2IL
                 }
                 else
                 {
+                    var il2cppTypeDef = SharedState.MonoToCppTypeDefs[klass.backingType];
                     //Check for some known ones
                     switch (offset)
                     {
                         case 0x11E:
-                            //Interface offset list
-                            try
-                            {
-                                var il2cppTypeDef = SharedState.MonoToCppTypeDefs[klass.backingType];
-                                _typeDump.Append($" ; - looks up interface offset list for type {klass.backingType.FullName} - which contains {il2cppTypeDef.InterfaceOffsets.Length} entries");
-                            }
-                            catch (Exception)
-                            {
-                                //ignore
-                            }
+                            //Interface offset count
+                            _typeDump.Append($" ; - looks up interface offset count for type {klass.backingType.FullName} - which is {il2cppTypeDef.interface_offsets_count}.");
+                            return;
+                        case 0xB0:
+                            //Interface offset LIST
 
+                            //TODO BLOCK
+                            //I'm putting this note here because I want to
+                            //Looking at ghidra, what we need is within the loop
+                            //There's an if statement that checks that klass pointer -> interface offsets [0xb0] -> entry at position i (stored in r9 in knah's test) -> first 8 bytes are equal to the interface type
+                            //then an allocation, for which we look at the Vtable for the klass pointer (so 0x128) + the offset field of this interface offset (which is klass pointer + 0xB0 + i * 0x10 (sizeof the runtime interfaceoffset object) + 8 (to get to the offset field, past the pointer))
+                            //Presumably, though we don't have an example of it in knah's project as there's only one interface method, we would ALSO add [methodIndex * 0x10] to the vtable read offset, but if that's not present then the index is zero.
+                            //TODO END
+
+                            _typeDump.Append($" ; - looks up InterfaceOffsetPairs for type {klass.backingType.FullName} - which is {il2cppTypeDef.InterfaceOffsets.ToStringEnumerable()}.");
+                            var destReg = GetRegisterName(instruction.Operands[0]);
+                            _registerContents[destReg] = new InterfaceOffsetPairList
+                            {
+                                backingKlassPointer = klass
+                            };
+                            _registerAliases[destReg] = $"interfaceoffsets_{klass.objectAlias}";
                             return;
                         default:
                             break;
@@ -1557,7 +1571,7 @@ namespace Cpp2IL
 
             if (offsetInVtable % 0x10 != 0 && offsetInVtable % 0x8 == 0)
                 offsetInVtable -= 0x8; //Handle read of the second pointer in the struct.
-            
+
             if (offsetInVtable > 0)
             {
                 var slotNum = (decimal) offsetInVtable / 0x10;
@@ -1635,7 +1649,10 @@ namespace Cpp2IL
                 _registerTypes[reg] = IntegerReference;
             }
 
-            if (!(_loopRegisters.Contains(reg) && _registerAliases.ContainsKey(reg)))
+            if (_registerAliases.TryRemove(reg, out _))
+                _typeDump.Append($" ; - {reg} loses its alias here");
+
+            if (!(/*_loopRegisters.Contains(reg) &&*/ _registerAliases.ContainsKey(reg)))
             {
                 _registerAliases[reg] = $"local{_localNum}";
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable local{_localNum} with value 0, in register {reg}\n");
@@ -1676,6 +1693,10 @@ namespace Cpp2IL
 
                     if (type != null && !type.IsPrimitive)
                     {
+                        //Maintain original type after casts, for interface invokes.
+                        if (constantVal is SafeCastResult castResult)
+                            type = castResult.originalType;
+
                         //Deref of internal "klass" pointer - we create an Il2CppClassIdentifier
                         var newClassIdentifier = new Il2CppClassIdentifier
                         {
@@ -1718,6 +1739,7 @@ namespace Cpp2IL
                         // else
                         // {
                         sourceAlias = _registerAliases[sourceReg];
+                        _typeDump.Append($" ; - {destReg} inherits {sourceReg}'s alias {sourceAlias}");
                         newAlias = sourceAlias;
                         // }
 
@@ -1920,7 +1942,7 @@ namespace Cpp2IL
                 if (_registerContents.TryGetValue(GetRegisterName(instruction.Operands[0]), out var con) && con is Il2CppClassIdentifier)
                 {
                     //Call to a Vtable func on a klass pointer
-                    
+
                     //Valid for offset > 0x128
                     var vTableMethod = GetMethodFromReadKlassOffset(Utils.GetOperandMemoryOffset(instruction.Operands[0]));
 
@@ -1931,6 +1953,7 @@ namespace Cpp2IL
                         return;
                     }
                 }
+
                 _typeDump.Append(" ; - Unresolvable call to calculated address.");
                 TaintMethod(TaintReason.UNRESOLVED_METHOD);
                 return;
@@ -2151,19 +2174,26 @@ namespace Cpp2IL
             else if (jumpAddress == _keyFunctionAddresses.AddrSafeCastMethod)
             {
                 _typeDump.Append(" - this is the safe cast function.");
+
                 //rdx has the destination type, rcx has what we're casting
+
+                //Try to directly resolve a destination type constant (as a global) in rdx
                 _registerContents.TryGetValue("rdx", out var t);
 
                 if (t is AssemblyBuilder.GlobalIdentifier typeGlobal && typeGlobal.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
                 {
+                    //got one? look it up and re-set T to the type def.
                     (t, _) = Utils.TryLookupTypeDefByName(typeGlobal.Name);
                 }
-                
+
                 object castTarget;
                 AssemblyBuilder.GlobalIdentifier globalIdentifier = default;
-                _registerAliases.TryGetValue("rcx", out var castAlias);
-                if (castAlias?.StartsWith("global") == true)
+
+                //Lookup the alias we are casting, and put the alias of what we actually want to cast (which could be the literal) into castTarget.
+                _registerAliases.TryGetValue("rcx", out var aliasOfWhatToCast);
+                if (aliasOfWhatToCast?.StartsWith("global") == true)
                 {
+                    //Check for casting string literals
                     _registerContents.TryGetValue("rcx", out var g);
                     if (g is AssemblyBuilder.GlobalIdentifier glob)
                     {
@@ -2174,16 +2204,24 @@ namespace Cpp2IL
                         castTarget = g;
                 }
                 else
-                    castTarget = castAlias;
+                    castTarget = aliasOfWhatToCast;
 
+                //Assuming we got a destination type
                 if (t is TypeDefinition type)
                 {
                     _typeDump.Append($" - Safe casts {castTarget} to {type.FullName}");
+                    _registerTypes.TryGetValue("rcx", out var originalType);
 
                     //Push a local
                     _registerAliases["rax"] = $"local{_localNum}";
                     _localNum++;
-                    _registerContents["rax"] = globalIdentifier.Offset == 0 ? castTarget : globalIdentifier;
+                    // _registerContents["rax"] = globalIdentifier.Offset == 0 ? castTarget : globalIdentifier;
+                    _registerContents["rax"] = new SafeCastResult
+                    {
+                        castTo = type,
+                        originalType = originalType,
+                        originalAlias = aliasOfWhatToCast
+                    };
                     _registerTypes["rax"] = type;
 
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Safe casts {castTarget} to new local {_registerAliases["rax"]} of type {type.FullName}\n");
@@ -2422,6 +2460,19 @@ namespace Cpp2IL
 
             //Needs to be TEST or CMP
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest && instruction.Mnemonic != ud_mnemonic_code.UD_Iucomiss && instruction.Mnemonic != ud_mnemonic_code.UD_Icomiss) return;
+            
+            //Just a special-case test here for interface lookup code:
+            if (instruction.Operands[0] is {} firstOp && firstOp.Type == ud_type.UD_OP_MEM && GetRegisterName(instruction.Operands[0]) is {} firstReg && _registerContents.TryGetValue(firstReg, out var con) && con is InterfaceOffsetPairList
+                && firstOp.Index > ud_type.UD_NONE && firstOp.Scale == 8)
+            {
+                //InterfaceOffset + reg * 8 => we have our interface name resolution in operand 1
+                var name = GetRegisterName(instruction.Operands[1]);
+                if (_registerContents.TryGetValue(name, out var secondCon) && secondCon is AssemblyBuilder.GlobalIdentifier && _registerTypes.TryGetValue(name, out var interfaceType))
+                {
+                    interfaceOffsetTargetInterface = interfaceType;
+                    _typeDump.Append($" ; - target interface identified, is {interfaceType?.FullName}");
+                }
+            }
 
             //Compiler generated weirdness. I hate it.
             if (instruction.Mnemonic == ud_mnemonic_code.UD_Icmp && instruction.Operands[1].Type == ud_type.UD_OP_IMM && GetFieldReferencedByOperand(instruction.Operands[0]) is { } field && Utils.GetImmediateValue(instruction, instruction.Operands[1]) == 0)
@@ -2430,8 +2481,7 @@ namespace Cpp2IL
                 if (_registerAliases.ContainsKey(registerName))
                     CreateLocalFromField(registerName, field, "rax");
             }
-
-
+            
             _lastComparison = new Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)>(GetDetailsOfReferencedObject(instruction.Operands[0], instruction), GetDetailsOfReferencedObject(instruction.Operands[1], instruction));
 
             _typeDump.Append($" ; - Comparison between {_lastComparison.Item1.Item1} and {_lastComparison.Item2.Item1}");
@@ -2445,7 +2495,7 @@ namespace Cpp2IL
 
             //Needs to be a conditional jump
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Ijz && instruction.Mnemonic != ud_mnemonic_code.UD_Ijnz && instruction.Mnemonic != ud_mnemonic_code.UD_Ijge && instruction.Mnemonic != ud_mnemonic_code.UD_Ijle && instruction.Mnemonic != ud_mnemonic_code.UD_Ijg &&
-                instruction.Mnemonic != ud_mnemonic_code.UD_Ijl && instruction.Mnemonic != ud_mnemonic_code.UD_Ija) return;
+                instruction.Mnemonic != ud_mnemonic_code.UD_Ijl && instruction.Mnemonic != ud_mnemonic_code.UD_Ija && instruction.Mnemonic != ud_mnemonic_code.UD_Ijae) return;
 
             if (_lastComparison.Item1.Item1 == "")
             {
@@ -2453,6 +2503,8 @@ namespace Cpp2IL
                 TaintMethod(TaintReason.BAD_CONDITION);
                 return;
             }
+
+            _typeDump.Append(" ; - conditional jump following previous comparison");
 
             var (comparisonItemA, typeA, _) = _lastComparison.Item1;
             var (comparisonItemB, typeB, constantB) = _lastComparison.Item2;
@@ -2516,6 +2568,7 @@ namespace Cpp2IL
                     break;
                 }
                 case ud_mnemonic_code.UD_Ijge:
+                case ud_mnemonic_code.UD_Ijae:
                     condition = $"{comparisonItemA} >= {comparisonItemB}";
                     break;
                 case ud_mnemonic_code.UD_Ijle:

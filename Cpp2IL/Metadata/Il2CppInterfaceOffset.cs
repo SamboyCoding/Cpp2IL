@@ -11,5 +11,10 @@ namespace Cpp2IL.Metadata
         public Il2CppType type => Program.ThePE.types[typeIndex];
 
         public TypeDefinition TypeDefinition => SharedState.TypeDefsByIndex[type.data.classIndex];
+
+        public override string ToString()
+        {
+            return $"InterfaceOffsetPair({typeIndex}/{TypeDefinition?.FullName ?? "unknown type"} => {offset})";
+        }
     }
 }

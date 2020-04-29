@@ -20,6 +20,12 @@ namespace Cpp2IL
     {
         public static float MetadataVersion = 24f;
 
+        private static readonly string[] blacklistedExecutableFilenames = new[]
+        {
+            "UnityCrashHandler.exe",
+            "install.exe"
+        };
+
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         internal static Il2CppMetadata? Metadata;
         internal static PE.PE ThePE;
@@ -72,7 +78,7 @@ namespace Cpp2IL
             }
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
-            var exeName = Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !f.Contains("UnityCrashHandler")).Replace(".exe", "");
+            var exeName = Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Contains(f)).Replace(".exe", "");
             var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
             var metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata",
                 "global-metadata.dat");
