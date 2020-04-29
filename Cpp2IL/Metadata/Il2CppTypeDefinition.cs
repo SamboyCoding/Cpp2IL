@@ -50,6 +50,14 @@ namespace Cpp2IL.Metadata
         public uint bitfield;
         public uint token;
 
-        public Il2CppInterfaceOffset[] InterfaceOffsets => Program.Metadata.interfaceOffsets.SubArray(interfaceOffsetsStart, interface_offsets_count);
+        public Il2CppInterfaceOffset[] InterfaceOffsets
+        {
+            get
+            {
+                if(interfaceOffsetsStart < 0) return new Il2CppInterfaceOffset[0];
+                
+                return Program.Metadata?.interfaceOffsets.SubArray(interfaceOffsetsStart, interface_offsets_count);
+            }
+        }
     }
 }

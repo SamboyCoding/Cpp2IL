@@ -22,6 +22,7 @@ namespace Cpp2IL
 
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         internal static Il2CppMetadata? Metadata;
+        internal static PE.PE ThePE;
 
         public static void PrintUsage()
         {
@@ -100,8 +101,8 @@ namespace Cpp2IL
 
             Console.WriteLine($"\t-Initializing MemoryStream of {PEBytes.Length} bytes, parsing sections, and initializing with auto+ mode.");
 
-            var theDll = new PE.PE(new MemoryStream(PEBytes, 0, PEBytes.Length, false, true), Metadata.maxMetadataUsages);
-            if (!theDll.PlusSearch(Metadata.methodDefs.Count(x => x.methodIndex >= 0), Metadata.typeDefs.Length))
+            ThePE = new PE.PE(new MemoryStream(PEBytes, 0, PEBytes.Length, false, true), Metadata.maxMetadataUsages);
+            if (!ThePE.PlusSearch(Metadata.methodDefs.Count(x => x.methodIndex >= 0), Metadata.typeDefs.Length))
             {
                 Console.WriteLine("Initialize failed. Aborting.");
                 return;
@@ -128,7 +129,7 @@ namespace Cpp2IL
             Console.WriteLine("\tPass 2: Setting parents and handling inheritance...");
 
             //Stateful method, no return value
-            AssemblyBuilder.ConfigureHierarchy(Metadata, theDll);
+            AssemblyBuilder.ConfigureHierarchy(Metadata, ThePE);
 
             Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
 
@@ -136,8 +137,11 @@ namespace Cpp2IL
             for (var imageIndex = 0; imageIndex < Metadata.assemblyDefinitions.Length; imageIndex++)
             {
                 Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {Metadata.assemblyDefinitions.Length}...");
-                methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(Metadata, theDll, Metadata.assemblyDefinitions[imageIndex]));
+                methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(Metadata, ThePE, Metadata.assemblyDefinitions[imageIndex]));
             }
+
+            //Invert dict for CppToMono
+            SharedState.CppToMonoTypeDefs = SharedState.MonoToCppTypeDefs.ToDictionary(i => i.Value, i => i.Key);
 
             Console.WriteLine("\tPass 4: Handling SerializeFields...");
             //Add serializefield to monobehaviors
@@ -171,7 +175,7 @@ namespace Cpp2IL
                             for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
                             {
                                 var attributeTypeIndex = Metadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
-                                var attributeType = theDll.types[attributeTypeIndex];
+                                var attributeType = ThePE.types[attributeTypeIndex];
                                 if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS) continue;
                                 var cppAttribType = Metadata.typeDefs[attributeType.data.classIndex];
                                 var attributeName = Metadata.GetStringFromIndex(cppAttribType.nameIndex);
@@ -188,7 +192,7 @@ namespace Cpp2IL
 
             Console.WriteLine("\tPass 5: Locating Globals...");
 
-            var globals = AssemblyBuilder.MapGlobalIdentifiers(Metadata, theDll);
+            var globals = AssemblyBuilder.MapGlobalIdentifiers(Metadata, ThePE);
 
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)} type globals");
             Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)} method globals");
@@ -207,7 +211,7 @@ namespace Cpp2IL
             Disassembler.Translator.IncludeAddress = true;
             Disassembler.Translator.IncludeBinary = true;
 
-            var keyFunctionAddresses = KeyFunctionAddresses.Find(methods, theDll);
+            var keyFunctionAddresses = KeyFunctionAddresses.Find(methods, ThePE);
 
             #endregion
 
@@ -292,7 +296,7 @@ namespace Cpp2IL
                                 var methodStart = method.MethodOffsetRam;
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
-                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses, theDll)
+                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses, ThePE)
                                     .AnalyzeMethod(typeDump, ref allUsedMnemonics);
 
                                 var key = new StringBuilder();

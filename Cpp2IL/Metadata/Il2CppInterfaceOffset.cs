@@ -1,4 +1,5 @@
-﻿using Mono.Cecil;
+﻿using Cpp2IL.PE;
+using Mono.Cecil;
 
 namespace Cpp2IL.Metadata
 {
@@ -7,6 +8,8 @@ namespace Cpp2IL.Metadata
         public int typeIndex;
         public int offset;
 
-        public TypeDefinition type => SharedState.TypeDefsByIndex[typeIndex];
+        public Il2CppType type => Program.ThePE.types[typeIndex];
+
+        public TypeDefinition TypeDefinition => SharedState.TypeDefsByIndex[type.data.classIndex];
     }
 }
