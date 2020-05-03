@@ -440,7 +440,7 @@ namespace Cpp2IL
             if (returnType == null)
                 returnType = Utils.TryLookupTypeDefByName(target.ReturnType.FullName).Item1;
 
-            _typeDump.Append($" - function {target.FullName}");
+            _typeDump.Append($" ;  - function {target.FullName}");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Calls {(target.IsStatic ? "static" : "instance")} function {target.FullName}");
             var args = new List<string>();
 
