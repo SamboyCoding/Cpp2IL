@@ -32,7 +32,7 @@ namespace Cpp2IL
 
         public static void PrintUsage()
         {
-            Console.WriteLine("Usage: Cpp2IL <path to game folder>");
+            Console.WriteLine("Usage: Cpp2IL <path to game folder> [name of game exe]");
         }
 
         public static void Main(string[] args)
@@ -79,6 +79,13 @@ namespace Cpp2IL
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
             var exeName = Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Contains(f)).Replace(".exe", "");
+            
+            if (args.Length > 1)
+            {
+                exeName = args[1];
+                Console.WriteLine($"Using OVERRIDDEN exe name: {exeName}");
+            }
+            
             var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
             var metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata",
                 "global-metadata.dat");
