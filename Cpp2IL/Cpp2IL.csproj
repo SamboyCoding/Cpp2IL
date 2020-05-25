@@ -95,6 +95,7 @@
     <Compile Include="PE\OptionalHeader.cs" />
     <Compile Include="PE\OptionalHeader64.cs" />
     <Compile Include="PE\PE.cs" />
+    <Compile Include="PE\PeDirectoryEntryExport.cs" />
     <Compile Include="PE\SectionHeader.cs" />
     <Compile Include="PlusSearch.cs" />
     <Compile Include="Program.cs" />

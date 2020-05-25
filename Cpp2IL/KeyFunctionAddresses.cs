@@ -335,7 +335,7 @@ namespace Cpp2IL
                         Console.WriteLine("\t\t\t\tObtained 3 pointers, to il2cpp_codegen_initialize_method, il2cpp_codegen_object_new, and il2cpp_raise_managed_exception");
                     }
                     else
-                        Console.WriteLine($"\t\t\t\tMethod does not match expected signature (got {shouldBeO_GT?.Name} / {shouldBeT_GIP?.Name} / {shouldBeIOE_C?.Name}), not using.");
+                        Console.WriteLine($"\t\t\t\tMethod does not match expected signature (got {shouldBeO_GT?.FullName} / {shouldBeT_GIP?.FullName} / {shouldBeIOE_C?.FullName}), not using.");
                 }
                 else
                     Console.WriteLine("\t\t\t\tMethod not present, not using.");

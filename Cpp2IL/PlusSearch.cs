@@ -211,11 +211,14 @@ namespace Cpp2IL
                 while ((ulong) _pe.Position < section.RawEndAddress)
                 {
                     var addr = _pe.Position;
+                    //Check for the method count as an int64
                     if (_pe.ReadInt64() == methodCount)
                     {
                         try
                         {
+                            //Should be followed by a pointer to the first function
                             ulong pointer = _pe.MapVirtualAddressToRaw(_pe.ReadUInt64());
+                            //Which has to be in the data section
                             if (CheckPointerInDataSection(pointer))
                             {
                                 var pointers = _pe.ReadClassArray<ulong>((long) pointer, methodCount);
@@ -282,6 +285,7 @@ namespace Cpp2IL
                 while ((ulong) _pe.Position < section.RawEndAddress)
                 {
                     var addr = _pe.Position;
+                    //Find an int64 equal to the type definition count
                     if (_pe.ReadInt64() == typeDefinitionsCount)
                     {
                         try

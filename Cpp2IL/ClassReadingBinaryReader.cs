@@ -52,7 +52,7 @@ namespace Cpp2IL
 
         public T ReadClass<T>(dynamic offset) where T: new()
         {
-            if (offset != -1) Position = offset;
+            if (offset >= 0) Position = (long) offset;
             
             var type = typeof(T);
             if (type.IsPrimitive)
@@ -86,7 +86,7 @@ namespace Cpp2IL
         
         public T[] ReadClassArray<T>(dynamic offset, long count) where T : new()
         {
-            if (offset != -1) Position = offset;
+            if ((long) offset != -1) Position = (long) offset;
             
             var t = new T[count];
             for (var i = 0; i < count; i++)
