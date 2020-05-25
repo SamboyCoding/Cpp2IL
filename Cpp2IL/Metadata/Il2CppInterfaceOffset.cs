@@ -10,7 +10,15 @@ namespace Cpp2IL.Metadata
 
         public Il2CppType type => Program.ThePE.types[typeIndex];
 
-        public TypeDefinition TypeDefinition => SharedState.TypeDefsByIndex[type.data.classIndex];
+        public TypeDefinition TypeDefinition
+        {
+            get
+            {
+                if(SharedState.TypeDefsByIndex.ContainsKey(type.data.classIndex))
+                    return SharedState.TypeDefsByIndex[type.data.classIndex];
+                return null;
+            }
+        }
 
         public override string ToString()
         {

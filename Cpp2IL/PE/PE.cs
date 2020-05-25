@@ -187,29 +187,35 @@ namespace Cpp2IL.PE
 
             if (Program.MetadataVersion >= 24.2f)
             {
-                Console.Write("\tReading code gen modules...");
+                Console.WriteLine("\tReading code gen modules...");
                 start = DateTime.Now;
 
-                var pCodeGenModules = ReadClassArrayAtVirtualAddress<ulong>(this.codeRegistration.codeGenModules, (long) this.codeRegistration.codeGenModulesCount);
-                codeGenModules = new Il2CppCodeGenModule[pCodeGenModules.Length];
-                codeGenModuleMethodPointers = new ulong[pCodeGenModules.Length][];
-                for (int i = 0; i < pCodeGenModules.Length; i++)
+                var codeGenModulePtrs = ReadClassArrayAtVirtualAddress<ulong>(this.codeRegistration.addrCodeGenModulePtrs, (long) this.codeRegistration.codeGenModulesCount);
+                codeGenModules = new Il2CppCodeGenModule[codeGenModulePtrs.Length];
+                codeGenModuleMethodPointers = new ulong[codeGenModulePtrs.Length][];
+                for (int i = 0; i < codeGenModulePtrs.Length; i++)
                 {
-                    var codeGenModule = ReadClassAtVirtualAddress<Il2CppCodeGenModule>(pCodeGenModules[i]);
+                    var codeGenModule = ReadClassAtVirtualAddress<Il2CppCodeGenModule>(codeGenModulePtrs[i]);
                     codeGenModules[i] = codeGenModule;
-                    try
+                    string name = ReadStringToNull(MapVirtualAddressToRaw(codeGenModule.moduleName));
+                    Console.WriteLine($"\t\t-Read module data for {name}, contains {codeGenModule.methodPointerCount} method pointers starting at 0x{codeGenModule.methodPointers:X}");
+                    if (codeGenModule.methodPointerCount > 0)
                     {
-                        var ptrs = ReadClassArrayAtVirtualAddress<ulong>(codeGenModule.methodPointers, (long) codeGenModule.methodPointerCount);
-                        codeGenModuleMethodPointers[i] = ptrs;
-                    }
-                    catch(Exception e)
-                    {
-                        Console.WriteLine($"WARNING: Unable to get function pointers for {ReadStringToNull(MapVirtualAddressToRaw(codeGenModule.moduleName))}: {e.Message}");
-                        codeGenModuleMethodPointers[i] = new ulong[codeGenModule.methodPointerCount];
+                        try
+                        {
+                            var ptrs = ReadClassArrayAtVirtualAddress<ulong>(codeGenModule.methodPointers, codeGenModule.methodPointerCount);
+                            codeGenModuleMethodPointers[i] = ptrs;
+                            Console.WriteLine($"\t\t\t-Read {codeGenModule.methodPointerCount} method pointers.");
+                        }
+                        catch (Exception e)
+                        {
+                            Console.WriteLine($"\t\t\tWARNING: Unable to get function pointers for {name}: {e.Message}");
+                            codeGenModuleMethodPointers[i] = new ulong[codeGenModule.methodPointerCount];
+                        }
                     }
                 }
 
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+                Console.WriteLine($"\tOK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
             else
             {
@@ -295,6 +301,7 @@ namespace Cpp2IL.PE
 
             if (codeRegistration == 0 || metadataRegistration == 0)
             {
+                Console.WriteLine("\tFailed to find code and metadata registration functions using primary location method (probably because we're post-2019), checking if we can use the fallback...");
                 //Get export for il2cpp_init function
                 var virtualAddrInit = GetVirtualAddressOfUnmanagedExportByName("il2cpp_init");
                 if (virtualAddrInit <= 0)

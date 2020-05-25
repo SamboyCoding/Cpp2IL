@@ -65,18 +65,23 @@ namespace Cpp2IL
 
             var targetTest = instructions.Find(insn => insn.Mnemonic == ud_mnemonic_code.UD_Itest && insn.Operands.Length == 2 && insn.Operands[0].Base == ud_type.UD_R_RCX && insn.Operands[1].Base == ud_type.UD_R_RCX);
             var targetJz = instructions[instructions.IndexOf(targetTest) + 1];
-            if (targetJz.Mnemonic != ud_mnemonic_code.UD_Ijz) throw new Exception($"Failed detection of bailout function! TEST was not followed by JZ, but by {targetJz.Mnemonic}");
+            if (targetJz.Mnemonic != ud_mnemonic_code.UD_Ijz)
+            {
+                Console.WriteLine($"Failed detection of bailout function! TEST was not followed by JZ, but by {targetJz.Mnemonic}");
+            }
+            else
+            {
+                var addrOfCall = Utils.GetJumpTarget(targetJz, tatn.MethodOffsetRam + targetJz.PC);
 
-            var addrOfCall = Utils.GetJumpTarget(targetJz, tatn.MethodOffsetRam + targetJz.PC);
+                //Get 5 bytes at that point so we can disasm
+                //Warning: This might be fragile if the x86 instruction set ever changes.
+                var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
+                var callInstruction = Utils.DisassembleBytes(bytes).First();
 
-            //Get 5 bytes at that point so we can disasm
-            //Warning: This might be fragile if the x86 instruction set ever changes.
-            var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-            var callInstruction = Utils.DisassembleBytes(bytes).First();
-
-            addr = Utils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
-            Console.WriteLine($"\t\t\t\tLocated Bailout function at 0x{addr:X}");
-            ret.AddrBailOutFunction = addr;
+                addr = Utils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
+                Console.WriteLine($"\t\t\t\tLocated Bailout function at 0x{addr:X}");
+                ret.AddrBailOutFunction = addr;
+            }
 
             //Now we're on the "Init Static Class" one. Easiest place for this is in UnityEngine.Debug$$LogWarning
             Console.WriteLine("\t\t\tLooking for UnityEngine.Debug$LogWarning...");
@@ -117,14 +122,18 @@ namespace Cpp2IL
                     //Once again just get the second call
                     calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-                    addr = Utils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
-                    Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_object_new at 0x{addr:X}");
+                    if (calls.Length > 1)
+                    {
 
-                    ret.il2cpp_codegen_object_new = addr;
+                        addr = Utils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
+                        Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_object_new at 0x{addr:X}");
+
+                        ret.il2cpp_codegen_object_new = addr;
+                    }
                 }
-                else
+                if(ret.il2cpp_codegen_object_new == 0)
                 {
-                    Console.WriteLine("\t\t\tWarning: Failed to find X509Extension class, attempting to use fallback tether (System.Globalization.DateTimeFormatInfo$.ctor)...");
+                    Console.WriteLine("\t\t\tWarning: Failed to use X509Extension class, attempting to use fallback tether (System.Globalization.DateTimeFormatInfo$.ctor)...");
                     methods = methodData.Find(t => t.Item1.Name == "DateTimeFormatInfo" && t.Item1.Namespace == "System.Globalization").methods;
 
                     if (methods != null)
@@ -174,13 +183,20 @@ namespace Cpp2IL
 
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
-            Console.WriteLine($"\t\t\t\tLocated Native Method Lookup function at 0x{addr:X}");
-            ret.AddrNativeLookup = addr;
+            if (calls.Length > 3)
+            {
+                addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+                Console.WriteLine($"\t\t\t\tLocated Native Method Lookup function at 0x{addr:X}");
+                ret.AddrNativeLookup = addr;
 
-            addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
-            Console.WriteLine($"\t\t\t\tLocated Native Method Bailout function at 0x{addr:X}");
-            ret.AddrNativeLookupGenMissingMethod = addr;
+                addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
+                Console.WriteLine($"\t\t\t\tLocated Native Method Bailout function at 0x{addr:X}");
+                ret.AddrNativeLookupGenMissingMethod = addr;
+            }
+            else
+            {
+                Console.WriteLine("\t\t\t\tWARNING: Failed to find native method lookup + bailout due to an insufficient number of CALL instructions.");
+            }
 
             Console.WriteLine("\t\t\tLooking for System.ComponentModel.Int16Converter$ConvertFromString...");
             methods = methodData.Find(t => t.type.Name == "Int16Converter" && t.type.Namespace == "System.ComponentModel").methods;
@@ -191,16 +207,24 @@ namespace Cpp2IL
                 if (method.MethodOffsetRam == 0)
                     method = methods.Find(m => m.MethodName == "FromString");
 
-                Console.WriteLine($"\t\t\t\tSearching for primitive boxing function near offset 0x{method.MethodOffsetRam:X}...");
+                if (method.MethodOffsetRam != 0)
+                {
 
-                instructions = Utils.DisassembleBytes(method.MethodBytes);
+                    Console.WriteLine($"\t\t\t\tSearching for primitive boxing function near offset 0x{method.MethodOffsetRam:X}...");
 
-                calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+                    instructions = Utils.DisassembleBytes(method.MethodBytes);
 
-                addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
-                Console.WriteLine($"\t\t\t\tLocated Primitive Boxing function at 0x{addr:X}");
+                    calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-                ret.AddrBoxValueMethod = addr;
+                    addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+                    Console.WriteLine($"\t\t\t\tLocated Primitive Boxing function at 0x{addr:X}");
+
+                    ret.AddrBoxValueMethod = addr;
+                }
+                else
+                {
+                    Console.WriteLine("\t\t\t\tWarning: Failed to locate method ConvertFromString / FromString in System.ComponentModel.Int16Converter (probably stripped from assembly), box statements will show as undefined function calls!");
+                }
             }
             else
             {

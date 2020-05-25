@@ -1704,7 +1704,9 @@ namespace Cpp2IL
                             objectAlias = alias
                         };
 
-                        _registerTypes[destReg] = _registerTypes[sourceReg];
+                        if(_registerTypes.ContainsKey(sourceReg))
+                            _registerTypes[destReg] = _registerTypes[sourceReg];
+                        
                         _registerAliases[destReg] = $"klasspointer_{alias}";
                         _registerContents[destReg] = newClassIdentifier;
 

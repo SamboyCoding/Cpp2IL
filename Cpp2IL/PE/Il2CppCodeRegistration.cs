@@ -18,6 +18,6 @@ namespace Cpp2IL.PE
             public ulong interopDataCount;
             public ulong interopData;
             [Version(Min = 24.2f)] public ulong codeGenModulesCount;
-            [Version(Min = 24.2f)] public ulong codeGenModules;
+            [Version(Min = 24.2f)] public ulong addrCodeGenModulePtrs;
         }
 }
