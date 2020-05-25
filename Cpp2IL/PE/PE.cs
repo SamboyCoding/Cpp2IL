@@ -324,7 +324,11 @@ namespace Cpp2IL.PE
                 List<Instruction> methodBodyRuntimeInit = Utils.GetMethodBodyAtRawAddress(this, MapVirtualAddressToRaw(virtualAddressRuntimeInit), false);
 
                 //This is kind of sketchy, but look for a global read (i.e an LEA where the second base is RIP), as that's the framework version read, then there's a MOV, then 4 calls, the third of which is our target.
-                var indexOfFrameworkVersionLoad = methodBodyRuntimeInit.FindIndex(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea && i.Operands.Last().Base == ud_type.UD_R_RIP);
+                //So as to ensure compat with 2018, ensure we have a call before this LEA.
+                var minimumIndex = methodBodyRuntimeInit.FindIndex(i => i.Mnemonic == ud_mnemonic_code.UD_Icall);
+
+                var idx = -1;
+                var indexOfFrameworkVersionLoad = methodBodyRuntimeInit.FindIndex(i => idx++ > minimumIndex && i.Mnemonic == ud_mnemonic_code.UD_Ilea && i.Operands.Last().Base == ud_type.UD_R_RIP);
 
                 var instructionsFromThatPoint = methodBodyRuntimeInit.Skip(indexOfFrameworkVersionLoad + 1).TakeWhile(i => true).ToList();
                 var calls = instructionsFromThatPoint.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Icall).ToList();
