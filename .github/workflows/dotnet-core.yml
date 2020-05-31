@@ -21,7 +21,19 @@ jobs:
       run: dotnet restore
     - name: Build - Windows x64
       run: dotnet publish --configuration Release --no-restore -r win-x64 /p:PublishSingleFile=true
+    - name: Upload Win x64 Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        path: ./Cpp2IL/bin/Release/netcoreapp3.1/win-x64/publish/Cpp2IL.exe
     - name: Build - Ubuntu x64
       run: dotnet publish --configuration Release --no-restore -r ubuntu-x64 /p:PublishSingleFile=true
+    - name: Upload Ubuntu x64 Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        path: ./Cpp2IL/bin/Release/netcoreapp3.1/ubuntu-x64/publish/Cpp2IL
     - name: Build - OSX x64
       run: dotnet publish --configuration Release --no-restore -r osx-x64 /p:PublishSingleFile=true
+    - name: Upload OSX x64 Artifact
+      uses: actions/upload-artifact@v2
+      with:
+        path: ./Cpp2IL/bin/Release/netcoreapp3.1/osx-x64/publish/Cpp2IL
