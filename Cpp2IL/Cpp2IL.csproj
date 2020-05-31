@@ -1,128 +1,23 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="..\packages\ILMerge.3.0.29\build\ILMerge.props" Condition="Exists('..\packages\ILMerge.3.0.29\build\ILMerge.props')" />
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+﻿<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{E8BA3E8E-3CDC-4562-AE61-CA48ECA270DE}</ProjectGuid>
+    <TargetFramework>netcoreapp3.1</TargetFramework>
     <OutputType>Exe</OutputType>
-    <AppDesignerFolder>Properties</AppDesignerFolder>
-    <RootNamespace>Cpp2IL</RootNamespace>
-    <AssemblyName>Cpp2IL</AssemblyName>
-    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
     <LangVersion>8</LangVersion>
     <Nullable>disable</Nullable>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>AnyCPU</PlatformTarget>
-    <DebugType>pdbonly</DebugType>
-    <Optimize>true</Optimize>
-    <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <DebugSymbols>true</DebugSymbols>
-    <DebugType>full</DebugType>
-    <Optimize>false</Optimize>
-    <DefineConstants>DEBUG;TRACE</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
     <OutputPath>bin\x64\Debug\</OutputPath>
-    <PlatformTarget>x64</PlatformTarget>
-    <Prefer32bit>false</Prefer32bit>
   </PropertyGroup>
-  <ItemGroup>
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="mscorlib" />
-    <Reference Include="System" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Xml" />
-  </ItemGroup>
-  <ItemGroup>
-    <Compile Include="Analysis\ArrayData.cs" />
-    <Compile Include="Analysis\ASMAnalyzer.cs" />
-    <Compile Include="Analysis\FieldInType.cs" />
-    <Compile Include="Analysis\Il2CppClassIdentifier.cs" />
-    <Compile Include="Analysis\InterfaceOffsetPairList.cs" />
-    <Compile Include="Analysis\PreBlockCache.cs" />
-    <Compile Include="Analysis\SafeCastResult.cs" />
-    <Compile Include="Analysis\StackPointer.cs" />
-    <Compile Include="AssemblyBuilder.cs" />
-    <Compile Include="BoyerMooreHorspool.cs" />
-    <Compile Include="ClassReadingBinaryReader.cs" />
-    <Compile Include="CppMethodData.cs" />
-    <Compile Include="Extensions.cs" />
-    <Compile Include="GlobalIdentifier.cs" />
-    <Compile Include="KeyFunctionAddresses.cs" />
-    <Compile Include="Metadata\Il2CppCustomAttributeTypeRange.cs" />
-    <Compile Include="Metadata\Il2CppEventDefinition.cs" />
-    <Compile Include="Metadata\Il2CppFieldDefaultValue.cs" />
-    <Compile Include="Metadata\Il2CppFieldDefinition.cs" />
-    <Compile Include="Metadata\Il2CppFieldRef.cs" />
-    <Compile Include="Metadata\Il2CppGenericContainer.cs" />
-    <Compile Include="Metadata\Il2CppGenericParameter.cs" />
-    <Compile Include="Metadata\Il2CppGlobalMetadataHeader.cs" />
-    <Compile Include="Metadata\Il2CppAssemblyDefinition.cs" />
-    <Compile Include="Metadata\Il2CppInterfaceOffset.cs" />
-    <Compile Include="Metadata\Il2CppMetadata.cs" />
-    <Compile Include="Metadata\Il2CppMetadataUsageList.cs" />
-    <Compile Include="Metadata\Il2CppMetadataUsagePair.cs" />
-    <Compile Include="Metadata\Il2CppMethodDefinition.cs" />
-    <Compile Include="Metadata\Il2CppParameterDefaultValue.cs" />
-    <Compile Include="Metadata\Il2CppPropertyDefinition.cs" />
-    <Compile Include="Metadata\Il2CppStringLiteral.cs" />
-    <Compile Include="Metadata\Il2CppTypeDefinition.cs" />
-    <Compile Include="Metadata\Il2CppParameterDefinition.cs" />
-    <Compile Include="PE\DataDirectory.cs" />
-    <Compile Include="PE\FileHeader.cs" />
-    <Compile Include="PE\Il2CppArrayType.cs" />
-    <Compile Include="PE\Il2CppCodeGenModule.cs" />
-    <Compile Include="PE\Il2CppGenericClass.cs" />
-    <Compile Include="PE\Il2CppGenericContext.cs" />
-    <Compile Include="PE\Il2CppGenericInst.cs" />
-    <Compile Include="PE\Il2CppGenericMethodFunctionsDefinitions.cs" />
-    <Compile Include="PE\Il2CppGenericMethodIndices.cs" />
-    <Compile Include="PE\Il2CppMetadataRegistration.cs" />
-    <Compile Include="PE\Il2CppMethodSpec.cs" />
-    <Compile Include="PE\Il2CppCodeRegistration.cs" />
-    <Compile Include="PE\Il2CppType.cs" />
-    <Compile Include="PE\Il2CppTypeEnum.cs" />
-    <Compile Include="PE\OptionalHeader.cs" />
-    <Compile Include="PE\OptionalHeader64.cs" />
-    <Compile Include="PE\PE.cs" />
-    <Compile Include="PE\PeDirectoryEntryExport.cs" />
-    <Compile Include="PE\SectionHeader.cs" />
-    <Compile Include="PlusSearch.cs" />
-    <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="RegistryAssemblyResolver.cs" />
-    <Compile Include="SharedState.cs" />
-    <Compile Include="Utils.cs" />
-    <Compile Include="VersionAttribute.cs" />
-  </ItemGroup>
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
     <PackageReference Include="ILMerge" Version="3.0.29" />
+    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Mono.Cecil" Version="0.11.2" />
     <PackageReference Include="SharpDisasm" Version="1.1.11" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="ILMerge">
-    <!-- the ILMergePath property points to the location of ILMerge.exe console application -->
-    <!--msbuild /t:ILMerge-->
     <Exec Command="$(ILMergeConsolePath) /out:bin\x64\Debug\Cpp2IL-Dist.exe bin\x64\Debug\Cpp2IL.exe bin\x64\Debug\Mono.Cecil.dll bin\x64\Debug\Mono.Cecil.Mdb.dll bin\x64\Debug\Mono.Cecil.Pdb.dll bin\x64\Debug\Mono.Cecil.Rocks.dll bin\x64\Debug\SharpDisasm.dll bin\x64\Debug\System.ValueTuple.dll" />
   </Target>
-  <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
-         Other similar extension points exist, see Microsoft.Common.targets.
-    <Target Name="BeforeBuild">
-    </Target>
-    <Target Name="AfterBuild">
-    </Target>
-    -->
 </Project>
