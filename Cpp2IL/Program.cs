@@ -104,16 +104,16 @@ namespace Cpp2IL
             }
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
-            var exeName = Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Contains(f)).Replace(".exe", "");
+            var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Contains(f)));
             
             if (commandLineOptions.ExeName != null)
             {
                 exeName = commandLineOptions.ExeName;
-                Console.WriteLine($"Using OVERRIDDEN exe name: {exeName}");
+                Console.WriteLine($"Using OVERRIDDEN game name: {exeName}");
             }
             else
             {
-                Console.WriteLine($"Auto-detected exe name: {exeName}");
+                Console.WriteLine($"Auto-detected game name: {exeName}");
             }
             
             var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
@@ -129,12 +129,23 @@ namespace Cpp2IL
                 PrintUsage();
                 return;
             }
+            
+            Console.WriteLine($"Located game EXE: {unityPlayerPath}");
+            Console.WriteLine($"Located global-metadata: {metadataPath}");
+            
+            Console.WriteLine("\nAttempting to determine Unity version...");
 
-            var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath).FileVersion;
-            var split = unityVer.Split(new[] {'.'}, StringSplitOptions.RemoveEmptyEntries);
-            var unityVerUseful = split.SubArray(0, 2).Select(int.Parse).ToArray();
-
+            var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
+            
+            var unityVerUseful = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
+            
             Console.WriteLine("This game is built with Unity version " + string.Join(".", unityVerUseful));
+
+            if (unityVerUseful[0] <= 4)
+            {
+                Console.WriteLine("Unable to determine a valid unity version. Aborting.");
+                return;
+            }
 
             Console.WriteLine("Reading metadata...");
             Metadata = Il2CppMetadata.ReadFrom(metadataPath, unityVerUseful);
