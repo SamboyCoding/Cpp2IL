@@ -7,6 +7,7 @@ using System.Linq;
 using System.Runtime;
 using System.Text;
 using System.Threading;
+using CommandLine;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
 using Microsoft.Win32;
@@ -18,11 +19,23 @@ namespace Cpp2IL
 {
     internal class Program
     {
+        internal class Options
+        {
+            [Option("game-path", Required = true, HelpText = "Specify path to the game folder (containing the exe)")]
+            public string GamePath { get; set; }
+            
+            [Option("exe-name", Required = false, HelpText = "Specify an override for the unity executable name in case the auto-detection doesn't work.")]
+            public string ExeName { get; set; }
+            
+            [Option("skip-analysis", Required = false, HelpText = "Skip the analysis section and stop once DummyDLLs have been generated.")]
+            public bool SkipAnalysis { get; set; }
+        }
+        
         public static float MetadataVersion = 24f;
 
-        private static readonly string[] blacklistedExecutableFilenames = new[]
-        {
+        private static readonly string[] blacklistedExecutableFilenames = {
             "UnityCrashHandler.exe",
+            "UnityCrashHandler64.exe",
             "install.exe"
         };
 
@@ -41,32 +54,45 @@ namespace Cpp2IL
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
             Console.WriteLine("Running on " + Environment.OSVersion.Platform);
 
-            string loc;
-            if (Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT)
+            Options commandLineOptions = null;
+            Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
             {
-                loc = Registry.GetValue(
-                    "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1020340",
-                    "InstallLocation", null) as string;
-            }
-            else if (Environment.OSVersion.Platform == PlatformID.Unix)
-            {
-                // $HOME/.local/share/Steam/steamapps/common/Audica
-                loc = Environment.GetEnvironmentVariable("HOME") + "/.local/share/Steam/steamapps/common/Audica";
-            }
-            else
-            {
-                loc = null;
-            }
+                commandLineOptions = options;
+            });
 
-            if (args.Length != 1 && loc == null)
+            if (commandLineOptions == null)
             {
-                Console.WriteLine(
-                    "Couldn't auto-detect Audica installation folder (via steam), and you didn't tell me where it is.");
-                PrintUsage();
                 return;
             }
 
-            var baseGamePath = args.Length > 0 ? args[0] : loc;
+            string loc;
+            
+            //TODO: No longer needed
+            // if (Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT)
+            // {
+            //     loc = Registry.GetValue(
+            //         "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1020340",
+            //         "InstallLocation", null) as string;
+            // }
+            // else if (Environment.OSVersion.Platform == PlatformID.Unix)
+            // {
+            //     // $HOME/.local/share/Steam/steamapps/common/Audica
+            //     loc = Environment.GetEnvironmentVariable("HOME") + "/.local/share/Steam/steamapps/common/Audica";
+            // }
+            // else
+            // {
+            //     loc = null;
+            // }
+            //
+            // if (args.Length != 1 && loc == null)
+            // {
+            //     Console.WriteLine(
+            //         "Couldn't auto-detect Audica installation folder (via steam), and you didn't tell me where it is.");
+            //     PrintUsage();
+            //     return;
+            // }
+
+            var baseGamePath = commandLineOptions.GamePath;
 
             Console.WriteLine("Using path: " + baseGamePath);
 
@@ -80,10 +106,14 @@ namespace Cpp2IL
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
             var exeName = Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Contains(f)).Replace(".exe", "");
             
-            if (args.Length > 1)
+            if (commandLineOptions.ExeName != null)
             {
-                exeName = args[1];
+                exeName = commandLineOptions.ExeName;
                 Console.WriteLine($"Using OVERRIDDEN exe name: {exeName}");
+            }
+            else
+            {
+                Console.WriteLine($"Auto-detected exe name: {exeName}");
             }
             
             var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
@@ -203,28 +233,32 @@ namespace Cpp2IL
 
             #endregion
 
-            Console.WriteLine("\tPass 5: Locating Globals...");
+            KeyFunctionAddresses keyFunctionAddresses = null;
+            if (!commandLineOptions.SkipAnalysis)
+            {
+                Console.WriteLine("\tPass 5: Locating Globals...");
 
-            var globals = AssemblyBuilder.MapGlobalIdentifiers(Metadata, ThePE);
+                var globals = AssemblyBuilder.MapGlobalIdentifiers(Metadata, ThePE);
 
-            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)} type globals");
-            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)} method globals");
-            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.FIELD)} field globals");
-            Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)} string literals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)} type globals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)} method globals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.FIELD)} field globals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)} string literals");
 
-            SharedState.Globals.AddRange(globals);
+                SharedState.Globals.AddRange(globals);
 
-            foreach (var globalIdentifier in globals)
-                SharedState.GlobalsDict[globalIdentifier.Offset] = globalIdentifier;
+                foreach (var globalIdentifier in globals)
+                    SharedState.GlobalsDict[globalIdentifier.Offset] = globalIdentifier;
 
-            Console.WriteLine("\tPass 6: Looking for key functions...");
+                Console.WriteLine("\tPass 6: Looking for key functions...");
 
-            //This part involves decompiling known functions to search for other function calls
+                //This part involves decompiling known functions to search for other function calls
 
-            Disassembler.Translator.IncludeAddress = true;
-            Disassembler.Translator.IncludeBinary = true;
+                Disassembler.Translator.IncludeAddress = true;
+                Disassembler.Translator.IncludeBinary = true;
 
-            var keyFunctionAddresses = KeyFunctionAddresses.Find(methods, ThePE);
+                keyFunctionAddresses = KeyFunctionAddresses.Find(methods, ThePE);
+            }
 
             #endregion
 
@@ -248,7 +282,7 @@ namespace Cpp2IL
 
                 assembly.Write(dllPath);
 
-                if (assembly.Name.Name != "Assembly-CSharp") continue;
+                if (assembly.Name.Name != "Assembly-CSharp" || commandLineOptions.SkipAnalysis) continue;
 
                 Console.WriteLine("Dumping method bytes to " + methodOutputDir);
                 Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
@@ -399,8 +433,8 @@ namespace Cpp2IL
                 // Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
             }
 
-            Console.WriteLine("[Finished. Press enter to exit]");
-            Console.ReadLine();
+            // Console.WriteLine("[Finished. Press enter to exit]");
+            // Console.ReadLine();
         }
 
 

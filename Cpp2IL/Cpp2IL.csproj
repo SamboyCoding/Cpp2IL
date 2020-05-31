@@ -106,6 +106,7 @@
     <Compile Include="VersionAttribute.cs" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="CommandLineParser" Version="2.8.0" />
     <PackageReference Include="ILMerge" Version="3.0.29" />
     <PackageReference Include="Mono.Cecil" Version="0.11.2" />
     <PackageReference Include="SharpDisasm" Version="1.1.11" />
