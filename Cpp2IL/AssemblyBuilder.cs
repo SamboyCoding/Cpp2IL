@@ -161,6 +161,9 @@ namespace Cpp2IL
             while (current.BaseType != null)
             {
                 var targetName = current.BaseType.FullName;
+                if (targetName.Contains("<"))   // types with generic parameters (Type'1<T>) are stored as Type'1, so I just removed the part that causes trouble and called it a day
+                    targetName = targetName.Substring(0,targetName.IndexOf("<"));
+                
                 current = SharedState.AllTypeDefinitions.Find(t => t.FullName == targetName);
 
                 if (current == null)
@@ -169,7 +172,7 @@ namespace Cpp2IL
                     break;
                 }
 
-                baseFields.AddRange(current.Fields.Where(f => !f.IsStatic));
+                baseFields.InsertRange(0,current.Fields.Where(f => !f.IsStatic));   // each loop we go one inheritage level deeper, so these "new" fields should be inserted before the previous ones 
             }
 
             //Handle base fields
