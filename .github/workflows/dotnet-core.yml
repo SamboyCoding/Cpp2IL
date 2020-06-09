@@ -44,7 +44,7 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
-        tag_name: ${{ github.sha }}
+        tag_name: commit_${{ github.sha }}
         release_name: Commit ${{ github.sha }}
         draft: false
         prerelease: false
