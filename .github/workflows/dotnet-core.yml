@@ -1,13 +1,11 @@
-name: .NET Core
+name: .NET Core - Release
 
 on:
   push:
     branches: [ master ]
-  pull_request:
-    branches: [ master ]
 
 jobs:
-  build:
+  release:
 
     runs-on: ubuntu-latest
 
@@ -47,7 +45,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref }}
-        release_name: Release ${{ github.ref }}
+        release_name: Commit ${{ github.sha }}
         draft: false
         prerelease: false
     - name: Release Windows Build
