@@ -1,7 +1,7 @@
 ﻿using System;
 using Mono.Cecil;
 
-namespace Cpp2IL
+namespace Cpp2IL.Analysis
 {
     public struct FieldInType : IComparable<FieldInType>
     {

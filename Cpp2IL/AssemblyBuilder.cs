@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Analysis;
 using Cpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;

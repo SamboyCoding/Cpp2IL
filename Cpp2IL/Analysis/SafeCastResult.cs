@@ -1,6 +1,6 @@
 ﻿using Mono.Cecil;
 
-namespace Cpp2IL
+namespace Cpp2IL.Analysis
 {
     public class SafeCastResult
     {

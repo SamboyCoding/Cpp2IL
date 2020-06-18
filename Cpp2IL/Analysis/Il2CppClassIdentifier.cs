@@ -1,6 +1,6 @@
 ﻿using Mono.Cecil;
 
-namespace Cpp2IL
+namespace Cpp2IL.Analysis
 {
     /// <summary>
     /// Represents the "klass" field of an il2cpp runtime object

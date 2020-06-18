@@ -8,6 +8,7 @@ using System.Runtime;
 using System.Text;
 using System.Threading;
 using CommandLine;
+using Cpp2IL.Analysis;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
 using Microsoft.Win32;
@@ -251,10 +252,10 @@ namespace Cpp2IL
 
                 var globals = AssemblyBuilder.MapGlobalIdentifiers(Metadata, ThePE);
 
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)} type globals");
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)} method globals");
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.FIELD)} field globals");
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)} string literals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.TYPE)} type globals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.METHOD)} method globals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.FIELD)} field globals");
+                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.LITERAL)} string literals");
 
                 SharedState.Globals.AddRange(globals);
 

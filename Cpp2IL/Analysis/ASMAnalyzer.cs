@@ -9,7 +9,7 @@ using Mono.Cecil;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 
-namespace Cpp2IL
+namespace Cpp2IL.Analysis
 {
     internal partial class AsmDumper
     {
@@ -34,16 +34,19 @@ namespace Cpp2IL
         private ulong _methodEnd;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly PE.PE _cppAssembly;
+        private List<Instruction> _instructions;
+        
+        private List<string> _loopRegisters;
+        
         private ConcurrentDictionary<string, string> _registerAliases;
         private ConcurrentDictionary<string, TypeDefinition> _registerTypes;
         private ConcurrentDictionary<string, object> _registerContents;
         private StringBuilder _methodFunctionality;
         private StringBuilder _psuedoCode = new StringBuilder();
         private StringBuilder _typeDump;
-        private List<Instruction> _instructions;
+        
         private int _blockDepth;
         private int _localNum;
-        private List<string> _loopRegisters;
 
         private Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)> _lastComparison;
         private List<int> _indentCounts = new List<int>();
@@ -624,7 +627,7 @@ namespace Cpp2IL
                 foreach (var possibility in possibilities)
                 {
                     _registerContents.TryGetValue(possibility, out var potentialGlob);
-                    if (potentialGlob is AssemblyBuilder.GlobalIdentifier g && g.Offset != 0 && g.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.METHOD)
+                    if (potentialGlob is GlobalIdentifier g && g.Offset != 0 && g.IdentifierType == GlobalIdentifier.Type.METHOD)
                     {
                         _typeDump.Append($" ; - generic method def located, is {g.Name}");
                         var genericParams = g.Name.Substring(g.Name.LastIndexOf("<", StringComparison.Ordinal) + 1);
@@ -756,9 +759,9 @@ namespace Cpp2IL
                     _registerContents.TryGetValue(sourceReg, out constant);
                     _registerTypes.TryGetValue(sourceReg, out objectType);
 
-                    if (alias?.StartsWith("global_") != false && constant is AssemblyBuilder.GlobalIdentifier glob2)
+                    if (alias?.StartsWith("global_") != false && constant is GlobalIdentifier glob2)
                     {
-                        if (glob2.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                        if (glob2.IdentifierType == GlobalIdentifier.Type.LITERAL)
                         {
                             objectType = StringReference;
                             objectName = $"'{glob2.Name}'";
@@ -825,7 +828,7 @@ namespace Cpp2IL
                         var globalAddr = Utils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
                         if (SharedState.GlobalsDict.TryGetValue(globalAddr, out var glob))
                         {
-                            if (glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                            if (glob.IdentifierType == GlobalIdentifier.Type.LITERAL)
                             {
                                 objectName = $"\"{glob.Name}\"";
                                 objectType = StringReference;
@@ -915,7 +918,7 @@ namespace Cpp2IL
             {
                 //If we're reading a static, check the global in the source reg
                 _registerContents.TryGetValue(sourceReg, out var content);
-                if (!(content is AssemblyBuilder.GlobalIdentifier global)) return null;
+                if (!(content is GlobalIdentifier global)) return null;
 
 
                 //Ok we have a global, resolve it
@@ -1800,16 +1803,16 @@ namespace Cpp2IL
                         _registerContents[destReg] = glob;
                         switch (glob.IdentifierType)
                         {
-                            case AssemblyBuilder.GlobalIdentifier.Type.TYPE:
+                            case GlobalIdentifier.Type.TYPE:
                                 _registerTypes[destReg] = Utils.TryLookupTypeDefByName(glob.Name).Item1;
                                 break;
-                            case AssemblyBuilder.GlobalIdentifier.Type.METHOD:
+                            case GlobalIdentifier.Type.METHOD:
                                 _registerTypes.TryRemove(destReg, out _);
                                 break;
-                            case AssemblyBuilder.GlobalIdentifier.Type.FIELD:
+                            case GlobalIdentifier.Type.FIELD:
                                 _registerTypes.TryRemove(destReg, out _);
                                 break;
-                            case AssemblyBuilder.GlobalIdentifier.Type.LITERAL:
+                            case GlobalIdentifier.Type.LITERAL:
                                 _registerTypes[destReg] = StringReference;
                                 _typeDump.Append($" - therefore {destReg} now has type String");
                                 break;
@@ -2002,10 +2005,10 @@ namespace Cpp2IL
                 if (_registerContents.TryGetValue("rcx", out var g) && g != null)
                 {
                     //Check we actually have a global
-                    if (g is AssemblyBuilder.GlobalIdentifier glob)
+                    if (g is GlobalIdentifier glob)
                     {
                         //Check it's valid (which it should be?)
-                        if (glob.Offset != 0 && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
+                        if (glob.Offset != 0 && glob.IdentifierType == GlobalIdentifier.Type.TYPE)
                         {
                             //Look up type
                             var (definedType, genericParams) = Utils.TryLookupTypeDefByName(glob.Name);
@@ -2060,7 +2063,7 @@ namespace Cpp2IL
                     var match = Regex.Match(glob, "global_([A-Z]+)_([^/]+)");
                     if (match.Success)
                     {
-                        Enum.TryParse<AssemblyBuilder.GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
+                        Enum.TryParse<GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
                         var global = SharedState.Globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
                         if (global.Offset != 0)
                         {
@@ -2158,7 +2161,7 @@ namespace Cpp2IL
                     }
                 }
 
-                if (g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0 && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
+                if (g is GlobalIdentifier glob && glob.Offset != 0 && glob.IdentifierType == GlobalIdentifier.Type.TYPE)
                 {
                     var destType = Utils.TryLookupTypeDefByName(glob.Name).Item1;
                     _typeDump.Append($" - Boxes the primitive value {castTarget} to {destType?.FullName} (resolved from {glob.Name})");
@@ -2182,14 +2185,14 @@ namespace Cpp2IL
                 //Try to directly resolve a destination type constant (as a global) in rdx
                 _registerContents.TryGetValue("rdx", out var t);
 
-                if (t is AssemblyBuilder.GlobalIdentifier typeGlobal && typeGlobal.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.TYPE)
+                if (t is GlobalIdentifier typeGlobal && typeGlobal.IdentifierType == GlobalIdentifier.Type.TYPE)
                 {
                     //got one? look it up and re-set T to the type def.
                     (t, _) = Utils.TryLookupTypeDefByName(typeGlobal.Name);
                 }
 
                 object castTarget;
-                AssemblyBuilder.GlobalIdentifier globalIdentifier = default;
+                GlobalIdentifier globalIdentifier = default;
 
                 //Lookup the alias we are casting, and put the alias of what we actually want to cast (which could be the literal) into castTarget.
                 _registerAliases.TryGetValue("rcx", out var aliasOfWhatToCast);
@@ -2197,7 +2200,7 @@ namespace Cpp2IL
                 {
                     //Check for casting string literals
                     _registerContents.TryGetValue("rcx", out var g);
-                    if (g is AssemblyBuilder.GlobalIdentifier glob)
+                    if (g is GlobalIdentifier glob)
                     {
                         castTarget = glob.Name;
                         globalIdentifier = glob;
@@ -2229,7 +2232,7 @@ namespace Cpp2IL
                     _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Safe casts {castTarget} to new local {_registerAliases["rax"]} of type {type.FullName}\n");
                     _psuedoCode.Append(Utils.Repeat("\t", _blockDepth)).Append(type.FullName).Append(" ").Append(_registerAliases["rax"]).Append(" = (").Append(type.FullName).Append(") ");
 
-                    if (globalIdentifier.Offset == 0 || globalIdentifier.IdentifierType != AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                    if (globalIdentifier.Offset == 0 || globalIdentifier.IdentifierType != GlobalIdentifier.Type.LITERAL)
                     {
                         _psuedoCode.Append(globalIdentifier.Name ?? castTarget);
                     }
@@ -2469,7 +2472,7 @@ namespace Cpp2IL
             {
                 //InterfaceOffset + reg * 8 => we have our interface name resolution in operand 1
                 var name = GetRegisterName(instruction.Operands[1]);
-                if (_registerContents.TryGetValue(name, out var secondCon) && secondCon is AssemblyBuilder.GlobalIdentifier && _registerTypes.TryGetValue(name, out var interfaceType))
+                if (_registerContents.TryGetValue(name, out var secondCon) && secondCon is GlobalIdentifier && _registerTypes.TryGetValue(name, out var interfaceType))
                 {
                     interfaceOffsetTargetInterface = interfaceType;
                     _typeDump.Append($" ; - target interface identified, is {interfaceType?.FullName}");
@@ -2753,7 +2756,7 @@ namespace Cpp2IL
 
             if (returnConstant != null)
             {
-                if (returnConstant is AssemblyBuilder.GlobalIdentifier glob && glob.IdentifierType == AssemblyBuilder.GlobalIdentifier.Type.LITERAL)
+                if (returnConstant is GlobalIdentifier glob && glob.IdentifierType == GlobalIdentifier.Type.LITERAL)
                     returnConstant = glob.Name;
 
                 if (returnConstant is string)
@@ -2774,9 +2777,9 @@ namespace Cpp2IL
             }
         }
 
-        private AssemblyBuilder.GlobalIdentifier? GetGlobalInReg(string reg)
+        private GlobalIdentifier? GetGlobalInReg(string reg)
         {
-            if (_registerContents.TryGetValue(reg, out var g) && g is AssemblyBuilder.GlobalIdentifier glob && glob.Offset != 0)
+            if (_registerContents.TryGetValue(reg, out var g) && g is GlobalIdentifier glob && glob.Offset != 0)
                 return glob;
 
             if (_registerAliases.TryGetValue(reg, out var globAlias) && globAlias != null)
@@ -2784,7 +2787,7 @@ namespace Cpp2IL
                 var match = Regex.Match(globAlias, "global_([A-Z]+)_([^/]+)");
                 if (match.Success)
                 {
-                    Enum.TryParse<AssemblyBuilder.GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
+                    Enum.TryParse<GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
                     var global = SharedState.Globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
                     if (global.Offset != 0)
                     {

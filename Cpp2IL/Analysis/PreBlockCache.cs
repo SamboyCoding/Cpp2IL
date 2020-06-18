@@ -1,7 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using Mono.Cecil;
 
-namespace Cpp2IL
+namespace Cpp2IL.Analysis
 {
     internal partial class AsmDumper
     {
