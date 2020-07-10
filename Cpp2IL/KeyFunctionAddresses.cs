@@ -344,9 +344,13 @@ namespace Cpp2IL
                     var potentialRME = callTargets[6];
 
                     //Firstly, sanity checks on the three known addresses we have
-                    var shouldBeO_GT = SharedState.MethodsByAddress[shouldPointToObjectGetType];
-                    var shouldBeT_GIP = SharedState.MethodsByAddress[shouldPointToTypeGetIsPointer];
-                    var shouldBeIOE_C = SharedState.MethodsByAddress[shouldPointToIOECtor];
+                    SharedState.MethodsByAddress.TryGetValue(shouldPointToObjectGetType, out var shouldBeO_GT);
+                    SharedState.MethodsByAddress.TryGetValue(shouldPointToTypeGetIsPointer, out var shouldBeT_GIP);
+                    SharedState.MethodsByAddress.TryGetValue(shouldPointToIOECtor, out var shouldBeIOE_C);
+                    
+//                     var shouldBeO_GT = SharedState.MethodsByAddress[shouldPointToObjectGetType];
+//                     var shouldBeT_GIP = SharedState.MethodsByAddress[shouldPointToTypeGetIsPointer];
+//                     var shouldBeIOE_C = SharedState.MethodsByAddress[shouldPointToIOECtor];
 
                     if (shouldBeO_GT?.Name == "GetType" && shouldBeT_GIP?.Name == "get_IsPointer" && shouldBeIOE_C?.Name == ".ctor")
                     {
