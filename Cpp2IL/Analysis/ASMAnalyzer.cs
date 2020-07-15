@@ -5,6 +5,8 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Cpp2IL.Analysis.Actions;
+using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using SharpDisasm;
 using SharpDisasm.Udis86;
@@ -13,9 +15,11 @@ namespace Cpp2IL.Analysis
 {
     internal partial class AsmDumper
     {
-        private const bool DEBUG_PRINT_OPERAND_DATA = false;
+        //Feature flags
 
-        private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
+        // #define DEBUG_PRINT_OPERAND_DATA
+        // #define USE_NEW_ANALYSIS_METHOD
+
         private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
         private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
         private static readonly TypeDefinition BooleanReference = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
@@ -35,20 +39,22 @@ namespace Cpp2IL.Analysis
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly PE.PE _cppAssembly;
         private List<Instruction> _instructions;
-        
-        private List<string> _loopRegisters;
-        
-        private ConcurrentDictionary<string, string> _registerAliases;
-        private ConcurrentDictionary<string, TypeDefinition> _registerTypes;
-        private ConcurrentDictionary<string, object> _registerContents;
-        private StringBuilder _methodFunctionality;
+
+        private MethodAnalysis _analysis;
+
+        private List<string> _loopRegisters = new List<string>();
+
+        private ConcurrentDictionary<string, string> _registerAliases = new ConcurrentDictionary<string, string>();
+        private ConcurrentDictionary<string, TypeDefinition> _registerTypes = new ConcurrentDictionary<string, TypeDefinition>();
+        private ConcurrentDictionary<string, object> _registerContents = new ConcurrentDictionary<string, object>();
+        private StringBuilder _methodFunctionality = new StringBuilder();
         private StringBuilder _psuedoCode = new StringBuilder();
-        private StringBuilder _typeDump;
-        
+        private StringBuilder _typeDump = new StringBuilder();
+
         private int _blockDepth;
         private int _localNum;
 
-        private Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)> _lastComparison;
+        private Tuple<(string, TypeDefinition, object), (string, TypeDefinition?, object?)>? _lastComparison;
         private List<int> _indentCounts = new List<int>();
         private Stack<PreBlockCache> _savedRegisterStates = new Stack<PreBlockCache>();
 
@@ -100,6 +106,10 @@ namespace Cpp2IL.Analysis
 
             //Pass 0: Disassemble
             _instructions = Utils.DisassembleBytes(method.MethodBytes);
+
+#if USE_NEW_ANALYSIS_METHOD
+            _analysis = new MethodAnalysis(_methodDefinition);
+#endif
         }
 
         private void TaintMethod(TaintReason reason)
@@ -196,9 +206,6 @@ namespace Cpp2IL.Analysis
         internal TaintReason AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
             _typeDump = typeDump;
-            _registerAliases = new ConcurrentDictionary<string, string>();
-            _registerTypes = new ConcurrentDictionary<string, TypeDefinition>();
-            _registerContents = new ConcurrentDictionary<string, object>();
 
             //Map of jumped-to addresses to functionality summaries (for if statements)
             var jumpTable = new Dictionary<ulong, List<string>>();
@@ -208,8 +215,6 @@ namespace Cpp2IL.Analysis
             //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
 
             typeDump.Append($"Method: {_methodDefinition.FullName}:");
-
-            _methodFunctionality = new StringBuilder();
 
             //Pass 1: Removal of unneeded generated code
             _instructions = TrimOutIl2CppCrap(_instructions);
@@ -325,18 +330,17 @@ namespace Cpp2IL.Analysis
                     line = instruction.ToString();
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
-                line = UpscaleRegisters(line);
+                line = Utils.UpscaleRegisters(line);
 
                 //Apply any aliases to the line
                 line = _registerAliases.Aggregate(line, (current, kvp) => current.Replace($" {kvp.Key}", $" {kvp.Value}_{kvp.Key}").Replace($"[{kvp.Key}", $"[{kvp.Value}_{kvp.Key}"));
 
                 typeDump.Append($"\t\t{line}"); //write the current disassembled instruction to the type dump
 
-                if (DEBUG_PRINT_OPERAND_DATA)
-                {
-                    typeDump.Append(" ; ");
-                    typeDump.Append(string.Join(" | ", instruction.Operands.Select((op, pos) => $"Op{pos}: {op.Type}")));
-                }
+#if DEBUG_PRINT_OPERAND_DATA
+                typeDump.Append(" ; ");
+                typeDump.Append(string.Join(" | ", instruction.Operands.Select((op, pos) => $"Op{pos}: {op.Type}")));
+#endif
 
                 PerformInstructionChecks(instruction);
 
@@ -396,8 +400,116 @@ namespace Cpp2IL.Analysis
             _blockDepth--;
         }
 
+        private void CheckForZeroOpInstruction(Instruction instruction)
+        {
+            switch (instruction.Mnemonic)
+            {
+                case ud_mnemonic_code.UD_Iret:
+                    break;
+            }
+        }
+
+        private void CheckForSingleOpInstruction(Instruction instruction)
+        {
+            var reg = GetRegisterName(instruction.Operands[0]);
+            var operand = _analysis.GetOperandInRegister(reg);
+
+            switch (instruction.Mnemonic)
+            {
+                case ud_mnemonic_code.UD_Ipush:
+                    break;
+                case ud_mnemonic_code.UD_Ipop:
+                    break;
+                case ud_mnemonic_code.UD_Ijmp:
+                    break;
+                case ud_mnemonic_code.UD_Icall:
+                    //TODO: Split into multiple cases based on destination address for all KFAs.
+                    break;
+                case ud_mnemonic_code.UD_Iinc:
+                    break;
+                //TODO Conditional jumps
+            }
+        }
+
+        private void CheckForTwoOpInstruction(Instruction instruction)
+        {
+            var r0 = GetRegisterName(instruction.Operands[0]);
+            var r1 = GetRegisterName(instruction.Operands[1]);
+
+            var op0 = _analysis.GetOperandInRegister(r0);
+            var op1 = _analysis.GetOperandInRegister(r1);
+
+            var offset0 = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[0]);
+            var offset1 = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+
+            var type0 = instruction.Operands[0].Type;
+            var type1 = instruction.Operands[1].Type;
+
+            switch (instruction.Mnemonic)
+            {
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_REG && offset0 == 0 && offset1 == 0 && op1 != null:
+                    //Both zero offsets and a known secondary operand = Register content copy
+                    _analysis.Actions.Add(new RegContentCopyAction(_analysis, instruction));
+                    return;
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_REG && r0 == "rsp" && offset1 == 0 && op1 != null:
+                    //Second operand is a reg, no offset, moving into the stack = Copy reg content to stack.
+                    return;
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && op1 != null:
+                {
+                    //Zero offsets, but second operand is a memory pointer -> class pointer move.
+                    var isStack = r0 == "rsp";
+                    //MUST Check for non-cpp type
+                    return;
+                }
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && r1 == "rip":
+                {
+                    //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
+                    var isStack = r0 == "rsp";
+                    return;
+                }
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_IMM && offset0 == 0 && type0 == ud_type.UD_OP_REG:
+                    //Constant move to reg
+                    return;
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_IMM && offset0 != 0 && type0 != ud_type.UD_OP_REG:
+                    //Constant move to field
+                    return;
+                //TODO Everything from CheckForFieldArrayAndStackReads
+                //TODO Arithmetic
+                case ud_mnemonic_code.UD_Ixor:
+                case ud_mnemonic_code.UD_Ixorps:
+                    //PROBABLY clear register
+                    break;
+                case ud_mnemonic_code.UD_Itest:
+                case ud_mnemonic_code.UD_Icmp:
+                    //Condition
+                    break;
+            }
+        }
+
         private void PerformInstructionChecks(Instruction instruction)
         {
+#if USE_NEW_ANALYSIS_METHOD
+            var operandCount = instruction.Operands.Length;
+
+            if (operandCount == 0)
+            {
+                CheckForZeroOpInstruction(instruction);
+                return;
+            }
+
+            if (operandCount == 1)
+            {
+                CheckForSingleOpInstruction(instruction);
+                return;
+            }
+
+            if (operandCount == 2)
+            {
+                CheckForTwoOpInstruction(instruction);
+                return;
+            }
+#else
+
             //Detect field writes
             CheckForFieldWrites(instruction);
 
@@ -436,6 +548,7 @@ namespace Cpp2IL.Analysis
 
             //Check for RET
             CheckForReturn(instruction);
+#endif
         }
 
         private void HandleFunctionCall(MethodDefinition target, bool processReturnType, Instruction instruction, TypeDefinition returnType = null)
@@ -704,43 +817,23 @@ namespace Cpp2IL.Analysis
         private string GetRegisterName(Operand operand)
         {
             var theBase = operand.Base;
+
+            if (theBase == ud_type.UD_NONE) return "";
+
             if (!CachedRegNames.TryGetValue(theBase, out var ret))
             {
-                ret = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+                ret = Utils.UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
                 CachedRegNames[theBase] = ret;
             }
 
             return ret;
         }
 
-        private string UpscaleRegisters(string replaceIn)
-        {
-            if (replaceIn.Length < 2) return replaceIn;
-
-            //Special case the few 8-bit register: "al" => "rax" etc
-            if (replaceIn == "al")
-                return "rax";
-            if (replaceIn == "bl")
-                return "rbx";
-            if (replaceIn == "dl")
-                return "rdx";
-            if (replaceIn == "ax")
-                return "rax";
-            if (replaceIn == "cx" || replaceIn == "cl")
-                return "rcx";
-
-            //R9d, etc.
-            if (replaceIn[0] == 'r' && replaceIn[replaceIn.Length - 1] == 'd')
-                return replaceIn.Substring(0, replaceIn.Length - 1);
-
-            return UpscaleRegex.Replace(replaceIn, "$1r$2");
-        }
-
         private List<string> DetectPotentialLoops(List<Instruction> instructions)
         {
             return instructions
                 .Where(instruction => instruction.Mnemonic == ud_mnemonic_code.UD_Iinc)
-                .Select(instruction => UpscaleRegisters(instruction.Operands[0].Base.ToString().Replace("UD_R_", "").ToLower()))
+                .Select(instruction => Utils.UpscaleRegisters(instruction.Operands[0].Base.ToString().Replace("UD_R_", "").ToLower()))
                 .Distinct()
                 .ToList();
         }
@@ -868,7 +961,7 @@ namespace Cpp2IL.Analysis
             return (objectName ?? $"<unknown refobject type = {operand.Type} constantval = {operand.LvalUDWord} base = {operand.Base}>", objectType, constant);
         }
 
-        private FieldDefinition GetFieldReferencedByOperand(Operand operand)
+        private FieldDefinition? GetFieldReferencedByOperand(Operand operand)
         {
             if (operand.Type != ud_type.UD_OP_MEM || operand.Base == ud_type.UD_R_RIP) return null;
 
@@ -1258,7 +1351,7 @@ namespace Cpp2IL.Analysis
             //Either directly assignable, or is an array that the base type matches and the constant contains array data. Eugh. Damn you cecil for making this required.
             if (!destinationType.IsAssignableFrom(sourceType) && (!(destinationType is ArrayType arr) || !arr.GetElementType().IsAssignableFrom(sourceType) || !_registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var cons) || !(cons is ArrayData)))
             {
-                _typeDump.Append($" ; - Field type mismatch, {destinationType?.FullName} is not assignable from {sourceType?.FullName}");
+                _typeDump.Append($" ; - Field type mismatch, {destinationType.FullName} is not assignable from {sourceType?.FullName}");
                 TaintMethod(TaintReason.FIELD_TYPE_MISMATCH);
             }
             else
@@ -1507,7 +1600,7 @@ namespace Cpp2IL.Analysis
                                 _methodFunctionality.Append(
                                     $"{Utils.Repeat("\t", _blockDepth + 2)}Loads the element type of the array {_registerAliases[sourceReg]} stored in {sourceReg} (which is {arrayType?.FullName}) and stores it in a new local {_registerAliases[destReg]} in register {destReg}\n");
                             }
-                            else if (arrayIndex >= 0 && arrayIndex < arrayLength)
+                            else if (arrayIndex < arrayLength)
                             {
                                 var destReg = GetRegisterName(instruction.Operands[0]);
                                 _registerAliases.TryGetValue(sourceReg, out var arrayAlias);
@@ -1655,7 +1748,7 @@ namespace Cpp2IL.Analysis
             if (_registerAliases.TryRemove(reg, out _))
                 _typeDump.Append($" ; - {reg} loses its alias here");
 
-            if (!(/*_loopRegisters.Contains(reg) &&*/ _registerAliases.ContainsKey(reg)))
+            if (!( /*_loopRegisters.Contains(reg) &&*/ _registerAliases.ContainsKey(reg)))
             {
                 _registerAliases[reg] = $"local{_localNum}";
                 _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates local variable local{_localNum} with value 0, in register {reg}\n");
@@ -1707,9 +1800,9 @@ namespace Cpp2IL.Analysis
                             objectAlias = alias
                         };
 
-                        if(_registerTypes.ContainsKey(sourceReg))
+                        if (_registerTypes.ContainsKey(sourceReg))
                             _registerTypes[destReg] = _registerTypes[sourceReg];
-                        
+
                         _registerAliases[destReg] = $"klasspointer_{alias}";
                         _registerContents[destReg] = newClassIdentifier;
 
@@ -2465,7 +2558,7 @@ namespace Cpp2IL.Analysis
 
             //Needs to be TEST or CMP
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest && instruction.Mnemonic != ud_mnemonic_code.UD_Iucomiss && instruction.Mnemonic != ud_mnemonic_code.UD_Icomiss) return;
-            
+
             //Just a special-case test here for interface lookup code:
             if (instruction.Operands[0] is {} firstOp && firstOp.Type == ud_type.UD_OP_MEM && GetRegisterName(instruction.Operands[0]) is {} firstReg && _registerContents.TryGetValue(firstReg, out var con) && con is InterfaceOffsetPairList
                 && firstOp.Index > ud_type.UD_NONE && firstOp.Scale == 8)
@@ -2486,7 +2579,7 @@ namespace Cpp2IL.Analysis
                 if (_registerAliases.ContainsKey(registerName))
                     CreateLocalFromField(registerName, field, "rax");
             }
-            
+
             _lastComparison = new Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)>(GetDetailsOfReferencedObject(instruction.Operands[0], instruction), GetDetailsOfReferencedObject(instruction.Operands[1], instruction));
 
             _typeDump.Append($" ; - Comparison between {_lastComparison.Item1.Item1} and {_lastComparison.Item2.Item1}");
@@ -2670,7 +2763,7 @@ namespace Cpp2IL.Analysis
             }
         }
 
-        private bool TryCastToMatchType(TypeDefinition castToMatch, ref TypeDefinition originalType, ref object constantValue)
+        private bool TryCastToMatchType(TypeDefinition? castToMatch, ref TypeDefinition? originalType, ref object? constantValue)
         {
             if (originalType == null || castToMatch == null) return false; //Invalid call to this function
 
@@ -2788,7 +2881,7 @@ namespace Cpp2IL.Analysis
                 if (match.Success)
                 {
                     Enum.TryParse<GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
-                    var global = SharedState.Globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
+                    var global = SharedState.Globals.Find(g2 => g2.Name == match.Groups[2].Value && g2.IdentifierType == type);
                     if (global.Offset != 0)
                     {
                         return global;

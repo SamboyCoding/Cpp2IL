@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Text.RegularExpressions;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
 using Mono.Cecil;
@@ -268,7 +269,7 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
                     var typeDef = metadata.typeDefs[type.data.classIndex];
-                    ret = string.Empty;
+                    ret = String.Empty;
                     if (fullName)
                     {
                         ret = metadata.GetStringFromIndex(typeDef.namespaceIndex);
@@ -380,7 +381,7 @@ namespace Cpp2IL
 
             //Console.WriteLine(mode + " " + mode.GetType());
 
-            var num = ulong.MaxValue >> 64 - mode;
+            var num = UInt64.MaxValue >> 64 - mode;
             return opr.Size switch
             {
                 8 => (start + (ulong) opr.LvalSByte & num),
@@ -526,7 +527,7 @@ namespace Cpp2IL
             return num1 + insn.PC;
         }
 
-        public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string name)
+        public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string? name)
         {
             if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
 
@@ -547,7 +548,7 @@ namespace Cpp2IL
             if (primitiveTypeMappings.ContainsKey(name))
                 return new Tuple<TypeDefinition, string[]>(primitiveTypeMappings[name], new string[0]);
 
-            var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
+            var definedType = SharedState.AllTypeDefinitions.Find(t => String.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
 
             if (name.EndsWith("[]"))
             {
@@ -574,12 +575,12 @@ namespace Cpp2IL
 
             //It's possible they didn't specify a `System.` prefix
             var searchString = $"System.{name}";
-            definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
+            definedType = SharedState.AllTypeDefinitions.Find(t => String.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
 
             if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
-            var matches = SharedState.AllTypeDefinitions.Where(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+            var matches = SharedState.AllTypeDefinitions.Where(t => String.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 
@@ -758,10 +759,10 @@ namespace Cpp2IL
             return ret /*.Where(i => !i.Error).ToList()*/;
         }
 
-        public static string TryGetLiteralAt(PE.PE theDll, ulong addr)
+        public static string? TryGetLiteralAt(PE.PE theDll, ulong addr)
         {
             var c = Convert.ToChar(theDll.raw[addr]);
-            if (char.IsLetter(c) && c < 'z') //includes uppercase
+            if (Char.IsLetter(c) && c < 'z') //includes uppercase
             {
                 var isUnicode = theDll.raw[addr + 1] == 0;
                 var literal = new StringBuilder();
@@ -801,6 +802,48 @@ namespace Cpp2IL
             return PrimitiveSizes.TryGetValue(type.Name, out var result)
                 ? result
                 : PrimitiveSizes["IntPtr"];
+        }
+
+        private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
+
+        public static string UpscaleRegisters(string replaceIn)
+        {
+            if (replaceIn.Length < 2) return replaceIn;
+
+            //Special case the few 8-bit register: "al" => "rax" etc
+            if (replaceIn == "al")
+                return "rax";
+            if (replaceIn == "bl")
+                return "rbx";
+            if (replaceIn == "dl")
+                return "rdx";
+            if (replaceIn == "ax")
+                return "rax";
+            if (replaceIn == "cx" || replaceIn == "cl")
+                return "rcx";
+
+            //R9d, etc.
+            if (replaceIn[0] == 'r' && replaceIn[replaceIn.Length - 1] == 'd')
+                return replaceIn.Substring(0, replaceIn.Length - 1);
+
+            return UpscaleRegex.Replace(replaceIn, "$1r$2");
+        }
+
+        public static string GetFloatingRegister(string original)
+        {
+            switch (original)
+            {
+                case "rcx":
+                    return "xmm0";
+                case "rdx":
+                    return "xmm1";
+                case "r8":
+                    return "xmm2";
+                case "r9":
+                    return "xmm3";
+                default:
+                    return original;
+            }
         }
     }
 }

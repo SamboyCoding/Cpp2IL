@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public abstract Mono.Cecil.Cil.Instruction[] ToILInstructions();
 
-        public abstract string ToPsuedoCode();
+        public abstract string? ToPsuedoCode();
 
         public abstract string ToTextSummary();
 
