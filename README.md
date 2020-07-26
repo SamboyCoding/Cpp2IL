@@ -2,6 +2,10 @@
 
 WIP Tool to reverse Unity's IL2CPP build process back to the original managed DLLs.
 
-Get the latest CI build [here](https://github.com/SamboyCoding/Cpp2IL/actions?query=is%3Asuccess) - select the topmost (most recent) build and then select the build appropriate to your platform.
+**Does not currently generate IL code, only generates pseudocode and textual analysis. Work is being done to improve this.**
 
-Uses .NET Core 3.1, SharpDiasm, and Mono's Cecil.
+**Has issues with 32-bit games due to substantial differences between them and 64-bit games. Again, work is being done on this.**
+
+Every commit is built to a release, so just check the github releases for the latest build.
+
+Built using .NET Core 3.1, SharpDiasm, and Mono's Cecil.
