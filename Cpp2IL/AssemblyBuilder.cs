@@ -135,13 +135,13 @@ namespace Cpp2IL
                 SharedState.AllTypeDefinitions.Add(typeDefinition);
                 SharedState.MonoToCppTypeDefs[typeDefinition] = typeDef;
 
-                methods.Add((type: typeDefinition, methods: ProcessTypeContents(metadata, theDll, typeDef, typeDefinition)));
+                methods.Add((type: typeDefinition, methods: ProcessTypeContents(metadata, theDll, typeDef, typeDefinition, imageDef)));
             }
 
             return methods;
         }
 
-        private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+        private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppAssemblyDefinition imageDef)
         {
             var typeMetaText = new StringBuilder();
             typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
@@ -221,7 +221,7 @@ namespace Cpp2IL
                     ilTypeDefinition.Module.ImportReference(typeof(void)));
 
                 //TODO: For Unity 2019 we'll need to fix the imageindex param from 0 to the actual index
-                var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, 0, methodDef.token);
+                var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
 
 
                 long offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);

@@ -330,12 +330,30 @@ namespace Cpp2IL.PE
 
                 List<Instruction> methodBodyRuntimeInit = Utils.GetMethodBodyAtRawAddress(this, MapVirtualAddressToRaw(virtualAddressRuntimeInit), false);
 
+                Disassembler.Translator.IncludeBinary = true;
+                File.WriteAllText(Path.Combine("cpp2il_out", "runtime_init_dump.txt"), string.Join('\n', methodBodyRuntimeInit.Select(i => i.ToString())));
+
                 //This is kind of sketchy, but look for a global read (i.e an LEA where the second base is RIP), as that's the framework version read, then there's a MOV, then 4 calls, the third of which is our target.
                 //So as to ensure compat with 2018, ensure we have a call before this LEA.
                 var minimumIndex = methodBodyRuntimeInit.FindIndex(i => i.Mnemonic == ud_mnemonic_code.UD_Icall);
 
                 var idx = -1;
                 var indexOfFrameworkVersionLoad = methodBodyRuntimeInit.FindIndex(i => idx++ > minimumIndex && i.Mnemonic == ud_mnemonic_code.UD_Ilea && i.Operands.Last().Base == ud_type.UD_R_RIP);
+
+                if (indexOfFrameworkVersionLoad < 0)
+                {
+                    idx = -1;
+                    //Could be a mov in optimised code - mov of hard coded address to hard coded address
+                    indexOfFrameworkVersionLoad = methodBodyRuntimeInit.FindIndex(i => idx++ > minimumIndex && i.Mnemonic == ud_mnemonic_code.UD_Imov && i.Bytes.Length == 10 /*&& i.Operands.First().Type == ud_type.UD_OP_MEM && Utils.GetImmediateValue(i, i.Operands.Last()) != 0*/);
+
+                    if (indexOfFrameworkVersionLoad < 0)
+                    {
+                        Console.WriteLine("\tCouldn't find framework load index, abort!");
+                        goto bailout;
+                    }
+                }
+                
+                Console.WriteLine("\tLocated probable framework version set, instruction bytes are " + methodBodyRuntimeInit[indexOfFrameworkVersionLoad].ToString());
 
                 var instructionsFromThatPoint = methodBodyRuntimeInit.Skip(indexOfFrameworkVersionLoad + 1).TakeWhile(i => true).ToList();
                 var calls = instructionsFromThatPoint.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Icall).ToList();
@@ -352,18 +370,36 @@ namespace Cpp2IL.PE
                 var virtAddrExecuteInit = Utils.GetJumpTarget(thirdCall, thirdCall.PC + virtualAddressRuntimeInit);
                 Console.WriteLine($"\tLocated probable ExecuteInitializations function at virt addr 0x{virtAddrExecuteInit:X}");
 
-                //We peek this as we only want the second instruction.
+                //Could be first or second instruction
                 List<Instruction> execInitMethodBody = Utils.GetMethodBodyAtRawAddress(this, MapVirtualAddressToRaw(virtAddrExecuteInit), true);
-                if (execInitMethodBody.Count < 2 || execInitMethodBody[1].Error || execInitMethodBody[1].Mnemonic != ud_mnemonic_code.UD_Imov)
+
+                if (execInitMethodBody.Count < 2)
                 {
-                    Console.WriteLine("\tMissing or invalid second instruction in ExecuteInitializations, fallback failed!");
+                    Console.WriteLine("\tToo few instructions in ExecuteInitializations! Aborting...");
+                    goto bailout;
+                }
+                
+                var movOfGlobalCallbackList = execInitMethodBody[0].Mnemonic == ud_mnemonic_code.UD_Imov ? execInitMethodBody[0] : execInitMethodBody[1];
+                
+                if (movOfGlobalCallbackList.Error || movOfGlobalCallbackList.Mnemonic != ud_mnemonic_code.UD_Imov)
+                {
+                    Console.WriteLine("\tInvalid MOV instruction in ExecuteInitializations, fallback failed!");
                     goto bailout;
                 }
 
-                var offset = Utils.GetOffsetFromMemoryAccess(execInitMethodBody[1], execInitMethodBody[1].Operands[1]);
-                
-                //This SHOULD be the address of the global list of callbacks il2cpp executes on boot, which should only contain one item, that being the function which invokes the code + metadata registration
-                var addrGlobalCallbackList = virtAddrExecuteInit + offset;
+                ulong addrGlobalCallbackList;
+                if (!is32Bit)
+                {
+                    var offset = Utils.GetOffsetFromMemoryAccess(movOfGlobalCallbackList, movOfGlobalCallbackList.Operands[1]);
+
+                    //This SHOULD be the address of the global list of callbacks il2cpp executes on boot, which should only contain one item, that being the function which invokes the code + metadata registration
+                    addrGlobalCallbackList = virtAddrExecuteInit + offset;
+                }
+                else
+                {
+                    //32-bit, address is literal scalar.
+                    addrGlobalCallbackList = Utils.GetImmediateValue(movOfGlobalCallbackList, movOfGlobalCallbackList.Operands.Last());
+                }
 
                 var bytesNotToCheck = execInitMethodBody[1].Bytes;
                 Console.WriteLine($"\tGot what we believe is the address of the global callback list - 0x{addrGlobalCallbackList:X}. Searching for another MOV instruction that references it within the .text segment...");
@@ -374,26 +410,46 @@ namespace Cpp2IL.PE
                 
                 Console.WriteLine($"\tDisassembled entire .text section, into {allInstructionsInTextSection.Count} instructions.");
 
-                var allMOVs = allInstructionsInTextSection.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Imov && i.Operands[0].Base == ud_type.UD_R_RIP).ToList();
-                
-                Console.WriteLine($"\t\t...of which {allMOVs.Count} are MOV instructions with a global/Rip first base");
-
-                var references = allMOVs.AsParallel().Where(mov =>
+                Instruction callbackListWrite;
+                //if 32-bit, first param is a literal address (Utils.GetImmediateValue), else it's an rip offset.
+                if (!is32Bit)
                 {
-                    var rawMemoryRead = Utils.GetOffsetFromMemoryAccess(mov, mov.Operands[0]);
-                    var virtMemoryRead = rawMemoryRead + textSection.VirtualAddress + imageBase;
-                    return virtMemoryRead == addrGlobalCallbackList;
-                }).ToList();
-                
-                Console.WriteLine($"\t\t...of which {references.Count} have a first parameter as that callback list.");
+                    var allMOVs = allInstructionsInTextSection.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Imov && i.Operands[0].Base ==  ud_type.UD_R_RIP).ToList();
 
-                if (references.Count != 1)
-                {
-                    Console.WriteLine("\tExpected only one reference, but didn't get that, fallback failed!");
-                    goto bailout;
+                    Console.WriteLine($"\t\t...of which {allMOVs.Count} are MOV instructions with a global/Rip first base");
+
+                    var references = allMOVs.AsParallel().Where(mov =>
+                    {
+                        var rawMemoryRead = Utils.GetOffsetFromMemoryAccess(mov, mov.Operands[0]);
+                        var virtMemoryRead = rawMemoryRead + textSection.VirtualAddress + imageBase;
+                        return virtMemoryRead == addrGlobalCallbackList;
+                    }).ToList();
+
+                    Console.WriteLine($"\t\t...of which {references.Count} have a first parameter as that callback list.");
+
+                    if (references.Count != 1)
+                    {
+                        Console.WriteLine("\tExpected only one reference, but didn't get that, fallback failed!");
+                        goto bailout;
+                    }
+
+                    callbackListWrite = references[0];
                 }
+                else
+                {
+                    var allMOVsWhichReferenceAddress = allInstructionsInTextSection.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Imov && Utils.GetImmediateValue(i, i.Operands[0]) == addrGlobalCallbackList).ToList();
+                    
+                    Console.WriteLine($"Found {allMOVsWhichReferenceAddress.Count} MOV instructions which reference address 0x{addrGlobalCallbackList:X} as the first operand.");
 
-                var callbackListWrite = references[0];
+                    if (allMOVsWhichReferenceAddress.Count != 1)
+                    {
+                        Console.WriteLine("\tExpected only one reference, but didn't get that, fallback failed!");
+                        goto bailout;
+                    }
+
+                    callbackListWrite = allMOVsWhichReferenceAddress.First();
+                }
+                
                 var virtualAddressOfInstruction = callbackListWrite.PC + imageBase + textSection.VirtualAddress - (ulong) callbackListWrite.Length;
                 Console.WriteLine($"\tLocated a single write reference to callback list, therefore identified callback registration function, which must contain the instruction at virt address 0x{virtualAddressOfInstruction:X}");
 
@@ -417,10 +473,22 @@ namespace Cpp2IL.PE
                 Instruction loadOfAddressToCodegenRegistrationFunction = null;
                 for (var i = indexOfCallToRegisterCallback; i > 0; i--)
                 {
-                    if (allInstructionsInTextSection[i].Mnemonic == ud_mnemonic_code.UD_Ilea && allInstructionsInTextSection[i].Operands[0].Base == ud_type.UD_R_RDX)
+                    if (!is32Bit)
                     {
-                        loadOfAddressToCodegenRegistrationFunction = allInstructionsInTextSection[i];
-                        break;
+                        if (allInstructionsInTextSection[i].Mnemonic == ud_mnemonic_code.UD_Ilea && allInstructionsInTextSection[i].Operands[0].Base == ud_type.UD_R_RDX)
+                        {
+                            loadOfAddressToCodegenRegistrationFunction = allInstructionsInTextSection[i];
+                            break;
+                        }
+                    }
+                    else
+                    {
+                        //32-bit, look for a PUSH with a non-zero addr
+                        if (allInstructionsInTextSection[i].Mnemonic == ud_mnemonic_code.UD_Ipush && Utils.GetImmediateValue(allInstructionsInTextSection[i], allInstructionsInTextSection[i].Operands.First()) != 0)
+                        {
+                            loadOfAddressToCodegenRegistrationFunction = allInstructionsInTextSection[i];
+                            break;
+                        }
                     }
                 }
 
@@ -431,17 +499,42 @@ namespace Cpp2IL.PE
                 }
                 
                 Console.WriteLine("\tGot instruction containing the address of the codegen registration function: " + loadOfAddressToCodegenRegistrationFunction);
-                var virtAddrS_Il2CppCodegenRegistration = Utils.GetOffsetFromMemoryAccess(loadOfAddressToCodegenRegistrationFunction, loadOfAddressToCodegenRegistrationFunction.Operands[1]) + imageBase + textSection.VirtualAddress;
+                
+                ulong virtAddrS_Il2CppCodegenRegistration;
+                if (!is32Bit)
+                    virtAddrS_Il2CppCodegenRegistration = Utils.GetOffsetFromMemoryAccess(loadOfAddressToCodegenRegistrationFunction, loadOfAddressToCodegenRegistrationFunction.Operands[1]) + imageBase + textSection.VirtualAddress;
+                else
+                    virtAddrS_Il2CppCodegenRegistration = Utils.GetImmediateValue(loadOfAddressToCodegenRegistrationFunction, loadOfAddressToCodegenRegistrationFunction.Operands.First());
+                
                 Console.WriteLine($"\tWhich means s_Il2CppCodegenRegistration is in-binary at 0x{virtAddrS_Il2CppCodegenRegistration:X}");
 
-                //This should consist of LEA, LEA, LEA, JMP
+                //This should consist of LEA, LEA, LEA, JMP on x64, or PUSH PUSH PUSH CALL on 32-bit
                 List<Instruction> methodBodyS_Il2CppCodegenRegistration = Utils.GetMethodBodyAtRawAddress(this, MapVirtualAddressToRaw(virtAddrS_Il2CppCodegenRegistration), false);
 
-                var loadMetadataRegistration = methodBodyS_Il2CppCodegenRegistration.Find(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea && i.Operands[0].Base == ud_type.UD_R_RDX);
-                var loadCodeRegistration = methodBodyS_Il2CppCodegenRegistration.Find(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea && i.Operands[0].Base == ud_type.UD_R_RCX); //This one's RCX not RDX
+                if (!is32Bit)
+                {
+                    var loadMetadataRegistration = methodBodyS_Il2CppCodegenRegistration.Find(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea && i.Operands[0].Base == ud_type.UD_R_RDX);
+                    var loadCodeRegistration = methodBodyS_Il2CppCodegenRegistration.Find(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea && i.Operands[0].Base == ud_type.UD_R_RCX); //This one's RCX not RDX
 
-                metadataRegistration = Utils.GetOffsetFromMemoryAccess(loadMetadataRegistration, loadMetadataRegistration.Operands[1]) + virtAddrS_Il2CppCodegenRegistration;
-                codeRegistration = Utils.GetOffsetFromMemoryAccess(loadCodeRegistration, loadCodeRegistration.Operands[1]) + virtAddrS_Il2CppCodegenRegistration;
+                    metadataRegistration = Utils.GetOffsetFromMemoryAccess(loadMetadataRegistration, loadMetadataRegistration.Operands[1]) + virtAddrS_Il2CppCodegenRegistration;
+                    codeRegistration = Utils.GetOffsetFromMemoryAccess(loadCodeRegistration, loadCodeRegistration.Operands[1]) + virtAddrS_Il2CppCodegenRegistration;
+                }
+                else
+                {
+                    //Three pushes. First is the config, so is irrelevant
+                    //Second is metadata reg.
+                    //Third is code reg
+                    var pushes = methodBodyS_Il2CppCodegenRegistration.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Ipush).ToList();
+
+                    if (pushes.Count < 3)
+                    {
+                        Console.WriteLine($"\tExpecting 3 pushes, only got {pushes.Count}, aborting!");
+                        goto bailout;
+                    }
+
+                    metadataRegistration = Utils.GetImmediateValue(pushes[1], pushes[1].Operands.First());
+                    codeRegistration = Utils.GetImmediateValue(pushes[2], pushes[2].Operands.First());
+                }
             }
 
             bailout:

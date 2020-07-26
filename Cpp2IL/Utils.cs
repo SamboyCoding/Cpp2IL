@@ -394,7 +394,7 @@ namespace Cpp2IL
 
         public static List<Instruction> DisassembleBytes(byte[] bytes)
         {
-            return new List<Instruction>(new Disassembler(bytes, ArchitectureMode.x86_64, 0, true).Disassemble());
+            return new List<Instruction>(new Disassembler(bytes, Program.ThePE.is32Bit ? ArchitectureMode.x86_32 : ArchitectureMode.x86_64, 0, true).Disassemble());
         }
 
         public static bool CheckForNullCheckAtIndex(ulong offsetInRam, PE.PE cppAssembly, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
@@ -752,6 +752,8 @@ namespace Cpp2IL
 
                 if (peek && buff.Count > 50)
                     con = false;
+                else if (buff.Count > 1000)
+                    con = false; //Sanity breakout.
 
                 addr++;
             }

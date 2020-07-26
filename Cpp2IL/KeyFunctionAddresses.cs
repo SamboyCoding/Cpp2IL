@@ -49,11 +49,20 @@ namespace Cpp2IL
 
             var instructions = Utils.DisassembleBytes(tatn.MethodBytes);
 
-            var targetCall = instructions.First(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
-            var addr = Utils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
+            var targetCall = instructions.FirstOrDefault(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
 
-            Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_initialize_method function at 0x{addr:X}");
-            ret.il2cpp_codegen_initialize_method = addr;
+            ulong addr;
+            if (targetCall != null)
+            {
+                addr = Utils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
+
+                Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_initialize_method function at 0x{addr:X}");
+                ret.il2cpp_codegen_initialize_method = addr;
+            }
+            else
+            {
+                Console.WriteLine("\t\t\t\tTidyAssemblyTypeName does NOT contain ANY calls?!?! Will not have codegen_initialize_method.");
+            }
 
             //Need to find the bail-out function, again so we can ignore it, as it's injected for null safety because cpp really doesn't like null pointer dereferences.
             //But it can be safely stripped out of IL - it'll just throw an NRE which is what this is a replacement for anyway.

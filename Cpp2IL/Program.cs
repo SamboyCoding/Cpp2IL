@@ -151,7 +151,7 @@ namespace Cpp2IL
             Console.WriteLine("Reading metadata...");
             Metadata = Il2CppMetadata.ReadFrom(metadataPath, unityVerUseful);
 
-            Console.WriteLine("Reading binary / game assembly...");
+            Console.WriteLine($"Reading binary / game assembly file {assemblyPath}...");
             var PEBytes = File.ReadAllBytes(assemblyPath);
 
             Console.WriteLine($"\t-Initializing MemoryStream of {PEBytes.Length} bytes, parsing sections, and initializing with auto+ mode.");

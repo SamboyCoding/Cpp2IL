@@ -9,7 +9,7 @@ namespace Cpp2IL
     public class ClassReadingBinaryReader : BinaryReader
     {
         private MethodInfo readClass;
-        protected bool is32Bit;
+        public bool is32Bit;
 
         public ClassReadingBinaryReader(Stream input) : base(input)
         {
@@ -57,7 +57,15 @@ namespace Cpp2IL
             var type = typeof(T);
             if (type.IsPrimitive)
             {
-                return (T)ReadPrimitive(type);
+                var value = ReadPrimitive(type);
+                
+                //32-bit fixes...
+                if (value is uint && typeof(T).Name == "UInt64")
+                    value = Convert.ToUInt64(value);
+                if (value is int && typeof(T).Name == "Int64")
+                    value = Convert.ToInt64(value);
+                
+                return (T) value;
             }
 
             var t = new T();
