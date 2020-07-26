@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -538,6 +539,21 @@ namespace Cpp2IL.PE
             }
 
             bailout:
+
+            if (codeRegistration == 0)
+            {
+                Console.Write("Couldn't identify a CodeRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
+                var crInput = Console.ReadLine();
+                ulong.TryParse(crInput, NumberStyles.HexNumber, null, out codeRegistration);
+            }
+
+            if (metadataRegistration == 0)
+            {
+                Console.Write("Couldn't identify a MetadataRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
+                var mrInput = Console.ReadLine();
+                ulong.TryParse(mrInput, NumberStyles.HexNumber, null, out metadataRegistration);
+            }
+            
             Console.WriteLine("Initializing with located addresses:");
             return AutoInit(codeRegistration, metadataRegistration);
         }
