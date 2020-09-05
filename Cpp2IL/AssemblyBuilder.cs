@@ -220,7 +220,6 @@ namespace Cpp2IL
                 var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags,
                     ilTypeDefinition.Module.ImportReference(typeof(void)));
 
-                //TODO: For Unity 2019 we'll need to fix the imageindex param from 0 to the actual index
                 var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
 
 
@@ -371,7 +370,7 @@ namespace Cpp2IL
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
 
-            File.WriteAllText(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_") + "_metadata.txt"), typeMetaText.ToString());
+            File.WriteAllText(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"), typeMetaText.ToString());
 
             if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
 
