@@ -346,7 +346,7 @@ namespace Cpp2IL
                         // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
                         try
                         {
-                            var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_") + "_methods.txt");
+                            var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
                             var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
 
                             foreach (var method in methodData)
