@@ -30,6 +30,9 @@ namespace Cpp2IL
             
             [Option("skip-analysis", Required = false, HelpText = "Skip the analysis section and stop once DummyDLLs have been generated.")]
             public bool SkipAnalysis { get; set; }
+            
+            [Option("skip-metadata-txts", Required = false, HelpText = "Skip the generation of [classname]_metadata.txt files.")]
+            public bool SkipMetadataTextFiles { get; set; }
         }
         
         public static float MetadataVersion = 24f;
@@ -43,6 +46,7 @@ namespace Cpp2IL
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         internal static Il2CppMetadata? Metadata;
         internal static PE.PE ThePE;
+        internal static Options CommandLineOptions;
 
         public static void PrintUsage()
         {
@@ -55,13 +59,13 @@ namespace Cpp2IL
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
             Console.WriteLine("Running on " + Environment.OSVersion.Platform);
 
-            Options commandLineOptions = null;
+            CommandLineOptions = null;
             Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
             {
-                commandLineOptions = options;
+                CommandLineOptions = options;
             });
 
-            if (commandLineOptions == null)
+            if (CommandLineOptions == null)
             {
                 return;
             }
@@ -93,7 +97,7 @@ namespace Cpp2IL
             //     return;
             // }
 
-            var baseGamePath = commandLineOptions.GamePath;
+            var baseGamePath = CommandLineOptions.GamePath;
 
             Console.WriteLine("Using path: " + baseGamePath);
 
@@ -105,11 +109,12 @@ namespace Cpp2IL
             }
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
-            var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath).First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Contains(f)));
+            var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
+                .First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
             
-            if (commandLineOptions.ExeName != null)
+            if (CommandLineOptions.ExeName != null)
             {
-                exeName = commandLineOptions.ExeName;
+                exeName = CommandLineOptions.ExeName;
                 Console.WriteLine($"Using OVERRIDDEN game name: {exeName}");
             }
             else
@@ -136,10 +141,32 @@ namespace Cpp2IL
             
             Console.WriteLine("\nAttempting to determine Unity version...");
 
-            var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
-            
-            var unityVerUseful = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
-            
+            int[] unityVerUseful;
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            {
+                var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
+
+                unityVerUseful = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
+            }
+            else
+            {
+                //Globalgamemanagers
+                var globalgamemanagersPath = Path.Combine(baseGamePath, $"{exeName}_Data", "globalgamemanagers");
+                var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
+                var verString = new StringBuilder();
+                var idx = 0x14;
+                while (ggmBytes[idx] != 0)
+                {
+                    verString.Append(Convert.ToChar(ggmBytes[idx]));
+                    idx++;
+                }
+                
+                var unityVer = verString.ToString();
+                unityVer = unityVer.Substring(0, unityVer.IndexOf("f"));
+                Console.WriteLine("Read version string from globalgamemanagers: " + unityVer);
+                unityVerUseful = unityVer.Split(".").Select(int.Parse).ToArray();
+            }
+
             Console.WriteLine("This game is built with Unity version " + string.Join(".", unityVerUseful));
 
             if (unityVerUseful[0] <= 4)
@@ -246,7 +273,7 @@ namespace Cpp2IL
             #endregion
 
             KeyFunctionAddresses keyFunctionAddresses = null;
-            if (!commandLineOptions.SkipAnalysis)
+            if (!CommandLineOptions.SkipAnalysis)
             {
                 Console.WriteLine("\tPass 5: Locating Globals...");
 
@@ -281,7 +308,7 @@ namespace Cpp2IL
                 Directory.CreateDirectory(outputPath);
 
             var methodOutputDir = Path.Combine(outputPath, "types");
-            if (!Directory.Exists(methodOutputDir))
+            if (!CommandLineOptions.SkipAnalysis && !Directory.Exists(methodOutputDir))
                 Directory.CreateDirectory(methodOutputDir);
 
             Console.WriteLine("Saving Header DLLs to " + outputPath + "...");
@@ -294,7 +321,7 @@ namespace Cpp2IL
 
                 assembly.Write(dllPath);
 
-                if (assembly.Name.Name != "Assembly-CSharp" || commandLineOptions.SkipAnalysis) continue;
+                if (assembly.Name.Name != "Assembly-CSharp" || CommandLineOptions.SkipAnalysis) continue;
 
                 Console.WriteLine("Dumping method bytes to " + methodOutputDir);
                 Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));

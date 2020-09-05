@@ -11,10 +11,8 @@ using Mono.Cecil.Rocks;
 
 namespace Cpp2IL
 {
-    internal static partial class AssemblyBuilder
+    internal static class AssemblyBuilder
     {
-        
-
         /// <summary>
         /// Creates all the Assemblies defined in the provided metadata, along with (stub) definitions of all the types contained therein, and registers them with the resolver.
         /// </summary>
@@ -124,7 +122,8 @@ namespace Cpp2IL
             var currentAssembly = firstTypeDefinition.Module.Assembly;
 
             //Ensure type directory exists
-            Directory.CreateDirectory(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", currentAssembly.Name.Name));
+            if(!Program.CommandLineOptions.SkipMetadataTextFiles && !Program.CommandLineOptions.SkipAnalysis)
+                Directory.CreateDirectory(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", currentAssembly.Name.Name));
 
             var lastTypeIndex = imageDef.firstTypeIndex + imageDef.typeCount;
             var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
@@ -370,7 +369,8 @@ namespace Cpp2IL
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
 
-            File.WriteAllText(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"), typeMetaText.ToString());
+            if(!Program.CommandLineOptions.SkipMetadataTextFiles)
+                File.WriteAllText(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"), typeMetaText.ToString());
 
             if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
 

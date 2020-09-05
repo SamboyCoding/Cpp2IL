@@ -332,7 +332,7 @@ namespace Cpp2IL.PE
                 List<Instruction> methodBodyRuntimeInit = Utils.GetMethodBodyAtRawAddress(this, MapVirtualAddressToRaw(virtualAddressRuntimeInit), false);
 
                 Disassembler.Translator.IncludeBinary = true;
-                File.WriteAllText(Path.Combine("cpp2il_out", "runtime_init_dump.txt"), string.Join('\n', methodBodyRuntimeInit.Select(i => i.ToString())));
+                // File.WriteAllText(Path.Combine("cpp2il_out", "runtime_init_dump.txt"), string.Join('\n', methodBodyRuntimeInit.Select(i => i.ToString())));
 
                 //This is kind of sketchy, but look for a global read (i.e an LEA where the second base is RIP), as that's the framework version read, then there's a MOV, then 4 calls, the third of which is our target.
                 //So as to ensure compat with 2018, ensure we have a call before this LEA.
