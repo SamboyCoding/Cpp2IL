@@ -1,3 +1,5 @@
+// #define USE_NEW_ANALYSIS_METHOD
+
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -18,19 +20,17 @@ namespace Cpp2IL.Analysis
         //Feature flags
 
         // #define DEBUG_PRINT_OPERAND_DATA
-        // #define USE_NEW_ANALYSIS_METHOD
 
-        private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefByName("System.Type").Item1;
-        private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefByName("System.String").Item1;
-        private static readonly TypeDefinition BooleanReference = Utils.TryLookupTypeDefByName("System.Boolean").Item1;
-        private static readonly TypeDefinition FloatReference = Utils.TryLookupTypeDefByName("System.Single").Item1;
-        private static readonly TypeDefinition ByteReference = Utils.TryLookupTypeDefByName("System.Byte").Item1;
-        private static readonly TypeDefinition ShortReference = Utils.TryLookupTypeDefByName("System.Int16").Item1;
-        private static readonly TypeDefinition IntegerReference = Utils.TryLookupTypeDefByName("System.Int32").Item1;
-        private static readonly TypeDefinition LongReference = Utils.TryLookupTypeDefByName("System.Int64").Item1;
-        private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefByName("System.Array").Item1;
+        private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Type");
+        private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefKnownNotGeneric("System.String");
+        private static readonly TypeDefinition BooleanReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Boolean");
+        private static readonly TypeDefinition FloatReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Single");
+        private static readonly TypeDefinition ByteReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Byte");
+        private static readonly TypeDefinition ShortReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int16");
+        private static readonly TypeDefinition IntegerReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int32");
+        private static readonly TypeDefinition LongReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int64");
+        private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Array");
 
-        private static readonly ConcurrentDictionary<ud_type, string> CachedRegNames = new ConcurrentDictionary<ud_type, string>();
         private static readonly ConcurrentDictionary<ulong, TypeDefinition> exceptionThrowerAddresses = new ConcurrentDictionary<ulong, TypeDefinition>();
 
         private readonly MethodDefinition _methodDefinition;
@@ -108,7 +108,7 @@ namespace Cpp2IL.Analysis
             _instructions = Utils.DisassembleBytes(method.MethodBytes);
 
 #if USE_NEW_ANALYSIS_METHOD
-            _analysis = new MethodAnalysis(_methodDefinition);
+            _analysis = new MethodAnalysis(_methodDefinition, _methodStart);
 #endif
         }
 
@@ -368,6 +368,7 @@ namespace Cpp2IL.Analysis
                 }
             }
 
+            Console.WriteLine("Processed " + _methodDefinition.FullName);
             typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n\n");
 
             typeDump.Append($"\n\tGenerated Pseudocode:\n\n{_psuedoCode}\n");
@@ -405,13 +406,14 @@ namespace Cpp2IL.Analysis
             switch (instruction.Mnemonic)
             {
                 case ud_mnemonic_code.UD_Iret:
+                    _analysis.Actions.Add(new ReturnFromFunctionAction(_analysis, instruction));
                     break;
             }
         }
 
         private void CheckForSingleOpInstruction(Instruction instruction)
         {
-            var reg = GetRegisterName(instruction.Operands[0]);
+            var reg = Utils.GetRegisterName(instruction.Operands[0]);
             var operand = _analysis.GetOperandInRegister(reg);
 
             switch (instruction.Mnemonic)
@@ -420,11 +422,86 @@ namespace Cpp2IL.Analysis
                     break;
                 case ud_mnemonic_code.UD_Ipop:
                     break;
-                case ud_mnemonic_code.UD_Ijmp:
+                case ud_mnemonic_code.UD_Ijmp when instruction.Operands[0].Type != ud_type.UD_OP_REG:
+                {
+                    var jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + _methodStart);
+                    if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
+                    {
+                        //Call a managed function
+                        _analysis.Actions.Add(new CallManagedFunctionAction(_analysis, instruction));
+                        _analysis.Actions.Add(new ReturnFromFunctionAction(_analysis, instruction)); //JMP is an implicit return
+                    }
                     break;
-                case ud_mnemonic_code.UD_Icall:
-                    //TODO: Split into multiple cases based on destination address for all KFAs.
+                }
+                case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type != ud_type.UD_OP_REG:
+                {
+                    var jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + _methodStart);
+
+                    if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)
+                    {
+                        //Bailout
+                        _analysis.Actions.Add(new CallBailOutAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_method)
+                    {
+                        //Init method
+                        _analysis.Actions.Add(new CallInitMethodAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
+                    {
+                        //Runtime class init
+                        _analysis.Actions.Add(new CallInitClassAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_new)
+                    {
+                        //Allocate object
+                        _analysis.Actions.Add(new AllocateInstanceAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.AddrArrayCreation)
+                    {
+                        //Allocate array
+                        _analysis.Actions.Add(new AllocateArrayAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.AddrNativeLookup)
+                    {
+                        //Lookup native method
+                        _analysis.Actions.Add(new LookupNativeFunctionAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.AddrNativeLookupGenMissingMethod)
+                    {
+                        //Throw exception because we failed to find a native method
+                        _analysis.Actions.Add(new CallNativeMethodFailureAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.AddrBoxValueMethod)
+                    {
+                        //Box a cpp primitive to a managed type
+                        _analysis.Actions.Add(new BoxValueAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.AddrSafeCastMethod)
+                    {
+                        //Safe cast an object to a type
+                        _analysis.Actions.Add(new SafeCastAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_raise_managed_exception)
+                    {
+                        //Equivalent of a throw statement
+                        _analysis.Actions.Add(new ThrowAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.AddrPInvokeLookup)
+                    {
+                        //P/Invoke lookup
+                        //TODO work out how this works
+                    }
+                    else if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
+                    {
+                        //Call a managed function
+                        _analysis.Actions.Add(new CallManagedFunctionAction(_analysis, instruction));
+                    }
+
+                    //TODO: Handle the managed throw getters.
+
                     break;
+                }
                 case ud_mnemonic_code.UD_Iinc:
                     break;
                 //TODO Conditional jumps
@@ -433,8 +510,8 @@ namespace Cpp2IL.Analysis
 
         private void CheckForTwoOpInstruction(Instruction instruction)
         {
-            var r0 = GetRegisterName(instruction.Operands[0]);
-            var r1 = GetRegisterName(instruction.Operands[1]);
+            var r0 = Utils.GetRegisterName(instruction.Operands[0]);
+            var r1 = Utils.GetRegisterName(instruction.Operands[1]);
 
             var op0 = _analysis.GetOperandInRegister(r0);
             var op1 = _analysis.GetOperandInRegister(r1);
@@ -453,6 +530,7 @@ namespace Cpp2IL.Analysis
                     return;
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_REG && r0 == "rsp" && offset1 == 0 && op1 != null:
                     //Second operand is a reg, no offset, moving into the stack = Copy reg content to stack.
+                    _analysis.Actions.Add(new StackToRegCopyAction(_analysis, instruction));
                     return;
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && op1 != null:
                 {
@@ -464,14 +542,47 @@ namespace Cpp2IL.Analysis
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && r1 == "rip":
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
-                    var isStack = r0 == "rsp";
+                    var globalAddress = _methodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+                    if (SharedState.GlobalsByOffset.TryGetValue(globalAddress, out var global))
+                    {
+                        //Have a global here.
+                        switch (global.IdentifierType)
+                        {
+                            case GlobalIdentifier.Type.TYPE:
+                                _analysis.Actions.Add(new GlobalTypeRefToConstantAction(_analysis, instruction));
+                                break;
+                            case GlobalIdentifier.Type.METHOD:
+                                _analysis.Actions.Add(new GlobalMethodRefToConstantAction(_analysis, instruction));
+                                break;
+                            case GlobalIdentifier.Type.FIELD:
+                                //needed?
+                                break;
+                            case GlobalIdentifier.Type.LITERAL:
+                                _analysis.Actions.Add(new GlobalStringRefToConstantAction(_analysis, instruction));
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        var potentialLiteral = Utils.TryGetLiteralAt(Program.ThePE, Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]));
+                        if (potentialLiteral != null)
+                        {
+                            if (r0 == "rsp")
+                                _analysis.Actions.Add(new ConstantToStackAction(_analysis, instruction));
+                            else
+                                _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
+                        }
+                    }
+
                     return;
                 }
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_IMM && offset0 == 0 && type0 == ud_type.UD_OP_REG:
                     //Constant move to reg
+                    _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
                     return;
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_IMM && offset0 != 0 && type0 != ud_type.UD_OP_REG:
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_IMM && offset0 != 0 && type0 != ud_type.UD_OP_REG && r0 != "rip":
                     //Constant move to field
+                    _analysis.Actions.Add(new ConstantToFieldAction(_analysis, instruction));
                     return;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO Arithmetic
@@ -482,6 +593,7 @@ namespace Cpp2IL.Analysis
                 case ud_mnemonic_code.UD_Itest:
                 case ud_mnemonic_code.UD_Icmp:
                     //Condition
+                    _analysis.Actions.Add(new ComparisonAction(_analysis, instruction));
                     break;
             }
         }
@@ -509,7 +621,6 @@ namespace Cpp2IL.Analysis
                 return;
             }
 #else
-
             //Detect field writes
             CheckForFieldWrites(instruction);
 
@@ -814,21 +925,6 @@ namespace Cpp2IL.Analysis
             return reg;
         }
 
-        private string GetRegisterName(Operand operand)
-        {
-            var theBase = operand.Base;
-
-            if (theBase == ud_type.UD_NONE) return "";
-
-            if (!CachedRegNames.TryGetValue(theBase, out var ret))
-            {
-                ret = Utils.UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
-                CachedRegNames[theBase] = ret;
-            }
-
-            return ret;
-        }
-
         private List<string> DetectPotentialLoops(List<Instruction> instructions)
         {
             return instructions
@@ -840,7 +936,7 @@ namespace Cpp2IL.Analysis
 
         private (string, TypeDefinition?, object) GetDetailsOfReferencedObject(Operand operand, Instruction i)
         {
-            var sourceReg = GetRegisterName(operand);
+            var sourceReg = Utils.GetRegisterName(operand);
             string objectName = null;
             TypeDefinition objectType = null;
             object constant = null;
@@ -919,7 +1015,7 @@ namespace Cpp2IL.Analysis
                     if (operand.Base == ud_type.UD_R_RIP)
                     {
                         var globalAddr = Utils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
-                        if (SharedState.GlobalsDict.TryGetValue(globalAddr, out var glob))
+                        if (SharedState.GlobalsByOffset.TryGetValue(globalAddr, out var glob))
                         {
                             if (glob.IdentifierType == GlobalIdentifier.Type.LITERAL)
                             {
@@ -965,7 +1061,7 @@ namespace Cpp2IL.Analysis
         {
             if (operand.Type != ud_type.UD_OP_MEM || operand.Base == ud_type.UD_R_RIP) return null;
 
-            var sourceReg = GetRegisterName(operand);
+            var sourceReg = Utils.GetRegisterName(operand);
             var offset = Utils.GetOperandMemoryOffset(operand);
 
             if (offset == 0 && _registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is FieldDefinition fld)
@@ -1110,14 +1206,14 @@ namespace Cpp2IL.Analysis
                         (secondArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
                         break;
                     case 2:
-                        destReg = GetRegisterName(instruction.Operands[0]);
+                        destReg = Utils.GetRegisterName(instruction.Operands[0]);
                         (firstArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[0], instruction);
                         (secondArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
                         // firstSourceReg = GetRegisterName(instruction.Operands[0]);
                         // secondSourceReg = GetRegisterName(instruction.Operands[1]);
                         break;
                     case 3:
-                        destReg = GetRegisterName(instruction.Operands[0]);
+                        destReg = Utils.GetRegisterName(instruction.Operands[0]);
                         // firstSourceReg = GetRegisterName(instruction.Operands[1]);
                         // secondSourceReg = GetRegisterName(instruction.Operands[2]);
                         (firstArgName, _, _) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
@@ -1149,7 +1245,7 @@ namespace Cpp2IL.Analysis
             if (instruction.Operands.Length < 2) return;
 
             //RSP operations are special cases
-            if (GetRegisterName(instruction.Operands[0]) == "rsp")
+            if (Utils.GetRegisterName(instruction.Operands[0]) == "rsp")
             {
                 var (_, _, a) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
 
@@ -1217,7 +1313,7 @@ namespace Cpp2IL.Analysis
                     var localName = $"local{_localNum}";
                     _localNum++;
 
-                    var destReg = GetRegisterName(instruction.Operands[0]);
+                    var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
                     _registerAliases[destReg] = localName;
                     _registerTypes[destReg] = LongReference;
@@ -1243,7 +1339,7 @@ namespace Cpp2IL.Analysis
                     var localName = $"local{_localNum}";
                     _localNum++;
 
-                    var destReg = GetRegisterName(instruction.Operands[0]);
+                    var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
                     _registerAliases[destReg] = localName;
                     _registerTypes[destReg] = LongReference;
@@ -1266,7 +1362,7 @@ namespace Cpp2IL.Analysis
 
             if (instruction.Operands.Length != 1) return;
 
-            var reg = GetRegisterName(instruction.Operands[0]);
+            var reg = Utils.GetRegisterName(instruction.Operands[0]);
 
             _registerTypes.TryGetValue(reg, out var regType);
             _registerAliases.TryGetValue(reg, out var regAlias);
@@ -1285,7 +1381,7 @@ namespace Cpp2IL.Analysis
             //First/destination has to be a memory offset
             if (instruction.Operands[0].Type != ud_type.UD_OP_MEM) return;
 
-            var destReg = GetRegisterName(instruction.Operands[0]);
+            var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
             _registerAliases.TryGetValue(destReg, out var destAlias);
             var destinationField = GetFieldReferencedByOperand(instruction.Operands[0]);
@@ -1349,7 +1445,7 @@ namespace Cpp2IL.Analysis
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Set {destinationFullyQualifiedName} (type {destinationType.FullName}) to {sourceAlias} (type {sourceType?.FullName})");
 
             //Either directly assignable, or is an array that the base type matches and the constant contains array data. Eugh. Damn you cecil for making this required.
-            if (!destinationType.IsAssignableFrom(sourceType) && (!(destinationType is ArrayType arr) || !arr.GetElementType().IsAssignableFrom(sourceType) || !_registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var cons) || !(cons is ArrayData)))
+            if (!destinationType.IsAssignableFrom(sourceType) && (!(destinationType is ArrayType arr) || !arr.GetElementType().IsAssignableFrom(sourceType) || !_registerContents.TryGetValue(Utils.GetRegisterName(instruction.Operands[1]), out var cons) || !(cons is ArrayData)))
             {
                 _typeDump.Append($" ; - Field type mismatch, {destinationType.FullName} is not assignable from {sourceType?.FullName}");
                 TaintMethod(TaintReason.FIELD_TYPE_MISMATCH);
@@ -1376,7 +1472,7 @@ namespace Cpp2IL.Analysis
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Ilea)
                 {
                     //Register now has a pointer to the stack
-                    var destReg = GetRegisterName(instruction.Operands[0]);
+                    var destReg = Utils.GetRegisterName(instruction.Operands[0]);
                     _typeDump.Append($" ; - Move reference to value in stack at offset 0x{stackOffset:X} to reg {destReg}");
 
                     _registerAliases[destReg] = $"stackPtr_0x{stackOffset:X}";
@@ -1392,7 +1488,7 @@ namespace Cpp2IL.Analysis
                 else if (_moveOpcodes.Contains(instruction.Mnemonic))
                 {
                     //Register now has the value from the stack
-                    var destReg = GetRegisterName(instruction.Operands[0]);
+                    var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
                     var key = _stackAliases.ContainsKey(stackOffset) ? _stackAliases[stackOffset] : $"unknown_stack_val_0x{stackOffset:X}";
 
@@ -1418,7 +1514,7 @@ namespace Cpp2IL.Analysis
             }
 
             //Klass pointers
-            if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klass)
+            if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(Utils.GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klass)
             {
                 if (offset >= 0x128)
                 {
@@ -1454,7 +1550,7 @@ namespace Cpp2IL.Analysis
                             //TODO END
 
                             _typeDump.Append($" ; - looks up InterfaceOffsetPairs for type {klass.backingType.FullName} - which is {il2cppTypeDef.InterfaceOffsets.ToStringEnumerable()}.");
-                            var destReg = GetRegisterName(instruction.Operands[0]);
+                            var destReg = Utils.GetRegisterName(instruction.Operands[0]);
                             _registerContents[destReg] = new InterfaceOffsetPairList
                             {
                                 backingKlassPointer = klass
@@ -1470,7 +1566,7 @@ namespace Cpp2IL.Analysis
             //Check for field read
             var field = GetFieldReferencedByOperand(instruction.Operands[1]);
 
-            var sourceReg = GetRegisterName(instruction.Operands[1]);
+            var sourceReg = Utils.GetRegisterName(instruction.Operands[1]);
 
             if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0)
             {
@@ -1485,7 +1581,7 @@ namespace Cpp2IL.Analysis
                 //Compares don't create locals
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Icmp || instruction.Mnemonic == ud_mnemonic_code.UD_Itest) return;
 
-                var destReg = GetRegisterName(instruction.Operands[0]);
+                var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
                 CreateLocalFromField(sourceReg, field, destReg);
             }
@@ -1502,7 +1598,7 @@ namespace Cpp2IL.Analysis
 
                         var result = constant + fieldReadOffset;
 
-                        var destReg = GetRegisterName(instruction.Operands[0]);
+                        var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
                         _typeDump.Append($" ; - Move of constant value {{result}} into {destReg}");
 
@@ -1587,7 +1683,7 @@ namespace Cpp2IL.Analysis
                             if (arrayIndex == arrayLength)
                             {
                                 //Accessing one more value than we have is used to get the type of the array
-                                var destReg = GetRegisterName(instruction.Operands[0]);
+                                var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
                                 _registerTypes[destReg] = TypeReference;
                                 _registerAliases[destReg] = $"local{_localNum}";
@@ -1602,7 +1698,7 @@ namespace Cpp2IL.Analysis
                             }
                             else if (arrayIndex < arrayLength)
                             {
-                                var destReg = GetRegisterName(instruction.Operands[0]);
+                                var destReg = Utils.GetRegisterName(instruction.Operands[0]);
                                 _registerAliases.TryGetValue(sourceReg, out var arrayAlias);
                                 _typeDump.Append($" ; - reads the value at index {arrayIndex} into the array {arrayAlias} stored in {sourceReg}");
 
@@ -1619,7 +1715,7 @@ namespace Cpp2IL.Analysis
                             else if (arrayIndex == 0x18)
                             {
                                 //Array length 
-                                var destReg = GetRegisterName(instruction.Operands[0]);
+                                var destReg = Utils.GetRegisterName(instruction.Operands[0]);
 
                                 _registerAliases[destReg] = $"local{_localNum}";
                                 _registerTypes[destReg] = IntegerReference;
@@ -1729,7 +1825,7 @@ namespace Cpp2IL.Analysis
             //And both must be the same
             if (instruction.Operands[0].Base != instruction.Operands[1].Base) return;
 
-            var reg = GetRegisterName(instruction.Operands[1]);
+            var reg = Utils.GetRegisterName(instruction.Operands[1]);
 
             _typeDump.Append($" ; zero out register {reg}");
 
@@ -1776,8 +1872,8 @@ namespace Cpp2IL.Analysis
             //Must be some sort of move
             if (!_moveOpcodes.Contains(instruction.Mnemonic)) return;
 
-            var destReg = GetRegisterName(instruction.Operands[0]);
-            var sourceReg = GetRegisterName(instruction.Operands[1]);
+            var destReg = Utils.GetRegisterName(instruction.Operands[0]);
+            var sourceReg = Utils.GetRegisterName(instruction.Operands[1]);
             var isStack = destReg == "rsp";
             var stackAddr = isStack ? Utils.GetOperandMemoryOffset(instruction.Operands[0]) : -1;
 
@@ -1889,7 +1985,7 @@ namespace Cpp2IL.Analysis
                     if (offset == 0) break;
                     var addr = _methodStart + offset;
                     _typeDump.Append($"; - Read on memory location 0x{addr:X}");
-                    if (SharedState.GlobalsDict.TryGetValue(addr, out var glob))
+                    if (SharedState.GlobalsByOffset.TryGetValue(addr, out var glob))
                     {
                         _typeDump.Append($" - this is global value {glob.Name} of type {glob.IdentifierType}");
                         _registerAliases[destReg] = $"global_{glob.IdentifierType}_{glob.Name}";
@@ -2011,7 +2107,7 @@ namespace Cpp2IL.Analysis
             //Must be a register we're calling
             if (instruction.Operands[0].Type != ud_type.UD_OP_REG) return;
 
-            var register = GetRegisterName(instruction.Operands[0]);
+            var register = Utils.GetRegisterName(instruction.Operands[0]);
 
             _typeDump.Append($" ; - jumps to contents of register {register}");
 
@@ -2037,7 +2133,7 @@ namespace Cpp2IL.Analysis
 
             if (instruction.Operands[0].Type == ud_type.UD_OP_MEM && instruction.Operands[0].Base != ud_type.UD_R_RIP)
             {
-                if (_registerContents.TryGetValue(GetRegisterName(instruction.Operands[0]), out var con) && con is Il2CppClassIdentifier)
+                if (_registerContents.TryGetValue(Utils.GetRegisterName(instruction.Operands[0]), out var con) && con is Il2CppClassIdentifier)
                 {
                     //Call to a Vtable func on a klass pointer
 
@@ -2560,11 +2656,11 @@ namespace Cpp2IL.Analysis
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Icmp && instruction.Mnemonic != ud_mnemonic_code.UD_Itest && instruction.Mnemonic != ud_mnemonic_code.UD_Iucomiss && instruction.Mnemonic != ud_mnemonic_code.UD_Icomiss) return;
 
             //Just a special-case test here for interface lookup code:
-            if (instruction.Operands[0] is {} firstOp && firstOp.Type == ud_type.UD_OP_MEM && GetRegisterName(instruction.Operands[0]) is {} firstReg && _registerContents.TryGetValue(firstReg, out var con) && con is InterfaceOffsetPairList
+            if (instruction.Operands[0] is {} firstOp && firstOp.Type == ud_type.UD_OP_MEM && Utils.GetRegisterName(instruction.Operands[0]) is {} firstReg && _registerContents.TryGetValue(firstReg, out var con) && con is InterfaceOffsetPairList
                 && firstOp.Index > ud_type.UD_NONE && firstOp.Scale == 8)
             {
                 //InterfaceOffset + reg * 8 => we have our interface name resolution in operand 1
-                var name = GetRegisterName(instruction.Operands[1]);
+                var name = Utils.GetRegisterName(instruction.Operands[1]);
                 if (_registerContents.TryGetValue(name, out var secondCon) && secondCon is GlobalIdentifier && _registerTypes.TryGetValue(name, out var interfaceType))
                 {
                     interfaceOffsetTargetInterface = interfaceType;
@@ -2575,7 +2671,7 @@ namespace Cpp2IL.Analysis
             //Compiler generated weirdness. I hate it.
             if (instruction.Mnemonic == ud_mnemonic_code.UD_Icmp && instruction.Operands[1].Type == ud_type.UD_OP_IMM && GetFieldReferencedByOperand(instruction.Operands[0]) is { } field && Utils.GetImmediateValue(instruction, instruction.Operands[1]) == 0)
             {
-                var registerName = GetRegisterName(instruction.Operands[0]);
+                var registerName = Utils.GetRegisterName(instruction.Operands[0]);
                 if (_registerAliases.ContainsKey(registerName))
                     CreateLocalFromField(registerName, field, "rax");
             }
@@ -2801,7 +2897,7 @@ namespace Cpp2IL.Analysis
             //Needs to be an INC
             if (instruction.Mnemonic != ud_mnemonic_code.UD_Iinc) return;
 
-            var register = GetRegisterName(instruction.Operands[0]);
+            var register = Utils.GetRegisterName(instruction.Operands[0]);
             _registerAliases.TryGetValue(register, out var alias);
             if (alias == null)
                 alias = $"the value in register {register}";

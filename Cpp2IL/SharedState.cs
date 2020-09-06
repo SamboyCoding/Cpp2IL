@@ -29,6 +29,6 @@ namespace Cpp2IL
         
         //Globals
         internal static readonly List<GlobalIdentifier> Globals = new List<GlobalIdentifier>();
-        internal static readonly Dictionary<ulong, GlobalIdentifier> GlobalsDict = new Dictionary<ulong, GlobalIdentifier>();
+        internal static readonly Dictionary<ulong, GlobalIdentifier> GlobalsByOffset = new Dictionary<ulong, GlobalIdentifier>();
     }
 }

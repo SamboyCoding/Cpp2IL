@@ -8,6 +8,7 @@ namespace Cpp2IL
 {
     public class KeyFunctionAddresses
     {
+        public ulong il2cpp_vm_metadatacache_initializemethodmetadata;
         public ulong il2cpp_codegen_initialize_method;
         public ulong il2cpp_vm_object_new;
         public ulong AddrBailOutFunction;
@@ -368,6 +369,20 @@ namespace Cpp2IL
                         ret.il2cpp_codegen_initialize_method = potentialCIM;
                         ret.il2cpp_codegen_object_new = potentialCON;
                         ret.il2cpp_raise_managed_exception = potentialRME;
+                        
+                        //Sometimes this CIM pointer actually points at vm::MetadataCache::InitializeMethodMetadata
+                        var cimMethodBody = Utils.GetMethodBodyAtRawAddress(Program.ThePE, (ulong) Program.ThePE.MapVirtualAddressToRaw(ret.il2cpp_codegen_initialize_method), true);
+                        if (cimMethodBody[0].Mnemonic == ud_mnemonic_code.UD_Ijmp)
+                        {
+                            //We have the actual cim, and the jump target is MC::IMM
+                            ret.il2cpp_vm_metadatacache_initializemethodmetadata = Utils.GetJumpTarget(cimMethodBody[0], cimMethodBody[0].PC + ret.il2cpp_codegen_initialize_method);
+                        }
+                        else
+                        {
+                            //We have MC::IMM
+                            ret.il2cpp_vm_metadatacache_initializemethodmetadata = ret.il2cpp_codegen_initialize_method;
+                            ret.il2cpp_codegen_initialize_method = 0;
+                        }
 
                         Console.WriteLine("\t\t\t\tObtained 3 pointers, to il2cpp_codegen_initialize_method, il2cpp_codegen_object_new, and il2cpp_raise_managed_exception");
                     }

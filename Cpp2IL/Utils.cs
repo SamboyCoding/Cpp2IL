@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -527,6 +528,11 @@ namespace Cpp2IL
             return num1 + insn.PC;
         }
 
+        public static TypeDefinition TryLookupTypeDefKnownNotGeneric(string? name)
+        {
+            return TryLookupTypeDefByName(name).Item1;
+        }
+
         public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string? name)
         {
             if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
@@ -764,7 +770,7 @@ namespace Cpp2IL
         public static string? TryGetLiteralAt(PE.PE theDll, ulong addr)
         {
             var c = Convert.ToChar(theDll.raw[addr]);
-            if (Char.IsLetter(c) && c < 'z') //includes uppercase
+            if (char.IsLetter(c) && c < 'z') //includes uppercase
             {
                 var isUnicode = theDll.raw[addr + 1] == 0;
                 var literal = new StringBuilder();
@@ -846,6 +852,23 @@ namespace Cpp2IL
                 default:
                     return original;
             }
+        }
+
+        private static readonly ConcurrentDictionary<ud_type, string> CachedRegNames = new ConcurrentDictionary<ud_type, string>();
+
+        public static string GetRegisterName(Operand operand)
+        {
+            var theBase = operand.Base;
+
+            if (theBase == ud_type.UD_NONE) return "";
+
+            if (!CachedRegNames.TryGetValue(theBase, out var ret))
+            {
+                ret = Utils.UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+                CachedRegNames[theBase] = ret;
+            }
+
+            return ret;
         }
     }
 }

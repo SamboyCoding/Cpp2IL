@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.Actions;
 using Mono.Cecil;
@@ -11,14 +12,17 @@ namespace Cpp2IL.Analysis.ResultModels
         public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
         public readonly List<BaseAction> Actions = new List<BaseAction>();
 
+        internal ulong MethodStart;
+
         private MethodDefinition _method;
 
         private readonly Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
         private readonly Dictionary<int, IAnalysedOperand> StackData = new Dictionary<int, IAnalysedOperand>();
 
-        internal MethodAnalysis(MethodDefinition method)
+        internal MethodAnalysis(MethodDefinition method, ulong methodStart)
         {
             _method = method;
+            MethodStart = methodStart;
             
             //Set up parameters in registers & as locals.
             var regList = new List<string> {"rcx", "rdx", "r8", "r9"};
@@ -59,6 +63,23 @@ namespace Cpp2IL.Analysis.ResultModels
                 RegisterData[reg] = local;
 
             return local;
+        }
+
+        public ConstantDefinition MakeConstant(Type type, object value, string? name = null, string? reg = null)
+        {
+            var constant = new ConstantDefinition
+            {
+                Name = name ?? $"constant{Constants.Count}",
+                Type = type,
+                Value = value
+            };
+            
+            Constants.Add(constant);
+
+            if (reg != null)
+                RegisterData[reg] = constant;
+
+            return constant;
         }
 
         public IAnalysedOperand PushToStack(IAnalysedOperand operand, int pos)

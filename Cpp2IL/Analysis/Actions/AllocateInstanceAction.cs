@@ -7,12 +7,16 @@ namespace Cpp2IL.Analysis.Actions
     /// <summary>
     /// Used for error-checking, doesn't generate any pseudocode or IL
     /// </summary>
-    public class ActionAllocateInstance : BaseAction
+    public class AllocateInstanceAction : BaseAction
     {
         public TypeDefinition TypeCreated;
         
-        public ActionAllocateInstance(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public AllocateInstanceAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            var constant = context.GetConstantInReg("rcx");
+            if (constant == null || constant.Type != typeof(TypeDefinition)) return;
+
+            TypeCreated = (TypeDefinition) constant.Value;
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -27,7 +31,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            throw new System.NotImplementedException();
+            return $"Allocates an instance of type {TypeCreated}";
         }
     }
 }

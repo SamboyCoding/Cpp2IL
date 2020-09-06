@@ -91,6 +91,7 @@ namespace Cpp2IL
                             metadata.GetStringFromIndex(nested.nameIndex), (TypeAttributes) nested.flags);
 
                         definition.NestedTypes.Add(nestedDef);
+                        SharedState.AllTypeDefinitions.Add(nestedDef);
                         SharedState.TypeDefsByIndex.Add(nestedIndex, nestedDef);
                     }
                 }

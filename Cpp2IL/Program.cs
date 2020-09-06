@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Runtime;
@@ -11,22 +12,24 @@ using CommandLine;
 using Cpp2IL.Analysis;
 using Cpp2IL.Metadata;
 using Cpp2IL.PE;
-using Microsoft.Win32;
 using Mono.Cecil;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 
 namespace Cpp2IL
 {
+    [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
     internal class Program
     {
+        [SuppressMessage("ReSharper", "NotNullMemberIsNotInitialized")]
+        [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
         internal class Options
         {
             [Option("game-path", Required = true, HelpText = "Specify path to the game folder (containing the exe)")]
             public string GamePath { get; set; }
 
             [Option("exe-name", Required = false, HelpText = "Specify an override for the unity executable name in case the auto-detection doesn't work.")]
-            public string ExeName { get; set; }
+            public string? ExeName { get; set; }
 
             [Option("skip-analysis", Required = false, HelpText = "Skip the analysis section and stop once DummyDLLs have been generated.")]
             public bool SkipAnalysis { get; set; }
@@ -46,8 +49,8 @@ namespace Cpp2IL
 
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         internal static Il2CppMetadata? Metadata;
-        internal static PE.PE ThePE;
-        internal static Options CommandLineOptions;
+        internal static PE.PE? ThePE;
+        internal static Options? CommandLineOptions;
 
         public static void PrintUsage()
         {
@@ -68,33 +71,6 @@ namespace Cpp2IL
                 Console.WriteLine("Invalid command line. Exiting.");
                 return;
             }
-
-            string loc;
-
-            //TODO: No longer needed
-            // if (Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT)
-            // {
-            //     loc = Registry.GetValue(
-            //         "HKEY_LOCAL_MACHINE\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\Uninstall\\Steam App 1020340",
-            //         "InstallLocation", null) as string;
-            // }
-            // else if (Environment.OSVersion.Platform == PlatformID.Unix)
-            // {
-            //     // $HOME/.local/share/Steam/steamapps/common/Audica
-            //     loc = Environment.GetEnvironmentVariable("HOME") + "/.local/share/Steam/steamapps/common/Audica";
-            // }
-            // else
-            // {
-            //     loc = null;
-            // }
-            //
-            // if (args.Length != 1 && loc == null)
-            // {
-            //     Console.WriteLine(
-            //         "Couldn't auto-detect Audica installation folder (via steam), and you didn't tell me where it is.");
-            //     PrintUsage();
-            //     return;
-            // }
 
             var baseGamePath = CommandLineOptions.GamePath;
 
@@ -176,6 +152,11 @@ namespace Cpp2IL
 
             Console.WriteLine("Reading metadata...");
             Metadata = Il2CppMetadata.ReadFrom(metadataPath, unityVerUseful);
+
+            if (Metadata == null)
+            {
+                return;
+            }
 
             Console.WriteLine($"Reading binary / game assembly file {assemblyPath}...");
             var PEBytes = File.ReadAllBytes(assemblyPath);
@@ -293,7 +274,7 @@ namespace Cpp2IL
                 SharedState.Globals.AddRange(globals);
 
                 foreach (var globalIdentifier in globals)
-                    SharedState.GlobalsDict[globalIdentifier.Offset] = globalIdentifier;
+                    SharedState.GlobalsByOffset[globalIdentifier.Offset] = globalIdentifier;
 
                 Console.WriteLine("\tPass 6: Looking for key functions...");
 
@@ -337,7 +318,6 @@ namespace Cpp2IL
                 Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
                 //Write methods
 
-                var imageIndex = Assemblies.IndexOf(assembly);
                 var allUsedMnemonics = new List<ud_mnemonic_code>();
 
                 var counter = 0;
@@ -388,11 +368,13 @@ namespace Cpp2IL
 
                             foreach (var method in methodData)
                             {
-                                var methodDef = Metadata.methodDefs[method.MethodId];
                                 var methodStart = method.MethodOffsetRam;
+                                
+                                if(methodStart == 0) continue;
+                                
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
-                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses, ThePE)
+                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, ThePE)
                                     .AnalyzeMethod(typeDump, ref allUsedMnemonics);
 
                                 var key = new StringBuilder();
@@ -452,10 +434,10 @@ namespace Cpp2IL
                         .GroupBy(
                             GetPackageName,
                             className => className,
-                            (packageName, keys) => new
+                            (packageName, classEnumerable) => new
                             {
                                 package = packageName,
-                                classes = keys.ToList()
+                                classes = classEnumerable.ToList()
                             })
                         .ToList();
 
