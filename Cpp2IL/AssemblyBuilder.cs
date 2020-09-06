@@ -70,7 +70,12 @@ namespace Cpp2IL
                     {
                         //This is a new type so ensure it's registered
                         definition = new TypeDefinition(ns, name, (TypeAttributes) type.flags);
+                        if (ns == "System" && name == "String")
+                        {
+                            typeof(TypeReference).GetField("etype", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(definition, (byte) 0x0e); //mark as string
+                        }
                         mainModule.Types.Add(definition);
+                        SharedState.AllTypeDefinitions.Add(definition);
                         SharedState.TypeDefsByIndex.Add(defNumber, definition);
                     }
 
@@ -130,12 +135,12 @@ namespace Cpp2IL
             var defaultConstructor = new MethodDefinition(
                 ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
-                module.ImportReference(typeof(void))
+                module.ImportReference(Utils.TryLookupTypeDefByName("System.Void").Item1)
             );
 
             var processor = defaultConstructor.Body.GetILProcessor();
-            processor.Emit(OpCodes.Ldarg_0);
-            processor.Emit(OpCodes.Call, module.ImportReference(typeof(Attribute).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0]));
+            // processor.Emit(OpCodes.Ldarg_0);
+            // processor.Emit(OpCodes.Call, module.ImportReference(Utils.TryLookupTypeDefByName("System.Attribute").Item1.GetConstructors().First()));
             processor.Emit(OpCodes.Ret);
 
             typeDefinition.Methods.Add(defaultConstructor);
@@ -146,8 +151,8 @@ namespace Cpp2IL
             //From il2cppdumper. Credit perfare
             var namespaceName = "Cpp2IlInjected";
 
-            var stringTypeReference = imageDef.MainModule.ImportReference(typeof(string));
-            var attributeTypeReference = imageDef.MainModule.ImportReference(typeof(Attribute));
+            var stringTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefByName("System.String").Item1);
+            var attributeTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefByName("System.Attribute").Item1);
 
             var addressAttribute = new TypeDefinition(namespaceName, "AddressAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
             addressAttribute.Fields.Add(new FieldDefinition("RVA", FieldAttributes.Public, stringTypeReference));
@@ -197,7 +202,6 @@ namespace Cpp2IL
             {
                 var typeDef = metadata.typeDefs[index];
                 var typeDefinition = SharedState.TypeDefsByIndex[index];
-                SharedState.AllTypeDefinitions.Add(typeDefinition);
                 SharedState.MonoToCppTypeDefs[typeDefinition] = typeDef;
 
                 methods.Add((type: typeDefinition, methods: ProcessTypeContents(metadata, theDll, typeDef, typeDefinition, imageDef)));
@@ -224,7 +228,7 @@ namespace Cpp2IL
             var attributeAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AttributeAttribute").Methods[0];
             var metadataOffsetAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "MetadataOffsetAttribute").Methods[0];
             var tokenAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "TokenAttribute").Methods[0];
-            var stringType = ilTypeDefinition.Module.ImportReference(typeof(string));
+            var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefByName("System.String").Item1);
 
             //Token attribute
             var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
@@ -305,7 +309,7 @@ namespace Cpp2IL
                 var methodReturnType = cppAssembly.types[methodDef.returnType];
                 var methodName = metadata.GetStringFromIndex(methodDef.nameIndex);
                 var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags,
-                    ilTypeDefinition.Module.ImportReference(typeof(void)));
+                    ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefByName("System.Void").Item1));
 
                 var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
 

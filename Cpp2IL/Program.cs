@@ -24,20 +24,21 @@ namespace Cpp2IL
         {
             [Option("game-path", Required = true, HelpText = "Specify path to the game folder (containing the exe)")]
             public string GamePath { get; set; }
-            
+
             [Option("exe-name", Required = false, HelpText = "Specify an override for the unity executable name in case the auto-detection doesn't work.")]
             public string ExeName { get; set; }
-            
+
             [Option("skip-analysis", Required = false, HelpText = "Skip the analysis section and stop once DummyDLLs have been generated.")]
             public bool SkipAnalysis { get; set; }
-            
+
             [Option("skip-metadata-txts", Required = false, HelpText = "Skip the generation of [classname]_metadata.txt files.")]
             public bool SkipMetadataTextFiles { get; set; }
         }
-        
+
         public static float MetadataVersion = 24f;
 
-        private static readonly string[] blacklistedExecutableFilenames = {
+        private static readonly string[] blacklistedExecutableFilenames =
+        {
             "UnityCrashHandler.exe",
             "UnityCrashHandler64.exe",
             "install.exe"
@@ -60,10 +61,7 @@ namespace Cpp2IL
             Console.WriteLine("Running on " + Environment.OSVersion.Platform);
 
             CommandLineOptions = null;
-            Parser.Default.ParseArguments<Options>(args).WithParsed(options =>
-            {
-                CommandLineOptions = options;
-            });
+            Parser.Default.ParseArguments<Options>(args).WithParsed(options => { CommandLineOptions = options; });
 
             if (CommandLineOptions == null)
             {
@@ -72,7 +70,7 @@ namespace Cpp2IL
             }
 
             string loc;
-            
+
             //TODO: No longer needed
             // if (Environment.OSVersion.Platform == PlatformID.Win32Windows || Environment.OSVersion.Platform == PlatformID.Win32NT)
             // {
@@ -112,7 +110,7 @@ namespace Cpp2IL
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
             var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
                 .First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
-            
+
             if (CommandLineOptions.ExeName != null)
             {
                 exeName = CommandLineOptions.ExeName;
@@ -122,7 +120,7 @@ namespace Cpp2IL
             {
                 Console.WriteLine($"Auto-detected game name: {exeName}");
             }
-            
+
             var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
             var metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata",
                 "global-metadata.dat");
@@ -136,10 +134,10 @@ namespace Cpp2IL
                 PrintUsage();
                 return;
             }
-            
+
             Console.WriteLine($"Located game EXE: {unityPlayerPath}");
             Console.WriteLine($"Located global-metadata: {metadataPath}");
-            
+
             Console.WriteLine("\nAttempting to determine Unity version...");
 
             int[] unityVerUseful;
@@ -161,7 +159,7 @@ namespace Cpp2IL
                     verString.Append(Convert.ToChar(ggmBytes[idx]));
                     idx++;
                 }
-                
+
                 var unityVer = verString.ToString();
                 unityVer = unityVer.Substring(0, unityVer.IndexOf("f", StringComparison.Ordinal));
                 Console.WriteLine("Read version string from globalgamemanagers: " + unityVer);
@@ -217,9 +215,16 @@ namespace Cpp2IL
             Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
 
             var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
+
             for (var imageIndex = 0; imageIndex < Metadata.assemblyDefinitions.Length; imageIndex++)
             {
-                Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {Metadata.assemblyDefinitions.Length}...");
+                var imageDef = Metadata.assemblyDefinitions[imageIndex];
+                var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
+                var currentAssembly = firstTypeDefinition.Module.Assembly;
+
+                Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {Metadata.assemblyDefinitions.Length}: {currentAssembly.Name}...");
+
+
                 methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(Metadata, ThePE, Metadata.assemblyDefinitions[imageIndex]));
             }
 
