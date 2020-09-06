@@ -325,6 +325,10 @@ namespace Cpp2IL
             {
                 var dllPath = Path.Combine(outputPath, assembly.MainModule.Name);
 
+                var reference = assembly.MainModule.AssemblyReferences.FirstOrDefault(a => a.Name == "System.Private.CoreLib");
+                if(reference != null)
+                    assembly.MainModule.AssemblyReferences.Remove(reference);
+                
                 assembly.Write(dllPath);
 
                 if (assembly.Name.Name != "Assembly-CSharp" || CommandLineOptions.SkipAnalysis) continue;
