@@ -67,6 +67,7 @@ namespace Cpp2IL
 
             if (CommandLineOptions == null)
             {
+                Console.WriteLine("Invalid command line. Exiting.");
                 return;
             }
 
@@ -162,7 +163,7 @@ namespace Cpp2IL
                 }
                 
                 var unityVer = verString.ToString();
-                unityVer = unityVer.Substring(0, unityVer.IndexOf("f"));
+                unityVer = unityVer.Substring(0, unityVer.IndexOf("f", StringComparison.Ordinal));
                 Console.WriteLine("Read version string from globalgamemanagers: " + unityVer);
                 unityVerUseful = unityVer.Split(".").Select(int.Parse).ToArray();
             }

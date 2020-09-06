@@ -665,5 +665,10 @@ namespace Cpp2IL.PE
 
             return functionPointer + imageBase;
         }
+
+        public ulong GetRVA(ulong pointer)
+        {
+            return pointer - imageBase;
+        }
     }
 }

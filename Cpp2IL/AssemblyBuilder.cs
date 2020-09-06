@@ -2,12 +2,20 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Cpp2IL.Analysis;
 using Cpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using CustomAttributeNamedArgument = Mono.Cecil.CustomAttributeNamedArgument;
+using EventAttributes = Mono.Cecil.EventAttributes;
+using FieldAttributes = Mono.Cecil.FieldAttributes;
+using MethodAttributes = Mono.Cecil.MethodAttributes;
+using ParameterAttributes = Mono.Cecil.ParameterAttributes;
+using PropertyAttributes = Mono.Cecil.PropertyAttributes;
+using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace Cpp2IL
 {
@@ -116,13 +124,71 @@ namespace Cpp2IL
             }
         }
 
+        private static void CreateDefaultConstructor(TypeDefinition typeDefinition)
+        {
+            var module = typeDefinition.Module;
+            var defaultConstructor = new MethodDefinition(
+                ".ctor",
+                MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+                module.ImportReference(typeof(void))
+            );
+
+            var processor = defaultConstructor.Body.GetILProcessor();
+            processor.Emit(OpCodes.Ldarg_0);
+            processor.Emit(OpCodes.Call, module.ImportReference(typeof(Attribute).GetConstructors(BindingFlags.NonPublic | BindingFlags.Instance)[0]));
+            processor.Emit(OpCodes.Ret);
+
+            typeDefinition.Methods.Add(defaultConstructor);
+        }
+
+        private static void InjectCustomAttributes(AssemblyDefinition imageDef)
+        {
+            //From il2cppdumper. Credit perfare
+            var namespaceName = "Cpp2IlInjected";
+
+            var stringTypeReference = imageDef.MainModule.ImportReference(typeof(string));
+            var attributeTypeReference = imageDef.MainModule.ImportReference(typeof(Attribute));
+
+            var addressAttribute = new TypeDefinition(namespaceName, "AddressAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
+            addressAttribute.Fields.Add(new FieldDefinition("RVA", FieldAttributes.Public, stringTypeReference));
+            addressAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
+            addressAttribute.Fields.Add(new FieldDefinition("VA", FieldAttributes.Public, stringTypeReference));
+            addressAttribute.Fields.Add(new FieldDefinition("Slot", FieldAttributes.Public, stringTypeReference));
+            imageDef.MainModule.Types.Add(addressAttribute);
+            CreateDefaultConstructor(addressAttribute);
+
+            var fieldOffsetAttribute = new TypeDefinition(namespaceName, "FieldOffsetAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
+            fieldOffsetAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
+            imageDef.MainModule.Types.Add(fieldOffsetAttribute);
+            CreateDefaultConstructor(fieldOffsetAttribute);
+
+            var attributeAttribute = new TypeDefinition(namespaceName, "AttributeAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
+            attributeAttribute.Fields.Add(new FieldDefinition("Name", FieldAttributes.Public, stringTypeReference));
+            attributeAttribute.Fields.Add(new FieldDefinition("RVA", FieldAttributes.Public, stringTypeReference));
+            attributeAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
+            imageDef.MainModule.Types.Add(attributeAttribute);
+            CreateDefaultConstructor(attributeAttribute);
+
+            var metadataOffsetAttribute = new TypeDefinition(namespaceName, "MetadataOffsetAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
+            metadataOffsetAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
+            imageDef.MainModule.Types.Add(metadataOffsetAttribute);
+            CreateDefaultConstructor(metadataOffsetAttribute);
+
+            var tokenAttribute = new TypeDefinition(namespaceName, "TokenAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
+            tokenAttribute.Fields.Add(new FieldDefinition("Token", FieldAttributes.Public, stringTypeReference));
+            imageDef.MainModule.Types.Add(tokenAttribute);
+            CreateDefaultConstructor(tokenAttribute);
+        }
+
         public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE.PE theDll, Il2CppAssemblyDefinition imageDef)
         {
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
 
+            InjectCustomAttributes(currentAssembly);
+
             //Ensure type directory exists
-            if(!Program.CommandLineOptions.SkipMetadataTextFiles && !Program.CommandLineOptions.SkipAnalysis)
+            if (!Program.CommandLineOptions.SkipMetadataTextFiles && !Program.CommandLineOptions.SkipAnalysis)
                 Directory.CreateDirectory(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", currentAssembly.Name.Name));
 
             var lastTypeIndex = imageDef.firstTypeIndex + imageDef.typeCount;
@@ -142,6 +208,7 @@ namespace Cpp2IL
 
         private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppAssemblyDefinition imageDef)
         {
+            var imageName = metadata.GetStringFromIndex(imageDef.nameIndex);
             var typeMetaText = new StringBuilder();
             typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
                 .Append($"\n\tBase Class: \n\t\t{ilTypeDefinition.BaseType}\n")
@@ -152,6 +219,18 @@ namespace Cpp2IL
                 typeMetaText.Append($"\t\t{iface.InterfaceType.FullName}\n");
             }
 
+            var addressAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AddressAttribute").Methods[0];
+            var fieldOffsetAttribute = ilTypeDefinition.Module.Types.First(x => x.FullName == "Cpp2IlInjected.FieldOffsetAttribute").Methods[0];
+            var attributeAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AttributeAttribute").Methods[0];
+            var metadataOffsetAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "MetadataOffsetAttribute").Methods[0];
+            var tokenAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "TokenAttribute").Methods[0];
+            var stringType = ilTypeDefinition.Module.ImportReference(typeof(string));
+
+            //Token attribute
+            var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+            customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
+            ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
+
             //field
             var fields = new List<FieldInType>();
 
@@ -161,9 +240,9 @@ namespace Cpp2IL
             while (current.BaseType != null)
             {
                 var targetName = current.BaseType.FullName;
-                if (targetName.Contains("<"))   // types with generic parameters (Type'1<T>) are stored as Type'1, so I just removed the part that causes trouble and called it a day
-                    targetName = targetName.Substring(0,targetName.IndexOf("<"));
-                
+                if (targetName.Contains("<")) // types with generic parameters (Type'1<T>) are stored as Type'1, so I just removed the part that causes trouble and called it a day
+                    targetName = targetName.Substring(0, targetName.IndexOf("<"));
+
                 current = SharedState.AllTypeDefinitions.Find(t => t.FullName == targetName);
 
                 if (current == null)
@@ -172,7 +251,7 @@ namespace Cpp2IL
                     break;
                 }
 
-                baseFields.InsertRange(0,current.Fields.Where(f => !f.IsStatic));   // each loop we go one inheritage level deeper, so these "new" fields should be inserted before the previous ones 
+                baseFields.InsertRange(0, current.Fields.Where(f => !f.IsStatic)); // each loop we go one inheritage level deeper, so these "new" fields should be inserted before the previous ones 
             }
 
             //Handle base fields
@@ -200,8 +279,17 @@ namespace Cpp2IL
                     }
                 }
 
+                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{fieldDef.token:X}")));
+                fieldDefinition.CustomAttributes.Add(customTokenAttribute);
+
                 if (!fieldDefinition.IsStatic)
                     fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
+
+                var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(metadataOffsetAttribute));
+                var offset = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fieldOffset:X}"));
+                customAttribute.Fields.Add(offset);
+                fieldDefinition.CustomAttributes.Add(customAttribute);
             }
 
             fields.Sort(); //By offset
@@ -252,6 +340,11 @@ namespace Cpp2IL
 
                 ilTypeDefinition.Methods.Add(methodDefinition);
                 methodDefinition.ReturnType = Utils.ImportTypeInto(methodDefinition, methodReturnType, cppAssembly, metadata);
+
+                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{methodDef.token:X}")));
+                methodDefinition.CustomAttributes.Add(customTokenAttribute);
+
                 if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate")
                 {
                     var ilprocessor = methodDefinition.Body.GetILProcessor();
@@ -283,6 +376,26 @@ namespace Cpp2IL
                         .Append($"\t\t\tName: {parameterName}\n")
                         .Append($"\t\t\tType: {(parameterTypeRef.Namespace == "" ? "<None>" : parameterTypeRef.Namespace)}.{parameterTypeRef.Name}\n")
                         .Append($"\t\t\tDefault Value: {parameterDefinition.Constant}");
+                }
+                
+                //Address attribute
+                var methodPointer = Program.ThePE.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
+                if (methodPointer > 0)
+                {
+                    var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));
+                    var fixedMethodPointer = Program.ThePE.GetRVA(methodPointer);
+                    var rva = new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{fixedMethodPointer:X}"));
+                    var offsetArg = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{Program.ThePE.MapVirtualAddressToRaw(methodPointer):X}"));
+                    var va = new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}"));
+                    customAttribute.Fields.Add(rva);
+                    customAttribute.Fields.Add(offsetArg);
+                    customAttribute.Fields.Add(va);
+                    if (methodDef.slot != ushort.MaxValue)
+                    {
+                        var slot = new CustomAttributeNamedArgument("Slot", new CustomAttributeArgument(stringType, methodDef.slot.ToString()));
+                        customAttribute.Fields.Add(slot);
+                    }
+                    methodDefinition.CustomAttributes.Add(customAttribute);
                 }
 
                 if (methodDef.genericContainerIndex >= 0)
@@ -348,6 +461,11 @@ namespace Cpp2IL
                     GetMethod = getter,
                     SetMethod = setter
                 };
+                
+                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{propertyDef.token:X}")));
+                propertyDefinition.CustomAttributes.Add(customTokenAttribute);
+                
                 ilTypeDefinition.Properties.Add(propertyDefinition);
             }
 
@@ -366,10 +484,15 @@ namespace Cpp2IL
                     eventDefinition.RemoveMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + eventDef.remove];
                 if (eventDef.raise >= 0)
                     eventDefinition.InvokeMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + eventDef.raise];
+                
+                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{eventDef.token:X}")));
+                eventDefinition.CustomAttributes.Add(customTokenAttribute);
+                
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
 
-            if(!Program.CommandLineOptions.SkipMetadataTextFiles)
+            if (!Program.CommandLineOptions.SkipMetadataTextFiles)
                 File.WriteAllText(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"), typeMetaText.ToString());
 
             if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
@@ -408,7 +531,7 @@ namespace Cpp2IL
                 //TODO: 32-bit is boundaries of four and default length should be the same
                 fieldOffset = (ulong) ((Math.Floor(fieldOffset / (decimal) 8) + 1) * 8);
             }
-            
+
             //ONE correction. String#start_char is remapped to a char[] not a char because the block allocated for all chars is directly sequential to the length of the string, because that's how c++ works.
             if (fieldDefinition.DeclaringType.FullName == "System.String" && fieldTypeRef.FullName == "System.Char")
                 fieldTypeRef = fieldTypeRef.MakeArrayType();
