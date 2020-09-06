@@ -348,7 +348,24 @@ namespace Cpp2IL
                 if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate")
                 {
                     var ilprocessor = methodDefinition.Body.GetILProcessor();
-                    ilprocessor.Append(ilprocessor.Create(OpCodes.Nop));
+                    if (methodDefinition.ReturnType.FullName == "System.Void")
+                    {
+                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
+                    }
+                    else if (methodDefinition.ReturnType.IsValueType)
+                    {
+                        var variable = new VariableDefinition(methodDefinition.ReturnType);
+                        methodDefinition.Body.Variables.Add(variable);
+                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ldloca_S, variable));
+                        ilprocessor.Append(ilprocessor.Create(OpCodes.Initobj, methodDefinition.ReturnType));
+                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ldloc_0));
+                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
+                    }
+                    else
+                    {
+                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ldnull));
+                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
+                    }
                 }
 
                 SharedState.MethodsByIndex.Add(methodId, methodDefinition);
