@@ -17,6 +17,9 @@ jobs:
         dotnet-version: 3.1.101
     - name: Install dependencies
       run: dotnet restore
+    - name: Build - Common Lib
+      run: dotnet publish --configuration Release --no-restore
+      working-directory: ./LibCpp2IL/
     - name: Build - Windows x64
       working-directory: ./Cpp2IL/
       run: dotnet publish --configuration Release --no-restore -r win-x64 /p:PublishSingleFile=true
@@ -26,6 +29,11 @@ jobs:
     - name: Build - OSX x64
       working-directory: ./Cpp2IL/
       run: dotnet publish --configuration Release --no-restore -r osx-x64 /p:PublishSingleFile=true
+    - name: Upload Common Lib Files
+      uses: actions/upload-artifact@v2
+      with:
+        name: LibCpp2IL
+        path: ./LibCpp2IL/bin/Release/netstandard2.1/publish/LibCpp2IL*
     - name: Upload Win x64 Artifact
       uses: actions/upload-artifact@v2
       with:
