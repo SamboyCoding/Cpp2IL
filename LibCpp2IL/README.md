@@ -6,6 +6,10 @@ Provides an API for working with IL2CPP-generated metadata and game assemblies.
 
 You can obtain a copy of LibCpp2IL from the [actions page](https://github.com/SamboyCoding/Cpp2IL/actions) - click the most recent successful build, and click "LibCpp2IL" to download a zipped copy of the dll, pdb, and dependency JSON.
 
+## Dependencies
+
+LibCpp2IL requires you to have SharpDiasm available for it to use.
+
 ## Setting up
 
 Setting up the library can be done in one of two ways. At present, debug logging is turned on, so the library will call Console.WriteLine with a large amount of log data showing what it is currently loading, as well as timing data.
