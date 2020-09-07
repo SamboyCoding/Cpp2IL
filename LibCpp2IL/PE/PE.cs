@@ -561,7 +561,7 @@ namespace LibCpp2IL.PE
             return AutoInit(codeRegistration, metadataRegistration);
         }
 
-        public Il2CppType GetIl2CppType(ulong pointer)
+        public Il2CppType GetIl2CppTypeFromPointer(ulong pointer)
         {
             return typesDict[pointer];
         }

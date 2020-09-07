@@ -782,8 +782,8 @@ namespace Cpp2IL.Analysis
                         var global = GetGlobalInReg(possibility);
                         if (global.HasValue)
                         {
-                            args.Add($"'{global.Value.Value}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
-                            paramNames.Add($"'{global.Value.Value}'");
+                            args.Add($"'{global.Value.Name}' (LITERAL type System.String) as {parameter.Name} in register {possibility}");
+                            paramNames.Add($"'{global.Value.Name}'");
 
                             if (!parameter.ParameterType.IsAssignableFrom(StringReference))
                             {
@@ -855,8 +855,8 @@ namespace Cpp2IL.Analysis
                     _registerContents.TryGetValue(possibility, out var potentialGlob);
                     if (potentialGlob is GlobalIdentifier g && g.Offset != 0 && g.IdentifierType == GlobalIdentifier.Type.METHODREF)
                     {
-                        _typeDump.Append($" ; - generic method def located, is {g.Value}");
-                        var genericParams = g.Value.Substring(g.Value.LastIndexOf("<", StringComparison.Ordinal) + 1);
+                        _typeDump.Append($" ; - generic method def located, is {g.Name}");
+                        var genericParams = g.Name.Substring(g.Name.LastIndexOf("<", StringComparison.Ordinal) + 1);
                         genericParams = genericParams.Remove(genericParams.Length - 1);
 
                         var genericCount = genericParams.Split(',').Length;
@@ -955,8 +955,8 @@ namespace Cpp2IL.Analysis
                         if (glob2.IdentifierType == GlobalIdentifier.Type.LITERAL)
                         {
                             objectType = StringReference;
-                            objectName = $"'{glob2.Value}'";
-                            constant = glob2.Value;
+                            objectName = $"'{glob2.Name}'";
+                            constant = glob2.Name;
                             break;
                         }
                     }
@@ -1021,13 +1021,13 @@ namespace Cpp2IL.Analysis
                         {
                             if (glob.IdentifierType == GlobalIdentifier.Type.LITERAL)
                             {
-                                objectName = $"\"{glob.Value}\"";
+                                objectName = $"\"{glob.Name}\"";
                                 objectType = StringReference;
-                                constant = glob.Value;
+                                constant = glob.Name;
                             }
                             else
                             {
-                                objectName = $"global_{glob.IdentifierType}_{glob.Value}";
+                                objectName = $"global_{glob.IdentifierType}_{glob.Name}";
                                 objectType = LongReference;
                                 constant = glob;
                             }
@@ -1113,7 +1113,7 @@ namespace Cpp2IL.Analysis
 
 
                 //Ok we have a global, resolve it
-                var (type, _) = Utils.TryLookupTypeDefByName(global.Value);
+                var (type, _) = Utils.TryLookupTypeDefByName(global.Name);
                 if (type == null) return null;
 
                 var fields = type.Fields.Where(f => f.IsStatic).ToList();
@@ -1989,13 +1989,13 @@ namespace Cpp2IL.Analysis
                     _typeDump.Append($"; - Read on memory location 0x{addr:X}");
                     if (SharedState.GlobalsByOffset.TryGetValue(addr, out var glob))
                     {
-                        _typeDump.Append($" - this is global value {glob.Value} of type {glob.IdentifierType}");
-                        _registerAliases[destReg] = $"global_{glob.IdentifierType}_{glob.Value}";
+                        _typeDump.Append($" - this is global value {glob.Name} of type {glob.IdentifierType}");
+                        _registerAliases[destReg] = $"global_{glob.IdentifierType}_{glob.Name}";
                         _registerContents[destReg] = glob;
                         switch (glob.IdentifierType)
                         {
                             case GlobalIdentifier.Type.TYPEREF:
-                                _registerTypes[destReg] = Utils.TryLookupTypeDefByName(glob.Value).Item1;
+                                _registerTypes[destReg] = Utils.TryLookupTypeDefByName(glob.Name).Item1;
                                 break;
                             case GlobalIdentifier.Type.METHODREF:
                                 _registerTypes.TryRemove(destReg, out _);
@@ -2202,7 +2202,7 @@ namespace Cpp2IL.Analysis
                         if (glob.Offset != 0 && glob.IdentifierType == GlobalIdentifier.Type.TYPEREF)
                         {
                             //Look up type
-                            var (definedType, genericParams) = Utils.TryLookupTypeDefByName(glob.Value);
+                            var (definedType, genericParams) = Utils.TryLookupTypeDefByName(glob.Name);
 
                             if (definedType != null)
                             {
@@ -2219,7 +2219,7 @@ namespace Cpp2IL.Analysis
                             }
                             else
                             {
-                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of (unresolved) type {glob.Value}\n");
+                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an instance of (unresolved) type {glob.Name}\n");
                                 success = true;
                             }
                         }
@@ -2255,10 +2255,10 @@ namespace Cpp2IL.Analysis
                     if (match.Success)
                     {
                         Enum.TryParse<GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
-                        var global = SharedState.Globals.Find(g => g.Value == match.Groups[2].Value && g.IdentifierType == type);
+                        var global = SharedState.Globals.Find(g => g.Name == match.Groups[2].Value && g.IdentifierType == type);
                         if (global.Offset != 0)
                         {
-                            var (definedType, genericParams) = Utils.TryLookupTypeDefByName(global.Value.Replace("[]", ""));
+                            var (definedType, genericParams) = Utils.TryLookupTypeDefByName(global.Name.Replace("[]", ""));
 
                             if (definedType != null)
                             {
@@ -2270,8 +2270,8 @@ namespace Cpp2IL.Analysis
                             }
                             else
                             {
-                                _typeDump.Append($" - got expected type name {global.Value} for array but could not resolve to an actual type");
-                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of (unresolved) type {global.Value} and size {arraySize}\n");
+                                _typeDump.Append($" - got expected type name {global.Name} for array but could not resolve to an actual type");
+                                _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}Creates an array of (unresolved) type {global.Name} and size {arraySize}\n");
                                 TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                                 success = true;
                             }
@@ -2354,8 +2354,8 @@ namespace Cpp2IL.Analysis
 
                 if (g is GlobalIdentifier glob && glob.Offset != 0 && glob.IdentifierType == GlobalIdentifier.Type.TYPEREF)
                 {
-                    var destType = Utils.TryLookupTypeDefByName(glob.Value).Item1;
-                    _typeDump.Append($" - Boxes the primitive value {castTarget} to {destType?.FullName} (resolved from {glob.Value})");
+                    var destType = Utils.TryLookupTypeDefByName(glob.Name).Item1;
+                    _typeDump.Append($" - Boxes the primitive value {castTarget} to {destType?.FullName} (resolved from {glob.Name})");
                     _registerAliases["rax"] = castTarget;
                     if (destType != null)
                         _registerTypes["rax"] = destType;
@@ -2379,7 +2379,7 @@ namespace Cpp2IL.Analysis
                 if (t is GlobalIdentifier typeGlobal && typeGlobal.IdentifierType == GlobalIdentifier.Type.TYPEREF)
                 {
                     //got one? look it up and re-set T to the type def.
-                    (t, _) = Utils.TryLookupTypeDefByName(typeGlobal.Value);
+                    (t, _) = Utils.TryLookupTypeDefByName(typeGlobal.Name);
                 }
 
                 object castTarget;
@@ -2393,7 +2393,7 @@ namespace Cpp2IL.Analysis
                     _registerContents.TryGetValue("rcx", out var g);
                     if (g is GlobalIdentifier glob)
                     {
-                        castTarget = glob.Value;
+                        castTarget = glob.Name;
                         globalIdentifier = glob;
                     }
                     else
@@ -2425,11 +2425,11 @@ namespace Cpp2IL.Analysis
 
                     if (globalIdentifier.Offset == 0 || globalIdentifier.IdentifierType != GlobalIdentifier.Type.LITERAL)
                     {
-                        _psuedoCode.Append(globalIdentifier.Value ?? castTarget);
+                        _psuedoCode.Append(globalIdentifier.Name ?? castTarget);
                     }
                     else
                     {
-                        _psuedoCode.Append($"'{globalIdentifier.Value}'");
+                        _psuedoCode.Append($"'{globalIdentifier.Name}'");
                     }
 
                     _psuedoCode.Append("\n");
@@ -2948,7 +2948,7 @@ namespace Cpp2IL.Analysis
             if (returnConstant != null)
             {
                 if (returnConstant is GlobalIdentifier glob && glob.IdentifierType == GlobalIdentifier.Type.LITERAL)
-                    returnConstant = glob.Value;
+                    returnConstant = glob.Name;
 
                 if (returnConstant is string)
                     returnConstant = $"\"{returnConstant}\"";
@@ -2979,7 +2979,7 @@ namespace Cpp2IL.Analysis
                 if (match.Success)
                 {
                     Enum.TryParse<GlobalIdentifier.Type>(match.Groups[1].Value, out var type);
-                    var global = SharedState.Globals.Find(g2 => g2.Value == match.Groups[2].Value && g2.IdentifierType == type);
+                    var global = SharedState.Globals.Find(g2 => g2.Name == match.Groups[2].Value && g2.IdentifierType == type);
                     if (global.Offset != 0)
                     {
                         return global;

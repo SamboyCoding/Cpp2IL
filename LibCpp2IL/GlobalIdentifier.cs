@@ -3,12 +3,13 @@
     public struct GlobalIdentifier
     {
         public ulong Offset;
-        public string Value;
+        public string Name;
+        public object Value;
         public Type IdentifierType;
 
         public override string ToString()
         {
-            return $"LibCpp2IL Global Identifier (Name = {Value}, Offset = 0x{Offset:X}, Type = {IdentifierType})";
+            return $"LibCpp2IL Global Identifier (Name = {Name}, Offset = 0x{Offset:X}, Type = {IdentifierType})";
         }
 
         public enum Type

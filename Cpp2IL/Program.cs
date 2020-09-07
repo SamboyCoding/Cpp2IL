@@ -161,6 +161,8 @@ namespace Cpp2IL
 
             #region Assembly Generation
 
+            LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(0x180623548);
+                
             var resolver = new RegistryAssemblyResolver();
             var moduleParams = new ModuleParameters
             {

@@ -114,7 +114,7 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 {
                     var arrayType = theDll.ReadClassAtVirtualAddress<Il2CppArrayType>(toImport.data.array);
-                    var oriType = theDll.GetIl2CppType(arrayType.etype);
+                    var oriType = theDll.GetIl2CppTypeFromPointer(arrayType.etype);
                     return new ArrayType(ImportTypeInto(importInto, oriType, theDll, metadata), arrayType.rank);
                 }
 
@@ -126,10 +126,10 @@ namespace Cpp2IL
                     var genericInstanceType = new GenericInstanceType(moduleDefinition.ImportReference(typeDefinition));
                     var genericInst =
                         theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
-                    var pointers = theDll.GetPointers(genericInst.type_argv, (long) genericInst.type_argc);
+                    var pointers = theDll.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
                     foreach (var pointer in pointers)
                     {
-                        var oriType = theDll.GetIl2CppType(pointer);
+                        var oriType = theDll.GetIl2CppTypeFromPointer(pointer);
                         genericInstanceType.GenericArguments.Add(ImportTypeInto(importInto, oriType, theDll,
                             metadata));
                     }
@@ -139,7 +139,7 @@ namespace Cpp2IL
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
                 {
-                    var oriType = theDll.GetIl2CppType(toImport.data.type);
+                    var oriType = theDll.GetIl2CppTypeFromPointer(toImport.data.type);
                     return new ArrayType(ImportTypeInto(importInto, oriType, theDll, metadata));
                 }
 
@@ -186,7 +186,7 @@ namespace Cpp2IL
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
                 {
-                    var oriType = theDll.GetIl2CppType(toImport.data.type);
+                    var oriType = theDll.GetIl2CppTypeFromPointer(toImport.data.type);
                     return new PointerType(ImportTypeInto(importInto, oriType, theDll, metadata));
                 }
 

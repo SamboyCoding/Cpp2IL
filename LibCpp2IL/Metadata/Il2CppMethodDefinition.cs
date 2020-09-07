@@ -27,6 +27,8 @@ namespace LibCpp2IL.Metadata
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
+        internal string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
+
         public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.types[returnTypeIdx]);
         
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
@@ -51,6 +53,7 @@ namespace LibCpp2IL.Metadata
                         DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex, LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe),
                     };
                 }).ToArray();
+        
 
         public override string ToString()
         {

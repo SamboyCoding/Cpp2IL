@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL
 {
@@ -18,7 +19,8 @@ namespace LibCpp2IL
                 .Select(kvp => new {kvp, type = cppAssembly.types[kvp.Value]})
                 .Select(t => new GlobalIdentifier
                 {
-                    Value = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, t.type, true),
+                    Name = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, t.type, true),
+                    Value = LibCpp2ILUtils.GetTypeReflectionData(t.type)!,
                     Offset = cppAssembly.metadataUsages[t.kvp.Key],
                     IdentifierType = GlobalIdentifier.Type.TYPEREF
                 }).ToList();
@@ -28,7 +30,8 @@ namespace LibCpp2IL
                 .Select(kvp => new {kvp, type = cppAssembly.types[kvp.Value]})
                 .Select(t => new GlobalIdentifier
                 {
-                    Value = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, t.type, true),
+                    Name = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, t.type, true),
+                    Value = LibCpp2ILUtils.GetTypeReflectionData(t.type)!,
                     Offset = cppAssembly.metadataUsages[t.kvp.Key],
                     IdentifierType = GlobalIdentifier.Type.TYPEREF
                 })
@@ -39,11 +42,12 @@ namespace LibCpp2IL
                 .Select(kvp => new {kvp, method = metadata.methodDefs[kvp.Value]})
                 .Select(t => new {t.kvp, t.method, type = metadata.typeDefs[t.method.declaringTypeIdx]})
                 .Select(t => new {t.kvp, t.method, typeName = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, t.type)})
-                .Select(t => new {t.kvp, methodName = t.typeName + "." + metadata.GetStringFromIndex(t.method.nameIndex) + "()"})
+                .Select(t => new {t.kvp, t.method, methodName = t.typeName + "." + metadata.GetStringFromIndex(t.method.nameIndex) + "()"})
                 .Select(t => new GlobalIdentifier
                 {
                     IdentifierType = GlobalIdentifier.Type.METHODREF,
-                    Value = t.methodName,
+                    Name = t.methodName,
+                    Value = t.method,
                     Offset = cppAssembly.metadataUsages[t.kvp.Key]
                 }).ToList();
 
@@ -53,11 +57,12 @@ namespace LibCpp2IL
                 .Select(t => new {t.kvp, t.fieldRef, type = cppAssembly.types[t.fieldRef.typeIndex]})
                 .Select(t => new {t.type, t.kvp, t.fieldRef, typeDef = metadata.typeDefs[t.type.data.classIndex]})
                 .Select(t => new {t.type, t.kvp, fieldDef = metadata.fieldDefs[t.typeDef.firstFieldIdx + t.fieldRef.fieldIndex]})
-                .Select(t => new {t.kvp, fieldName = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, t.type, true) + "." + metadata.GetStringFromIndex(t.fieldDef.nameIndex)})
+                .Select(t => new {t.kvp, t.fieldDef, fieldName = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, t.type, true) + "." + metadata.GetStringFromIndex(t.fieldDef.nameIndex)})
                 .Select(t => new GlobalIdentifier
                 {
                     IdentifierType = GlobalIdentifier.Type.FIELDREF,
-                    Value = t.fieldName,
+                    Name = t.fieldName,
+                    Value = t.fieldDef,
                     Offset = cppAssembly.metadataUsages[t.kvp.Key]
                 }).ToList();
 
@@ -67,32 +72,44 @@ namespace LibCpp2IL
                 {
                     IdentifierType = GlobalIdentifier.Type.LITERAL,
                     Offset = cppAssembly.metadataUsages[kvp.Key],
-                    Value = $"{metadata.GetStringLiteralFromIndex(kvp.Value)}"
+                    Name = $"{metadata.GetStringLiteralFromIndex(kvp.Value)}",
+                    Value = metadata.GetStringLiteralFromIndex(kvp.Value),
                 }).ToList();
 
-            //More method references
+            //Generic method references
             foreach (var (metadataUsageIdx, methodSpecIdx) in metadata.metadataUsageDic[6]) //kIl2CppMetadataUsageMethodRef
             {
                 var methodSpec = cppAssembly.methodSpecs[methodSpecIdx];
                 var methodDef = metadata.methodDefs[methodSpec.methodDefinitionIndex];
                 var typeDef = metadata.typeDefs[methodDef.declaringTypeIdx];
-                var typeName = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, typeDef);
+                var typeName = LibCpp2ILUtils.GetTypeName(metadata, cppAssembly, typeDef, true);
+                Il2CppTypeReflectionData[] declaringTypeGenericParams = new Il2CppTypeReflectionData[0];
                 if (methodSpec.classIndexIndex != -1)
                 {
                     var classInst = cppAssembly.genericInsts[methodSpec.classIndexIndex];
-                    typeName += LibCpp2ILUtils.GetGenericTypeParams(metadata, cppAssembly, classInst);
+                    declaringTypeGenericParams = LibCpp2ILUtils.GetGenericTypeParams(classInst)!;
+                    typeName += LibCpp2ILUtils.GetGenericTypeParamNames(metadata, cppAssembly, classInst);
                 }
 
                 var methodName = typeName + "." + metadata.GetStringFromIndex(methodDef.nameIndex) + "()";
+                Il2CppTypeReflectionData[] genericMethodParameters = new Il2CppTypeReflectionData[0];
                 if (methodSpec.methodIndexIndex != -1)
                 {
                     var methodInst = cppAssembly.genericInsts[methodSpec.methodIndexIndex];
-                    methodName += LibCpp2ILUtils.GetGenericTypeParams(metadata, cppAssembly, methodInst);
+                    methodName += LibCpp2ILUtils.GetGenericTypeParamNames(metadata, cppAssembly, methodInst);
+                    genericMethodParameters = LibCpp2ILUtils.GetGenericTypeParams(methodInst)!;
                 }
 
                 MethodRefs.Add(new GlobalIdentifier
                 {
-                    Value = methodName,
+                    Name = methodName,
+                    Value = new Il2CppGlobalGenericMethodRef
+                    {
+                        baseMethod = methodDef,
+                        declaringType = typeDef,
+                        typeGenericParams = declaringTypeGenericParams,
+                        methodGenericParams = genericMethodParameters
+                    },
                     IdentifierType = GlobalIdentifier.Type.METHODREF,
                     Offset = cppAssembly.metadataUsages[metadataUsageIdx]
                 });

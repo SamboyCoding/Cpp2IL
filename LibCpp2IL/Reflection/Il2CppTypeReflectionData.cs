@@ -19,15 +19,27 @@ namespace LibCpp2IL.Reflection
         public Il2CppTypeReflectionData[] genericParams;
         public bool isType;
         public bool isGenericType;
+        public bool isArray;
+        public Il2CppTypeReflectionData? arrayType;
+        public byte arrayRank;
         public string variableGenericParamName;
+        public bool isPointer;
 
+        private string getPtrSuffix()
+        {
+            return isPointer ? "*" : "";
+        }
+        
         public override string ToString()
         {
+            if (isArray)
+                return arrayType + "[]".Repeat(arrayRank) + getPtrSuffix();
+            
             if (!isType)
-                return variableGenericParamName;
+                return variableGenericParamName + getPtrSuffix();
             
             if (!isGenericType)
-                return baseType.FullName!;
+                return baseType.FullName! + getPtrSuffix();
 
             var builder = new StringBuilder(baseType.FullName + "<");
             foreach (var genericParam in genericParams)
@@ -37,7 +49,7 @@ namespace LibCpp2IL.Reflection
 
             builder.Remove(builder.Length - 2, 2);
             builder.Append(">");
-            return builder.ToString();
+            return builder + getPtrSuffix();
         }
     }
 }
