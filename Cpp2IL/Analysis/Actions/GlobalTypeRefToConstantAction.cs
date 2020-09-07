@@ -1,5 +1,6 @@
 ﻿using System;
 using Cpp2IL.Analysis.ResultModels;
+using LibCpp2IL;
 using Mono.Cecil;
 using SharpDisasm;
 using SharpDisasm.Udis86;
@@ -14,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalTypeRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = context.MethodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var globalAddress = context.MethodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
             GlobalRead = SharedState.GlobalsByOffset[globalAddress];
             var (type, genericParams) = Utils.TryLookupTypeDefByName(GlobalRead.Name);
             ResolvedType = type;

@@ -5,7 +5,9 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Analysis;
-using Cpp2IL.Metadata;
+using LibCpp2IL;
+using LibCpp2IL.Metadata;
+using LibCpp2IL.PE;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -102,7 +104,7 @@ namespace Cpp2IL
             return assemblies;
         }
 
-        public static void ConfigureHierarchy(Il2CppMetadata metadata, PE.PE theDll)
+        public static void ConfigureHierarchy(Il2CppMetadata metadata, PE theDll)
         {
             //Iterate through all types defined in the metadata
             for (var typeIndex = 0; typeIndex < metadata.typeDefs.Length; typeIndex++)
@@ -186,7 +188,7 @@ namespace Cpp2IL
             CreateDefaultConstructor(tokenAttribute);
         }
 
-        public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE.PE theDll, Il2CppAssemblyDefinition imageDef)
+        public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE theDll, Il2CppAssemblyDefinition imageDef)
         {
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
@@ -211,7 +213,7 @@ namespace Cpp2IL
             return methods;
         }
 
-        private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppAssemblyDefinition imageDef)
+        private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppAssemblyDefinition imageDef)
         {
             var imageName = metadata.GetStringFromIndex(imageDef.nameIndex);
             var typeMetaText = new StringBuilder();
@@ -401,13 +403,13 @@ namespace Cpp2IL
                 }
                 
                 //Address attribute
-                var methodPointer = Program.ThePE.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
+                var methodPointer = LibCpp2IlMain.ThePe.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
                 if (methodPointer > 0)
                 {
                     var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));
-                    var fixedMethodPointer = Program.ThePE.GetRVA(methodPointer);
+                    var fixedMethodPointer = LibCpp2IlMain.ThePe.GetRVA(methodPointer);
                     var rva = new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{fixedMethodPointer:X}"));
-                    var offsetArg = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{Program.ThePE.MapVirtualAddressToRaw(methodPointer):X}"));
+                    var offsetArg = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(methodPointer):X}"));
                     var va = new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}"));
                     customAttribute.Fields.Add(rva);
                     customAttribute.Fields.Add(offsetArg);
@@ -580,7 +582,7 @@ namespace Cpp2IL
             return fieldOffset;
         }
 
-        internal static List<GlobalIdentifier> MapGlobalIdentifiers(Il2CppMetadata metadata, PE.PE cppAssembly)
+        internal static List<GlobalIdentifier> MapGlobalIdentifiers(Il2CppMetadata metadata, PE cppAssembly)
         {
             //Classes
             var ret = metadata.metadataUsageDic[1]

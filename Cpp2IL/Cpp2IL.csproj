@@ -17,4 +17,7 @@
     <PackageReference Include="SharpDisasm" Version="1.1.11" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\LibCpp2IL\LibCpp2IL.csproj" />
+  </ItemGroup>
 </Project>

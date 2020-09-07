@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
+using LibCpp2IL;
 using Mono.Cecil;
 using SharpDisasm;
 
@@ -12,7 +13,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public CallManagedFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var jumpTarget = Utils.GetJumpTarget(instruction, context.MethodStart + instruction.PC);
+            var jumpTarget = LibCpp2ILUtils.GetJumpTarget(instruction, context.MethodStart + instruction.PC);
             SharedState.MethodsByAddress.TryGetValue(jumpTarget, out target);
         }
 

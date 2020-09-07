@@ -2,13 +2,12 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
-using Cpp2IL.Metadata;
-using Cpp2IL.PE;
+using LibCpp2IL;
+using LibCpp2IL.Metadata;
+using LibCpp2IL.PE;
 using Mono.Cecil;
-using Mono.Cecil.Rocks;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 
@@ -64,7 +63,7 @@ namespace Cpp2IL
             };
         }
 
-        public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport, PE.PE theDll, Il2CppMetadata metadata)
+        public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport, PE theDll, Il2CppMetadata metadata)
         {
             var moduleDefinition = importInto.Module;
             switch (toImport.type)
@@ -197,7 +196,7 @@ namespace Cpp2IL
             }
         }
 
-        internal static object GetDefaultValue(int dataIndex, int typeIndex, Il2CppMetadata metadata, PE.PE theDll)
+        internal static object GetDefaultValue(int dataIndex, int typeIndex, Il2CppMetadata metadata, PE theDll)
         {
             var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
             if (pointer > 0)
@@ -261,7 +260,7 @@ namespace Cpp2IL
             {28, "object"}
         };
 
-        internal static string GetTypeName(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppType type, bool fullName = false)
+        internal static string GetTypeName(Il2CppMetadata metadata, PE cppAssembly, Il2CppType type, bool fullName = false)
         {
             string ret;
             switch (type.type)
@@ -327,7 +326,7 @@ namespace Cpp2IL
             return ret;
         }
 
-        internal static string GetTypeName(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition typeDef)
+        internal static string GetTypeName(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition typeDef)
         {
             var ret = String.Empty;
             if (typeDef.declaringTypeIndex != -1)
@@ -354,7 +353,7 @@ namespace Cpp2IL
             return ret;
         }
 
-        internal static string GetGenericTypeParams(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppGenericInst genericInst)
+        internal static string GetGenericTypeParams(Il2CppMetadata metadata, PE cppAssembly, Il2CppGenericInst genericInst)
         {
             var typeNames = new List<string>();
             var pointers = cppAssembly.ReadClassArrayAtVirtualAddress<ulong>(genericInst.type_argv, (long) genericInst.type_argc);
@@ -367,38 +366,7 @@ namespace Cpp2IL
             return $"<{String.Join(", ", typeNames)}>";
         }
 
-        private static FieldInfo oprMode = typeof(Instruction).GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic);
-
-        public static byte GetOprMode(Instruction instruction)
-        {
-            return (byte) oprMode.GetValue(instruction); //Reflection!
-        }
-
-        public static ulong GetJumpTarget(Instruction insn, ulong start)
-        {
-            var opr = insn.Operands[0];
-
-            var mode = GetOprMode(insn);
-
-            //Console.WriteLine(mode + " " + mode.GetType());
-
-            var num = UInt64.MaxValue >> 64 - mode;
-            return opr.Size switch
-            {
-                8 => (start + (ulong) opr.LvalSByte & num),
-                16 => (start + (ulong) opr.LvalSWord & num),
-                32 => (start + (ulong) opr.LvalSDWord & num),
-                64 => (start + (ulong) opr.LvalSQWord & num),
-                _ => throw new InvalidOperationException($"invalid relative offset size {opr.Size}.")
-            };
-        }
-
-        public static List<Instruction> DisassembleBytes(byte[] bytes)
-        {
-            return new List<Instruction>(new Disassembler(bytes, Program.ThePE.is32Bit ? ArchitectureMode.x86_32 : ArchitectureMode.x86_64, 0, true).Disassemble());
-        }
-
-        public static bool CheckForNullCheckAtIndex(ulong offsetInRam, PE.PE cppAssembly, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
+        public static bool CheckForNullCheckAtIndex(ulong offsetInRam, PE cppAssembly, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
         {
             if (instructions.Count - idx < 2) return false;
 
@@ -413,17 +381,17 @@ namespace Cpp2IL
             if (jump.Mnemonic != ud_mnemonic_code.UD_Ijz) return false;
 
             //Get the target of the JZ
-            var addrOfCall = GetJumpTarget(jump, offsetInRam + jump.PC);
+            var addrOfCall = LibCpp2ILUtils.GetJumpTarget(jump, offsetInRam + jump.PC);
 
             //Disassemble 5 bytes at that destination (it should be a call)
             var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-            var callInstruction = DisassembleBytes(bytes).First();
+            var callInstruction = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, bytes).First();
 
             //Make sure it *is* a call
             if (callInstruction.Mnemonic != ud_mnemonic_code.UD_Icall) return false;
 
             //Get where that call points to
-            var addr = GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
+            var addr = LibCpp2ILUtils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
 
             //If it's the bailout then the original check was a il2cpp-generated null check
             return addr == kfe.AddrBailOutFunction;
@@ -453,7 +421,7 @@ namespace Cpp2IL
 
             try
             {
-                callAddr = GetJumpTarget(instructionsInRange[2], offsetInRam + instructionsInRange[2].PC);
+                callAddr = LibCpp2ILUtils.GetJumpTarget(instructionsInRange[2], offsetInRam + instructionsInRange[2].PC);
                 return callAddr == kfe.il2cpp_codegen_initialize_method ? 3 : 0;
             }
             catch (Exception)
@@ -485,7 +453,7 @@ namespace Cpp2IL
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
             if (requiredPattern.SequenceEqual(actualPattern))
             {
-                var callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
+                var callAddr = LibCpp2ILUtils.GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
                 return callAddr == kfe.il2cpp_runtime_class_init ? 4 : 0;
@@ -499,34 +467,14 @@ namespace Cpp2IL
 
                 if (!alternativePattern.SequenceEqual(actualPattern) && !thirdPattern.SequenceEqual(actualPattern)) return 0;
 
-                var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
+                var callAddr = LibCpp2ILUtils.GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
                 return callAddr == kfe.il2cpp_runtime_class_init ? 5 : 0;
             }
         }
 
-        public static int GetOperandMemoryOffset(Operand op)
-        {
-            if (op.Type != ud_type.UD_OP_MEM) return 0;
-            var num1 = op.Offset switch
-            {
-                8 => op.LvalSByte,
-                16 => op.LvalSWord,
-                32 => op.LvalSDWord,
-                _ => 0
-            };
-            return num1;
-        }
 
-        public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
-        {
-            var num1 = (ulong) GetOperandMemoryOffset(op);
-
-            if (num1 == 0) return 0;
-
-            return num1 + insn.PC;
-        }
 
         public static TypeDefinition TryLookupTypeDefKnownNotGeneric(string? name)
         {
@@ -670,49 +618,6 @@ namespace Cpp2IL
             return condition;
         }
 
-        public static ulong GetImmediateValue(Instruction insn, Operand op)
-        {
-            ulong num;
-            if (op.Opcode == ud_operand_code.OP_sI && op.Size != GetOprMode(insn))
-            {
-                if (op.Size == 8)
-                {
-                    num = (ulong) op.LvalSByte;
-                }
-                else
-                {
-                    if (op.Size != 32)
-                        throw new InvalidOperationException("Operand size must be 32");
-                    num = (ulong) op.LvalSDWord;
-                }
-
-                if (GetOprMode(insn) < 64)
-                    num &= (ulong) ((1L << GetOprMode(insn)) - 1L);
-            }
-            else
-            {
-                switch (op.Size)
-                {
-                    case 8:
-                        num = op.LvalByte;
-                        break;
-                    case 16:
-                        num = op.LvalUWord;
-                        break;
-                    case 32:
-                        num = op.LvalUDWord;
-                        break;
-                    case 64:
-                        num = op.LvalUQWord;
-                        break;
-                    default:
-                        throw new InvalidOperationException($"Invalid size for operand: {op.Size}");
-                }
-            }
-
-            return num;
-        }
-
         public static StringBuilder AppendGenerics(this StringBuilder builder, string[] genericParams)
         {
             if (genericParams.Length > 0)
@@ -742,32 +647,7 @@ namespace Cpp2IL
             return reference.FullName == other.FullName; //Simple check
         }
 
-        public static List<Instruction> GetMethodBodyAtRawAddress(PE.PE theDll, ulong addr, bool peek)
-        {
-            var ret = new List<Instruction>();
-            var con = true;
-            var buff = new List<byte>();
-            while (con)
-            {
-                buff.Add(theDll.raw[addr]);
-
-                ret = DisassembleBytes(buff.ToArray());
-
-                if (ret.All(i => !i.Error) && ret.Any(i => i.Mnemonic == ud_mnemonic_code.UD_Iint3))
-                    con = false;
-
-                if (peek && buff.Count > 50)
-                    con = false;
-                else if (buff.Count > 1000)
-                    con = false; //Sanity breakout.
-
-                addr++;
-            }
-
-            return ret /*.Where(i => !i.Error).ToList()*/;
-        }
-
-        public static string? TryGetLiteralAt(PE.PE theDll, ulong addr)
+        public static string? TryGetLiteralAt(PE theDll, ulong addr)
         {
             var c = Convert.ToChar(theDll.raw[addr]);
             if (char.IsLetter(c) && c < 'z') //includes uppercase

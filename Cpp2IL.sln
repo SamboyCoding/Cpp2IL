@@ -2,6 +2,8 @@
 Microsoft Visual Studio Solution File, Format Version 12.00
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL", "Cpp2IL\Cpp2IL.csproj", "{E8BA3E8E-3CDC-4562-AE61-CA48ECA270DE}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibCpp2IL", "LibCpp2IL\LibCpp2IL.csproj", "{24E00021-D8E3-4CD7-9324-091EAC3FF48A}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -12,5 +14,9 @@ Global
 		{E8BA3E8E-3CDC-4562-AE61-CA48ECA270DE}.Release|Any CPU.Build.0 = Release|Any CPU
 		{E8BA3E8E-3CDC-4562-AE61-CA48ECA270DE}.Debug|Any CPU.ActiveCfg = Debug|x64
 		{E8BA3E8E-3CDC-4562-AE61-CA48ECA270DE}.Debug|Any CPU.Build.0 = Debug|x64
+		{24E00021-D8E3-4CD7-9324-091EAC3FF48A}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{24E00021-D8E3-4CD7-9324-091EAC3FF48A}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{24E00021-D8E3-4CD7-9324-091EAC3FF48A}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{24E00021-D8E3-4CD7-9324-091EAC3FF48A}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

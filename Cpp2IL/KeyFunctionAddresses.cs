@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using LibCpp2IL;
+using LibCpp2IL.PE;
 using Mono.Cecil;
 using SharpDisasm.Udis86;
 
@@ -22,7 +24,7 @@ namespace Cpp2IL
         public ulong il2cpp_raise_managed_exception;
         public ulong AddrPInvokeLookup;
 
-        public static KeyFunctionAddresses Find(List<(TypeDefinition type, List<CppMethodData> methods)> methodData, PE.PE cppAssembly)
+        public static KeyFunctionAddresses Find(List<(TypeDefinition type, List<CppMethodData> methods)> methodData, PE cppAssembly)
         {
             var ret = new KeyFunctionAddresses();
 
@@ -32,14 +34,14 @@ namespace Cpp2IL
             //Chosen Target: ArgumentCache#TidyAssemblyTypeName
             //That's in UnityEngine.CoreModule.dll but close enough
             //I don't even know what that method does but whatever
-            
+
             Console.WriteLine("\t\tSearching for methods known to contain certain calls...");
-            
+
             //Try to find System.Array/ArrayEnumerator
             TryUseArrayEnumerator(methodData, ret);
-            
+
             //TODO: move everything else to this ^ format so we can pick-and-choose which structs we need 
-            
+
             Console.WriteLine("\t\t\tLooking for UnityEngine.Events.ArgumentCache$TidyAssemblyTypeName...");
 
             var methods = methodData.Find(t => t.type.Name == "ArgumentCache" && t.type.Namespace == "UnityEngine.Events").methods;
@@ -48,14 +50,14 @@ namespace Cpp2IL
 
             Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_codegen_initialize_method near offset 0x{tatn.MethodOffsetRam:X}...");
 
-            var instructions = Utils.DisassembleBytes(tatn.MethodBytes);
+            var instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, tatn.MethodBytes);
 
             var targetCall = instructions.FirstOrDefault(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
 
             ulong addr;
             if (targetCall != null)
             {
-                addr = Utils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
+                addr = LibCpp2ILUtils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
 
                 Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_initialize_method function at 0x{addr:X}");
                 ret.il2cpp_codegen_initialize_method = addr;
@@ -81,14 +83,14 @@ namespace Cpp2IL
             }
             else
             {
-                var addrOfCall = Utils.GetJumpTarget(targetJz, tatn.MethodOffsetRam + targetJz.PC);
+                var addrOfCall = LibCpp2ILUtils.GetJumpTarget(targetJz, tatn.MethodOffsetRam + targetJz.PC);
 
                 //Get 5 bytes at that point so we can disasm
                 //Warning: This might be fragile if the x86 instruction set ever changes.
                 var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-                var callInstruction = Utils.DisassembleBytes(bytes).First();
+                var callInstruction = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, bytes).First();
 
-                addr = Utils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
+                addr = LibCpp2ILUtils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
                 Console.WriteLine($"\t\t\t\tLocated Bailout function at 0x{addr:X}");
                 ret.AddrBailOutFunction = addr;
             }
@@ -102,12 +104,12 @@ namespace Cpp2IL
 
             Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_runtime_class_init near offset 0x{logWarn.MethodOffsetRam:X}...");
 
-            instructions = Utils.DisassembleBytes(logWarn.MethodBytes);
+            instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, logWarn.MethodBytes);
 
             //Method: Find the second CALL as it points at what we want. (The first is the init method)
             var calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            addr = Utils.GetJumpTarget(calls[1], logWarn.MethodOffsetRam + calls[1].PC);
+            addr = LibCpp2ILUtils.GetJumpTarget(calls[1], logWarn.MethodOffsetRam + calls[1].PC);
             Console.WriteLine($"\t\t\t\tLocated il2cpp_runtime_class_init at 0x{addr:X}");
             ret.il2cpp_runtime_class_init = addr;
 
@@ -127,21 +129,21 @@ namespace Cpp2IL
 
                     Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_codegen_object_new near offset 0x{method.MethodOffsetRam:X}...");
 
-                    instructions = Utils.DisassembleBytes(method.MethodBytes);
+                    instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
 
                     //Once again just get the second call
                     calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
                     if (calls.Length > 1)
                     {
-
-                        addr = Utils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
+                        addr = LibCpp2ILUtils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
                         Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_object_new at 0x{addr:X}");
 
                         ret.il2cpp_codegen_object_new = addr;
                     }
                 }
-                if(ret.il2cpp_codegen_object_new == 0)
+
+                if (ret.il2cpp_codegen_object_new == 0)
                 {
                     Console.WriteLine("\t\t\tWarning: Failed to use X509Extension class, attempting to use fallback tether (System.Globalization.DateTimeFormatInfo$.ctor)...");
                     methods = methodData.Find(t => t.Item1.Name == "DateTimeFormatInfo" && t.Item1.Namespace == "System.Globalization").methods;
@@ -151,10 +153,10 @@ namespace Cpp2IL
                         var ctor = methods.Find(m => m.MethodName == ".ctor");
                         Console.WriteLine($"\t\t\t\tSearching for class instantiation function near offset 0x{ctor.MethodOffsetRam:X}...");
 
-                        instructions = Utils.DisassembleBytes(ctor.MethodBytes);
+                        instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, ctor.MethodBytes);
                         calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-                        addr = Utils.GetJumpTarget(calls[1], ctor.MethodOffsetRam + calls[1].PC);
+                        addr = LibCpp2ILUtils.GetJumpTarget(calls[1], ctor.MethodOffsetRam + calls[1].PC);
                         Console.WriteLine($"\t\t\t\tLocated Class Instantiation (`new`) function at 0x{addr:X}");
                         ret.il2cpp_codegen_object_new = addr;
                     }
@@ -173,12 +175,12 @@ namespace Cpp2IL
 
             Console.WriteLine($"\t\t\t\tSearching for array instantiation function near offset 0x{method.MethodOffsetRam:X}...");
 
-            instructions = Utils.DisassembleBytes(method.MethodBytes);
+            instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
 
             //Once again just get the second call
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            addr = Utils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
+            addr = LibCpp2ILUtils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
             Console.WriteLine($"\t\t\t\tLocated Array Instantiation (`new[]`) function at 0x{addr:X}");
 
             ret.AddrArrayCreation = addr;
@@ -189,17 +191,17 @@ namespace Cpp2IL
 
             Console.WriteLine($"\t\t\t\tSearching for calls to the native lookup and bailout functions near offset 0x{method.MethodOffsetRam:X}...");
 
-            instructions = Utils.DisassembleBytes(method.MethodBytes);
+            instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
 
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
             if (calls.Length > 3)
             {
-                addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+                addr = LibCpp2ILUtils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
                 Console.WriteLine($"\t\t\t\tLocated Native Method Lookup function at 0x{addr:X}");
                 ret.AddrNativeLookup = addr;
 
-                addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
+                addr = LibCpp2ILUtils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
                 Console.WriteLine($"\t\t\t\tLocated Native Method Bailout function at 0x{addr:X}");
                 ret.AddrNativeLookupGenMissingMethod = addr;
             }
@@ -219,14 +221,13 @@ namespace Cpp2IL
 
                 if (method.MethodOffsetRam != 0)
                 {
-
                     Console.WriteLine($"\t\t\t\tSearching for primitive boxing function near offset 0x{method.MethodOffsetRam:X}...");
 
-                    instructions = Utils.DisassembleBytes(method.MethodBytes);
+                    instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
 
                     calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-                    addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+                    addr = LibCpp2ILUtils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
                     Console.WriteLine($"\t\t\t\tLocated Primitive Boxing function at 0x{addr:X}");
 
                     ret.AddrBoxValueMethod = addr;
@@ -247,11 +248,11 @@ namespace Cpp2IL
 
             Console.WriteLine($"\t\t\t\tSearching for a call to the safe cast function near offset 0x{method.MethodOffsetRam:X}...");
 
-            instructions = Utils.DisassembleBytes(method.MethodBytes);
+            instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
 
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
+            addr = LibCpp2ILUtils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
             Console.WriteLine($"\t\t\t\tLocated Safe Cast function at 0x{addr:X}");
             ret.AddrSafeCastMethod = addr;
 
@@ -263,13 +264,13 @@ namespace Cpp2IL
 
                 Console.WriteLine($"\t\t\t\tSearching for a call to System.ArgumentException$.ctor near offset 0x{method.MethodOffsetRam:X}...");
 
-                instructions = Utils.DisassembleBytes(method.MethodBytes);
+                instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
 
                 calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
                 var indexBefore = calls.ToList().FindIndex(call =>
                 {
-                    var targetAddrVirt = Utils.GetJumpTarget(call, method.MethodOffsetRam + call.PC);
+                    var targetAddrVirt = LibCpp2ILUtils.GetJumpTarget(call, method.MethodOffsetRam + call.PC);
                     if (SharedState.MethodsByAddress.TryGetValue(targetAddrVirt, out var methodDef))
                     {
                         if (methodDef.Name == ".ctor" && methodDef.DeclaringType.Name == "ArgumentException")
@@ -282,7 +283,7 @@ namespace Cpp2IL
                 if (indexBefore >= 0)
                 {
                     Console.WriteLine($"\t\t\t\tUsing ArgumentException construction to find il2cpp_raise_managed_exception, expecting it to be call ${indexBefore + 1}...");
-                    addr = Utils.GetJumpTarget(calls[indexBefore + 1], method.MethodOffsetRam + calls[indexBefore + 1].PC);
+                    addr = LibCpp2ILUtils.GetJumpTarget(calls[indexBefore + 1], method.MethodOffsetRam + calls[indexBefore + 1].PC);
                     Console.WriteLine($"\t\t\t\tLocated il2cpp_raise_managed_exception at 0x{addr:X}");
                     ret.il2cpp_raise_managed_exception = addr;
                 }
@@ -291,22 +292,22 @@ namespace Cpp2IL
                     Console.WriteLine("ERROR: Failed to find il2cpp_raise_managed_exception - failed to find a call to ArgumentException..ctor");
                 }
             }
-            
+
             Console.WriteLine("\t\tUsing known functions to resolve others...");
 
             if (ret.il2cpp_codegen_object_new != 0)
             {
                 Console.WriteLine("\t\t\tUsing il2cpp_codegen_object_new to find il2cpp::vm::Object::New...");
-                
+
                 Console.WriteLine($"\t\t\t\tDisassembling bytes at 0x{ret.il2cpp_codegen_object_new:X} and checking the first instruction is a JMP...");
 
-                instructions = Utils.GetMethodBodyAtRawAddress(cppAssembly, cppAssembly.MapVirtualAddressToRaw(ret.il2cpp_codegen_object_new), true);
+                instructions = LibCpp2ILUtils.GetMethodBodyAtRawAddress(cppAssembly, cppAssembly.MapVirtualAddressToRaw(ret.il2cpp_codegen_object_new), true);
 
                 var shouldBeJMPToVmObjectNew = instructions[0];
 
                 if (shouldBeJMPToVmObjectNew.Mnemonic == ud_mnemonic_code.UD_Ijmp)
                 {
-                    ret.il2cpp_vm_object_new = Utils.GetJumpTarget(shouldBeJMPToVmObjectNew, shouldBeJMPToVmObjectNew.PC + ret.il2cpp_codegen_object_new);
+                    ret.il2cpp_vm_object_new = LibCpp2ILUtils.GetJumpTarget(shouldBeJMPToVmObjectNew, shouldBeJMPToVmObjectNew.PC + ret.il2cpp_codegen_object_new);
                     Console.WriteLine($"\t\t\t\tSucceeded! Got address of vm::Object::New function: 0x{ret.il2cpp_vm_object_new:x}");
                 }
                 else
@@ -331,11 +332,11 @@ namespace Cpp2IL
                 if (targetMethod.MethodName != null) //Check struct contains valid data 
                 {
                     Console.WriteLine("\t\t\t\tTarget Method Located. Ensuring signature matches what we're expecting...");
-                    var disasm = Utils.DisassembleBytes(targetMethod.MethodBytes);
+                    var disasm = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, targetMethod.MethodBytes);
 
                     var callInstructions = disasm.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Icall).ToList();
 
-                    var callTargets = callInstructions.Select(i => Utils.GetJumpTarget(i, targetMethod.MethodOffsetRam + i.PC)).ToList();
+                    var callTargets = callInstructions.Select(i => LibCpp2ILUtils.GetJumpTarget(i, targetMethod.MethodOffsetRam + i.PC)).ToList();
 
                     //First call is codegen_init_method
                     //Second is, or should be, a call to Object$GetType
@@ -345,7 +346,7 @@ namespace Cpp2IL
                     //Then we get a call to il2cpp_codegen_object_new
                     //Then to the ctor of InvalidOperationException
                     //Then to the raise_managed_exception function
-                    
+
                     var potentialCIM = callTargets[0];
                     var shouldPointToObjectGetType = callTargets[1];
                     var shouldPointToTypeGetIsPointer = callTargets[3];
@@ -357,7 +358,7 @@ namespace Cpp2IL
                     SharedState.MethodsByAddress.TryGetValue(shouldPointToObjectGetType, out var shouldBeO_GT);
                     SharedState.MethodsByAddress.TryGetValue(shouldPointToTypeGetIsPointer, out var shouldBeT_GIP);
                     SharedState.MethodsByAddress.TryGetValue(shouldPointToIOECtor, out var shouldBeIOE_C);
-                    
+
 //                     var shouldBeO_GT = SharedState.MethodsByAddress[shouldPointToObjectGetType];
 //                     var shouldBeT_GIP = SharedState.MethodsByAddress[shouldPointToTypeGetIsPointer];
 //                     var shouldBeIOE_C = SharedState.MethodsByAddress[shouldPointToIOECtor];
@@ -369,13 +370,13 @@ namespace Cpp2IL
                         ret.il2cpp_codegen_initialize_method = potentialCIM;
                         ret.il2cpp_codegen_object_new = potentialCON;
                         ret.il2cpp_raise_managed_exception = potentialRME;
-                        
+
                         //Sometimes this CIM pointer actually points at vm::MetadataCache::InitializeMethodMetadata
-                        var cimMethodBody = Utils.GetMethodBodyAtRawAddress(Program.ThePE, (ulong) Program.ThePE.MapVirtualAddressToRaw(ret.il2cpp_codegen_initialize_method), true);
+                        var cimMethodBody = LibCpp2ILUtils.GetMethodBodyAtRawAddress(LibCpp2IlMain.ThePe, LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(ret.il2cpp_codegen_initialize_method), true);
                         if (cimMethodBody[0].Mnemonic == ud_mnemonic_code.UD_Ijmp)
                         {
                             //We have the actual cim, and the jump target is MC::IMM
-                            ret.il2cpp_vm_metadatacache_initializemethodmetadata = Utils.GetJumpTarget(cimMethodBody[0], cimMethodBody[0].PC + ret.il2cpp_codegen_initialize_method);
+                            ret.il2cpp_vm_metadatacache_initializemethodmetadata = LibCpp2ILUtils.GetJumpTarget(cimMethodBody[0], cimMethodBody[0].PC + ret.il2cpp_codegen_initialize_method);
                         }
                         else
                         {

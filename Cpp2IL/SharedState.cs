@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Analysis;
-using Cpp2IL.Metadata;
+using LibCpp2IL.Metadata;
 using Mono.Cecil;
 
 namespace Cpp2IL
