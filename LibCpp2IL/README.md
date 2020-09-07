@@ -144,6 +144,8 @@ var join = type.Methods[0];
 
 Console.Log(join.Name); //Join
 Console.Log($"0x{join.MethodPointer:X}"); //0x180385033
+//Getting the file address of a method
+Console.Log($"Join is in-assembly at address 0x{LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(join.MethodPointer):X}"); //Join is in-assembly at address 0x385033
 //ReturnType is a ReflectionData again, like interfaces are
 Console.Log(join.ReturnType); //System.String
 //DeclaringType gives you the original Il2CppTypeDefinition back
