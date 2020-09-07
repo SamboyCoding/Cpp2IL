@@ -100,7 +100,7 @@ namespace LibCpp2IL.Metadata
             .ToArray();
 
         public object?[]? FieldDefaults => Fields?
-            .Select((f, idx) => (f.FieldIndex, FieldAttributes[idx]))
+            .Select((f, idx) => (f.FieldIndex, FieldAttributes![idx]))
             .Select(tuple => (tuple.Item2 & System.Reflection.FieldAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetFieldDefaultValueFromIndex(tuple.FieldIndex) : null)
             .Select(def => def == null ? null : LibCpp2ILUtils.GetDefaultValue(def.dataIndex, def.typeIndex, LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.ThePe!))
             .ToArray();

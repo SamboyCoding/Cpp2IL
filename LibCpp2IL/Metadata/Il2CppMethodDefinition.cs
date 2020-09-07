@@ -33,7 +33,11 @@ namespace LibCpp2IL.Metadata
         
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
-        public ulong MethodPointer => LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null ? 0 : LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, DeclaringType.DeclaringAssembly.assemblyIndex, token);
+        public ulong MethodPointer => LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null ? 0 : LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, DeclaringType!.DeclaringAssembly!.assemblyIndex, token);
+
+        public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.ThePe == null ? 0 : LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(MethodPointer);
+
+        public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.ThePe == null ? 0 : LibCpp2IlMain.ThePe.GetRVA(MethodPointer);
 
         public Il2CppParameterReflectionData[]? Parameters => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
             ? null

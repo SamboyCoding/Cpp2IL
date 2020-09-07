@@ -1,6 +1,7 @@
 ﻿using System.Text;
 using LibCpp2IL.Metadata;
 
+#pragma warning disable 8618
 namespace LibCpp2IL.Reflection
 {
     /// <summary>
@@ -24,8 +25,9 @@ namespace LibCpp2IL.Reflection
         public byte arrayRank;
         public string variableGenericParamName;
         public bool isPointer;
+#pragma warning restore 8618
 
-        private string getPtrSuffix()
+        private string GetPtrSuffix()
         {
             return isPointer ? "*" : "";
         }
@@ -33,15 +35,15 @@ namespace LibCpp2IL.Reflection
         public override string ToString()
         {
             if (isArray)
-                return arrayType + "[]".Repeat(arrayRank) + getPtrSuffix();
+                return arrayType + "[]".Repeat(arrayRank) + GetPtrSuffix();
             
             if (!isType)
-                return variableGenericParamName + getPtrSuffix();
+                return variableGenericParamName + GetPtrSuffix();
             
             if (!isGenericType)
-                return baseType.FullName! + getPtrSuffix();
+                return baseType!.FullName! + GetPtrSuffix();
 
-            var builder = new StringBuilder(baseType.FullName + "<");
+            var builder = new StringBuilder(baseType!.FullName + "<");
             foreach (var genericParam in genericParams)
             {
                 builder.Append(genericParam).Append(", ");
@@ -49,7 +51,7 @@ namespace LibCpp2IL.Reflection
 
             builder.Remove(builder.Length - 2, 2);
             builder.Append(">");
-            return builder + getPtrSuffix();
+            return builder + GetPtrSuffix();
         }
     }
 }

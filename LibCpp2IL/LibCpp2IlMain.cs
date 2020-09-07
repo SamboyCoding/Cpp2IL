@@ -82,7 +82,7 @@ namespace LibCpp2IL
             }
 
             //Nasty fallback but we shouldn't ever get here.
-            return TheMetadata.methodDefs.FirstOrDefault(type => type.GlobalKey == global.Value.Name);
+            return TheMetadata!.methodDefs.FirstOrDefault(type => type.GlobalKey == global.Value.Name);
         }
 
         /// <summary>

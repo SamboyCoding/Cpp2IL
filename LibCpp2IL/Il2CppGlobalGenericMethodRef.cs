@@ -1,5 +1,6 @@
 ﻿using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
+#pragma warning disable 8618
 
 namespace LibCpp2IL
 {

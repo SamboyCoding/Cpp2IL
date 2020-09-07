@@ -1,4 +1,7 @@
-﻿using System;
+﻿//Disabled because it's slow as hell
+// #define DUMP_PACKAGE_SUCCESS_DATA
+
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -11,7 +14,6 @@ using System.Threading;
 using CommandLine;
 using Cpp2IL.Analysis;
 using LibCpp2IL;
-using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using Mono.Cecil;
 using SharpDisasm;
@@ -39,9 +41,7 @@ namespace Cpp2IL
             public bool SkipMetadataTextFiles { get; set; }
         }
 
-        public static float MetadataVersion = 24f;
-
-        private static readonly string[] blacklistedExecutableFilenames =
+        private static readonly string[] BlacklistedExecutableFilenames =
         {
             "UnityCrashHandler.exe",
             "UnityCrashHandler64.exe",
@@ -80,7 +80,7 @@ namespace Cpp2IL
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
             var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
-                .First(f => f.EndsWith(".exe") && !blacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
+                .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
 
             if (CommandLineOptions.ExeName != null)
             {
@@ -162,7 +162,7 @@ namespace Cpp2IL
             #region Assembly Generation
 
             LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(0x180623548);
-                
+
             var resolver = new RegistryAssemblyResolver();
             var moduleParams = new ModuleParameters
             {
@@ -175,12 +175,12 @@ namespace Cpp2IL
             Console.WriteLine("Building assemblies...");
             Console.WriteLine("\tPass 1: Creating types...");
 
-            Assemblies = AssemblyBuilder.CreateAssemblies(LibCpp2IlMain.TheMetadata, resolver, moduleParams);
+            Assemblies = AssemblyBuilder.CreateAssemblies(LibCpp2IlMain.TheMetadata!, resolver, moduleParams);
 
             Console.WriteLine("\tPass 2: Setting parents and handling inheritance...");
 
             //Stateful method, no return value
-            AssemblyBuilder.ConfigureHierarchy(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe);
+            AssemblyBuilder.ConfigureHierarchy(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe!);
 
             Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
 
@@ -417,36 +417,35 @@ namespace Cpp2IL
                         .Append("\n");
                 }
 
-                if (false)
-                {
-                    Console.WriteLine("By Package:");
-                    var keys = methodTaintDict
-                        .Select(kvp => kvp.Key)
-                        .GroupBy(
-                            GetPackageName,
-                            className => className,
-                            (packageName, classEnumerable) => new
-                            {
-                                package = packageName,
-                                classes = classEnumerable.ToList()
-                            })
-                        .ToList();
-
-                    foreach (var key in keys)
-                    {
-                        var resultLine = new StringBuilder();
-                        var totalClassCount = key.classes.Count;
-                        resultLine.Append($"\tIn package {key.package} ({totalClassCount} classes):   ");
-
-                        foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+#if DUMP_PACKAGE_SUCCESS_DATA
+                Console.WriteLine("By Package:");
+                var keys = methodTaintDict
+                    .Select(kvp => kvp.Key)
+                    .GroupBy(
+                        GetPackageName,
+                        className => className,
+                        (packageName, classEnumerable) => new
                         {
-                            var count = (decimal) methodTaintDict.Where(kvp => key.classes.Contains(kvp.Key)).Count(v => v.Value == (AsmDumper.TaintReason) reason);
-                            resultLine.Append(reason).Append(":").Append(count).Append($" ({Math.Round(count * 100 / totalClassCount, 1)}%)   ");
-                        }
+                            package = packageName,
+                            classes = classEnumerable.ToList()
+                        })
+                    .ToList();
 
-                        Console.WriteLine(resultLine.ToString());
+                foreach (var key in keys)
+                {
+                    var resultLine = new StringBuilder();
+                    var totalClassCount = key.classes.Count;
+                    resultLine.Append($"\tIn package {key.package} ({totalClassCount} classes):   ");
+
+                    foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                    {
+                        var count = (decimal) methodTaintDict.Where(kvp => key.classes.Contains(kvp.Key)).Count(v => v.Value == (AsmDumper.TaintReason) reason);
+                        resultLine.Append(reason).Append(":").Append(count).Append($" ({Math.Round(count * 100 / totalClassCount, 1)}%)   ");
                     }
+
+                    Console.WriteLine(resultLine.ToString());
                 }
+#endif
 
 
                 File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
@@ -458,12 +457,8 @@ namespace Cpp2IL
             // Console.WriteLine("[Finished. Press enter to exit]");
             // Console.ReadLine();
         }
-
-
-        #region Assembly Generation Helper Functions
-
-        #endregion
-
+        
+#if DUMP_PACKAGE_SUCCESS_DATA
         private static string GetPackageName(string fullName)
         {
             if (fullName.Contains("::"))
@@ -475,5 +470,6 @@ namespace Cpp2IL
 
             return string.Join(".", split);
         }
+#endif
     }
 }

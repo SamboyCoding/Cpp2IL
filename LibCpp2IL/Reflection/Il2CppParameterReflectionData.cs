@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 
+#pragma warning disable 8618
 namespace LibCpp2IL.Reflection
 {
     public class Il2CppParameterReflectionData
