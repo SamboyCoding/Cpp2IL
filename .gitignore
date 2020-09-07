@@ -6,3 +6,7 @@ packages/
 Cpp2IL/bin/
 
 Cpp2IL/obj/
+
+LibCpp2IL/bin/
+
+LibCpp2IL/obj/
