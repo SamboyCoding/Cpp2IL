@@ -135,6 +135,7 @@ Console.WriteLine(enumerableOfChar.genericParams[0].isGenericType); //false
 var join = type.Methods[0];
 
 Console.Log(join.Name); //Join
+Console.Log($"0x{join.MethodPointer:X}"); //0x180385033
 //ReturnType is a ReflectionData again, like interfaces are
 Console.Log(join.ReturnType); //System.String
 //DeclaringType gives you the original Il2CppTypeDefinition back
