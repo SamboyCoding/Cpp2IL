@@ -226,6 +226,16 @@ namespace Cpp2IL
                 typeMetaText.Append($"\t\t{iface.InterfaceType.FullName}\n");
             }
 
+            if (ilTypeDefinition.NestedTypes.Count > 0)
+            {
+                typeMetaText.Append("\n\tNested Types:\n");
+
+                foreach (var nestedType in ilTypeDefinition.NestedTypes)
+                {
+                    typeMetaText.Append($"\t\t{nestedType.FullName}\n");
+                }
+            }
+
             var addressAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AddressAttribute").Methods[0];
             var fieldOffsetAttribute = ilTypeDefinition.Module.Types.First(x => x.FullName == "Cpp2IlInjected.FieldOffsetAttribute").Methods[0];
             var attributeAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AttributeAttribute").Methods[0];
@@ -281,7 +291,7 @@ namespace Cpp2IL
                     var fieldDefault = metadata.GetFieldDefaultValueFromIndex(fieldIdx);
                     if (fieldDefault != null && fieldDefault.dataIndex != -1)
                     {
-                        fieldDefinition.Constant = Utils.GetDefaultValue(fieldDefault.dataIndex,
+                        fieldDefinition.Constant = LibCpp2ILUtils.GetDefaultValue(fieldDefault.dataIndex,
                             fieldDefault.typeIndex, metadata, cppAssembly);
                     }
                 }
@@ -303,13 +313,13 @@ namespace Cpp2IL
             SharedState.FieldsByType[ilTypeDefinition] = fields;
 
             //Methods
-            var lastMethodId = cppTypeDefinition.firstMethodId + cppTypeDefinition.method_count;
+            var lastMethodId = cppTypeDefinition.firstMethodIdx + cppTypeDefinition.method_count;
             var typeMethods = new List<CppMethodData>();
             Il2CppGenericContainer genericContainer;
-            for (var methodId = cppTypeDefinition.firstMethodId; methodId < lastMethodId; ++methodId)
+            for (var methodId = cppTypeDefinition.firstMethodIdx; methodId < lastMethodId; ++methodId)
             {
                 var methodDef = metadata.methodDefs[methodId];
-                var methodReturnType = cppAssembly.types[methodDef.returnType];
+                var methodReturnType = cppAssembly.types[methodDef.returnTypeIdx];
                 var methodName = metadata.GetStringFromIndex(methodDef.nameIndex);
                 var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags,
                     ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefByName("System.Void").Item1));
@@ -391,7 +401,7 @@ namespace Cpp2IL
                         var parameterDefault = metadata.GetParameterDefaultValueFromIndex(methodDef.parameterStart + paramIdx);
                         if (parameterDefault != null && parameterDefault.dataIndex != -1)
                         {
-                            parameterDefinition.Constant = Utils.GetDefaultValue(parameterDefault.dataIndex, parameterDefault.typeIndex, metadata, cppAssembly);
+                            parameterDefinition.Constant = LibCpp2ILUtils.GetDefaultValue(parameterDefault.dataIndex, parameterDefault.typeIndex, metadata, cppAssembly);
                         }
                     }
 
@@ -469,13 +479,13 @@ namespace Cpp2IL
                 MethodDefinition setter = null;
                 if (propertyDef.get >= 0)
                 {
-                    getter = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + propertyDef.get];
+                    getter = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + propertyDef.get];
                     propertyType = getter.ReturnType;
                 }
 
                 if (propertyDef.set >= 0)
                 {
-                    setter = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + propertyDef.set];
+                    setter = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + propertyDef.set];
                     if (propertyType == null)
                         propertyType = setter.Parameters[0].ParameterType;
                 }
@@ -503,11 +513,11 @@ namespace Cpp2IL
                 var eventTypeRef = Utils.ImportTypeInto(ilTypeDefinition, eventType, cppAssembly, metadata);
                 var eventDefinition = new EventDefinition(eventName, (EventAttributes) eventType.attrs, eventTypeRef);
                 if (eventDef.add >= 0)
-                    eventDefinition.AddMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + eventDef.add];
+                    eventDefinition.AddMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.add];
                 if (eventDef.remove >= 0)
-                    eventDefinition.RemoveMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + eventDef.remove];
+                    eventDefinition.RemoveMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.remove];
                 if (eventDef.raise >= 0)
-                    eventDefinition.InvokeMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodId + eventDef.raise];
+                    eventDefinition.InvokeMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.raise];
                 
                 customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{eventDef.token:X}")));
@@ -582,98 +592,6 @@ namespace Cpp2IL
             return fieldOffset;
         }
 
-        internal static List<GlobalIdentifier> MapGlobalIdentifiers(Il2CppMetadata metadata, PE cppAssembly)
-        {
-            //Classes
-            var ret = metadata.metadataUsageDic[1]
-                .Select(kvp => new {kvp, type = cppAssembly.types[kvp.Value]})
-                .Select(t => new GlobalIdentifier
-                {
-                    Name = Utils.GetTypeName(metadata, cppAssembly, t.type, true),
-                    Offset = cppAssembly.metadataUsages[t.kvp.Key],
-                    IdentifierType = GlobalIdentifier.Type.TYPE
-                }).ToList();
-
-            //Idx 2 is exactly the same thing
-            ret.AddRange(metadata.metadataUsageDic[2]
-                .Select(kvp => new {kvp, type = cppAssembly.types[kvp.Value]})
-                .Select(t => new GlobalIdentifier
-                {
-                    Name = Utils.GetTypeName(metadata, cppAssembly, t.type, true),
-                    Offset = cppAssembly.metadataUsages[t.kvp.Key],
-                    IdentifierType = GlobalIdentifier.Type.TYPE
-                })
-            );
-
-            //Methods is idx 3
-            //Don't @ me, i prefer LINQ to foreach loops.
-            //But that said this could be optimised to less t-ing
-            ret.AddRange(metadata.metadataUsageDic[3]
-                .Select(kvp => new {kvp, method = metadata.methodDefs[kvp.Value]})
-                .Select(t => new {t.kvp, t.method, type = metadata.typeDefs[t.method.declaringType]})
-                .Select(t => new {t.kvp, t.method, typeName = Utils.GetTypeName(metadata, cppAssembly, t.type)})
-                .Select(t => new {t.kvp, methodName = t.typeName + "." + metadata.GetStringFromIndex(t.method.nameIndex) + "()"})
-                .Select(t => new GlobalIdentifier
-                {
-                    IdentifierType = GlobalIdentifier.Type.METHOD,
-                    Name = t.methodName,
-                    Offset = cppAssembly.metadataUsages[t.kvp.Key]
-                })
-            );
-
-            //Fields is idx 4
-            ret.AddRange(metadata.metadataUsageDic[4]
-                .Select(kvp => new {kvp, fieldRef = metadata.fieldRefs[kvp.Value]})
-                .Select(t => new {t.kvp, t.fieldRef, type = cppAssembly.types[t.fieldRef.typeIndex]})
-                .Select(t => new {t.type, t.kvp, t.fieldRef, typeDef = metadata.typeDefs[t.type.data.classIndex]})
-                .Select(t => new {t.type, t.kvp, fieldDef = metadata.fieldDefs[t.typeDef.firstFieldIdx + t.fieldRef.fieldIndex]})
-                .Select(t => new {t.kvp, fieldName = Utils.GetTypeName(metadata, cppAssembly, t.type, true) + "." + metadata.GetStringFromIndex(t.fieldDef.nameIndex)})
-                .Select(t => new GlobalIdentifier
-                {
-                    IdentifierType = GlobalIdentifier.Type.FIELD,
-                    Name = t.fieldName,
-                    Offset = cppAssembly.metadataUsages[t.kvp.Key]
-                })
-            );
-
-            //Literals
-            ret.AddRange(metadata.metadataUsageDic[5]
-                .Select(kvp => new GlobalIdentifier
-                {
-                    IdentifierType = GlobalIdentifier.Type.LITERAL,
-                    Offset = cppAssembly.metadataUsages[kvp.Key],
-                    Name = $"{metadata.GetStringLiteralFromIndex(kvp.Value)}"
-                })
-            );
-
-            foreach (var kvp in metadata.metadataUsageDic[6]) //kIl2CppMetadataUsageMethodRef
-            {
-                var methodSpec = cppAssembly.methodSpecs[kvp.Value];
-                var methodDef = metadata.methodDefs[methodSpec.methodDefinitionIndex];
-                var typeDef = metadata.typeDefs[methodDef.declaringType];
-                var typeName = Utils.GetTypeName(metadata, cppAssembly, typeDef);
-                if (methodSpec.classIndexIndex != -1)
-                {
-                    var classInst = cppAssembly.genericInsts[methodSpec.classIndexIndex];
-                    typeName += Utils.GetGenericTypeParams(metadata, cppAssembly, classInst);
-                }
-
-                var methodName = typeName + "." + metadata.GetStringFromIndex(methodDef.nameIndex) + "()";
-                if (methodSpec.methodIndexIndex != -1)
-                {
-                    var methodInst = cppAssembly.genericInsts[methodSpec.methodIndexIndex];
-                    methodName += Utils.GetGenericTypeParams(metadata, cppAssembly, methodInst);
-                }
-
-                ret.Add(new GlobalIdentifier
-                {
-                    Name = methodName,
-                    IdentifierType = GlobalIdentifier.Type.METHOD,
-                    Offset = cppAssembly.metadataUsages[kvp.Key]
-                });
-            }
-
-            return ret;
-        }
+        
     }
 }

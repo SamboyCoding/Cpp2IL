@@ -51,16 +51,13 @@ namespace Cpp2IL
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         internal static Options? CommandLineOptions;
 
-        public static void PrintUsage()
-        {
-            Console.WriteLine("Usage: Cpp2IL <path to game folder> [name of game exe]");
-        }
-
         public static void Main(string[] args)
         {
             Console.WriteLine("===Cpp2IL by Samboy063===");
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
             Console.WriteLine("Running on " + Environment.OSVersion.Platform);
+
+            #region Command Line Parsing
 
             CommandLineOptions = null;
             Parser.Default.ParseArguments<Options>(args).WithParsed(options => { CommandLineOptions = options; });
@@ -77,8 +74,7 @@ namespace Cpp2IL
 
             if (!Directory.Exists(baseGamePath))
             {
-                Console.WriteLine("Specified path does not exist: " + baseGamePath);
-                PrintUsage();
+                Console.WriteLine("Specified game-path does not exist: " + baseGamePath);
                 return;
             }
 
@@ -97,21 +93,23 @@ namespace Cpp2IL
             }
 
             var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
-            var metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata",
-                "global-metadata.dat");
+            var metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
 
             if (!File.Exists(assemblyPath) || !File.Exists(unityPlayerPath) || !File.Exists(metadataPath))
             {
-                Console.WriteLine("Invalid path specified. Failed to find one of the following:\n" +
+                Console.WriteLine("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
                                   $"\t{assemblyPath}\n" +
                                   $"\t{unityPlayerPath}\n" +
                                   $"\t{metadataPath}\n");
-                PrintUsage();
                 return;
             }
 
+            #endregion
+
             Console.WriteLine($"Located game EXE: {unityPlayerPath}");
             Console.WriteLine($"Located global-metadata: {metadataPath}");
+
+            #region Unity Version Determination
 
             Console.WriteLine("\nAttempting to determine Unity version...");
 
@@ -148,6 +146,10 @@ namespace Cpp2IL
                 Console.WriteLine("Unable to determine a valid unity version. Aborting.");
                 return;
             }
+
+            #endregion
+
+            LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = true;
 
             if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVerUseful))
             {
@@ -249,16 +251,18 @@ namespace Cpp2IL
             {
                 Console.WriteLine("\tPass 5: Locating Globals...");
 
-                var globals = AssemblyBuilder.MapGlobalIdentifiers(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe);
+                Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.TypeRefs.Count} type globals");
+                Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.MethodRefs.Count} method globals");
+                Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.FieldRefs.Count} field globals");
+                Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.Literals.Count} string literals");
 
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.TYPE)} type globals");
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.METHOD)} method globals");
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.FIELD)} field globals");
-                Console.WriteLine($"\t\tFound {globals.Count(g => g.IdentifierType == GlobalIdentifier.Type.LITERAL)} string literals");
+                //TODO: Don't do this. Rework everything to use the API surface.
+                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.TypeRefs);
+                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.MethodRefs);
+                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.FieldRefs);
+                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.Literals);
 
-                SharedState.Globals.AddRange(globals);
-
-                foreach (var globalIdentifier in globals)
+                foreach (var globalIdentifier in SharedState.Globals)
                     SharedState.GlobalsByOffset[globalIdentifier.Offset] = globalIdentifier;
 
                 Console.WriteLine("\tPass 6: Looking for key functions...");
@@ -292,9 +296,9 @@ namespace Cpp2IL
                 var dllPath = Path.Combine(outputPath, assembly.MainModule.Name);
 
                 var reference = assembly.MainModule.AssemblyReferences.FirstOrDefault(a => a.Name == "System.Private.CoreLib");
-                if(reference != null)
+                if (reference != null)
                     assembly.MainModule.AssemblyReferences.Remove(reference);
-                
+
                 assembly.Write(dllPath);
 
                 if (assembly.Name.Name != "Assembly-CSharp" || CommandLineOptions.SkipAnalysis) continue;
@@ -354,9 +358,9 @@ namespace Cpp2IL
                             foreach (var method in methodData)
                             {
                                 var methodStart = method.MethodOffsetRam;
-                                
-                                if(methodStart == 0) continue;
-                                
+
+                                if (methodStart == 0) continue;
+
                                 var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
                                 var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe)

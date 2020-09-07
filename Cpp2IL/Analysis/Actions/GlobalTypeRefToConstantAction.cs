@@ -17,7 +17,7 @@ namespace Cpp2IL.Analysis.Actions
         {
             var globalAddress = context.MethodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
             GlobalRead = SharedState.GlobalsByOffset[globalAddress];
-            var (type, genericParams) = Utils.TryLookupTypeDefByName(GlobalRead.Name);
+            var (type, genericParams) = Utils.TryLookupTypeDefByName(GlobalRead.Value);
             ResolvedType = type;
 
             if (ResolvedType == null) return;

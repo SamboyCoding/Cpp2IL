@@ -8,6 +8,8 @@ namespace LibCpp2IL.Metadata
 {
     public class Il2CppMetadata : ClassReadingBinaryReader
     {
+        //Disable null check as this stuff is reflected.
+#pragma warning disable 8618
         private Il2CppGlobalMetadataHeader metadataHeader;
         public Il2CppAssemblyDefinition[] assemblyDefinitions;
         public Il2CppTypeDefinition[] typeDefs;
@@ -32,32 +34,29 @@ namespace LibCpp2IL.Metadata
         public Il2CppFieldRef[] fieldRefs;
         public Il2CppGenericParameter[] genericParameters;
 
-        public static Il2CppMetadata? ReadFrom(string path, int[] unityVer)
+        public static Il2CppMetadata? ReadFrom(byte[] bytes, int[] unityVer)
         {
-            var bytes = File.ReadAllBytes(path);
             if (BitConverter.ToUInt32(bytes, 0) != 0xFAB11BAF)
             {
                 //Magic number is wrong
-                Console.WriteLine("Error: Invalid or corrupt metadata (magic number check failed): " + path);
-                return null;
+                throw new FormatException("Invalid or corrupt metadata (magic number check failed)");
             }
 
             var version = BitConverter.ToInt32(bytes, 4);
             if (version != 24)
             {
-                Console.WriteLine("Unexpected non-unity metadata version found! Expected 24, got " + version);
-                return null;
+                throw new FormatException("Unexpected non-unity metadata version found! Expected 24, got " + version);
             }
 
             float actualVersion;
             if (unityVer[0] >= 2019) actualVersion = 24.2f;
             else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f;
             else actualVersion = version;
-            
+
             Console.WriteLine($"Using IL2CPP Metadata version {actualVersion}");
 
             LibCpp2IlMain.MetadataVersion = actualVersion;
-            
+
             return new Il2CppMetadata(new MemoryStream(bytes));
         }
 
@@ -68,19 +67,19 @@ namespace LibCpp2IL.Metadata
             {
                 throw new Exception("ERROR: Magic number mismatch. Expecting " + 0xFAB11BAF + " but got " + metadataHeader.magicNumber);
             }
-            
-            if(metadataHeader.version != 24) throw new Exception("ERROR: Invalid metadata version, unity only uses 24, we got " + metadataHeader.version);
+
+            if (metadataHeader.version != 24) throw new Exception("ERROR: Invalid metadata version, unity only uses 24, we got " + metadataHeader.version);
 
             Console.Write("\tReading image definitions...");
             var start = DateTime.Now;
             assemblyDefinitions = ReadMetadataClassArray<Il2CppAssemblyDefinition>(metadataHeader.imagesOffset, metadataHeader.imagesCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading type definitions...");
             start = DateTime.Now;
             typeDefs = ReadMetadataClassArray<Il2CppTypeDefinition>(metadataHeader.typeDefinitionsOffset, metadataHeader.typeDefinitionsCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading interface offsets...");
             start = DateTime.Now;
             interfaceOffsets = ReadMetadataClassArray<Il2CppInterfaceOffset>(metadataHeader.interfaceOffsetsOffset, metadataHeader.interfaceOffsetsCount);
@@ -90,63 +89,63 @@ namespace LibCpp2IL.Metadata
             start = DateTime.Now;
             methodDefs = ReadMetadataClassArray<Il2CppMethodDefinition>(metadataHeader.methodsOffset, metadataHeader.methodsCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading method parameter definitions...");
             start = DateTime.Now;
             parameterDefs = ReadMetadataClassArray<Il2CppParameterDefinition>(metadataHeader.parametersOffset, metadataHeader.parametersCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading field definitions...");
             start = DateTime.Now;
             fieldDefs = ReadMetadataClassArray<Il2CppFieldDefinition>(metadataHeader.fieldsOffset, metadataHeader.fieldsCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading default field values...");
             start = DateTime.Now;
             fieldDefaultValues = ReadMetadataClassArray<Il2CppFieldDefaultValue>(metadataHeader.fieldDefaultValuesOffset, metadataHeader.fieldDefaultValuesCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading default parameter values...");
             start = DateTime.Now;
             parameterDefaultValues = ReadMetadataClassArray<Il2CppParameterDefaultValue>(metadataHeader.parameterDefaultValuesOffset, metadataHeader.parameterDefaultValuesCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading property definitions...");
             start = DateTime.Now;
             propertyDefs = ReadMetadataClassArray<Il2CppPropertyDefinition>(metadataHeader.propertiesOffset, metadataHeader.propertiesCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading interface definitions...");
             start = DateTime.Now;
             interfaceIndices = ReadClassArray<int>(metadataHeader.interfacesOffset, metadataHeader.interfacesCount / 4);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading nested type definitions...");
             start = DateTime.Now;
             nestedTypeIndices = ReadClassArray<int>(metadataHeader.nestedTypesOffset, metadataHeader.nestedTypesCount / 4);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading event definitions...");
             start = DateTime.Now;
             eventDefs = ReadMetadataClassArray<Il2CppEventDefinition>(metadataHeader.eventsOffset, metadataHeader.eventsCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading generic container definitions...");
             start = DateTime.Now;
             genericContainers = ReadMetadataClassArray<Il2CppGenericContainer>(metadataHeader.genericContainersOffset, metadataHeader.genericContainersCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading generic parameter definitions...");
             start = DateTime.Now;
             genericParameters = ReadMetadataClassArray<Il2CppGenericParameter>(metadataHeader.genericParametersOffset, metadataHeader.genericParametersCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             //v17+ fields
             Console.Write("\tReading string definitions...");
             start = DateTime.Now;
             stringLiterals = ReadMetadataClassArray<Il2CppStringLiteral>(metadataHeader.stringLiteralOffset, metadataHeader.stringLiteralCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.Write("\tReading usage data...");
             start = DateTime.Now;
             metadataUsageLists = ReadMetadataClassArray<Il2CppMetadataUsageList>(metadataHeader.metadataUsageListsOffset, metadataHeader.metadataUsageListsCount);
@@ -159,7 +158,7 @@ namespace LibCpp2IL.Metadata
             start = DateTime.Now;
             fieldRefs = ReadMetadataClassArray<Il2CppFieldRef>(metadataHeader.fieldRefsOffset, metadataHeader.fieldRefsCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             //v21+ fields
             Console.Write("\tReading attribute types...");
             start = DateTime.Now;
@@ -167,23 +166,25 @@ namespace LibCpp2IL.Metadata
             attributeTypes = ReadClassArray<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
-        
+#pragma warning restore 8618
+
         private T[] ReadMetadataClassArray<T>(int offset, int length) where T : new()
         {
             return ReadClassArray<T>(offset, length / VersionAwareSizeOf(typeof(T)));
         }
-        
+
         private static int VersionAwareSizeOf(Type type)
         {
             var size = 0;
             foreach (var i in type.GetFields())
             {
-                var attr = (VersionAttribute)Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
+                var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
                 if (attr != null)
                 {
                     if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
                         continue;
                 }
+
                 switch (i.FieldType.Name)
                 {
                     case "Int32":
@@ -196,9 +197,10 @@ namespace LibCpp2IL.Metadata
                         break;
                 }
             }
+
             return size;
         }
-        
+
         private void DecipherMetadataUsage()
         {
             metadataUsageDic = new Dictionary<uint, SortedDictionary<uint, uint>>();
@@ -206,6 +208,7 @@ namespace LibCpp2IL.Metadata
             {
                 metadataUsageDic[i] = new SortedDictionary<uint, uint>();
             }
+
             foreach (var metadataUsageList in metadataUsageLists)
             {
                 for (var i = 0; i < metadataUsageList.count; i++)
@@ -217,9 +220,10 @@ namespace LibCpp2IL.Metadata
                     metadataUsageDic[usage][metadataUsagePair.destinationIndex] = decodedIndex;
                 }
             }
+
             maxMetadataUsages = metadataUsageDic.Max(x => x.Value.Max(y => y.Key)) + 1;
         }
-        
+
         private uint GetEncodedIndexType(uint index)
         {
             return (index & 0xE0000000) >> 29;
@@ -229,7 +233,7 @@ namespace LibCpp2IL.Metadata
         {
             return index & 0x1FFFFFFFU;
         }
-        
+
         //Getters for human readability
         public Il2CppFieldDefaultValue GetFieldDefaultValueFromIndex(int index)
         {
@@ -263,6 +267,7 @@ namespace LibCpp2IL.Metadata
                         return i;
                     }
                 }
+
                 return -1;
             }
             else
@@ -275,7 +280,7 @@ namespace LibCpp2IL.Metadata
         {
             var stringLiteral = stringLiterals[index];
             Position = metadataHeader.stringLiteralDataOffset + stringLiteral.dataIndex;
-            return Encoding.UTF8.GetString(ReadBytes((int)stringLiteral.length));
+            return Encoding.UTF8.GetString(ReadBytes((int) stringLiteral.length));
         }
     }
 }

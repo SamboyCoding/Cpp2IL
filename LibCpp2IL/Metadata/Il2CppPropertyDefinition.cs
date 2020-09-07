@@ -1,3 +1,7 @@
+using System;
+using System.Linq;
+using LibCpp2IL.Reflection;
+
 namespace LibCpp2IL.Metadata
 {
     public class Il2CppPropertyDefinition
@@ -8,5 +12,27 @@ namespace LibCpp2IL.Metadata
         public uint attrs;
         [Version(Max = 24)] public int customAttributeIndex;
         public uint token;
+
+        [NonSerialized] private Il2CppTypeDefinition? _type;
+
+        public Il2CppTypeDefinition? DeclaringType
+        {
+            get
+            {
+                if (_type != null) return _type;
+                if (LibCpp2IlMain.TheMetadata == null) return null;
+
+                _type = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(t => t.Properties!.Contains(this));
+                return _type;
+            }
+        }
+
+        public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+
+        public Il2CppMethodDefinition? Getter => LibCpp2IlMain.TheMetadata == null || get < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + get];
+
+        public Il2CppMethodDefinition? Setter => LibCpp2IlMain.TheMetadata == null || set < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + set];
+
+        public Il2CppTypeReflectionData? PropertyType => LibCpp2IlMain.TheMetadata == null ? null : Getter == null ? Setter!.Parameters![0].Type : Getter!.ReturnType;
     }
 }

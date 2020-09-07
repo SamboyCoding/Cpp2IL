@@ -11,6 +11,8 @@ namespace LibCpp2IL.PE
 {
     public sealed class PE : ClassReadingBinaryReader
     {
+#pragma warning disable 8618
+//Disable null check because this stuff is initialized by reflection
         private Il2CppMetadataRegistration metadataRegistration;
         private Il2CppCodeRegistration codeRegistration;
         public ulong[] methodPointers;
@@ -38,7 +40,7 @@ namespace LibCpp2IL.PE
         private OptionalHeader64 optionalHeader64;
         private OptionalHeader optionalHeader;
 
-        private uint[] exportFunctionPointers;
+        private uint[]? exportFunctionPointers;
         private uint[] exportFunctionNamePtrs;
         private ushort[] exportFunctionOrdinals;
 
@@ -50,11 +52,11 @@ namespace LibCpp2IL.PE
 
             this.maxMetadataUsages = maxMetadataUsages;
             if (ReadUInt16() != 0x5A4D) //Magic number
-                throw new Exception("ERROR: Magic number mismatch.");
+                throw new FormatException("ERROR: Magic number mismatch.");
             Position = 0x3C; //Signature position position (lol)
             Position = ReadUInt32(); //Signature position
             if (ReadUInt32() != 0x00004550) //Signature
-                throw new Exception("ERROR: Invalid PE file signature");
+                throw new FormatException("ERROR: Invalid PE file signature");
 
             var fileHeader = ReadClass<FileHeader>(-1);
             if (fileHeader.Machine == 0x014c) //Intel 386
@@ -72,7 +74,7 @@ namespace LibCpp2IL.PE
             }
             else
             {
-                throw new Exception("ERROR: Unsupported machine.");
+                throw new NotSupportedException("ERROR: Unsupported machine.");
             }
 
             sections = new SectionHeader[fileHeader.NumberOfSections];
@@ -97,6 +99,7 @@ namespace LibCpp2IL.PE
             Console.WriteLine($"\tImage Base at 0x{imageBase:X}");
             Console.WriteLine($"\tDLL is {(is32Bit ? "32" : "64")}-bit");
         }
+#pragma warning restore 8618
 
         private bool AutoInit(ulong codeRegistration, ulong metadataRegistration)
         {
@@ -471,7 +474,7 @@ namespace LibCpp2IL.PE
                 Console.WriteLine($"\tFound a call to that function at 0x{addrCallToRegCallback:X}");
 
                 var indexOfCallToRegisterCallback = allInstructionsInTextSection.IndexOf(callToRegisterCallback);
-                Instruction loadOfAddressToCodegenRegistrationFunction = null;
+                Instruction? loadOfAddressToCodegenRegistrationFunction = null;
                 for (var i = indexOfCallToRegisterCallback; i > 0; i--)
                 {
                     if (!is32Bit)
@@ -540,14 +543,14 @@ namespace LibCpp2IL.PE
 
             bailout:
 
-            if (codeRegistration == 0)
+            if (codeRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
             {
                 Console.Write("Couldn't identify a CodeRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
                 var crInput = Console.ReadLine();
                 ulong.TryParse(crInput, NumberStyles.HexNumber, null, out codeRegistration);
             }
 
-            if (metadataRegistration == 0)
+            if (metadataRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
             {
                 Console.Write("Couldn't identify a MetadataRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
                 var mrInput = Console.ReadLine();
@@ -661,7 +664,7 @@ namespace LibCpp2IL.PE
                 return 0;
 
             var ordinal = exportFunctionOrdinals[index];
-            var functionPointer = exportFunctionPointers[ordinal];
+            var functionPointer = exportFunctionPointers![ordinal];
 
             return functionPointer + imageBase;
         }

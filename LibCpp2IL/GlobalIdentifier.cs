@@ -1,21 +1,21 @@
-﻿namespace Cpp2IL
+﻿namespace LibCpp2IL
 {
     public struct GlobalIdentifier
     {
         public ulong Offset;
-        public string Name;
+        public string Value;
         public Type IdentifierType;
 
         public override string ToString()
         {
-            return $"Cpp2IL Global Identifier (Name = {Name}, Offset = 0x{Offset:X}, Type = {IdentifierType})";
+            return $"LibCpp2IL Global Identifier (Name = {Value}, Offset = 0x{Offset:X}, Type = {IdentifierType})";
         }
 
         public enum Type
         {
-            TYPE,
-            METHOD,
-            FIELD,
+            TYPEREF,
+            METHODREF,
+            FIELDREF,
             LITERAL
         }
     }
