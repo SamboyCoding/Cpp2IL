@@ -31,12 +31,7 @@ namespace LibCpp2IL
             var typeGlobal = LibCpp2IlGlobalMapper.TypeRefs.FirstOrDefault(lit => lit.Offset == address);
             if (typeGlobal.Offset != address) return null;
 
-            if (typeGlobal.Value is Il2CppTypeReflectionData reflectionData)
-            {
-                return reflectionData;
-            }
-
-            return null;
+            return typeGlobal.ReferencedType;
         }
         
         public static Il2CppFieldDefinition? GetFieldGlobalByAddress(ulong address)
@@ -46,12 +41,7 @@ namespace LibCpp2IL
             var typeGlobal = LibCpp2IlGlobalMapper.FieldRefs.FirstOrDefault(lit => lit.Offset == address);
             if (typeGlobal.Offset != address) return null;
 
-            if (typeGlobal.Value is Il2CppFieldDefinition fieldDefinition)
-            {
-                return fieldDefinition;
-            }
-
-            return null;
+            return typeGlobal.ReferencedField;
         }
         
         public static GlobalIdentifier? GetMethodGlobalByAddress(ulong address)
@@ -70,19 +60,7 @@ namespace LibCpp2IL
             
             if (global.Value.Offset != address) return null;
 
-            if (global.Value.Value is Il2CppGlobalGenericMethodRef genericMethodRef)
-            {
-                //TODO: This isn't quite right, there should be a way to get the specific generic reference here for specific method pointers.
-                return genericMethodRef.baseMethod;
-            }
-
-            if (global.Value.Value is Il2CppMethodDefinition methodDefinition)
-            {
-                return methodDefinition;
-            }
-
-            //Nasty fallback but we shouldn't ever get here.
-            return TheMetadata!.methodDefs.FirstOrDefault(type => type.GlobalKey == global.Value.Name);
+            return global.Value.ReferencedMethod;
         }
 
         /// <summary>

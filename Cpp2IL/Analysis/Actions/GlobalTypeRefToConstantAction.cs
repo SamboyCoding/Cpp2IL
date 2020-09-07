@@ -16,8 +16,8 @@ namespace Cpp2IL.Analysis.Actions
         public GlobalTypeRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = context.MethodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
-            GlobalRead = SharedState.GlobalsByOffset[globalAddress];
-            var (type, genericParams) = Utils.TryLookupTypeDefByName(GlobalRead.Name);
+            var typeData = LibCpp2IlMain.GetTypeGlobalByAddress(globalAddress);
+            var (type, genericParams) = Utils.TryLookupTypeDefByName(typeData!.ToString());
             ResolvedType = type;
 
             if (ResolvedType == null) return;
@@ -40,7 +40,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Loads the type definition for managed type {ResolvedType?.FullName} as a constant \"{ConstantWritten.Name}\"";
+            return $"Loads the type definition for managed type {ResolvedType.FullName} as a constant \"{ConstantWritten.Name}\"";
         }
     }
 }
