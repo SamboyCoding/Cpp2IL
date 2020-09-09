@@ -33,6 +33,7 @@ namespace LibCpp2IL.PE
         private Il2CppCodeGenModule[] codeGenModules;
         public ulong[][] codeGenModuleMethodPointers;
         public Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>>();
+        public Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new Dictionary<ulong, List<Il2CppConcreteGenericMethod>>();
 
         private SectionHeader[] sections;
         private ulong imageBase;
@@ -262,13 +263,19 @@ namespace LibCpp2IL.PE
 
                     if (!ConcreteGenericMethods.ContainsKey(baseMethod))
                         ConcreteGenericMethods[baseMethod] = new List<Il2CppConcreteGenericMethod>();
+                    
+                    if(!ConcreteGenericImplementationsByAddress.ContainsKey(concreteMethodPtr))
+                        ConcreteGenericImplementationsByAddress[concreteMethodPtr] = new List<Il2CppConcreteGenericMethod>();
 
-                    ConcreteGenericMethods[baseMethod].Add(new Il2CppConcreteGenericMethod
+                    var concreteMethod = new Il2CppConcreteGenericMethod
                     {
                         BaseMethod = baseMethod,
                         GenericParams = genericParamData,
                         GenericVariantPtr = concreteMethodPtr
-                    });
+                    };
+                    
+                    ConcreteGenericMethods[baseMethod].Add(concreteMethod);
+                    ConcreteGenericImplementationsByAddress[concreteMethodPtr].Add(concreteMethod);
                 }
 
                 if (!genericMethodDictionary.ContainsKey(methodDefIndex))

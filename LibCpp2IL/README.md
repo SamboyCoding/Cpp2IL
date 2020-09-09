@@ -15,7 +15,7 @@ LibCpp2IL requires you to have SharpDiasm available for it to use.
 Setting up the library can be done in one of two ways. At present, debug logging is turned on, so the library will call Console.WriteLine with a large amount of log data showing what it is currently loading, as well as timing data.
 
 ### From the hard drive:
-```cs 
+```c# 
 var unityVersion = new [] {2019, 2, 0}; //You'll have to get this from globalgamemanagers or the unity engine exe's file version.
 if (!LibCpp2IlMain.LoadFromFile(gameAssemblyPath, globalMetadataPath, unityVersion)) {
     Console.WriteLine("initialization failed!");
@@ -24,7 +24,7 @@ if (!LibCpp2IlMain.LoadFromFile(gameAssemblyPath, globalMetadataPath, unityVersi
 ```
 ### From a byte array
 You can also load the two files manually and provide their content to the library:
-```cs 
+```c# 
 var unityVersion = new [] {2019, 2, 0}; //You'll have to get this from globalgamemanagers or the unity engine exe's file version.
 if (!LibCpp2IlMain.Initialize(gameAssemblyBytes, globalMetadataBytes, unityVersion)) {
     Console.WriteLine("initialization failed!");
@@ -40,7 +40,7 @@ IL2CPP stores type, field, string literal, and method references as globals. Giv
 
 ### Type References
 
-```cs
+```c#
 //Il2CppTypeReflectionData is a wrapper around type definitions to allow for generic params and arrays.
 Il2CppTypeReflectionData type = LibCpp2IlMain.GetTypeGlobalByAddress(0x180623548);
 ```
@@ -50,12 +50,12 @@ Il2CppTypeReflectionData type = LibCpp2IlMain.GetTypeGlobalByAddress(0x180623548
 Method references can be generic or otherwise, but it's not possible currently to get the pointer to a generic variant of a method - though it is possible to work out what params a given global refers to.
 
 If you just want method details, use this:
-```cs
+```c#
 Il2CppMethodDefinition method = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(0x182938239);
 ```
 
 If you want more complex data, such as type and/or method generic params, you can use this code to get the raw global struct, and obtain the generic data like so:
-```cs
+```c#
 GlobalIdentifier? nullableGlobal = LibCpp2IlMain.GetMethodGlobalByAddress(0x182938239);
 if(!nullableGlobal.HasValue) return;
 
@@ -73,13 +73,13 @@ if(global.Value is Il2CppGlobalGenericMethodRef genericMethodRef) {
 
 ### Field References
 
-```cs
+```c#
 Il2CppFieldDefinition fieldDef = LibCpp2IlMain.GetFieldGlobalByAddress(0x182933215);
 ```
 
 ### String Literals
 
-```cs
+```c#
 string literal = LibCpp2IlMain.GetLiteralByAddress(0x182197654);
 ```
 
@@ -87,7 +87,7 @@ string literal = LibCpp2IlMain.GetLiteralByAddress(0x182197654);
 
 LibCpp2IL provides utility methods to get types by name in order to start the Reflection process.
 
-```cs
+```c#
 //Signature:
 Il2CppTypeDefinition type = typeLibCpp2IlReflection.GetType(typeName, optionalNamespaceName);
 
@@ -102,7 +102,7 @@ type = LibCpp2IlReflection.GetType("Object", "UnityEngine");
 Convenience methods are provided to obtain the most commonly used properties of a type, such as its methods, fields, properties, and events, in addition to its name, namespace, and hierarchy data such as declaring type, base class, interfaces etc.
 
 Given the definition of `type` as such:
-```cs
+```c#
 Il2CppTypeDefinition type = LibCpp2IlReflection.GetType("String");
 ```
 
@@ -111,14 +111,14 @@ Il2CppTypeDefinition type = LibCpp2IlReflection.GetType("String");
 As a quick note, all fields, types, methods, properties, and events store their token in the `token` field.
 
 ### Basic Properties
-```cs
+```c#
 Console.WriteLine(type.Namespace); //System
 Console.WriteLine(type.Name); //String
 Console.WriteLine(type.FullName); //System.String
 ```
 
 ### Inheritence
-```cs
+```c#
 //Base class
 Console.WriteLine(type.BaseType.FullName); //System.Object
 
@@ -138,7 +138,7 @@ Console.WriteLine(enumerableOfChar.genericParams[0].isGenericType); //false
 ```
 
 ### Methods
-```cs
+```c#
 //In this example, string.Join(string separator, string[] value) is the first-defined method in the metadata, but it could be a different order.
 var join = type.Methods[0];
 
@@ -160,16 +160,17 @@ Console.Log(join.Parameters[1].Type.arrayType) //System.String
 ```
 
 ### Fields
-```cs
+```c#
 //Accessing the string's internal length field. Note that unlike methods, fields DO have a defined order and they are presented in that order.
 var lengthField = type.Fields[0];
 Console.WriteLine(lengthField.Name); //m_stringLength
-Console.WriteLine(lengthField.FieldType.FullName); //System.Int32
+//FieldType is an Il2CppTypeReflectionData, the ToString of which gives the name of the class.
+Console.WriteLine(lengthField.FieldType); //System.Int32
 ```
 
 ### Properties
 
-```cs
+```c#
 var lengthProperty = type.Properties[1];
 Console.WriteLine(lengthProperty.Name); //Length
 Console.WriteLine(lengthProperty.Getter.Name); //get_Length
@@ -180,14 +181,14 @@ Console.WriteLine(lengthProperty.DeclaringType.FullName); //System.String
 ```
 
 ### Nested Types
-```cs
+```c#
 var transform = LibCpp2IlReflection.GetType("Transform", "UnityEngine");
 Console.Log(transform.NestedTypes[0].Name); //Enumerator
 Console.Log(transform.NestedTypes[0].DeclaringType.FullName); //UnityEngine.Transform
 ```
 
 ### Events
-```cs
+```c#
 var appDomain = LibCpp2IlReflection.GetType("AppDomain", "System");
 Console.Log(appDomain.Events.Length); //3
 Console.Log(appDomain.Events[0].Name); //DomainUnload
@@ -212,7 +213,7 @@ And IL2CPP strips out any implementations that the game itself doesn't - and won
 
 So, given an `Il2CppMethodDefinition` for a generic method, you can find out which implementations DO exist by accessing the ConcreteGenericMethods dict on a PE object, like so.
 
-```cs
+```c#
 var listType = LibCpp2IlReflection.GetType("List`1", "System");
 var addMethod = listType.Methods.First(m => m.Name == "Add");
 var variants = LibCpp2IlMain.ThePe.ConcreteGenericMethods[addMethod];
@@ -226,3 +227,9 @@ Console.WriteLine(variants[0].GenericParams[0]); //Could be, for example, "Syste
 //If it's for a class such as `string`, it will be the same pointer.
 Console.WriteLine(variants[0].GenericVariantPtr); //0x123456789
 ```   
+
+Alternatively, if you have a call to an address 0x123456789 and you know there's no defined method at that address, you can check for generic implementations and obtain the base definition by using the following code:
+```c#
+var genericImplementations = LibCpp2IlMain.ThePe.ConcreteGenericImplementationsByAddress[0x123456789];
+Console.WriteLine(genericImplementations[0].BaseMethod.HumanReadableSignature);
+```  
