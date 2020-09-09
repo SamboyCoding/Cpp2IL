@@ -160,7 +160,7 @@ namespace Cpp2IL
             //Dump DLLs
 
             #region Assembly Generation
-
+            
             LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(0x180623548);
 
             var resolver = new RegistryAssemblyResolver();

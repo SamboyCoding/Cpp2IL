@@ -199,3 +199,30 @@ Console.Log(appDomain.Events[0].Adder.Name); //add_DomainUnload
 //Type returns an Il2CppTypeReflectionData, as it's just a standard method parameter.
 Console.Log(appDomain.Events[0].Adder.Parameters[0].Type); //System.EventHandler
 ```
+
+### Generic Methods
+
+Due to the nature of structures in C++, generic methods have to have variants based on the size (in bytes) of their generic parameters.
+
+Consider a 64-bit assembly. The size of an object (which would be 8 bytes, as it's a pointer) and an `int`, or rather, a `System.Int32` (which would be 4 bytes) are different.
+
+So `List<T>` needs to have different implementations of its methods depending on if it's a `List<Some Object>` versus a `List<int>`.
+
+And IL2CPP strips out any implementations that the game itself doesn't - and won't ever - use.
+
+So, given an `Il2CppMethodDefinition` for a generic method, you can find out which implementations DO exist by accessing the ConcreteGenericMethods dict on a PE object, like so.
+
+```cs
+var listType = LibCpp2IlReflection.GetType("List`1", "System");
+var addMethod = listType.Methods.First(m => m.Name == "Add");
+var variants = LibCpp2IlMain.ThePe.ConcreteGenericMethods[addMethod];
+Console.WriteLine(addMethod.MethodPointer); //0xdeadbeef
+Console.WriteLine(variants[0].BaseMethod.MethodPointer); //Same as above
+Console.WriteLine(variants[0].GenericParams[0]); //Could be, for example, "System.Int32"
+//The below may or may not give the original method pointer.
+//The original pointer is the implementation for `T`.
+//This will be the same as the implementation for `object`
+//This variant, assuming it is for Int32, should be a different pointer.
+//If it's for a class such as `string`, it will be the same pointer.
+Console.WriteLine(variants[0].GenericVariantPtr); //0x123456789
+```   

@@ -43,15 +43,17 @@ namespace LibCpp2IL.Metadata
             }
 
             var version = BitConverter.ToInt32(bytes, 4);
-            if (version != 24)
+            if (version < 24)
             {
-                throw new FormatException("Unexpected non-unity metadata version found! Expected 24, got " + version);
+                throw new FormatException("Unexpected non-unity metadata version found! Expected 24+, got " + version);
             }
 
             float actualVersion;
-            if (unityVer[0] >= 2019) actualVersion = 24.2f;
-            else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f;
-            else actualVersion = version;
+            if (unityVer[0] == 2020 && unityVer[1] >= 2) actualVersion = 27; //2020.2 introduces v27
+            if ((unityVer[0] == 2019 && unityVer[1] >= 3) || (unityVer[0] == 2020 && unityVer[1] < 2)) actualVersion = 24.3f; //2019.3 - 2020.1 => 24.3
+            else if (unityVer[0] >= 2019) actualVersion = 24.2f; //2019.1 - 2019.2 => 24.2
+            else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f; //2018.3 - 2018.4 => 24.1
+            else actualVersion = version; //2018.1 - 2018.2 => 24
 
             Console.WriteLine($"Using IL2CPP Metadata version {actualVersion}");
 

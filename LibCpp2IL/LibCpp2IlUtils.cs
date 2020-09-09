@@ -401,6 +401,7 @@ namespace LibCpp2IL
                     };
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
+                case Il2CppTypeEnum.IL2CPP_TYPE_MVAR:
                 {
                     var param = LibCpp2IlMain.TheMetadata.genericParameters[forWhat.data.genericParameterIndex];
                     var genericName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(param.nameIndex);

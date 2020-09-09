@@ -4,6 +4,8 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using LibCpp2IL.Metadata;
+using LibCpp2IL.Reflection;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 
@@ -30,6 +32,7 @@ namespace LibCpp2IL.PE
         private long maxMetadataUsages;
         private Il2CppCodeGenModule[] codeGenModules;
         public ulong[][] codeGenModuleMethodPointers;
+        public Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>>();
 
         private SectionHeader[] sections;
         private ulong imageBase;
@@ -191,7 +194,7 @@ namespace LibCpp2IL.PE
 
             if (LibCpp2IlMain.MetadataVersion >= 24.2f)
             {
-                Console.WriteLine("\tReading code gen modules...");
+                Console.Write("\tReading code gen modules...");
                 start = DateTime.Now;
 
                 var codeGenModulePtrs = ReadClassArrayAtVirtualAddress<ulong>(this.codeRegistration.addrCodeGenModulePtrs, (long) this.codeRegistration.codeGenModulesCount);
@@ -245,10 +248,32 @@ namespace LibCpp2IL.PE
             genericMethodDictionary = new Dictionary<int, ulong>(genericMethodTables.Length);
             foreach (var table in genericMethodTables)
             {
-                var index = methodSpecs[table.genericMethodIndex].methodDefinitionIndex;
-                if (!genericMethodDictionary.ContainsKey(index))
+                var methodSpec = methodSpecs[table.genericMethodIndex];
+                var methodDefIndex = methodSpec.methodDefinitionIndex;
+                if (methodSpec.methodIndexIndex >= 0)
                 {
-                    genericMethodDictionary.Add(index, genericMethodPointers[table.indices.methodIndex]);
+                    var genericInst = genericInsts[methodSpec.methodIndexIndex];
+                    var ptrs = ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
+                    var genericTypes = ptrs.Select(GetIl2CppTypeFromPointer).ToArray();
+
+                    var genericParamData = genericTypes.Select(type => LibCpp2ILUtils.GetTypeReflectionData(type)!).ToArray();
+                    var concreteMethodPtr = genericMethodPointers[table.indices.methodIndex];
+                    var baseMethod = LibCpp2IlMain.TheMetadata!.methodDefs[methodDefIndex];
+
+                    if (!ConcreteGenericMethods.ContainsKey(baseMethod))
+                        ConcreteGenericMethods[baseMethod] = new List<Il2CppConcreteGenericMethod>();
+
+                    ConcreteGenericMethods[baseMethod].Add(new Il2CppConcreteGenericMethod
+                    {
+                        BaseMethod = baseMethod,
+                        GenericParams = genericParamData,
+                        GenericVariantPtr = concreteMethodPtr
+                    });
+                }
+
+                if (!genericMethodDictionary.ContainsKey(methodDefIndex))
+                {
+                    genericMethodDictionary.Add(methodDefIndex, genericMethodPointers[table.indices.methodIndex]);
                 }
             }
 
