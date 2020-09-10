@@ -34,7 +34,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Allocates an instance of type {TypeCreated} and stores it as {LocalReturned.Name} in rax.";
+            return $"Allocates an instance of type {TypeCreated} and stores it as {LocalReturned.Name} in rax.\n";
         }
     }
 }

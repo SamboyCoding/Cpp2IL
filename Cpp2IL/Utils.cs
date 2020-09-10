@@ -67,7 +67,22 @@ namespace Cpp2IL
             };
         }
 
-        public static bool DoTypesMatch(Il2CppTypeReflectionData cppType, TypeDefinition managedType)
+        public static bool IsManagedTypeAnInstanceOfCppOne(Il2CppTypeReflectionData cppType, TypeDefinition managedType)
+        {
+            if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
+
+            if (cppType.isType && !cppType.isGenericType)
+            {
+                var managedBaseType = SharedState.CppToMonoTypeDefs[cppType.baseType!];
+                return managedBaseType.IsAssignableFrom(managedType);
+            }
+
+            //todo generics etc.
+            
+            return false;
+        }
+        
+        public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeDefinition managedType)
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
 
@@ -489,14 +504,14 @@ namespace Cpp2IL
             return builder;
         }
 
-        public static bool IsAssignableFrom(this TypeReference? reference, TypeReference? other)
+        public static bool IsAssignableFrom(this TypeReference? baseClass, TypeReference? subClass)
         {
-            if (reference == null || other == null) return false;
+            if (baseClass == null || subClass == null) return false;
 
-            if (other is TypeDefinition otherDef)
-                return reference.FullName == otherDef.FullName || otherDef.BaseType != null && reference.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1) || otherDef.Interfaces.Any(i => reference.IsAssignableFrom(i.InterfaceType));
+            if (subClass is TypeDefinition otherDef)
+                return baseClass.FullName == otherDef.FullName || otherDef.BaseType != null && baseClass.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1) || otherDef.Interfaces.Any(i => baseClass.IsAssignableFrom(i.InterfaceType));
 
-            return reference.FullName == other.FullName; //Simple check
+            return baseClass.FullName == subClass.FullName; //Simple check
         }
 
         public static string? TryGetLiteralAt(PE theDll, ulong addr)
@@ -601,6 +616,28 @@ namespace Cpp2IL
             }
 
             return ret;
+        }
+
+        public static MethodDefinition? GetMethodFromReadKlassOffset(int offset)
+        {
+            var offsetInVtable = offset - 0x128; //0x128 being the address of the vtable in an Il2CppClass
+
+            if (offsetInVtable % 0x10 != 0 && offsetInVtable % 0x8 == 0)
+                offsetInVtable -= 0x8; //Handle read of the second pointer in the struct.
+
+            if (offsetInVtable > 0)
+            {
+                var slotNum = (decimal) offsetInVtable / 0x10;
+
+                if (Math.Round(slotNum) == slotNum)
+                {
+                    //Actual whole-number slot number, we can lookup the method
+                    var slotShort = (ushort) slotNum;
+                    return SharedState.VirtualMethodsBySlot[slotShort];
+                }
+            }
+
+            return null;
         }
     }
 }

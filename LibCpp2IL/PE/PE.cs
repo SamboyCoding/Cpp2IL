@@ -35,8 +35,8 @@ namespace LibCpp2IL.PE
         public Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>>();
         public Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new Dictionary<ulong, List<Il2CppConcreteGenericMethod>>();
 
-        private SectionHeader[] sections;
-        private ulong imageBase;
+        internal SectionHeader[] sections;
+        internal ulong imageBase;
 
         public byte[] raw;
 
@@ -132,6 +132,27 @@ namespace LibCpp2IL.PE
             if (section == null) return 0L;
 
             return addr - (section.VirtualAddress - section.PointerToRawData);
+        }
+        
+        public ulong MapRawAddressToVirtual(uint offset) {
+            var section = sections.First(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
+
+            return imageBase + section.VirtualAddress + offset - section.PointerToRawData;
+        }
+
+
+        public bool TryMapRawAddressToVirtual(in uint offset, out ulong va)
+        {
+            try
+            {
+                va = MapRawAddressToVirtual(offset);
+                return true;
+            }
+            catch (Exception)
+            {
+                va = 0;
+                return false;
+            }
         }
 
         public T[] ReadClassArrayAtVirtualAddress<T>(ulong addr, long count) where T : new()
@@ -320,17 +341,19 @@ namespace LibCpp2IL.PE
             plusSearch.SetSearch(imageBase, dataSections);
             plusSearch.SetDataSections(imageBase, dataSections);
             plusSearch.SetExecSections(imageBase, execSections);
+            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                codeRegistration = plusSearch.FindCodeRegistrationUsingMscorlib();
+            else
+                codeRegistration = is32Bit ? plusSearch.FindCodeRegistration() : plusSearch.FindCodeRegistration64Bit();
             if (is32Bit)
             {
                 Console.WriteLine("\t(32-bit PE)");
-                codeRegistration = plusSearch.FindCodeRegistration();
                 plusSearch.SetExecSections(imageBase, dataSections);
                 metadataRegistration = plusSearch.FindMetadataRegistration();
             }
             else
             {
                 Console.WriteLine("\t(64-bit PE)");
-                codeRegistration = plusSearch.FindCodeRegistration64Bit();
                 plusSearch.SetExecSections(imageBase, dataSections);
                 metadataRegistration = plusSearch.FindMetadataRegistration64Bit();
             }

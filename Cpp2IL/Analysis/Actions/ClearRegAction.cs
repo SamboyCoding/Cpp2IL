@@ -3,12 +3,13 @@ using SharpDisasm;
 
 namespace Cpp2IL.Analysis.Actions
 {
-    public class ReturnFromFunctionAction : BaseAction
+    public class ClearRegAction : BaseAction
     {
-        private IAnalysedOperand returnValue;
+        private string regCleared;
         
-        public ReturnFromFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ClearRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            regCleared = Utils.GetRegisterName(instruction.Operands[0]);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -18,12 +19,12 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string? ToPsuedoCode()
         {
-            return $"return {returnValue}";
+            throw new System.NotImplementedException();
         }
 
         public override string ToTextSummary()
         {
-            return $"Returns {returnValue} from the function";
+            return $"Clears register {regCleared}";
         }
     }
 }

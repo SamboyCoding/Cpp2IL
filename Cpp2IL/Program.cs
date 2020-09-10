@@ -156,6 +156,8 @@ namespace Cpp2IL
                 Console.WriteLine("Initialization with LibCpp2IL failed.");
                 return;
             }
+            
+            Console.WriteLine(LibCpp2IlReflection.GetType("String", "System").DeclaringAssembly.Name);
 
             //Dump DLLs
 
@@ -327,69 +329,78 @@ namespace Cpp2IL
                 var methodTaintDict = new ConcurrentDictionary<string, AsmDumper.TaintReason>();
 
                 thresholds.RemoveAt(0);
-                toProcess
-                    .AsParallel()
-                    .ForAll(tuple =>
+
+
+                Action<(TypeDefinition type, List<CppMethodData> methods)> action = tuple =>
+                {
+                    var (type, methodData) = tuple;
+                    counter++;
+                    var pct = 100 * ((decimal) counter / toProcess.Count);
+                    if (pct > nextThreshold)
                     {
-                        var (type, methodData) = tuple;
-                        counter++;
-                        var pct = 100 * ((decimal) counter / toProcess.Count);
-                        if (pct > nextThreshold)
+                        lock (thresholds)
                         {
-                            lock (thresholds)
+                            //Check again to prevent races
+                            if (pct > nextThreshold)
                             {
-                                //Check again to prevent races
-                                if (pct > nextThreshold)
-                                {
-                                    var elapsedSoFar = DateTime.Now - startTime;
-                                    var rate = counter / elapsedSoFar.TotalSeconds;
-                                    var remaining = toProcess.Count - counter;
-                                    Console.WriteLine($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
-                                    nextThreshold = thresholds.First();
-                                    thresholds.RemoveAt(0);
-                                }
+                                var elapsedSoFar = DateTime.Now - startTime;
+                                var rate = counter / elapsedSoFar.TotalSeconds;
+                                var remaining = toProcess.Count - counter;
+                                Console.WriteLine($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
+                                nextThreshold = thresholds.First();
+                                thresholds.RemoveAt(0);
                             }
                         }
+                    }
 
-                        // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
-                        try
+                    // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
+                    try
+                    {
+                        var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
+                        var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
+
+                        foreach (var method in methodData)
                         {
-                            var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
-                            var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
+                            var methodStart = method.MethodOffsetRam;
 
-                            foreach (var method in methodData)
-                            {
-                                var methodStart = method.MethodOffsetRam;
+                            if (methodStart == 0) continue;
 
-                                if (methodStart == 0) continue;
+                            var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
-                                var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
+                            var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe)
+                                .AnalyzeMethod(typeDump, ref allUsedMnemonics);
 
-                                var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe)
-                                    .AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                            var key = new StringBuilder();
 
-                                var key = new StringBuilder();
+                            key.Append(methodDefinition.DeclaringType.FullName).Append("::").Append(methodDefinition.Name);
 
-                                key.Append(methodDefinition.DeclaringType.FullName).Append("::").Append(methodDefinition.Name);
+                            methodDefinition.MethodSignatureFullName(key);
 
-                                methodDefinition.MethodSignatureFullName(key);
+                            methodTaintDict[key.ToString()] = taintResult;
 
-                                methodTaintDict[key.ToString()] = taintResult;
-
-                                if (taintResult != AsmDumper.TaintReason.UNTAINTED)
-                                    Interlocked.Increment(ref failedProcess);
-                                else
-                                    Interlocked.Increment(ref successfullyProcessed);
-                            }
-
-                            lock (type)
-                                File.WriteAllText(filename, typeDump.ToString());
+                            if (taintResult != AsmDumper.TaintReason.UNTAINTED)
+                                Interlocked.Increment(ref failedProcess);
+                            else
+                                Interlocked.Increment(ref successfullyProcessed);
                         }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
-                        }
-                    });
+
+                        lock (type)
+                            File.WriteAllText(filename, typeDump.ToString());
+                    }
+                    catch (Exception e)
+                    {
+                        Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
+                    }
+                };
+                
+                
+                var parallel = false;
+
+                if(parallel)
+                    toProcess.AsParallel().ForAll(action);
+                else
+                    toProcess.ForEach(action);
+
 
                 var total = successfullyProcessed + failedProcess;
 

@@ -1,6 +1,10 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Net.Mime;
+using System.Text;
 using LibCpp2IL.PE;
+using SharpDisasm.Udis86;
 
 namespace LibCpp2IL
 {
@@ -123,6 +127,86 @@ namespace LibCpp2IL
             return FindCodeRegistration64BitPre2019();
         }
 
+        // Find strings
+        private IEnumerable<uint> FindAllStrings(string str) => _pe.raw.Search(Encoding.ASCII.GetBytes(str));
+
+        // Find 32-bit words
+        private IEnumerable<uint> FindAllDWords(uint word) => _pe.raw.Search(BitConverter.GetBytes(word));
+
+        // Find 64-bit words
+        private IEnumerable<uint> FindAllQWords(ulong word) => _pe.raw.Search(BitConverter.GetBytes(word));
+
+        // Find words for the current binary size
+        private IEnumerable<uint> FindAllWords(ulong word)
+            => _pe.is32Bit ? FindAllDWords((uint) word) : FindAllQWords(word);
+
+        // Find all valid virtual address pointers to a virtual address
+        private IEnumerable<ulong> FindAllMappedWords(ulong va)
+        {
+            var fileOffsets = FindAllWords(va);
+            foreach (var offset in fileOffsets)
+                if (_pe.TryMapRawAddressToVirtual(offset, out va))
+                    yield return va;
+        }
+
+        // Find all valid virtual address pointers to a set of virtual addresses
+        private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(a => FindAllMappedWords(a));
+
+        internal ulong FindCodeRegistrationUsingMscorlib()
+        {
+            //Works only on >=24.2
+            var searchBytes = Encoding.ASCII.GetBytes("mscorlib.dll\0");
+            var mscorlibs = _pe.raw.Search(searchBytes).Select(idx => _pe.MapRawAddressToVirtual(idx));
+            var usagesOfMscorlib = FindAllMappedWords(mscorlibs); //CodeGenModule address will be in here
+            var codeGenModulesStructAddr = FindAllMappedWords(usagesOfMscorlib); //CodeGenModules list address will be in here
+            var endOfCodeGenRegAddr = FindAllMappedWords(codeGenModulesStructAddr); //The end of the CodeRegistration object will be in here.
+
+            if (!_pe.is32Bit)
+            {
+                var codeGenAddr = endOfCodeGenRegAddr.First();
+                var textSection = _pe.sections.First(s => s.Name == ".text");
+                var toDisasm = _pe.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
+                var allInstructionsInTextSection = LibCpp2ILUtils.DisassembleBytes(_pe.is32Bit, toDisasm);
+
+                var allSensibleInstructions = allInstructionsInTextSection.AsParallel().Where(i =>
+                    i.Mnemonic == ud_mnemonic_code.UD_Ilea
+                    && !i.Error
+                    && i.Operands.Length == 2
+                    && i.Operands[0].Base == ud_type.UD_R_RCX).ToList();
+
+                var sanity = 0;
+                while (sanity++ < 500)
+                {
+                    var instruction = allSensibleInstructions.AsParallel().FirstOrDefault(i =>
+                        textSection.VirtualAddress + _pe.imageBase + LibCpp2ILUtils.GetOffsetFromMemoryAccess(i, i.Operands[1]) == codeGenAddr
+                    );
+
+                    if (instruction != null) return codeGenAddr;
+
+                    codeGenAddr -= 8; //Always 64-bit here so IntPtr is 8
+                }
+
+                return 0;
+            }
+            else
+            {
+                IEnumerable<ulong>? codeRegVas = null;
+                var sanity = 0;
+                while ((codeRegVas?.Count() ?? 0) != 1)
+                {
+                    if (sanity++ > 500) break;
+
+                    codeRegVas = FindAllMappedWords(endOfCodeGenRegAddr);
+                    endOfCodeGenRegAddr = endOfCodeGenRegAddr.Select(va => va - 4);
+                }
+
+                if (codeRegVas.Count() != 1)
+                    return 0ul;
+
+                return codeRegVas.First();
+            }
+        }
+
         private ulong FindCodeRegistration64BitPost2019()
         {
             //NOTE: With 64-bit ELF binaries we should iterate on exec, on everything else data.
@@ -158,7 +242,7 @@ namespace LibCpp2IL
                                 .ToList();
 
                             if (dataSectionsThatReferenceAddr.Count == 0) return 0UL;
-                            
+
                             //We want the first of those.
                             return dataSectionsThatReferenceAddr.First().positions.First();
                         })

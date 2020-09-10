@@ -22,7 +22,7 @@ namespace LibCpp2IL
         
         private static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new Dictionary<ulong, List<Il2CppMethodDefinition>>();
 
-        public static List<Il2CppMethodDefinition>? GetListOfMethodImplementationsAtAddress(ulong addr)
+        public static List<Il2CppMethodDefinition>? GetManagedMethodImplementationsAtAddress(ulong addr)
         {
             MethodsByPtr.TryGetValue(addr, out var ret);
 

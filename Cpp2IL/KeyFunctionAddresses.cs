@@ -2,8 +2,10 @@
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL;
+using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using Mono.Cecil;
+using SharpDisasm;
 using SharpDisasm.Udis86;
 
 namespace Cpp2IL
@@ -48,51 +50,59 @@ namespace Cpp2IL
 
             var tatn = methods.Find(m => m.MethodName == "TidyAssemblyTypeName");
 
-            Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_codegen_initialize_method near offset 0x{tatn.MethodOffsetRam:X}...");
-
-            var instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, tatn.MethodBytes);
-
-            var targetCall = instructions.FirstOrDefault(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
-
+            List<Instruction> instructions;
             ulong addr;
-            if (targetCall != null)
+            if (tatn.MethodOffsetRam != 0)
             {
-                addr = LibCpp2ILUtils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
+                Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_codegen_initialize_method near offset 0x{tatn.MethodOffsetRam:X}...");
 
-                Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_initialize_method function at 0x{addr:X}");
-                ret.il2cpp_codegen_initialize_method = addr;
+                instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, tatn.MethodBytes);
+
+                var targetCall = instructions.FirstOrDefault(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall);
+                
+                if (targetCall != null)
+                {
+                    addr = LibCpp2ILUtils.GetJumpTarget(targetCall, tatn.MethodOffsetRam + targetCall.PC);
+
+                    Console.WriteLine($"\t\t\t\tLocated il2cpp_codegen_initialize_method function at 0x{addr:X}");
+                    ret.il2cpp_codegen_initialize_method = addr;
+                }
+                else
+                {
+                    Console.WriteLine("\t\t\t\tTidyAssemblyTypeName does NOT contain ANY calls?!?! Will not have codegen_initialize_method.");
+                }
+
+                //Need to find the bail-out function, again so we can ignore it, as it's injected for null safety because cpp really doesn't like null pointer dereferences.
+                //But it can be safely stripped out of IL - it'll just throw an NRE which is what this is a replacement for anyway.
+                //Same function will do nicely.
+                //These are always generated using the ASM `TEST RCX,RCX` folowed by `JZ [instruction which calls the function we want]`
+                //So let's try to find a TEST RCX, RCX
+
+                Console.WriteLine($"\t\t\t\tSearching for a call to the generic bailout function near offset 0x{tatn.MethodOffsetRam:X}...");
+
+                var targetTest = instructions.Find(insn => insn.Mnemonic == ud_mnemonic_code.UD_Itest && insn.Operands.Length == 2 && insn.Operands[0].Base == ud_type.UD_R_RCX && insn.Operands[1].Base == ud_type.UD_R_RCX);
+                var targetJz = instructions[instructions.IndexOf(targetTest) + 1];
+                if (targetJz.Mnemonic != ud_mnemonic_code.UD_Ijz)
+                {
+                    Console.WriteLine($"Failed detection of bailout function! TEST was not followed by JZ, but by {targetJz.Mnemonic}");
+                }
+                else
+                {
+                    var addrOfCall = LibCpp2ILUtils.GetJumpTarget(targetJz, tatn.MethodOffsetRam + targetJz.PC);
+
+                    //Get 5 bytes at that point so we can disasm
+                    //Warning: This might be fragile if the x86 instruction set ever changes.
+                    var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
+                    var callInstruction = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, bytes).First();
+
+                    addr = LibCpp2ILUtils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
+                    Console.WriteLine($"\t\t\t\tLocated Bailout function at 0x{addr:X}");
+                    ret.AddrBailOutFunction = addr;
+                }
             }
             else
             {
-                Console.WriteLine("\t\t\t\tTidyAssemblyTypeName does NOT contain ANY calls?!?! Will not have codegen_initialize_method.");
-            }
-
-            //Need to find the bail-out function, again so we can ignore it, as it's injected for null safety because cpp really doesn't like null pointer dereferences.
-            //But it can be safely stripped out of IL - it'll just throw an NRE which is what this is a replacement for anyway.
-            //Same function will do nicely.
-            //These are always generated using the ASM `TEST RCX,RCX` folowed by `JZ [instruction which calls the function we want]`
-            //So let's try to find a TEST RCX, RCX
-
-            Console.WriteLine($"\t\t\t\tSearching for a call to the generic bailout function near offset 0x{tatn.MethodOffsetRam:X}...");
-
-            var targetTest = instructions.Find(insn => insn.Mnemonic == ud_mnemonic_code.UD_Itest && insn.Operands.Length == 2 && insn.Operands[0].Base == ud_type.UD_R_RCX && insn.Operands[1].Base == ud_type.UD_R_RCX);
-            var targetJz = instructions[instructions.IndexOf(targetTest) + 1];
-            if (targetJz.Mnemonic != ud_mnemonic_code.UD_Ijz)
-            {
-                Console.WriteLine($"Failed detection of bailout function! TEST was not followed by JZ, but by {targetJz.Mnemonic}");
-            }
-            else
-            {
-                var addrOfCall = LibCpp2ILUtils.GetJumpTarget(targetJz, tatn.MethodOffsetRam + targetJz.PC);
-
-                //Get 5 bytes at that point so we can disasm
-                //Warning: This might be fragile if the x86 instruction set ever changes.
-                var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-                var callInstruction = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, bytes).First();
-
-                addr = LibCpp2ILUtils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
-                Console.WriteLine($"\t\t\t\tLocated Bailout function at 0x{addr:X}");
-                ret.AddrBailOutFunction = addr;
+                Console.WriteLine("\t\t\t\tTidyAssemblyTypeName does not exist. Will not have codegen_initialize_method");
             }
 
             //Now we're on the "Init Static Class" one. Easiest place for this is in UnityEngine.Debug$$LogWarning
@@ -195,7 +205,11 @@ namespace Cpp2IL
 
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            if (calls.Length > 3)
+            if (calls.Length > 3 && LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(LibCpp2ILUtils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC)) is { } methodImplementations)
+            {
+                Console.WriteLine($"\t\t\t\tWARNING: Couldn't use native method lookup function detection because the located address defines {methodImplementations.Count} managed methods.");
+            }
+            else if (calls.Length > 3)
             {
                 addr = LibCpp2ILUtils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
                 Console.WriteLine($"\t\t\t\tLocated Native Method Lookup function at 0x{addr:X}");

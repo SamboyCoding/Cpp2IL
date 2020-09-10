@@ -108,10 +108,6 @@ namespace Cpp2IL.Analysis
 
             //Pass 0: Disassemble
             _instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
-
-#if USE_NEW_ANALYSIS_METHOD
-            _analysis = new MethodAnalysis(_methodDefinition, _methodStart);
-#endif
         }
 
         private void TaintMethod(TaintReason reason)
@@ -239,6 +235,10 @@ namespace Cpp2IL.Analysis
 
             //Do this AFTER the trim so we get a better result 
             _methodEnd = _methodStart + _instructions.Last().PC;
+            
+#if USE_NEW_ANALYSIS_METHOD
+            _analysis = new MethodAnalysis(_methodDefinition, _methodStart, _methodEnd);
+#endif
 
             //Pass 2: Early Loop Detection
             _loopRegisters = DetectPotentialLoops(_instructions);
@@ -370,6 +370,11 @@ namespace Cpp2IL.Analysis
                 }
             }
 
+#if USE_NEW_ANALYSIS_METHOD
+            _methodFunctionality.Append("\t\tIdentified If Statement Start addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
+            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => "\t\t" + a.ToTextSummary())));      
+#endif
+
             Console.WriteLine("Processed " + _methodDefinition.FullName);
             typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n\n");
 
@@ -435,6 +440,10 @@ namespace Cpp2IL.Analysis
                     }
                     break;
                 }
+                case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type == ud_type.UD_OP_MEM && LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[0]) > 0x128 && operand is ConstantDefinition checkForVirtualCallCons && checkForVirtualCallCons.Value is Il2CppClassIdentifier checkForVirtualCallClassPtr:
+                    //Virtual method call
+                    _analysis.Actions.Add(new CallVirtualMethodAction(_analysis, instruction));
+                    break;
                 case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type != ud_type.UD_OP_REG:
                 {
                     var jumpTarget = LibCpp2ILUtils.GetJumpTarget(instruction, instruction.PC + _methodStart);
@@ -506,6 +515,12 @@ namespace Cpp2IL.Analysis
                 }
                 case ud_mnemonic_code.UD_Iinc:
                     break;
+                case ud_mnemonic_code.UD_Ijz:
+                    _analysis.Actions.Add(new JumpIfZeroOrNullAction(_analysis, instruction));
+                    break;
+                case ud_mnemonic_code.UD_Ijnz:
+                    _analysis.Actions.Add(new JumpIfNonZeroOrNonNullAction(_analysis, instruction));
+                    break;
                 //TODO Conditional jumps
             }
         }
@@ -528,7 +543,7 @@ namespace Cpp2IL.Analysis
             {
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_REG && offset0 == 0 && offset1 == 0 && op1 != null:
                     //Both zero offsets and a known secondary operand = Register content copy
-                    _analysis.Actions.Add(new RegContentCopyAction(_analysis, instruction));
+                    _analysis.Actions.Add(new RegToRegMoveAction(_analysis, instruction));
                     return;
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_REG && r0 == "rsp" && offset1 == 0 && op1 != null:
                     //Second operand is a reg, no offset, moving into the stack = Copy reg content to stack.
@@ -537,9 +552,15 @@ namespace Cpp2IL.Analysis
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && op1 != null:
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
-                    var isStack = r0 == "rsp";
                     //MUST Check for non-cpp type
+                    _analysis.Actions.Add(new ClassPointerLoadAction(_analysis, instruction));
                     return;
+                }
+                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && offset1 > 0x128 && op1 is ConstantDefinition virtualPointerCheckCons && virtualPointerCheckCons.Value is Il2CppClassIdentifier virtualPointerCheckKlassPtr:
+                {
+                    //Virtual method pointer load
+                    _analysis.Actions.Add(new LoadVirtualFunctionPointerAction(_analysis, instruction));
+                    break;
                 }
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && r1 == "rip":
                 {
@@ -590,8 +611,12 @@ namespace Cpp2IL.Analysis
                 //TODO Arithmetic
                 case ud_mnemonic_code.UD_Ixor:
                 case ud_mnemonic_code.UD_Ixorps:
+                {
                     //PROBABLY clear register
+                    if(r0 == r1)
+                        _analysis.Actions.Add(new ClearRegAction(_analysis, instruction));
                     break;
+                }
                 case ud_mnemonic_code.UD_Itest:
                 case ud_mnemonic_code.UD_Icmp:
                     //Condition
@@ -1532,7 +1557,7 @@ namespace Cpp2IL.Analysis
                 }
                 else
                 {
-                    var il2cppTypeDef = SharedState.MonoToCppTypeDefs[klass.backingType];
+                    var il2cppTypeDef = klass.backingType;
                     //Check for some known ones
                     switch (offset)
                     {
@@ -1894,7 +1919,7 @@ namespace Cpp2IL.Analysis
                         //Deref of internal "klass" pointer - we create an Il2CppClassIdentifier
                         var newClassIdentifier = new Il2CppClassIdentifier
                         {
-                            backingType = type,
+                            backingType = SharedState.MonoToCppTypeDefs[type],
                             objectAlias = alias
                         };
 

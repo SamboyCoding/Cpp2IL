@@ -6,5 +6,10 @@ namespace Cpp2IL.Analysis.ResultModels
     {
         public string Name;
         public TypeDefinition? Type;
+
+        public override string ToString()
+        {
+            return $"{{'{Name}' (type {Type.FullName})}}";
+        }
     }
 }

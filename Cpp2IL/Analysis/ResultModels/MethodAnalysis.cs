@@ -11,18 +11,21 @@ namespace Cpp2IL.Analysis.ResultModels
         public readonly List<LocalDefinition> Locals = new List<LocalDefinition>();
         public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
         public readonly List<BaseAction> Actions = new List<BaseAction>();
+        public readonly List<ulong> IdentifiedIfStatementStarts = new List<ulong>();
 
         internal ulong MethodStart;
+        internal ulong AbsoluteMethodEnd;
 
         private MethodDefinition _method;
 
         private readonly Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
         private readonly Dictionary<int, IAnalysedOperand> StackData = new Dictionary<int, IAnalysedOperand>();
 
-        internal MethodAnalysis(MethodDefinition method, ulong methodStart)
+        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd)
         {
             _method = method;
             MethodStart = methodStart;
+            AbsoluteMethodEnd = initialMethodEnd;
             
             //Set up parameters in registers & as locals.
             var regList = new List<string> {"rcx", "rdx", "r8", "r9"};
@@ -47,6 +50,11 @@ namespace Cpp2IL.Analysis.ResultModels
                 PushToStack(MakeLocal(arg.ParameterType.Resolve(), arg.Name), stackIdx);
                 stackIdx += (int) Utils.GetSizeOfObject(arg.ParameterType);
             }
+        }
+
+        public override string ToString()
+        {
+            return $"Method Analysis for {_method.FullName}";
         }
 
         public LocalDefinition MakeLocal(TypeDefinition? type, string? name = null, string? reg = null)
@@ -80,6 +88,11 @@ namespace Cpp2IL.Analysis.ResultModels
                 RegisterData[reg] = constant;
 
             return constant;
+        }
+
+        public void SetRegContent(string reg, IAnalysedOperand? content)
+        {
+            RegisterData[reg] = content;
         }
 
         public IAnalysedOperand PushToStack(IAnalysedOperand operand, int pos)

@@ -1,13 +1,13 @@
-﻿using Mono.Cecil;
+﻿using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Analysis
 {
     /// <summary>
     /// Represents the "klass" field of an il2cpp runtime object
     /// </summary>
-    public struct Il2CppClassIdentifier
+    public class Il2CppClassIdentifier
     {
-        public TypeDefinition backingType;
+        public Il2CppTypeDefinition backingType;
         public string objectAlias;
     }
 }

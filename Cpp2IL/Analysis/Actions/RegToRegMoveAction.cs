@@ -7,14 +7,19 @@ namespace Cpp2IL.Analysis.Actions
     /// <summary>
     /// Action for a simple reg->reg move
     /// </summary>
-    public class RegContentCopyAction : BaseAction
+    public class RegToRegMoveAction : BaseAction
     {
-        private IAnalysedOperand beingMoved;
+        private IAnalysedOperand? beingMoved;
         private string originalReg;
         private string newReg;
         
-        public RegContentCopyAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegToRegMoveAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            originalReg = Utils.GetRegisterName(instruction.Operands[1]);
+            newReg = Utils.GetRegisterName(instruction.Operands[0]);
+            beingMoved = context.GetOperandInRegister(originalReg);
+
+            context.SetRegContent(newReg, beingMoved);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()

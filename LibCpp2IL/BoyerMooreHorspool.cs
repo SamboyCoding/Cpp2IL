@@ -5,7 +5,7 @@ namespace LibCpp2IL
 {
     internal static class BoyerMooreHorspool
     {
-        public static IEnumerable<int> Search(this byte[] source, byte[] pattern)
+        public static IEnumerable<uint> Search(this byte[] source, byte[] pattern)
         {
             if (source == null)
             {
@@ -47,7 +47,7 @@ namespace LibCpp2IL
                 {
                     if (i == 0)
                     {
-                        yield return index;
+                        yield return (uint) index;
                         break;
                     }
                 }
