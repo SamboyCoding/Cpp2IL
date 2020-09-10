@@ -324,10 +324,12 @@ namespace Cpp2IL
                 var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags,
                     ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefByName("System.Void").Item1));
 
+                SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
+
                 var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
 
 
-                long offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
+                var offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
                 typeMetaText.Append($"\n\tMethod: {methodName}:\n")
                     .Append($"\t\tFile Offset 0x{offsetInFile:X8}\n")
                     .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n")

@@ -8,6 +8,8 @@ namespace LibCpp2IL
 {
     public class ClassReadingBinaryReader : BinaryReader
     {
+        private readonly object PositionShiftLock = new object();
+        
         private MethodInfo readClass;
         public bool is32Bit;
 
@@ -52,46 +54,49 @@ namespace LibCpp2IL
 
         public T ReadClass<T>(long offset) where T : new()
         {
-            if (offset >= 0) Position = offset;
-
-            var type = typeof(T);
-            if (type.IsPrimitive)
-            {
-                var value = ReadPrimitive(type);
-
-                //32-bit fixes...
-                if (value is uint && typeof(T).Name == "UInt64")
-                    value = Convert.ToUInt64(value);
-                if (value is int && typeof(T).Name == "Int64")
-                    value = Convert.ToInt64(value);
-
-                return (T) value!;
-            }
-
             var t = new T();
-            foreach (var i in t.GetType().GetFields())
+            lock (PositionShiftLock)
             {
-                var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
-                var nonSerializedAttribute = (NonSerializedAttribute?) Attribute.GetCustomAttribute(i, typeof(NonSerializedAttribute));
+                if (offset >= 0) Position = offset;
+
+                var type = typeof(T);
+                if (type.IsPrimitive)
+                {
+                    var value = ReadPrimitive(type);
+
+                    //32-bit fixes...
+                    if (value is uint && typeof(T).Name == "UInt64")
+                        value = Convert.ToUInt64(value);
+                    if (value is int && typeof(T).Name == "Int64")
+                        value = Convert.ToInt64(value);
+
+                    return (T) value!;
+                }
                 
-                if(nonSerializedAttribute != null) continue;
+                foreach (var i in t.GetType().GetFields())
+                {
+                    var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
+                    var nonSerializedAttribute = (NonSerializedAttribute?) Attribute.GetCustomAttribute(i, typeof(NonSerializedAttribute));
 
-                if (attr != null)
-                {
-                    if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
-                        continue;
-                }
+                    if (nonSerializedAttribute != null) continue;
 
-                if (i.FieldType.IsPrimitive)
-                {
-                    i.SetValue(t, ReadPrimitive(i.FieldType));
-                }
-                else
-                {
-                    var gm = readClass.MakeGenericMethod(i.FieldType);
-                    var o = gm.Invoke(this, new object[] {-1});
-                    i.SetValue(t, o);
-                    break;
+                    if (attr != null)
+                    {
+                        if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
+                            continue;
+                    }
+
+                    if (i.FieldType.IsPrimitive)
+                    {
+                        i.SetValue(t, ReadPrimitive(i.FieldType));
+                    }
+                    else
+                    {
+                        var gm = readClass.MakeGenericMethod(i.FieldType);
+                        var o = gm.Invoke(this, new object[] {-1});
+                        i.SetValue(t, o);
+                        break;
+                    }
                 }
             }
 
@@ -100,12 +105,16 @@ namespace LibCpp2IL
 
         public T[] ReadClassArray<T>(long offset, long count) where T : new()
         {
-            if (offset != -1) Position = offset;
-
             var t = new T[count];
-            for (var i = 0; i < count; i++)
+            lock (PositionShiftLock)
             {
-                t[i] = ReadClass<T>(-1);
+
+                if (offset != -1) Position = offset;
+
+                for (var i = 0; i < count; i++)
+                {
+                    t[i] = ReadClass<T>(-1);
+                }
             }
 
             return t;
@@ -113,11 +122,14 @@ namespace LibCpp2IL
 
         public string ReadStringToNull(long offset)
         {
-            Position = offset;
             var bytes = new List<byte>();
-            byte b;
-            while ((b = ReadByte()) != 0)
-                bytes.Add(b);
+            lock (PositionShiftLock)
+            {
+                Position = offset;
+                byte b;
+                while ((b = ReadByte()) != 0)
+                    bytes.Add(b);
+            }
             return Encoding.UTF8.GetString(bytes.ToArray());
         }
     }

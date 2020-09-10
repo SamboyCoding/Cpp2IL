@@ -87,7 +87,9 @@ namespace LibCpp2IL.Metadata
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
-        public string? FullName => LibCpp2IlMain.TheMetadata == null ? null : Namespace + "." + Name;
+        public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? 
+            null : 
+            (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
 
         public Il2CppTypeDefinition? BaseType => LibCpp2IlReflection.GetTypeDefinitionByTypeIndex(parentIndex);
 
@@ -136,7 +138,7 @@ namespace LibCpp2IL.Metadata
                 .Select(type => LibCpp2ILUtils.GetTypeReflectionData(type)!)
                 .ToArray();
 
-        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.ThePe.types[declaringTypeIndex].data.classIndex]; 
+        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.ThePe.types[declaringTypeIndex].data.classIndex];
 
         public override string ToString()
         {

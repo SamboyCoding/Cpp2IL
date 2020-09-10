@@ -7,6 +7,7 @@ using System.Text.RegularExpressions;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
+using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using SharpDisasm;
 using SharpDisasm.Udis86;
@@ -15,17 +16,20 @@ namespace Cpp2IL
 {
     public static class Utils
     {
+        //Disable these because they're initialised in BuildPrimitiveMappings
+        // ReSharper disable NotNullMemberIsNotInitialized
         private static TypeDefinition StringReference;
         private static TypeDefinition Int64Reference;
         private static TypeDefinition SingleReference;
         private static TypeDefinition Int32Reference;
         private static TypeDefinition UInt32Reference;
         private static TypeDefinition BooleanReference;
+        // ReSharper restore NotNullMemberIsNotInitialized
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
         private static readonly Dictionary<string, Tuple<TypeDefinition, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition, string[]>>();
 
-        private static Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
+        private static readonly Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
         {
             {"Byte", 1},
             {"SByte", 1},
@@ -45,12 +49,12 @@ namespace Cpp2IL
 
         public static void BuildPrimitiveMappings()
         {
-            StringReference = TryLookupTypeDefByName("System.String").Item1;
-            Int64Reference = TryLookupTypeDefByName("System.Int64").Item1;
-            SingleReference = TryLookupTypeDefByName("System.Single").Item1;
-            Int32Reference = TryLookupTypeDefByName("System.Int32").Item1;
-            UInt32Reference = TryLookupTypeDefByName("System.UInt32").Item1;
-            BooleanReference = TryLookupTypeDefByName("System.Boolean").Item1;
+            StringReference = TryLookupTypeDefKnownNotGeneric("System.String");
+            Int64Reference = TryLookupTypeDefKnownNotGeneric("System.Int64");
+            SingleReference = TryLookupTypeDefKnownNotGeneric("System.Single");
+            Int32Reference = TryLookupTypeDefKnownNotGeneric("System.Int32");
+            UInt32Reference = TryLookupTypeDefKnownNotGeneric("System.UInt32");
+            BooleanReference = TryLookupTypeDefKnownNotGeneric("System.Boolean");
 
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
             {
@@ -63,47 +67,66 @@ namespace Cpp2IL
             };
         }
 
+        public static bool DoTypesMatch(Il2CppTypeReflectionData cppType, TypeDefinition managedType)
+        {
+            if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
+
+            if (cppType.isType && !cppType.isGenericType) return cppType.baseType.FullName == managedType.FullName;
+
+            if (cppType.isType && cppType.isGenericType)
+            {
+                if (!managedType.HasGenericParameters || managedType.GenericParameters.Count != cppType.genericParams.Length) return false;
+
+                for (var i = 0; i < managedType.GenericParameters.Count; i++)
+                {
+                    
+                }
+            }
+
+            return false;
+        }
+
         public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport, PE theDll, Il2CppMetadata metadata)
         {
             var moduleDefinition = importInto.Module;
             switch (toImport.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
-                    return moduleDefinition.ImportReference(typeof(object));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Object"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
-                    return moduleDefinition.ImportReference(typeof(void));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Void"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-                    return moduleDefinition.ImportReference(typeof(bool));
+                    return moduleDefinition.ImportReference(BooleanReference);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-                    return moduleDefinition.ImportReference(typeof(char));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Char"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-                    return moduleDefinition.ImportReference(typeof(sbyte));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.SByte"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-                    return moduleDefinition.ImportReference(typeof(byte));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Byte"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-                    return moduleDefinition.ImportReference(typeof(short));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Int16"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-                    return moduleDefinition.ImportReference(typeof(ushort));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.UInt16"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    return moduleDefinition.ImportReference(typeof(int));
+                    return moduleDefinition.ImportReference(Int32Reference);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    return moduleDefinition.ImportReference(typeof(uint));
+                    return moduleDefinition.ImportReference(UInt32Reference);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I:
-                    return moduleDefinition.ImportReference(typeof(IntPtr));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.IntPtr"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_U:
-                    return moduleDefinition.ImportReference(typeof(UIntPtr));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.UIntPtr"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-                    return moduleDefinition.ImportReference(typeof(long));
+                    return moduleDefinition.ImportReference(Int64Reference);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-                    return moduleDefinition.ImportReference(typeof(ulong));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.UInt64"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-                    return moduleDefinition.ImportReference(typeof(float));
+                    return moduleDefinition.ImportReference(SingleReference);
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-                    return moduleDefinition.ImportReference(typeof(double));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Double"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    return moduleDefinition.ImportReference(typeof(string));
+                    return moduleDefinition.ImportReference(StringReference);
                 case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                    return moduleDefinition.ImportReference(typeof(TypedReference));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.TypedReference"));
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
@@ -191,7 +214,7 @@ namespace Cpp2IL
                 }
 
                 default:
-                    return moduleDefinition.ImportReference(typeof(object));
+                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Object"));
             }
         }
 
@@ -214,7 +237,7 @@ namespace Cpp2IL
 
             //Disassemble 5 bytes at that destination (it should be a call)
             var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-            var callInstruction = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, bytes).First();
+            var callInstruction = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe!.is32Bit, bytes).First();
 
             //Make sure it *is* a call
             if (callInstruction.Mnemonic != ud_mnemonic_code.UD_Icall) return false;
@@ -245,12 +268,11 @@ namespace Cpp2IL
             var instructionsInRange = instructions.GetRange(idx, 4);
             var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
 
-            ulong callAddr;
             if (!alternativePattern.SequenceEqual(actualPattern)) return 0;
 
             try
             {
-                callAddr = LibCpp2ILUtils.GetJumpTarget(instructionsInRange[2], offsetInRam + instructionsInRange[2].PC);
+                var callAddr = LibCpp2ILUtils.GetJumpTarget(instructionsInRange[2], offsetInRam + instructionsInRange[2].PC);
                 return callAddr == kfe.il2cpp_codegen_initialize_method ? 3 : 0;
             }
             catch (Exception)
@@ -380,7 +402,7 @@ namespace Cpp2IL
             return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
         }
 
-        public static TypeReference MakeGenericType(this TypeReference self, params TypeReference[] arguments)
+        private static TypeReference MakeGenericType(this TypeReference self, params TypeReference[] arguments)
         {
             if (self.GenericParameters.Count != arguments.Length)
                 throw new ArgumentException();
@@ -467,7 +489,7 @@ namespace Cpp2IL
             return builder;
         }
 
-        public static bool IsAssignableFrom(this TypeReference reference, TypeReference? other)
+        public static bool IsAssignableFrom(this TypeReference? reference, TypeReference? other)
         {
             if (reference == null || other == null) return false;
 
@@ -501,7 +523,7 @@ namespace Cpp2IL
             return null;
         }
 
-        public static bool ShouldBeInFloatingPointRegister(TypeReference type)
+        public static bool ShouldBeInFloatingPointRegister(TypeReference? type)
         {
             if (type == null) return false;
 
@@ -541,7 +563,7 @@ namespace Cpp2IL
                 return "rcx";
 
             //R9d, etc.
-            if (replaceIn[0] == 'r' && replaceIn[replaceIn.Length - 1] == 'd')
+            if (replaceIn[0] == 'r' && replaceIn[^1] == 'd')
                 return replaceIn.Substring(0, replaceIn.Length - 1);
 
             return UpscaleRegex.Replace(replaceIn, "$1r$2");

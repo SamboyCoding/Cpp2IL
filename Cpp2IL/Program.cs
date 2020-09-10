@@ -174,6 +174,8 @@ namespace Cpp2IL
             Console.WriteLine("\tPass 1: Creating empty types...");
 
             Assemblies = AssemblyBuilder.CreateAssemblies(LibCpp2IlMain.TheMetadata!, resolver, moduleParams);
+            
+            Utils.BuildPrimitiveMappings();
 
             Console.WriteLine("\tPass 2: Setting parents and handling inheritance...");
 
@@ -286,8 +288,6 @@ namespace Cpp2IL
             }
 
             #endregion
-
-            Utils.BuildPrimitiveMappings();
 
             Console.WriteLine("Saving Header DLLs to " + outputPath + "...");
 

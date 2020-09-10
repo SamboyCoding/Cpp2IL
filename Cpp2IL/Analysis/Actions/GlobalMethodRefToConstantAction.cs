@@ -20,6 +20,13 @@ namespace Cpp2IL.Analysis.Actions
             var globalAddress = context.MethodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
             MethodData = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(globalAddress);
             var (type, genericParams) = Utils.TryLookupTypeDefByName(MethodData!.DeclaringType.FullName);
+
+            if (type == null)
+            {
+                Console.WriteLine("Failed to lookup managed type for declaring type of " + MethodData.GlobalKey + ", which is " + MethodData.DeclaringType.FullName);
+                return;
+            }
+            
             ResolvedMethod = type.Methods.FirstOrDefault(m => m.Name == MethodData.Name);
 
             if (ResolvedMethod == null) return;

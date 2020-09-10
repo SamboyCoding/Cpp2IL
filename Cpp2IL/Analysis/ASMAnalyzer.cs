@@ -1,4 +1,4 @@
-// #define USE_NEW_ANALYSIS_METHOD
+#define USE_NEW_ANALYSIS_METHOD
 
 using System;
 using System.Collections.Concurrent;
