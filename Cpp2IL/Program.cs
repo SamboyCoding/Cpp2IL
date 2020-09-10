@@ -160,8 +160,6 @@ namespace Cpp2IL
             //Dump DLLs
 
             #region Assembly Generation
-            
-            LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(0x180623548);
 
             var resolver = new RegistryAssemblyResolver();
             var moduleParams = new ModuleParameters
@@ -173,7 +171,7 @@ namespace Cpp2IL
 
 
             Console.WriteLine("Building assemblies...");
-            Console.WriteLine("\tPass 1: Creating types...");
+            Console.WriteLine("\tPass 1: Creating empty types...");
 
             Assemblies = AssemblyBuilder.CreateAssemblies(LibCpp2IlMain.TheMetadata!, resolver, moduleParams);
 
@@ -182,20 +180,30 @@ namespace Cpp2IL
             //Stateful method, no return value
             AssemblyBuilder.ConfigureHierarchy(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe!);
 
-            Console.WriteLine("\tPass 3: Handling Fields, methods, and properties (THIS MAY TAKE A WHILE)...");
+            Console.WriteLine("\tPass 3: Populating types...");
 
             var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
+            
+            //Create out dirs if needed
+            var outputPath = Path.GetFullPath("cpp2il_out");
+            if (!Directory.Exists(outputPath))
+                Directory.CreateDirectory(outputPath);
+
+            var methodOutputDir = Path.Combine(outputPath, "types");
+            if (!(CommandLineOptions.SkipAnalysis && CommandLineOptions.SkipMetadataTextFiles) && !Directory.Exists(methodOutputDir))
+                Directory.CreateDirectory(methodOutputDir);
 
             for (var imageIndex = 0; imageIndex < LibCpp2IlMain.TheMetadata.assemblyDefinitions.Length; imageIndex++)
             {
                 var imageDef = LibCpp2IlMain.TheMetadata.assemblyDefinitions[imageIndex];
-                var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
-                var currentAssembly = firstTypeDefinition.Module.Assembly;
 
-                Console.WriteLine($"\t\tProcessing DLL {imageIndex + 1} of {LibCpp2IlMain.TheMetadata.assemblyDefinitions.Length}: {currentAssembly.Name}...");
+                Console.WriteLine($"\t\tPopulating {imageDef.typeCount} types in assembly {imageIndex + 1} of {LibCpp2IlMain.TheMetadata.assemblyDefinitions.Length}: {imageDef.Name}...");
 
+                var assemblySpecificPath = Path.Combine(methodOutputDir, imageDef.Name.Replace(".dll", ""));
+                if (!(CommandLineOptions.SkipMetadataTextFiles && CommandLineOptions.SkipAnalysis) && !Directory.Exists(assemblySpecificPath))
+                    Directory.CreateDirectory(assemblySpecificPath);
 
-                methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe, LibCpp2IlMain.TheMetadata.assemblyDefinitions[imageIndex]));
+                methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe, imageDef));
             }
 
             //Invert dict for CppToMono
@@ -280,14 +288,6 @@ namespace Cpp2IL
             #endregion
 
             Utils.BuildPrimitiveMappings();
-
-            var outputPath = Path.GetFullPath("cpp2il_out");
-            if (!Directory.Exists(outputPath))
-                Directory.CreateDirectory(outputPath);
-
-            var methodOutputDir = Path.Combine(outputPath, "types");
-            if (!CommandLineOptions.SkipAnalysis && !Directory.Exists(methodOutputDir))
-                Directory.CreateDirectory(methodOutputDir);
 
             Console.WriteLine("Saving Header DLLs to " + outputPath + "...");
 

@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Metadata;
@@ -13,11 +15,20 @@ namespace LibCpp2IL
         }
 
         public static readonly LibCpp2IlSettings Settings = new LibCpp2IlSettings();
-        
+
         public static float MetadataVersion = 24f;
         public static PE.PE? ThePe;
         public static Il2CppMetadata? TheMetadata;
+        
+        private static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new Dictionary<ulong, List<Il2CppMethodDefinition>>();
 
+        public static List<Il2CppMethodDefinition>? GetListOfMethodImplementationsAtAddress(ulong addr)
+        {
+            MethodsByPtr.TryGetValue(addr, out var ret);
+
+            return ret;
+        }
+        
         public static string? GetLiteralByAddress(ulong address)
         {
             var literal = LibCpp2IlGlobalMapper.Literals.FirstOrDefault(lit => lit.Offset == address);
@@ -78,13 +89,31 @@ namespace LibCpp2IL
 
             if (TheMetadata == null)
                 return false;
+            
+            Console.WriteLine("Read Metadata ok.");
 
             ThePe = new PE.PE(new MemoryStream(peBytes, 0, peBytes.Length, false, true), TheMetadata.maxMetadataUsages);
             if (!ThePe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length))
                 return false;
             
-            LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, ThePe);
+            Console.WriteLine("Read PE Data ok.");
 
+            var start = DateTime.Now;
+            Console.Write("Mapping Globals...");
+            LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, ThePe);
+            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
+            
+            start = DateTime.Now;
+            Console.Write("Mapping pointers to Il2CppMethodDefinitions...");
+            foreach (var (method, ptr) in TheMetadata.methodDefs.AsParallel().Select(method => (method, ptr: method.MethodPointer)))
+            {
+                if(!MethodsByPtr.ContainsKey(ptr))
+                    MethodsByPtr[ptr] = new List<Il2CppMethodDefinition>();
+                
+                MethodsByPtr[ptr].Add(method);
+            }
+            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
+            
             return true;
         }
 
