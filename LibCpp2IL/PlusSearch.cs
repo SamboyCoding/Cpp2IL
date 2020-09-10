@@ -196,14 +196,14 @@ namespace LibCpp2IL
                 {
                     if (sanity++ > 500) break;
 
-                    codeRegVas = FindAllMappedWords(endOfCodeGenRegAddr);
                     endOfCodeGenRegAddr = endOfCodeGenRegAddr.Select(va => va - 4);
+                    codeRegVas = FindAllMappedWords(endOfCodeGenRegAddr);
                 }
 
-                if (codeRegVas.Count() != 1)
+                if (endOfCodeGenRegAddr.Count() != 1)
                     return 0ul;
 
-                return codeRegVas.First();
+                return endOfCodeGenRegAddr.First();
             }
         }
 

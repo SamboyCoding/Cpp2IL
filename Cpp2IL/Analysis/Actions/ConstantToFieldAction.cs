@@ -8,7 +8,7 @@ namespace Cpp2IL.Analysis.Actions
     {
         private object constantValue;
         private IAnalysedOperand instance;
-        private FieldDefinition destinationField;
+        private FieldDefinition? destinationField;
         
         public ConstantToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -27,7 +27,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Writes the constant {constantValue} into the field {destinationField.Name} of {instance}";
+            return $"Writes the constant {constantValue} into the field {destinationField?.Name} of {instance}";
         }
     }
 }

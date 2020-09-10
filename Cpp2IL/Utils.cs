@@ -322,7 +322,7 @@ namespace Cpp2IL
                 var callAddr = LibCpp2ILUtils.GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.il2cpp_runtime_class_init ? 4 : 0;
+                return callAddr == kfe.il2cpp_runtime_class_init_actual || callAddr == kfe.il2cpp_runtime_class_init_export ? 4 : 0;
             }
             else
             {
@@ -336,7 +336,7 @@ namespace Cpp2IL
                 var callAddr = LibCpp2ILUtils.GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
 
                 //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.il2cpp_runtime_class_init ? 5 : 0;
+                return callAddr == kfe.il2cpp_runtime_class_init_actual || callAddr == kfe.il2cpp_runtime_class_init_export ? 5 : 0;
             }
         }
 

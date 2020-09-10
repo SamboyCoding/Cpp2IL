@@ -9,7 +9,7 @@ namespace Cpp2IL.Analysis.ResultModels
 
         public override string ToString()
         {
-            return $"{{'{Name}' (type {Type.FullName})}}";
+            return $"{{'{Name}' (type {Type?.FullName})}}";
         }
     }
 }

@@ -1,4 +1,4 @@
-#define USE_NEW_ANALYSIS_METHOD
+// #define USE_NEW_ANALYSIS_METHOD
 
 using System;
 using System.Collections.Concurrent;
@@ -234,7 +234,7 @@ namespace Cpp2IL.Analysis
             allUsedMnemonics = new List<ud_mnemonic_code>(allUsedMnemonics.Concat(distinctMnemonics).Distinct());
 
             //Do this AFTER the trim so we get a better result 
-            _methodEnd = _methodStart + _instructions.Last().PC;
+            _methodEnd = _methodStart + (_instructions.LastOrDefault()?.PC ?? 0);
             
 #if USE_NEW_ANALYSIS_METHOD
             _analysis = new MethodAnalysis(_methodDefinition, _methodStart, _methodEnd);
@@ -458,7 +458,7 @@ namespace Cpp2IL.Analysis
                         //Init method
                         _analysis.Actions.Add(new CallInitMethodAction(_analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_actual || jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_export || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
                     {
                         //Runtime class init
                         _analysis.Actions.Add(new CallInitClassAction(_analysis, instruction));
@@ -468,7 +468,7 @@ namespace Cpp2IL.Analysis
                         //Allocate object
                         _analysis.Actions.Add(new AllocateInstanceAction(_analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.AddrArrayCreation)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_array_new_specific)
                     {
                         //Allocate array
                         _analysis.Actions.Add(new AllocateArrayAction(_analysis, instruction));
@@ -483,12 +483,12 @@ namespace Cpp2IL.Analysis
                         //Throw exception because we failed to find a native method
                         _analysis.Actions.Add(new CallNativeMethodFailureAction(_analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.AddrBoxValueMethod)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_value_box)
                     {
                         //Box a cpp primitive to a managed type
                         _analysis.Actions.Add(new BoxValueAction(_analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.AddrSafeCastMethod)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_is_inst)
                     {
                         //Safe cast an object to a type
                         _analysis.Actions.Add(new SafeCastAction(_analysis, instruction));
@@ -2268,7 +2268,7 @@ namespace Cpp2IL.Analysis
                     TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                 }
             }
-            else if (jumpAddress == _keyFunctionAddresses.AddrArrayCreation)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_array_new_specific)
             {
                 _typeDump.Append(" - this is the array creation function");
                 var success = false;
@@ -2311,7 +2311,7 @@ namespace Cpp2IL.Analysis
                     TaintMethod(TaintReason.FAILED_TYPE_RESOLVE);
                 }
             }
-            else if (jumpAddress == _keyFunctionAddresses.il2cpp_runtime_class_init)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_runtime_class_init_actual || jumpAddress == _keyFunctionAddresses.il2cpp_runtime_class_init_export)
             {
                 _typeDump.Append(" - this is the static class initializer and will be ignored");
                 _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}THIS_IS_BAD_STATIC_INIT_CLASS()\n");
@@ -2359,7 +2359,7 @@ namespace Cpp2IL.Analysis
                 _typeDump.Append(" - this is the native lookup bailout function");
                 TaintMethod(TaintReason.NON_REMOVED_INTERNAL_FUNCTION);
             }
-            else if (jumpAddress == _keyFunctionAddresses.AddrBoxValueMethod)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_value_box)
             {
                 _typeDump.Append(" - this is the box value function.");
                 //rcx has the destination type global, rdx has what we're casting
@@ -2392,7 +2392,7 @@ namespace Cpp2IL.Analysis
                     }
                 }
             }
-            else if (jumpAddress == _keyFunctionAddresses.AddrSafeCastMethod)
+            else if (jumpAddress == _keyFunctionAddresses.il2cpp_object_is_inst)
             {
                 _typeDump.Append(" - this is the safe cast function.");
 

@@ -10,7 +10,7 @@ namespace Cpp2IL.Analysis.Actions
     public class AllocateInstanceAction : BaseAction
     {
         public TypeDefinition TypeCreated;
-        public LocalDefinition LocalReturned;
+        public LocalDefinition? LocalReturned;
         
         public AllocateInstanceAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -34,7 +34,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Allocates an instance of type {TypeCreated} and stores it as {LocalReturned.Name} in rax.\n";
+            return $"Allocates an instance of type {TypeCreated} and stores it as {LocalReturned?.Name} in rax.\n";
         }
     }
 }

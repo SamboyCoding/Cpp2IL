@@ -16,13 +16,15 @@ namespace Cpp2IL
         public ulong il2cpp_codegen_initialize_method;
         public ulong il2cpp_vm_object_new;
         public ulong AddrBailOutFunction;
-        public ulong il2cpp_runtime_class_init;
+        public ulong il2cpp_runtime_class_init_export;
+        public ulong il2cpp_runtime_class_init_actual;
         public ulong il2cpp_codegen_object_new;
-        public ulong AddrArrayCreation;
+        public ulong il2cpp_array_new_specific;
         public ulong AddrNativeLookup;
         public ulong AddrNativeLookupGenMissingMethod;
-        public ulong AddrBoxValueMethod;
-        public ulong AddrSafeCastMethod;
+        public ulong il2cpp_value_box;
+        public ulong il2cpp_object_box;
+        public ulong il2cpp_object_is_inst;
         public ulong il2cpp_raise_managed_exception;
         public ulong AddrPInvokeLookup;
 
@@ -106,24 +108,35 @@ namespace Cpp2IL
             }
 
             //Now we're on the "Init Static Class" one. Easiest place for this is in UnityEngine.Debug$$LogWarning
-            Console.WriteLine("\t\t\tLooking for UnityEngine.Debug$LogWarning...");
-            methods = methodData.Find(t => t.type.Name == "Debug" && t.type.Namespace == "UnityEngine").methods;
+            // Console.WriteLine("\t\t\tLooking for UnityEngine.Debug$LogWarning...");
+            // methods = methodData.Find(t => t.type.Name == "Debug" && t.type.Namespace == "UnityEngine").methods;
+            //
+            // //There are two of these but it doesn't matter which we get.
+            // var logWarn = methods.Find(m => m.MethodName == "LogWarning");
+            //
+            // Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_runtime_class_init near offset 0x{logWarn.MethodOffsetRam:X}...");
+            //
+            // instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, logWarn.MethodBytes);
+            //
+            // //Method: Find the second CALL as it points at what we want. (The first is the init method)
+            // var calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+            //
+            // addr = LibCpp2ILUtils.GetJumpTarget(calls[1], logWarn.MethodOffsetRam + calls[1].PC);
+            // Console.WriteLine($"\t\t\t\tLocated il2cpp_runtime_class_init at 0x{addr:X}");
+            // ret.il2cpp_runtime_class_init = addr;
 
-            //There are two of these but it doesn't matter which we get.
-            var logWarn = methods.Find(m => m.MethodName == "LogWarning");
-
-            Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_runtime_class_init near offset 0x{logWarn.MethodOffsetRam:X}...");
-
-            instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, logWarn.MethodBytes);
-
-            //Method: Find the second CALL as it points at what we want. (The first is the init method)
-            var calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
-
-            addr = LibCpp2ILUtils.GetJumpTarget(calls[1], logWarn.MethodOffsetRam + calls[1].PC);
-            Console.WriteLine($"\t\t\t\tLocated il2cpp_runtime_class_init at 0x{addr:X}");
-            ret.il2cpp_runtime_class_init = addr;
+            Console.Write("\t\t\tGrabbing il2cpp_runtime_class_init from exports...");
+            ret.il2cpp_runtime_class_init_export = cppAssembly.GetVirtualAddressOfUnmanagedExportByName("il2cpp_runtime_class_init");
+            Console.WriteLine($"Got address 0x{ret.il2cpp_runtime_class_init_export:X}");
+            
+            Console.Write("\t\t\tDisassembling to get il2cpp:vm::Runtime::ClassInit...");
+            instructions = LibCpp2ILUtils.GetMethodBodyAtRawAddress(cppAssembly, cppAssembly.MapVirtualAddressToRaw(ret.il2cpp_runtime_class_init_export), true);
+            if (instructions[0].Mnemonic == ud_mnemonic_code.UD_Ijmp)
+                ret.il2cpp_runtime_class_init_actual = LibCpp2ILUtils.GetJumpTarget(instructions[0], instructions[0].PC + ret.il2cpp_runtime_class_init_export);
+            Console.WriteLine($"Got address 0x{ret.il2cpp_runtime_class_init_actual:X}");
 
             CppMethodData method;
+            Instruction[] calls;
 
             //Only if we haven't already found CON
             if (ret.il2cpp_codegen_object_new == 0)
@@ -183,7 +196,7 @@ namespace Cpp2IL
 
             method = methods.Find(m => m.MethodName == "GetBytes");
 
-            Console.WriteLine($"\t\t\t\tSearching for array instantiation function near offset 0x{method.MethodOffsetRam:X}...");
+            Console.WriteLine($"\t\t\t\tSearching for il2cpp_array_new_specific function near offset 0x{method.MethodOffsetRam:X}...");
 
             instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
 
@@ -191,9 +204,9 @@ namespace Cpp2IL
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
             addr = LibCpp2ILUtils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
-            Console.WriteLine($"\t\t\t\tLocated Array Instantiation (`new[]`) function at 0x{addr:X}");
+            Console.WriteLine($"\t\t\t\tLocated il2cpp_array_new_specific (`new[]`) function at 0x{addr:X}");
 
-            ret.AddrArrayCreation = addr;
+            ret.il2cpp_array_new_specific = addr;
 
             methods = methodData.Find(t => t.type.Name == "Mesh" && t.type.Namespace == "UnityEngine").methods;
 
@@ -224,37 +237,45 @@ namespace Cpp2IL
                 Console.WriteLine("\t\t\t\tWARNING: Failed to find native method lookup + bailout due to an insufficient number of CALL instructions.");
             }
 
-            Console.WriteLine("\t\t\tLooking for System.ComponentModel.Int16Converter$ConvertFromString...");
-            methods = methodData.Find(t => t.type.Name == "Int16Converter" && t.type.Namespace == "System.ComponentModel").methods;
-
-            if (methods != null)
-            {
-                method = methods.Find(m => m.MethodName == "ConvertFromString");
-                if (method.MethodOffsetRam == 0)
-                    method = methods.Find(m => m.MethodName == "FromString");
-
-                if (method.MethodOffsetRam != 0)
-                {
-                    Console.WriteLine($"\t\t\t\tSearching for primitive boxing function near offset 0x{method.MethodOffsetRam:X}...");
-
-                    instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
-
-                    calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
-
-                    addr = LibCpp2ILUtils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
-                    Console.WriteLine($"\t\t\t\tLocated Primitive Boxing function at 0x{addr:X}");
-
-                    ret.AddrBoxValueMethod = addr;
-                }
-                else
-                {
-                    Console.WriteLine("\t\t\t\tWarning: Failed to locate method ConvertFromString / FromString in System.ComponentModel.Int16Converter (probably stripped from assembly), box statements will show as undefined function calls!");
-                }
-            }
-            else
-            {
-                Console.WriteLine("\t\t\t\tWarning: Failed to locate System.ComponentModel.Int16Converter (probably stripped from assembly), box statements will show as undefined function calls!");
-            }
+            Console.Write("\t\t\tGrabbing il2cpp_value_box from exports...");
+            ret.il2cpp_value_box = cppAssembly.GetVirtualAddressOfUnmanagedExportByName("il2cpp_value_box");
+            Console.WriteLine($"Got address 0x{ret.il2cpp_value_box:X}");
+            Console.Write("\t\t\tDisassembling il2cpp_value_box to get il2cpp::vm::Object::Box...");
+            instructions = LibCpp2ILUtils.GetMethodBodyAtRawAddress(cppAssembly, cppAssembly.MapVirtualAddressToRaw(ret.il2cpp_value_box), true);
+            if (instructions[0].Mnemonic == ud_mnemonic_code.UD_Ijmp)
+                ret.il2cpp_object_box = LibCpp2ILUtils.GetJumpTarget(instructions[0], instructions[0].PC + ret.il2cpp_value_box);
+            Console.WriteLine($"Got address 0x{ret.il2cpp_object_box:X}");
+            // Console.WriteLine("\t\t\tLooking for System.ComponentModel.Int16Converter$ConvertFromString...");
+            // methods = methodData.Find(t => t.type.Name == "Int16Converter" && t.type.Namespace == "System.ComponentModel").methods;
+            //
+            // if (methods != null)
+            // {
+            //     method = methods.Find(m => m.MethodName == "ConvertFromString");
+            //     if (method.MethodOffsetRam == 0)
+            //         method = methods.Find(m => m.MethodName == "FromString");
+            //
+            //     if (method.MethodOffsetRam != 0)
+            //     {
+            //         Console.WriteLine($"\t\t\t\tSearching for primitive boxing function near offset 0x{method.MethodOffsetRam:X}...");
+            //
+            //         instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
+            //
+            //         calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
+            //
+            //         addr = LibCpp2ILUtils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
+            //         Console.WriteLine($"\t\t\t\tLocated Primitive Boxing function at 0x{addr:X}");
+            //
+            //         ret.il2cpp_value_box = addr;
+            //     }
+            //     else
+            //     {
+            //         Console.WriteLine("\t\t\t\tWarning: Failed to locate method ConvertFromString / FromString in System.ComponentModel.Int16Converter (probably stripped from assembly), box statements will show as undefined function calls!");
+            //     }
+            // }
+            // else
+            // {
+            //     Console.WriteLine("\t\t\t\tWarning: Failed to locate System.ComponentModel.Int16Converter (probably stripped from assembly), box statements will show as undefined function calls!");
+            // }
 
             Console.WriteLine("\t\t\tLooking for UnityEngine.Ray$ToString...");
             methods = methodData.Find(t => t.type.Name == "Ray" && t.type.Namespace == "UnityEngine").methods;
@@ -267,8 +288,8 @@ namespace Cpp2IL
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
             addr = LibCpp2ILUtils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
-            Console.WriteLine($"\t\t\t\tLocated Safe Cast function at 0x{addr:X}");
-            ret.AddrSafeCastMethod = addr;
+            Console.WriteLine($"\t\t\t\tLocated il2cpp_object_is_inst function at 0x{addr:X}");
+            ret.il2cpp_object_is_inst = addr;
 
             if (ret.il2cpp_raise_managed_exception == 0)
             {
