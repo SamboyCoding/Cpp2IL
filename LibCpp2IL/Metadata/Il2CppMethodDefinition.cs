@@ -24,6 +24,10 @@ namespace LibCpp2IL.Metadata
         public ushort slot;
         public ushort parameterCount;
 
+        public MethodAttributes Attributes => (MethodAttributes) flags;
+
+        public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
+        
         public int MethodIndex => LibCpp2IlReflection.GetMethodIndexFromMethod(this);
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
