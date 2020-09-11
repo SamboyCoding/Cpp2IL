@@ -44,7 +44,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public CallManagedFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var jumpTarget = LibCpp2ILUtils.GetJumpTarget(instruction, context.MethodStart + instruction.PC);
+            var jumpTarget = Utils.GetJumpTarget(instruction, context.MethodStart + instruction.PC);
             var objectMethodBeingCalledOn = context.GetLocalInReg("rcx");
             var listOfCallableMethods = LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(jumpTarget);
 

@@ -1,10 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Net.Mime;
 using System.Text;
+using Iced.Intel;
 using LibCpp2IL.PE;
-using SharpDisasm.Udis86;
 
 namespace LibCpp2IL
 {
@@ -166,22 +165,23 @@ namespace LibCpp2IL
                 var codeGenAddr = endOfCodeGenRegAddr.First();
                 var textSection = _pe.sections.First(s => s.Name == ".text");
                 var toDisasm = _pe.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
-                var allInstructionsInTextSection = LibCpp2ILUtils.DisassembleBytes(_pe.is32Bit, toDisasm);
+                var allInstructions = LibCpp2ILUtils.DisassembleBytesNew(_pe.is32Bit, toDisasm, textSection.VirtualAddress + _pe.imageBase);
 
-                var allSensibleInstructions = allInstructionsInTextSection.AsParallel().Where(i =>
-                    i.Mnemonic == ud_mnemonic_code.UD_Ilea
-                    && !i.Error
-                    && i.Operands.Length == 2
-                    && i.Operands[0].Base == ud_type.UD_R_RCX).ToList();
+                var allSensibleInstructions = allInstructions.Where(i =>
+                    i.Mnemonic == Mnemonic.Lea
+                    && i.OpCount == 2
+                    && i.Op0Kind == OpKind.Register
+                    && i.Op1Kind == OpKind.Memory
+                    && i.Op0Register == Register.RCX).ToList();
 
                 var sanity = 0;
                 while (sanity++ < 500)
                 {
-                    var instruction = allSensibleInstructions.AsParallel().FirstOrDefault(i =>
-                        textSection.VirtualAddress + _pe.imageBase + LibCpp2ILUtils.GetOffsetFromMemoryAccess(i, i.Operands[1]) == codeGenAddr
+                    var instruction = allSensibleInstructions.FirstOrDefault(i =>
+                        i.GetInstructionMemoryAddress() == codeGenAddr
                     );
 
-                    if (instruction != null) return codeGenAddr;
+                    if (instruction != default) return codeGenAddr;
 
                     codeGenAddr -= 8; //Always 64-bit here so IntPtr is 8
                 }

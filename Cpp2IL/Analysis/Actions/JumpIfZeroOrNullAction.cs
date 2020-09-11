@@ -14,7 +14,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public JumpIfZeroOrNullAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            jumpTarget = LibCpp2ILUtils.GetJumpTarget(instruction, instruction.PC + context.MethodStart);
+            jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + context.MethodStart);
             
             if (jumpTarget > context.MethodStart + instruction.PC && jumpTarget < context.AbsoluteMethodEnd)
             {

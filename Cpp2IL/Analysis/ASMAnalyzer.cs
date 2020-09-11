@@ -107,7 +107,7 @@ namespace Cpp2IL.Analysis
             _cppAssembly = cppAssembly;
 
             //Pass 0: Disassemble
-            _instructions = LibCpp2ILUtils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
+            _instructions = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
         }
 
         private void TaintMethod(TaintReason reason)
@@ -154,7 +154,7 @@ namespace Cpp2IL.Analysis
                 try
                 {
                     //Single call to the bailout, sometimes left over at the end of a function
-                    if (insn.Mnemonic == ud_mnemonic_code.UD_Icall && LibCpp2ILUtils.GetJumpTarget(insn, _methodStart + insn.PC) == _keyFunctionAddresses.AddrBailOutFunction)
+                    if (insn.Mnemonic == ud_mnemonic_code.UD_Icall && Utils.GetJumpTarget(insn, _methodStart + insn.PC) == _keyFunctionAddresses.AddrBailOutFunction)
                         continue;
                 }
                 catch (Exception)
@@ -431,7 +431,7 @@ namespace Cpp2IL.Analysis
                     break;
                 case ud_mnemonic_code.UD_Ijmp when instruction.Operands[0].Type != ud_type.UD_OP_REG:
                 {
-                    var jumpTarget = LibCpp2ILUtils.GetJumpTarget(instruction, instruction.PC + _methodStart);
+                    var jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + _methodStart);
                     if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
                     {
                         //Call a managed function
@@ -440,13 +440,13 @@ namespace Cpp2IL.Analysis
                     }
                     break;
                 }
-                case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type == ud_type.UD_OP_MEM && LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[0]) > 0x128 && operand is ConstantDefinition checkForVirtualCallCons && checkForVirtualCallCons.Value is Il2CppClassIdentifier checkForVirtualCallClassPtr:
+                case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type == ud_type.UD_OP_MEM && Utils.GetOperandMemoryOffset(instruction.Operands[0]) > 0x128 && operand is ConstantDefinition checkForVirtualCallCons && checkForVirtualCallCons.Value is Il2CppClassIdentifier checkForVirtualCallClassPtr:
                     //Virtual method call
                     _analysis.Actions.Add(new CallVirtualMethodAction(_analysis, instruction));
                     break;
                 case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type != ud_type.UD_OP_REG:
                 {
-                    var jumpTarget = LibCpp2ILUtils.GetJumpTarget(instruction, instruction.PC + _methodStart);
+                    var jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + _methodStart);
 
                     if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)
                     {
@@ -533,8 +533,8 @@ namespace Cpp2IL.Analysis
             var op0 = _analysis.GetOperandInRegister(r0);
             var op1 = _analysis.GetOperandInRegister(r1);
 
-            var offset0 = LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[0]);
-            var offset1 = LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var offset0 = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[0]);
+            var offset1 = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
 
             var type0 = instruction.Operands[0].Type;
             var type1 = instruction.Operands[1].Type;
@@ -565,7 +565,7 @@ namespace Cpp2IL.Analysis
                 case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && r1 == "rip":
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
-                    var globalAddress = _methodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+                    var globalAddress = _methodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
                     if (SharedState.GlobalsByOffset.TryGetValue(globalAddress, out var global))
                     {
                         //Have a global here.
@@ -587,7 +587,7 @@ namespace Cpp2IL.Analysis
                     }
                     else
                     {
-                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]));
+                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]));
                         if (potentialLiteral != null)
                         {
                             if (r0 == "rsp")
@@ -970,7 +970,7 @@ namespace Cpp2IL.Analysis
             switch (operand.Type)
             {
                 case ud_type.UD_OP_REG:
-                case ud_type.UD_OP_MEM when LibCpp2ILUtils.GetOperandMemoryOffset(operand) == 0:
+                case ud_type.UD_OP_MEM when Utils.GetOperandMemoryOffset(operand) == 0:
                     _registerAliases.TryGetValue(sourceReg, out var alias);
                     _registerContents.TryGetValue(sourceReg, out constant);
                     _registerTypes.TryGetValue(sourceReg, out objectType);
@@ -997,7 +997,7 @@ namespace Cpp2IL.Analysis
                     if (_registerContents.ContainsKey(sourceReg) && (_registerTypes.ContainsKey(sourceReg) && _registerTypes[sourceReg]?.IsArray == true || _registerAliases.ContainsKey(sourceReg) && _registerContents[sourceReg] is ArrayData))
                     {
                         _typeDump.Append($" ; - probably an array read as we have an aliased arraydata in reg {sourceReg}");
-                        var offset = LibCpp2ILUtils.GetOperandMemoryOffset(operand);
+                        var offset = Utils.GetOperandMemoryOffset(operand);
 
                         _typeDump.Append($" ; offset is 0x{offset:X}");
 
@@ -1041,7 +1041,7 @@ namespace Cpp2IL.Analysis
                     //Check for global
                     if (operand.Base == ud_type.UD_R_RIP)
                     {
-                        var globalAddr = LibCpp2ILUtils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
+                        var globalAddr = Utils.GetOffsetFromMemoryAccess(i, operand) + _methodStart;
                         if (SharedState.GlobalsByOffset.TryGetValue(globalAddr, out var glob))
                         {
                             if (glob.IdentifierType == GlobalIdentifier.Type.LITERAL)
@@ -1071,13 +1071,13 @@ namespace Cpp2IL.Analysis
                     constant = operand.LvalUDWord;
                     break;
                 case ud_type.UD_OP_IMM:
-                    var imm = LibCpp2ILUtils.GetImmediateValue(i, operand);
+                    var imm = Utils.GetImmediateValue(i, operand);
                     if (imm == 0)
                         objectName = "0 / null";
                     else
                         objectName = $"0x{imm:X}";
                     objectType = LongReference;
-                    constant = LibCpp2ILUtils.GetImmediateValue(i, operand);
+                    constant = Utils.GetImmediateValue(i, operand);
                     break;
             }
 
@@ -1089,7 +1089,7 @@ namespace Cpp2IL.Analysis
             if (operand.Type != ud_type.UD_OP_MEM || operand.Base == ud_type.UD_R_RIP) return null;
 
             var sourceReg = Utils.GetRegisterName(operand);
-            var offset = LibCpp2ILUtils.GetOperandMemoryOffset(operand);
+            var offset = Utils.GetOperandMemoryOffset(operand);
 
             if (offset == 0 && _registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg] is FieldDefinition fld)
                 //This register contains a field definition. Return it
@@ -1315,13 +1315,13 @@ namespace Cpp2IL.Analysis
 
                 if (instruction.Operands[1].Type == ud_type.UD_OP_IMM)
                 {
-                    var immediateValue = LibCpp2ILUtils.GetImmediateValue(instruction, instruction.Operands[1]);
+                    var immediateValue = Utils.GetImmediateValue(instruction, instruction.Operands[1]);
                     constantValue = immediateValue;
                     _typeDump.Append($" ; - Arithmetic operation between {name} and constant value: {constantValue}");
                 }
                 else
                 {
-                    var virtualAddress = LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]) + _methodStart;
+                    var virtualAddress = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]) + _methodStart;
                     _typeDump.Append($" ; - Arithmetic operation between {name} and constant stored at 0x{virtualAddress:X}");
                     long rawAddr = _cppAssembly.MapVirtualAddressToRaw(virtualAddress);
                     var constantBytes = _cppAssembly.raw.SubArray((int) rawAddr, 4);
@@ -1495,7 +1495,7 @@ namespace Cpp2IL.Analysis
             //Special case: Stack pointers
             if (instruction.Operands[1].Base == ud_type.UD_R_RSP)
             {
-                var stackOffset = LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[1]);
+                var stackOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Ilea)
                 {
                     //Register now has a pointer to the stack
@@ -1541,7 +1541,7 @@ namespace Cpp2IL.Analysis
             }
 
             //Klass pointers
-            if (LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(Utils.GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klass)
+            if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) is {} offset && offset != 0 && _registerContents.TryGetValue(Utils.GetRegisterName(instruction.Operands[1]), out var con) && con is Il2CppClassIdentifier klass)
             {
                 if (offset >= 0x128)
                 {
@@ -1595,7 +1595,7 @@ namespace Cpp2IL.Analysis
 
             var sourceReg = Utils.GetRegisterName(instruction.Operands[1]);
 
-            if (LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[1]) == 0)
+            if (Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0)
             {
                 //Probably a klass pointer read, handled in checkformoveintoregister
                 return;
@@ -1614,7 +1614,7 @@ namespace Cpp2IL.Analysis
             }
             else if (field == null)
             {
-                var fieldReadOffset = LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[1]);
+                var fieldReadOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
 
                 //For some godawful reason the compiler sometimes uses LEA on a known constant and offset to get another constant (e.g. LEA dest, [regWithNullPtr+0x01] => put 1 into dest; LEA dest, [regWith1-0x02] => put -1 into dest; etc)
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Ilea && _registerContents.ContainsKey(sourceReg) && _registerContents[sourceReg].GetType().IsPrimitive)
@@ -1684,7 +1684,7 @@ namespace Cpp2IL.Analysis
                     }
                     else if (_registerContents.TryGetValue(sourceReg, out var cons) && (cons is ArrayData || typeInReg.IsArray))
                     {
-                        var arrayOffset = LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[1]);
+                        var arrayOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
 
                         _typeDump.Append(" ; - array operation");
 
@@ -1902,12 +1902,12 @@ namespace Cpp2IL.Analysis
             var destReg = Utils.GetRegisterName(instruction.Operands[0]);
             var sourceReg = Utils.GetRegisterName(instruction.Operands[1]);
             var isStack = destReg == "rsp";
-            var stackAddr = isStack ? LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[0]) : -1;
+            var stackAddr = isStack ? Utils.GetOperandMemoryOffset(instruction.Operands[0]) : -1;
 
             //Ok now decide what to do based on what the second register is
             switch (instruction.Operands[1].Type)
             {
-                case ud_type.UD_OP_MEM when LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[1]) == 0:
+                case ud_type.UD_OP_MEM when Utils.GetOperandMemoryOffset(instruction.Operands[1]) == 0:
                     var (alias, type, constantVal) = GetDetailsOfReferencedObject(instruction.Operands[1], instruction);
 
                     if (type != null && !type.IsPrimitive)
@@ -2008,7 +2008,7 @@ namespace Cpp2IL.Analysis
                     //TODO: do we ever actually do this with the stack? Might do via a reg first
 
                     //Reading either a global or a string literal into the register
-                    var offset = LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+                    var offset = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
                     if (offset == 0) break;
                     var addr = _methodStart + offset;
                     _typeDump.Append($"; - Read on memory location 0x{addr:X}");
@@ -2112,7 +2112,7 @@ namespace Cpp2IL.Analysis
                     break;
                 case ud_type.UD_OP_IMM:
                     //Immediate - constant
-                    _registerContents[destReg] = LibCpp2ILUtils.GetImmediateValue(instruction, instruction.Operands[1]);
+                    _registerContents[destReg] = Utils.GetImmediateValue(instruction, instruction.Operands[1]);
                     _registerAliases[destReg] = _registerContents[destReg].ToString();
                     _registerTypes[destReg] = LongReference;
                     _typeDump.Append($" ; - Moves constant of value {_registerContents[destReg]} into {destReg}");
@@ -2165,7 +2165,7 @@ namespace Cpp2IL.Analysis
                     //Call to a Vtable func on a klass pointer
 
                     //Valid for offset > 0x128
-                    var vTableMethod = GetMethodFromReadKlassOffset(LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[0]));
+                    var vTableMethod = GetMethodFromReadKlassOffset(Utils.GetOperandMemoryOffset(instruction.Operands[0]));
 
                     if (vTableMethod != null)
                     {
@@ -2183,7 +2183,7 @@ namespace Cpp2IL.Analysis
             ulong jumpAddress;
             try
             {
-                jumpAddress = LibCpp2ILUtils.GetJumpTarget(instruction, _methodStart + instruction.PC);
+                jumpAddress = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
                 _typeDump.Append($" ; jump to 0x{jumpAddress:X}");
             }
             catch (Exception)
@@ -2576,11 +2576,11 @@ namespace Cpp2IL.Analysis
                         // Console.WriteLine($"Trying to find an exception throwing function at unknown function address 0x{jumpAddress:X}...");
                         var actualAddr = _cppAssembly.MapVirtualAddressToRaw(jumpAddress);
 
-                        var body = LibCpp2ILUtils.GetMethodBodyAtRawAddress(_cppAssembly, actualAddr, peek: true);
+                        var body = Utils.GetMethodBodyAtRawAddress(_cppAssembly, actualAddr, peek: true);
 
                         var leas = body.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Ilea).ToList();
 
-                        var offsets = leas.Select(i => LibCpp2ILUtils.GetOffsetFromMemoryAccess(i, i.Operands[1])).ToList();
+                        var offsets = leas.Select(i => Utils.GetOffsetFromMemoryAccess(i, i.Operands[1])).ToList();
 
                         var targets = offsets.Select(offset => offset + jumpAddress).ToList();
 
@@ -2696,7 +2696,7 @@ namespace Cpp2IL.Analysis
             }
 
             //Compiler generated weirdness. I hate it.
-            if (instruction.Mnemonic == ud_mnemonic_code.UD_Icmp && instruction.Operands[1].Type == ud_type.UD_OP_IMM && GetFieldReferencedByOperand(instruction.Operands[0]) is { } field && LibCpp2ILUtils.GetImmediateValue(instruction, instruction.Operands[1]) == 0)
+            if (instruction.Mnemonic == ud_mnemonic_code.UD_Icmp && instruction.Operands[1].Type == ud_type.UD_OP_IMM && GetFieldReferencedByOperand(instruction.Operands[0]) is { } field && Utils.GetImmediateValue(instruction, instruction.Operands[1]) == 0)
             {
                 var registerName = Utils.GetRegisterName(instruction.Operands[0]);
                 if (_registerAliases.ContainsKey(registerName))
@@ -2744,7 +2744,7 @@ namespace Cpp2IL.Analysis
             if (comparisonItemA.Contains("unknown global") || comparisonItemB.Contains("unknown global") || comparisonItemA.Contains("value in") || comparisonItemB.Contains("value in") || comparisonItemA.Contains("unknown refobject") || comparisonItemB.Contains("unknown refobject"))
                 TaintMethod(TaintReason.BAD_CONDITION);
 
-            var dest = LibCpp2ILUtils.GetJumpTarget(instruction, _methodStart + instruction.PC);
+            var dest = Utils.GetJumpTarget(instruction, _methodStart + instruction.PC);
 
             //Going back to an earlier point in the function - loop.
             //This works because the compiler puts all if statements *after* the main function body for jumping forward to, then back.

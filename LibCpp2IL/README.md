@@ -8,7 +8,7 @@ You can obtain a copy of LibCpp2IL from the [actions page](https://github.com/Sa
 
 ## Dependencies
 
-LibCpp2IL requires you to have SharpDiasm available for it to use.
+LibCpp2IL requires you to have 0xd4d's ICED disassembler available for it to use.
 
 ## Setting up
 

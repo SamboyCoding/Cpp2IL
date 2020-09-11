@@ -23,7 +23,7 @@ namespace Cpp2IL.Analysis.Actions
 
             classReadFrom = klass.backingType;
             
-            var readOffset = LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[1]);
+            var readOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
             methodPointerRead = Utils.GetMethodFromReadKlassOffset(readOffset);
 
             if (methodPointerRead == null) return;
@@ -31,7 +31,7 @@ namespace Cpp2IL.Analysis.Actions
             var regPutInto = Utils.GetRegisterName(instruction.Operands[0]);
             if (regPutInto == "rsp")
             {
-                var stackOffset = LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[0]);
+                var stackOffset = Utils.GetOperandMemoryOffset(instruction.Operands[0]);
                 context.PushToStack(context.MakeConstant(typeof(MethodDefinition), methodPointerRead), stackOffset);
             }
             else

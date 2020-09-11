@@ -13,7 +13,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalStringRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = context.MethodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var globalAddress = context.MethodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
             ResolvedString = LibCpp2IlMain.GetLiteralByAddress(globalAddress);
 
             if (ResolvedString == null) return;

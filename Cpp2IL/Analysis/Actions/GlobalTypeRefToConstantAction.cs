@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalTypeRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = context.MethodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var globalAddress = context.MethodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
             var typeData = LibCpp2IlMain.GetTypeGlobalByAddress(globalAddress);
             var (type, genericParams) = Utils.TryLookupTypeDefByName(typeData!.ToString());
             ResolvedType = type;

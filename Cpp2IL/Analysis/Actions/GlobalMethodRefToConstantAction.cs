@@ -17,7 +17,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalMethodRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = context.MethodStart + LibCpp2ILUtils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var globalAddress = context.MethodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
             MethodData = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(globalAddress);
             var (type, genericParams) = Utils.TryLookupTypeDefByName(MethodData!.DeclaringType.FullName);
 

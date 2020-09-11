@@ -21,7 +21,7 @@ namespace Cpp2IL.Analysis.Actions
 
             var classReadFrom = klass.backingType;
             
-            var readOffset = LibCpp2ILUtils.GetOperandMemoryOffset(instruction.Operands[0]);
+            var readOffset = Utils.GetOperandMemoryOffset(instruction.Operands[0]);
             Called = Utils.GetMethodFromReadKlassOffset(readOffset);
 
             if (Called == null) return;

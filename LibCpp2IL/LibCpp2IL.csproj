@@ -7,7 +7,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="SharpDisasm" Version="1.1.11" />
+      <PackageReference Include="Iced" Version="1.8.0" />
     </ItemGroup>
 
 </Project>
