@@ -1,7 +1,7 @@
 ﻿using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -14,9 +14,9 @@ namespace Cpp2IL.Analysis.Actions
         
         public JumpIfNonZeroOrNonNullAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + context.MethodStart);
+            jumpTarget = instruction.NearBranchTarget;
 
-            if (jumpTarget > context.MethodStart + instruction.PC && jumpTarget < context.AbsoluteMethodEnd)
+            if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
             {
                 isIfStatement = true;
                 if(!context.IdentifiedIfStatementStarts.Contains(jumpTarget))

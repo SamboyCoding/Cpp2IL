@@ -3,7 +3,7 @@ using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -16,23 +16,24 @@ namespace Cpp2IL.Analysis.Actions
 
         public LoadVirtualFunctionPointerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            regReadFrom = Utils.GetRegisterName(instruction.Operands[1]);
+            regReadFrom = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(regReadFrom);
 
             if (!(inReg is ConstantDefinition cons) || !(cons.Value is Il2CppClassIdentifier klass)) return;
 
             classReadFrom = klass.backingType;
-            
-            var readOffset = Utils.GetOperandMemoryOffset(instruction.Operands[1]);
-            methodPointerRead = Utils.GetMethodFromReadKlassOffset(readOffset);
+
+            var readOffset = instruction.MemoryDisplacement;
+            methodPointerRead = Utils.GetMethodFromReadKlassOffset((int) readOffset);
 
             if (methodPointerRead == null) return;
 
-            var regPutInto = Utils.GetRegisterName(instruction.Operands[0]);
+            var regPutInto = Utils.GetRegisterNameNew(instruction.Op0Register);
             if (regPutInto == "rsp")
             {
-                var stackOffset = Utils.GetOperandMemoryOffset(instruction.Operands[0]);
-                context.PushToStack(context.MakeConstant(typeof(MethodDefinition), methodPointerRead), stackOffset);
+                //todo how do we handle this kind of instruction - does it even exist?
+                // var stackOffset = Utils.GetOperandMemoryOffset(instruction.Operands[0]);
+                // context.PushToStack(context.MakeConstant(typeof(MethodDefinition), methodPointerRead), stackOffset);
             }
             else
             {

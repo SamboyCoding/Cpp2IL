@@ -1,6 +1,6 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {

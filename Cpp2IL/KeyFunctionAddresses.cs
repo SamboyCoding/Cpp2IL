@@ -277,9 +277,9 @@ namespace Cpp2IL
             //     Console.WriteLine("\t\t\t\tWarning: Failed to locate System.ComponentModel.Int16Converter (probably stripped from assembly), box statements will show as undefined function calls!");
             // }
 
-            Console.WriteLine("\t\t\tLooking for UnityEngine.Ray$ToString...");
-            methods = methodData.Find(t => t.type.Name == "Ray" && t.type.Namespace == "UnityEngine").methods;
-            method = methods.Find(m => m.MethodName == "ToString");
+            Console.WriteLine("\t\t\tLooking for System.RuntimeType$GetGenericArgumentsInternal...");
+            methods = methodData.Find(t => t.type.Name == "RuntimeType" && t.type.Namespace == "System").methods;
+            method = methods.Find(m => m.MethodName == "GetGenericArgumentsInternal" && LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(m.MethodOffsetRam).FirstOrDefault()?.parameterCount == 0);
 
             Console.WriteLine($"\t\t\t\tSearching for a call to the safe cast function near offset 0x{method.MethodOffsetRam:X}...");
 
@@ -287,7 +287,7 @@ namespace Cpp2IL
 
             calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
-            addr = Utils.GetJumpTarget(calls[3], method.MethodOffsetRam + calls[3].PC);
+            addr = Utils.GetJumpTarget(calls[2], method.MethodOffsetRam + calls[2].PC);
             Console.WriteLine($"\t\t\t\tLocated il2cpp_object_is_inst function at 0x{addr:X}");
             ret.il2cpp_object_is_inst = addr;
 

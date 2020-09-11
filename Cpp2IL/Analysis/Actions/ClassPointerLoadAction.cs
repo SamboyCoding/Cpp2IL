@@ -1,6 +1,6 @@
 ﻿using System;
 using Cpp2IL.Analysis.ResultModels;
-using SharpDisasm;
+using Iced.Intel;
 using SharpDisasm.Udis86;
 
 namespace Cpp2IL.Analysis.Actions
@@ -13,11 +13,11 @@ namespace Cpp2IL.Analysis.Actions
 
         public ClassPointerLoadAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            destReg = Utils.GetRegisterName(instruction.Operands[0]);
-            if(instruction.Operands[0].Base == ud_type.UD_R_RSP)
+            destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            if(instruction.Op0Register == Register.RSP)
                 Console.WriteLine("WARNING: CLASS POINTER LOAD DEST IS STACK.");
             
-            var sourceReg = Utils.GetRegisterName(instruction.Operands[1]);
+            var sourceReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(sourceReg);
             localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition cons && cons.Value is NewSafeCastResult result ? result.original : null;
             if (localCopiedFrom == null) return;

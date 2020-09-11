@@ -13,6 +13,8 @@ namespace Cpp2IL.Analysis.ResultModels
         public readonly List<BaseAction> Actions = new List<BaseAction>();
         public readonly List<ulong> IdentifiedIfStatementStarts = new List<ulong>();
 
+        private ConstantDefinition EmptyRegConstant;
+        
         internal ulong MethodStart;
         internal ulong AbsoluteMethodEnd;
 
@@ -26,6 +28,7 @@ namespace Cpp2IL.Analysis.ResultModels
             _method = method;
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
+            EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
             
             //Set up parameters in registers & as locals.
             var regList = new List<string> {"rcx", "rdx", "r8", "r9"};
@@ -95,6 +98,11 @@ namespace Cpp2IL.Analysis.ResultModels
             RegisterData[reg] = content;
         }
 
+        public void ZeroRegister(string reg)
+        {
+            SetRegContent(reg, EmptyRegConstant);
+        }
+
         public IAnalysedOperand PushToStack(IAnalysedOperand operand, int pos)
         {
             StackData[pos] = operand;
@@ -127,6 +135,11 @@ namespace Cpp2IL.Analysis.ResultModels
             if (!(result is ConstantDefinition constant)) return null;
 
             return constant;
+        }
+
+        public bool IsEmptyRegArg(IAnalysedOperand analysedOperand)
+        {
+            return analysedOperand == EmptyRegConstant;
         }
     }
 }

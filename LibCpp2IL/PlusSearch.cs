@@ -178,7 +178,7 @@ namespace LibCpp2IL
                 while (sanity++ < 500)
                 {
                     var instruction = allSensibleInstructions.FirstOrDefault(i =>
-                        i.GetInstructionMemoryAddress() == codeGenAddr
+                        i.GetRipBasedInstructionMemoryAddress() == codeGenAddr
                     );
 
                     if (instruction != default) return codeGenAddr;

@@ -1,28 +1,36 @@
+//Feature flags
+
+// #define DEBUG_PRINT_OPERAND_DATA
+
 // #define USE_NEW_ANALYSIS_METHOD
 
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using Cpp2IL.Analysis.Actions;
+
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.PE;
 using Mono.Cecil;
-using SharpDisasm;
 using SharpDisasm.Udis86;
+
+#if !USE_NEW_ANALYSIS_METHOD
+using SharpDisasm;
+using System.Globalization;
+using System.Text.RegularExpressions;
+using Instruction = SharpDisasm.Instruction;
+#else
+using LibCpp2IL.Metadata;
+using Cpp2IL.Analysis.Actions;
+using Iced.Intel;
+#endif
 
 namespace Cpp2IL.Analysis
 {
     internal partial class AsmDumper
     {
-        //Feature flags
-
-        // #define DEBUG_PRINT_OPERAND_DATA
-
         private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Type");
         private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefKnownNotGeneric("System.String");
         private static readonly TypeDefinition BooleanReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Boolean");
@@ -40,7 +48,11 @@ namespace Cpp2IL.Analysis
         private ulong _methodEnd;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly PE _cppAssembly;
+#if !USE_NEW_ANALYSIS_METHOD
         private List<Instruction> _instructions;
+#else
+        private InstructionList _instructions;
+#endif
 
         private MethodAnalysis _analysis;
 
@@ -71,6 +83,7 @@ namespace Cpp2IL.Analysis
 
         private TypeDefinition? interfaceOffsetTargetInterface;
 
+#if !USE_NEW_ANALYSIS_METHOD
         private readonly ud_mnemonic_code[] _inlineArithmeticOpcodes =
         {
             ud_mnemonic_code.UD_Imul, //Multiply
@@ -97,6 +110,7 @@ namespace Cpp2IL.Analysis
             ud_mnemonic_code.UD_Ilea, //Load effective address
             ud_mnemonic_code.UD_Imovups
         };
+#endif
 
         internal AsmDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses, PE cppAssembly)
         {
@@ -107,9 +121,14 @@ namespace Cpp2IL.Analysis
             _cppAssembly = cppAssembly;
 
             //Pass 0: Disassemble
+#if USE_NEW_ANALYSIS_METHOD
+            _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes, methodStart);
+#else
             _instructions = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
+#endif
         }
 
+#if !USE_NEW_ANALYSIS_METHOD
         private void TaintMethod(TaintReason reason)
         {
             if (_taintReason != TaintReason.UNTAINTED) return;
@@ -119,7 +138,7 @@ namespace Cpp2IL.Analysis
             _psuedoCode.Append($"{Utils.Repeat("\t", _blockDepth)}//!!!METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason})!!!\n");
             _methodFunctionality.Append($"{Utils.Repeat("\t", _blockDepth + 2)}!!! METHOD TAINTED HERE: {reason} (COMPLEXITY {(int) reason}) !!!\n");
         }
-
+        
         private List<Instruction> TrimOutIl2CppCrap(List<Instruction> instructions)
         {
             var ret = new List<Instruction>();
@@ -200,6 +219,7 @@ namespace Cpp2IL.Analysis
 
             return ret;
         }
+#endif
 
         internal TaintReason AnalyzeMethod(StringBuilder typeDump, ref List<ud_mnemonic_code> allUsedMnemonics)
         {
@@ -215,9 +235,12 @@ namespace Cpp2IL.Analysis
             typeDump.Append($"Method: {_methodDefinition.FullName}:");
 
             //Pass 1: Removal of unneeded generated code
+#if !USE_NEW_ANALYSIS_METHOD
             _instructions = TrimOutIl2CppCrap(_instructions);
+#endif
 
             //Prevent overrunning into another function
+#if !USE_NEW_ANALYSIS_METHOD
             var lastInstructionInThisMethod = _instructions.FindIndex(i => SharedState.MethodsByAddress.ContainsKey(i.PC + _methodStart));
 
             if (lastInstructionInThisMethod > 0)
@@ -235,11 +258,16 @@ namespace Cpp2IL.Analysis
 
             //Do this AFTER the trim so we get a better result 
             _methodEnd = _methodStart + (_instructions.LastOrDefault()?.PC ?? 0);
-            
+#else
+            _methodEnd = _instructions.LastOrDefault().NextIP;
+            if (_methodEnd == 0) _methodEnd = _methodStart;
+#endif
+
 #if USE_NEW_ANALYSIS_METHOD
             _analysis = new MethodAnalysis(_methodDefinition, _methodStart, _methodEnd);
 #endif
 
+#if !USE_NEW_ANALYSIS_METHOD
             //Pass 2: Early Loop Detection
             _loopRegisters = DetectPotentialLoops(_instructions);
 
@@ -308,6 +336,7 @@ namespace Cpp2IL.Analysis
 
                 typeDump.Append($"\t\t{parameter.ParameterType.FullName} {parameter.Name} in {(isReg ? $"register {pos}" : $"stack at 0x{pos:X}")}\n");
             }
+#endif
 
             typeDump.Append("\tMethod Body (x86 ASM):\n");
 
@@ -325,11 +354,16 @@ namespace Cpp2IL.Analysis
 
                 _blockDepth = _indentCounts.Count;
 
-                string line;
 
+                string line;
+#if !USE_NEW_ANALYSIS_METHOD
                 //SharpDisasm is a godawful library, and it's not threadsafe (but only for instruction tostrings), but it's the best we've got. So don't do this in parallel.
                 lock (Disassembler.Translator)
                     line = instruction.ToString();
+#else
+                line = $"{instruction.IP:X8} {instruction}";
+                line += $" {{{instruction.Op0Kind}}}/{instruction.Op0Register} {{{instruction.Op1Kind}}}/{instruction.Op1Register} ||| {instruction.MemoryBase} | {instruction.MemoryDisplacement}"; //Dump reg debug data 
+#endif
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
                 line = Utils.UpscaleRegisters(line);
@@ -347,9 +381,10 @@ namespace Cpp2IL.Analysis
                 PerformInstructionChecks(instruction);
 
                 typeDump.Append("\n");
-
+#if !USE_NEW_ANALYSIS_METHOD
                 if (instruction.Mnemonic == ud_mnemonic_code.UD_Iret && _blockDepth == 0)
                     break; //Can't continue
+#endif
 
                 var old = _indentCounts.Count;
 
@@ -372,7 +407,7 @@ namespace Cpp2IL.Analysis
 
 #if USE_NEW_ANALYSIS_METHOD
             _methodFunctionality.Append("\t\tIdentified If Statement Start addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
-            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => "\t\t" + a.ToTextSummary())));      
+            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => "\t\t" + a.ToTextSummary())));
 #endif
 
             Console.WriteLine("Processed " + _methodDefinition.FullName);
@@ -408,45 +443,53 @@ namespace Cpp2IL.Analysis
             _blockDepth--;
         }
 
-        private void CheckForZeroOpInstruction(Instruction instruction)
+        #if USE_NEW_ANALYSIS_METHOD
+        private void CheckForZeroOpInstruction(Iced.Intel.Instruction instruction)
         {
             switch (instruction.Mnemonic)
             {
-                case ud_mnemonic_code.UD_Iret:
+                case Mnemonic.Ret:
                     _analysis.Actions.Add(new ReturnFromFunctionAction(_analysis, instruction));
                     break;
             }
         }
 
-        private void CheckForSingleOpInstruction(Instruction instruction)
+        private void CheckForSingleOpInstruction(Iced.Intel.Instruction instruction)
         {
-            var reg = Utils.GetRegisterName(instruction.Operands[0]);
+            var reg = Utils.GetRegisterNameNew(instruction.Op0Register == Register.None ? instruction.MemoryBase : instruction.Op0Register);
             var operand = _analysis.GetOperandInRegister(reg);
 
             switch (instruction.Mnemonic)
             {
-                case ud_mnemonic_code.UD_Ipush:
+                case Mnemonic.Push:
                     break;
-                case ud_mnemonic_code.UD_Ipop:
+                case Mnemonic.Pop:
                     break;
-                case ud_mnemonic_code.UD_Ijmp when instruction.Operands[0].Type != ud_type.UD_OP_REG:
+                case Mnemonic.Jmp when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement == 0 && operand is ConstantDefinition callRegCons && callRegCons.Value is MethodDefinition methodToCallInReg:
+                    _analysis.Actions.Add(new CallManagedFunctionInRegAction(_analysis, instruction));
+                    //This is a jmp, so return
+                    _analysis.Actions.Add(new ReturnFromFunctionAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Jmp when instruction.Op0Kind != OpKind.Register:
                 {
-                    var jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + _methodStart);
+                    var jumpTarget = instruction.NearBranchTarget;
                     if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
                     {
                         //Call a managed function
                         _analysis.Actions.Add(new CallManagedFunctionAction(_analysis, instruction));
                         _analysis.Actions.Add(new ReturnFromFunctionAction(_analysis, instruction)); //JMP is an implicit return
                     }
+
                     break;
                 }
-                case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type == ud_type.UD_OP_MEM && Utils.GetOperandMemoryOffset(instruction.Operands[0]) > 0x128 && operand is ConstantDefinition checkForVirtualCallCons && checkForVirtualCallCons.Value is Il2CppClassIdentifier checkForVirtualCallClassPtr:
+                case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement > 0x128 && operand is ConstantDefinition checkForVirtualCallCons &&
+                                        checkForVirtualCallCons.Value is Il2CppClassIdentifier checkForVirtualCallClassPtr:
                     //Virtual method call
                     _analysis.Actions.Add(new CallVirtualMethodAction(_analysis, instruction));
                     break;
-                case ud_mnemonic_code.UD_Icall when instruction.Operands[0].Type != ud_type.UD_OP_REG:
+                case Mnemonic.Call when instruction.Op0Kind != OpKind.Register:
                 {
-                    var jumpTarget = Utils.GetJumpTarget(instruction, instruction.PC + _methodStart);
+                    var jumpTarget = instruction.NearBranchTarget;
 
                     if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)
                     {
@@ -508,64 +551,86 @@ namespace Cpp2IL.Analysis
                         //Call a managed function
                         _analysis.Actions.Add(new CallManagedFunctionAction(_analysis, instruction));
                     }
+                    else if (_analysis.GetConstantInReg("rcx") is {} castConstant
+                             && castConstant.Value is NewSafeCastResult castResult //We have a cast result
+                             && _analysis.GetConstantInReg("rdx") is {} interfaceConstant
+                             && interfaceConstant.Value is TypeDefinition interfaceType //we have a type
+                             && _analysis.GetConstantInReg("r8") is {} slotConstant
+                             && slotConstant.Value is int slot // We have a slot
+                             && _analysis.Actions.Any(a => a is LocateSpecificInterfaceOffsetAction) //We've looked up an interface offset
+                             && (!_analysis.Actions.Any(a => a is LoadInterfaceMethodDataAction) //Either we don't have any load method datas...
+                             || _analysis.Actions.FindLastIndex(a => a is LocateSpecificInterfaceOffsetAction) > _analysis.Actions.FindLastIndex(a => a is LoadInterfaceMethodDataAction))) //Or the last load offset is after the last load method data 
+                    {
+                        //Unknown function call but matches values for a Interface lookup
+                        _analysis.Actions.Add(new LoadInterfaceMethodDataAction(_analysis, instruction));
+                    }
 
                     //TODO: Handle the managed throw getters.
 
                     break;
                 }
-                case ud_mnemonic_code.UD_Iinc:
+                case Mnemonic.Inc:
                     break;
-                case ud_mnemonic_code.UD_Ijz:
+                case Mnemonic.Je when _analysis.Actions.LastOrDefault() is LocateSpecificInterfaceOffsetAction:
+                    //Can be ignored.
+                    break;
+                case Mnemonic.Je:
                     _analysis.Actions.Add(new JumpIfZeroOrNullAction(_analysis, instruction));
                     break;
-                case ud_mnemonic_code.UD_Ijnz:
+                case Mnemonic.Jne:
                     _analysis.Actions.Add(new JumpIfNonZeroOrNonNullAction(_analysis, instruction));
                     break;
                 //TODO Conditional jumps
             }
         }
 
-        private void CheckForTwoOpInstruction(Instruction instruction)
+        private void CheckForTwoOpInstruction(Iced.Intel.Instruction instruction)
         {
-            var r0 = Utils.GetRegisterName(instruction.Operands[0]);
-            var r1 = Utils.GetRegisterName(instruction.Operands[1]);
+            var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var r1 = Utils.GetRegisterNameNew(instruction.Op1Register);
+            var memR = Utils.GetRegisterNameNew(instruction.MemoryBase);
 
             var op0 = _analysis.GetOperandInRegister(r0);
             var op1 = _analysis.GetOperandInRegister(r1);
+            var memOp = _analysis.GetOperandInRegister(memR);
 
-            var offset0 = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[0]);
-            var offset1 = Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var offset0 = instruction.MemoryDisplacement;
+            var offset1 = offset0; //todo?
 
-            var type0 = instruction.Operands[0].Type;
-            var type1 = instruction.Operands[1].Type;
+            var type0 = instruction.Op0Kind;
+            var type1 = instruction.Op1Kind;
 
             switch (instruction.Mnemonic)
             {
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_REG && offset0 == 0 && offset1 == 0 && op1 != null:
+                case Mnemonic.Mov when type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null:
                     //Both zero offsets and a known secondary operand = Register content copy
                     _analysis.Actions.Add(new RegToRegMoveAction(_analysis, instruction));
                     return;
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_REG && r0 == "rsp" && offset1 == 0 && op1 != null:
+                case Mnemonic.Mov when type1 == OpKind.Register && r0 == "rsp" && offset1 == 0 && op1 != null:
                     //Second operand is a reg, no offset, moving into the stack = Copy reg content to stack.
                     _analysis.Actions.Add(new StackToRegCopyAction(_analysis, instruction));
                     return;
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && op1 != null:
+                case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp != null:
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
                     _analysis.Actions.Add(new ClassPointerLoadAction(_analysis, instruction));
                     return;
                 }
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && offset1 > 0x128 && op1 is ConstantDefinition virtualPointerCheckCons && virtualPointerCheckCons.Value is Il2CppClassIdentifier virtualPointerCheckKlassPtr:
+                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 == 0xb0 && memOp is ConstantDefinition interfaceOffsetCheckCons && interfaceOffsetCheckCons.Value is Il2CppClassIdentifier interfaceOffsetCheckKlassPtr:
+                    //Class pointer interface offset read
+                    _analysis.Actions.Add(new InterfaceOffsetsReadAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 > 0x128 && memOp is ConstantDefinition virtualPointerCheckCons && virtualPointerCheckCons.Value is Il2CppClassIdentifier virtualPointerCheckKlassPtr:
                 {
                     //Virtual method pointer load
                     _analysis.Actions.Add(new LoadVirtualFunctionPointerAction(_analysis, instruction));
                     break;
                 }
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_MEM && (offset0 == 0 || r0 == "rsp") && r1 == "rip":
+                case Mnemonic.Mov when type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
-                    var globalAddress = _methodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+                    var globalAddress = instruction.GetRipBasedInstructionMemoryAddress();
                     if (SharedState.GlobalsByOffset.TryGetValue(globalAddress, out var global))
                     {
                         //Have a global here.
@@ -587,67 +652,73 @@ namespace Cpp2IL.Analysis
                     }
                     else
                     {
-                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]));
+                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(instruction.GetRipBasedInstructionMemoryAddress()));
                         if (potentialLiteral != null)
                         {
-                            if (r0 == "rsp")
-                                _analysis.Actions.Add(new ConstantToStackAction(_analysis, instruction));
-                            else
-                                _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
+                            // if (r0 == "rsp")
+                            //     _analysis.Actions.Add(new ConstantToStackAction(_analysis, instruction));
+                            // else
+                            //     _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
                         }
                     }
 
                     return;
                 }
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_IMM && offset0 == 0 && type0 == ud_type.UD_OP_REG:
+                case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 == 0 && type0 == OpKind.Register:
                     //Constant move to reg
                     _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
                     return;
-                case ud_mnemonic_code.UD_Imov when type1 == ud_type.UD_OP_IMM && offset0 != 0 && type0 != ud_type.UD_OP_REG && r0 != "rip":
+                case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 != OpKind.Register && r0 != "rip":
                     //Constant move to field
                     _analysis.Actions.Add(new ConstantToFieldAction(_analysis, instruction));
                     return;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO Arithmetic
-                case ud_mnemonic_code.UD_Ixor:
-                case ud_mnemonic_code.UD_Ixorps:
+                case Mnemonic.Xor:
+                case Mnemonic.Xorps:
                 {
                     //PROBABLY clear register
-                    if(r0 == r1)
+                    if (r0 == r1)
                         _analysis.Actions.Add(new ClearRegAction(_analysis, instruction));
                     break;
                 }
-                case ud_mnemonic_code.UD_Itest:
-                case ud_mnemonic_code.UD_Icmp:
+                case Mnemonic.Cmp when memOp is ConstantDefinition interfaceOffsetReadTestCons && interfaceOffsetReadTestCons.Value is Il2CppInterfaceOffset[] interfaceOffsetReadTestOffsets:
+                    //Format is generally something like `cmp [r9+rax*8], r10`, where r9 is the interface offset array we have here, rax is the current loop index, and r10 is the target interface
+                    if (instruction.MemoryIndexScale == 0x8 && op1 is ConstantDefinition interfaceOffsetReadTypeCons && interfaceOffsetReadTypeCons.Value is TypeDefinition interfaceType)
+                    {
+                        _analysis.Actions.Add(new LocateSpecificInterfaceOffsetAction(_analysis, instruction));
+                    }
+
+                    break;
+                case Mnemonic.Test:
+                case Mnemonic.Cmp:
                     //Condition
                     _analysis.Actions.Add(new ComparisonAction(_analysis, instruction));
                     break;
             }
         }
 
+        private void PerformInstructionChecks(Iced.Intel.Instruction instruction)
+        {
+            var operandCount = instruction.OpCount;
+
+            switch (operandCount)
+            {
+                case 0:
+                    CheckForZeroOpInstruction(instruction);
+                    return;
+                case 1:
+                    CheckForSingleOpInstruction(instruction);
+                    return;
+                case 2:
+                    CheckForTwoOpInstruction(instruction);
+                    return;
+            }
+        }
+#else
         private void PerformInstructionChecks(Instruction instruction)
         {
-#if USE_NEW_ANALYSIS_METHOD
-            var operandCount = instruction.Operands.Length;
 
-            if (operandCount == 0)
-            {
-                CheckForZeroOpInstruction(instruction);
-                return;
-            }
-
-            if (operandCount == 1)
-            {
-                CheckForSingleOpInstruction(instruction);
-                return;
-            }
-
-            if (operandCount == 2)
-            {
-                CheckForTwoOpInstruction(instruction);
-                return;
-            }
-#else
             //Detect field writes
             CheckForFieldWrites(instruction);
 
@@ -686,9 +757,10 @@ namespace Cpp2IL.Analysis
 
             //Check for RET
             CheckForReturn(instruction);
-#endif
         }
+#endif
 
+#if !USE_NEW_ANALYSIS_METHOD
         private void HandleFunctionCall(MethodDefinition target, bool processReturnType, Instruction instruction, TypeDefinition returnType = null)
         {
             if (returnType == null)
@@ -3014,6 +3086,7 @@ namespace Cpp2IL.Analysis
 
             return null;
         }
+#endif
 
         private enum BlockType
         {

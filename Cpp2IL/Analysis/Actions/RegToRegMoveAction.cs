@@ -1,6 +1,6 @@
 ﻿using System;
 using Cpp2IL.Analysis.ResultModels;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -15,8 +15,8 @@ namespace Cpp2IL.Analysis.Actions
         
         public RegToRegMoveAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            originalReg = Utils.GetRegisterName(instruction.Operands[1]);
-            newReg = Utils.GetRegisterName(instruction.Operands[0]);
+            originalReg = Utils.GetRegisterNameNew(instruction.Op1Register);
+            newReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             beingMoved = context.GetOperandInRegister(originalReg);
 
             context.SetRegContent(newReg, beingMoved);

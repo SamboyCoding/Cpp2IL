@@ -1,6 +1,6 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -34,7 +34,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Allocates an instance of type {TypeCreated} and stores it as {LocalReturned?.Name} in rax.\n";
+            return $"[!] Allocates an instance of type {TypeCreated} and stores it as {LocalReturned?.Name} in rax.\n";
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -9,7 +9,8 @@ namespace Cpp2IL.Analysis.Actions
         
         public ClearRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            regCleared = Utils.GetRegisterName(instruction.Operands[0]);
+            regCleared = Utils.GetRegisterNameNew(instruction.Op0Register);
+            context.ZeroRegister(regCleared);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()

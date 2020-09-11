@@ -7,7 +7,7 @@ namespace LibCpp2IL
 {
     public static class Extensions
     {
-        public static ulong GetInstructionMemoryAddress(this Instruction instruction) => instruction.NextIP + instruction.MemoryDisplacement64;
+        public static ulong GetRipBasedInstructionMemoryAddress(this Instruction instruction) => instruction.NextIP + instruction.MemoryDisplacement64;
         
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {

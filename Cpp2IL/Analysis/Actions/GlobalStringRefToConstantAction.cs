@@ -1,7 +1,7 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
-using SharpDisasm;
+using Iced.Intel;
 using SharpDisasm.Udis86;
 
 namespace Cpp2IL.Analysis.Actions
@@ -13,12 +13,12 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalStringRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = context.MethodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var globalAddress = instruction.GetRipBasedInstructionMemoryAddress();
             ResolvedString = LibCpp2IlMain.GetLiteralByAddress(globalAddress);
 
             if (ResolvedString == null) return;
             
-            var destReg = instruction.Operands[0].Type == ud_type.UD_OP_REG ? Utils.GetRegisterName(instruction.Operands[0]) : null;
+            var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             
             ConstantWritten = context.MakeConstant(typeof(string), ResolvedString, null, destReg);
         }

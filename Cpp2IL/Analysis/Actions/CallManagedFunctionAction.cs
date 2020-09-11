@@ -4,7 +4,7 @@ using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -36,7 +36,7 @@ namespace Cpp2IL.Analysis.Actions
                 }
             }
 
-            if (actualArgs.Any(a => a != null))
+            if (actualArgs.Any(a => a != null && !context.IsEmptyRegArg(a)))
                 return false; //Left over args - it's probably not this one
 
             return true;
@@ -44,7 +44,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public CallManagedFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var jumpTarget = Utils.GetJumpTarget(instruction, context.MethodStart + instruction.PC);
+            var jumpTarget = instruction.NearBranchTarget;
             var objectMethodBeingCalledOn = context.GetLocalInReg("rcx");
             var listOfCallableMethods = LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(jumpTarget);
 
@@ -84,7 +84,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Calls managed method {target?.FullName}\n";
+            return $"[!] Calls managed method {target?.FullName}\n";
         }
     }
 }

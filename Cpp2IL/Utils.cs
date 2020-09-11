@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
@@ -12,6 +13,7 @@ using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using SharpDisasm;
 using SharpDisasm.Udis86;
+using Instruction = SharpDisasm.Instruction;
 
 namespace Cpp2IL
 {
@@ -603,7 +605,21 @@ namespace Cpp2IL
         }
 
         private static readonly ConcurrentDictionary<ud_type, string> CachedRegNames = new ConcurrentDictionary<ud_type, string>();
+        private static readonly ConcurrentDictionary<Register, string> CachedRegNamesNew = new ConcurrentDictionary<Register, string>();
 
+        public static string GetRegisterNameNew(Register register)
+        {
+            if (register == Register.None) return "";
+
+            if (!CachedRegNamesNew.TryGetValue(register, out var ret))
+            {
+                ret = UpscaleRegisters(register.ToString().ToLower());
+                CachedRegNamesNew[register] = ret;
+            }
+
+            return ret;
+        }
+        
         public static string GetRegisterName(Operand operand)
         {
             var theBase = operand.Base;
@@ -612,7 +628,7 @@ namespace Cpp2IL
 
             if (!CachedRegNames.TryGetValue(theBase, out var ret))
             {
-                ret = Utils.UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
+                ret = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
                 CachedRegNames[theBase] = ret;
             }
 

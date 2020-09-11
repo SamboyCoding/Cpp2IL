@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -15,14 +15,14 @@ namespace Cpp2IL.Analysis.Actions
 
         public CallVirtualMethodAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var inReg = context.GetOperandInRegister(Utils.GetRegisterName(instruction.Operands[0]));
+            var inReg = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (!(inReg is ConstantDefinition cons) || !(cons.Value is Il2CppClassIdentifier klass)) return;
 
             var classReadFrom = klass.backingType;
-            
-            var readOffset = Utils.GetOperandMemoryOffset(instruction.Operands[0]);
-            Called = Utils.GetMethodFromReadKlassOffset(readOffset);
+
+            var readOffset = instruction.MemoryDisplacement;
+            Called = Utils.GetMethodFromReadKlassOffset((int) readOffset);
 
             if (Called == null) return;
 
@@ -41,7 +41,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Calls virtual function {Called?.FullName} on instance {CalledOn} with {Arguments.Count} arguments\n";
+            return $"[!] Calls virtual function {Called?.FullName} on instance {CalledOn} with {Arguments.Count} arguments\n";
         }
     }
 }

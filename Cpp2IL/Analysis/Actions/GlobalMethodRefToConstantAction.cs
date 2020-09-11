@@ -4,7 +4,7 @@ using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
-using SharpDisasm;
+using Iced.Intel;
 using SharpDisasm.Udis86;
 
 namespace Cpp2IL.Analysis.Actions
@@ -17,7 +17,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalMethodRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = context.MethodStart + Utils.GetOffsetFromMemoryAccess(instruction, instruction.Operands[1]);
+            var globalAddress = instruction.GetRipBasedInstructionMemoryAddress();
             MethodData = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(globalAddress);
             var (type, genericParams) = Utils.TryLookupTypeDefByName(MethodData!.DeclaringType.FullName);
 
@@ -31,7 +31,7 @@ namespace Cpp2IL.Analysis.Actions
 
             if (ResolvedMethod == null) return;
             
-            var destReg = instruction.Operands[0].Type == ud_type.UD_OP_REG ? Utils.GetRegisterName(instruction.Operands[0]) : null;
+            var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             var name = ResolvedMethod.Name;
             
             ConstantWritten = context.MakeConstant(typeof(MethodDefinition), ResolvedMethod, name, destReg);

@@ -1,6 +1,6 @@
 ﻿using System.Text;
 using Cpp2IL.Analysis.ResultModels;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {

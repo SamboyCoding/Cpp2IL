@@ -1,5 +1,5 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
-using SharpDisasm;
+using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -10,8 +10,8 @@ namespace Cpp2IL.Analysis.Actions
         
         public ComparisonAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var r0 = Utils.GetRegisterName(instruction.Operands[0]);
-            var r1 = Utils.GetRegisterName(instruction.Operands[1]);
+            var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var r1 = Utils.GetRegisterNameNew(instruction.Op1Register);
 
             if (r0 != "rsp")
                 ArgumentOne = context.GetOperandInRegister(r0);
@@ -31,7 +31,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Compares {ArgumentOne} and {ArgumentTwo}";
+            return $"[!] Compares {ArgumentOne} and {ArgumentTwo}";
         }
     }
 }
