@@ -361,7 +361,7 @@ namespace Cpp2IL.Analysis
                 lock (Disassembler.Translator)
                     line = instruction.ToString();
 #else
-                line = $"{instruction.IP:X8} {instruction}";
+                line = $"{instruction.IP.ToString("X8").ToUpperInvariant()} {instruction}";
                 line += $" {{{instruction.Op0Kind}}}/{instruction.Op0Register} {{{instruction.Op1Kind}}}/{instruction.Op1Register} ||| {instruction.MemoryBase} | {instruction.MemoryDisplacement}"; //Dump reg debug data 
 #endif
 
@@ -407,7 +407,7 @@ namespace Cpp2IL.Analysis
 
 #if USE_NEW_ANALYSIS_METHOD
             _methodFunctionality.Append("\t\tIdentified If Statement Start addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
-            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP:x8}: {a.ToTextSummary()}")));
+            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.ToTextSummary()}")));
 #endif
 
             Console.WriteLine("Processed " + _methodDefinition.FullName);
@@ -550,6 +550,10 @@ namespace Cpp2IL.Analysis
                     {
                         //Call a managed function
                         _analysis.Actions.Add(new CallManagedFunctionAction(_analysis, instruction));
+                    }
+                    else if (CallExceptionThrowerFunction.IsExceptionThrower(jumpTarget))
+                    {
+                        _analysis.Actions.Add(new CallExceptionThrowerFunction(_analysis, instruction));
                     }
                     else if (_analysis.GetConstantInReg("rcx") is {} castConstant
                              && castConstant.Value is NewSafeCastResult castResult //We have a cast result

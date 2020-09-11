@@ -345,12 +345,12 @@ namespace Cpp2IL
 
 
 
-        public static TypeDefinition TryLookupTypeDefKnownNotGeneric(string? name)
+        public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name)
         {
             return TryLookupTypeDefByName(name).Item1;
         }
 
-        public static Tuple<TypeDefinition, string[]> TryLookupTypeDefByName(string? name)
+        public static Tuple<TypeDefinition?, string[]> TryLookupTypeDefByName(string? name)
         {
             if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
 
@@ -517,18 +517,18 @@ namespace Cpp2IL
             return baseClass.FullName == subClass.FullName; //Simple check
         }
 
-        public static string? TryGetLiteralAt(PE theDll, ulong addr)
+        public static string? TryGetLiteralAt(PE theDll, ulong rawAddr)
         {
-            var c = Convert.ToChar(theDll.raw[addr]);
+            var c = Convert.ToChar(theDll.raw[rawAddr]);
             if (char.IsLetter(c) && c < 'z') //includes uppercase
             {
-                var isUnicode = theDll.raw[addr + 1] == 0;
+                var isUnicode = theDll.raw[rawAddr + 1] == 0;
                 var literal = new StringBuilder();
-                while ((theDll.raw[addr] != 0 || isUnicode && theDll.raw[addr + 1] != 0) && literal.Length < 250)
+                while ((theDll.raw[rawAddr] != 0 || isUnicode && theDll.raw[rawAddr + 1] != 0) && literal.Length < 250)
                 {
-                    literal.Append(Convert.ToChar(theDll.raw[addr]));
-                    addr++;
-                    if (isUnicode) addr++;
+                    literal.Append(Convert.ToChar(theDll.raw[rawAddr]));
+                    rawAddr++;
+                    if (isUnicode) rawAddr++;
                 }
 
 
@@ -655,6 +655,41 @@ namespace Cpp2IL
             }
 
             return null;
+        }
+
+        public static InstructionList GetMethodBodyAtVirtAddressNew(PE theDll, ulong addr, bool peek)
+        {
+            var functionStart = addr;
+            var ret = new InstructionList();
+            var con = true;
+            var buff = new List<byte>();
+            var rawAddr = theDll.MapVirtualAddressToRaw(addr);
+
+            if (rawAddr < 0 || rawAddr >= theDll.raw.Length)
+            {
+                Console.WriteLine($"Invalid call to GetMethodBodyAtVirtAddressNew, virt addr {addr} resolves to raw {rawAddr} which is out of bounds");
+                return ret;
+            }
+
+                while (con)
+            {
+                buff.Add(theDll.raw[rawAddr]);
+
+                ret = LibCpp2ILUtils.DisassembleBytesNew(theDll.is32Bit, buff.ToArray(), functionStart);
+
+                if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Mnemonic == Mnemonic.Int))
+                    con = false;
+
+                if (peek && buff.Count > 50)
+                    con = false;
+                else if (buff.Count > 1000)
+                    con = false; //Sanity breakout.
+
+                addr++;
+                rawAddr++;
+            }
+
+            return ret;
         }
 
         public static List<Instruction> GetMethodBodyAtRawAddress(PE theDll, long addr, bool peek)
