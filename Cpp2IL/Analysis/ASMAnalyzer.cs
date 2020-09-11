@@ -407,7 +407,7 @@ namespace Cpp2IL.Analysis
 
 #if USE_NEW_ANALYSIS_METHOD
             _methodFunctionality.Append("\t\tIdentified If Statement Start addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
-            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => "\t\t" + a.ToTextSummary())));
+            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP:x8}: {a.ToTextSummary()}")));
 #endif
 
             Console.WriteLine("Processed " + _methodDefinition.FullName);
@@ -668,7 +668,7 @@ namespace Cpp2IL.Analysis
                     //Constant move to reg
                     _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
                     return;
-                case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 != OpKind.Register && r0 != "rip":
+                case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 != OpKind.Register && memR != "rip":
                     //Constant move to field
                     _analysis.Actions.Add(new ConstantToFieldAction(_analysis, instruction));
                     return;

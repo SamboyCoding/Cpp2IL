@@ -29,27 +29,66 @@ namespace LibCpp2IL
             return ret;
         }
         
-        public static string? GetLiteralByAddress(ulong address)
+        public static GlobalIdentifier GetAnyGlobalByAddress(ulong address)
+        {
+            var glob = GetLiteralGlobalByAddress(address);
+            if (glob.Offset != address)
+            {
+                var nble = GetMethodGlobalByAddress(address);
+                if (nble.HasValue)
+                    glob = nble.Value;
+            }
+
+            if (glob.Offset != address)
+                glob = GetRawFieldGlobalByAddress(address);
+            
+            if (glob.Offset != address)
+                glob = GetRawTypeGlobalByAddress(address);
+            
+            return glob;
+        }
+
+        public static GlobalIdentifier GetLiteralGlobalByAddress(ulong address)
         {
             var literal = LibCpp2IlGlobalMapper.Literals.FirstOrDefault(lit => lit.Offset == address);
+            return literal.Offset == address ? literal : default;
+        }
+        
+        public static string? GetLiteralByAddress(ulong address)
+        {
+            var literal = GetLiteralGlobalByAddress(address);
             return literal.Offset == address ? literal.Name : null;
+        }
+
+        public static GlobalIdentifier GetRawTypeGlobalByAddress(ulong address)
+        {
+            var typeGlobal = LibCpp2IlGlobalMapper.TypeRefs.FirstOrDefault(lit => lit.Offset == address);
+
+            return typeGlobal;
         }
         
         public static Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address)
         {
             if (TheMetadata == null) return null;
-            
-            var typeGlobal = LibCpp2IlGlobalMapper.TypeRefs.FirstOrDefault(lit => lit.Offset == address);
+
+            var typeGlobal = GetRawTypeGlobalByAddress(address);
             if (typeGlobal.Offset != address) return null;
 
             return typeGlobal.ReferencedType;
         }
         
+        public static GlobalIdentifier GetRawFieldGlobalByAddress(ulong address)
+        {
+            var typeGlobal = LibCpp2IlGlobalMapper.FieldRefs.FirstOrDefault(lit => lit.Offset == address);
+
+            return typeGlobal;
+        }
+
         public static Il2CppFieldDefinition? GetFieldGlobalByAddress(ulong address)
         {
             if (TheMetadata == null) return null;
-            
-            var typeGlobal = LibCpp2IlGlobalMapper.FieldRefs.FirstOrDefault(lit => lit.Offset == address);
+
+            var typeGlobal = GetRawFieldGlobalByAddress(address);
             if (typeGlobal.Offset != address) return null;
 
             return typeGlobal.ReferencedField;

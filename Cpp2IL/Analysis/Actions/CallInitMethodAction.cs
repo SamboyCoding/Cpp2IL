@@ -21,7 +21,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return "Attempts to initialize a method.";
+            return "Attempts to initialize a method.\n";
         }
     }
 }

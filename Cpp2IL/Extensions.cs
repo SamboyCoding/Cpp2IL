@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Iced.Intel;
 using Mono.Cecil;
 using Mono.Collections.Generic;
 
@@ -8,6 +9,7 @@ namespace Cpp2IL
 {
     public static class Extensions
     {
+        public static bool IsImmediate(this OpKind opKind) => opKind >= OpKind.Immediate8 && opKind <= OpKind.Immediate32to64;
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {
             var result = new T[length];

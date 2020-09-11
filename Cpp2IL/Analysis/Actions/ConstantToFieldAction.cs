@@ -12,6 +12,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public ConstantToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            constantValue = instruction.GetImmediate(1);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
