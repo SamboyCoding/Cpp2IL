@@ -50,18 +50,25 @@ namespace Cpp2IL.Analysis.Actions
 
             if (listOfCallableMethods == null) return;
 
-            if (objectMethodBeingCalledOn?.Type == null) return;
+            Il2CppMethodDefinition possibleTarget = null;
+            if (objectMethodBeingCalledOn?.Type != null)
+            {
+                //Direct instance methods take priority
+                possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), objectMethodBeingCalledOn.Type) && CheckParameters(m, context, true));
 
-            //Direct instance methods take priority
-            var possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), objectMethodBeingCalledOn.Type) && CheckParameters(m, context, true));
+                //todo check args and null out
 
-            //todo check args and null out
+                if (possibleTarget == null)
+                    //Base class instance methods
+                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), objectMethodBeingCalledOn.Type) && CheckParameters(m, context, true));
 
-            if (possibleTarget == null)
-                //Base class instance methods
-                possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), objectMethodBeingCalledOn.Type) && CheckParameters(m, context, true));
-            
-            //check args again.
+                //check args again.
+            }
+
+            //Check static methods
+            if(possibleTarget == null)
+                possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && CheckParameters(m, context, false));
+
 
             if (possibleTarget != null)
             {
