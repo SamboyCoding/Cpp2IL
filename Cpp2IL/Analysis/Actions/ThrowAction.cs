@@ -5,10 +5,11 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class ThrowAction : BaseAction
     {
-        private IAnalysedOperand exceptionToThrow;
+        private IAnalysedOperand? exceptionToThrow;
         
         public ThrowAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            exceptionToThrow = context.GetOperandInRegister("rcx");
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()

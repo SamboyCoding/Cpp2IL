@@ -10,70 +10,56 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class CallManagedFunctionAction : BaseAction
     {
-        private MethodDefinition? target;
-        private List<IAnalysedOperand> arguments = new List<IAnalysedOperand>();
-
-        private bool CheckParameters(Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance)
-        {
-            var actualArgs = new List<IAnalysedOperand>();
-            if(!isInstance)
-                actualArgs.Add(context.GetOperandInRegister("rcx") ?? context.GetOperandInRegister("xmm0"));
-            
-            actualArgs.Add(context.GetOperandInRegister("rdx") ?? context.GetOperandInRegister("xmm1"));
-            actualArgs.Add(context.GetOperandInRegister("r8") ?? context.GetOperandInRegister("xmm2"));
-            actualArgs.Add(context.GetOperandInRegister("r9") ?? context.GetOperandInRegister("xmm3"));
-            
-            foreach (var parameterData in method.Parameters!)
-            {
-                if (actualArgs.Count(a => a != null) == 0) return false;
-
-                var arg = actualArgs.RemoveAndReturn(0);
-                switch (arg)
-                {
-                    case ConstantDefinition cons when cons.Type.FullName != parameterData.Type.ToString(): //Constant type mismatch
-                    case LocalDefinition local when !Utils.IsManagedTypeAnInstanceOfCppOne(parameterData.Type, local.Type!): //Local type mismatch
-                        return false;
-                }
-            }
-
-            if (actualArgs.Any(a => a != null && !context.IsEmptyRegArg(a)))
-                return false; //Left over args - it's probably not this one
-
-            return true;
-        }
+        private MethodDefinition? managedMethodBeingCalled;
+        private List<IAnalysedOperand>? arguments;
+        private ulong _jumpTarget;
+        private LocalDefinition? _objectMethodBeingCalledOn;
+        private LocalDefinition? _returnedLocal;
 
         public CallManagedFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var jumpTarget = instruction.NearBranchTarget;
-            var objectMethodBeingCalledOn = context.GetLocalInReg("rcx");
-            var listOfCallableMethods = LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(jumpTarget);
+            _jumpTarget = instruction.NearBranchTarget;
+            _objectMethodBeingCalledOn = context.GetLocalInReg("rcx");
+            var listOfCallableMethods = LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(_jumpTarget);
 
             if (listOfCallableMethods == null) return;
 
             Il2CppMethodDefinition possibleTarget = null;
-            if (objectMethodBeingCalledOn?.Type != null)
+            if (_objectMethodBeingCalledOn?.Type != null)
             {
                 //Direct instance methods take priority
-                possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), objectMethodBeingCalledOn.Type) && CheckParameters(m, context, true));
+                possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
 
                 //todo check args and null out
 
                 if (possibleTarget == null)
                     //Base class instance methods
-                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), objectMethodBeingCalledOn.Type) && CheckParameters(m, context, true));
+                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
 
                 //check args again.
             }
 
             //Check static methods
-            if(possibleTarget == null)
-                possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && CheckParameters(m, context, false));
+            if (possibleTarget == null)
+                possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(m, context, false, out arguments));
 
 
+            //Resolve unmanaged => managed method.
             if (possibleTarget != null)
+                managedMethodBeingCalled = SharedState.UnmanagedToManagedMethods[possibleTarget];
+
+            if (managedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
             {
-                target = SharedState.UnmanagedToManagedMethods[possibleTarget];
-                return;
+                if (Utils.TryResolveType(returnType, out var returnDef))
+                {
+                    //Push return type to rax.
+                    var destReg = Utils.ShouldBeInFloatingPointRegister(returnDef) ? "xmm0" : "rax";
+                    _returnedLocal = context.MakeLocal(returnDef, reg: destReg);
+                }
+                else
+                {
+                    AddComment($"Failed to resolve return type {returnType} for pushing to rax.");
+                }
             }
 
             // SharedState.MethodsByAddress.TryGetValue(jumpTarget, out target);
@@ -91,7 +77,18 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"[!] Calls managed method {target?.FullName}\n";
+            string result;
+            result = managedMethodBeingCalled?.IsStatic == true 
+                ? $"[!] Calls static managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X})" 
+                : $"[!] Calls managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X}) on instance {_objectMethodBeingCalledOn}";
+
+            if (arguments != null)
+                result += $" with arguments {arguments.ToStringEnumerable()}";
+            
+            if (_returnedLocal != null)
+                result += $" and stores the result in {_returnedLocal} in register rax";
+
+            return result + "\n";
         }
     }
 }

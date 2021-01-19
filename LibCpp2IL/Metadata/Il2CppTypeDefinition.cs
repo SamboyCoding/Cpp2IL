@@ -81,9 +81,29 @@ namespace LibCpp2IL.Metadata
             }
         }
 
-        public string? Namespace => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(namespaceIndex);
+        private string? _cachedNamespace;
+        public string? Namespace
+        {
+            get
+            {
+                if(_cachedNamespace == null)
+                    _cachedNamespace = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(namespaceIndex);
 
-        public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+                return _cachedNamespace;
+            }
+        }
+
+        private string? _cachedName;
+        public string? Name
+        {
+            get
+            {
+                if(_cachedName == null)
+                    _cachedName = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+
+                return _cachedName;
+            }
+        }
 
         public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? null : (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
 

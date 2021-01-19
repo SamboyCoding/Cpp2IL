@@ -11,7 +11,7 @@ namespace Cpp2IL.Analysis.ResultModels
 
         public override string ToString()
         {
-            return $"{{'{Name}' (constant value of type {Type.FullName})";
+            return $"{{'{Name}' (constant value of type {Type.FullName})}}";
         }
     }
 }

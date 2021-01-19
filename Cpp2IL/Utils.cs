@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -366,7 +368,7 @@ namespace Cpp2IL
         {
             if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
 
-            var key = name.ToLower();
+            var key = name.ToLower(CultureInfo.InvariantCulture);
 
             if (_cachedTypeDefsByName.TryGetValue(key, out var ret))
                 return ret;
@@ -519,15 +521,25 @@ namespace Cpp2IL
             return builder;
         }
 
-        public static bool IsAssignableFrom(this TypeReference? baseClass, TypeReference? subClass)
-        {
-            if (baseClass == null || subClass == null) return false;
-
-            if (subClass is TypeDefinition otherDef)
-                return baseClass.FullName == otherDef.FullName || otherDef.BaseType != null && baseClass.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1) || otherDef.Interfaces.Any(i => baseClass.IsAssignableFrom(i.InterfaceType));
-
-            return baseClass.FullName == subClass.FullName; //Simple check
-        }
+        // public static bool IsAssignableFrom(this TypeReference? baseClass, TypeReference? subClass)
+        // {
+        //     if (baseClass == null || subClass == null) return false;
+        //
+        //     if (subClass is TypeDefinition otherDef)
+        //     {
+        //         if (baseClass.FullName == otherDef.FullName) return true;
+        //
+        //         if (otherDef.BaseType != null && baseClass.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1))
+        //             return true;
+        //
+        //         if (otherDef.Interfaces.Any(i => baseClass.IsAssignableFrom(i.InterfaceType)))
+        //             return true;
+        //
+        //         return false;
+        //     }
+        //
+        //     return baseClass.FullName == subClass.FullName; //Simple check
+        // }
 
         public static string? TryGetLiteralAt(PE theDll, ulong rawAddr)
         {
@@ -567,6 +579,13 @@ namespace Cpp2IL
             }
         }
 
+        public static bool TryResolveType(TypeReference type, [NotNullWhen(true)] out TypeDefinition? definition)
+        {
+            definition = type.Resolve() ?? TryLookupTypeDefByName(type.FullName).Item1;
+
+            return definition != null;
+        }
+
         public static ulong GetSizeOfObject(TypeReference type)
         {
             return PrimitiveSizes.TryGetValue(type.Name, out var result)
@@ -576,8 +595,13 @@ namespace Cpp2IL
 
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
 
+        private static readonly Dictionary<string, string> _cachedUpscaledRegisters = new Dictionary<string, string>();
+
         public static string UpscaleRegisters(string replaceIn)
         {
+            if (_cachedUpscaledRegisters.ContainsKey(replaceIn)) 
+                return _cachedUpscaledRegisters[replaceIn];
+            
             if (replaceIn.Length < 2) return replaceIn;
 
             //Special case the few 8-bit register: "al" => "rax" etc
@@ -595,8 +619,10 @@ namespace Cpp2IL
             //R9d, etc.
             if (replaceIn[0] == 'r' && replaceIn[^1] == 'd')
                 return replaceIn.Substring(0, replaceIn.Length - 1);
-
-            return UpscaleRegex.Replace(replaceIn, "$1r$2");
+            
+            _cachedUpscaledRegisters[replaceIn] = UpscaleRegex.Replace(replaceIn, "$1r$2");
+            
+            return _cachedUpscaledRegisters[replaceIn];
         }
 
         public static string GetFloatingRegister(string original)
@@ -661,7 +687,7 @@ namespace Cpp2IL
                 if (Math.Round(slotNum) == slotNum)
                 {
                     //Actual whole-number slot number, we can lookup the method
-                    var slotShort = (ushort) slotNum;
+                    var slotShort = (ushort) slotNum; //FIXME Sometimes the value here throws an overflow exception (too small or large)
                     return SharedState.VirtualMethodsBySlot[slotShort];
                 }
             }

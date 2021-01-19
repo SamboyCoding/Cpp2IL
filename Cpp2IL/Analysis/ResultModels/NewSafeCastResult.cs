@@ -6,5 +6,10 @@ namespace Cpp2IL.Analysis.ResultModels
     {
         public LocalDefinition original;
         public TypeDefinition castTo;
+
+        public override string ToString()
+        {
+            return $"{{{original.Name} as? {castTo}}}";
+        }
     }
 }

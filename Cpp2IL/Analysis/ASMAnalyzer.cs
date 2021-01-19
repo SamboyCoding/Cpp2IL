@@ -2,7 +2,7 @@
 
 // #define DEBUG_PRINT_OPERAND_DATA
 
-// #define USE_NEW_ANALYSIS_METHOD
+#define USE_NEW_ANALYSIS_METHOD
 
 using System;
 using System.Collections.Concurrent;
@@ -31,15 +31,15 @@ namespace Cpp2IL.Analysis
 {
     internal partial class AsmDumper
     {
-        private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Type");
-        private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefKnownNotGeneric("System.String");
-        private static readonly TypeDefinition BooleanReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Boolean");
-        private static readonly TypeDefinition FloatReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Single");
-        private static readonly TypeDefinition ByteReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Byte");
-        private static readonly TypeDefinition ShortReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int16");
-        private static readonly TypeDefinition IntegerReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int32");
-        private static readonly TypeDefinition LongReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int64");
-        private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Array");
+        private static readonly TypeDefinition TypeReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Type")!;
+        private static readonly TypeDefinition StringReference = Utils.TryLookupTypeDefKnownNotGeneric("System.String")!;
+        private static readonly TypeDefinition BooleanReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Boolean")!;
+        private static readonly TypeDefinition FloatReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Single")!;
+        private static readonly TypeDefinition ByteReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Byte")!;
+        private static readonly TypeDefinition ShortReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int16")!;
+        private static readonly TypeDefinition IntegerReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int32")!;
+        private static readonly TypeDefinition LongReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Int64")!;
+        private static readonly TypeDefinition ArrayReference = Utils.TryLookupTypeDefKnownNotGeneric("System.Array")!;
 
         private static readonly ConcurrentDictionary<ulong, TypeDefinition> exceptionThrowerAddresses = new ConcurrentDictionary<ulong, TypeDefinition>();
 
@@ -354,24 +354,29 @@ namespace Cpp2IL.Analysis
 
                 _blockDepth = _indentCounts.Count;
 
-
-                string line;
+                
 #if !USE_NEW_ANALYSIS_METHOD
+                string line;
                 //SharpDisasm is a godawful library, and it's not threadsafe (but only for instruction tostrings), but it's the best we've got. So don't do this in parallel.
                 lock (Disassembler.Translator)
                     line = instruction.ToString();
 #else
-                line = $"{instruction.IP.ToString("X8").ToUpperInvariant()} {instruction}";
-                line += $" {{{instruction.Op0Kind}}}/{instruction.Op0Register} {{{instruction.Op1Kind}}}/{instruction.Op1Register} ||| {instruction.MemoryBase} | {instruction.MemoryDisplacement}"; //Dump reg debug data 
+                var line = new StringBuilder();
+                line.Append(instruction.IP.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction);
+                
+                //Dump debug data
+                line.Append('{').Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
+                line.Append('{').Append(instruction.Op1Kind).Append('}').Append('/').Append(instruction.Op1Register).Append(" ||| ");
+                line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement);
 #endif
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
-                line = Utils.UpscaleRegisters(line);
+                // line = Utils.UpscaleRegisters(line);
 
                 //Apply any aliases to the line
                 line = _registerAliases.Aggregate(line, (current, kvp) => current.Replace($" {kvp.Key}", $" {kvp.Value}_{kvp.Key}").Replace($"[{kvp.Key}", $"[{kvp.Value}_{kvp.Key}"));
 
-                typeDump.Append($"\t\t{line}"); //write the current disassembled instruction to the type dump
+                typeDump.Append($"\t\t").Append(line); //write the current disassembled instruction to the type dump
 
 #if DEBUG_PRINT_OPERAND_DATA
                 typeDump.Append(" ; ");
@@ -410,10 +415,10 @@ namespace Cpp2IL.Analysis
             _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.ToTextSummary()}")));
 #endif
 
-            Console.WriteLine("Processed " + _methodDefinition.FullName);
-            typeDump.Append($"\n\tMethod Synopsis:\n{_methodFunctionality}\n\n");
+            // Console.WriteLine("Processed " + _methodDefinition.FullName);
+            typeDump.Append($"\n\tMethod Synopsis:\n").Append(_methodFunctionality).Append("\n\n");
 
-            typeDump.Append($"\n\tGenerated Pseudocode:\n\n{_psuedoCode}\n");
+            typeDump.Append("\n\tGenerated Pseudocode:\n\n").Append($"{_psuedoCode}").Append('\n');
 
             return _taintReason;
         }

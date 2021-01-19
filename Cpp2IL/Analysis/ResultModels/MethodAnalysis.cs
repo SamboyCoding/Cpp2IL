@@ -55,6 +55,13 @@ namespace Cpp2IL.Analysis.ResultModels
             }
         }
 
+        public bool IsVoid() => _method.ReturnType?.FullName == "System.Void";
+
+        public bool IsConstructor() => _method.IsConstructor;
+        
+        public TypeDefinition GetTypeOfThis() => _method.DeclaringType;
+
+
         public override string ToString()
         {
             return $"Method Analysis for {_method.FullName}";

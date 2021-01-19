@@ -52,8 +52,7 @@ namespace LibCpp2IL
 
         public static GlobalIdentifier GetLiteralGlobalByAddress(ulong address)
         {
-            var literal = LibCpp2IlGlobalMapper.Literals.FirstOrDefault(lit => lit.Offset == address);
-            return literal.Offset == address ? literal : default;
+            return LibCpp2IlGlobalMapper.LiteralsByAddress.GetValueOrDefault(address);
         }
         
         public static string? GetLiteralByAddress(ulong address)
@@ -64,9 +63,7 @@ namespace LibCpp2IL
 
         public static GlobalIdentifier GetRawTypeGlobalByAddress(ulong address)
         {
-            var typeGlobal = LibCpp2IlGlobalMapper.TypeRefs.FirstOrDefault(lit => lit.Offset == address);
-
-            return typeGlobal;
+            return LibCpp2IlGlobalMapper.TypeRefsByAddress.GetValueOrDefault(address);
         }
         
         public static Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address)
@@ -81,9 +78,7 @@ namespace LibCpp2IL
         
         public static GlobalIdentifier GetRawFieldGlobalByAddress(ulong address)
         {
-            var typeGlobal = LibCpp2IlGlobalMapper.FieldRefs.FirstOrDefault(lit => lit.Offset == address);
-
-            return typeGlobal;
+            return LibCpp2IlGlobalMapper.FieldRefsByAddress.GetValueOrDefault(address);
         }
 
         public static Il2CppFieldDefinition? GetFieldGlobalByAddress(ulong address)
@@ -100,9 +95,7 @@ namespace LibCpp2IL
         {
             if (TheMetadata == null) return null;
             
-            var methodGlobal = LibCpp2IlGlobalMapper.MethodRefs.FirstOrDefault(lit => lit.Offset == address);
-
-            return methodGlobal;
+            return LibCpp2IlGlobalMapper.MethodRefsByAddress.GetValueOrDefault(address);
         }
 
         public static Il2CppMethodDefinition? GetMethodDefinitionByGlobalAddress(ulong address)

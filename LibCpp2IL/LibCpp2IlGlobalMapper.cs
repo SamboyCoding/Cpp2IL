@@ -7,10 +7,15 @@ namespace LibCpp2IL
 {
     public static class LibCpp2IlGlobalMapper
     {
-        internal static List<GlobalIdentifier> TypeRefs = new List<GlobalIdentifier>();
-        internal static List<GlobalIdentifier> MethodRefs = new List<GlobalIdentifier>();
-        internal static List<GlobalIdentifier> FieldRefs = new List<GlobalIdentifier>();
-        internal static List<GlobalIdentifier> Literals = new List<GlobalIdentifier>();
+        internal static List<GlobalIdentifier> TypeRefs = new();
+        internal static List<GlobalIdentifier> MethodRefs = new();
+        internal static List<GlobalIdentifier> FieldRefs = new();
+        internal static List<GlobalIdentifier> Literals = new();
+
+        internal static Dictionary<ulong, GlobalIdentifier> TypeRefsByAddress = new();
+        internal static Dictionary<ulong, GlobalIdentifier> MethodRefsByAddress = new();
+        internal static Dictionary<ulong, GlobalIdentifier> FieldRefsByAddress = new();
+        internal static Dictionary<ulong, GlobalIdentifier> LiteralsByAddress = new();
 
         internal static void MapGlobalIdentifiers(Il2CppMetadata metadata, PE.PE cppAssembly)
         {
@@ -114,6 +119,18 @@ namespace LibCpp2IL
                     Offset = cppAssembly.metadataUsages[metadataUsageIdx]
                 });
             }
+            
+            foreach (var globalIdentifier in TypeRefs) 
+                TypeRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
+            
+            foreach (var globalIdentifier in MethodRefs) 
+                MethodRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
+            
+            foreach (var globalIdentifier in FieldRefs) 
+                FieldRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
+            
+            foreach (var globalIdentifier in Literals) 
+                LiteralsByAddress[globalIdentifier.Offset] = globalIdentifier;
         }
     }
 }

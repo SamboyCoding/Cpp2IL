@@ -68,24 +68,35 @@ namespace LibCpp2IL.Metadata
             ? null
             : InternalParameterData.Select(paramDef => LibCpp2IlMain.ThePe!.types[paramDef.typeIndex])
                 .ToArray();
+
+        private Il2CppParameterReflectionData[]? _cachedParameters;
         
-        public Il2CppParameterReflectionData[]? Parameters => InternalParameterData == null
-            ? null
-            : InternalParameterData
-                .Select((paramDef, idx) =>
+        public Il2CppParameterReflectionData[]? Parameters
+        {
+            get
+            {
+                if (_cachedParameters == null && InternalParameterData != null)
                 {
-                    var paramType = LibCpp2IlMain.ThePe!.types[paramDef.typeIndex];
-                    var paramFlags = (ParameterAttributes) paramType.attrs;
-                    var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(parameterStart + idx) : null; 
-                    return new Il2CppParameterReflectionData
-                    {
-                        Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
-                        ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
-                        ParameterAttributes = paramFlags,
-                        DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex, LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe),
-                    };
-                }).ToArray();
-        
+                    _cachedParameters = InternalParameterData
+                        .Select((paramDef, idx) =>
+                        {
+                            var paramType = LibCpp2IlMain.ThePe!.types[paramDef.typeIndex];
+                            var paramFlags = (ParameterAttributes) paramType.attrs;
+                            var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(parameterStart + idx) : null;
+                            return new Il2CppParameterReflectionData
+                            {
+                                Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
+                                ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
+                                ParameterAttributes = paramFlags,
+                                DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex, LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe),
+                            };
+                        }).ToArray();
+                }
+
+                return _cachedParameters;
+            }
+        }
+
 
         public override string ToString()
         {
