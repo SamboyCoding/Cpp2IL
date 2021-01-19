@@ -20,6 +20,16 @@ namespace Cpp2IL.Analysis.Actions
 
         public abstract string ToTextSummary();
 
+        public string GetSynopsisEntry()
+        {
+            var comment = GetLineComment();
+
+            if (string.IsNullOrWhiteSpace(comment))
+                return ToTextSummary();
+            
+            return $"{ToTextSummary()} ; {GetLineComment()}";
+        }
+
         protected void AddComment(string comment)
         {
             _lineComments.Append(" - ").Append(comment);

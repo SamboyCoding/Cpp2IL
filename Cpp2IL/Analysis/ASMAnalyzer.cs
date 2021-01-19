@@ -412,7 +412,7 @@ namespace Cpp2IL.Analysis
 
 #if USE_NEW_ANALYSIS_METHOD
             _methodFunctionality.Append("\t\tIdentified If Statement Start addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
-            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.ToTextSummary()}")));
+            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.GetSynopsisEntry()}")));
 #endif
 
             // Console.WriteLine("Processed " + _methodDefinition.FullName);

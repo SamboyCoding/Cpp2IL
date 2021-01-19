@@ -25,23 +25,36 @@ namespace Cpp2IL.Analysis.Actions
             if (listOfCallableMethods == null) return;
 
             Il2CppMethodDefinition possibleTarget = null;
-            if (_objectMethodBeingCalledOn?.Type != null)
+            if (listOfCallableMethods.Count == 1)
             {
-                //Direct instance methods take priority
-                possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
-
-                //todo check args and null out
-
-                if (possibleTarget == null)
-                    //Base class instance methods
-                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
-
-                //check args again.
+                possibleTarget = listOfCallableMethods.First();
+                if (!MethodUtils.CheckParameters(possibleTarget, context, !possibleTarget.IsStatic, out arguments, failOnLeftoverArgs: false)) 
+                    AddComment("parameters do not match, but there is only one function at this address.");
+                
+                if (!possibleTarget.IsStatic && _objectMethodBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), _objectMethodBeingCalledOn.Type)) 
+                    AddComment($"This is an instance method, but the type of the 'this' parameter is mismatched. Expecting {possibleTarget.DeclaringType.Name}, actually {_objectMethodBeingCalledOn.Type.FullName}");
             }
+            else
+            {
+                //Find the correct method.
+                if (_objectMethodBeingCalledOn?.Type != null)
+                {
+                    //Direct instance methods take priority
+                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
 
-            //Check static methods
-            if (possibleTarget == null)
-                possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(m, context, false, out arguments));
+                    //todo check args and null out
+
+                    if (possibleTarget == null)
+                        //Base class instance methods
+                        possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
+
+                    //check args again.
+                }
+
+                //Check static methods
+                if (possibleTarget == null)
+                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(m, context, false, out arguments));
+            }
 
 
             //Resolve unmanaged => managed method.
@@ -82,7 +95,7 @@ namespace Cpp2IL.Analysis.Actions
                 ? $"[!] Calls static managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X})" 
                 : $"[!] Calls managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X}) on instance {_objectMethodBeingCalledOn}";
 
-            if (arguments != null)
+            if (arguments != null && arguments.Count > 0)
                 result += $" with arguments {arguments.ToStringEnumerable()}";
             
             if (_returnedLocal != null)

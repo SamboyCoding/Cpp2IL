@@ -8,7 +8,7 @@ namespace Cpp2IL.Analysis
 {
     public class MethodUtils
     {
-        public static bool CheckParameters(Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
+        public static bool CheckParameters(Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
         {
             arguments = null;
             
@@ -36,7 +36,7 @@ namespace Cpp2IL.Analysis
                 tempArgs.Add(arg);
             }
 
-            if (actualArgs.Any(a => a != null && !context.IsEmptyRegArg(a)))
+            if (failOnLeftoverArgs && actualArgs.Any(a => a != null && !context.IsEmptyRegArg(a)))
                 return false; //Left over args - it's probably not this one
 
             arguments = tempArgs;

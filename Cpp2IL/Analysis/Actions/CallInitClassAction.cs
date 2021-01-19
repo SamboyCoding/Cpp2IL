@@ -7,6 +7,7 @@ namespace Cpp2IL.Analysis.Actions
     {
         public CallInitClassAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
