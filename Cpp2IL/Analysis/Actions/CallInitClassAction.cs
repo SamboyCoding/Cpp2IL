@@ -22,7 +22,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return "Attempts to initialize a class.";
+            return "Attempts to load the il2cpp metadata for a type and initialize it cpp-side.";
         }
     }
 }

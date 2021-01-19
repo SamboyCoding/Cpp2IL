@@ -17,7 +17,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalMethodRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = instruction.GetRipBasedInstructionMemoryAddress();
+            var globalAddress = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             MethodData = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(globalAddress);
             var (type, genericParams) = Utils.TryLookupTypeDefByName(MethodData!.DeclaringType.FullName);
 

@@ -10,13 +10,13 @@ namespace Cpp2IL.Analysis.Actions
     public class GlobalTypeRefToConstantAction : BaseAction
     {
         public GlobalIdentifier GlobalRead;
-        public TypeDefinition ResolvedType;
-        public ConstantDefinition ConstantWritten;
+        public TypeDefinition? ResolvedType;
+        public ConstantDefinition? ConstantWritten;
         private string _destReg;
 
         public GlobalTypeRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = instruction.GetRipBasedInstructionMemoryAddress();
+            var globalAddress = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             var typeData = LibCpp2IlMain.GetTypeGlobalByAddress(globalAddress);
             var (type, genericParams) = Utils.TryLookupTypeDefByName(typeData!.ToString());
             ResolvedType = type;
@@ -41,7 +41,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Loads the type definition for managed type {ResolvedType.FullName} as a constant \"{ConstantWritten.Name}\" in {_destReg}";
+            return $"Loads the type definition for managed type {ResolvedType?.FullName} as a constant \"{ConstantWritten?.Name}\" in {_destReg}";
         }
     }
 }

@@ -365,7 +365,7 @@ namespace Cpp2IL.Analysis
                 line.Append(instruction.IP.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction);
                 
                 //Dump debug data
-                line.Append('{').Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
+                line.Append("\t\t; DEBUG: {").Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
                 line.Append('{').Append(instruction.Op1Kind).Append('}').Append('/').Append(instruction.Op1Register).Append(" ||| ");
                 line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement);
 #endif
@@ -466,7 +466,9 @@ namespace Cpp2IL.Analysis
 
             switch (instruction.Mnemonic)
             {
-                case Mnemonic.Push:
+                case Mnemonic.Push when instruction.Op0Kind == OpKind.Memory && instruction.Op0Register == Register.None && instruction.MemoryBase == Register.None:
+                    //Push [Addr]
+                    _analysis.Actions.Add(new PushGlobalAction(_analysis, instruction));
                     break;
                 case Mnemonic.Pop:
                     break;
@@ -501,12 +503,12 @@ namespace Cpp2IL.Analysis
                         //Bailout
                         _analysis.Actions.Add(new CallBailOutAction(_analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_method)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_method || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
                     {
                         //Init method
                         _analysis.Actions.Add(new CallInitMethodAction(_analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_actual || jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_export || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_actual || jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_export)
                     {
                         //Runtime class init
                         _analysis.Actions.Add(new CallInitClassAction(_analysis, instruction));
@@ -636,11 +638,12 @@ namespace Cpp2IL.Analysis
                     _analysis.Actions.Add(new LoadVirtualFunctionPointerAction(_analysis, instruction));
                     break;
                 }
-                case Mnemonic.Mov when type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
+                case Mnemonic.Mov when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
+                case Mnemonic.Mov when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryDisplacement64 != 0 && instruction.MemoryBase == Register.None: 
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
-                    var globalAddress = instruction.GetRipBasedInstructionMemoryAddress();
-                    if (SharedState.GlobalsByOffset.TryGetValue(globalAddress, out var global))
+                    var globalAddress = _cppAssembly.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is {} global && global.Offset == globalAddress)
                     {
                         //Have a global here.
                         switch (global.IdentifierType)
@@ -669,6 +672,11 @@ namespace Cpp2IL.Analysis
                             // else
                             //     _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
                         }
+                        else
+                        {
+                            //Unknown global
+                            _analysis.Actions.Add(new UnknownGlobalToConstantAction(_analysis, instruction));
+                        }
                     }
 
                     return;
@@ -677,6 +685,10 @@ namespace Cpp2IL.Analysis
                     //Constant move to reg
                     _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
                     return;
+                case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 == OpKind.Memory && instruction.MemoryBase == Register.None:
+                    //Move constant to addr
+                    _analysis.Actions.Add(new ConstantToGlobalAction(_analysis, instruction));
+                    break;
                 case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 != OpKind.Register && memR != "rip":
                     //Constant move to field
                     _analysis.Actions.Add(new ConstantToFieldAction(_analysis, instruction));
