@@ -1,12 +1,27 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
+using LibCpp2IL;
+using Mono.Cecil;
 
 namespace Cpp2IL.Analysis.Actions
 {
     public class CallInitMethodAction : BaseAction
     {
+        private UnknownGlobalAddr? _globalAddr;
         public CallInitMethodAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            ConstantDefinition? consDef;
+            if (LibCpp2IlMain.ThePe!.is32Bit)
+            {
+                consDef = context.Stack.Count > 0 ? context.Stack.Peek() as ConstantDefinition : null;
+                if (consDef != null)
+                    context.Stack.Pop();
+            }
+            else
+                consDef = context.GetConstantInReg("rcx");
+
+            if (consDef != null && consDef.Type == typeof(UnknownGlobalAddr))
+                _globalAddr = (UnknownGlobalAddr) consDef.Value;
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -21,7 +36,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return "Attempts to load the il2cpp metadata for a method and init it cpp-side.\n";
+            return $"Attempts to load the il2cpp metadata for a method (method number is at offset 0x{_globalAddr?.addr:X}) and init it cpp-side.\n";
         }
     }
 }

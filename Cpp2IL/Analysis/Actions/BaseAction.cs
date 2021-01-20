@@ -26,8 +26,18 @@ namespace Cpp2IL.Analysis.Actions
 
             if (string.IsNullOrWhiteSpace(comment))
                 return ToTextSummary();
+
+            var summary = ToTextSummary();
             
-            return $"{ToTextSummary()} ; {GetLineComment()}";
+            var newlineCount = 0;
+            if (summary.EndsWith("\n"))
+            {
+                var oldLen = summary.Length;
+                summary = summary.TrimEnd('\n');
+                newlineCount = summary.Length - oldLen;
+            }
+
+            return $"{summary} ; {GetLineComment()}{"\n".Repeat(newlineCount)}";
         }
 
         protected void AddComment(string comment)

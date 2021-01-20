@@ -19,7 +19,11 @@ namespace Cpp2IL.Analysis.Actions
         public CallManagedFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             _jumpTarget = instruction.NearBranchTarget;
-            _objectMethodBeingCalledOn = context.GetLocalInReg("rcx");
+
+
+            if (!LibCpp2IlMain.ThePe!.is32Bit)
+                _objectMethodBeingCalledOn = context.GetLocalInReg("rcx"); //64-bit, we can get this immediately, no penalty if this is a static method.
+
             var listOfCallableMethods = LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(_jumpTarget);
 
             if (listOfCallableMethods == null) return;
@@ -28,10 +32,17 @@ namespace Cpp2IL.Analysis.Actions
             if (listOfCallableMethods.Count == 1)
             {
                 possibleTarget = listOfCallableMethods.First();
-                if (!MethodUtils.CheckParameters(possibleTarget, context, !possibleTarget.IsStatic, out arguments, failOnLeftoverArgs: false)) 
+
+                if (!possibleTarget.IsStatic && LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                {
+                    _objectMethodBeingCalledOn = local; //32-bit and we have an instance
+                    context.Stack.Pop(); //remove instance from stack
+                }
+
+                if (!MethodUtils.CheckParameters(possibleTarget, context, !possibleTarget.IsStatic, out arguments, failOnLeftoverArgs: false))
                     AddComment("parameters do not match, but there is only one function at this address.");
-                
-                if (!possibleTarget.IsStatic && _objectMethodBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), _objectMethodBeingCalledOn.Type)) 
+
+                if (!possibleTarget.IsStatic && _objectMethodBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), _objectMethodBeingCalledOn.Type))
                     AddComment($"This is an instance method, but the type of the 'this' parameter is mismatched. Expecting {possibleTarget.DeclaringType.Name}, actually {_objectMethodBeingCalledOn.Type.FullName}");
             }
             else
@@ -40,20 +51,70 @@ namespace Cpp2IL.Analysis.Actions
                 if (_objectMethodBeingCalledOn?.Type != null)
                 {
                     //Direct instance methods take priority
-                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
+                    possibleTarget = null;
+                    foreach (var m in listOfCallableMethods)
+                    {
+                        if(m.IsStatic) continue; //Only checking instance methods here.
+                        
+                        //Have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
+                        LocalDefinition toPushBackIfNeeded = null;
+                        if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                        {
+                            _objectMethodBeingCalledOn = local;
+                            toPushBackIfNeeded = local;
+                        }
 
-                    //todo check args and null out
+                        //Check defining type matches instance, and check params.
+                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments))
+                        {
+                            possibleTarget = m;
+                            break;
+                        }
 
+                        if(toPushBackIfNeeded != null)
+                        {
+                            //Mismatch - re-push the instance
+                            context.Stack.Push(toPushBackIfNeeded);
+                        }
+                    }
+
+                    //Check for base class instance methods
                     if (possibleTarget == null)
-                        //Base class instance methods
-                        possibleTarget = listOfCallableMethods.FirstOrDefault(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments));
+                    {
+                        foreach (var m in listOfCallableMethods)
+                        {
+                            if(m.IsStatic) continue; //Only checking instance methods here.
+                        
+                            //Again, have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
+                            LocalDefinition toPushBackIfNeeded = null;
+                            if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                            {
+                                _objectMethodBeingCalledOn = local;
+                                toPushBackIfNeeded = local;
+                            }
+                            
+                            //Check defining type is a superclass or interface of instance, and check params.
+                            if (Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments))
+                            {
+                                possibleTarget = m;
+                                break;
+                            }
 
-                    //check args again.
+                            if (toPushBackIfNeeded != null)
+                            {
+                                //mismatch, push back instance
+                                context.Stack.Push(toPushBackIfNeeded);
+                            }
+                        }
+                    }
                 }
 
-                //Check static methods
                 if (possibleTarget == null)
+                    //Check static methods. No need for a complicated foreach here, we don't have to worry about an instance.
                     possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(m, context, false, out arguments));
+                else if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                    //Instance method
+                    _objectMethodBeingCalledOn = local; //32-bit and we have an instance
             }
 
 
@@ -91,13 +152,13 @@ namespace Cpp2IL.Analysis.Actions
         public override string ToTextSummary()
         {
             string result;
-            result = managedMethodBeingCalled?.IsStatic == true 
-                ? $"[!] Calls static managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X})" 
+            result = managedMethodBeingCalled?.IsStatic == true
+                ? $"[!] Calls static managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X})"
                 : $"[!] Calls managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X}) on instance {_objectMethodBeingCalledOn}";
 
             if (arguments != null && arguments.Count > 0)
                 result += $" with arguments {arguments.ToStringEnumerable()}";
-            
+
             if (_returnedLocal != null)
                 result += $" and stores the result in {_returnedLocal} in register rax";
 

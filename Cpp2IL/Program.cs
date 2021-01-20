@@ -314,13 +314,6 @@ namespace Cpp2IL
                 Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.Literals.Count} string literals");
 
                 //TODO: Don't do this. Rework everything to use the API surface.
-                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.TypeRefs);
-                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.MethodRefs);
-                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.FieldRefs);
-                SharedState.Globals.AddRange(LibCpp2IlGlobalMapper.Literals);
-
-                foreach (var globalIdentifier in SharedState.Globals)
-                    SharedState.GlobalsByOffset[globalIdentifier.Offset] = globalIdentifier;
 
                 Console.WriteLine("\tPass 6: Looking for key functions...");
 

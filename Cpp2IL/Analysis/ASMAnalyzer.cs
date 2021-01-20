@@ -376,7 +376,7 @@ namespace Cpp2IL.Analysis
                 //Apply any aliases to the line
                 line = _registerAliases.Aggregate(line, (current, kvp) => current.Replace($" {kvp.Key}", $" {kvp.Value}_{kvp.Key}").Replace($"[{kvp.Key}", $"[{kvp.Value}_{kvp.Key}"));
 
-                typeDump.Append($"\t\t").Append(line); //write the current disassembled instruction to the type dump
+                typeDump.Append("\t\t").Append(line); //write the current disassembled instruction to the type dump
 
 #if DEBUG_PRINT_OPERAND_DATA
                 typeDump.Append(" ; ");
@@ -411,12 +411,30 @@ namespace Cpp2IL.Analysis
             }
 
 #if USE_NEW_ANALYSIS_METHOD
-            _methodFunctionality.Append("\t\tIdentified If Statement Start addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
-            _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.GetSynopsisEntry()}")));
+            _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
+            var lastIfAddress = 0UL;
+            foreach (var action in _analysis.Actions)
+            {
+                if (_analysis.IdentifiedIfStatementStarts.FirstOrDefault(s => s < action.AssociatedInstruction.IP && s > lastIfAddress) is {} ifAddress && ifAddress != 0)
+                {
+                    _methodFunctionality.Append("\n\t\tJump Destination (0x")
+                        .Append(ifAddress.ToString("x8").ToUpperInvariant())
+                        .Append("):\n");
+                    
+                    lastIfAddress = ifAddress;
+                }
+
+                _methodFunctionality.Append("\t\t0x")
+                    .Append(action.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant())
+                    .Append(": ")
+                    .Append(action.GetSynopsisEntry())
+                    .Append('\n');
+            }
+            // _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.GetSynopsisEntry()}")));
 #endif
 
             // Console.WriteLine("Processed " + _methodDefinition.FullName);
-            typeDump.Append($"\n\tMethod Synopsis:\n").Append(_methodFunctionality).Append("\n\n");
+            typeDump.Append($"\n\tMethod Synopsis For {(_methodDefinition.IsStatic ? "Static " : "")}Method ").Append(_methodDefinition.FullName).Append(":\n").Append(_methodFunctionality).Append("\n\n");
 
             typeDump.Append("\n\tGenerated Pseudocode:\n\n").Append($"{_psuedoCode}").Append('\n');
 
@@ -466,10 +484,20 @@ namespace Cpp2IL.Analysis
 
             switch (instruction.Mnemonic)
             {
+                //Note to self: (push [val]) is the same as (sub esp, 4) + (mov esp, [val])
                 case Mnemonic.Push when instruction.Op0Kind == OpKind.Memory && instruction.Op0Register == Register.None && instruction.MemoryBase == Register.None:
                     //Push [Addr]
                     _analysis.Actions.Add(new PushGlobalAction(_analysis, instruction));
                     break;
+                case Mnemonic.Push when instruction.Op0Kind == OpKind.Register && instruction.Op0Register != Register.None:
+                    //Push [reg]
+                    _analysis.Actions.Add(new PushRegisterAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Push when instruction.Op0Kind == OpKind.Memory && instruction.MemoryBase == Register.EBP:
+                    //Push [EBP+x].
+                    _analysis.Actions.Add(new PushEbpOffsetAction(_analysis, instruction));
+                    break;
+                //Likewise, (pop [val]) is the same as (mov [val], esp) + (add esp, 4)
                 case Mnemonic.Pop:
                     break;
                 case Mnemonic.Jmp when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement == 0 && operand is ConstantDefinition callRegCons && callRegCons.Value is MethodDefinition methodToCallInReg:
@@ -628,6 +656,7 @@ namespace Cpp2IL.Analysis
                     _analysis.Actions.Add(new ClassPointerLoadAction(_analysis, instruction));
                     return;
                 }
+                //0xb0 == Il2CppRuntimeInterfaceOffsetPair* interfaceOffsets;
                 case Mnemonic.Mov when type1 == OpKind.Memory && offset1 == 0xb0 && memOp is ConstantDefinition interfaceOffsetCheckCons && interfaceOffsetCheckCons.Value is Il2CppClassIdentifier interfaceOffsetCheckKlassPtr:
                     //Class pointer interface offset read
                     _analysis.Actions.Add(new InterfaceOffsetsReadAction(_analysis, instruction));

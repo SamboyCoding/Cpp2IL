@@ -329,7 +329,6 @@ namespace Cpp2IL
             }
 
             fields.Sort(); //By offset
-            SharedState.FieldsByType[ilTypeDefinition] = fields;
 
             //Methods
             var lastMethodId = cppTypeDefinition.firstMethodIdx + cppTypeDefinition.method_count;

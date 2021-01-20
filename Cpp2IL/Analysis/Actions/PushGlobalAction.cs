@@ -19,6 +19,9 @@ namespace Cpp2IL.Analysis.Actions
             {
                 _theGlobal = new UnknownGlobalAddr(offset);
             }
+            
+            if(_theGlobal != null)
+                context.Stack.Push(context.MakeConstant(_theGlobal.GetType(), _theGlobal));
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
