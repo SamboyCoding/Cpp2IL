@@ -9,7 +9,7 @@ namespace Cpp2IL.Analysis.Actions
     /// </summary>
     public class AllocateInstanceAction : BaseAction
     {
-        public TypeDefinition TypeCreated;
+        public TypeDefinition? TypeCreated;
         public LocalDefinition? LocalReturned;
         
         public AllocateInstanceAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
@@ -29,12 +29,17 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToPsuedoCode()
         {
-            return "";
+            return $"{TypeCreated?.FullName} {LocalReturned?.Name} = new {TypeCreated?.FullName}()";
         }
 
         public override string ToTextSummary()
         {
             return $"[!] Allocates an instance of type {TypeCreated} and stores it as {LocalReturned?.Name} in rax.\n";
+        }
+        
+        public override bool IsImportant()
+        {
+            return true;
         }
     }
 }

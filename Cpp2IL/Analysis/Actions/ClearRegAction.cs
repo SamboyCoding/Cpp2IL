@@ -10,7 +10,9 @@ namespace Cpp2IL.Analysis.Actions
         public ClearRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             regCleared = Utils.GetRegisterNameNew(instruction.Op0Register);
-            context.ZeroRegister(regCleared);
+            // context.ZeroRegister(regCleared);
+            //We make this a local and clean up unused ones in post-processing
+            context.MakeLocal(Utils.Int32Reference, reg: regCleared);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()

@@ -3,13 +3,24 @@ using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
-    public class ConstantToRegAction: BaseAction
+    public class ConstantToRegAction : BaseAction
     {
-        private object constantValue;
+        private readonly bool _mayNotBeAConstant;
+        private ulong constantValue;
         private string destReg;
-        
-        public ConstantToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        private IAnalysedOperand dest;
+
+        public ConstantToRegAction(MethodAnalysis context, Instruction instruction, bool mayNotBeAConstant) : base(context, instruction)
         {
+            _mayNotBeAConstant = mayNotBeAConstant;
+            constantValue = instruction.GetImmediate(1);
+            destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+
+            if (mayNotBeAConstant)
+                //Let's be safe and make this a local
+                dest = context.MakeLocal(Utils.Int64Reference, reg: destReg);
+            else
+                dest = context.MakeConstant(typeof(ulong), constantValue, constantValue.ToString(), destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -20,12 +31,17 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string? ToPsuedoCode()
         {
-            return null;
+            return $"ulong {(dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition) dest).Name)} = {constantValue}";
         }
 
         public override string ToTextSummary()
         {
-            return $"Writes the constant {constantValue} into {destReg}";
+            return $"[!] Writes the constant {constantValue} into operand {dest} in register {destReg}";
+        }
+
+        public override bool IsImportant()
+        {
+            return true;
         }
     }
 }

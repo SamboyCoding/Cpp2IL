@@ -9,13 +9,11 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.PE;
 using Mono.Cecil;
 using SharpDisasm.Udis86;
-
 #if !USE_NEW_ANALYSIS_METHOD
 using SharpDisasm;
 using System.Globalization;
@@ -25,6 +23,7 @@ using Instruction = SharpDisasm.Instruction;
 using LibCpp2IL.Metadata;
 using Cpp2IL.Analysis.Actions;
 using Iced.Intel;
+
 #endif
 
 namespace Cpp2IL.Analysis
@@ -52,6 +51,10 @@ namespace Cpp2IL.Analysis
         private List<Instruction> _instructions;
 #else
         private InstructionList _instructions;
+        private readonly Mnemonic[] MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT =
+        {
+            Mnemonic.Add, Mnemonic.Sub
+        };
 #endif
 
         private MethodAnalysis _analysis;
@@ -354,7 +357,7 @@ namespace Cpp2IL.Analysis
 
                 _blockDepth = _indentCounts.Count;
 
-                
+
 #if !USE_NEW_ANALYSIS_METHOD
                 string line;
                 //SharpDisasm is a godawful library, and it's not threadsafe (but only for instruction tostrings), but it's the best we've got. So don't do this in parallel.
@@ -363,11 +366,11 @@ namespace Cpp2IL.Analysis
 #else
                 var line = new StringBuilder();
                 line.Append(instruction.IP.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction);
-                
+
                 //Dump debug data
                 line.Append("\t\t; DEBUG: {").Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
                 line.Append('{').Append(instruction.Op1Kind).Append('}').Append('/').Append(instruction.Op1Register).Append(" ||| ");
-                line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement);
+                line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement).Append(" | ").Append(instruction.MemoryIndex);
 #endif
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
@@ -411,17 +414,26 @@ namespace Cpp2IL.Analysis
             }
 
 #if USE_NEW_ANALYSIS_METHOD
-            _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append("\n");
+            _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append('\n');
             var lastIfAddress = 0UL;
             foreach (var action in _analysis.Actions)
             {
-                if (_analysis.IdentifiedIfStatementStarts.FirstOrDefault(s => s < action.AssociatedInstruction.IP && s > lastIfAddress) is {} ifAddress && ifAddress != 0)
+                if (_analysis.IdentifiedIfStatementStarts.FirstOrDefault(s => s <= action.AssociatedInstruction.IP && s > lastIfAddress) is { } ifAddress && ifAddress != 0)
                 {
                     _methodFunctionality.Append("\n\t\tJump Destination (0x")
                         .Append(ifAddress.ToString("x8").ToUpperInvariant())
                         .Append("):\n");
-                    
+
                     lastIfAddress = ifAddress;
+                }
+
+                if (_analysis.ProbableLoopStarts.FirstOrDefault(s => s <= action.AssociatedInstruction.IP && s > lastIfAddress) is { } loopAddress && loopAddress != 0)
+                {
+                    _methodFunctionality.Append("\n\t\tPotential Loop Start (0x")
+                        .Append(loopAddress.ToString("x8").ToUpperInvariant())
+                        .Append("):\n");
+
+                    lastIfAddress = loopAddress;
                 }
 
                 _methodFunctionality.Append("\t\t0x")
@@ -436,7 +448,22 @@ namespace Cpp2IL.Analysis
             // Console.WriteLine("Processed " + _methodDefinition.FullName);
             typeDump.Append($"\n\tMethod Synopsis For {(_methodDefinition.IsStatic ? "Static " : "")}Method ").Append(_methodDefinition.FullName).Append(":\n").Append(_methodFunctionality).Append("\n\n");
 
-            typeDump.Append("\n\tGenerated Pseudocode:\n\n").Append($"{_psuedoCode}").Append('\n');
+            typeDump.Append("\n\tGenerated Pseudocode:\n\n");
+
+            typeDump.Append($"\tDeclaring Type: {_methodDefinition.DeclaringType.FullName}\n");
+            typeDump.Append('\t').Append(_methodDefinition.IsStatic ? "static " : "").Append(_methodDefinition.ReturnType.FullName).Append(' ') //Staticness and return type
+                .Append(_methodDefinition.Name).Append('(') //Name and opening paranthesis
+                .Append(string.Join(", ", _methodDefinition.Parameters.Select(p => $"{p.ParameterType.FullName} {p.Name}"))) //Parameters
+                .Append(')').Append('\n'); //Closing parenthesis and new line.
+            
+            _analysis.Actions
+                .Where(action => action.IsImportant()) //Action requires pseudocode generation
+                .Select(action => action.ToPsuedoCode()) //Generate it 
+                .Where(code => !string.IsNullOrWhiteSpace(code)) //Check it's valid
+                .ToList()
+                .ForEach(code => typeDump.Append("\t\t").Append(code).Append('\n')); //Append
+
+            typeDump.Append('\n');
 
             return _taintReason;
         }
@@ -466,7 +493,7 @@ namespace Cpp2IL.Analysis
             _blockDepth--;
         }
 
-        #if USE_NEW_ANALYSIS_METHOD
+#if USE_NEW_ANALYSIS_METHOD
         private void CheckForZeroOpInstruction(Iced.Intel.Instruction instruction)
         {
             switch (instruction.Mnemonic)
@@ -493,6 +520,10 @@ namespace Cpp2IL.Analysis
                     //Push [reg]
                     _analysis.Actions.Add(new PushRegisterAction(_analysis, instruction));
                     break;
+                case Mnemonic.Push when instruction.Op0Kind.IsImmediate():
+                    //Push constant
+                    _analysis.Actions.Add(new PushConstantAction(_analysis, instruction));
+                    break;
                 case Mnemonic.Push when instruction.Op0Kind == OpKind.Memory && instruction.MemoryBase == Register.EBP:
                     //Push [EBP+x].
                     _analysis.Actions.Add(new PushEbpOffsetAction(_analysis, instruction));
@@ -513,6 +544,15 @@ namespace Cpp2IL.Analysis
                         //Call a managed function
                         _analysis.Actions.Add(new CallManagedFunctionAction(_analysis, instruction));
                         _analysis.Actions.Add(new ReturnFromFunctionAction(_analysis, instruction)); //JMP is an implicit return
+                    }
+                    else if (jumpTarget > instruction.IP && jumpTarget < _analysis.AbsoluteMethodEnd)
+                    {
+                        _analysis.Actions.Add(new JumpAlwaysAction(_analysis, instruction));
+                    }
+                    else if (jumpTarget > _analysis.MethodStart && jumpTarget < instruction.IP)
+                    {
+                        //Different from a normal jump because it's backwards, indicating a possible loop.
+                        _analysis.Actions.Add(new JumpBackAction(_analysis, instruction));
                     }
 
                     break;
@@ -590,15 +630,15 @@ namespace Cpp2IL.Analysis
                     {
                         _analysis.Actions.Add(new CallExceptionThrowerFunction(_analysis, instruction));
                     }
-                    else if (_analysis.GetConstantInReg("rcx") is {} castConstant
+                    else if (_analysis.GetConstantInReg("rcx") is { } castConstant
                              && castConstant.Value is NewSafeCastResult castResult //We have a cast result
-                             && _analysis.GetConstantInReg("rdx") is {} interfaceConstant
+                             && _analysis.GetConstantInReg("rdx") is { } interfaceConstant
                              && interfaceConstant.Value is TypeDefinition interfaceType //we have a type
-                             && _analysis.GetConstantInReg("r8") is {} slotConstant
+                             && _analysis.GetConstantInReg("r8") is { } slotConstant
                              && slotConstant.Value is int slot // We have a slot
                              && _analysis.Actions.Any(a => a is LocateSpecificInterfaceOffsetAction) //We've looked up an interface offset
                              && (!_analysis.Actions.Any(a => a is LoadInterfaceMethodDataAction) //Either we don't have any load method datas...
-                             || _analysis.Actions.FindLastIndex(a => a is LocateSpecificInterfaceOffsetAction) > _analysis.Actions.FindLastIndex(a => a is LoadInterfaceMethodDataAction))) //Or the last load offset is after the last load method data 
+                                 || _analysis.Actions.FindLastIndex(a => a is LocateSpecificInterfaceOffsetAction) > _analysis.Actions.FindLastIndex(a => a is LoadInterfaceMethodDataAction))) //Or the last load offset is after the last load method data 
                     {
                         //Unknown function call but matches values for a Interface lookup
                         _analysis.Actions.Add(new LoadInterfaceMethodDataAction(_analysis, instruction));
@@ -608,7 +648,9 @@ namespace Cpp2IL.Analysis
 
                     break;
                 }
-                case Mnemonic.Inc:
+                case Mnemonic.Inc when instruction.Op0Kind == OpKind.Register:
+                    //Just add one.
+                    _analysis.Actions.Add(new AddConstantToRegAction(_analysis, instruction));
                     break;
                 case Mnemonic.Je when _analysis.Actions.LastOrDefault() is LocateSpecificInterfaceOffsetAction:
                     //Can be ignored.
@@ -618,6 +660,11 @@ namespace Cpp2IL.Analysis
                     break;
                 case Mnemonic.Jne:
                     _analysis.Actions.Add(new JumpIfNonZeroOrNonNullAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Jge:
+                case Mnemonic.Jae: //JNC in Ghidra
+                    //Jump if >=
+                    _analysis.Actions.Add(new JumpIfGreaterThanOrEqualToAction(_analysis, instruction));
                     break;
                 //TODO Conditional jumps
             }
@@ -632,6 +679,7 @@ namespace Cpp2IL.Analysis
             var op0 = _analysis.GetOperandInRegister(r0);
             var op1 = _analysis.GetOperandInRegister(r1);
             var memOp = _analysis.GetOperandInRegister(memR);
+            var memIdxOp = instruction.MemoryIndex == Register.None ? null : _analysis.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryIndex));
 
             var offset0 = instruction.MemoryDisplacement;
             var offset1 = offset0; //todo?
@@ -649,7 +697,7 @@ namespace Cpp2IL.Analysis
                     //Second operand is a reg, no offset, moving into the stack = Copy reg content to stack.
                     _analysis.Actions.Add(new StackToRegCopyAction(_analysis, instruction));
                     return;
-                case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp != null:
+                case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp != null && instruction.MemoryIndex == Register.None:
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
@@ -657,22 +705,22 @@ namespace Cpp2IL.Analysis
                     return;
                 }
                 //0xb0 == Il2CppRuntimeInterfaceOffsetPair* interfaceOffsets;
-                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 == 0xb0 && memOp is ConstantDefinition interfaceOffsetCheckCons && interfaceOffsetCheckCons.Value is Il2CppClassIdentifier interfaceOffsetCheckKlassPtr:
+                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 == 0xb0 && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
                     //Class pointer interface offset read
                     _analysis.Actions.Add(new InterfaceOffsetsReadAction(_analysis, instruction));
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 > 0x128 && memOp is ConstantDefinition virtualPointerCheckCons && virtualPointerCheckCons.Value is Il2CppClassIdentifier virtualPointerCheckKlassPtr:
+                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 > 0x128 && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
                 {
                     //Virtual method pointer load
                     _analysis.Actions.Add(new LoadVirtualFunctionPointerAction(_analysis, instruction));
                     break;
                 }
                 case Mnemonic.Mov when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
-                case Mnemonic.Mov when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryDisplacement64 != 0 && instruction.MemoryBase == Register.None: 
+                case Mnemonic.Mov when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryDisplacement64 != 0 && instruction.MemoryBase == Register.None:
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
                     var globalAddress = _cppAssembly.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
-                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is {} global && global.Offset == globalAddress)
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global && global.Offset == globalAddress)
                     {
                         //Have a global here.
                         switch (global.IdentifierType)
@@ -712,7 +760,9 @@ namespace Cpp2IL.Analysis
                 }
                 case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 == 0 && type0 == OpKind.Register:
                     //Constant move to reg
-                    _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
+                    var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m));
+
+                    _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction, mayNotBeAConstant));
                     return;
                 case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 == OpKind.Memory && instruction.MemoryBase == Register.None:
                     //Move constant to addr
@@ -730,12 +780,25 @@ namespace Cpp2IL.Analysis
                     //Read stack pointer to local
                     _analysis.Actions.Add(new EbpOffsetToLocalAction(_analysis, instruction));
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip":
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && instruction.MemoryBase == Register.EBP:
+                    //Local to stack pointer (opposite of above)
+                    _analysis.Actions.Add(new LocalToEbpOffsetAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None:
                     //Move generic memory to register - field read.
                     _analysis.Actions.Add(new FieldToLocalAction(_analysis, instruction));
                     break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex != Register.None && memIdxOp is LocalDefinition local && local.Type?.IsArray == true:
+                    //Move reg, [reg+reg] => usually array reads.
+                    //So much so that this is guarded behind an array read check - change the case if you need to change this.
+                    _analysis.Actions.Add(new ArrayValueReadRegToRegAction(_analysis, instruction));
+                    break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
-                //TODO Arithmetic
+                //TODO More Arithmetic
+                case Mnemonic.Add when type0 == OpKind.Register && type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && r0 != "rsp":
+                    //Add reg, val
+                    _analysis.Actions.Add(new AddConstantToRegAction(_analysis, instruction));
+                    break;
                 case Mnemonic.Xor:
                 case Mnemonic.Xorps:
                 {

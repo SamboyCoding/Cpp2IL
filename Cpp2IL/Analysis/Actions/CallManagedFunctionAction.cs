@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -144,9 +145,39 @@ namespace Cpp2IL.Analysis.Actions
             throw new System.NotImplementedException();
         }
 
+        private IEnumerable<string> GetReadableArguments()
+        {
+            foreach (var arg in arguments)
+            {
+                if (arg is ConstantDefinition constantDefinition)
+                    yield return constantDefinition.ToString();
+                else
+                    yield return ((LocalDefinition) arg).Name;
+            }
+        }
+
         public override string? ToPsuedoCode()
         {
-            throw new System.NotImplementedException();
+            if (managedMethodBeingCalled == null) return "[instruction error - managed method being called is null]";
+            
+            var ret = new StringBuilder();
+
+            if (_returnedLocal != null)
+                ret.Append(_returnedLocal?.Type?.FullName).Append(' ').Append(_returnedLocal?.Name).Append(" = ");
+
+            if (managedMethodBeingCalled.IsStatic)
+                ret.Append(managedMethodBeingCalled.DeclaringType.FullName);
+            else
+                ret.Append(_objectMethodBeingCalledOn?.Name);
+
+            ret.Append('.').Append(managedMethodBeingCalled?.Name).Append('(');
+
+            if (arguments != null && arguments.Count > 0)
+                ret.Append(string.Join(", ", GetReadableArguments()));
+
+            ret.Append(')');
+
+            return ret.ToString();
         }
 
         public override string ToTextSummary()
@@ -163,6 +194,11 @@ namespace Cpp2IL.Analysis.Actions
                 result += $" and stores the result in {_returnedLocal} in register rax";
 
             return result + "\n";
+        }
+        
+        public override bool IsImportant()
+        {
+            return true;
         }
     }
 }

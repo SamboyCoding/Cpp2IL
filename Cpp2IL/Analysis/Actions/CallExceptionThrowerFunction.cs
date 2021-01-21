@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public static bool IsExceptionThrower(ulong addr, int recurseCount = 0)
         {
-            if (recurseCount > 3) return false;
+            if (recurseCount > 4) return false;
 
             if (ExceptionThrowers.ContainsKey(addr))
             {
@@ -23,21 +23,39 @@ namespace Cpp2IL.Analysis.Actions
             }
 
             var body = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, addr, true);
-            var leas = body.Where(i => i.Mnemonic == Mnemonic.Lea).ToList();
-            if (leas.Count > 1)
+            List<string> strings;
+            if (LibCpp2IlMain.ThePe.is32Bit)
             {
-                var strings = leas.Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress()))).ToList();
-                if (strings.All(s => s != null) && strings.Contains("System"))
+                //Didn't know this, but in 32-bit assemblies, strings are immediate values? Interesting... not memory?
+                strings = body.Where(i => i.Mnemonic == Mnemonic.Push && i.Op0Kind.IsImmediate())
+                    .Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(i.GetImmediate(0))))
+                    .Where(s => s != null)
+                    .ToList();
+            }
+            else
+            {
+                var leas = body.Where(i => i.Mnemonic == Mnemonic.Lea).ToList();
+                if (leas.Count > 1)
                 {
-                    var exceptionName = strings[0];
-                    var @namespace = strings[1];
-                    var type = Utils.TryLookupTypeDefKnownNotGeneric(@namespace + "." + exceptionName);
-                    if (type != null)
-                    {
-                        Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {type.FullName}");
-                        ExceptionThrowers[addr] = type;
-                        return true;
-                    }
+                    //LEA to load strings in 64-bit mode
+                    strings = leas.Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress()))).ToList();
+                }
+                else
+                {
+                    strings = new List<string>();
+                }
+            }
+
+            if (strings.All(s => s != null) && strings.Contains("System") && strings.Count > 1)
+            {
+                var exceptionName = strings[0];
+                var @namespace = strings[1];
+                var type = Utils.TryLookupTypeDefKnownNotGeneric(@namespace + "." + exceptionName);
+                if (type != null)
+                {
+                    Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {type.FullName}");
+                    ExceptionThrowers[addr] = type;
+                    return true;
                 }
             }
 
@@ -72,12 +90,17 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string? ToPsuedoCode()
         {
-            throw new System.NotImplementedException();
+            return $"throw new {_exceptionType}()";
         }
 
         public override string ToTextSummary()
         {
-            return $"Constructs and throws an exception of kind {_exceptionType}\n";
+            return $"[!] Constructs and throws an exception of kind {_exceptionType}\n";
+        }
+        
+        public override bool IsImportant()
+        {
+            return true;
         }
     }
 }

@@ -10,7 +10,7 @@ namespace Cpp2IL.Analysis.Actions
         public IAnalysedOperand? ArgumentOne;
         public IAnalysedOperand? ArgumentTwo;
 
-        private bool anyIl2CppField = false;
+        private bool unimportantComparison = false;
 
         public ComparisonAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -38,17 +38,20 @@ namespace Cpp2IL.Analysis.Actions
                     }
                     else if (context.GetConstantInReg(name) is { } constant)
                     {
-                        anyIl2CppField = true;
                         var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement:X}}}";
                         if (constant.Type == typeof(TypeDefinition))
                         {
+                            unimportantComparison = true;
                             var offset = instruction.MemoryDisplacement;
                             var label = Il2CppClassUsefulOffsets.GetOffsetName(offset);
+                            
                             label = label == null ? defaultLabel : $"{{il2cpp field {constant.Value}->{label}}}";
+                            
                             ArgumentOne = context.MakeConstant(typeof(string), label);
                         }
                         else
                         {
+                            unimportantComparison = true;
                             ArgumentOne = context.MakeConstant(typeof(string), defaultLabel);
                         }
                     }
@@ -57,7 +60,7 @@ namespace Cpp2IL.Analysis.Actions
                     ArgumentOne = context.MakeConstant(typeof(GlobalIdentifier), LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset));
                 else
                 {
-                    anyIl2CppField = true;
+                    unimportantComparison = true;
                     ArgumentOne = context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));
                 }
 
@@ -68,7 +71,6 @@ namespace Cpp2IL.Analysis.Actions
                     ArgumentTwo = context.MakeConstant(typeof(int), instruction.GetImmediate(1));
                 else if (instruction.Op1Kind == OpKind.Memory && instruction.MemoryBase != Register.None)
                 {
-                    anyIl2CppField = true;
                     var name = Utils.GetRegisterNameNew(instruction.MemoryBase);
                     if(context.GetLocalInReg(name) is {} local)
                     {
@@ -87,11 +89,15 @@ namespace Cpp2IL.Analysis.Actions
                         {
                             var offset = instruction.MemoryDisplacement;
                             var label = Il2CppClassUsefulOffsets.GetOffsetName(offset);
+                            
+                            unimportantComparison = true;
                             label = label == null ? defaultLabel : $"{{il2cpp field {constant.Value}->{label}}}";
+                            
                             ArgumentTwo = context.MakeConstant(typeof(string), label);
                         }
                         else
                         {
+                            unimportantComparison = true;
                             ArgumentTwo = context.MakeConstant(typeof(string), defaultLabel);
                         }
                     }
@@ -100,7 +106,7 @@ namespace Cpp2IL.Analysis.Actions
                     ArgumentTwo = context.MakeConstant(typeof(GlobalIdentifier), LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset));
                 else
                 {
-                    anyIl2CppField = true;
+                    unimportantComparison = true;
                     ArgumentTwo = context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));
                 }
         }
@@ -120,7 +126,7 @@ namespace Cpp2IL.Analysis.Actions
             var display1 = ArgumentOne is LocalDefinition local1 ? local1 : ((ConstantDefinition) ArgumentOne)?.Value;
             var display2 = ArgumentTwo is LocalDefinition local2 ? local2 : ((ConstantDefinition) ArgumentTwo)?.Value;
 
-            if (anyIl2CppField)
+            if (unimportantComparison)
                 return $"Compares {display1} and {display2}";
             
             //Only show the important [!] if this is an important comparison (i.e. not an il2cpp one)

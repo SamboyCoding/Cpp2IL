@@ -65,11 +65,11 @@ namespace Cpp2IL
         /// <param name="target"></param>
         /// <param name="source"></param>
         /// <returns></returns>
-        public static bool IsAssignableFrom(this TypeDefinition target, TypeReference source)
-            => target == source
-               || target.MetadataToken == source.MetadataToken
+        public static bool IsAssignableFrom(this TypeDefinition? target, TypeReference? source)
+            => target != null && source != null && (target == source
+               || target.MetadataToken == source.Resolve()?.MetadataToken
                || source.IsSubclassOf(target)
-               || target.IsInterface && source.DoesAnySubTypeImplementInterface(target);
+               || target.IsInterface && source.DoesAnySubTypeImplementInterface(target));
 
         /// <summary>
         /// Enumerate the current type, it's parent and all the way to the top type

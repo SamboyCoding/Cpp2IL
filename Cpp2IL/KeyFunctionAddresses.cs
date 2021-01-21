@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using Mono.Cecil;
-using SharpDisasm;
 using SharpDisasm.Udis86;
+using Instruction = SharpDisasm.Instruction;
 
 namespace Cpp2IL
 {
@@ -293,6 +294,12 @@ namespace Cpp2IL
 
             if (ret.il2cpp_raise_managed_exception == 0)
             {
+                Console.WriteLine("\t\t\tUsing EXPORT method to find il2cpp_raise_managed_exception...");
+                TryUseExportedIl2cppRaiseException(ret);
+            }
+
+            if (ret.il2cpp_raise_managed_exception == 0)
+            {
                 Console.WriteLine("\t\t\tLooking for System.RuntimeFieldHandle$GetObjectData...");
                 methods = methodData.Find(t => t.type.Name == "RuntimeFieldHandle" && t.type.Namespace == "System").methods;
                 method = methods.Find(m => m.MethodName == "GetObjectData");
@@ -430,6 +437,28 @@ namespace Cpp2IL
             }
             else
                 Console.WriteLine("\t\t\t\tType not present, not using.");
+        }
+
+        private static void TryUseExportedIl2cppRaiseException(KeyFunctionAddresses ret)
+        {
+            Console.Write("\t\t\t\tLooking for exported il2cpp_raise_exception function...");
+            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfUnmanagedExportByName("il2cpp_raise_exception");
+            Console.WriteLine($"Found at 0x{address:X}");
+            
+            Console.WriteLine("\t\t\t\tSearching for a CALL to il2cpp_raise_managed_exception...");
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, address, true);
+            try
+            {
+                var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Call);
+
+                ret.il2cpp_raise_managed_exception = matchingCall.NearBranchTarget;
+                Console.WriteLine($"\t\t\tLocated address of il2cpp_raise_managed_exception: 0x{ret.il2cpp_raise_managed_exception:X}");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("\t\t\t\tCould not find or disassemble call. Failed to find il2cpp_raise_managed_exception.");
+            }
+
         }
     }
 }

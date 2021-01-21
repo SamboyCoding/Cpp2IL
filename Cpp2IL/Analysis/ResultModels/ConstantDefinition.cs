@@ -11,6 +11,12 @@ namespace Cpp2IL.Analysis.ResultModels
 
         public override string ToString()
         {
+            if (Type == typeof(string))
+                return (string) Value;
+
+            if (Type == typeof(bool))
+                return Convert.ToString((bool) Value);
+            
             return $"{{'{Name}' (constant value of type {Type.FullName})}}";
         }
     }

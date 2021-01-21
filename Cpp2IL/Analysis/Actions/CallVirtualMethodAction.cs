@@ -43,5 +43,10 @@ namespace Cpp2IL.Analysis.Actions
         {
             return $"[!] Calls virtual function {Called?.FullName} on instance {CalledOn} with {Arguments.Count} arguments\n";
         }
+        
+        public override bool IsImportant()
+        {
+            return true;
+        }
     }
 }

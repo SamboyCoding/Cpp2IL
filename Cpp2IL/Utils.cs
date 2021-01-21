@@ -31,6 +31,7 @@ namespace Cpp2IL
         internal static TypeDefinition DoubleReference;
         internal static TypeDefinition Int32Reference;
         internal static TypeDefinition UInt32Reference;
+        internal static TypeDefinition UInt64Reference;
         internal static TypeDefinition BooleanReference;
         // ReSharper restore NotNullMemberIsNotInitialized
 
@@ -63,6 +64,7 @@ namespace Cpp2IL
             DoubleReference = TryLookupTypeDefKnownNotGeneric("System.Double")!;
             Int32Reference = TryLookupTypeDefKnownNotGeneric("System.Int32")!;
             UInt32Reference = TryLookupTypeDefKnownNotGeneric("System.UInt32")!;
+            UInt64Reference = TryLookupTypeDefKnownNotGeneric("System.UInt64")!;
             BooleanReference = TryLookupTypeDefKnownNotGeneric("System.Boolean")!;
 
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
@@ -70,9 +72,11 @@ namespace Cpp2IL
                 {"string", StringReference},
                 {"long", Int64Reference},
                 {"float", SingleReference},
+                {"double", DoubleReference},
                 {"int", Int32Reference},
                 {"bool", BooleanReference},
-                {"uint", UInt32Reference}
+                {"uint", UInt32Reference},
+                {"ulong", UInt64Reference}
             };
         }
 
@@ -108,6 +112,14 @@ namespace Cpp2IL
             }
 
             return false;
+        }
+
+        public static bool IsNumericType(TypeReference reference)
+        {
+            var def = reference.Resolve();
+            if (def == null) return false;
+
+            return def == Int32Reference || def == Int64Reference || def == SingleReference || def == DoubleReference || def == UInt32Reference;
         }
 
         public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport, PE theDll, Il2CppMetadata metadata)

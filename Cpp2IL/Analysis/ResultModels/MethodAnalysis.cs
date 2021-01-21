@@ -13,6 +13,7 @@ namespace Cpp2IL.Analysis.ResultModels
         public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
         public readonly List<BaseAction> Actions = new List<BaseAction>();
         public readonly List<ulong> IdentifiedIfStatementStarts = new List<ulong>();
+        public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
 
         private ConstantDefinition EmptyRegConstant;
 
@@ -24,6 +25,7 @@ namespace Cpp2IL.Analysis.ResultModels
         public readonly List<LocalDefinition> FunctionArgumentLocals = new List<LocalDefinition>();
         
         private readonly Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
+        public readonly Dictionary<int, LocalDefinition> StackStoredLocals = new Dictionary<int, LocalDefinition>();
         public readonly Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
 
         internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd)

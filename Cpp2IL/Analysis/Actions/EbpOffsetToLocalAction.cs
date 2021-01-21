@@ -31,7 +31,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Copies {localBeingRead} to register {_destReg}";
+            return $"Copies EBP-Param {localBeingRead} to register {_destReg}";
         }
     }
 }

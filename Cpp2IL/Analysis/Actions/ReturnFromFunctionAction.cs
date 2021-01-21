@@ -29,9 +29,14 @@ namespace Cpp2IL.Analysis.Actions
         public override string ToTextSummary()
         {
             if (_isVoid)
-                return "Returns from the function\n";
+                return "[!] Returns from the function\n";
             
-            return $"Returns {returnValue} from the function\n";
+            return $"[!] Returns {returnValue} from the function\n";
+        }
+
+        public override bool IsImportant()
+        {
+            return true;
         }
     }
 }

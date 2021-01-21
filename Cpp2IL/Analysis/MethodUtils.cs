@@ -1,10 +1,12 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
+using Mono.Cecil;
 
 namespace Cpp2IL.Analysis
 {
@@ -12,10 +14,16 @@ namespace Cpp2IL.Analysis
     {
         public static bool CheckParameters(Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
         {
+            var managedMethod = SharedState.UnmanagedToManagedMethods[method];
+            return CheckParameters(managedMethod, context, isInstance, out arguments, failOnLeftoverArgs);
+        }
+        
+        public static bool CheckParameters(MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
+        {
             return LibCpp2IlMain.ThePe!.is32Bit ? CheckParameters32(method, context, isInstance, out arguments) : CheckParameters64(method, context, isInstance, out arguments, failOnLeftoverArgs);
         }
 
-        private static bool CheckParameters64(Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
+        private static bool CheckParameters64(MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
         {
             arguments = null;
 
@@ -35,8 +43,8 @@ namespace Cpp2IL.Analysis
                 var arg = actualArgs.RemoveAndReturn(0);
                 switch (arg)
                 {
-                    case ConstantDefinition cons when cons.Type.FullName != parameterData.Type.ToString(): //Constant type mismatch
-                    case LocalDefinition local when !Utils.IsManagedTypeAnInstanceOfCppOne(parameterData.Type, local.Type!): //Local type mismatch
+                    case ConstantDefinition cons when cons.Type.FullName != parameterData.ParameterType.ToString(): //Constant type mismatch
+                    case LocalDefinition local when local.Type == null || !parameterData.ParameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
                         return false;
                 }
 
@@ -50,7 +58,7 @@ namespace Cpp2IL.Analysis
             return true;
         }
 
-        private static bool CheckParameters32(Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
+        private static bool CheckParameters32(MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
         {
             arguments = null;
 
@@ -66,7 +74,7 @@ namespace Cpp2IL.Analysis
                 }
 
                 var value = context.Stack.Peek();
-                if (!CheckSingleParameter(value, parameterData.Type))
+                if (!CheckSingleParameter(value, parameterData.ParameterType))
                 {
                     RePushStack(listToRePush, context);
                     return false;
@@ -80,12 +88,23 @@ namespace Cpp2IL.Analysis
             return true;
         }
 
-        private static bool CheckSingleParameter(IAnalysedOperand analyzedOperand, Il2CppTypeReflectionData expectedType)
+        private static bool CheckSingleParameter(IAnalysedOperand analyzedOperand, TypeReference expectedType)
         {
             switch (analyzedOperand)
             {
                 case ConstantDefinition cons when cons.Type.FullName != expectedType.ToString(): //Constant type mismatch
-                case LocalDefinition local when local.Type == null || !Utils.IsManagedTypeAnInstanceOfCppOne(expectedType, local.Type!): //Local type mismatch
+                    //In the case of a constant, check if we can re-interpret.
+
+                    if (expectedType.ToString() == "System.Boolean" && cons.Value is ulong constantNumber)
+                    {
+                        //Reinterpret as bool.
+                        cons.Type = typeof(bool);
+                        cons.Value = constantNumber == 1UL;
+                        return true;
+                    }
+
+                    return false;
+                case LocalDefinition local when local.Type == null || !expectedType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
                     return false;
             }
 

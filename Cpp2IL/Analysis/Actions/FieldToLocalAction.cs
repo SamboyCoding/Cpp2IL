@@ -11,6 +11,7 @@ namespace Cpp2IL.Analysis.Actions
         public FieldDefinition? FieldRead;
         public LocalDefinition? LocalWritten;
         private string _destRegName;
+        private LocalDefinition? _readFrom;
 
         public FieldToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -18,11 +19,11 @@ namespace Cpp2IL.Analysis.Actions
             _destRegName = Utils.GetRegisterNameNew(instruction.Op0Register);
             var sourceFieldOffset = instruction.MemoryDisplacement;
 
-            var sourceLocal = context.GetLocalInReg(sourceRegName);
+            _readFrom = context.GetLocalInReg(sourceRegName);
             
-            if(sourceLocal?.Type?.Resolve() == null) return;
+            if(_readFrom?.Type?.Resolve() == null) return;
 
-            var fields = SharedState.FieldsByType[sourceLocal.Type.Resolve()];
+            var fields = SharedState.FieldsByType[_readFrom.Type.Resolve()];
             
             if(fields == null) return;
             
@@ -30,7 +31,7 @@ namespace Cpp2IL.Analysis.Actions
 
             if (fieldInType.Offset != sourceFieldOffset) return; //The "default" part of "FirstOrDefault"
 
-            FieldRead = sourceLocal.Type.Resolve().Fields.FirstOrDefault(f => f.Name == fieldInType.Name);
+            FieldRead = _readFrom.Type.Resolve().Fields.FirstOrDefault(f => f.Name == fieldInType.Name);
             
             if(FieldRead == null) return;
 
@@ -44,12 +45,17 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToPsuedoCode()
         {
-            throw new NotImplementedException();
+            return $"{LocalWritten?.Type?.FullName} {LocalWritten?.Name} = {_readFrom?.Name}.{FieldRead?.Name}";
         }
 
         public override string ToTextSummary()
         {
-            return $"Reads field {FieldRead?.FullName} and stores in a new local {LocalWritten} in {_destRegName}";
+            return $"[!] Reads field {FieldRead?.FullName} from {_readFrom} and stores in a new local {LocalWritten} in {_destRegName}\n";
+        }
+        
+        public override bool IsImportant()
+        {
+            return true;
         }
     }
 }

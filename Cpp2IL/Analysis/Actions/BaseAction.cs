@@ -20,6 +20,11 @@ namespace Cpp2IL.Analysis.Actions
 
         public abstract string ToTextSummary();
 
+        public virtual bool IsImportant()
+        {
+            return false;
+        }
+
         public string GetSynopsisEntry()
         {
             var comment = GetLineComment();
