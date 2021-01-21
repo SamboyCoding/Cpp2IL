@@ -13,7 +13,7 @@ namespace Cpp2IL
         /// <param name="childTypeDef"></param>
         /// <param name="parentTypeDef"></param>
         /// <returns></returns>
-        public static bool IsSubclassOf(this TypeDefinition childTypeDef, TypeDefinition parentTypeDef) =>
+        public static bool IsSubclassOf(this TypeReference childTypeDef, TypeReference parentTypeDef) =>
             childTypeDef.MetadataToken
             != parentTypeDef.MetadataToken
             && childTypeDef
@@ -26,9 +26,8 @@ namespace Cpp2IL
         /// <param name="childType"></param>
         /// <param name="parentInterfaceDef"></param>
         /// <returns></returns>
-        public static bool DoesAnySubTypeImplementInterface(this TypeDefinition childType, TypeDefinition parentInterfaceDef)
+        public static bool DoesAnySubTypeImplementInterface(this TypeReference childType, TypeReference parentInterfaceDef)
         {
-            Debug.Assert(parentInterfaceDef.IsInterface);
             return childType
                 .EnumerateBaseClasses()
                 .Any(typeDefinition => typeDefinition.DoesSpecificTypeImplementInterface(parentInterfaceDef));
@@ -41,12 +40,12 @@ namespace Cpp2IL
         /// <param name="childTypeDef"></param>
         /// <param name="parentInterfaceDef"></param>
         /// <returns></returns>
-        public static bool DoesSpecificTypeImplementInterface(this TypeDefinition childTypeDef, TypeDefinition parentInterfaceDef)
+        public static bool DoesSpecificTypeImplementInterface(this TypeReference childTypeDef, TypeReference parentInterfaceDef)
         {
-            Debug.Assert(parentInterfaceDef.IsInterface);
             return childTypeDef
+                .Resolve()?
                 .Interfaces
-                .Any(ifaceDef => DoesSpecificInterfaceImplementInterface(ifaceDef.InterfaceType.Resolve(), parentInterfaceDef));
+                .Any(ifaceDef => DoesSpecificInterfaceImplementInterface(ifaceDef.InterfaceType.Resolve(), parentInterfaceDef)) ?? false;
         }
 
         /// <summary>
@@ -55,10 +54,8 @@ namespace Cpp2IL
         /// <param name="iface0"></param>
         /// <param name="iface1"></param>
         /// <returns></returns>
-        public static bool DoesSpecificInterfaceImplementInterface(TypeDefinition iface0, TypeDefinition iface1)
+        public static bool DoesSpecificInterfaceImplementInterface(TypeReference iface0, TypeReference iface1)
         {
-            Debug.Assert(iface1.IsInterface);
-            Debug.Assert(iface0.IsInterface);
             return iface0.MetadataToken == iface1.MetadataToken || iface0.DoesAnySubTypeImplementInterface(iface1);
         }
 
@@ -68,7 +65,7 @@ namespace Cpp2IL
         /// <param name="target"></param>
         /// <param name="source"></param>
         /// <returns></returns>
-        public static bool IsAssignableFrom(this TypeDefinition target, TypeDefinition source)
+        public static bool IsAssignableFrom(this TypeDefinition target, TypeReference source)
             => target == source
                || target.MetadataToken == source.MetadataToken
                || source.IsSubclassOf(target)
@@ -79,9 +76,9 @@ namespace Cpp2IL
         /// </summary>
         /// <param name="klassType"></param>
         /// <returns></returns>
-        public static IEnumerable<TypeDefinition> EnumerateBaseClasses(this TypeDefinition klassType)
+        public static IEnumerable<TypeReference> EnumerateBaseClasses(this TypeReference klassType)
         {
-            for (var typeDefinition = klassType; typeDefinition != null; typeDefinition = typeDefinition.BaseType?.Resolve())
+            for (var typeDefinition = klassType; typeDefinition != null; typeDefinition = typeDefinition.Resolve()?.BaseType?.Resolve())
             {
                 yield return typeDefinition;
             }

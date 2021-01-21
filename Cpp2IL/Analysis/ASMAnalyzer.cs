@@ -722,6 +722,18 @@ namespace Cpp2IL.Analysis
                     //Constant move to field
                     _analysis.Actions.Add(new ConstantToFieldAction(_analysis, instruction));
                     return;
+                //Note that, according to Il2CppArray class, an Il2Cpp Array has, after the core Object fields (klass and vtable)
+                //an Il2CppArrayBounds object, which consists of a uintptr (the length) and an int (the "lower bound"), 
+                //and then it has another uintptr representing the max length of the array.
+                //So if we're accessing 0xC (32-bit) or 0x18 (64-bit) on an array - that's the length.
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && instruction.MemoryBase == Register.EBP:
+                    //Read stack pointer to local
+                    _analysis.Actions.Add(new EbpOffsetToLocalAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip":
+                    //Move generic memory to register - field read.
+                    _analysis.Actions.Add(new FieldToLocalAction(_analysis, instruction));
+                    break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO Arithmetic
                 case Mnemonic.Xor:

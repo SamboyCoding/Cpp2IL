@@ -85,7 +85,7 @@ namespace Cpp2IL.Analysis
             switch (analyzedOperand)
             {
                 case ConstantDefinition cons when cons.Type.FullName != expectedType.ToString(): //Constant type mismatch
-                case LocalDefinition local when !Utils.IsManagedTypeAnInstanceOfCppOne(expectedType, local.Type!): //Local type mismatch
+                case LocalDefinition local when local.Type == null || !Utils.IsManagedTypeAnInstanceOfCppOne(expectedType, local.Type!): //Local type mismatch
                     return false;
             }
 

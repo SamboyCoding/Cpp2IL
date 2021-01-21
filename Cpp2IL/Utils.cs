@@ -1,12 +1,14 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
+using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -23,12 +25,13 @@ namespace Cpp2IL
     {
         //Disable these because they're initialised in BuildPrimitiveMappings
         // ReSharper disable NotNullMemberIsNotInitialized
-        private static TypeDefinition StringReference;
-        private static TypeDefinition Int64Reference;
-        private static TypeDefinition SingleReference;
-        private static TypeDefinition Int32Reference;
-        private static TypeDefinition UInt32Reference;
-        private static TypeDefinition BooleanReference;
+        internal static TypeDefinition StringReference;
+        internal static TypeDefinition Int64Reference;
+        internal static TypeDefinition SingleReference;
+        internal static TypeDefinition DoubleReference;
+        internal static TypeDefinition Int32Reference;
+        internal static TypeDefinition UInt32Reference;
+        internal static TypeDefinition BooleanReference;
         // ReSharper restore NotNullMemberIsNotInitialized
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
@@ -54,12 +57,13 @@ namespace Cpp2IL
 
         public static void BuildPrimitiveMappings()
         {
-            StringReference = TryLookupTypeDefKnownNotGeneric("System.String");
-            Int64Reference = TryLookupTypeDefKnownNotGeneric("System.Int64");
-            SingleReference = TryLookupTypeDefKnownNotGeneric("System.Single");
-            Int32Reference = TryLookupTypeDefKnownNotGeneric("System.Int32");
-            UInt32Reference = TryLookupTypeDefKnownNotGeneric("System.UInt32");
-            BooleanReference = TryLookupTypeDefKnownNotGeneric("System.Boolean");
+            StringReference = TryLookupTypeDefKnownNotGeneric("System.String")!;
+            Int64Reference = TryLookupTypeDefKnownNotGeneric("System.Int64")!;
+            SingleReference = TryLookupTypeDefKnownNotGeneric("System.Single")!;
+            DoubleReference = TryLookupTypeDefKnownNotGeneric("System.Double")!;
+            Int32Reference = TryLookupTypeDefKnownNotGeneric("System.Int32")!;
+            UInt32Reference = TryLookupTypeDefKnownNotGeneric("System.UInt32")!;
+            BooleanReference = TryLookupTypeDefKnownNotGeneric("System.Boolean")!;
 
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
             {
@@ -72,7 +76,7 @@ namespace Cpp2IL
             };
         }
 
-        public static bool IsManagedTypeAnInstanceOfCppOne(Il2CppTypeReflectionData cppType, TypeDefinition managedType)
+        public static bool IsManagedTypeAnInstanceOfCppOne(Il2CppTypeReflectionData cppType, TypeReference managedType)
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
 
@@ -87,7 +91,7 @@ namespace Cpp2IL
             return false;
         }
         
-        public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeDefinition managedType)
+        public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeReference managedType)
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
 
@@ -852,6 +856,26 @@ namespace Cpp2IL
         public static int GetPointerSizeBytes()
         {
             return LibCpp2IlMain.ThePe!.is32Bit ? 4 : 8;
+        }
+
+        public static object GetNumericConstant(ulong addr, TypeReference type)
+        {
+            var rawAddr = LibCpp2IlMain.ThePe!.MapVirtualAddressToRaw(addr);
+            var bytes = LibCpp2IlMain.ThePe.raw.SubArray((int) rawAddr, (int) GetSizeOfObject(type));
+
+            if (type == Int32Reference)
+                return BitConverter.ToInt32(bytes);
+            
+            if(type == Int64Reference)
+                return BitConverter.ToInt64(bytes);
+            
+            if(type == SingleReference)
+                return BitConverter.ToSingle(bytes);
+            
+            if(type == DoubleReference)
+                return BitConverter.ToDouble(bytes);
+
+            throw new ArgumentException("Do not know how to get a numeric constant of type " + type);
         }
     }
 }

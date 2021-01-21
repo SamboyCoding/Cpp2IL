@@ -8,6 +8,8 @@ namespace Cpp2IL.Analysis.Actions
     public class CallInitMethodAction : BaseAction
     {
         private UnknownGlobalAddr? _globalAddr;
+        private int functionId;
+
         public CallInitMethodAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             ConstantDefinition? consDef;
@@ -21,7 +23,10 @@ namespace Cpp2IL.Analysis.Actions
                 consDef = context.GetConstantInReg("rcx");
 
             if (consDef != null && consDef.Type == typeof(UnknownGlobalAddr))
+            {
                 _globalAddr = (UnknownGlobalAddr) consDef.Value;
+                functionId = (int) Utils.GetNumericConstant(_globalAddr.addr, Utils.Int32Reference);
+            }
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -36,7 +41,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Attempts to load the il2cpp metadata for a method (method number is at offset 0x{_globalAddr?.addr:X}) and init it cpp-side.\n";
+            return $"Attempts to load the il2cpp metadata for this method (method id {functionId}) and init it cpp-side.\n";
         }
     }
 }

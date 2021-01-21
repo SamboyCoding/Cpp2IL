@@ -82,7 +82,7 @@ namespace Cpp2IL.Analysis.ResultModels
             return $"Method Analysis for {_method.FullName}";
         }
 
-        public LocalDefinition MakeLocal(TypeDefinition? type, string? name = null, string? reg = null)
+        public LocalDefinition MakeLocal(TypeReference type, string? name = null, string? reg = null)
         {
             var local = new LocalDefinition
             {

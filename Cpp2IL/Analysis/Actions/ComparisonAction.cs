@@ -26,8 +26,16 @@ namespace Cpp2IL.Analysis.Actions
                 else if (instruction.Op0Kind == OpKind.Memory && instruction.MemoryBase != Register.None)
                 {
                     var name = Utils.GetRegisterNameNew(instruction.MemoryBase);
-                    if(context.GetLocalInReg(name) is {} local)
-                        ArgumentOne = context.MakeConstant(typeof(string), $"{{A field on {local}, offset 0x{instruction.MemoryDisplacement:X}}}");
+                    if (context.GetLocalInReg(name) is { } local)
+                    {
+                        if (local.Type?.IsArray == true)
+                        {
+                            var nameOfField = Il2CppArrayUsefulOffsets.GetOffsetName(instruction.MemoryDisplacement);
+                            ArgumentOne = context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
+                        }
+                        else
+                            ArgumentOne = context.MakeConstant(typeof(string), $"{{A field on {local}, offset 0x{instruction.MemoryDisplacement:X}}}");
+                    }
                     else if (context.GetConstantInReg(name) is { } constant)
                     {
                         anyIl2CppField = true;
@@ -63,7 +71,15 @@ namespace Cpp2IL.Analysis.Actions
                     anyIl2CppField = true;
                     var name = Utils.GetRegisterNameNew(instruction.MemoryBase);
                     if(context.GetLocalInReg(name) is {} local)
-                        ArgumentOne = context.MakeConstant(typeof(string), $"{{A field on {local}, offset 0x{instruction.MemoryDisplacement:X}}}");
+                    {
+                        if (local.Type?.IsArray == true)
+                        {
+                            var nameOfField = Il2CppArrayUsefulOffsets.GetOffsetName(instruction.MemoryDisplacement);
+                            ArgumentTwo = context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
+                        }
+                        else
+                            ArgumentTwo = context.MakeConstant(typeof(string), $"{{A field on {local}, offset 0x{instruction.MemoryDisplacement:X}}}");
+                    }
                     else if (context.GetConstantInReg(name) is { } constant)
                     {
                         var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement:X}}}";
