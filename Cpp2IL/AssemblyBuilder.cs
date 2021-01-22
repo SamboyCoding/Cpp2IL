@@ -272,7 +272,7 @@ namespace Cpp2IL
             }
 
             //Handle base fields
-            var fieldOffset = baseFields.Aggregate((ulong) (ilTypeDefinition.MetadataType == MetadataType.Class ? 0x10 : 0x0), (currentOffset, baseField) => HandleField(baseField.FieldType, currentOffset, baseField.Name, baseField, ref fields, typeMetaText));
+            // var fieldOffset = baseFields.Aggregate((ulong) (ilTypeDefinition.MetadataType == MetadataType.Class ? 0x10 : 0x0), (currentOffset, baseField) => HandleField(baseField.FieldType, currentOffset, baseField.Name, baseField, ref fields, typeMetaText));
 
             var lastFieldIdx = cppTypeDefinition.firstFieldIdx + cppTypeDefinition.field_count;
             for (var fieldIdx = cppTypeDefinition.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
@@ -299,8 +299,10 @@ namespace Cpp2IL
 
                 if (!fieldDefinition.IsStatic)
                 {
-                    fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
+                    var thisFieldOffset = cppAssembly.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, fieldIdx - cppTypeDefinition.firstFieldIdx, fieldIdx, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
                     
+                    HandleField(fieldTypeRef, thisFieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
+
                     //Add [FieldOffset(Offset = "0xDEADBEEF")]
                     var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
                     fieldOffsetAttributeInst.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fields.Last().Offset:X}")));
@@ -565,18 +567,8 @@ namespace Cpp2IL
             return typeMethods;
         }
 
-        private static ulong HandleField(TypeReference fieldTypeRef, ulong fieldOffset, string fieldName, FieldDefinition fieldDefinition, ref List<FieldInType> fields, StringBuilder typeMetaText)
+        private static void HandleField(TypeReference fieldTypeRef, int fieldOffset, string fieldName, FieldDefinition fieldDefinition, ref List<FieldInType> fields, StringBuilder typeMetaText)
         {
-            var length = Utils.GetSizeOfObject(fieldTypeRef);
-
-            var boundarySize = LibCpp2IlMain.ThePe!.is32Bit ? (decimal) 4 : 8;
-            var fieldEnd = fieldOffset + length - 1;
-            if (Math.Floor(fieldOffset / boundarySize) != Math.Floor(fieldEnd / boundarySize))
-            {
-                //Would cross an alignment boundary, so move to the next alignment.
-                fieldOffset = (ulong) ((Math.Floor(fieldOffset / boundarySize) + 1) * boundarySize);
-            }
-
             //ONE correction. String#start_char is remapped to a char[] not a char because the block allocated for all chars is directly sequential to the length of the string, because that's how c++ works.
             if (fieldDefinition.DeclaringType.FullName == "System.String" && fieldTypeRef.FullName == "System.Char")
                 fieldTypeRef = fieldTypeRef.MakeArrayType();
@@ -585,12 +577,10 @@ namespace Cpp2IL
             {
                 Name = fieldName,
                 Type = fieldTypeRef,
-                Offset = fieldOffset,
+                Offset = (ulong) fieldOffset,
                 Static = fieldDefinition.IsStatic,
                 Constant = fieldDefinition.Constant
             };
-
-            fieldOffset += length;
 
             fields.Add(field);
 
@@ -600,7 +590,6 @@ namespace Cpp2IL
 
             if (field.Constant != null)
                 typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
-            return fieldOffset;
         }
 
         

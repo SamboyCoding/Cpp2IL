@@ -161,8 +161,6 @@ namespace Cpp2IL
                 Console.WriteLine("Initialization with LibCpp2IL failed.");
                 return 1;
             }
-            
-            Console.WriteLine(LibCpp2IlReflection.GetType("String", "System").DeclaringAssembly.Name);
 
             //Dump DLLs
 

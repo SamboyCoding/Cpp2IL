@@ -637,26 +637,44 @@ namespace LibCpp2IL.PE
             return ReadClassArrayAtVirtualAddress<ulong>(pointer, count);
         }
 
-        public long GetFieldOffsetFromIndex(int typeIndex, int fieldIndexInType, int fieldIndex)
+        public int GetFieldOffsetFromIndex(int typeIndex, int fieldIndexInType, int fieldIndex, bool isValueType, bool isStatic)
         {
-            var ptr = fieldOffsets[typeIndex];
-            if (ptr >= 0)
+            try
             {
-                long pos;
-                if (is32Bit)
-                    pos = MapVirtualAddressToRaw((uint) ptr) + 4 * fieldIndexInType;
-                else
-                    pos = MapVirtualAddressToRaw((ulong) ptr) + 4 * fieldIndexInType;
-                if (pos <= BaseStream.Length - 4)
+                var offset = -1;
+                if (LibCpp2IlMain.MetadataVersion > 21)
                 {
-                    Position = pos;
-                    return ReadInt32();
+                    var ptr = (ulong) fieldOffsets[typeIndex];
+                    if (ptr > 0)
+                    {
+                        Position = (long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong)fieldIndexInType);
+                        offset = ReadInt32();
+                    }
                 }
-
+                else
+                {
+                    offset = (int)fieldOffsets[fieldIndex];
+                }
+                if (offset > 0)
+                {
+                    if (isValueType && !isStatic)
+                    {
+                        if (is32Bit)
+                        {
+                            offset -= 8;
+                        }
+                        else
+                        {
+                            offset -= 16;
+                        }
+                    }
+                }
+                return offset;
+            }
+            catch
+            {
                 return -1;
             }
-
-            return 0;
         }
 
         public ulong GetMethodPointer(int methodIndex, int methodDefinitionIndex, int imageIndex, uint methodToken)
