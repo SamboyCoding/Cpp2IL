@@ -45,7 +45,8 @@ namespace Cpp2IL
         {
             "UnityCrashHandler.exe",
             "UnityCrashHandler64.exe",
-            "install.exe"
+            "install.exe",
+            "MelonLoader.Installer.exe"
         };
 
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
