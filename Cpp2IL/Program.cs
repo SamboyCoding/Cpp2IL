@@ -154,7 +154,11 @@ namespace Cpp2IL
 
             #endregion
 
+            //Set this flag from command line options
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = !CommandLineOptions.DisableRegistrationPrompts;
+            
+            //Disable Method Ptr Mapping and Global Resolving if skipping analysis
+            LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = CommandLineOptions.SkipAnalysis;
 
             if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVerUseful))
             {

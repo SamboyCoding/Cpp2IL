@@ -12,6 +12,8 @@ namespace LibCpp2IL
         public class LibCpp2IlSettings
         {
             public bool AllowManualMetadataAndCodeRegInput;
+            public bool DisableMethodPointerMapping;
+            public bool DisableGlobalResolving;
         }
 
         public static readonly LibCpp2IlSettings Settings = new LibCpp2IlSettings();
@@ -137,22 +139,29 @@ namespace LibCpp2IL
             
             Console.WriteLine("Read PE Data ok.");
 
-            var start = DateTime.Now;
-            Console.Write("Mapping Globals...");
-            LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, ThePe);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
-            
-            start = DateTime.Now;
-            Console.Write("Mapping pointers to Il2CppMethodDefinitions...");
-            foreach (var (method, ptr) in TheMetadata.methodDefs.AsParallel().Select(method => (method, ptr: method.MethodPointer)))
+            if (!Settings.DisableGlobalResolving)
             {
-                if(!MethodsByPtr.ContainsKey(ptr))
-                    MethodsByPtr[ptr] = new List<Il2CppMethodDefinition>();
-                
-                MethodsByPtr[ptr].Add(method);
+                var start = DateTime.Now;
+                Console.Write("Mapping Globals...");
+                LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, ThePe);
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
             }
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
-            
+
+            if (!Settings.DisableMethodPointerMapping)
+            {
+                var start = DateTime.Now;
+                Console.Write("Mapping pointers to Il2CppMethodDefinitions...");
+                foreach (var (method, ptr) in TheMetadata.methodDefs.AsParallel().Select(method => (method, ptr: method.MethodPointer)))
+                {
+                    if (!MethodsByPtr.ContainsKey(ptr))
+                        MethodsByPtr[ptr] = new List<Il2CppMethodDefinition>();
+
+                    MethodsByPtr[ptr].Add(method);
+                }
+
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
+            }
+
             return true;
         }
 

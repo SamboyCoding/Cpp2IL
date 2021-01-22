@@ -76,6 +76,7 @@ namespace Cpp2IL
                         {
                             typeof(TypeReference).GetField("etype", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(definition, (byte) 0x0e); //mark as string
                         }
+
                         mainModule.Types.Add(definition);
                         SharedState.AllTypeDefinitions.Add(definition);
                         SharedState.TypeDefsByIndex.Add(defNumber, definition);
@@ -218,26 +219,30 @@ namespace Cpp2IL
         private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppAssemblyDefinition imageDef)
         {
             var typeMetaText = new StringBuilder();
-            typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
-                .Append($"\n\tBase Class: \n\t\t{ilTypeDefinition.BaseType}\n")
-                .Append("\n\tInterfaces:\n");
 
-            foreach (var iface in ilTypeDefinition.Interfaces)
+            if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
             {
-                typeMetaText.Append($"\t\t{iface.InterfaceType.FullName}\n");
-            }
+                typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
+                    .Append($"\n\tBase Class: \n\t\t{ilTypeDefinition.BaseType}\n")
+                    .Append("\n\tInterfaces:\n");
 
-            if (ilTypeDefinition.NestedTypes.Count > 0)
-            {
-                typeMetaText.Append("\n\tNested Types:\n");
-
-                foreach (var nestedType in ilTypeDefinition.NestedTypes)
+                foreach (var iface in ilTypeDefinition.Interfaces)
                 {
-                    typeMetaText.Append($"\t\t{nestedType.FullName}\n");
+                    typeMetaText.Append($"\t\t{iface.InterfaceType.FullName}\n");
+                }
+
+                if (ilTypeDefinition.NestedTypes.Count > 0)
+                {
+                    typeMetaText.Append("\n\tNested Types:\n");
+
+                    foreach (var nestedType in ilTypeDefinition.NestedTypes)
+                    {
+                        typeMetaText.Append($"\t\t{nestedType.FullName}\n");
+                    }
                 }
             }
 
-            
+
             MethodDefinition addressAttribute;
             MethodDefinition fieldOffsetAttribute;
             MethodDefinition tokenAttribute;
@@ -290,7 +295,7 @@ namespace Cpp2IL
                 if (!fieldDefinition.IsStatic)
                 {
                     var thisFieldOffset = cppAssembly.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, fieldIdx - cppTypeDefinition.firstFieldIdx, fieldIdx, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
-                    
+
                     HandleField(fieldTypeRef, thisFieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
 
                     //Add [FieldOffset(Offset = "0xDEADBEEF")]
@@ -330,10 +335,11 @@ namespace Cpp2IL
 
 
                 var offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
-                typeMetaText.Append($"\n\tMethod: {methodName}:\n")
-                    .Append($"\t\tFile Offset 0x{offsetInFile:X8}\n")
-                    .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n")
-                    .Append($"\t\tVirtual Method Slot: {methodDef.slot}\n");
+                if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+                    typeMetaText.Append($"\n\tMethod: {methodName}:\n")
+                        .Append($"\t\tFile Offset 0x{offsetInFile:X8}\n")
+                        .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n")
+                        .Append($"\t\tVirtual Method Slot: {methodDef.slot}\n");
 
                 var bytes = new List<byte>();
                 var offset = offsetInFile;
@@ -346,7 +352,8 @@ namespace Cpp2IL
                     offset++;
                 }
 
-                typeMetaText.Append($"\t\tMethod Length: {bytes.Count} bytes\n");
+                if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+                    typeMetaText.Append($"\t\tMethod Length: {bytes.Count} bytes\n");
 
                 typeMethods.Add(new CppMethodData
                 {
@@ -408,12 +415,13 @@ namespace Cpp2IL
                     }
 
 
-                    typeMetaText.Append($"\n\t\tParameter {paramIdx}:\n")
-                        .Append($"\t\t\tName: {parameterName}\n")
-                        .Append($"\t\t\tType: {(parameterTypeRef.Namespace == "" ? "<None>" : parameterTypeRef.Namespace)}.{parameterTypeRef.Name}\n")
-                        .Append($"\t\t\tDefault Value: {parameterDefinition.Constant}");
+                    if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+                        typeMetaText.Append($"\n\t\tParameter {paramIdx}:\n")
+                            .Append($"\t\t\tName: {parameterName}\n")
+                            .Append($"\t\t\tType: {(parameterTypeRef.Namespace == "" ? "<None>" : parameterTypeRef.Namespace)}.{parameterTypeRef.Name}\n")
+                            .Append($"\t\t\tDefault Value: {parameterDefinition.Constant}");
                 }
-                
+
                 //Address attribute
                 var methodPointer = LibCpp2IlMain.ThePe.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
                 if (methodPointer > 0)
@@ -431,6 +439,7 @@ namespace Cpp2IL
                         var slot = new CustomAttributeNamedArgument("Slot", new CustomAttributeArgument(stringType, methodDef.slot.ToString()));
                         customAttribute.Fields.Add(slot);
                     }
+
                     methodDefinition.CustomAttributes.Add(customAttribute);
                 }
 
@@ -497,11 +506,11 @@ namespace Cpp2IL
                     GetMethod = getter,
                     SetMethod = setter
                 };
-                
+
                 customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{propertyDef.token:X}")));
                 propertyDefinition.CustomAttributes.Add(customTokenAttribute);
-                
+
                 ilTypeDefinition.Properties.Add(propertyDefinition);
             }
 
@@ -520,11 +529,11 @@ namespace Cpp2IL
                     eventDefinition.RemoveMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.remove];
                 if (eventDef.raise >= 0)
                     eventDefinition.InvokeMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.raise];
-                
+
                 customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{eventDef.token:X}")));
                 eventDefinition.CustomAttributes.Add(customTokenAttribute);
-                
+
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
 
@@ -574,14 +583,15 @@ namespace Cpp2IL
 
             fields.Add(field);
 
-            typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
-                .Append($"\t\tType: {field.Type.FullName}\n")
-                .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n");
+            if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+            {
+                typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
+                    .Append($"\t\tType: {field.Type.FullName}\n")
+                    .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n");
 
-            if (field.Constant != null)
-                typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
+                if (field.Constant != null)
+                    typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
+            }
         }
-
-        
     }
 }
