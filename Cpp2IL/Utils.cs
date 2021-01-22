@@ -46,8 +46,8 @@ namespace Cpp2IL
             {"Int64", 8},
             {"UInt64", 8},
             {"Double", 8},
-            {"IntPtr", (ulong) IntPtr.Size},
-            {"UIntPtr", (ulong) UIntPtr.Size},
+            {"IntPtr", LibCpp2IlMain.ThePe!.is32Bit ? 4UL : 8UL},
+            {"UIntPtr", LibCpp2IlMain.ThePe!.is32Bit ? 4UL : 8UL},
         };
 
         public static void BuildPrimitiveMappings()
