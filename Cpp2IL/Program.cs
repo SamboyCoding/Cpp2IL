@@ -242,9 +242,10 @@ namespace Cpp2IL
                             var fieldDefinition = typeDefinition.Fields.First(x => x.Name == fieldName);
 
                             //Get attributes and look for the serialize field attribute.
-                            var attributeIndex = LibCpp2IlMain.TheMetadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
-                            if (attributeIndex < 0) continue;
-                            var attributeTypeRange = LibCpp2IlMain.TheMetadata.attributeTypeRanges[attributeIndex];
+                            var attributeTypeRange = LibCpp2IlMain.TheMetadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
+                            
+                            if(attributeTypeRange == null) continue;
+                            
                             for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
                             {
                                 var attributeTypeIndex = LibCpp2IlMain.TheMetadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];

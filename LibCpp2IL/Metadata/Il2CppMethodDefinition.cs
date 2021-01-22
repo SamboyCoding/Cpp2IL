@@ -38,7 +38,18 @@ namespace LibCpp2IL.Metadata
         
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
-        public ulong MethodPointer => LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null ? 0 : LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, DeclaringType!.DeclaringAssembly!.assemblyIndex, token);
+        public ulong MethodPointer
+        {
+            get
+            {
+                if(LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
+                    return 0;
+                
+                var asmIdx = LibCpp2IlMain.MetadataVersion >= 24.2f ? DeclaringType!.DeclaringAssembly!.assemblyIndex : 0; //Not needed below 24.2
+                
+                return LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
+            }
+        }
 
         public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.ThePe == null ? 0 : LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(MethodPointer);
 

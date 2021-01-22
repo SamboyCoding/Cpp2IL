@@ -52,6 +52,9 @@ namespace LibCpp2IL
             }
         }
 
+        private Dictionary<FieldInfo, VersionAttribute?> _cachedVersionAttributes = new Dictionary<FieldInfo, VersionAttribute?>();
+        private Dictionary<FieldInfo, bool> _cachedNoSerialize = new Dictionary<FieldInfo, bool>();
+        
         public T ReadClass<T>(long offset) where T : new()
         {
             var t = new T();
@@ -65,9 +68,9 @@ namespace LibCpp2IL
                     var value = ReadPrimitive(type);
 
                     //32-bit fixes...
-                    if (value is uint && typeof(T).Name == "UInt64")
+                    if (value is uint && typeof(T) == typeof(ulong))
                         value = Convert.ToUInt64(value);
-                    if (value is int && typeof(T).Name == "Int64")
+                    if (value is int && typeof(T) == typeof(long))
                         value = Convert.ToInt64(value);
 
                     return (T) value!;
@@ -75,10 +78,19 @@ namespace LibCpp2IL
                 
                 foreach (var i in t.GetType().GetFields())
                 {
-                    var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
-                    var nonSerializedAttribute = (NonSerializedAttribute?) Attribute.GetCustomAttribute(i, typeof(NonSerializedAttribute));
+                    VersionAttribute? attr;
+                    if (!_cachedVersionAttributes.ContainsKey(i))
+                    {
+                        attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
+                        _cachedVersionAttributes[i] = attr;
+                    }
+                    else
+                        attr = _cachedVersionAttributes[i];
+                    
+                    if(!_cachedNoSerialize.ContainsKey(i))
+                        _cachedNoSerialize[i] = Attribute.GetCustomAttribute(i, typeof(NonSerializedAttribute)) != null;
 
-                    if (nonSerializedAttribute != null) continue;
+                    if (_cachedNoSerialize[i]) continue;
 
                     if (attr != null)
                     {

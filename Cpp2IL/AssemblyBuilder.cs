@@ -213,9 +213,10 @@ namespace Cpp2IL
             return methods;
         }
 
+        private static Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)> _attributesByModule = new Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)>();
+
         private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppAssemblyDefinition imageDef)
         {
-            var imageName = metadata.GetStringFromIndex(imageDef.nameIndex);
             var typeMetaText = new StringBuilder();
             typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
                 .Append($"\n\tBase Class: \n\t\t{ilTypeDefinition.BaseType}\n")
@@ -236,11 +237,23 @@ namespace Cpp2IL
                 }
             }
 
-            var addressAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AddressAttribute").Methods[0];
-            var fieldOffsetAttribute = ilTypeDefinition.Module.Types.First(x => x.FullName == "Cpp2IlInjected.FieldOffsetAttribute").Methods[0];
-            var attributeAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AttributeAttribute").Methods[0];
-            var metadataOffsetAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "MetadataOffsetAttribute").Methods[0];
-            var tokenAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "TokenAttribute").Methods[0];
+            
+            MethodDefinition addressAttribute;
+            MethodDefinition fieldOffsetAttribute;
+            MethodDefinition tokenAttribute;
+
+            if (!_attributesByModule.ContainsKey(ilTypeDefinition.Module))
+            {
+                addressAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "AddressAttribute").Methods[0];
+                fieldOffsetAttribute = ilTypeDefinition.Module.Types.First(x => x.FullName == "Cpp2IlInjected.FieldOffsetAttribute").Methods[0];
+                tokenAttribute = ilTypeDefinition.Module.Types.First(x => x.Name == "TokenAttribute").Methods[0];
+                _attributesByModule[ilTypeDefinition.Module] = (addressAttribute, fieldOffsetAttribute, tokenAttribute);
+            }
+            else
+            {
+                (addressAttribute, fieldOffsetAttribute, tokenAttribute) = _attributesByModule[ilTypeDefinition.Module];
+            }
+
             var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefByName("System.String").Item1);
 
             //Token attribute
@@ -250,29 +263,6 @@ namespace Cpp2IL
 
             //field
             var fields = new List<FieldInType>();
-
-            var baseFields = new List<FieldDefinition>();
-
-            var current = ilTypeDefinition;
-            while (current.BaseType != null)
-            {
-                var targetName = current.BaseType.FullName;
-                if (targetName.Contains("<")) // types with generic parameters (Type'1<T>) are stored as Type'1, so I just removed the part that causes trouble and called it a day
-                    targetName = targetName.Substring(0, targetName.IndexOf("<"));
-
-                current = SharedState.AllTypeDefinitions.Find(t => t.FullName == targetName);
-
-                if (current == null)
-                {
-                    typeMetaText.Append("WARN: Type " + targetName + " is not defined yet\n");
-                    break;
-                }
-
-                baseFields.InsertRange(0, current.Fields.Where(f => !f.IsStatic)); // each loop we go one inheritage level deeper, so these "new" fields should be inserted before the previous ones 
-            }
-
-            //Handle base fields
-            // var fieldOffset = baseFields.Aggregate((ulong) (ilTypeDefinition.MetadataType == MetadataType.Class ? 0x10 : 0x0), (currentOffset, baseField) => HandleField(baseField.FieldType, currentOffset, baseField.Name, baseField, ref fields, typeMetaText));
 
             var lastFieldIdx = cppTypeDefinition.firstFieldIdx + cppTypeDefinition.field_count;
             for (var fieldIdx = cppTypeDefinition.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)

@@ -72,14 +72,11 @@ namespace LibCpp2IL.Metadata
                 if (LibCpp2IlMain.TheMetadata == null) return null;
                 var typeIdx = TypeIndex;
 
-                foreach (var assemblyDefinition in LibCpp2IlMain.TheMetadata.assemblyDefinitions)
-                {
-                    var lastIdx = assemblyDefinition.firstTypeIndex + assemblyDefinition.typeCount - 1;
-                    if (assemblyDefinition.firstTypeIndex <= typeIdx && typeIdx <= lastIdx)
-                        return assemblyDefinition;
-                }
-
-                return null;
+                return LibCpp2IlMain.TheMetadata.assemblyDefinitions
+                    .Select(assemblyDefinition => new {assemblyDefinition, lastIdx = assemblyDefinition.firstTypeIndex + assemblyDefinition.typeCount - 1})
+                    .Where(t => t.assemblyDefinition.firstTypeIndex <= typeIdx && typeIdx <= t.lastIdx)
+                    .Select(t => t.assemblyDefinition)
+                    .FirstOrDefault();
             }
         }
 

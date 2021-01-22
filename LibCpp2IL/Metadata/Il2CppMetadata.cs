@@ -257,25 +257,22 @@ namespace LibCpp2IL.Metadata
             return ReadStringToNull(metadataHeader.stringOffset + index);
         }
 
-        public int GetCustomAttributeIndex(Il2CppAssemblyDefinition assemblyDef, int customAttributeIndex, uint token)
+        private Dictionary<Il2CppAssemblyDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new Dictionary<Il2CppAssemblyDefinition, Il2CppCustomAttributeTypeRange[]>();
+        public Il2CppCustomAttributeTypeRange? GetCustomAttributeIndex(Il2CppAssemblyDefinition assemblyDef, int customAttributeIndex, uint token)
         {
-            if (LibCpp2IlMain.MetadataVersion > 24)
+            if (LibCpp2IlMain.MetadataVersion <= 24f) 
+                return attributeTypeRanges[customAttributeIndex];
+            
+            if (!_typeRangesByAssembly.ContainsKey(assemblyDef))
+                _typeRangesByAssembly[assemblyDef] = attributeTypeRanges.SubArray(assemblyDef.customAttributeStart, (int) assemblyDef.customAttributeCount);
+                
+            foreach (var r in _typeRangesByAssembly[assemblyDef])
             {
-                var end = assemblyDef.customAttributeStart + assemblyDef.customAttributeCount;
-                for (int i = assemblyDef.customAttributeStart; i < end; i++)
-                {
-                    if (attributeTypeRanges[i].token == token)
-                    {
-                        return i;
-                    }
-                }
+                if (r.token == token) return r;
+            }
 
-                return -1;
-            }
-            else
-            {
-                return customAttributeIndex;
-            }
+            return null;
+
         }
 
         public string GetStringLiteralFromIndex(uint index)

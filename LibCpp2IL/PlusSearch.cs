@@ -149,7 +149,7 @@ namespace LibCpp2IL
         }
 
         // Find all valid virtual address pointers to a set of virtual addresses
-        private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(a => FindAllMappedWords(a));
+        private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(FindAllMappedWords);
 
         internal ulong FindCodeRegistrationUsingMscorlib()
         {

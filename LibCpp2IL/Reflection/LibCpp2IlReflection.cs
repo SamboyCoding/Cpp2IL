@@ -6,17 +6,41 @@ namespace LibCpp2IL
 {
     public static class LibCpp2IlReflection
     {
+        private static Dictionary<(string, string?), Il2CppTypeDefinition> _cachedTypes = new Dictionary<(string, string?), Il2CppTypeDefinition>();
+        private static Dictionary<string, Il2CppTypeDefinition> _cachedTypesByFullName = new Dictionary<string, Il2CppTypeDefinition>();
+        private static Dictionary<Il2CppTypeDefinition, int> _typeIndexes = new Dictionary<Il2CppTypeDefinition, int>();
         public static Il2CppTypeDefinition? GetType(string name, string? @namespace = null)
         {
             if (LibCpp2IlMain.TheMetadata == null) return null;
 
-            var typeDef = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(td =>
-                td.Name == name &&
-                (@namespace == null || @namespace == td.Namespace)
-            );
+            var key = (name, @namespace);
+            if (!_cachedTypes.ContainsKey(key))
+            {
+                var typeDef = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(td =>
+                    td.Name == name &&
+                    (@namespace == null || @namespace == td.Namespace)
+                );
+                _cachedTypes[key] = typeDef;
+            }
 
-            return typeDef;
+            return _cachedTypes[key];
         }
+        
+        public static Il2CppTypeDefinition? GetTypeByFullName(string fullName)
+        {
+            if (LibCpp2IlMain.TheMetadata == null) return null;
+
+            if (!_cachedTypesByFullName.ContainsKey(fullName))
+            {
+                var typeDef = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(td =>
+                    td.FullName == fullName
+                );
+                _cachedTypesByFullName[fullName] = typeDef;
+            }
+
+            return _cachedTypesByFullName[fullName];
+        }
+        
 
         public static Il2CppTypeDefinition? GetTypeDefinitionByTypeIndex(int index)
         {
@@ -33,12 +57,21 @@ namespace LibCpp2IL
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            for (var i = 0; i < LibCpp2IlMain.TheMetadata.typeDefs.Length; i++)
+            lock (_typeIndexes)
             {
-                if (LibCpp2IlMain.TheMetadata.typeDefs[i] == typeDefinition) return i;
-            }
+                if (!_typeIndexes.ContainsKey(typeDefinition))
+                {
+                    for (var i = 0; i < LibCpp2IlMain.TheMetadata.typeDefs.Length; i++)
+                    {
+                        if (LibCpp2IlMain.TheMetadata.typeDefs[i] == typeDefinition)
+                        {
+                            _typeIndexes[typeDefinition] = i;
+                        }
+                    }
+                }
 
-            return -1;
+                return _typeIndexes.GetValueOrDefault(typeDefinition, -1);
+            }
         }
         
         public static int GetMethodIndexFromMethod(Il2CppMethodDefinition methodDefinition)
