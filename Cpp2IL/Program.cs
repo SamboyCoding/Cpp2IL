@@ -52,7 +52,7 @@ namespace Cpp2IL
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         internal static Options? CommandLineOptions;
 
-        public static void Main(string[] args)
+        public static int Main(string[] args)
         {
             Console.WriteLine("===Cpp2IL by Samboy063===");
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
@@ -66,7 +66,7 @@ namespace Cpp2IL
             if (CommandLineOptions == null)
             {
                 Console.WriteLine("Invalid command line. Exiting.");
-                return;
+                return 1;
             }
 
             var baseGamePath = CommandLineOptions.GamePath;
@@ -76,7 +76,7 @@ namespace Cpp2IL
             if (!Directory.Exists(baseGamePath))
             {
                 Console.WriteLine("Specified game-path does not exist: " + baseGamePath);
-                return;
+                return 2;
             }
 
             var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
@@ -102,7 +102,8 @@ namespace Cpp2IL
                                   $"\t{assemblyPath}\n" +
                                   $"\t{unityPlayerPath}\n" +
                                   $"\t{metadataPath}\n");
-                return;
+                
+                return 2;
             }
 
             #endregion
@@ -145,7 +146,7 @@ namespace Cpp2IL
             if (unityVerUseful[0] <= 4)
             {
                 Console.WriteLine("Unable to determine a valid unity version. Aborting.");
-                return;
+                return 1;
             }
 
             #endregion
@@ -155,7 +156,7 @@ namespace Cpp2IL
             if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVerUseful))
             {
                 Console.WriteLine("Initialization with LibCpp2IL failed.");
-                return;
+                return 1;
             }
             
             Console.WriteLine(LibCpp2IlReflection.GetType("String", "System").DeclaringAssembly.Name);
@@ -468,8 +469,10 @@ namespace Cpp2IL
 
             // Console.WriteLine("[Finished. Press enter to exit]");
             // Console.ReadLine();
+            
+            return 0;
         }
-        
+
 #if DUMP_PACKAGE_SUCCESS_DATA
         private static string GetPackageName(string fullName)
         {
