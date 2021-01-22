@@ -194,6 +194,9 @@ namespace Cpp2IL
 
             //Set this flag from command line options
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = !CommandLineOptions.DisableRegistrationPrompts;
+            
+            //Disable Method Ptr Mapping and Global Resolving if skipping analysis
+            LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = CommandLineOptions.SkipAnalysis;
 
             //Disable Method Ptr Mapping and Global Resolving if skipping analysis
             LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = CommandLineOptions.SkipAnalysis;
@@ -312,8 +315,6 @@ namespace Cpp2IL
                 Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.MethodRefs.Count} method globals");
                 Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.FieldRefs.Count} field globals");
                 Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.Literals.Count} string literals");
-
-                //TODO: Don't do this. Rework everything to use the API surface.
 
                 Console.WriteLine("\tPass 6: Looking for key functions...");
 
