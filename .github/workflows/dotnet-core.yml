@@ -38,17 +38,17 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Win
-        path: ./Cpp2IL/bin/Release/netcoreapp3.1/win-x64/publish/Cpp2IL.exe
+        path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
     - name: Upload Ubuntu x64 Artifact
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Linux
-        path: ./Cpp2IL/bin/Release/netcoreapp3.1/ubuntu-x64/publish/Cpp2IL
+        path: ./Cpp2IL/bin/Release/net5.0/ubuntu-x64/publish/Cpp2IL
     - name: Upload OSX x64 Artifact
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Mac
-        path: ./Cpp2IL/bin/Release/netcoreapp3.1/osx-x64/publish/Cpp2IL
+        path: ./Cpp2IL/bin/Release/net5.0/osx-x64/publish/Cpp2IL
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
@@ -66,7 +66,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./Cpp2IL/bin/Release/netcoreapp3.1/win-x64/publish/Cpp2IL.exe
+        asset_path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
         asset_name: Cpp2IL-Win.exe
         asset_content_type: application/octet-stream
     - name: Release Linux Build
@@ -76,7 +76,7 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./Cpp2IL/bin/Release/netcoreapp3.1/ubuntu-x64/publish/Cpp2IL
+        asset_path: ./Cpp2IL/bin/Release/net5.0/ubuntu-x64/publish/Cpp2IL
         asset_name: Cpp2IL-Linux
         asset_content_type: application/octet-stream
     - name: Release OSX Build
@@ -86,6 +86,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./Cpp2IL/bin/Release/netcoreapp3.1/osx-x64/publish/Cpp2IL
+        asset_path: ./Cpp2IL/bin/Release/net5.0/osx-x64/publish/Cpp2IL
         asset_name: Cpp2IL-OSX
         asset_content_type: application/octet-stream
