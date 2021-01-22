@@ -282,12 +282,8 @@ namespace Cpp2IL
                 var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
                 var fieldTypeRef = Utils.ImportTypeInto(ilTypeDefinition, fieldType, cppAssembly, metadata);
 
-                var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
-                fieldOffsetAttributeInst.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fieldOffset:X}")));
-                
                 var fieldDefinition = new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
-                fieldDefinition.CustomAttributes.Add(fieldOffsetAttributeInst);
-                
+
                 ilTypeDefinition.Fields.Add(fieldDefinition);
 
                 //Field default values
@@ -301,17 +297,24 @@ namespace Cpp2IL
                     }
                 }
 
+                if (!fieldDefinition.IsStatic)
+                {
+                    fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
+                    
+                    //Add [FieldOffset(Offset = "0xDEADBEEF")]
+                    var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
+                    fieldOffsetAttributeInst.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fields.Last().Offset:X}")));
+                    fieldDefinition.CustomAttributes.Add(fieldOffsetAttributeInst);
+                }
+
                 customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{fieldDef.token:X}")));
                 fieldDefinition.CustomAttributes.Add(customTokenAttribute);
 
-                if (!fieldDefinition.IsStatic)
-                    fieldOffset = HandleField(fieldTypeRef, fieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
-
-                var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(metadataOffsetAttribute));
-                var offset = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fieldOffset:X}"));
-                customAttribute.Fields.Add(offset);
-                fieldDefinition.CustomAttributes.Add(customAttribute);
+                // var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(metadataOffsetAttribute));
+                // var offset = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fieldOffset:X}"));
+                // customAttribute.Fields.Add(offset);
+                // fieldDefinition.CustomAttributes.Add(customAttribute);
             }
 
             fields.Sort(); //By offset
@@ -566,11 +569,12 @@ namespace Cpp2IL
         {
             var length = Utils.GetSizeOfObject(fieldTypeRef);
 
-            if (Math.Floor(fieldOffset / (decimal) 8) != Math.Floor((fieldOffset + length - 1) / (decimal) 8))
+            var boundarySize = LibCpp2IlMain.ThePe!.is32Bit ? (decimal) 4 : 8;
+            var fieldEnd = fieldOffset + length - 1;
+            if (Math.Floor(fieldOffset / boundarySize) != Math.Floor(fieldEnd / boundarySize))
             {
-                //Would cross an alignment boundary, so move to the next multiple of 8
-                //TODO: 32-bit is boundaries of four and default length should be the same
-                fieldOffset = (ulong) ((Math.Floor(fieldOffset / (decimal) 8) + 1) * 8);
+                //Would cross an alignment boundary, so move to the next alignment.
+                fieldOffset = (ulong) ((Math.Floor(fieldOffset / boundarySize) + 1) * boundarySize);
             }
 
             //ONE correction. String#start_char is remapped to a char[] not a char because the block allocated for all chars is directly sequential to the length of the string, because that's how c++ works.
