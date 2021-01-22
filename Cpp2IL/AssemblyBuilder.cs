@@ -282,7 +282,12 @@ namespace Cpp2IL
                 var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
                 var fieldTypeRef = Utils.ImportTypeInto(ilTypeDefinition, fieldType, cppAssembly, metadata);
 
+                var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
+                fieldOffsetAttributeInst.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fieldOffset:X}")));
+                
                 var fieldDefinition = new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
+                fieldDefinition.CustomAttributes.Add(fieldOffsetAttributeInst);
+                
                 ilTypeDefinition.Fields.Add(fieldDefinition);
 
                 //Field default values
