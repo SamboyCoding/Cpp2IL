@@ -172,7 +172,7 @@ namespace LibCpp2IL
                     && i.OpCount == 2
                     && i.Op0Kind == OpKind.Register
                     && i.Op1Kind == OpKind.Memory
-                    && i.Op0Register == Register.RCX).ToList();
+                    /*&& i.Op0Register == Register.RCX*/).ToList();
 
                 var sanity = 0;
                 while (sanity++ < 500)

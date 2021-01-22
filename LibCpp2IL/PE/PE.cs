@@ -340,10 +340,7 @@ namespace LibCpp2IL.PE
             plusSearch.SetSearch(imageBase, dataSections);
             plusSearch.SetDataSections(imageBase, dataSections);
             plusSearch.SetExecSections(imageBase, execSections);
-            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
-                codeRegistration = plusSearch.FindCodeRegistrationUsingMscorlib();
-            else
-                codeRegistration = is32Bit ? plusSearch.FindCodeRegistration() : plusSearch.FindCodeRegistration64Bit();
+            
             if (is32Bit)
             {
                 Console.WriteLine("\t(32-bit PE)");
@@ -356,6 +353,11 @@ namespace LibCpp2IL.PE
                 plusSearch.SetExecSections(imageBase, dataSections);
                 metadataRegistration = plusSearch.FindMetadataRegistration64Bit();
             }
+            
+            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                codeRegistration = plusSearch.FindCodeRegistrationUsingMscorlib();
+            else
+                codeRegistration = is32Bit ? plusSearch.FindCodeRegistration() : plusSearch.FindCodeRegistration64Bit();
 
 #if ALLOW_CODEREG_FALLBACK
             if (codeRegistration == 0 || metadataRegistration == 0)
