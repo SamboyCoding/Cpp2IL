@@ -22,13 +22,13 @@ jobs:
       working-directory: ./LibCpp2IL/
     - name: Build - Windows x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish --configuration Release --no-restore -r win-x64 /p:PublishSingleFile=true
+      run: dotnet publish --configuration Release --no-restore -r win-x64 /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
     - name: Build - Ubuntu x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish --configuration Release --no-restore -r ubuntu-x64 /p:PublishSingleFile=true
+      run: dotnet publish --configuration Release --no-restore -r ubuntu-x64 /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
     - name: Build - OSX x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish --configuration Release --no-restore -r osx-x64 /p:PublishSingleFile=true
+      run: dotnet publish --configuration Release --no-restore -r osx-x64 /p:PublishSingleFile=true /p:IncludeNativeLibrariesInSingleFile=true
     - name: Upload Common Lib Files
       uses: actions/upload-artifact@v2
       with:
