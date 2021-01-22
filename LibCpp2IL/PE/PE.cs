@@ -329,7 +329,7 @@ namespace LibCpp2IL.PE
                 }
             }
 
-            ulong codeRegistration;
+            ulong codeRegistration = 0;
             ulong metadataRegistration;
 
             Console.WriteLine("Attempting to locate code and metadata registration functions...");
@@ -353,11 +353,24 @@ namespace LibCpp2IL.PE
                 plusSearch.SetExecSections(imageBase, dataSections);
                 metadataRegistration = plusSearch.FindMetadataRegistration64Bit();
             }
-            
-            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
-                codeRegistration = plusSearch.FindCodeRegistrationUsingMscorlib();
-            else
-                codeRegistration = is32Bit ? plusSearch.FindCodeRegistration() : plusSearch.FindCodeRegistration64Bit();
+
+            if (is32Bit && metadataRegistration != 0)
+            {
+                codeRegistration = plusSearch.TryFindCodeRegUsingMetaReg(metadataRegistration);
+            }
+
+            if (codeRegistration == 0)
+            {
+                if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                {
+                    Console.WriteLine("\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
+                    codeRegistration = plusSearch.FindCodeRegistrationUsingMscorlib();
+                }
+                else
+                    codeRegistration = is32Bit ? plusSearch.FindCodeRegistration() : plusSearch.FindCodeRegistration64Bit();
+            }
+
+
 
 #if ALLOW_CODEREG_FALLBACK
             if (codeRegistration == 0 || metadataRegistration == 0)

@@ -151,6 +151,25 @@ namespace LibCpp2IL
         // Find all valid virtual address pointers to a set of virtual addresses
         private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(FindAllMappedWords);
 
+        public ulong TryFindCodeRegUsingMetaReg(ulong metadataRegistration)
+        {
+            var textSection = _pe.sections.First(s => s.Name == ".text");
+            var toDisasm = _pe.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
+            var allInstructions = LibCpp2ILUtils.DisassembleBytesNew(_pe.is32Bit, toDisasm, textSection.VirtualAddress + _pe.imageBase);
+
+            var pushMetaReg = allInstructions.FirstOrDefault(i => i.Mnemonic == Mnemonic.Push && i.Op0Kind.IsImmediate() && i.GetImmediate(0) == metadataRegistration);
+            if (pushMetaReg.Mnemonic == Mnemonic.Push) //Check non-default.
+            {
+                var idx = allInstructions.IndexOf(pushMetaReg);
+                //Code reg has to be pushed after meta reg, cause that's how functions are called on 32-bit stdcall.
+                var hopefullyPushCodeReg = allInstructions[idx + 1];
+                if (hopefullyPushCodeReg.Mnemonic == Mnemonic.Push && hopefullyPushCodeReg.Op0Kind.IsImmediate())
+                    return hopefullyPushCodeReg.GetImmediate(0);
+            }
+
+            return 0;
+        }
+        
         internal ulong FindCodeRegistrationUsingMscorlib()
         {
             //Works only on >=24.2
@@ -197,7 +216,7 @@ namespace LibCpp2IL
                     if (sanity++ > 500) break;
 
                     endOfCodeGenRegAddr = endOfCodeGenRegAddr.Select(va => va - 4);
-                    codeRegVas = FindAllMappedWords(endOfCodeGenRegAddr);
+                    codeRegVas = FindAllMappedWords(endOfCodeGenRegAddr).AsParallel().ToList();
                 }
 
                 if (endOfCodeGenRegAddr.Count() != 1)
@@ -206,7 +225,7 @@ namespace LibCpp2IL
                 return endOfCodeGenRegAddr.First();
             }
         }
-
+        
         private ulong FindCodeRegistration64BitPost2019()
         {
             //NOTE: With 64-bit ELF binaries we should iterate on exec, on everything else data.
