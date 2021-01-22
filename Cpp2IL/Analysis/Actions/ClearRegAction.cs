@@ -6,13 +6,14 @@ namespace Cpp2IL.Analysis.Actions
     public class ClearRegAction : BaseAction
     {
         private string regCleared;
-        
+        private LocalDefinition _localMade;
+
         public ClearRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             regCleared = Utils.GetRegisterNameNew(instruction.Op0Register);
             // context.ZeroRegister(regCleared);
             //We make this a local and clean up unused ones in post-processing
-            context.MakeLocal(Utils.Int32Reference, reg: regCleared);
+            _localMade = context.MakeLocal(Utils.Int32Reference, reg: regCleared);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -22,12 +23,17 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string? ToPsuedoCode()
         {
-            throw new System.NotImplementedException();
+            return $"ulong {_localMade.Name} = 0";
         }
 
         public override string ToTextSummary()
         {
             return $"Clears register {regCleared}";
+        }
+
+        public override bool IsImportant()
+        {
+            return true;
         }
     }
 }
