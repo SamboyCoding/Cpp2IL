@@ -39,6 +39,9 @@ namespace Cpp2IL
 
             [Option("skip-metadata-txts", Required = false, HelpText = "Skip the generation of [classname]_metadata.txt files.")]
             public bool SkipMetadataTextFiles { get; set; }
+            
+            [Option("disable-registration-prompts", Required = false, HelpText = "Disable the prompt if Code or Metadata Registration function addresses cannot be located.")]
+            public bool DisableRegistrationPrompts { get; set; }
         }
 
         private static readonly string[] BlacklistedExecutableFilenames =
@@ -151,7 +154,7 @@ namespace Cpp2IL
 
             #endregion
 
-            LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = true;
+            LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = !CommandLineOptions.DisableRegistrationPrompts;
 
             if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVerUseful))
             {
