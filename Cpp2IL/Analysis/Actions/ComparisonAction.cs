@@ -30,7 +30,7 @@ namespace Cpp2IL.Analysis.Actions
                     {
                         if (local.Type?.IsArray == true)
                         {
-                            var nameOfField = Il2CppArrayUsefulOffsets.GetOffsetName(instruction.MemoryDisplacement);
+                            var nameOfField = Il2CppArrayUtils.GetOffsetName(instruction.MemoryDisplacement);
                             ArgumentOne = context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
                         }
                         else
@@ -76,7 +76,7 @@ namespace Cpp2IL.Analysis.Actions
                     {
                         if (local.Type?.IsArray == true)
                         {
-                            var nameOfField = Il2CppArrayUsefulOffsets.GetOffsetName(instruction.MemoryDisplacement);
+                            var nameOfField = Il2CppArrayUtils.GetOffsetName(instruction.MemoryDisplacement);
                             ArgumentTwo = context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
                         }
                         else

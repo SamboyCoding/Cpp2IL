@@ -15,8 +15,8 @@ namespace Cpp2IL.Analysis.Actions
             if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
             {
                 isIfStatement = true;
-                if(!context.IdentifiedIfStatementStarts.Contains(jumpTarget))
-                    context.IdentifiedIfStatementStarts.Add(jumpTarget);
+                if(!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
+                    context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
             }
         }
 

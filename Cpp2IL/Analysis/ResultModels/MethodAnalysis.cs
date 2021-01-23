@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.Actions;
+using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
 
@@ -12,27 +13,33 @@ namespace Cpp2IL.Analysis.ResultModels
         public readonly List<LocalDefinition> Locals = new List<LocalDefinition>();
         public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
         public readonly List<BaseAction> Actions = new List<BaseAction>();
-        public readonly List<ulong> IdentifiedIfStatementStarts = new List<ulong>();
+        public readonly List<ulong> IdentifiedJumpDestinationAddresses = new List<ulong>();
         public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
 
         private ConstantDefinition EmptyRegConstant;
 
         internal ulong MethodStart;
         internal ulong AbsoluteMethodEnd;
+        private readonly InstructionList _allInstructions;
 
         private MethodDefinition _method;
 
-        public readonly List<LocalDefinition> FunctionArgumentLocals = new List<LocalDefinition>();
-        
-        private readonly Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
-        public readonly Dictionary<int, LocalDefinition> StackStoredLocals = new Dictionary<int, LocalDefinition>();
-        public readonly Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
+        private readonly List<IfElseData> IfElseBlockData = new List<IfElseData>();
 
-        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd)
+        public int IndentLevel;
+
+        //This data is essentially our transient state - it must be stashed and unstashed when we jump into ifs etc.
+        public List<LocalDefinition> FunctionArgumentLocals = new List<LocalDefinition>();
+        private Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
+        public Dictionary<int, LocalDefinition> StackStoredLocals = new Dictionary<int, LocalDefinition>();
+        public Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
+
+        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions)
         {
             _method = method;
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
+            _allInstructions = allInstructions;
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
 
             var args = method.Parameters.ToList();
@@ -125,7 +132,7 @@ namespace Cpp2IL.Analysis.ResultModels
                 Stack.Push(EmptyRegConstant);
         }
 
-        public void PopStackFramesAndDiscord(int count)
+        public void PopStackFramesAndDiscard(int count)
         {
             for (var i = 0; i < count; i++)
                 Stack.TryPop(out _);
@@ -172,6 +179,94 @@ namespace Cpp2IL.Analysis.ResultModels
         public bool IsEmptyRegArg(IAnalysedOperand analysedOperand)
         {
             return analysedOperand == EmptyRegConstant;
+        }
+
+        public bool IsJumpDestinationInThisFunction(ulong jumpTarget)
+        {
+            return jumpTarget >= MethodStart && jumpTarget <= AbsoluteMethodEnd;
+        }
+
+        public bool IsThereProbablyAnElseAt(ulong conditionalJumpTarget)
+        {
+            if (!IsJumpDestinationInThisFunction(conditionalJumpTarget)) return false;
+            
+            var instructionBeforeJump = _allInstructions.FirstOrDefault(i => i.NextIP == conditionalJumpTarget);
+
+            if (instructionBeforeJump == default) return false;
+            
+            if (instructionBeforeJump.Mnemonic == Mnemonic.Jmp)
+            {
+                //Basically, if we're condition jumping to an instruction, and the instruction immediately prior to our jump destination is an
+                //unconditional jump, then that first conditional jump is an if, and the unconditional jump is the end of that if statement, and this destination
+                //is the start of an else.
+                var unconditionalJumpTarget = instructionBeforeJump.NearBranchTarget;
+                if (IsJumpDestinationInThisFunction(unconditionalJumpTarget) && unconditionalJumpTarget > conditionalJumpTarget)
+                    return true;
+            }
+
+            return false;
+        }
+
+        private ulong GetEndOfElseBlock(ulong ipOfFirstInstructionInElse)
+        {
+            var endOfIf = _allInstructions.FirstOrDefault(i => i.NextIP == ipOfFirstInstructionInElse);
+
+            if (endOfIf == default) return 0;
+            
+            if (endOfIf.Mnemonic == Mnemonic.Jmp)
+            {
+                //Basically, if we're condition jumping to an instruction, and the instruction immediately prior to our jump destination is an
+                //unconditional jump, then that first conditional jump is an if, and the unconditional jump is the end of that if statement, and this destination
+                //is the start of an else.
+                var unconditionalJumpTarget = endOfIf.NearBranchTarget;
+                if (IsJumpDestinationInThisFunction(unconditionalJumpTarget) && unconditionalJumpTarget > ipOfFirstInstructionInElse)
+                    return unconditionalJumpTarget;
+            }
+
+            return 0;
+        }
+
+        public void RegisterIfElseStatement(ulong startOfIf, ulong startOfElse, BaseAction conditionalJump)
+        {
+            IfElseBlockData.Add(new IfElseData
+            {
+                Stack = Stack.Clone(),
+                ConditionalJumpStatement = conditionalJump,
+                ElseStatementStart = startOfElse,
+                ElseStatementEnd = GetEndOfElseBlock(startOfElse),
+                FunctionArgumentLocals = FunctionArgumentLocals.Clone(),
+                IfStatementStart = startOfIf,
+                StackStoredLocals = StackStoredLocals.Clone(),
+                RegisterData = RegisterData.Clone()
+            });
+        }
+
+        public ulong GetAddressOfElseThisIsTheEndOf(ulong jumpDest)
+        {
+            var ifElseData = IfElseBlockData.Find(i => i.ElseStatementEnd == jumpDest);
+
+            return ifElseData != null ? ifElseData.ElseStatementStart : 0UL;
+        }
+
+        public ulong GetAddressOfAssociatedIfForThisElse(ulong elseStartAddr)
+        {
+            var ifElseData = IfElseBlockData.Find(i => i.ElseStatementStart == elseStartAddr);
+            if (ifElseData == null)
+                return 0UL;
+
+            return ifElseData.ConditionalJumpStatement.AssociatedInstruction.IP;
+        }
+
+        public void PopStashedIfDataForElseAt(ulong elseStartAddr)
+        {
+            var ifElseData = IfElseBlockData.Find(i => i.ElseStatementStart == elseStartAddr);
+            if (ifElseData == null)
+                return;
+
+            Stack = ifElseData.Stack;
+            FunctionArgumentLocals = ifElseData.FunctionArgumentLocals;
+            StackStoredLocals = ifElseData.StackStoredLocals;
+            RegisterData = ifElseData.RegisterData;
         }
     }
 }

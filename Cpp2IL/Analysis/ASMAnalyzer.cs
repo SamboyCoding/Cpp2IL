@@ -267,7 +267,7 @@ namespace Cpp2IL.Analysis
 #endif
 
 #if USE_NEW_ANALYSIS_METHOD
-            _analysis = new MethodAnalysis(_methodDefinition, _methodStart, _methodEnd);
+            _analysis = new MethodAnalysis(_methodDefinition, _methodStart, _methodEnd, _instructions);
 #endif
 
 #if !USE_NEW_ANALYSIS_METHOD
@@ -414,17 +414,38 @@ namespace Cpp2IL.Analysis
             }
 
 #if USE_NEW_ANALYSIS_METHOD
-            _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", _analysis.IdentifiedIfStatementStarts.Select(s => $"\t\t\t0x{s:X}"))).Append('\n');
+            _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", _analysis.IdentifiedJumpDestinationAddresses.Select(s => $"\t\t\t0x{s:X}"))).Append('\n');
             var lastIfAddress = 0UL;
             foreach (var action in _analysis.Actions)
             {
-                if (_analysis.IdentifiedIfStatementStarts.FirstOrDefault(s => s <= action.AssociatedInstruction.IP && s > lastIfAddress) is { } ifAddress && ifAddress != 0)
+                if (_analysis.IdentifiedJumpDestinationAddresses.FirstOrDefault(s => s <= action.AssociatedInstruction.IP && s > lastIfAddress) is { } jumpDestinationAddress && jumpDestinationAddress != 0)
                 {
-                    _methodFunctionality.Append("\n\t\tJump Destination (0x")
-                        .Append(ifAddress.ToString("x8").ToUpperInvariant())
-                        .Append("):\n");
+                    var ifStart = _analysis.GetAddressOfAssociatedIfForThisElse(jumpDestinationAddress);
+                    var elseStart = _analysis.GetAddressOfElseThisIsTheEndOf(jumpDestinationAddress);
+                    if (ifStart != 0UL)
+                    {
+                        _methodFunctionality.Append("\n\t\tElse Block (starting at 0x")
+                            .Append(jumpDestinationAddress.ToString("x8").ToUpperInvariant())
+                            .Append(") for Comparison at 0x")
+                            .Append(ifStart.ToString("x8").ToUpperInvariant())
+                            .Append('\n');
+                    }
+                    else if (elseStart != 0UL)
+                    {
+                        _methodFunctionality.Append("\n\t\tEnd Of If-Else Block (at 0x")
+                            .Append(jumpDestinationAddress.ToString("x8").ToUpperInvariant())
+                            .Append(") where the else started at 0x")
+                            .Append(elseStart.ToString("x8").ToUpperInvariant())
+                            .Append('\n');
+                    }
+                    else
+                    {
+                        _methodFunctionality.Append("\n\t\tJump Destination (0x")
+                            .Append(jumpDestinationAddress.ToString("x8").ToUpperInvariant())
+                            .Append("):\n");
+                    }
 
-                    lastIfAddress = ifAddress;
+                    lastIfAddress = jumpDestinationAddress;
                 }
 
                 if (_analysis.ProbableLoopStarts.FirstOrDefault(s => s <= action.AssociatedInstruction.IP && s > lastIfAddress) is { } loopAddress && loopAddress != 0)
@@ -436,11 +457,16 @@ namespace Cpp2IL.Analysis
                     lastIfAddress = loopAddress;
                 }
 
-                _methodFunctionality.Append("\t\t0x")
-                    .Append(action.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant())
-                    .Append(": ")
-                    .Append(action.GetSynopsisEntry())
-                    .Append('\n');
+                var synopsisEntry = action.GetSynopsisEntry();
+
+                if (!string.IsNullOrWhiteSpace(synopsisEntry))
+                {
+                    _methodFunctionality.Append("\t\t0x")
+                        .Append(action.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant())
+                        .Append(": ")
+                        .Append(action.GetSynopsisEntry())
+                        .Append('\n');
+                }
             }
             // _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.GetSynopsisEntry()}")));
 #endif
@@ -458,7 +484,7 @@ namespace Cpp2IL.Analysis
             
             _analysis.Actions
                 .Where(action => action.IsImportant()) //Action requires pseudocode generation
-                .Select(action => action.ToPsuedoCode()) //Generate it 
+                .Select(action => "    ".Repeat(action.IndentLevel) + action.ToPsuedoCode()) //Generate it 
                 .Where(code => !string.IsNullOrWhiteSpace(code)) //Check it's valid
                 .ToList()
                 .ForEach(code => typeDump.Append("\t\t").Append(code).Append('\n')); //Append
@@ -825,6 +851,22 @@ namespace Cpp2IL.Analysis
 
         private void PerformInstructionChecks(Iced.Intel.Instruction instruction)
         {
+            var associatedIf = _analysis.GetAddressOfAssociatedIfForThisElse(instruction.IP);
+            var associatedElse = _analysis.GetAddressOfElseThisIsTheEndOf(instruction.IP);
+
+            if (associatedIf != 0)
+            {
+                //We've just started an else block - pop the state from when we started the if.
+                _analysis.PopStashedIfDataForElseAt(instruction.IP);
+
+                _analysis.IndentLevel -= 1; //For the else statement
+                _analysis.Actions.Add(new ElseMarkerAction(_analysis, instruction));
+            } else if (associatedElse != 0)
+            {
+                _analysis.IndentLevel -= 1; //For the end if statement
+                _analysis.Actions.Add(new EndIfMarkerAction(_analysis, instruction));
+            }
+            
             var operandCount = instruction.OpCount;
 
             switch (operandCount)

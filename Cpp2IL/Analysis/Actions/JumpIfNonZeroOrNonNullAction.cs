@@ -12,6 +12,7 @@ namespace Cpp2IL.Analysis.Actions
         private bool booleanMode;
         private ulong jumpTarget;
         private bool isIfStatement;
+        private bool isIfElse;
         
         public JumpIfNonZeroOrNonNullAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -20,8 +21,8 @@ namespace Cpp2IL.Analysis.Actions
             if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
             {
                 isIfStatement = true;
-                if(!context.IdentifiedIfStatementStarts.Contains(jumpTarget))
-                    context.IdentifiedIfStatementStarts.Add(jumpTarget);
+                if(!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
+                    context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
             }
 
             associatedCompare = (ComparisonAction) context.Actions.LastOrDefault(a => a is ComparisonAction);
@@ -31,6 +32,13 @@ namespace Cpp2IL.Analysis.Actions
                 booleanMode = nullMode && associatedCompare.ArgumentOne is LocalDefinition local && local.Type?.FullName == "System.Boolean";
             }
 
+            if (context.IsThereProbablyAnElseAt(jumpTarget))
+            {
+                context.RegisterIfElseStatement(instruction.NextIP, jumpTarget, this);
+                isIfElse = true;
+                context.IndentLevel += 1;
+            }
+
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -38,9 +46,51 @@ namespace Cpp2IL.Analysis.Actions
             throw new System.NotImplementedException();
         }
 
+        private string GetArgumentOnePseudocodeValue()
+        {
+            if (associatedCompare?.ArgumentOne == null) return "";
+            
+            var operand = associatedCompare!.ArgumentOne;
+            if (operand is LocalDefinition localDefinition)
+                return localDefinition.Name;
+
+            var constant = (ConstantDefinition) operand;
+            var stringRep = constant.ToString();
+            if (stringRep.StartsWith("{"))
+                return constant.Name;
+
+            return stringRep;
+        }
+        
+        private string GetArgumentTwoPseudocodeValue()
+        {
+            if (associatedCompare?.ArgumentTwo == null) return "";
+            
+            var operand = associatedCompare!.ArgumentTwo;
+            if (operand is LocalDefinition localDefinition)
+                return localDefinition.Name;
+
+            var constant = (ConstantDefinition) operand;
+            var stringRep = constant.ToString();
+            if (stringRep.StartsWith("{"))
+                return constant.Name;
+
+            return stringRep;
+        }
+
         public override string? ToPsuedoCode()
         {
-            throw new System.NotImplementedException();
+            //We have to invert the condition, so in this case we want "is false", "is null", or "is equal"
+            if (booleanMode)
+                return $"if (!{GetArgumentOnePseudocodeValue()})";
+
+            if (nullMode)
+                return $"if ({GetArgumentOnePseudocodeValue()} == null)";
+
+            if (associatedCompare != null)
+                return $"if {GetArgumentOnePseudocodeValue()} == {GetArgumentTwoPseudocodeValue()})";
+
+            return "if (<missing compare>)";
         }
 
         public override string ToTextSummary()
@@ -49,9 +99,17 @@ namespace Cpp2IL.Analysis.Actions
                 return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {associatedCompare!.ArgumentOne} is true\n";
             
             if (nullMode)
-                return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if the compare showed it was non-null\n";
+                return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {associatedCompare!.ArgumentOne} is not null\n";
+            
+            if(associatedCompare != null)
+                return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {associatedCompare.ArgumentOne} != {associatedCompare.ArgumentTwo}\n";
             
             return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if the compare showed the two items were not equal\n";
+        }
+
+        public override bool IsImportant()
+        {
+            return isIfElse;
         }
     }
 }

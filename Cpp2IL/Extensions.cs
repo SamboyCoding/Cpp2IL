@@ -9,6 +9,27 @@ namespace Cpp2IL
 {
     public static class Extensions
     {
+        public static Stack<T> Clone<T>(this Stack<T> original)
+        {
+            var arr = new T[original.Count];
+            original.CopyTo(arr, 0);
+            Array.Reverse(arr);
+            return new Stack<T>(arr);
+        }
+        
+        public static List<T> Clone<T>(this List<T> original)
+        {
+            var arr = new T[original.Count];
+            original.CopyTo(arr, 0);
+            Array.Reverse(arr);
+            return new List<T>(arr);
+        }
+        
+        public static Dictionary<T1, T2> Clone<T1, T2>(this Dictionary<T1, T2> original)
+        {
+            return new Dictionary<T1, T2>(original);
+        }
+        
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {
             var result = new T[length];

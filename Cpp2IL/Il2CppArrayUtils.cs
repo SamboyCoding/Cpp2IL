@@ -2,10 +2,11 @@
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL;
+using Mono.Cecil;
 
 namespace Cpp2IL
 {
-    public static class Il2CppArrayUsefulOffsets
+    public static class Il2CppArrayUtils
     {
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {
@@ -21,6 +22,13 @@ namespace Cpp2IL
             var is32Bit = LibCpp2IlMain.ThePe!.is32Bit;
 
             return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
+        }
+
+        public static PropertyDefinition? GetLengthProperty()
+        {
+            var arrayType = Utils.TryLookupTypeDefKnownNotGeneric("System.Array");
+
+            return arrayType?.Properties.First(p => p.Name == nameof(Array.Length));
         }
         
         public class UsefulOffset

@@ -8,10 +8,12 @@ namespace Cpp2IL.Analysis.Actions
     {
         private StringBuilder _lineComments = new StringBuilder();
         public Instruction AssociatedInstruction;
+        public int IndentLevel;
         
         public BaseAction(MethodAnalysis context, Instruction instruction)
         {
             AssociatedInstruction = instruction;
+            IndentLevel = context.IndentLevel;
         }
 
         public abstract Mono.Cecil.Cil.Instruction[] ToILInstructions();
