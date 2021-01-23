@@ -281,6 +281,8 @@ namespace Cpp2IL
 
                 ilTypeDefinition.Fields.Add(fieldDefinition);
 
+                SharedState.UnmanagedToManagedFields[fieldDef] = fieldDefinition;
+
                 //Field default values
                 if (fieldDefinition.HasDefault)
                 {

@@ -14,6 +14,7 @@ using System.Threading;
 using CommandLine;
 using Cpp2IL.Analysis;
 using LibCpp2IL;
+using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using Mono.Cecil;
 using SharpDisasm;
@@ -218,49 +219,46 @@ namespace Cpp2IL
             }
 
             //Invert dict for CppToMono
-            SharedState.CppToMonoTypeDefs = SharedState.MonoToCppTypeDefs.ToDictionary(i => i.Value, i => i.Key);
+            SharedState.UnmanagedToManagedTypes = SharedState.MonoToCppTypeDefs.ToDictionary(i => i.Value, i => i.Key);
 
-            Console.WriteLine("\tPass 4: Handling SerializeFields...");
-            //Add serializefield to monobehaviors
+            Console.WriteLine("\tPass 4: Applying type, method, and field attributes...");
 
-            #region SerializeFields
+            #region Attributes
 
             var unityEngineAssembly = Assemblies.Find(x => x.MainModule.Types.Any(t => t.Namespace == "UnityEngine" && t.Name == "SerializeField"));
             if (unityEngineAssembly != null)
             {
-                var serializeFieldMethod = unityEngineAssembly.MainModule.Types.First(x => x.Name == "SerializeField").Methods.First();
                 foreach (var imageDef in LibCpp2IlMain.TheMetadata.assemblyDefinitions)
                 {
+                    //Cache these per-module.
+                    var attributeCtorsByClassIndex = new Dictionary<long, MethodReference>();
+                    
                     var lastTypeIndex = imageDef.firstTypeIndex + imageDef.typeCount;
                     for (var typeIndex = imageDef.firstTypeIndex; typeIndex < lastTypeIndex; typeIndex++)
                     {
                         var typeDef = LibCpp2IlMain.TheMetadata.typeDefs[typeIndex];
-                        var typeDefinition = SharedState.TypeDefsByIndex[typeIndex];
+                        var typeDefinition = SharedState.UnmanagedToManagedTypes[typeDef!];
 
-                        //Fields
-                        var lastFieldIdx = typeDef.firstFieldIdx + typeDef.field_count;
-                        for (var fieldIdx = typeDef.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
+                        //Apply custom attributes to types
+                        GetCustomAttributes(imageDef, typeDef.customAttributeIndex, typeDef.token, attributeCtorsByClassIndex, typeDefinition.Module)
+                            .ForEach(attribute => typeDefinition.CustomAttributes.Add(attribute));
+
+                        foreach (var fieldDef in typeDef.Fields!)
                         {
-                            var fieldDef = LibCpp2IlMain.TheMetadata.fieldDefs[fieldIdx];
-                            var fieldName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(fieldDef.nameIndex);
-                            var fieldDefinition = typeDefinition.Fields.First(x => x.Name == fieldName);
+                            var fieldDefinition = SharedState.UnmanagedToManagedFields[fieldDef];
 
-                            //Get attributes and look for the serialize field attribute.
-                            var attributeTypeRange = LibCpp2IlMain.TheMetadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
+                            //Apply custom attributes to fields
+                            GetCustomAttributes(imageDef, fieldDef.customAttributeIndex, fieldDef.token, attributeCtorsByClassIndex, typeDefinition.Module)
+                                .ForEach(attribute => fieldDefinition.CustomAttributes.Add(attribute));
+                        }
+                        
+                        foreach (var methodDef in typeDef.Methods!)
+                        {
+                            var methodDefinition = SharedState.UnmanagedToManagedMethods[methodDef];
 
-                            if (attributeTypeRange == null) continue;
-
-                            for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
-                            {
-                                var attributeTypeIndex = LibCpp2IlMain.TheMetadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
-                                var attributeType = LibCpp2IlMain.ThePe.types[attributeTypeIndex];
-                                if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS) continue;
-                                var cppAttribType = LibCpp2IlMain.TheMetadata.typeDefs[attributeType.data.classIndex];
-                                var attributeName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(cppAttribType.nameIndex);
-                                if (attributeName != "SerializeField") continue;
-                                var customAttribute = new CustomAttribute(typeDefinition.Module.ImportReference(serializeFieldMethod));
-                                fieldDefinition.CustomAttributes.Add(customAttribute);
-                            }
+                            //Apply custom attributes to methods
+                            GetCustomAttributes(imageDef, methodDef.customAttributeIndex, methodDef.token, attributeCtorsByClassIndex, typeDefinition.Module)
+                                .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
                         }
                     }
                 }
@@ -303,36 +301,78 @@ namespace Cpp2IL
 
             SaveHeaderDLLs(outputPath);
 
-            if (CommandLineOptions.SkipAnalysis) return 0; //Success
-
-            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
-
-            var methodTaintDict = DoAssemblyCSharpAnalysis(methodOutputDir, methods, keyFunctionAddresses!, out var total);
-
-            Console.WriteLine("Breakdown By Taint Reason:");
-            foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+            if (!CommandLineOptions.SkipAnalysis)
             {
-                var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
-                Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
+
+                GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+
+                var methodTaintDict = DoAssemblyCSharpAnalysis(methodOutputDir, methods, keyFunctionAddresses!, out var total);
+
+                Console.WriteLine("Breakdown By Taint Reason:");
+                foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                {
+                    var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
+                    Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
+                }
+
+                var summary = new StringBuilder();
+                foreach (var (methodName, taintReason) in methodTaintDict)
+                {
+                    summary.Append('\t')
+                        .Append(methodName)
+                        .Append(Utils.Repeat(" ", 250 - methodName.Length))
+                        .Append(taintReason)
+                        .Append(" (")
+                        .Append((int) taintReason)
+                        .Append(')')
+                        .Append('\n');
+                }
+
+                File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
+                Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
             }
 
-            var summary = new StringBuilder();
-            foreach (var (methodName, taintReason) in methodTaintDict)
-            {
-                summary.Append('\t')
-                    .Append(methodName)
-                    .Append(Utils.Repeat(" ", 250 - methodName.Length))
-                    .Append(taintReason)
-                    .Append(" (")
-                    .Append((int) taintReason)
-                    .Append(')')
-                    .Append('\n');
-            }
-            
-            File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
-            Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
-
+            Console.WriteLine("Done.");
             return 0;
+        }
+
+        private static List<CustomAttribute> GetCustomAttributes(Il2CppAssemblyDefinition imageDef, int attributeIndex, uint token, IDictionary<long, MethodReference> attributeCtorsByClassIndex, ModuleDefinition module)
+        {
+            var attributes = new List<CustomAttribute>();
+
+            //Get attributes and look for the serialize field attribute.
+            var attributeTypeRange = LibCpp2IlMain.TheMetadata!.GetCustomAttributeIndex(imageDef, attributeIndex, token);
+
+            if (attributeTypeRange == null) return attributes;
+
+            //At AttributeGeneratorAddress there'll be a series of function calls, each one essentially taking the attribute type and its constructor params.
+            //Float values are obtained using BitConverter.ToSingle(byte[], 0) with the 4 bytes making up the float.
+            //FUTURE: Do we want to try to get the values for these?
+
+            // var attributeGeneratorAddress = LibCpp2IlMain.ThePe!.customAttributeGenerators[Array.IndexOf(LibCpp2IlMain.TheMetadata.attributeTypeRanges, attributeTypeRange)];
+
+            for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
+            {
+                var attributeTypeIndex = LibCpp2IlMain.TheMetadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
+                var attributeType = LibCpp2IlMain.ThePe!.types[attributeTypeIndex];
+                if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS) continue;
+
+                if (!attributeCtorsByClassIndex.ContainsKey(attributeType.data.classIndex))
+                {
+                    var cppAttribType = LibCpp2IlMain.TheMetadata.typeDefs[attributeType.data.classIndex];
+
+                    // var attributeName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(cppAttribType.nameIndex);
+                    var cppMethodDefinition = cppAttribType.Methods!.First();
+                    var managedCtor = SharedState.UnmanagedToManagedMethods[cppMethodDefinition];
+                    attributeCtorsByClassIndex[attributeType.data.classIndex] = managedCtor;
+                }
+
+                // if (attributeName != "SerializeField") continue;
+                var customAttribute = new CustomAttribute(module.ImportReference(attributeCtorsByClassIndex[attributeType.data.classIndex]));
+                attributes.Add(customAttribute);
+            }
+
+            return attributes;
         }
 
         private static void SaveHeaderDLLs(string outputPath)

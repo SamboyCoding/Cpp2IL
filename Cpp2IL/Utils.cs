@@ -76,7 +76,7 @@ namespace Cpp2IL
 
             if (cppType.isType && !cppType.isGenericType)
             {
-                var managedBaseType = SharedState.CppToMonoTypeDefs[cppType.baseType!];
+                var managedBaseType = SharedState.UnmanagedToManagedTypes[cppType.baseType!];
                 return managedBaseType.IsAssignableFrom(managedType);
             }
 
