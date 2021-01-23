@@ -12,10 +12,13 @@ namespace LibCpp2IL
         
         private MethodInfo readClass;
         public bool is32Bit;
+        private MemoryStream _memoryStream;
 
-        public ClassReadingBinaryReader(Stream input) : base(input)
+
+        public ClassReadingBinaryReader(MemoryStream input) : base(input)
         {
             readClass = GetType().GetMethod("ReadClass")!;
+            _memoryStream = input;
         }
 
         public long Position
@@ -24,37 +27,35 @@ namespace LibCpp2IL
             set => BaseStream.Position = value;
         }
 
-        private object? ReadPrimitive(MemberInfo type)
+        private object? ReadPrimitive(Type type)
         {
-            var typename = type.Name;
-            switch (typename)
-            {
-                case "Int32":
-                    return ReadInt32();
-                case "UInt32":
-                    return ReadUInt32();
-                case "Int16":
-                    return ReadInt16();
-                case "UInt16":
-                    return ReadUInt16();
-                case "Byte":
-                    return ReadByte();
-                case "Int64" when is32Bit:
-                    return ReadInt32();
-                case "Int64":
-                    return ReadInt64();
-                case "UInt64" when is32Bit:
-                    return ReadUInt32();
-                case "UInt64":
-                    return ReadUInt64();
-                default:
-                    return null;
-            }
+            if (type == typeof(int))
+                return ReadInt32();
+
+            if (type == typeof(uint))
+                return ReadUInt32();
+
+            if (type == typeof(short))
+                return ReadInt16();
+            
+            if(type == typeof(ushort))
+                return ReadUInt16();
+            
+            if(type == typeof(byte))
+                return ReadByte();
+
+            if (type == typeof(long))
+                return is32Bit ? ReadInt32() : ReadInt64();
+            
+            if (type == typeof(ulong))
+                return is32Bit ? ReadUInt32() : ReadUInt64();
+
+            return null;
         }
 
         private Dictionary<FieldInfo, VersionAttribute?> _cachedVersionAttributes = new Dictionary<FieldInfo, VersionAttribute?>();
         private Dictionary<FieldInfo, bool> _cachedNoSerialize = new Dictionary<FieldInfo, bool>();
-        
+
         public T ReadClass<T>(long offset) where T : new()
         {
             var t = new T();
@@ -79,6 +80,12 @@ namespace LibCpp2IL
                 foreach (var i in t.GetType().GetFields())
                 {
                     VersionAttribute? attr;
+                    
+                    if(!_cachedNoSerialize.ContainsKey(i))
+                        _cachedNoSerialize[i] = Attribute.GetCustomAttribute(i, typeof(NonSerializedAttribute)) != null;
+
+                    if (_cachedNoSerialize[i]) continue;
+                    
                     if (!_cachedVersionAttributes.ContainsKey(i))
                     {
                         attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
@@ -86,11 +93,6 @@ namespace LibCpp2IL
                     }
                     else
                         attr = _cachedVersionAttributes[i];
-                    
-                    if(!_cachedNoSerialize.ContainsKey(i))
-                        _cachedNoSerialize[i] = Attribute.GetCustomAttribute(i, typeof(NonSerializedAttribute)) != null;
-
-                    if (_cachedNoSerialize[i]) continue;
 
                     if (attr != null)
                     {
@@ -134,15 +136,16 @@ namespace LibCpp2IL
 
         public string ReadStringToNull(long offset)
         {
-            var bytes = new List<byte>();
+            var builder = new StringBuilder();
             lock (PositionShiftLock)
             {
                 Position = offset;
-                byte b;
-                while ((b = ReadByte()) != 0)
-                    bytes.Add(b);
+                char c;
+                while ((c = (char) _memoryStream.ReadByte()) != 0)
+                    builder.Append(c);
             }
-            return Encoding.UTF8.GetString(bytes.ToArray());
+
+            return builder.ToString();
         }
     }
 }

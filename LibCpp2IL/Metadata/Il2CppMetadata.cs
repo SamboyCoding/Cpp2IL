@@ -34,6 +34,8 @@ namespace LibCpp2IL.Metadata
         public Il2CppFieldRef[] fieldRefs;
         public Il2CppGenericParameter[] genericParameters;
 
+        private readonly Dictionary<int, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new Dictionary<int, Il2CppFieldDefaultValue>();
+
         public static Il2CppMetadata? ReadFrom(byte[] bytes, int[] unityVer)
         {
             if (BitConverter.ToUInt32(bytes, 0) != 0xFAB11BAF)
@@ -62,7 +64,7 @@ namespace LibCpp2IL.Metadata
             return new Il2CppMetadata(new MemoryStream(bytes));
         }
 
-        private Il2CppMetadata(Stream stream) : base(stream)
+        private Il2CppMetadata(MemoryStream stream) : base(stream)
         {
             metadataHeader = ReadClass<Il2CppGlobalMetadataHeader>(-1);
             if (metadataHeader.magicNumber != 0xFAB11BAF)
@@ -167,6 +169,14 @@ namespace LibCpp2IL.Metadata
             attributeTypeRanges = ReadMetadataClassArray<Il2CppCustomAttributeTypeRange>(metadataHeader.attributesInfoOffset, metadataHeader.attributesInfoCount);
             attributeTypes = ReadClassArray<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            Console.Write("\tBuilding Lookup Table for field defaults...");
+            start = DateTime.Now;
+            foreach (var il2CppFieldDefaultValue in fieldDefaultValues)
+            {
+                _fieldDefaultValueLookup[il2CppFieldDefaultValue.fieldIndex] = il2CppFieldDefaultValue;
+            }
+            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
 #pragma warning restore 8618
 
@@ -239,7 +249,7 @@ namespace LibCpp2IL.Metadata
         //Getters for human readability
         public Il2CppFieldDefaultValue GetFieldDefaultValueFromIndex(int index)
         {
-            return fieldDefaultValues.FirstOrDefault(x => x.fieldIndex == index);
+            return _fieldDefaultValueLookup.GetValueOrDefault(index);
         }
 
         public Il2CppParameterDefaultValue GetParameterDefaultValueFromIndex(int index)
@@ -252,9 +262,14 @@ namespace LibCpp2IL.Metadata
             return metadataHeader.fieldAndParameterDefaultValueDataOffset + index;
         }
 
+        private Dictionary<int, string> _cachedStrings = new Dictionary<int, string>();
+
         public string GetStringFromIndex(int index)
         {
-            return ReadStringToNull(metadataHeader.stringOffset + index);
+            if(!_cachedStrings.ContainsKey(index))
+                _cachedStrings[index] = ReadStringToNull(metadataHeader.stringOffset + index);
+            
+            return _cachedStrings[index];
         }
 
         private Dictionary<Il2CppAssemblyDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new Dictionary<Il2CppAssemblyDefinition, Il2CppCustomAttributeTypeRange[]>();

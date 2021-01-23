@@ -39,7 +39,7 @@ namespace Cpp2IL
 
             [Option("skip-metadata-txts", Required = false, HelpText = "Skip the generation of [classname]_metadata.txt files.")]
             public bool SkipMetadataTextFiles { get; set; }
-            
+
             [Option("disable-registration-prompts", Required = false, HelpText = "Disable the prompt if Code or Metadata Registration function addresses cannot be located.")]
             public bool DisableRegistrationPrompts { get; set; }
         }
@@ -105,7 +105,7 @@ namespace Cpp2IL
                                   $"\t{assemblyPath}\n" +
                                   $"\t{unityPlayerPath}\n" +
                                   $"\t{metadataPath}\n");
-                
+
                 return 2;
             }
 
@@ -156,7 +156,7 @@ namespace Cpp2IL
 
             //Set this flag from command line options
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = !CommandLineOptions.DisableRegistrationPrompts;
-            
+
             //Disable Method Ptr Mapping and Global Resolving if skipping analysis
             LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = CommandLineOptions.SkipAnalysis;
 
@@ -183,7 +183,7 @@ namespace Cpp2IL
             Console.WriteLine("\tPass 1: Creating empty types...");
 
             Assemblies = AssemblyBuilder.CreateAssemblies(LibCpp2IlMain.TheMetadata!, resolver, moduleParams);
-            
+
             Utils.BuildPrimitiveMappings();
 
             Console.WriteLine("\tPass 2: Setting parents and handling inheritance...");
@@ -194,7 +194,7 @@ namespace Cpp2IL
             Console.WriteLine("\tPass 3: Populating types...");
 
             var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
-            
+
             //Create out dirs if needed
             var outputPath = Path.GetFullPath("cpp2il_out");
             if (!Directory.Exists(outputPath))
@@ -247,9 +247,9 @@ namespace Cpp2IL
 
                             //Get attributes and look for the serialize field attribute.
                             var attributeTypeRange = LibCpp2IlMain.TheMetadata.GetCustomAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token);
-                            
-                            if(attributeTypeRange == null) continue;
-                            
+
+                            if (attributeTypeRange == null) continue;
+
                             for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
                             {
                                 var attributeTypeIndex = LibCpp2IlMain.TheMetadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
@@ -301,182 +301,159 @@ namespace Cpp2IL
 
             Console.WriteLine("Saving Header DLLs to " + outputPath + "...");
 
+            SaveHeaderDLLs(outputPath);
+
+            if (CommandLineOptions.SkipAnalysis) return 0; //Success
+
             GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
 
+            var methodTaintDict = DoAssemblyCSharpAnalysis(methodOutputDir, methods, keyFunctionAddresses!, out var total);
+
+            Console.WriteLine("Breakdown By Taint Reason:");
+            foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+            {
+                var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
+                Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
+            }
+
+            var summary = new StringBuilder();
+            foreach (var (methodName, taintReason) in methodTaintDict)
+            {
+                summary.Append('\t')
+                    .Append(methodName)
+                    .Append(Utils.Repeat(" ", 250 - methodName.Length))
+                    .Append(taintReason)
+                    .Append(" (")
+                    .Append((int) taintReason)
+                    .Append(')')
+                    .Append('\n');
+            }
+            
+            File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
+            Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
+
+            return 0;
+        }
+
+        private static void SaveHeaderDLLs(string outputPath)
+        {
             foreach (var assembly in Assemblies)
             {
                 var dllPath = Path.Combine(outputPath, assembly.MainModule.Name);
 
+                //Remove NetCore Dependencies 
                 var reference = assembly.MainModule.AssemblyReferences.FirstOrDefault(a => a.Name == "System.Private.CoreLib");
                 if (reference != null)
                     assembly.MainModule.AssemblyReferences.Remove(reference);
 
                 assembly.Write(dllPath);
-
-                if (assembly.Name.Name != "Assembly-CSharp" || CommandLineOptions.SkipAnalysis) continue;
-
-                Console.WriteLine("Dumping method bytes to " + methodOutputDir);
-                Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
-                //Write methods
-
-                var allUsedMnemonics = new List<ud_mnemonic_code>();
-
-                var counter = 0;
-                var toProcess = methods.Where(tuple => tuple.type.Module.Assembly == assembly).ToList();
-
-                //Sort alphabetically by type.
-                toProcess.Sort((a, b) => String.Compare(a.type.FullName, b.type.FullName, StringComparison.Ordinal));
-                var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
-                var nextThreshold = thresholds.First();
-
-                var successfullyProcessed = 0;
-                var failedProcess = 0;
-
-                var startTime = DateTime.Now;
-
-                var methodTaintDict = new ConcurrentDictionary<string, AsmDumper.TaintReason>();
-
-                thresholds.RemoveAt(0);
-
-
-                Action<(TypeDefinition type, List<CppMethodData> methods)> action = tuple =>
-                {
-                    var (type, methodData) = tuple;
-                    counter++;
-                    var pct = 100 * ((decimal) counter / toProcess.Count);
-                    if (pct > nextThreshold)
-                    {
-                        lock (thresholds)
-                        {
-                            //Check again to prevent races
-                            if (pct > nextThreshold)
-                            {
-                                var elapsedSoFar = DateTime.Now - startTime;
-                                var rate = counter / elapsedSoFar.TotalSeconds;
-                                var remaining = toProcess.Count - counter;
-                                Console.WriteLine($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
-                                nextThreshold = thresholds.First();
-                                thresholds.RemoveAt(0);
-                            }
-                        }
-                    }
-
-                    // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
-                    try
-                    {
-                        var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
-                        var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
-
-                        foreach (var method in methodData)
-                        {
-                            var methodStart = method.MethodOffsetRam;
-
-                            if (methodStart == 0) continue;
-
-                            var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
-
-                            var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe)
-                                .AnalyzeMethod(typeDump, ref allUsedMnemonics);
-
-                            var key = new StringBuilder();
-
-                            key.Append(methodDefinition.DeclaringType.FullName).Append("::").Append(methodDefinition.Name);
-
-                            methodDefinition.MethodSignatureFullName(key);
-
-                            methodTaintDict[key.ToString()] = taintResult;
-
-                            if (taintResult != AsmDumper.TaintReason.UNTAINTED)
-                                Interlocked.Increment(ref failedProcess);
-                            else
-                                Interlocked.Increment(ref successfullyProcessed);
-                        }
-
-                        lock (type)
-                            File.WriteAllText(filename, typeDump.ToString());
-                    }
-                    catch (Exception e)
-                    {
-                        Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
-                    }
-                };
-                
-                
-                var parallel = false;
-
-                if(parallel)
-                    toProcess.AsParallel().ForAll(action);
-                else
-                    toProcess.ForEach(action);
-
-
-                var total = successfullyProcessed + failedProcess;
-
-                var elapsed = DateTime.Now - startTime;
-                Console.WriteLine($"Finished method processing in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
-                Console.WriteLine($"Processed {total} methods, {successfullyProcessed} ({Math.Round(successfullyProcessed * 100.0 / total, 2)}%) successfully, {failedProcess} ({Math.Round(failedProcess * 100.0 / total, 2)}%) with errors.");
-
-                Console.WriteLine("Breakdown By Taint Reason:");
-                foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
-                {
-                    var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
-                    Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
-                }
-
-                var summary = new StringBuilder();
-                foreach (var keyValuePair in methodTaintDict)
-                {
-                    summary.Append("\t")
-                        .Append(keyValuePair.Key)
-                        .Append(Utils.Repeat(" ", 250 - keyValuePair.Key.Length))
-                        .Append(keyValuePair.Value)
-                        .Append(" (")
-                        .Append((int) keyValuePair.Value)
-                        .Append(")")
-                        .Append("\n");
-                }
-
-#if DUMP_PACKAGE_SUCCESS_DATA
-                Console.WriteLine("By Package:");
-                var keys = methodTaintDict
-                    .Select(kvp => kvp.Key)
-                    .GroupBy(
-                        GetPackageName,
-                        className => className,
-                        (packageName, classEnumerable) => new
-                        {
-                            package = packageName,
-                            classes = classEnumerable.ToList()
-                        })
-                    .ToList();
-
-                foreach (var key in keys)
-                {
-                    var resultLine = new StringBuilder();
-                    var totalClassCount = key.classes.Count;
-                    resultLine.Append($"\tIn package {key.package} ({totalClassCount} classes):   ");
-
-                    foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
-                    {
-                        var count = (decimal) methodTaintDict.Where(kvp => key.classes.Contains(kvp.Key)).Count(v => v.Value == (AsmDumper.TaintReason) reason);
-                        resultLine.Append(reason).Append(":").Append(count).Append($" ({Math.Round(count * 100 / totalClassCount, 1)}%)   ");
-                    }
-
-                    Console.WriteLine(resultLine.ToString());
-                }
-#endif
-
-
-                File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
-                Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
-
-                // Console.WriteLine("Assembly uses " + allUsedMnemonics.Count + " mnemonics");
             }
+        }
 
-            // Console.WriteLine("[Finished. Press enter to exit]");
-            // Console.ReadLine();
-            
-            return 0;
+        private static ConcurrentDictionary<string, AsmDumper.TaintReason> DoAssemblyCSharpAnalysis(string methodOutputDir, List<(TypeDefinition type, List<CppMethodData> methods)> methods, KeyFunctionAddresses keyFunctionAddresses, out int total)
+        {
+            var assembly = Assemblies.Find(a => a.Name.Name == "Assembly-CSharp");
+
+            Console.WriteLine("Dumping method bytes to " + methodOutputDir);
+            Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
+
+            var allUsedMnemonics = new List<ud_mnemonic_code>();
+
+            var counter = 0;
+            var toProcess = methods.Where(tuple => tuple.type.Module.Assembly == assembly).ToList();
+
+            //Sort alphabetically by type.
+            toProcess.Sort((a, b) => String.Compare(a.type.FullName, b.type.FullName, StringComparison.Ordinal));
+            var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
+            var nextThreshold = thresholds.First();
+
+            var successfullyProcessed = 0;
+            var failedProcess = 0;
+
+            var startTime = DateTime.Now;
+
+            var methodTaintDict = new ConcurrentDictionary<string, AsmDumper.TaintReason>();
+
+            thresholds.RemoveAt(0);
+
+
+            Action<(TypeDefinition type, List<CppMethodData> methods)> action = tuple =>
+            {
+                var (type, methodData) = tuple;
+                counter++;
+                var pct = 100 * ((decimal) counter / toProcess.Count);
+                if (pct > nextThreshold)
+                {
+                    lock (thresholds)
+                    {
+                        //Check again to prevent races
+                        if (pct > nextThreshold)
+                        {
+                            var elapsedSoFar = DateTime.Now - startTime;
+                            var rate = counter / elapsedSoFar.TotalSeconds;
+                            var remaining = toProcess.Count - counter;
+                            Console.WriteLine($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
+                            nextThreshold = thresholds.First();
+                            thresholds.RemoveAt(0);
+                        }
+                    }
+                }
+
+                // Console.WriteLine($"\t-Dumping methods in type {counter}/{methodBytes.Count}: {type.Key}");
+                try
+                {
+                    var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
+                    var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
+
+                    foreach (var method in methodData)
+                    {
+                        var methodStart = method.MethodOffsetRam;
+
+                        if (methodStart == 0) continue;
+
+                        var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
+
+                        var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe)
+                            .AnalyzeMethod(typeDump, ref allUsedMnemonics);
+
+                        var key = new StringBuilder();
+
+                        key.Append(methodDefinition.DeclaringType.FullName).Append("::").Append(methodDefinition.Name);
+
+                        methodDefinition.MethodSignatureFullName(key);
+
+                        methodTaintDict[key.ToString()] = taintResult;
+
+                        if (taintResult != AsmDumper.TaintReason.UNTAINTED)
+                            Interlocked.Increment(ref failedProcess);
+                        else
+                            Interlocked.Increment(ref successfullyProcessed);
+                    }
+
+                    lock (type)
+                        File.WriteAllText(filename, typeDump.ToString());
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
+                }
+            };
+
+
+            var parallel = false;
+
+            if (parallel)
+                toProcess.AsParallel().ForAll(action);
+            else
+                toProcess.ForEach(action);
+
+
+            total = successfullyProcessed + failedProcess;
+
+            var elapsed = DateTime.Now - startTime;
+            Console.WriteLine($"Finished method processing in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
+            Console.WriteLine($"Processed {total} methods, {successfullyProcessed} ({Math.Round(successfullyProcessed * 100.0 / total, 2)}%) successfully, {failedProcess} ({Math.Round(failedProcess * 100.0 / total, 2)}%) with errors.");
+            return methodTaintDict;
         }
 
 #if DUMP_PACKAGE_SUCCESS_DATA
