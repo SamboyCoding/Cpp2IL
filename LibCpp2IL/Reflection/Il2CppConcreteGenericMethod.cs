@@ -1,5 +1,7 @@
-﻿using System.Reflection;
-using LibCpp2IL.Metadata;
+﻿using LibCpp2IL.Metadata;
+
+//Disable nullability checks - this class is initialized via reflection
+#pragma warning disable 8618
 
 namespace LibCpp2IL.Reflection
 {
@@ -10,3 +12,4 @@ namespace LibCpp2IL.Reflection
         public ulong GenericVariantPtr;
     }
 }
+#pragma warning restore 8618

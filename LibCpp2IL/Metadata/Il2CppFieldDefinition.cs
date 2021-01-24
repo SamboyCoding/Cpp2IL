@@ -11,7 +11,7 @@ namespace LibCpp2IL.Metadata
         
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
-        public Il2CppTypeReflectionData? FieldType => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.types[typeIndex]);
+        public Il2CppTypeReflectionData? FieldType => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.types[typeIndex]);
 
         public int FieldIndex => LibCpp2IlReflection.GetFieldIndexFromField(this);
         
