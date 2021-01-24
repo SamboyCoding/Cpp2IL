@@ -3,13 +3,10 @@ using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
-    public class EndIfMarkerAction : BaseAction
+    public class EndWhileMarkerAction : BaseAction
     {
-        private ulong _elsePtr;
-
-        public EndIfMarkerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public EndWhileMarkerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            _elsePtr = context.GetAddressOfElseThisIsTheEndOf(instruction.IP);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -19,7 +16,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string? ToPsuedoCode()
         {
-            return "endif\n";
+            return "endwhile\n";
         }
 
         public override string ToTextSummary()

@@ -28,7 +28,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Clears register {regCleared}";
+            return $"Clears register {regCleared}, yielding zero-local {_localMade}";
         }
 
         public override bool IsImportant()

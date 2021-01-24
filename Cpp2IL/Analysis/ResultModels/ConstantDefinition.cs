@@ -19,5 +19,14 @@ namespace Cpp2IL.Analysis.ResultModels
             
             return $"{{'{Name}' (constant value of type {Type.FullName})}}";
         }
+
+        public string GetPseudocodeRepresentation()
+        {
+            var str = ToString();
+            if (str.StartsWith("{"))
+                return Name;
+
+            return str;
+        }
     }
 }

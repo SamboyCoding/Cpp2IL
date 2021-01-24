@@ -1,27 +1,13 @@
-﻿using System.Linq;
-using Cpp2IL.Analysis.ResultModels;
+﻿using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
-    public class JumpIfGreaterThanOrEqualToAction : BaseAction
+    public class JumpIfGreaterThanOrEqualToAction : ConditionalJumpAction
     {
-        private ComparisonAction? associatedCompare;
-        private ulong jumpTarget;
-        private bool isIfStatement;
-        
         public JumpIfGreaterThanOrEqualToAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            jumpTarget = instruction.NearBranchTarget;
-
-            if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
-            {
-                isIfStatement = true;
-                if(!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
-                    context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
-            }
-
-            associatedCompare = (ComparisonAction) context.Actions.LastOrDefault(a => a is ComparisonAction);
+            //All handled by base class
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -29,17 +15,18 @@ namespace Cpp2IL.Analysis.Actions
             throw new System.NotImplementedException();
         }
 
-        public override string? ToPsuedoCode()
+        protected override string GetPseudocodeCondition()
         {
-            throw new System.NotImplementedException();
+            //Invert condition, so less than, not >=
+            return $"({GetArgumentOnePseudocodeValue()} < {GetArgumentTwoPseudocodeValue()})";
         }
 
-        public override string ToTextSummary()
+        protected override string GetTextSummaryCondition()
         {
             if (associatedCompare == null)
-                return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if the compare showed that it was greater than or equal";
+                return "the compare showed that it was greater than or equal";
 
-            return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {associatedCompare.ArgumentOne} >= {associatedCompare.ArgumentTwo}";
+            return $"{associatedCompare.ArgumentOne} is greater than or equal to {associatedCompare.ArgumentTwo}";
         }
     }
 }

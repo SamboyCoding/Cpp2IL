@@ -24,11 +24,16 @@ namespace Cpp2IL
             return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
         }
 
-        public static PropertyDefinition? GetLengthProperty()
+        public static bool IsIl2cppLengthAccessor(uint offset)
+        {
+            return GetOffsetName(offset) == "length";
+        }
+
+        public static PropertyDefinition GetLengthProperty()
         {
             var arrayType = Utils.TryLookupTypeDefKnownNotGeneric("System.Array");
 
-            return arrayType?.Properties.First(p => p.Name == nameof(Array.Length));
+            return arrayType!.Properties.First(p => p.Name == nameof(Array.Length));
         }
         
         public class UsefulOffset

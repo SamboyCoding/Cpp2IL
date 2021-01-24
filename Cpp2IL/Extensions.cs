@@ -9,6 +9,8 @@ namespace Cpp2IL
 {
     public static class Extensions
     {
+        public static bool IsJump(this Mnemonic mnemonic) => mnemonic == Mnemonic.Call || mnemonic >= Mnemonic.Ja && mnemonic <= Mnemonic.Js;
+        public static bool IsConditionalJump(this Mnemonic mnemonic) => mnemonic.IsJump() && mnemonic != Mnemonic.Jmp && mnemonic != Mnemonic.Call;
         public static Stack<T> Clone<T>(this Stack<T> original)
         {
             var arr = new T[original.Count];

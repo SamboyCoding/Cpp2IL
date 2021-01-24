@@ -126,6 +126,10 @@ namespace Cpp2IL.Analysis
             //Pass 0: Disassemble
 #if USE_NEW_ANALYSIS_METHOD
             _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe!.is32Bit, method.MethodBytes, methodStart);
+            
+            _methodEnd = _instructions.LastOrDefault().NextIP;
+            if (_methodEnd == 0) _methodEnd = _methodStart;
+            
             _analysis = new MethodAnalysis(_methodDefinition, _methodStart, _methodEnd, _instructions);
 #else
             _instructions = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
@@ -330,9 +334,6 @@ namespace Cpp2IL.Analysis
             }
             _localNum = 1;
             _lastComparison = new Tuple<(string, TypeDefinition, object), (string, TypeDefinition, object)>(("", null, null), ("", null, null));
-#else
-            _methodEnd = _instructions.LastOrDefault().NextIP;
-            if (_methodEnd == 0) _methodEnd = _methodStart;
 #endif
 
             typeDump.Append("\tMethod Body (x86 ASM):\n");
@@ -475,10 +476,10 @@ namespace Cpp2IL.Analysis
 
             _analysis.Actions
                 .Where(action => action.IsImportant()) //Action requires pseudocode generation
-                .Select(action => "    ".Repeat(action.IndentLevel) + action.ToPsuedoCode()) //Generate it 
+                .Select(action => $"{(action.PseudocodeNeedsLinebreakBefore() ? "\n" : "")}\t\t{"    ".Repeat(action.IndentLevel)}{action.ToPsuedoCode()}") //Generate it 
                 .Where(code => !string.IsNullOrWhiteSpace(code)) //Check it's valid
                 .ToList()
-                .ForEach(code => typeDump.Append("\t\t").Append(code).Append('\n')); //Append
+                .ForEach(code => typeDump.Append(code).Append('\n')); //Append
 
             typeDump.Append('\n');
 
@@ -849,6 +850,7 @@ namespace Cpp2IL.Analysis
         {
             var associatedIf = _analysis.GetAddressOfAssociatedIfForThisElse(instruction.IP);
             var associatedElse = _analysis.GetAddressOfElseThisIsTheEndOf(instruction.IP);
+            var hasEndedLoop = _analysis.HaveWeExitedALoopOnThisInstruction(instruction.IP);
 
             if (associatedIf != 0)
             {
@@ -862,6 +864,12 @@ namespace Cpp2IL.Analysis
             {
                 _analysis.IndentLevel -= 1; //For the end if statement
                 _analysis.Actions.Add(new EndIfMarkerAction(_analysis, instruction));
+            }
+            
+            if (hasEndedLoop)
+            {
+                _analysis.IndentLevel -= 1;
+                _analysis.Actions.Add(new EndWhileMarkerAction(_analysis, instruction));
             }
 
             var operandCount = instruction.OpCount;

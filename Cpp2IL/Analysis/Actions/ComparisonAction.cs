@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System.Linq;
+using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -7,108 +8,128 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class ComparisonAction : BaseAction
     {
-        public IAnalysedOperand? ArgumentOne;
-        public IAnalysedOperand? ArgumentTwo;
+        public readonly IComparisonArgument? ArgumentOne;
+        public readonly IComparisonArgument? ArgumentTwo;
 
-        private bool unimportantComparison = false;
+        private readonly string? ArgumentOneRegister;
+        private readonly string? ArgumentTwoRegister;
+
+        private readonly bool unimportantComparison;
+
+        private readonly ulong endOfLoopAddr;
 
         public ComparisonAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
             var r1 = Utils.GetRegisterNameNew(instruction.Op1Register);
-            var globalMemoryOffset = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
 
-            if (r0 != "rsp")
-                if (instruction.Op0Kind == OpKind.Register)
-                    ArgumentOne = context.GetOperandInRegister(r0);
-                else if (instruction.Op0Kind.IsImmediate())
-                    ArgumentOne = context.MakeConstant(typeof(int), instruction.GetImmediate(0));
-                else if (instruction.Op0Kind == OpKind.Memory && instruction.MemoryBase != Register.None)
-                {
-                    var name = Utils.GetRegisterNameNew(instruction.MemoryBase);
-                    if (context.GetLocalInReg(name) is { } local)
-                    {
-                        if (local.Type?.IsArray == true)
-                        {
-                            var nameOfField = Il2CppArrayUtils.GetOffsetName(instruction.MemoryDisplacement);
-                            ArgumentOne = context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
-                        }
-                        else
-                            ArgumentOne = context.MakeConstant(typeof(string), $"{{A field on {local}, offset 0x{instruction.MemoryDisplacement:X}}}");
-                    }
-                    else if (context.GetConstantInReg(name) is { } constant)
-                    {
-                        var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement:X}}}";
-                        if (constant.Type == typeof(TypeDefinition))
-                        {
-                            unimportantComparison = true;
-                            var offset = instruction.MemoryDisplacement;
-                            var label = Il2CppClassUsefulOffsets.GetOffsetName(offset);
-                            
-                            label = label == null ? defaultLabel : $"{{il2cpp field {constant.Value}->{label}}}";
-                            
-                            ArgumentOne = context.MakeConstant(typeof(string), label);
-                        }
-                        else
-                        {
-                            unimportantComparison = true;
-                            ArgumentOne = context.MakeConstant(typeof(string), defaultLabel);
-                        }
-                    }
-                }
-                else if (LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset).Offset == globalMemoryOffset)
-                    ArgumentOne = context.MakeConstant(typeof(GlobalIdentifier), LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset));
-                else
-                {
-                    unimportantComparison = true;
-                    ArgumentOne = context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));
-                }
+            var unimportant1 = false;
+            var unimportant2 = false;
+            if (r0 != "rsp") 
+                ArgumentOne = ExtractArgument(context, instruction, r0, 0, instruction.Op0Kind, out unimportant1, out ArgumentOneRegister);
 
             if (r1 != "rsp")
-                if (instruction.Op1Kind == OpKind.Register)
-                    ArgumentTwo = context.GetOperandInRegister(r1);
-                else if (instruction.Op1Kind.IsImmediate())
-                    ArgumentTwo = context.MakeConstant(typeof(int), instruction.GetImmediate(1));
-                else if (instruction.Op1Kind == OpKind.Memory && instruction.MemoryBase != Register.None)
+                ArgumentTwo = ExtractArgument(context, instruction, r1, 1, instruction.Op1Kind, out unimportant2, out ArgumentTwoRegister);
+
+            unimportantComparison = unimportant1 || unimportant2;
+
+            if (context.GetEndOfLoopWhichPossiblyStartsHere(instruction.IP) is {} endOfLoop && endOfLoop != 0)
+            {
+                endOfLoopAddr = endOfLoop;
+                context.RegisterLastInstructionOfLoopAt(this, endOfLoop);
+            }
+        }
+
+        public bool IsEitherArgument(IComparisonArgument c) => c == ArgumentOne || c == ArgumentTwo;
+        
+        public IComparisonArgument? GetArgumentAssociatedWithRegister(string regName)
+        {
+            return ArgumentOneRegister == regName ? ArgumentOne : ArgumentTwoRegister == regName ? ArgumentTwo : null;
+        }
+
+        internal bool IsProbablyWhileLoop() => endOfLoopAddr != 0;
+
+        private static IComparisonArgument? ExtractArgument(MethodAnalysis context, Instruction instruction, string registerName, int operandIdx, OpKind opKind, out bool unimportant, out string? argumentRegister)
+        {
+            var globalMemoryOffset = LibCpp2IlMain.ThePe!.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            
+            unimportant = false;
+            argumentRegister = null;
+
+            if (opKind == OpKind.Register)
+            {
+                argumentRegister = registerName;
+                return context.GetOperandInRegister(registerName);
+            }
+
+            if (opKind.IsImmediate())
+                return context.MakeConstant(typeof(int), instruction.GetImmediate(operandIdx));
+            
+            if (opKind == OpKind.Memory && instruction.MemoryBase != Register.None && instruction.MemoryBase != Register.RIP)
+            {
+                var name = Utils.GetRegisterNameNew(instruction.MemoryBase);
+                if (context.GetLocalInReg(name) is { } local)
                 {
-                    var name = Utils.GetRegisterNameNew(instruction.MemoryBase);
-                    if(context.GetLocalInReg(name) is {} local)
+                    if (local.Type?.IsArray == false)
                     {
-                        if (local.Type?.IsArray == true)
+                        if (local.Type?.Resolve() == null) return null;
+                        
+                        var fields = SharedState.FieldsByType[local.Type.Resolve()];
+                        var fieldName = fields.FirstOrDefault(f => f.Offset == instruction.MemoryDisplacement).Name;
+                        
+                        if (string.IsNullOrEmpty(fieldName)) return null;
+
+                        var field = local.Type.Resolve().Fields.FirstOrDefault(f => f.Name == fieldName);
+
+                        if (field == null) return null;
+
+                        argumentRegister = name;
+                        return new ComparisonDirectFieldAccess
                         {
-                            var nameOfField = Il2CppArrayUtils.GetOffsetName(instruction.MemoryDisplacement);
-                            ArgumentTwo = context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
-                        }
-                        else
-                            ArgumentTwo = context.MakeConstant(typeof(string), $"{{A field on {local}, offset 0x{instruction.MemoryDisplacement:X}}}");
+                            fieldAccessed = field,
+                            localAccessedOn = local
+                        };
                     }
-                    else if (context.GetConstantInReg(name) is { } constant)
+
+                    if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement))
                     {
-                        var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement:X}}}";
-                        if (constant.Type == typeof(TypeDefinition))
+                        argumentRegister = name;
+                        return new ComparisonDirectPropertyAccess
                         {
-                            var offset = instruction.MemoryDisplacement;
-                            var label = Il2CppClassUsefulOffsets.GetOffsetName(offset);
-                            
-                            unimportantComparison = true;
-                            label = label == null ? defaultLabel : $"{{il2cpp field {constant.Value}->{label}}}";
-                            
-                            ArgumentTwo = context.MakeConstant(typeof(string), label);
-                        }
-                        else
-                        {
-                            unimportantComparison = true;
-                            ArgumentTwo = context.MakeConstant(typeof(string), defaultLabel);
-                        }
+                            localAccessedOn = local,
+                            propertyAccessed = Il2CppArrayUtils.GetLengthProperty()
+                        };
                     }
+
+                    var nameOfField = Il2CppArrayUtils.GetOffsetName(instruction.MemoryDisplacement);
+                    argumentRegister = name;
+                    return context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
                 }
-                else if (LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset).Offset == globalMemoryOffset)
-                    ArgumentTwo = context.MakeConstant(typeof(GlobalIdentifier), LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset));
-                else
+
+                if (!(context.GetConstantInReg(name) is { } constant)) 
+                    return null; //Unknown operand - memory type, not a global, but not a constant, or local
+                
+                var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement:X}}}";
+                if (constant.Type == typeof(TypeDefinition))
                 {
-                    unimportantComparison = true;
-                    ArgumentTwo = context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));
+                    unimportant = true;
+                    var offset = instruction.MemoryDisplacement;
+                    var label = Il2CppClassUsefulOffsets.GetOffsetName(offset);
+
+                    label = label == null ? defaultLabel : $"{{il2cpp field {constant.Value}->{label}}}";
+                    argumentRegister = name;
+                    return context.MakeConstant(typeof(string), label);
                 }
+
+                unimportant = true;
+                return context.MakeConstant(typeof(string), defaultLabel);
+            }
+
+            if (LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset).Offset == globalMemoryOffset)
+                return context.MakeConstant(typeof(GlobalIdentifier), LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset));
+            
+            unimportant = true;
+            return context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -123,14 +144,11 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            var display1 = ArgumentOne is LocalDefinition local1 ? local1 : ((ConstantDefinition) ArgumentOne)?.Value;
-            var display2 = ArgumentTwo is LocalDefinition local2 ? local2 : ((ConstantDefinition) ArgumentTwo)?.Value;
+            var display1 = ArgumentOne?.ToString();
+            var display2 = ArgumentTwo?.ToString();
 
-            if (unimportantComparison)
-                return $"Compares {display1} and {display2}";
-            
             //Only show the important [!] if this is an important comparison (i.e. not an il2cpp one)
-            return $"[!] Compares {display1} and {display2}";
+            return unimportantComparison ? $"Compares {display1} and {display2}" : $"[!] Compares {display1} and {display2}";
         }
     }
 }

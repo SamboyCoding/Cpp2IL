@@ -25,6 +25,7 @@ namespace Cpp2IL.Analysis.ResultModels
         private MethodDefinition _method;
 
         private readonly List<IfElseData> IfElseBlockData = new List<IfElseData>();
+        private readonly List<LoopData> LoopBlockData = new List<LoopData>();
 
         public int IndentLevel;
 
@@ -58,7 +59,8 @@ namespace Cpp2IL.Analysis.ResultModels
 
                     FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType.Resolve(), arg.Name, dest));
                 }
-            } else if (!method.IsStatic)
+            }
+            else if (!method.IsStatic)
             {
                 //32-bit, instance method
                 FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this"));
@@ -189,11 +191,11 @@ namespace Cpp2IL.Analysis.ResultModels
         public bool IsThereProbablyAnElseAt(ulong conditionalJumpTarget)
         {
             if (!IsJumpDestinationInThisFunction(conditionalJumpTarget)) return false;
-            
+
             var instructionBeforeJump = _allInstructions.FirstOrDefault(i => i.NextIP == conditionalJumpTarget);
 
             if (instructionBeforeJump == default) return false;
-            
+
             if (instructionBeforeJump.Mnemonic == Mnemonic.Jmp)
             {
                 //Basically, if we're condition jumping to an instruction, and the instruction immediately prior to our jump destination is an
@@ -212,7 +214,7 @@ namespace Cpp2IL.Analysis.ResultModels
             var endOfIf = _allInstructions.FirstOrDefault(i => i.NextIP == ipOfFirstInstructionInElse);
 
             if (endOfIf == default) return 0;
-            
+
             if (endOfIf.Mnemonic == Mnemonic.Jmp)
             {
                 //Basically, if we're condition jumping to an instruction, and the instruction immediately prior to our jump destination is an
@@ -226,35 +228,47 @@ namespace Cpp2IL.Analysis.ResultModels
             return 0;
         }
 
+        private T SaveAnalysisState<T>(T state) where T : AnalysisState
+        {
+            state.FunctionArgumentLocals = FunctionArgumentLocals.Clone();
+            state.StackStoredLocals = StackStoredLocals.Clone();
+            state.RegisterData = RegisterData.Clone();
+            return state;
+        }
+
+        private void LoadAnalysisState(AnalysisState state)
+        {
+            Stack = state.Stack;
+            FunctionArgumentLocals = state.FunctionArgumentLocals;
+            StackStoredLocals = state.StackStoredLocals;
+            RegisterData = state.RegisterData;
+        }
+
         public void RegisterIfElseStatement(ulong startOfIf, ulong startOfElse, BaseAction conditionalJump)
         {
-            IfElseBlockData.Add(new IfElseData
-            {
-                Stack = Stack.Clone(),
-                ConditionalJumpStatement = conditionalJump,
-                ElseStatementStart = startOfElse,
-                ElseStatementEnd = GetEndOfElseBlock(startOfElse),
-                FunctionArgumentLocals = FunctionArgumentLocals.Clone(),
-                IfStatementStart = startOfIf,
-                StackStoredLocals = StackStoredLocals.Clone(),
-                RegisterData = RegisterData.Clone()
-            });
+            IfElseBlockData.Add(SaveAnalysisState(
+                new IfElseData
+                {
+                    Stack = Stack.Clone(),
+                    ConditionalJumpStatement = conditionalJump,
+                    ElseStatementStart = startOfElse,
+                    ElseStatementEnd = GetEndOfElseBlock(startOfElse),
+                    IfStatementStart = startOfIf,
+                }
+            ));
         }
 
         public ulong GetAddressOfElseThisIsTheEndOf(ulong jumpDest)
         {
             var ifElseData = IfElseBlockData.Find(i => i.ElseStatementEnd == jumpDest);
 
-            return ifElseData != null ? ifElseData.ElseStatementStart : 0UL;
+            return ifElseData?.ElseStatementStart ?? 0UL;
         }
 
         public ulong GetAddressOfAssociatedIfForThisElse(ulong elseStartAddr)
         {
             var ifElseData = IfElseBlockData.Find(i => i.ElseStatementStart == elseStartAddr);
-            if (ifElseData == null)
-                return 0UL;
-
-            return ifElseData.ConditionalJumpStatement.AssociatedInstruction.IP;
+            return ifElseData?.ConditionalJumpStatement.AssociatedInstruction.IP ?? 0UL;
         }
 
         public void PopStashedIfDataForElseAt(ulong elseStartAddr)
@@ -263,10 +277,62 @@ namespace Cpp2IL.Analysis.ResultModels
             if (ifElseData == null)
                 return;
 
-            Stack = ifElseData.Stack;
-            FunctionArgumentLocals = ifElseData.FunctionArgumentLocals;
-            StackStoredLocals = ifElseData.StackStoredLocals;
-            RegisterData = ifElseData.RegisterData;
+            LoadAnalysisState(ifElseData);
+        }
+
+        public ulong GetEndOfLoopWhichPossiblyStartsHere(ulong instructionIp)
+        {
+            //Look for a jump which is pointing at this instruction ip, and is after it.
+            var matchingJump = _allInstructions.FirstOrDefault(i => i.IP > instructionIp && i.NearBranchTarget == instructionIp);
+
+            return matchingJump.Mnemonic.IsJump() ? matchingJump.IP : 0UL;
+        }
+
+        public void RegisterLastInstructionOfLoopAt(ComparisonAction loopCondition, ulong lastStatementInLoop)
+        {
+            if (!IsJumpDestinationInThisFunction(lastStatementInLoop)) return;
+
+            var matchingInstruction = _allInstructions.FirstOrDefault(i => i.IP == lastStatementInLoop);
+
+            if (matchingInstruction.Mnemonic == Mnemonic.INVALID) return;
+
+            var firstIpNotInLoop = matchingInstruction.NextIP;
+
+            var firstInstructionNotInLoop = _allInstructions.FirstOrDefault(i => i.IP == firstIpNotInLoop);
+            if (firstInstructionNotInLoop.Mnemonic == Mnemonic.INVALID) return;
+
+            var data = new LoopData
+            {
+                ipFirstInstruction = loopCondition.AssociatedInstruction.IP,
+                loopCondition = loopCondition,
+                ipFirstInstructionNotInLoop = firstIpNotInLoop
+            };
+            SaveAnalysisState(data);
+            
+            LoopBlockData.Add(data);           
+        }
+
+        public bool IsIpInOneOrMoreLoops(ulong ip) => GetLoopConditionsInNestedOrder(ip).Length > 0;
+
+        public ComparisonAction[] GetLoopConditionsInNestedOrder(ulong ip) =>
+            LoopBlockData.Where(d => d.ipFirstInstruction <= ip && d.ipFirstInstructionNotInLoop > ip)
+                .Select(d => d.loopCondition)
+                .ToArray();
+
+        public bool HaveWeExitedALoopOnThisInstruction(ulong ip)
+        {
+            var matchingBlock = LoopBlockData.FirstOrDefault(d => d.ipFirstInstructionNotInLoop == ip);
+
+            return matchingBlock != null;
+        }
+
+        public void RestorePreLoopState(ulong ipFirstInstructionNotInLoop)
+        {
+            var matchingBlock = LoopBlockData.FirstOrDefault(d => d.ipFirstInstructionNotInLoop == ipFirstInstructionNotInLoop);
+
+            if (matchingBlock == null) return;
+            
+            LoadAnalysisState(matchingBlock);
         }
     }
 }

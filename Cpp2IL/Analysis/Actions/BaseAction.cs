@@ -56,5 +56,10 @@ namespace Cpp2IL.Analysis.Actions
         {
             return _lineComments.ToString();
         }
+
+        public virtual bool PseudocodeNeedsLinebreakBefore()
+        {
+            return false;
+        }
     }
 }

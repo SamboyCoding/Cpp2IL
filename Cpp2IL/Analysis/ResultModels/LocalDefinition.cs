@@ -11,5 +11,10 @@ namespace Cpp2IL.Analysis.ResultModels
         {
             return $"{{'{Name}' (type {Type?.FullName})}}";
         }
+
+        public string GetPseudocodeRepresentation()
+        {
+            return Name;
+        }
     }
 }

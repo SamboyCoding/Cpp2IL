@@ -1,6 +1,6 @@
 ﻿namespace Cpp2IL.Analysis.ResultModels
 {
-    public interface IAnalysedOperand
+    public interface IAnalysedOperand : IComparisonArgument
     {
         
     }
