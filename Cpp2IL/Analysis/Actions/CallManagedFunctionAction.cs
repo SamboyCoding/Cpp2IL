@@ -11,7 +11,7 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class CallManagedFunctionAction : BaseAction
     {
-        private MethodDefinition? managedMethodBeingCalled;
+        internal MethodDefinition? ManagedMethodBeingCalled;
         private List<IAnalysedOperand>? arguments;
         private ulong _jumpTarget;
         private LocalDefinition? _objectMethodBeingCalledOn;
@@ -121,9 +121,9 @@ namespace Cpp2IL.Analysis.Actions
 
             //Resolve unmanaged => managed method.
             if (possibleTarget != null)
-                managedMethodBeingCalled = SharedState.UnmanagedToManagedMethods[possibleTarget];
+                ManagedMethodBeingCalled = SharedState.UnmanagedToManagedMethods[possibleTarget];
 
-            if (managedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
+            if (ManagedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
             {
                 if (Utils.TryResolveType(returnType, out var returnDef))
                 {
@@ -158,19 +158,19 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string? ToPsuedoCode()
         {
-            if (managedMethodBeingCalled == null) return "[instruction error - managed method being called is null]";
+            if (ManagedMethodBeingCalled == null) return "[instruction error - managed method being called is null]";
             
             var ret = new StringBuilder();
 
             if (_returnedLocal != null)
                 ret.Append(_returnedLocal?.Type?.FullName).Append(' ').Append(_returnedLocal?.Name).Append(" = ");
 
-            if (managedMethodBeingCalled.IsStatic)
-                ret.Append(managedMethodBeingCalled.DeclaringType.FullName);
+            if (ManagedMethodBeingCalled.IsStatic)
+                ret.Append(ManagedMethodBeingCalled.DeclaringType.FullName);
             else
                 ret.Append(_objectMethodBeingCalledOn?.Name);
 
-            ret.Append('.').Append(managedMethodBeingCalled?.Name).Append('(');
+            ret.Append('.').Append(ManagedMethodBeingCalled?.Name).Append('(');
 
             if (arguments != null && arguments.Count > 0)
                 ret.Append(string.Join(", ", GetReadableArguments()));
@@ -183,9 +183,9 @@ namespace Cpp2IL.Analysis.Actions
         public override string ToTextSummary()
         {
             string result;
-            result = managedMethodBeingCalled?.IsStatic == true
-                ? $"[!] Calls static managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X})"
-                : $"[!] Calls managed method {managedMethodBeingCalled?.FullName} (0x{_jumpTarget:X}) on instance {_objectMethodBeingCalledOn}";
+            result = ManagedMethodBeingCalled?.IsStatic == true
+                ? $"[!] Calls static managed method {ManagedMethodBeingCalled?.FullName} (0x{_jumpTarget:X})"
+                : $"[!] Calls managed method {ManagedMethodBeingCalled?.FullName} (0x{_jumpTarget:X}) on instance {_objectMethodBeingCalledOn}";
 
             if (arguments != null && arguments.Count > 0)
                 result += $" with arguments {arguments.ToStringEnumerable()}";

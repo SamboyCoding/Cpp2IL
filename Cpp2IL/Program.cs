@@ -13,6 +13,7 @@ using System.Text;
 using System.Threading;
 using CommandLine;
 using Cpp2IL.Analysis;
+using Cpp2IL.Analysis.Actions;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
@@ -426,6 +427,8 @@ namespace Cpp2IL
             }
         }
 
+        private static List<MethodDefinition> allCalledMethods = new List<MethodDefinition>();
+        
         private static ConcurrentDictionary<string, AsmDumper.TaintReason> DoAssemblyCSharpAnalysis(string methodOutputDir, List<(TypeDefinition type, List<CppMethodData> methods)> methods, KeyFunctionAddresses keyFunctionAddresses, out int total)
         {
             var assembly = Assemblies.Find(a => a.Name.Name == "Assembly-CSharp");
@@ -489,8 +492,19 @@ namespace Cpp2IL
 
                         var methodDefinition = SharedState.MethodsByIndex[method.MethodId];
 
-                        var taintResult = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe)
-                            .AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                        var dumper = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe);
+                        var taintResult = dumper.AnalyzeMethod(typeDump, ref allUsedMnemonics);
+                        
+                        foreach (var thisAction in dumper.Analysis.Actions)
+                        {
+                            if(!(thisAction is CallManagedFunctionAction callAction)) continue;
+
+                            var m = callAction.ManagedMethodBeingCalled;
+                            
+                            if(!allCalledMethods.Contains(m))
+                                allCalledMethods.Add(m);
+                        }
+                        
 
                         var key = new StringBuilder();
 
@@ -522,6 +536,21 @@ namespace Cpp2IL
                 toProcess.AsParallel().ForAll(action);
             else
                 toProcess.ForEach(action);
+
+            var allMethods = toProcess.Select(s => s.type)
+                .SelectMany(t => t.Methods)
+                .Where(m => !m.IsVirtual)
+                .ToList();
+            
+            var uncalledMethods = allMethods
+                .Where(m => !allCalledMethods.Contains(m))
+                .ToList();
+
+            var output = $"There are {allMethods.Count} non-virtual methods in Assembly-CSharp, of which {uncalledMethods.Count} aren't called and {allCalledMethods.Count} are. Uncalled methods:\n";
+
+            output += string.Join("\n", uncalledMethods);
+            
+            File.WriteAllText("cpp2il_out/uncalled_methods.txt", output);
 
 
             total = successfullyProcessed + failedProcess;
