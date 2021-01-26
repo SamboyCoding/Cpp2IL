@@ -9,7 +9,7 @@ namespace Cpp2IL.Analysis
         public TypeReference? Type;
         public ulong Offset;
         public bool Static;
-        public object Constant;
+        public object? Constant;
 
 
         public int CompareTo(FieldInType other)

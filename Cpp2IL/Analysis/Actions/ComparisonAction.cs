@@ -14,7 +14,7 @@ namespace Cpp2IL.Analysis.Actions
         private readonly string? ArgumentOneRegister;
         private readonly string? ArgumentTwoRegister;
 
-        private readonly bool unimportantComparison;
+        public readonly bool unimportantComparison;
 
         private readonly ulong endOfLoopAddr;
 

@@ -3,13 +3,13 @@ using Iced.Intel;
 
 namespace Cpp2IL.Analysis.Actions
 {
-    public class ArrayValueReadRegToRegAction : BaseAction
+    public class RegOffsetArrayValueReadRegToRegAction : BaseAction
     {
         private LocalDefinition? _arrayLocal;
         private LocalDefinition? _indexLocal;
         private LocalDefinition? _destLocal;
 
-        public ArrayValueReadRegToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegOffsetArrayValueReadRegToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             //God knows why the memory *index* contains the array, and the base contains the index, but it does.
             var arrayContainingReg = Utils.GetRegisterNameNew(instruction.MemoryIndex);

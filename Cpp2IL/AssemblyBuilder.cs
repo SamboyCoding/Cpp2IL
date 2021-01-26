@@ -305,13 +305,12 @@ namespace Cpp2IL
                             fieldDefault.typeIndex, metadata, cppAssembly);
                     }
                 }
+                
+                var thisFieldOffset = cppAssembly.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, fieldIdx - cppTypeDefinition.firstFieldIdx, fieldIdx, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
+                HandleField(fieldTypeRef, thisFieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
 
                 if (!fieldDefinition.IsStatic)
                 {
-                    var thisFieldOffset = cppAssembly.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, fieldIdx - cppTypeDefinition.firstFieldIdx, fieldIdx, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
-
-                    HandleField(fieldTypeRef, thisFieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
-
                     //Add [FieldOffset(Offset = "0xDEADBEEF")]
                     var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
                     fieldOffsetAttributeInst.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fields.Last().Offset:X}")));
@@ -607,6 +606,8 @@ namespace Cpp2IL
                     .Append($"\t\tType: {field.Type.FullName}\n")
                     .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n");
 
+                if (field.Constant is char c && char.IsSurrogate(c)) return;
+                
                 if (field.Constant != null)
                     typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
             }

@@ -13,13 +13,19 @@ namespace Cpp2IL
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {
             //32-bit offsets:
-            new UsefulOffset("genericContainerIndex", 0x74, typeof(bool), true),
-            new UsefulOffset("has_cctor", 0xBB, typeof(bool), true),
+            new UsefulOffset("cctor_finished", 0x74, typeof(uint), true),
+            new UsefulOffset("flags1", 0xBB, typeof(byte), true),
             new UsefulOffset("interfaceOffsets", X86_INTERFACE_OFFSET_COUNT_OFFSET, typeof(IntPtr), true),
+            new UsefulOffset("static_fields", 0x5C, typeof(IntPtr), true),
             
             //64-bit offsets:
             new UsefulOffset("interfaceOffsets", X86_64_INTERFACE_OFFSET_COUNT_OFFSET, typeof(IntPtr), false)
         };
+
+        public static bool IsStaticFieldsPtr(uint offset)
+        {
+            return GetOffsetName(offset) == "static_fields";
+        }
 
         public static string? GetOffsetName(uint offset)
         {

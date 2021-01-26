@@ -45,7 +45,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override bool IsImportant()
         {
-            return isIfElse || isWhile;
+            return associatedCompare?.unimportantComparison == false && (isIfElse || isWhile);
         }
 
         protected string GetArgumentOnePseudocodeValue()

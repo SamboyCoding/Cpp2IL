@@ -126,10 +126,10 @@ namespace Cpp2IL.Analysis
             //Pass 0: Disassemble
 #if USE_NEW_ANALYSIS_METHOD
             _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe!.is32Bit, method.MethodBytes, methodStart);
-            
+
             _methodEnd = _instructions.LastOrDefault().NextIP;
             if (_methodEnd == 0) _methodEnd = _methodStart;
-            
+
             _analysis = new MethodAnalysis(_methodDefinition, _methodStart, _methodEnd, _instructions);
 #else
             _instructions = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
@@ -689,6 +689,11 @@ namespace Cpp2IL.Analysis
                     //Jump if >=
                     _analysis.Actions.Add(new JumpIfGreaterThanOrEqualToAction(_analysis, instruction));
                     break;
+                case Mnemonic.Jle:
+                case Mnemonic.Jbe:
+                    //Jump if <=
+                    _analysis.Actions.Add(new JumpIfLessThanOrEqualToAction(_analysis, instruction));
+                    break;
                 //TODO Conditional jumps
             }
         }
@@ -720,11 +725,16 @@ namespace Cpp2IL.Analysis
                     //Second operand is a reg, no offset, moving into the stack = Copy reg content to stack.
                     _analysis.Actions.Add(new StackToRegCopyAction(_analysis, instruction));
                     return;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition constant && constant.Type == typeof(StaticFieldsPtr):
+                    //Load a specific static field.
+                    _analysis.Actions.Add(new StaticFieldToRegAction(_analysis, instruction));
+                    break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp != null && instruction.MemoryIndex == Register.None:
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
-                    _analysis.Actions.Add(new ClassPointerLoadAction(_analysis, instruction));
+                    if (_analysis.GetLocalInReg(r1) != null)
+                        _analysis.Actions.Add(new ClassPointerLoadAction(_analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     return;
                 }
                 //0xb0 == Il2CppRuntimeInterfaceOffsetPair* interfaceOffsets;
@@ -807,14 +817,27 @@ namespace Cpp2IL.Analysis
                     //Local to stack pointer (opposite of above)
                     _analysis.Actions.Add(new LocalToEbpOffsetAction(_analysis, instruction));
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None:
-                    //Move generic memory to register - field read.
-                    _analysis.Actions.Add(new FieldToLocalAction(_analysis, instruction));
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && _analysis.GetConstantInReg(memR) != null && Il2CppClassUsefulOffsets.IsStaticFieldsPtr(instruction.MemoryDisplacement):
+                    //Static fields ptr read
+                    _analysis.Actions.Add(new StaticFieldOffsetToRegAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition local && local.Type?.IsArray == true:
+                    //Move reg, [reg+0x10]
+                    //Reading a field from an array at a fixed offset
+                    if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement))
+                    {
+                        _analysis.Actions.Add(new ConstantArrayOffsetToRegAction(_analysis, instruction));
+                    }
+
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex != Register.None && memIdxOp is LocalDefinition local && local.Type?.IsArray == true:
                     //Move reg, [reg+reg] => usually array reads.
                     //So much so that this is guarded behind an array read check - change the case if you need to change this.
-                    _analysis.Actions.Add(new ArrayValueReadRegToRegAction(_analysis, instruction));
+                    _analysis.Actions.Add(new RegOffsetArrayValueReadRegToRegAction(_analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None:
+                    //Move generic memory to register - field read.
+                    _analysis.Actions.Add(new FieldToLocalAction(_analysis, instruction));
                     break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic
@@ -865,7 +888,7 @@ namespace Cpp2IL.Analysis
                 _analysis.IndentLevel -= 1; //For the end if statement
                 _analysis.Actions.Add(new EndIfMarkerAction(_analysis, instruction));
             }
-            
+
             if (hasEndedLoop)
             {
                 _analysis.IndentLevel -= 1;
@@ -888,7 +911,7 @@ namespace Cpp2IL.Analysis
             }
         }
 #endif
-        
+
 #if !USE_NEW_ANALYSIS_METHOD
         private void PerformInstructionChecks(Instruction instruction)
         {
@@ -3261,7 +3284,7 @@ namespace Cpp2IL.Analysis
             return null;
         }
 #endif
-        
+
         private enum BlockType
         {
             NONE,

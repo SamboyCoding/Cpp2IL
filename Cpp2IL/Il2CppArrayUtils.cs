@@ -8,6 +8,14 @@ namespace Cpp2IL
 {
     public static class Il2CppArrayUtils
     {
+        public static uint FirstItemOffset = (uint) (LibCpp2IlMain.ThePe!.is32Bit ? 0x10 : 0x28); 
+        //32-bit:
+        //0x0: klass ptr
+        //0x4: monitor ptr
+        //0x8: bounds ptr (where offset 0 is length)
+        //0xc: max length (uintptr)
+        //0x10: first item ptr
+        
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {
             //32-bit offsets:
@@ -27,6 +35,11 @@ namespace Cpp2IL
         public static bool IsIl2cppLengthAccessor(uint offset)
         {
             return GetOffsetName(offset) == "length";
+        }
+
+        public static bool IsAtLeastFirstItemPtr(uint offset)
+        {
+            return offset >= FirstItemOffset;
         }
 
         public static PropertyDefinition GetLengthProperty()
