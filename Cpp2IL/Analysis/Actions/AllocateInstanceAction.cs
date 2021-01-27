@@ -2,6 +2,7 @@
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Iced.Intel;
+using LibCpp2IL;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -15,12 +16,15 @@ namespace Cpp2IL.Analysis.Actions
         
         public AllocateInstanceAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var constant = context.GetConstantInReg("rcx");
+            var constant = !LibCpp2IlMain.ThePe!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
             if (constant == null || constant.Type != typeof(TypeDefinition)) return;
 
             TypeCreated = (TypeDefinition) constant.Value;
 
             LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
+
+            if (LibCpp2IlMain.ThePe.is32Bit)
+                context.Stack.Pop(); //Pop off the type created
         }
 
         internal AllocateInstanceAction(MethodAnalysis context, Instruction instruction, TypeDefinition typeCreated) : base(context, instruction)

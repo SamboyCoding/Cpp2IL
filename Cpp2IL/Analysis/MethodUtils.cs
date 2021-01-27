@@ -19,7 +19,7 @@ namespace Cpp2IL.Analysis
             var managedMethod = SharedState.UnmanagedToManagedMethods[method];
             return CheckParameters(associatedInstruction, managedMethod, context, isInstance, out arguments, failOnLeftoverArgs);
         }
-        
+
         public static bool CheckParameters(Instruction associatedInstruction, MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
         {
             return LibCpp2IlMain.ThePe!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, out arguments) : CheckParameters64(method, context, isInstance, out arguments, failOnLeftoverArgs);
@@ -49,7 +49,7 @@ namespace Cpp2IL.Analysis
                     case LocalDefinition local when local.Type == null || !parameterData.ParameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
                         return false;
                 }
-                
+
                 //todo handle value types (Structs)
 
                 tempArgs.Add(arg);
@@ -64,7 +64,7 @@ namespace Cpp2IL.Analysis
 
         private static bool CheckParameters32(Instruction associatedInstruction, MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
         {
-            arguments = null;
+            arguments = new List<IAnalysedOperand>();
 
             var listToRePush = new List<IAnalysedOperand>();
 
@@ -82,6 +82,7 @@ namespace Cpp2IL.Analysis
                 {
                     //This parameter is fine, move on.
                     listToRePush.Add(context.Stack.Pop());
+                    arguments.Add(listToRePush.Last());
                     continue;
                 }
 
@@ -91,88 +92,74 @@ namespace Cpp2IL.Analysis
                     //Sometimes the arguments are passed individually, because at the end of the day they're just stack offsets.
                     var structTypeDef = parameterData.ParameterType.Resolve();
 
-                    if (associatedInstruction.IP == 0x10B4A625)
+
+                    var fieldsToCheck = structTypeDef?.Fields.Where(f => !f.IsStatic).ToList();
+                    if (structTypeDef != null && context.Stack.Count >= fieldsToCheck.Count)
                     {
-
-                        Console.WriteLine($"For call to {method} at 0x{associatedInstruction.IP:X} - found a struct arg. Checking we have the required stack entries...");
-                        
-                        var fieldsToCheck = structTypeDef.Fields.Where(f => !f.IsStatic).ToList();
-                        Console.WriteLine($"There are {context.Stack.Count} stack entries and {fieldsToCheck.Count} fields in {structTypeDef.Name}");
-
-                        if (structTypeDef != null && context.Stack.Count >= fieldsToCheck.Count)
+                        //We have enough stack entries to fill the fields.
+                        var listOfStackArgs = new List<IAnalysedOperand>();
+                        for (var i = 0; i < fieldsToCheck.Count; i++)
                         {
-                            Console.WriteLine("...we do. Building list...");
-                            //We have enough stack entries to fill the fields.
-                            var listOfStackArgs = new List<IAnalysedOperand>();
-                            for (var i = 0; i < fieldsToCheck.Count; i++)
-                            {
-                                listOfStackArgs.Add(context.Stack.Pop());
-                            }
-
-                            // listOfStackArgs.Reverse(); //Get in the correct left-to-right order for arguments
-
-                            //Check that all the fields match the expected type.
-                            var allStructFieldsMatch = true;
-                            Console.WriteLine("Checking field types against parameter types...");
-                            for (var i = 0; i < fieldsToCheck.Count; i++)
-                            {
-                                var structField = fieldsToCheck[i];
-                                var actualArg = listOfStackArgs[i];
-                                allStructFieldsMatch &= CheckSingleParameter(actualArg, structField.FieldType);
-                            }
-
-                            Console.WriteLine($"Matching: {allStructFieldsMatch}");
-                            if (allStructFieldsMatch)
-                            {
-                                //Now we just have to push the actions required to simulate a full creation of this struct.
-                                //So an allocation of the struct, setting of fields, and then push the struct local to listToRePush
-                                //as its used as the arguments
-
-                                //Allocate an instance of the struct
-                                var allocateInstanceAction = new AllocateInstanceAction(context, associatedInstruction, structTypeDef);
-                                context.Actions.Add(allocateInstanceAction);
-
-                                var instanceLocal = allocateInstanceAction.LocalReturned;
-
-                                //Set the fields from the operands
-                                for (var i = 0; i < listOfStackArgs.Count; i++)
-                                {
-                                    var associatedField = fieldsToCheck[i];
-
-                                    var stackArg = listOfStackArgs[i];
-                                    if (stackArg is LocalDefinition local)
-                                        context.Actions.Add(new LocalToFieldAction(context, associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), instanceLocal!, local));
-                                    else
-                                    {
-                                        //TODO Constants
-                                    }
-                                }
-
-                                listToRePush.Add(instanceLocal);
-
-                                //And then move on to the next argument.
-                                continue;
-                            }
-
-                            //Failure condition
-                            //Re-reverse
-                            // listOfStackArgs.Reverse();
-
-                            //Push
-                            listToRePush.AddRange(listOfStackArgs);
-                            //Fall-through to the fail below.
+                            listOfStackArgs.Add(context.Stack.Pop());
                         }
+
+                        //Check that all the fields match the expected type.
+                        var allStructFieldsMatch = true;
+                        for (var i = 0; i < fieldsToCheck.Count; i++)
+                        {
+                            var structField = fieldsToCheck[i];
+                            var actualArg = listOfStackArgs[i];
+                            allStructFieldsMatch &= CheckSingleParameter(actualArg, structField.FieldType);
+                        }
+
+                        if (allStructFieldsMatch)
+                        {
+                            //Now we just have to push the actions required to simulate a full creation of this struct.
+                            //So an allocation of the struct, setting of fields, and then push the struct local to listToRePush
+                            //as its used as the arguments
+
+                            //Allocate an instance of the struct
+                            var allocateInstanceAction = new AllocateInstanceAction(context, associatedInstruction, structTypeDef);
+                            context.Actions.Add(allocateInstanceAction);
+
+                            var instanceLocal = allocateInstanceAction.LocalReturned;
+
+                            //Set the fields from the operands
+                            for (var i = 0; i < listOfStackArgs.Count; i++)
+                            {
+                                var associatedField = fieldsToCheck[i];
+
+                                var stackArg = listOfStackArgs[i];
+                                if (stackArg is LocalDefinition local)
+                                    context.Actions.Add(new LocalToFieldAction(context, associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), instanceLocal!, local));
+                                else
+                                {
+                                    //TODO Constants
+                                }
+                            }
+
+                            //Add the instance to the arguments list.
+                            arguments.Add(instanceLocal);
+
+                            //And then move on to the next argument.
+                            continue;
+                        }
+
+                        //Failure condition
+
+                        //Push
+                        listToRePush.AddRange(listOfStackArgs);
+                        //Fall-through to the fail below.
                     }
                 }
-                
+
 
                 //Fail condition
                 RePushStack(listToRePush, context);
+                arguments = null;
                 return false;
             }
 
-            arguments = listToRePush.ToArray().ToList(); //Clone list
-            // RePushStack(listToRePush, context); //todo: in the event of this being the right method - we don't want to re-push, right? as the method consumes these
             return true;
         }
 

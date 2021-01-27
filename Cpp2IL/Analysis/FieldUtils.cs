@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
@@ -105,6 +106,28 @@ namespace Cpp2IL.Analysis
             {
                 return FinalLoadInChain?.FieldType ?? NextChainLink!.GetFinalType();
             }
+        }
+
+        public static FieldDefinition? GetStaticFieldByOffset(StaticFieldsPtr fieldsPtr, uint fieldOffset)
+        {
+            var type = fieldsPtr.TypeTheseFieldsAreFor;
+
+            var theFields = SharedState.FieldsByType[type];
+            string fieldName;
+            try
+            {
+                fieldName = theFields.SingleOrDefault(f => f.Static && f.Constant == null && f.Offset == fieldOffset).Name;
+            }
+            catch (InvalidOperationException)
+            {
+                var matchingFields = theFields.Where(f => f.Static && f.Constant == null && f.Offset == fieldOffset).ToList();
+                Console.WriteLine($"More than one static field at offset 0x{fieldOffset:X}! Matches: " + matchingFields.Select(f => f.Name).ToStringEnumerable());
+                return null;
+            }
+
+            if (string.IsNullOrEmpty(fieldName)) return null;
+
+            return type.Fields.FirstOrDefault(f => f.IsStatic && f.Name == fieldName);
         }
     }
 }

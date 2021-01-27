@@ -872,6 +872,10 @@ namespace Cpp2IL.Analysis
                     //Move generic memory to register - field read.
                     Analysis.Actions.Add(new FieldToLocalAction(Analysis, instruction));
                     break;
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: StaticFieldsPtr _}:
+                    //Write static field
+                    Analysis.Actions.Add(new RegToStaticFieldAction(Analysis, instruction));
+                    break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic
                 case Mnemonic.Add when type0 == OpKind.Register && type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && r0 != "rsp":

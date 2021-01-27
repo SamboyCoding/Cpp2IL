@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
@@ -8,8 +9,6 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class StaticFieldToRegAction : BaseAction
     {
-        private readonly TypeDefinition? _theType;
-        private readonly uint _fieldOffset;
         private readonly FieldDefinition? _theField;
         private readonly string _destReg;
         private readonly LocalDefinition? _localMade;
@@ -23,17 +22,8 @@ namespace Cpp2IL.Analysis.Actions
 
             var fieldsPtr = (StaticFieldsPtr) fieldsPtrConst.Value;
 
-            _theType = fieldsPtr.TypeTheseFieldsAreFor;
-
-            _fieldOffset = instruction.MemoryDisplacement;
-
-            var theFields = SharedState.FieldsByType[_theType];
-            var fieldName = theFields.SingleOrDefault(f => f.Static && f.Constant == null && f.Offset == _fieldOffset).Name;
+            _theField = FieldUtils.GetStaticFieldByOffset(fieldsPtr, instruction.MemoryDisplacement);
             
-            if(string.IsNullOrEmpty(fieldName)) return;
-
-            _theField = _theType.Fields.FirstOrDefault(f => f.IsStatic && f.Name == fieldName);
-
             if (_theField == null) return;
 
             _localMade = context.MakeLocal(_theField.FieldType, reg: _destReg);
