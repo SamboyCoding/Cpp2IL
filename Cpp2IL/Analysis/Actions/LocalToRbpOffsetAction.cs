@@ -4,13 +4,13 @@ using LibCpp2IL;
 
 namespace Cpp2IL.Analysis.Actions
 {
-    public class LocalToEbpOffsetAction : BaseAction
+    public class LocalToRbpOffsetAction : BaseAction
     {
-        private LocalDefinition _localBeingRead;
-        private string _regBeingRead;
-        private int _slotNum;
+        private readonly LocalDefinition? _localBeingRead;
+        private readonly string _regBeingRead;
+        private readonly int _slotNum;
 
-        public LocalToEbpOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LocalToRbpOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             _regBeingRead = Utils.GetRegisterNameNew(instruction.Op1Register);
             _localBeingRead = context.GetLocalInReg(_regBeingRead);

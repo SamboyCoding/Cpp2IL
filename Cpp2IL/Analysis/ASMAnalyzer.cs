@@ -552,6 +552,10 @@ namespace Cpp2IL.Analysis
             var reg = Utils.GetRegisterNameNew(instruction.Op0Register == Register.None ? instruction.MemoryBase : instruction.Op0Register);
             var operand = Analysis.GetOperandInRegister(reg);
 
+            var memR = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var memOp = Analysis.GetOperandInRegister(memR);
+            var memOffset = instruction.MemoryDisplacement;
+
             switch (instruction.Mnemonic)
             {
                 //Note to self: (push [val]) is the same as (sub esp, 4) + (mov esp, [val])
@@ -715,6 +719,15 @@ namespace Cpp2IL.Analysis
                     Analysis.Actions.Add(new JumpIfLessThanOrEqualToAction(Analysis, instruction));
                     break;
                 //TODO Conditional jumps
+                //Floating-point unit (FPU) instructions
+                case Mnemonic.Fld when memR != "rip" && memR != "rbp" && memOp is LocalDefinition:
+                    //Load [addr] - which is a field address - onto the top of the floating point stack
+                    Analysis.Actions.Add(new FieldToFpuStackAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Fstp when memR == "rbp":
+                    //Store the top of the floating point stack to an rbp-based [addr]
+                    Analysis.Actions.Add(new FpuStackLocalToRbpOffsetAction(Analysis, instruction));
+                    break;
             }
         }
 
@@ -835,7 +848,7 @@ namespace Cpp2IL.Analysis
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && instruction.MemoryBase == Register.EBP:
                     //Local to stack pointer (opposite of above)
-                    Analysis.Actions.Add(new LocalToEbpOffsetAction(Analysis, instruction));
+                    Analysis.Actions.Add(new LocalToRbpOffsetAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && Analysis.GetConstantInReg(memR) != null && Il2CppClassUsefulOffsets.IsStaticFieldsPtr(instruction.MemoryDisplacement):
                     //Static fields ptr read

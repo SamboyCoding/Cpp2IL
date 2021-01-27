@@ -592,10 +592,11 @@ namespace Cpp2IL
             var field = new FieldInType
             {
                 Name = fieldName,
-                Type = fieldTypeRef,
+                FieldType = fieldTypeRef,
                 Offset = (ulong) fieldOffset,
                 Static = fieldDefinition.IsStatic,
-                Constant = fieldDefinition.Constant
+                Constant = fieldDefinition.Constant,
+                DeclaringType = fieldDefinition.DeclaringType
             };
 
             fields.Add(field);
@@ -603,7 +604,7 @@ namespace Cpp2IL
             if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
             {
                 typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
-                    .Append($"\t\tType: {field.Type.FullName}\n")
+                    .Append($"\t\tType: {field.FieldType.FullName}\n")
                     .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n");
 
                 if (field.Constant is char c && char.IsSurrogate(c)) return;

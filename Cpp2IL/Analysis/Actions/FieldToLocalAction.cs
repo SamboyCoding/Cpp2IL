@@ -8,7 +8,7 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class FieldToLocalAction : BaseAction
     {
-        public FieldDefinition? FieldRead;
+        public FieldUtils.FieldBeingAccessedData? FieldRead;
         public LocalDefinition? LocalWritten;
         private string _destRegName;
         private LocalDefinition? _readFrom;
@@ -23,19 +23,11 @@ namespace Cpp2IL.Analysis.Actions
             
             if(_readFrom?.Type?.Resolve() == null) return;
 
-            var fields = SharedState.FieldsByType[_readFrom.Type.Resolve()];
-            
-            if(fields == null) return;
-            
-            var fieldInType = fields.FirstOrDefault(f => f.Offset == sourceFieldOffset);
-
-            if (fieldInType.Offset != sourceFieldOffset) return; //The "default" part of "FirstOrDefault"
-
-            FieldRead = _readFrom.Type.Resolve().Fields.FirstOrDefault(f => f.Name == fieldInType.Name);
+            FieldRead = FieldUtils.GetFieldBeingAccessed(_readFrom.Type, sourceFieldOffset, false);
             
             if(FieldRead == null) return;
 
-            LocalWritten = context.MakeLocal(FieldRead.FieldType, reg: _destRegName);
+            LocalWritten = context.MakeLocal(FieldRead.GetFinalType(), reg: _destRegName);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -45,12 +37,12 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToPsuedoCode()
         {
-            return $"{LocalWritten?.Type?.FullName} {LocalWritten?.Name} = {_readFrom?.Name}.{FieldRead?.Name}";
+            return $"{LocalWritten?.Type?.FullName} {LocalWritten?.Name} = {_readFrom?.Name}.{FieldRead}";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Reads field {FieldRead?.FullName} from {_readFrom} and stores in a new local {LocalWritten} in {_destRegName}\n";
+            return $"[!] Reads field {FieldRead} from {_readFrom} and stores in a new local {LocalWritten} in {_destRegName}\n";
         }
         
         public override bool IsImportant()

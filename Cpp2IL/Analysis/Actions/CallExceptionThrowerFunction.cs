@@ -67,7 +67,7 @@ namespace Cpp2IL.Analysis.Actions
                 if (IsExceptionThrower(secondaryAddr, recurseCount + 1))
                 {
                     ExceptionThrowers[addr] = ExceptionThrowers[secondaryAddr];
-                    Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {ExceptionThrowers[addr]?.FullName} because 0x{secondaryAddr:X} does.");
+                    // Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {ExceptionThrowers[addr]?.FullName} because 0x{secondaryAddr:X} does.");
                     return true;
                 }
             }

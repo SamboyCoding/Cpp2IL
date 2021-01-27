@@ -34,6 +34,7 @@ namespace Cpp2IL.Analysis.ResultModels
         private Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
         public Dictionary<int, LocalDefinition> StackStoredLocals = new Dictionary<int, LocalDefinition>();
         public Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
+        public Stack<IAnalysedOperand> FloatingPointStack = new Stack<IAnalysedOperand>();
 
         internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions)
         {
@@ -233,6 +234,7 @@ namespace Cpp2IL.Analysis.ResultModels
             state.FunctionArgumentLocals = FunctionArgumentLocals.Clone();
             state.StackStoredLocals = StackStoredLocals.Clone();
             state.RegisterData = RegisterData.Clone();
+            state.FloatingPointStack = FloatingPointStack.Clone();
             return state;
         }
 
@@ -242,6 +244,7 @@ namespace Cpp2IL.Analysis.ResultModels
             FunctionArgumentLocals = state.FunctionArgumentLocals;
             StackStoredLocals = state.StackStoredLocals;
             RegisterData = state.RegisterData;
+            FloatingPointStack = state.FloatingPointStack;
         }
 
         public void RegisterIfElseStatement(ulong startOfIf, ulong startOfElse, BaseAction conditionalJump)

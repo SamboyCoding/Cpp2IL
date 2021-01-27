@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System.Diagnostics;
+using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Iced.Intel;
 
@@ -19,6 +20,17 @@ namespace Cpp2IL.Analysis.Actions
 
             TypeCreated = (TypeDefinition) constant.Value;
 
+            LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
+        }
+
+        internal AllocateInstanceAction(MethodAnalysis context, Instruction instruction, TypeDefinition typeCreated) : base(context, instruction)
+        {
+            //For use with struct creation only
+            Debug.Assert(typeCreated.IsValueType);
+            
+            //Ignore the type, we're overriding it
+            TypeCreated = typeCreated;
+            
             LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
         }
 

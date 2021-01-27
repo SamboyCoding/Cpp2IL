@@ -8,5 +8,6 @@ namespace Cpp2IL.Analysis.ResultModels
         public Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
         public Dictionary<int, LocalDefinition> StackStoredLocals = new Dictionary<int, LocalDefinition>();
         public Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
+        public Stack<IAnalysedOperand> FloatingPointStack = new Stack<IAnalysedOperand>();
     }
 }

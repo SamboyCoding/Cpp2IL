@@ -44,7 +44,7 @@ namespace Cpp2IL.Analysis.Actions
                 }
             }
 
-            if (!MethodUtils.CheckParameters(_targetMethod, context, !_targetMethod.IsStatic, out arguments, false))
+            if (!MethodUtils.CheckParameters(instruction, _targetMethod, context, !_targetMethod.IsStatic, out arguments, false))
             {
                 AddComment("Mismatched parameters detected here.");
             }

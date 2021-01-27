@@ -40,7 +40,7 @@ namespace Cpp2IL.Analysis.Actions
                     context.Stack.Pop(); //remove instance from stack
                 }
 
-                if (!MethodUtils.CheckParameters(possibleTarget, context, !possibleTarget.IsStatic, out arguments, failOnLeftoverArgs: false))
+                if (!MethodUtils.CheckParameters(instruction, possibleTarget, context, !possibleTarget.IsStatic, out arguments, failOnLeftoverArgs: false))
                     AddComment("parameters do not match, but there is only one function at this address.");
 
                 if (!possibleTarget.IsStatic && _objectMethodBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), _objectMethodBeingCalledOn.Type))
@@ -55,8 +55,8 @@ namespace Cpp2IL.Analysis.Actions
                     possibleTarget = null;
                     foreach (var m in listOfCallableMethods)
                     {
-                        if(m.IsStatic) continue; //Only checking instance methods here.
-                        
+                        if (m.IsStatic) continue; //Only checking instance methods here.
+
                         //Have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
                         LocalDefinition toPushBackIfNeeded = null;
                         if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
@@ -66,13 +66,13 @@ namespace Cpp2IL.Analysis.Actions
                         }
 
                         //Check defining type matches instance, and check params.
-                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments))
+                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments))
                         {
                             possibleTarget = m;
                             break;
                         }
 
-                        if(toPushBackIfNeeded != null)
+                        if (toPushBackIfNeeded != null)
                         {
                             //Mismatch - re-push the instance
                             context.Stack.Push(toPushBackIfNeeded);
@@ -84,8 +84,8 @@ namespace Cpp2IL.Analysis.Actions
                     {
                         foreach (var m in listOfCallableMethods)
                         {
-                            if(m.IsStatic) continue; //Only checking instance methods here.
-                        
+                            if (m.IsStatic) continue; //Only checking instance methods here.
+
                             //Again, have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
                             LocalDefinition toPushBackIfNeeded = null;
                             if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
@@ -93,9 +93,9 @@ namespace Cpp2IL.Analysis.Actions
                                 _objectMethodBeingCalledOn = local;
                                 toPushBackIfNeeded = local;
                             }
-                            
+
                             //Check defining type is a superclass or interface of instance, and check params.
-                            if (Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(m, context, true, out arguments))
+                            if (Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments))
                             {
                                 possibleTarget = m;
                                 break;
@@ -112,7 +112,7 @@ namespace Cpp2IL.Analysis.Actions
 
                 if (possibleTarget == null)
                     //Check static methods. No need for a complicated foreach here, we don't have to worry about an instance.
-                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(m, context, false, out arguments));
+                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(instruction, m, context, false, out arguments));
                 else if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                     //Instance method
                     _objectMethodBeingCalledOn = local; //32-bit and we have an instance
@@ -125,16 +125,8 @@ namespace Cpp2IL.Analysis.Actions
 
             if (ManagedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
             {
-                if (Utils.TryResolveType(returnType, out var returnDef))
-                {
-                    //Push return type to rax.
-                    var destReg = Utils.ShouldBeInFloatingPointRegister(returnDef) ? "xmm0" : "rax";
-                    _returnedLocal = context.MakeLocal(returnDef, reg: destReg);
-                }
-                else
-                {
-                    AddComment($"Failed to resolve return type {returnType} for pushing to rax.");
-                }
+                var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
+                _returnedLocal = context.MakeLocal(returnType, reg: destReg);
             }
 
             // SharedState.MethodsByAddress.TryGetValue(jumpTarget, out target);
@@ -159,7 +151,7 @@ namespace Cpp2IL.Analysis.Actions
         public override string? ToPsuedoCode()
         {
             if (ManagedMethodBeingCalled == null) return "[instruction error - managed method being called is null]";
-            
+
             var ret = new StringBuilder();
 
             if (_returnedLocal != null)
@@ -195,7 +187,7 @@ namespace Cpp2IL.Analysis.Actions
 
             return result + "\n";
         }
-        
+
         public override bool IsImportant()
         {
             return true;

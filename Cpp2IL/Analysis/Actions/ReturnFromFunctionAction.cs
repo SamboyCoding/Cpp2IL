@@ -5,12 +5,13 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class ReturnFromFunctionAction : BaseAction
     {
-        private IAnalysedOperand returnValue;
+        private IAnalysedOperand? returnValue;
         private bool _isVoid;
 
         public ReturnFromFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             _isVoid = context.IsVoid();
+            returnValue = context.GetOperandInRegister("rax");
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -23,7 +24,7 @@ namespace Cpp2IL.Analysis.Actions
             if (_isVoid)
                 return "return";
             
-            return $"return {returnValue}";
+            return $"return {returnValue?.GetPseudocodeRepresentation()}";
         }
 
         public override string ToTextSummary()
