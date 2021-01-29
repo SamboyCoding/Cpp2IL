@@ -368,7 +368,12 @@ namespace Cpp2IL
                 }
 
                 // if (attributeName != "SerializeField") continue;
-                var customAttribute = new CustomAttribute(module.ImportReference(attributeCtorsByClassIndex[attributeType.data.classIndex]));
+                var attributeConstructor = attributeCtorsByClassIndex[attributeType.data.classIndex];
+
+                if (attributeConstructor.HasParameters)
+                    continue; //Skip attributes which have arguments.
+                
+                var customAttribute = new CustomAttribute(module.ImportReference(attributeConstructor));
                 attributes.Add(customAttribute);
             }
 

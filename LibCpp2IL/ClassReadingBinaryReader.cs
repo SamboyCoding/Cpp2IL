@@ -136,16 +136,16 @@ namespace LibCpp2IL
 
         public string ReadStringToNull(long offset)
         {
-            var builder = new StringBuilder();
+            var builder = new List<byte>();
             lock (PositionShiftLock)
             {
                 Position = offset;
-                char c;
-                while ((c = (char) _memoryStream.ReadByte()) != 0)
-                    builder.Append(c);
+                byte b;
+                while ((b = (byte) _memoryStream.ReadByte()) != 0)
+                    builder.Add(b);
             }
 
-            return builder.ToString();
+            return Encoding.Default.GetString(builder.ToArray());
         }
     }
 }
