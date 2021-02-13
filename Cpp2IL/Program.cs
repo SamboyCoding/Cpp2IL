@@ -43,6 +43,15 @@ namespace Cpp2IL
 
             [Option("disable-registration-prompts", Required = false, HelpText = "Disable the prompt if Code or Metadata Registration function addresses cannot be located.")]
             public bool DisableRegistrationPrompts { get; set; }
+            
+            [Option("force-binary-path", Required = false, HelpText = "Force the path to the il2cpp binary. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
+            public string? ForcedBinaryPath { get; set; }
+            
+            [Option("force-metadata-path", Required = false, HelpText = "Force the path to the il2cpp metadata file. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
+            public string? ForcedMetadataPath { get; set; }
+            
+            [Option("force-unity-version", Required = false, HelpText = "Override the unity version detection. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
+            public string? ForcedUnityVersion { get; set; }
         }
 
         private static readonly string[] BlacklistedExecutableFilenames =
@@ -55,6 +64,16 @@ namespace Cpp2IL
 
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
         internal static Options? CommandLineOptions;
+
+        private static bool CheckForceOptionsAreValid()
+        {
+            if (CommandLineOptions!.ForcedBinaryPath != null && CommandLineOptions.ForcedMetadataPath != null && CommandLineOptions.ForcedUnityVersion != null)
+                return true;
+            if (CommandLineOptions.ForcedBinaryPath == null && CommandLineOptions.ForcedMetadataPath == null && CommandLineOptions.ForcedUnityVersion == null)
+                return true;
+
+            return false;
+        }
 
         public static int Main(string[] args)
         {
@@ -73,87 +92,105 @@ namespace Cpp2IL
                 return 1;
             }
 
-            var baseGamePath = CommandLineOptions.GamePath;
-
-            Console.WriteLine("Using path: " + baseGamePath);
-
-            if (!Directory.Exists(baseGamePath))
+            if (!CheckForceOptionsAreValid())
             {
-                Console.WriteLine("Specified game-path does not exist: " + baseGamePath);
-                return 2;
-            }
-
-            var assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
-            var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
-                .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
-
-            if (CommandLineOptions.ExeName != null)
-            {
-                exeName = CommandLineOptions.ExeName;
-                Console.WriteLine($"Using OVERRIDDEN game name: {exeName}");
-            }
-            else
-            {
-                Console.WriteLine($"Auto-detected game name: {exeName}");
-            }
-
-            var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
-            var metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
-
-            if (!File.Exists(assemblyPath) || !File.Exists(unityPlayerPath) || !File.Exists(metadataPath))
-            {
-                Console.WriteLine("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
-                                  $"\t{assemblyPath}\n" +
-                                  $"\t{unityPlayerPath}\n" +
-                                  $"\t{metadataPath}\n");
-
-                return 2;
-            }
-
-            #endregion
-
-            Console.WriteLine($"Located game EXE: {unityPlayerPath}");
-            Console.WriteLine($"Located global-metadata: {metadataPath}");
-
-            #region Unity Version Determination
-
-            Console.WriteLine("\nAttempting to determine Unity version...");
-
-            int[] unityVerUseful;
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-            {
-                var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
-
-                unityVerUseful = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
-            }
-            else
-            {
-                //Globalgamemanagers
-                var globalgamemanagersPath = Path.Combine(baseGamePath, $"{exeName}_Data", "globalgamemanagers");
-                var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
-                var verString = new StringBuilder();
-                var idx = 0x14;
-                while (ggmBytes[idx] != 0)
-                {
-                    verString.Append(Convert.ToChar(ggmBytes[idx]));
-                    idx++;
-                }
-
-                var unityVer = verString.ToString();
-                unityVer = unityVer.Substring(0, unityVer.IndexOf("f", StringComparison.Ordinal));
-                Console.WriteLine("Read version string from globalgamemanagers: " + unityVer);
-                unityVerUseful = unityVer.Split(".").Select(int.Parse).ToArray();
-            }
-
-            Console.WriteLine("This game is built with Unity version " + string.Join(".", unityVerUseful));
-
-            if (unityVerUseful[0] <= 4)
-            {
-                Console.WriteLine("Unable to determine a valid unity version. Aborting.");
+                Console.WriteLine("Read the help.");
                 return 1;
             }
 
-            #endregion
+            int[] unityVerUseful;
+            string assemblyPath;
+            string metadataPath;
+            if (CommandLineOptions.ForcedBinaryPath == null)
+            {
+                var baseGamePath = CommandLineOptions.GamePath;
+
+                Console.WriteLine("Using path: " + baseGamePath);
+
+                if (!Directory.Exists(baseGamePath))
+                {
+                    Console.WriteLine("Specified game-path does not exist: " + baseGamePath);
+                    return 2;
+                }
+
+                assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
+                var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
+                    .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
+
+                if (CommandLineOptions.ExeName != null)
+                {
+                    exeName = CommandLineOptions.ExeName;
+                    Console.WriteLine($"Using OVERRIDDEN game name: {exeName}");
+                }
+                else
+                {
+                    Console.WriteLine($"Auto-detected game name: {exeName}");
+                }
+
+                var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
+                metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
+
+                if (!File.Exists(assemblyPath) || !File.Exists(unityPlayerPath) || !File.Exists(metadataPath))
+                {
+                    Console.WriteLine("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
+                                      $"\t{assemblyPath}\n" +
+                                      $"\t{unityPlayerPath}\n" +
+                                      $"\t{metadataPath}\n");
+
+                    return 2;
+                }
+
+                #endregion
+
+                Console.WriteLine($"Located game EXE: {unityPlayerPath}");
+                Console.WriteLine($"Located global-metadata: {metadataPath}");
+
+                #region Unity Version Determination
+
+                Console.WriteLine("\nAttempting to determine Unity version...");
+
+                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                {
+                    var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
+
+                    unityVerUseful = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
+                }
+                else
+                {
+                    //Globalgamemanagers
+                    var globalgamemanagersPath = Path.Combine(baseGamePath, $"{exeName}_Data", "globalgamemanagers");
+                    var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
+                    var verString = new StringBuilder();
+                    var idx = 0x14;
+                    while (ggmBytes[idx] != 0)
+                    {
+                        verString.Append(Convert.ToChar(ggmBytes[idx]));
+                        idx++;
+                    }
+
+                    var unityVer = verString.ToString();
+                    unityVer = unityVer.Substring(0, unityVer.IndexOf("f", StringComparison.Ordinal));
+                    Console.WriteLine("Read version string from globalgamemanagers: " + unityVer);
+                    unityVerUseful = unityVer.Split(".").Select(int.Parse).ToArray();
+                }
+
+                Console.WriteLine("This game is built with Unity version " + string.Join(".", unityVerUseful));
+
+                if (unityVerUseful[0] <= 4)
+                {
+                    Console.WriteLine("Unable to determine a valid unity version. Aborting.");
+                    return 1;
+                }
+
+                #endregion
+            }
+            else
+            {
+                Console.WriteLine("Warning: Using force options, I sure hope you know what you're doing!");
+                assemblyPath = CommandLineOptions.ForcedBinaryPath!;
+                metadataPath = CommandLineOptions.ForcedMetadataPath!;
+                unityVerUseful = CommandLineOptions.ForcedUnityVersion!.Split('.').Select(int.Parse).ToArray();
+            }
 
             //Set this flag from command line options
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = !CommandLineOptions.DisableRegistrationPrompts;
@@ -205,11 +242,11 @@ namespace Cpp2IL
             if (!(CommandLineOptions.SkipAnalysis && CommandLineOptions.SkipMetadataTextFiles) && !Directory.Exists(methodOutputDir))
                 Directory.CreateDirectory(methodOutputDir);
 
-            for (var imageIndex = 0; imageIndex < LibCpp2IlMain.TheMetadata.assemblyDefinitions.Length; imageIndex++)
+            for (var imageIndex = 0; imageIndex < LibCpp2IlMain.TheMetadata.imageDefinitions.Length; imageIndex++)
             {
-                var imageDef = LibCpp2IlMain.TheMetadata.assemblyDefinitions[imageIndex];
+                var imageDef = LibCpp2IlMain.TheMetadata.imageDefinitions[imageIndex];
 
-                Console.WriteLine($"\t\tPopulating {imageDef.typeCount} types in assembly {imageIndex + 1} of {LibCpp2IlMain.TheMetadata.assemblyDefinitions.Length}: {imageDef.Name}...");
+                Console.WriteLine($"\t\tPopulating {imageDef.typeCount} types in assembly {imageIndex + 1} of {LibCpp2IlMain.TheMetadata.imageDefinitions.Length}: {imageDef.Name}...");
 
                 var assemblySpecificPath = Path.Combine(methodOutputDir, imageDef.Name.Replace(".dll", ""));
                 if (!(CommandLineOptions.SkipMetadataTextFiles && CommandLineOptions.SkipAnalysis) && !Directory.Exists(assemblySpecificPath))
@@ -228,7 +265,7 @@ namespace Cpp2IL
             var unityEngineAssembly = Assemblies.Find(x => x.MainModule.Types.Any(t => t.Namespace == "UnityEngine" && t.Name == "SerializeField"));
             if (unityEngineAssembly != null)
             {
-                foreach (var imageDef in LibCpp2IlMain.TheMetadata.assemblyDefinitions)
+                foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions)
                 {
                     //Cache these per-module.
                     var attributeCtorsByClassIndex = new Dictionary<long, MethodReference>();
@@ -336,7 +373,7 @@ namespace Cpp2IL
             return 0;
         }
 
-        private static List<CustomAttribute> GetCustomAttributes(Il2CppAssemblyDefinition imageDef, int attributeIndex, uint token, IDictionary<long, MethodReference> attributeCtorsByClassIndex, ModuleDefinition module)
+        private static List<CustomAttribute> GetCustomAttributes(Il2CppImageDefinition imageDef, int attributeIndex, uint token, IDictionary<long, MethodReference> attributeCtorsByClassIndex, ModuleDefinition module)
         {
             var attributes = new List<CustomAttribute>();
 

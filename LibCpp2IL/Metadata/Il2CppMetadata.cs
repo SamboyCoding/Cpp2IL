@@ -11,7 +11,7 @@ namespace LibCpp2IL.Metadata
         //Disable null check as this stuff is reflected.
 #pragma warning disable 8618
         private Il2CppGlobalMetadataHeader metadataHeader;
-        public Il2CppAssemblyDefinition[] assemblyDefinitions;
+        public Il2CppImageDefinition[] imageDefinitions;
         public Il2CppTypeDefinition[] typeDefs;
         internal Il2CppInterfaceOffset[] interfaceOffsets;
         public Il2CppMethodDefinition[] methodDefs;
@@ -26,7 +26,10 @@ namespace LibCpp2IL.Metadata
         private Il2CppMetadataUsagePair[] metadataUsagePairs;
         public int[] attributeTypes;
         public int[] interfaceIndices;
+        
+        //Moved to binary in v27.
         public Dictionary<uint, SortedDictionary<uint, uint>> metadataUsageDic;
+        
         public long maxMetadataUsages;
         public int[] nestedTypeIndices;
         public Il2CppEventDefinition[] eventDefs;
@@ -52,7 +55,10 @@ namespace LibCpp2IL.Metadata
 
             float actualVersion;
             if (unityVer[0] == 2020 && unityVer[1] >= 2) actualVersion = 27; //2020.2 introduces v27
-            if ((unityVer[0] == 2019 && unityVer[1] >= 3) || (unityVer[0] == 2020 && unityVer[1] < 2)) actualVersion = 24.3f; //2019.3 - 2020.1 => 24.3
+            //Note should there ever be a case of weird issues here, there *is* actually a 24.4, but it's barely ever used. Only change is AssemblyNameDefinition is missing
+            //the hashValueIndex field, which makes the number of assemblies mismatch the number of images.
+            //But we don't use AssemblyDefinitions anyway, so... /shrug.
+            else if ((unityVer[0] == 2019 && unityVer[1] >= 3) || (unityVer[0] == 2020 && unityVer[1] < 2)) actualVersion = 24.3f; //2019.3 - 2020.1 => 24.3
             else if (unityVer[0] >= 2019) actualVersion = 24.2f; //2019.1 - 2019.2 => 24.2
             else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f; //2018.3 - 2018.4 => 24.1
             else actualVersion = version; //2018.1 - 2018.2 => 24
@@ -72,17 +78,17 @@ namespace LibCpp2IL.Metadata
                 throw new Exception("ERROR: Magic number mismatch. Expecting " + 0xFAB11BAF + " but got " + metadataHeader.magicNumber);
             }
 
-            if (metadataHeader.version != 24) throw new Exception("ERROR: Invalid metadata version, unity only uses 24, we got " + metadataHeader.version);
+            if (metadataHeader.version < 24) throw new Exception("ERROR: Invalid metadata version, we only support v24+, this metadata is using v" + metadataHeader.version);
 
             Console.Write("\tReading image definitions...");
             var start = DateTime.Now;
-            assemblyDefinitions = ReadMetadataClassArray<Il2CppAssemblyDefinition>(metadataHeader.imagesOffset, metadataHeader.imagesCount);
+            imageDefinitions = ReadMetadataClassArray<Il2CppImageDefinition>(metadataHeader.imagesOffset, metadataHeader.imagesCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             Console.Write("\tReading type definitions...");
             start = DateTime.Now;
             typeDefs = ReadMetadataClassArray<Il2CppTypeDefinition>(metadataHeader.typeDefinitionsOffset, metadataHeader.typeDefinitionsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            Console.WriteLine($"{typeDefs.Length} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             Console.Write("\tReading interface offsets...");
             start = DateTime.Now;
@@ -150,13 +156,17 @@ namespace LibCpp2IL.Metadata
             stringLiterals = ReadMetadataClassArray<Il2CppStringLiteral>(metadataHeader.stringLiteralOffset, metadataHeader.stringLiteralCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading usage data...");
-            start = DateTime.Now;
-            metadataUsageLists = ReadMetadataClassArray<Il2CppMetadataUsageList>(metadataHeader.metadataUsageListsOffset, metadataHeader.metadataUsageListsCount);
-            metadataUsagePairs = ReadMetadataClassArray<Il2CppMetadataUsagePair>(metadataHeader.metadataUsagePairsOffset, metadataHeader.metadataUsagePairsCount);
+            //Removed in v27 (2020.2)
+            if (LibCpp2IlMain.MetadataVersion < 27f)
+            {
+                Console.Write("\tReading usage data...");
+                start = DateTime.Now;
+                metadataUsageLists = ReadMetadataClassArray<Il2CppMetadataUsageList>(metadataHeader.metadataUsageListsOffset, metadataHeader.metadataUsageListsCount);
+                metadataUsagePairs = ReadMetadataClassArray<Il2CppMetadataUsagePair>(metadataHeader.metadataUsagePairsOffset, metadataHeader.metadataUsagePairsCount);
 
-            DecipherMetadataUsage();
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+                DecipherMetadataUsage();
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
 
             Console.Write("\tReading field references...");
             start = DateTime.Now;
@@ -182,35 +192,7 @@ namespace LibCpp2IL.Metadata
 
         private T[] ReadMetadataClassArray<T>(int offset, int length) where T : new()
         {
-            return ReadClassArray<T>(offset, length / VersionAwareSizeOf(typeof(T)));
-        }
-
-        private static int VersionAwareSizeOf(Type type)
-        {
-            var size = 0;
-            foreach (var i in type.GetFields())
-            {
-                var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
-                if (attr != null)
-                {
-                    if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
-                        continue;
-                }
-
-                switch (i.FieldType.Name)
-                {
-                    case "Int32":
-                    case "UInt32":
-                        size += 4;
-                        break;
-                    case "Int16":
-                    case "UInt16":
-                        size += 2;
-                        break;
-                }
-            }
-
-            return size;
+            return ReadClassArray<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T)));
         }
 
         private void DecipherMetadataUsage()
@@ -272,16 +254,16 @@ namespace LibCpp2IL.Metadata
             return _cachedStrings[index];
         }
 
-        private Dictionary<Il2CppAssemblyDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new Dictionary<Il2CppAssemblyDefinition, Il2CppCustomAttributeTypeRange[]>();
-        public Il2CppCustomAttributeTypeRange? GetCustomAttributeIndex(Il2CppAssemblyDefinition assemblyDef, int customAttributeIndex, uint token)
+        private Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]>();
+        public Il2CppCustomAttributeTypeRange? GetCustomAttributeIndex(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token)
         {
             if (LibCpp2IlMain.MetadataVersion <= 24f) 
                 return attributeTypeRanges[customAttributeIndex];
             
-            if (!_typeRangesByAssembly.ContainsKey(assemblyDef))
-                _typeRangesByAssembly[assemblyDef] = attributeTypeRanges.SubArray(assemblyDef.customAttributeStart, (int) assemblyDef.customAttributeCount);
+            if (!_typeRangesByAssembly.ContainsKey(imageDef))
+                _typeRangesByAssembly[imageDef] = attributeTypeRanges.SubArray(imageDef.customAttributeStart, (int) imageDef.customAttributeCount);
                 
-            foreach (var r in _typeRangesByAssembly[assemblyDef])
+            foreach (var r in _typeRangesByAssembly[imageDef])
             {
                 if (r.token == token) return r;
             }

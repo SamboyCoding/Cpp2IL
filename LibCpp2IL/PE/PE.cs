@@ -28,7 +28,7 @@ namespace LibCpp2IL.PE
         public Il2CppMethodSpec[] methodSpecs;
         private Dictionary<int, ulong> genericMethodDictionary;
         private long maxMetadataUsages;
-        private Il2CppCodeGenModule[] codeGenModules;
+        public Il2CppCodeGenModule[] codeGenModules;
         public ulong[][] codeGenModuleMethodPointers;
         public Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>>();
         public Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new Dictionary<ulong, List<Il2CppConcreteGenericMethod>>();
@@ -185,10 +185,13 @@ namespace LibCpp2IL.PE
             invokerPointers = ReadClassArrayAtVirtualAddress<ulong>(this.codeRegistration.invokerPointers, (long) this.codeRegistration.invokerPointersCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading custom attribute generators...");
-            start = DateTime.Now;
-            customAttributeGenerators = ReadClassArrayAtVirtualAddress<ulong>(this.codeRegistration.customAttributeGeneratorListAddress, this.codeRegistration.customAttributeCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            if (LibCpp2IlMain.MetadataVersion < 27)
+            {
+                Console.Write("\tReading custom attribute generators...");
+                start = DateTime.Now;
+                customAttributeGenerators = ReadClassArrayAtVirtualAddress<ulong>(this.codeRegistration.customAttributeGeneratorListAddress, this.codeRegistration.customAttributeCount);
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
 
             Console.Write("\tReading field offsets...");
             start = DateTime.Now;
@@ -208,14 +211,18 @@ namespace LibCpp2IL.PE
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading metadata usages...");
-            start = DateTime.Now;
-            metadataUsages = ReadClassArrayAtVirtualAddress<ulong>(this.metadataRegistration.metadataUsages, maxMetadataUsages);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            if (this.metadataRegistration.metadataUsages != 0)
+            {
+                //TODO: Investigate. This was zero for me in a 2020.2.4 project. (v27). Is it ALWAYS zero in v27?
+                Console.Write("\tReading metadata usages...");
+                start = DateTime.Now;
+                metadataUsages = ReadClassArrayAtVirtualAddress<ulong>(this.metadataRegistration.metadataUsages, maxMetadataUsages);
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
 
             if (LibCpp2IlMain.MetadataVersion >= 24.2f)
             {
-                Console.Write("\tReading code gen modules...");
+                Console.WriteLine("\tReading code gen modules...");
                 start = DateTime.Now;
 
                 var codeGenModulePtrs = ReadClassArrayAtVirtualAddress<ulong>(this.codeRegistration.addrCodeGenModulePtrs, (long) this.codeRegistration.codeGenModulesCount);
@@ -340,18 +347,26 @@ namespace LibCpp2IL.PE
             plusSearch.SetSearch(imageBase, dataSections);
             plusSearch.SetDataSections(imageBase, dataSections);
             plusSearch.SetExecSections(imageBase, execSections);
-            
-            if (is32Bit)
+
+            if (LibCpp2IlMain.MetadataVersion < 27f)
             {
-                Console.WriteLine("\t(32-bit PE)");
-                plusSearch.SetExecSections(imageBase, dataSections);
-                metadataRegistration = plusSearch.FindMetadataRegistration();
+                if (is32Bit)
+                {
+                    Console.WriteLine("\t(32-bit PE)");
+                    plusSearch.SetExecSections(imageBase, dataSections);
+                    metadataRegistration = plusSearch.FindMetadataRegistration();
+                }
+                else
+                {
+                    Console.WriteLine("\t(64-bit PE)");
+                    plusSearch.SetExecSections(imageBase, dataSections);
+                    metadataRegistration = plusSearch.FindMetadataRegistration64Bit();
+                }
             }
             else
             {
-                Console.WriteLine("\t(64-bit PE)");
-                plusSearch.SetExecSections(imageBase, dataSections);
-                metadataRegistration = plusSearch.FindMetadataRegistration64Bit();
+                //v27+ metadata location
+                metadataRegistration = plusSearch.FindMetadataRegistrationV27();
             }
 
             if (is32Bit && metadataRegistration != 0)
@@ -769,6 +784,20 @@ namespace LibCpp2IL.PE
         public ulong GetRVA(ulong pointer)
         {
             return pointer - imageBase;
+        }
+
+        public bool TryMapVirtualAddressToRaw(ulong virtAddr, out long result)
+        {
+            try
+            {
+                result = MapVirtualAddressToRaw(virtAddr);
+                return true;
+            }
+            catch (Exception e)
+            {
+                result = 0;
+                return false;
+            }
         }
     }
 }

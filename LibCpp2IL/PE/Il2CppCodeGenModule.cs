@@ -13,5 +13,17 @@ namespace LibCpp2IL.PE
         public ulong rgctxsCount;
         public ulong rgctxs;
         public ulong debuggerMetadata;
+
+        private string? _cachedName;
+        public string Name
+        {
+            get
+            {
+                if(_cachedName == null)
+                    _cachedName = LibCpp2IlMain.ThePe!.ReadStringToNull(LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(moduleName));
+
+                return _cachedName!;
+            }
+        }
     }
 }

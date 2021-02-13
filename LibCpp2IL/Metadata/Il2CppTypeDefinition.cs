@@ -11,7 +11,8 @@ namespace LibCpp2IL.Metadata
         public int namespaceIndex;
         [Version(Max = 24)] public int customAttributeIndex;
         public int byvalTypeIndex;
-        public int byrefTypeIndex;
+
+        [Version(Max = 24.4f)] public int byrefTypeIndex;
 
         public int declaringTypeIndex;
         public int parentIndex;
@@ -65,14 +66,14 @@ namespace LibCpp2IL.Metadata
 
         public int TypeIndex => LibCpp2IlReflection.GetTypeIndexFromType(this);
 
-        public Il2CppAssemblyDefinition? DeclaringAssembly
+        public Il2CppImageDefinition? DeclaringAssembly
         {
             get
             {
                 if (LibCpp2IlMain.TheMetadata == null) return null;
                 var typeIdx = TypeIndex;
 
-                return LibCpp2IlMain.TheMetadata.assemblyDefinitions
+                return LibCpp2IlMain.TheMetadata.imageDefinitions
                     .Select(assemblyDefinition => new {assemblyDefinition, lastIdx = assemblyDefinition.firstTypeIndex + assemblyDefinition.typeCount - 1})
                     .Where(t => t.assemblyDefinition.firstTypeIndex <= typeIdx && typeIdx <= t.lastIdx)
                     .Select(t => t.assemblyDefinition)
@@ -84,9 +85,7 @@ namespace LibCpp2IL.Metadata
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
-        public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? 
-            null : 
-            (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
+        public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? null : (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
 
         public Il2CppTypeDefinition? BaseType => LibCpp2IlReflection.GetTypeDefinitionByTypeIndex(parentIndex);
 

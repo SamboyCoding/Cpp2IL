@@ -50,9 +50,13 @@ namespace LibCpp2IL.Metadata
         public int imagesCount;
         public int assembliesOffset; // Il2CppAssemblyDefinition
         public int assembliesCount;
+        [Version(Max=24.4f)]
         public int metadataUsageListsOffset; // Il2CppMetadataUsageList
+        [Version(Max=24.4f)]
         public int metadataUsageListsCount;
+        [Version(Max=24.4f)]
         public int metadataUsagePairsOffset; // Il2CppMetadataUsagePair
+        [Version(Max=24.4f)]
         public int metadataUsagePairsCount;
         public int fieldRefsOffset; // Il2CppFieldRef
         public int fieldRefsCount;
@@ -68,6 +72,12 @@ namespace LibCpp2IL.Metadata
         public int unresolvedVirtualCallParameterRangesCount;
         public int windowsRuntimeTypeNamesOffset; // Il2CppWindowsRuntimeTypeNamePair
         public int windowsRuntimeTypeNamesSize;
+        
+        [Version(Min = 27)]
+        public int windowsRuntimeStringsOffset; // const char*
+        [Version(Min = 27)]
+        public int windowsRuntimeStringsSize;
+        
         public int exportedTypeDefinitionsOffset; // TypeDefinitionIndex
         public int exportedTypeDefinitionsCount;
     }

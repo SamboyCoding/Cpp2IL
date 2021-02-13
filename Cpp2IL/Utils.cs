@@ -163,7 +163,19 @@ namespace Cpp2IL
                 {
                     var genericClass =
                         theDll.ReadClassAtVirtualAddress<Il2CppGenericClass>(toImport.data.generic_class);
-                    var typeDefinition = SharedState.TypeDefsByIndex[genericClass.typeDefinitionIndex];
+                    TypeDefinition typeDefinition;
+                    if (LibCpp2IlMain.MetadataVersion < 27f)
+                    {
+                        typeDefinition = SharedState.TypeDefsByIndex[genericClass.typeDefinitionIndex];
+                    }
+                    else
+                    {
+                        //V27 - type indexes are pointers now. 
+                        var type = theDll.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
+                        type.Init();
+                        typeDefinition = ImportTypeInto(importInto, type, theDll, metadata).Resolve();
+                    }
+
                     var genericInstanceType = new GenericInstanceType(moduleDefinition.ImportReference(typeDefinition));
                     var genericInst =
                         theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);

@@ -175,13 +175,48 @@ namespace LibCpp2IL
             //Works only on >=24.2
             var searchBytes = Encoding.ASCII.GetBytes("mscorlib.dll\0");
             var mscorlibs = _pe.raw.Search(searchBytes).Select(idx => _pe.MapRawAddressToVirtual(idx));
-            var usagesOfMscorlib = FindAllMappedWords(mscorlibs); //CodeGenModule address will be in here
-            var codeGenModulesStructAddr = FindAllMappedWords(usagesOfMscorlib); //CodeGenModules list address will be in here
-            var endOfCodeGenRegAddr = FindAllMappedWords(codeGenModulesStructAddr); //The end of the CodeRegistration object will be in here.
+            var pMscorlibCodegenModule = FindAllMappedWords(mscorlibs); //CodeGenModule address will be in here
+            var pMscorlibCodegenEntryInCodegenModulesList = FindAllMappedWords(pMscorlibCodegenModule); //CodeGenModules list address will be in here
+            
+            IEnumerable<ulong>? pCodegenModules = null;
+            if (!(LibCpp2IlMain.MetadataVersion >= 27f))
+            {
+                //Pre-v27, mscorlib is the first codegen module, so *MscorlibCodegenEntryInCodegenModulesList == g_CodegenModules, so we can just find a pointer to this.
+                var intermediate = pMscorlibCodegenEntryInCodegenModulesList;
+                pCodegenModules = FindAllMappedWords(intermediate);
+            }
+            else
+            {
+                //but in v27 it's close to the LAST codegen module (winrt.dll is an exception), so we need to work back until we find an xref.
+                var sanityCheckNumberOfModules = 200;
+                var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList;
+                var ptrSize = (_pe.is32Bit ? 4u : 8u);
+                for (var backtrack = 0; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
+                {
+                    pCodegenModules = FindAllMappedWords(pSomewhereInCodegenModules);
+                    
+                    //Sanity check the count, which is one pointer back
+                    if (pCodegenModules.Count() == 1)
+                    {
+                        var moduleCount = _pe.ReadClassAtVirtualAddress<int>(pCodegenModules.First() - ptrSize);
+
+                        if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
+                            pCodegenModules = Enumerable.Empty<ulong>();
+                    }
+
+                    pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);
+                }
+
+                if (!pCodegenModules.Any())
+                    throw new Exception("Failed to find pCodegenModules");
+
+                if (pCodegenModules.Count() > 1)
+                    throw new Exception("Found more than 1 pointer as pCodegenModules");
+            }
 
             if (!_pe.is32Bit)
             {
-                var codeGenAddr = endOfCodeGenRegAddr.First();
+                var codeGenAddr = pCodegenModules.First();
                 var textSection = _pe.sections.First(s => s.Name == ".text");
                 var toDisasm = _pe.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
                 var allInstructions = LibCpp2ILUtils.DisassembleBytesNew(_pe.is32Bit, toDisasm, textSection.VirtualAddress + _pe.imageBase);
@@ -215,14 +250,14 @@ namespace LibCpp2IL
                 {
                     if (sanity++ > 500) break;
 
-                    endOfCodeGenRegAddr = endOfCodeGenRegAddr.Select(va => va - 4);
-                    codeRegVas = FindAllMappedWords(endOfCodeGenRegAddr).AsParallel().ToList();
+                    pCodegenModules = pCodegenModules.Select(va => va - 4);
+                    codeRegVas = FindAllMappedWords(pCodegenModules).AsParallel().ToList();
                 }
 
-                if (endOfCodeGenRegAddr.Count() != 1)
+                if (pCodegenModules.Count() != 1)
                     return 0ul;
 
-                return endOfCodeGenRegAddr.First();
+                return pCodegenModules.First();
             }
         }
         
@@ -430,6 +465,31 @@ namespace LibCpp2IL
         private bool CheckAllInExecSection(IEnumerable<uint> pointers)
         {
             return pointers.All(x => execSections.Any(y => x >= y.RawStartAddress && x <= y.RawEndAddress));
+        }
+
+        public ulong FindMetadataRegistrationV27()
+        {
+            var ptrSize = _pe.is32Bit ? 4u : 8u;
+            var sizeOfMr = (uint) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
+            var ptrsToNumberOfTypes = FindAllMappedWords((ulong) typeDefinitionsCount);
+
+            var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4);
+
+            var mrFieldCount = sizeOfMr / (ulong) (ptrSize);
+            foreach (var va in possibleMetadataUsages) {
+                var mrWords = _pe.ReadClassArrayAtVirtualAddress<long>(va, (int) mrFieldCount);
+
+                // Even field indices are counts, odd field indices are pointers
+                var ok = true;
+                for (var i = 0; i < mrWords.Length && ok; i++) {
+                    ok = i % 2 == 0 ? mrWords[i] < 0x30000 : mrWords[i] == 0 || _pe.TryMapVirtualAddressToRaw((ulong) mrWords[i], out _); //Maybe need an investigation here, but metadataUsages can be a null ptr.
+                }
+
+                if (ok)
+                    return va;
+            }
+
+            return 0;
         }
     }
 }

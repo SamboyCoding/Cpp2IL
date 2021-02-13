@@ -2,7 +2,7 @@ using System.Linq;
 
 namespace LibCpp2IL.Metadata
 {
-    public class Il2CppAssemblyDefinition
+    public class Il2CppImageDefinition
     {
         public int nameIndex;
         public int assemblyIndex;

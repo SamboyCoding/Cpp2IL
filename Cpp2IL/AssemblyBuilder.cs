@@ -34,7 +34,7 @@ namespace Cpp2IL
         {
             var assemblies = new List<AssemblyDefinition>();
 
-            foreach (var assemblyDefinition in metadata.assemblyDefinitions)
+            foreach (var assemblyDefinition in metadata.imageDefinitions)
             {
                 //Get the name of the assembly (= the name of the DLL without the file extension)
                 var assemblyNameString = metadata.GetStringFromIndex(assemblyDefinition.nameIndex).Replace(".dll", "");
@@ -62,15 +62,18 @@ namespace Cpp2IL
                     var ns = metadata.GetStringFromIndex(type.namespaceIndex);
                     var name = metadata.GetStringFromIndex(type.nameIndex);
 
-                    TypeDefinition definition;
+                    TypeDefinition? definition = null;
                     if (type.declaringTypeIndex != -1)
                     {
                         //This is a type declared within another (inner class/type)
-                        definition = SharedState.TypeDefsByIndex[defNumber];
+                        
+                        //Have we already declared this type due to handling its parent?
+                        SharedState.TypeDefsByIndex.TryGetValue(defNumber, out definition);
                     }
-                    else
+                    
+                    if(definition == null)
                     {
-                        //This is a new type so ensure it's registered
+                        //This is a new type (including nested type with parent not defined yet) so ensure it's registered
                         definition = new TypeDefinition(ns, name, (TypeAttributes) type.flags);
                         if (ns == "System" && name == "String")
                         {
@@ -89,13 +92,22 @@ namespace Cpp2IL
                         var nestedIndex = metadata.nestedTypeIndices[type.nestedTypesStart + nestedNumber];
                         var nested = metadata.typeDefs[nestedIndex];
 
-                        //Create it and register.
-                        var nestedDef = new TypeDefinition(metadata.GetStringFromIndex(nested.namespaceIndex),
-                            metadata.GetStringFromIndex(nested.nameIndex), (TypeAttributes) nested.flags);
+                        
+                        if (SharedState.TypeDefsByIndex.TryGetValue(nestedIndex, out var alreadyMadeNestedType))
+                        {
+                            //Type has already been defined (can be out-of-order in v27+) so we just add it.
+                            definition.NestedTypes.Add(alreadyMadeNestedType);
+                        }
+                        else
+                        {
+                            //Create it and register.
+                            var nestedDef = new TypeDefinition(metadata.GetStringFromIndex(nested.namespaceIndex),
+                                metadata.GetStringFromIndex(nested.nameIndex), (TypeAttributes) nested.flags);
 
-                        definition.NestedTypes.Add(nestedDef);
-                        SharedState.AllTypeDefinitions.Add(nestedDef);
-                        SharedState.TypeDefsByIndex.Add(nestedIndex, nestedDef);
+                            definition.NestedTypes.Add(nestedDef);
+                            SharedState.AllTypeDefinitions.Add(nestedDef);
+                            SharedState.TypeDefsByIndex.Add(nestedIndex, nestedDef);
+                        }
                     }
                 }
 
@@ -189,7 +201,7 @@ namespace Cpp2IL
             CreateDefaultConstructor(tokenAttribute);
         }
 
-        public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE theDll, Il2CppAssemblyDefinition imageDef)
+        public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE theDll, Il2CppImageDefinition imageDef)
         {
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
@@ -216,7 +228,7 @@ namespace Cpp2IL
 
         private static Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)> _attributesByModule = new Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)>();
 
-        private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppAssemblyDefinition imageDef)
+        private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppImageDefinition imageDef)
         {
             var typeMetaText = new StringBuilder();
 
@@ -333,7 +345,9 @@ namespace Cpp2IL
 
                 SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
 
-                var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
+                var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.Where(m => m.Name == imageDef.Name).First();
+                var imageIndex = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
+                var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageIndex, methodDef.token);
 
 
                 var offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
@@ -424,8 +438,10 @@ namespace Cpp2IL
                             .Append($"\t\t\tDefault Value: {parameterDefinition.Constant}");
                 }
 
+                matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.First(m => m.Name == imageDef.Name);
+                imageIndex = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
+                var methodPointer = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageIndex, methodDef.token);
                 //Address attribute
-                var methodPointer = LibCpp2IlMain.ThePe.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token);
                 if (methodPointer > 0)
                 {
                     var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));

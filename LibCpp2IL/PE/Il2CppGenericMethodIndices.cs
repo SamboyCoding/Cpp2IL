@@ -4,5 +4,6 @@ namespace LibCpp2IL.PE
     {
         public int methodIndex;
         public int invokerIndex;
+        [Version(Min = 27)] public int adjustorThunk;
     }
 }

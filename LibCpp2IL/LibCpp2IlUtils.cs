@@ -278,7 +278,14 @@ namespace LibCpp2IL
                 {
                     //Generic type
                     var genericClass = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppGenericClass>(forWhat.data.generic_class);
-                    var typeDefinition = LibCpp2IlMain.TheMetadata.typeDefs[genericClass.typeDefinitionIndex];
+                    
+                    //CHANGED IN v27: typeDefinitionIndex is a ptr to the type in the file.
+                    Il2CppTypeDefinition typeDefinition;
+                    if (LibCpp2IlMain.MetadataVersion < 27f)
+                        typeDefinition = LibCpp2IlMain.TheMetadata.typeDefs[genericClass.typeDefinitionIndex];
+                    else
+                        //This is slightly annoying, because we will have already read this type, but we have to re-read it. TODO FUTURE: Make a mapping of type definition addr => type def?
+                        typeDefinition = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppTypeDefinition>((ulong) genericClass.typeDefinitionIndex);
 
                     var genericInst = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     var pointers = LibCpp2IlMain.ThePe.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
@@ -350,6 +357,38 @@ namespace LibCpp2IL
 
             Console.WriteLine($"Unknown type {forWhat.type}");
             return null;
+        }
+
+        public static int VersionAwareSizeOf(Type type)
+        {
+            var size = 0;
+            foreach (var i in type.GetFields())
+            {
+                var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
+                if (attr != null)
+                {
+                    if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
+                        continue;
+                }
+
+                switch (i.FieldType.Name)
+                {
+                    case "Int64":
+                    case "UInt64":
+                        size += 8;
+                        break;
+                    case "Int32":
+                    case "UInt32":
+                        size += 4;
+                        break;
+                    case "Int16":
+                    case "UInt16":
+                        size += 2;
+                        break;
+                }
+            }
+
+            return size;
         }
     }
 }

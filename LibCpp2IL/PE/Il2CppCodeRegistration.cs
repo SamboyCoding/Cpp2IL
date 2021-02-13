@@ -11,10 +11,14 @@ namespace LibCpp2IL.PE
             
             public ulong genericMethodPointersCount;
             public ulong genericMethodPointers;
+            [Version(Min = 27)] public ulong genericAdjustorThunks;
+            
             public ulong invokerPointersCount;
             public ulong invokerPointers;
             
+            [Version(Max = 24.4f)]
             public long customAttributeCount;
+            [Version(Max = 24.4f)]
             public ulong customAttributeGeneratorListAddress;
             
             public ulong unresolvedVirtualCallCount;
