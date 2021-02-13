@@ -11,7 +11,7 @@ namespace LibCpp2IL.PE
             
             public ulong genericMethodPointersCount;
             public ulong genericMethodPointers;
-            [Version(Min = 27)] public ulong genericAdjustorThunks;
+            [Version(Min = 27.1f)] public ulong genericAdjustorThunks;
             
             public ulong invokerPointersCount;
             public ulong invokerPointers;
