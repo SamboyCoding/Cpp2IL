@@ -164,6 +164,15 @@ namespace LibCpp2IL.PE
             return ReadClass<T>(MapVirtualAddressToRaw(addr));
         }
 
+        public void AlignStream(uint alignSize)
+        {
+            var virtPos = MapRawAddressToVirtual((uint) Position);
+            if (virtPos % alignSize is {} remainder && remainder != 0)
+            {
+                Position += (long) (alignSize - remainder);
+            }
+        }
+
         public void Init(ulong codeRegistration, ulong metadataRegistration)
         {
             Console.WriteLine("Initializing PE data...");
@@ -210,6 +219,8 @@ namespace LibCpp2IL.PE
             }
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            Console.WriteLine($"\tLast type starts at virt address 0x{typesAddress.Max():X}");
 
             if (this.metadataRegistration.metadataUsages != 0)
             {

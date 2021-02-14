@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using LibCpp2IL.PE;
@@ -27,7 +28,7 @@ namespace LibCpp2IL.Metadata
         public MethodAttributes Attributes => (MethodAttributes) flags;
 
         public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
-        
+
         public int MethodIndex => LibCpp2IlReflection.GetMethodIndexFromMethod(this);
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
@@ -35,18 +36,27 @@ namespace LibCpp2IL.Metadata
         internal string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
         public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.types[returnTypeIdx]);
-        
+
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
         public ulong MethodPointer
         {
             get
             {
-                if(LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
+                if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
                     return 0;
-                
-                var asmIdx = LibCpp2IlMain.MetadataVersion >= 24.2f ? DeclaringType!.DeclaringAssembly!.assemblyIndex : 0; //Not needed below 24.2
-                
+
+                var asmIdx = 0; //Not needed pre-24.2
+                if (LibCpp2IlMain.MetadataVersion >= 27)
+                {
+                    var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.Where(m => m.Name == DeclaringType!.DeclaringAssembly!.Name).First();
+                    asmIdx = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
+                }
+                else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                {
+                    asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
+                }
+
                 return LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
             }
         }
@@ -56,7 +66,7 @@ namespace LibCpp2IL.Metadata
         public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.ThePe == null ? 0 : LibCpp2IlMain.ThePe.GetRVA(MethodPointer);
 
         public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
-    
+
         public Il2CppParameterDefinition[]? InternalParameterData => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
             ? null
             : LibCpp2IlMain.TheMetadata.parameterDefs
@@ -70,7 +80,7 @@ namespace LibCpp2IL.Metadata
                 .ToArray();
 
         private Il2CppParameterReflectionData[]? _cachedParameters;
-        
+
         public Il2CppParameterReflectionData[]? Parameters
         {
             get

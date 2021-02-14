@@ -132,7 +132,7 @@ namespace LibCpp2IL
             
             Console.WriteLine("Read PE Data ok.");
 
-            if (!Settings.DisableGlobalResolving)
+            if (!Settings.DisableGlobalResolving && MetadataVersion < 27)
             {
                 var start = DateTime.Now;
                 Console.Write("Mapping Globals...");

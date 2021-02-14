@@ -340,28 +340,32 @@ namespace Cpp2IL
 
                 var methodTaintDict = DoAssemblyCSharpAnalysis(methodOutputDir, methods, keyFunctionAddresses!, out var total);
 
-                Console.WriteLine("Breakdown By Taint Reason:");
-                foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                if (total != 0)
                 {
-                    var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
-                    Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
-                }
 
-                var summary = new StringBuilder();
-                foreach (var (methodName, taintReason) in methodTaintDict)
-                {
-                    summary.Append('\t')
-                        .Append(methodName)
-                        .Append(Utils.Repeat(" ", 250 - methodName.Length))
-                        .Append(taintReason)
-                        .Append(" (")
-                        .Append((int) taintReason)
-                        .Append(')')
-                        .Append('\n');
-                }
+                    Console.WriteLine("Breakdown By Taint Reason:");
+                    foreach (var reason in Enum.GetValues(typeof(AsmDumper.TaintReason)))
+                    {
+                        var count = (decimal) methodTaintDict.Values.Count(v => v == (AsmDumper.TaintReason) reason);
+                        Console.WriteLine($"{reason}: {count} (about {Math.Round(count * 100 / total, 1)}%)");
+                    }
 
-                File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
-                Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
+                    var summary = new StringBuilder();
+                    foreach (var (methodName, taintReason) in methodTaintDict)
+                    {
+                        summary.Append('\t')
+                            .Append(methodName)
+                            .Append(Utils.Repeat(" ", 250 - methodName.Length))
+                            .Append(taintReason)
+                            .Append(" (")
+                            .Append((int) taintReason)
+                            .Append(')')
+                            .Append('\n');
+                    }
+
+                    File.WriteAllText(Path.Combine(outputPath, "method_statuses.txt"), summary.ToString());
+                    Console.WriteLine($"Wrote file: {Path.Combine(outputPath, "method_statuses.txt")}");
+                }
             }
 
             Console.WriteLine("Done.");
@@ -432,6 +436,12 @@ namespace Cpp2IL
         private static ConcurrentDictionary<string, AsmDumper.TaintReason> DoAssemblyCSharpAnalysis(string methodOutputDir, List<(TypeDefinition type, List<CppMethodData> methods)> methods, KeyFunctionAddresses keyFunctionAddresses, out int total)
         {
             var assembly = Assemblies.Find(a => a.Name.Name == "Assembly-CSharp");
+
+            if (assembly == null)
+            {
+                total = 0;
+                return new ConcurrentDictionary<string, AsmDumper.TaintReason>();
+            }
 
             Console.WriteLine("Dumping method bytes to " + methodOutputDir);
             Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));

@@ -19,6 +19,26 @@ namespace LibCpp2IL
 
         internal static void MapGlobalIdentifiers(Il2CppMetadata metadata, PE.PE cppAssembly)
         {
+            if(LibCpp2IlMain.MetadataVersion < 27)
+                MapGlobalIdentifiersPre27(metadata, cppAssembly);
+            else
+                MapGlobalIdentifiersPost27(metadata, cppAssembly);
+        }
+
+        private static void MapGlobalIdentifiersPost27(Il2CppMetadata metadata, PE.PE cppAssembly)
+        {
+            
+        }
+        
+        private static void MapGlobalIdentifiersPre27(Il2CppMetadata metadata, PE.PE cppAssembly)
+        {
+            //Type 1 => TypeInfo
+            //Type 2 => Il2CppType
+            //Type 3 => MethodDef
+            //Type 4 => FieldInfo
+            //Type 5 => StringLiteral
+            //Type 6 => MethodRef
+            
             //Type references
             TypeRefs = metadata.metadataUsageDic[1]
                 .Select(kvp => new {kvp, type = cppAssembly.types[kvp.Value]})

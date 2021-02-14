@@ -7,25 +7,28 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64</RuntimeIdentifiers>
   </PropertyGroup>
-  
-  <PropertyGroup>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-  </PropertyGroup>
 
-  <PropertyGroup>
+  <PropertyGroup Condition="Configuration==Release">
     <RuntimeIdentifier>ubuntu-x64</RuntimeIdentifier>
+    <Configuration>Release</Configuration>
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>link</TrimMode>
     <PublishSingleFile>true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
   </PropertyGroup>
 
-  <PropertyGroup>
+  <PropertyGroup Condition="Configuration==Release">
     <RuntimeIdentifier>osx-x64</RuntimeIdentifier>
+    <Configuration>Release</Configuration>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>link</TrimMode>
+    <PublishSingleFile>true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="Configuration==Release">
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <Configuration>Release</Configuration>
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>link</TrimMode>
     <PublishSingleFile>true</PublishSingleFile>
