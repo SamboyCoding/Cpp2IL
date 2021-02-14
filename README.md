@@ -20,21 +20,20 @@ However, due to some of the reshuffling of internal structures (namely, metadata
 
 ## A note on x86-32 support
 
-While LibCpp2IL fully supports the loading of 32-bit assemblies, the static analysis Cpp2IL does on top of that is built around 64-bit assemblies, so does not work well in these cases due to the substantial differences between the formats used.
-
-Once the current rewrite is finished, work will be done to improve this.
+The new analysis engine featured on this branch includes full support for analysis of 32-bit applications which should be almost on-par with
+the 64-bit analysis of the old engine. The roadmap below has been updated accordingly.
 
 ## General Roadmap
 
 Subject to change
 
 - [x] ~~Split code out into LibCpp2Il~~
-- [ ] Rewrite Cpp2IL's analysis to use the new Action system
+- [x] ~~Rewrite Cpp2IL's analysis to use the new Action system~~
 - [ ] Add IL Generation
 - [ ] Look into adding support for remaining Actions to improve analysis.
-- [ ] IL2CPP Metadata v27 Support
-- [ ] x86-32 support
-- [ ] Migrate to 0xd4d's iced decompiler?
+- [x] ~~IL2CPP Metadata v27 Support~~
+- [x] ~~x86-32 support~~
+- [x] ~~Migrate to 0xd4d's iced decompiler?~~
 - [ ] ARM support.
 
 
