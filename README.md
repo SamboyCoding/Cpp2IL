@@ -39,4 +39,4 @@ Subject to change
 
 ## Credit
 
-Built using .NET Core 3.1, SharpDiasm, and Mono's Cecil.
+Built using .NET 5.0, 0xd4d's excellent Iced disassembler, and Mono's Cecil.
