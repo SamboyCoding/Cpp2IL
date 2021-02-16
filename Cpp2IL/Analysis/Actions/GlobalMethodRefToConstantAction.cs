@@ -13,13 +13,13 @@ namespace Cpp2IL.Analysis.Actions
     {
         public Il2CppMethodDefinition? MethodData;
         public MethodDefinition? ResolvedMethod;
-        public ConstantDefinition ConstantWritten;
+        public ConstantDefinition? ConstantWritten;
         
         public GlobalMethodRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             MethodData = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(globalAddress);
-            var (type, genericParams) = Utils.TryLookupTypeDefByName(MethodData!.DeclaringType.FullName);
+            var type = SharedState.UnmanagedToManagedTypes[MethodData!.DeclaringType];
 
             if (type == null)
             {
@@ -49,7 +49,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Loads the type definition for managed method {ResolvedMethod!.FullName} as a constant \"{ConstantWritten.Name}\"";
+            return $"Loads the type definition for managed method {ResolvedMethod!.FullName} as a constant \"{ConstantWritten?.Name}\"";
         }
     }
 }

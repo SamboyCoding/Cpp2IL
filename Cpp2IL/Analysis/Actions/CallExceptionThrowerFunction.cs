@@ -63,8 +63,8 @@ namespace Cpp2IL.Analysis.Actions
             var calls = body.Where(i => i.Mnemonic == Mnemonic.Call || i.Mnemonic == Mnemonic.Jmp).Take(3).ToList();
             foreach (var instruction in calls)
             {
-                var secondaryAddr = instruction.NearBranchTarget;
-                if (IsExceptionThrower(secondaryAddr, recurseCount + 1))
+                var secondaryAddr = instruction.NearBranchTarget; //Can be zero if it's a jump into an imported function
+                if (secondaryAddr != 0 && IsExceptionThrower(secondaryAddr, recurseCount + 1))
                 {
                     ExceptionThrowers[addr] = ExceptionThrowers[secondaryAddr];
                     // Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {ExceptionThrowers[addr]?.FullName} because 0x{secondaryAddr:X} does.");

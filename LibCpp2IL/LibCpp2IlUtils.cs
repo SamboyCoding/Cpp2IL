@@ -284,8 +284,12 @@ namespace LibCpp2IL
                     if (LibCpp2IlMain.MetadataVersion < 27f)
                         typeDefinition = LibCpp2IlMain.TheMetadata.typeDefs[genericClass.typeDefinitionIndex];
                     else
+                    {
                         //This is slightly annoying, because we will have already read this type, but we have to re-read it. TODO FUTURE: Make a mapping of type definition addr => type def?
-                        typeDefinition = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppTypeDefinition>((ulong) genericClass.typeDefinitionIndex);
+                        var type = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
+                        type.Init();
+                        typeDefinition = LibCpp2IlMain.TheMetadata!.typeDefs[type.data.classIndex];
+                    }
 
                     var genericInst = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     var pointers = LibCpp2IlMain.ThePe.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);

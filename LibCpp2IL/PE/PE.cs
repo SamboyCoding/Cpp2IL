@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
+using Iced.Intel;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -118,7 +119,7 @@ namespace LibCpp2IL.PE
             var addr = (uint) (uiAddr - imageBase);
 
             if (addr == (uint) int.MaxValue + 1)
-                throw new OverflowException($"Provided address, {uiAddr}, was less than image base, {imageBase}");
+                throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{imageBase:X}");
 
             var last = sections[sections.Length - 1];
             if (addr > last.VirtualAddress + last.VirtualSize)
@@ -804,11 +805,18 @@ namespace LibCpp2IL.PE
                 result = MapVirtualAddressToRaw(virtAddr);
                 return true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 result = 0;
                 return false;
             }
+        }
+
+        public InstructionList DisassembleTextSection()
+        {
+            var textSection = this.sections.First(s => s.Name == ".text");
+            var toDisasm = this.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
+            return LibCpp2ILUtils.DisassembleBytesNew(this.is32Bit, toDisasm, textSection.VirtualAddress + this.imageBase);
         }
     }
 }

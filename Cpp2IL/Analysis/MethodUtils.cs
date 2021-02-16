@@ -14,18 +14,24 @@ namespace Cpp2IL.Analysis
 {
     public class MethodUtils
     {
-        public static bool CheckParameters(Instruction associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
+        public static bool CheckParameters(Instruction associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, LocalDefinition? objectMethodBeingCalledOn, bool failOnLeftoverArgs = true)
         {
-            var managedMethod = SharedState.UnmanagedToManagedMethods[method];
+            MethodReference managedMethod = SharedState.UnmanagedToManagedMethods[method];
+
+            if (managedMethod.DeclaringType.HasGenericParameters && objectMethodBeingCalledOn?.Type is GenericInstanceType {HasGenericArguments: true} git)
+            {
+                managedMethod = managedMethod.MakeGeneric(git.GenericArguments.ToArray());
+            }
+            
             return CheckParameters(associatedInstruction, managedMethod, context, isInstance, out arguments, failOnLeftoverArgs);
         }
 
-        public static bool CheckParameters(Instruction associatedInstruction, MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
+        public static bool CheckParameters(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
         {
             return LibCpp2IlMain.ThePe!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, out arguments) : CheckParameters64(method, context, isInstance, out arguments, failOnLeftoverArgs);
         }
 
-        private static bool CheckParameters64(MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
+        private static bool CheckParameters64(MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
         {
             arguments = null;
 
@@ -46,8 +52,11 @@ namespace Cpp2IL.Analysis
                 switch (arg)
                 {
                     case ConstantDefinition cons when cons.Type.FullName != parameterData.ParameterType.ToString(): //Constant type mismatch
-                    case LocalDefinition local when local.Type == null || !parameterData.ParameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
                         return false;
+                    case LocalDefinition local when local.Type == null || !parameterData.ParameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
+                        if(!parameterData.ParameterType.IsPrimitive || local.Type?.IsPrimitive != true)
+                            return false;
+                        break; //If both are primitive we forgive.
                 }
 
                 //todo handle value types (Structs)
@@ -62,7 +71,7 @@ namespace Cpp2IL.Analysis
             return true;
         }
 
-        private static bool CheckParameters32(Instruction associatedInstruction, MethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
+        private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
         {
             arguments = new List<IAnalysedOperand>();
 

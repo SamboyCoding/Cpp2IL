@@ -16,13 +16,13 @@ namespace LibCpp2IL
             public bool DisableGlobalResolving;
         }
 
-        public static readonly LibCpp2IlSettings Settings = new LibCpp2IlSettings();
+        public static readonly LibCpp2IlSettings Settings = new();
 
         public static float MetadataVersion = 24f;
         public static PE.PE? ThePe;
         public static Il2CppMetadata? TheMetadata;
-        
-        private static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new Dictionary<ulong, List<Il2CppMethodDefinition>>();
+
+        private static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new();
 
         public static List<Il2CppMethodDefinition>? GetManagedMethodImplementationsAtAddress(ulong addr)
         {
@@ -30,55 +30,57 @@ namespace LibCpp2IL
 
             return ret;
         }
-        
-        public static GlobalIdentifier GetAnyGlobalByAddress(ulong address)
-        {
-            var glob = GetLiteralGlobalByAddress(address);
-            if (glob.Offset != address)
-            {
-                var nble = GetMethodGlobalByAddress(address);
-                if (nble.HasValue)
-                    glob = nble.Value;
-            }
 
-            if (glob.Offset != address)
-                glob = GetRawFieldGlobalByAddress(address);
-            
-            if (glob.Offset != address)
-                glob = GetRawTypeGlobalByAddress(address);
-            
+        public static MetadataUsage? GetAnyGlobalByAddress(ulong address)
+        {
+            if (MetadataVersion >= 27)
+                return LibCpp2IlGlobalMapper.CheckForPost27GlobalAt(address);
+
+            //Pre-27
+            var glob = GetLiteralGlobalByAddress(address);
+            glob ??= GetMethodGlobalByAddress(address);
+            glob ??= GetRawFieldGlobalByAddress(address);
+            glob ??= GetRawTypeGlobalByAddress(address);
+
             return glob;
         }
 
-        public static GlobalIdentifier GetLiteralGlobalByAddress(ulong address)
+        public static MetadataUsage? GetLiteralGlobalByAddress(ulong address)
         {
-            return LibCpp2IlGlobalMapper.LiteralsByAddress.GetValueOrDefault(address);
+            if (MetadataVersion < 27)
+                return LibCpp2IlGlobalMapper.LiteralsByAddress.GetValueOrDefault(address);
+            
+            return GetAnyGlobalByAddress(address);
         }
-        
+
         public static string? GetLiteralByAddress(ulong address)
         {
             var literal = GetLiteralGlobalByAddress(address);
-            return literal.Offset == address ? literal.Name : null;
+            return literal?.AsLiteral();
         }
 
-        public static GlobalIdentifier GetRawTypeGlobalByAddress(ulong address)
+        public static MetadataUsage? GetRawTypeGlobalByAddress(ulong address)
         {
-            return LibCpp2IlGlobalMapper.TypeRefsByAddress.GetValueOrDefault(address);
+            if (MetadataVersion < 27)
+                return LibCpp2IlGlobalMapper.TypeRefsByAddress.GetValueOrDefault(address);
+
+            return GetAnyGlobalByAddress(address);
         }
-        
+
         public static Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address)
         {
             if (TheMetadata == null) return null;
 
             var typeGlobal = GetRawTypeGlobalByAddress(address);
-            if (typeGlobal.Offset != address) return null;
 
-            return typeGlobal.ReferencedType;
+            return typeGlobal?.AsType();
         }
-        
-        public static GlobalIdentifier GetRawFieldGlobalByAddress(ulong address)
+
+        public static MetadataUsage? GetRawFieldGlobalByAddress(ulong address)
         {
-            return LibCpp2IlGlobalMapper.FieldRefsByAddress.GetValueOrDefault(address);
+            if (MetadataVersion < 27)
+                return LibCpp2IlGlobalMapper.FieldRefsByAddress.GetValueOrDefault(address);
+            return GetAnyGlobalByAddress(address);
         }
 
         public static Il2CppFieldDefinition? GetFieldGlobalByAddress(ulong address)
@@ -86,26 +88,25 @@ namespace LibCpp2IL
             if (TheMetadata == null) return null;
 
             var typeGlobal = GetRawFieldGlobalByAddress(address);
-            if (typeGlobal.Offset != address) return null;
 
-            return typeGlobal.ReferencedField;
+            return typeGlobal?.AsField();
         }
-        
-        public static GlobalIdentifier? GetMethodGlobalByAddress(ulong address)
+
+        public static MetadataUsage? GetMethodGlobalByAddress(ulong address)
         {
             if (TheMetadata == null) return null;
-            
-            return LibCpp2IlGlobalMapper.MethodRefsByAddress.GetValueOrDefault(address);
+
+            if (MetadataVersion < 27)
+                return LibCpp2IlGlobalMapper.MethodRefsByAddress.GetValueOrDefault(address);
+
+            return GetAnyGlobalByAddress(address);
         }
 
         public static Il2CppMethodDefinition? GetMethodDefinitionByGlobalAddress(ulong address)
         {
             var global = GetMethodGlobalByAddress(address);
-            if (!global.HasValue) return null;
-            
-            if (global.Value.Offset != address) return null;
 
-            return global.Value.ReferencedMethod;
+            return global?.AsMethod();
         }
 
         /// <summary>
@@ -123,13 +124,13 @@ namespace LibCpp2IL
 
             if (TheMetadata == null)
                 return false;
-            
+
             Console.WriteLine("Read Metadata ok.");
 
             ThePe = new PE.PE(new MemoryStream(peBytes, 0, peBytes.Length, false, true), TheMetadata.maxMetadataUsages);
             if (!ThePe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length))
                 return false;
-            
+
             Console.WriteLine("Read PE Data ok.");
 
             if (!Settings.DisableGlobalResolving && MetadataVersion < 27)

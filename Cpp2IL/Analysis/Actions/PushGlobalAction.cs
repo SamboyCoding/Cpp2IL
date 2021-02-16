@@ -8,43 +8,42 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class PushGlobalAction : BaseAction
     {
-        private object _theGlobal;
+        private object _theUsage;
 
         public PushGlobalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var offset = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
-            GlobalIdentifier realGlobal;
-            if (LibCpp2IlMain.GetAnyGlobalByAddress(offset) is { } globalIdentifier && globalIdentifier.Offset == offset)
+            MetadataUsage? usage;
+            if (LibCpp2IlMain.GetAnyGlobalByAddress(offset) is { } globalIdentifier)
             {
-                _theGlobal = globalIdentifier;
-                realGlobal = globalIdentifier;
+                _theUsage = globalIdentifier;
+                usage = globalIdentifier;
             }
             else
             {
-                _theGlobal = new UnknownGlobalAddr(offset);
+                _theUsage = new UnknownGlobalAddr(offset);
                 return;
             }
 
-            if (_theGlobal == null) return;
+            if (usage.Offset != offset) return;
 
-            if (realGlobal.Offset != offset) return;
-
-            switch (realGlobal.IdentifierType)
+            switch (usage.Type)
             {
-                case GlobalIdentifier.Type.TYPEREF:
-                    var typeDefinition = Utils.TryResolveTypeReflectionData(realGlobal.ReferencedType!);
+                case MetadataUsageType.Type:
+                case MetadataUsageType.TypeInfo:
+                    var typeDefinition = Utils.TryResolveTypeReflectionData(usage.AsType());
                     context.Stack.Push(context.MakeConstant(typeof(TypeDefinition), typeDefinition));
                     break;
-                case GlobalIdentifier.Type.METHODREF:
-                    var methodDefinition = SharedState.UnmanagedToManagedMethods[realGlobal.ReferencedMethod!];
+                case MetadataUsageType.MethodDef:
+                    var methodDefinition = SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
                     context.Stack.Push(context.MakeConstant(typeof(MethodDefinition), methodDefinition));
                     break;
-                case GlobalIdentifier.Type.FIELDREF:
-                    var fieldDefinition = SharedState.UnmanagedToManagedFields[realGlobal.ReferencedField!];
+                case MetadataUsageType.FieldInfo:
+                    var fieldDefinition = SharedState.UnmanagedToManagedFields[usage.AsField()];
                     context.Stack.Push(context.MakeConstant(typeof(FieldDefinition), fieldDefinition));
                     break;
-                case GlobalIdentifier.Type.LITERAL:
-                    context.Stack.Push(context.MakeConstant(typeof(string), realGlobal.Name));
+                case MetadataUsageType.StringLiteral:
+                    context.Stack.Push(context.MakeConstant(typeof(string), usage.AsLiteral()));
                     break;
             }
         }
@@ -61,7 +60,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Pushes {_theGlobal} onto the stack";
+            return $"Pushes {_theUsage} onto the stack";
         }
     }
 }

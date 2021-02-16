@@ -16,7 +16,7 @@ Unity 2020.2 introduced IL2PP metadata version 27. Substantial changes have been
 
 As of Feb 14th, 2021, LibCpp2IL now supports Metadata v27 and v27.1 (Unity 2020.2.4), and DummyDLLs can be generated from games using these versions.
 
-However, due to some of the reshuffling of internal structures (namely, metadata usages) the analysis portion of Cpp2IL will not work for games targeting 2020.2 or later.
+As of Feb 16th, 2021, most of the analysis features should also now work for executables targeting v27.
 
 ## A note on x86-32 support
 

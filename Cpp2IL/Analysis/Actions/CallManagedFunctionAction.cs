@@ -40,7 +40,7 @@ namespace Cpp2IL.Analysis.Actions
                     context.Stack.Pop(); //remove instance from stack
                 }
 
-                if (!MethodUtils.CheckParameters(instruction, possibleTarget, context, !possibleTarget.IsStatic, out arguments, failOnLeftoverArgs: false))
+                if (!MethodUtils.CheckParameters(instruction, possibleTarget, context, !possibleTarget.IsStatic, out arguments, _objectMethodBeingCalledOn, failOnLeftoverArgs: false))
                     AddComment("parameters do not match, but there is only one function at this address.");
 
                 if (!possibleTarget.IsStatic && _objectMethodBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), _objectMethodBeingCalledOn.Type))
@@ -66,7 +66,7 @@ namespace Cpp2IL.Analysis.Actions
                         }
 
                         //Check defining type matches instance, and check params.
-                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments))
+                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
                         {
                             possibleTarget = m;
                             break;
@@ -95,7 +95,7 @@ namespace Cpp2IL.Analysis.Actions
                             }
 
                             //Check defining type is a superclass or interface of instance, and check params.
-                            if (Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments))
+                            if (Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
                             {
                                 possibleTarget = m;
                                 break;
@@ -112,7 +112,7 @@ namespace Cpp2IL.Analysis.Actions
 
                 if (possibleTarget == null)
                     //Check static methods. No need for a complicated foreach here, we don't have to worry about an instance.
-                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(instruction, m, context, false, out arguments));
+                    possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(instruction, m, context, false, out arguments, _objectMethodBeingCalledOn));
                 else if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                     //Instance method
                     _objectMethodBeingCalledOn = local; //32-bit and we have an instance
@@ -144,7 +144,7 @@ namespace Cpp2IL.Analysis.Actions
                 if (arg is ConstantDefinition constantDefinition)
                     yield return constantDefinition.ToString();
                 else
-                    yield return ((LocalDefinition) arg).Name;
+                    yield return (arg as LocalDefinition)?.Name ?? "null";
             }
         }
 

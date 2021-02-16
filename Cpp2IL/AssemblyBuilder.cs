@@ -344,7 +344,7 @@ namespace Cpp2IL
 
                 SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
 
-                var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.Where(m => m.Name == imageDef.Name).First();
+                var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.First(m => m.Name == imageDef.Name);
                 var imageIndex = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
                 var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageIndex, methodDef.token);
 
@@ -361,7 +361,11 @@ namespace Cpp2IL
                 while (true)
                 {
                     var b = cppAssembly.raw[offset];
-                    if (b == 0xC3 && cppAssembly.raw[offset + 1] == 0xCC) break;
+                    if (b == 0xC3 && cppAssembly.raw[offset + 1] == 0xCC)
+                    {
+                        bytes.Add(b);
+                        break;
+                    }
                     if (b == 0xCC && bytes.Count > 0 && (bytes.Last() == 0xcc || bytes.Last() == 0xc3)) break;
                     bytes.Add(b);
                     offset++;
@@ -413,6 +417,9 @@ namespace Cpp2IL
                 //Method Params
                 for (var paramIdx = 0; paramIdx < methodDef.parameterCount; ++paramIdx)
                 {
+                    //TODO Can we investigate this code to make it so that the generic parameters are correctly resolved?
+                    //TODO E.g. Class<T1, T2>..ctor(T1, T2) doesn't have the method having generic params, and doesn't link the T1, T2 to the class.
+                    
                     var parameterDef = metadata.parameterDefs[methodDef.parameterStart + paramIdx];
                     var parameterName = metadata.GetStringFromIndex(parameterDef.nameIndex);
                     var parameterType = cppAssembly.types[parameterDef.typeIndex];

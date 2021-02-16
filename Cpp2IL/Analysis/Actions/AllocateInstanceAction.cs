@@ -11,15 +11,15 @@ namespace Cpp2IL.Analysis.Actions
     /// </summary>
     public class AllocateInstanceAction : BaseAction
     {
-        public TypeDefinition? TypeCreated;
+        public TypeReference? TypeCreated;
         public LocalDefinition? LocalReturned;
         
         public AllocateInstanceAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var constant = !LibCpp2IlMain.ThePe!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
-            if (constant == null || constant.Type != typeof(TypeDefinition)) return;
+            if (constant == null || !typeof(TypeReference).IsAssignableFrom(constant.Type)) return;
 
-            TypeCreated = (TypeDefinition) constant.Value;
+            TypeCreated = (TypeReference) constant.Value;
 
             LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
 

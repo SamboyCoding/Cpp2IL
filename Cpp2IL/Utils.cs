@@ -890,17 +890,25 @@ namespace Cpp2IL
             throw new ArgumentException("Do not know how to get a numeric constant of type " + type);
         }
 
-        public static TypeDefinition TryResolveTypeReflectionData(Il2CppTypeReflectionData typeData)
+        public static TypeReference TryResolveTypeReflectionData(Il2CppTypeReflectionData typeData)
         {
-            TypeDefinition theType;
+            TypeReference theType;
             if (!typeData.isArray && typeData.isType && !typeData.isGenericType)
             {
                 theType = SharedState.UnmanagedToManagedTypes[typeData.baseType!];
             }
+            else if(typeData.isGenericType)
+            {
+                //TODO TryGetValue this.
+                var baseType = SharedState.UnmanagedToManagedTypes[typeData.baseType];
+                
+                var genericType = baseType.MakeGenericType(typeData.genericParams.Select(TryResolveTypeReflectionData).ToArray());
+
+                theType = genericType;
+            }
             else
             {
-                var (type, genericParams) = Utils.TryLookupTypeDefByName(typeData!.ToString());
-                theType = type;
+                theType = null;
             }
 
             return theType;

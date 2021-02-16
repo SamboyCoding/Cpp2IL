@@ -125,8 +125,8 @@ namespace Cpp2IL.Analysis.Actions
                 return context.MakeConstant(typeof(string), defaultLabel);
             }
 
-            if (LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset).Offset == globalMemoryOffset)
-                return context.MakeConstant(typeof(GlobalIdentifier), LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset));
+            if (LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset) is {} usage)
+                return context.MakeConstant(typeof(GlobalIdentifier), usage);
             
             unimportant = true;
             return context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));

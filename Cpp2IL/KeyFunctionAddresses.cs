@@ -15,6 +15,7 @@ namespace Cpp2IL
     {
         public ulong il2cpp_vm_metadatacache_initializemethodmetadata;
         public ulong il2cpp_codegen_initialize_method;
+        public ulong il2cpp_codegen_initialize_runtime_metadata;
         public ulong il2cpp_vm_object_new;
         public ulong AddrBailOutFunction;
         public ulong il2cpp_runtime_class_init_export;
@@ -42,8 +43,14 @@ namespace Cpp2IL
 
             Console.WriteLine("\t\tSearching for methods known to contain certain calls...");
 
+            //Try to find System.Exception (should always be there)
+            TryGetInitMetadataFromException(methodData, ret);
+            
             //Try to find System.Array/ArrayEnumerator
             TryUseArrayEnumerator(methodData, ret);
+            
+            //Try use exported il2cpp_object_new
+            TryUseExportedIl2CppObjectNew(ret);
 
             //TODO: move everything else to this ^ format so we can pick-and-choose which structs we need 
 
@@ -147,7 +154,7 @@ namespace Cpp2IL
             Instruction[] calls;
 
             //Only if we haven't already found CON
-            if (ret.il2cpp_codegen_object_new == 0)
+            if (ret.il2cpp_codegen_object_new == 0 && LibCpp2IlMain.MetadataVersion < 27)
             {
                 Console.WriteLine("\t\t\tAttempting to locate il2cpp_codegen_object_new. Looking for System.Security.Cryptography.X509Certificates.X509Extension$FormatUnkownData (yes, there's a typo)...");
                 //Find il2cpp_codegen_object_new (note this is NOT the constructor) from System.Security.Cryptography.X509Certificates.X509Extension::FormatUnkownData (yes, there's a typo in the method name lol)
@@ -373,6 +380,36 @@ namespace Cpp2IL
             return ret;
         }
 
+        private static void TryGetInitMetadataFromException(List<(TypeDefinition type, List<CppMethodData> methods)> methodData, KeyFunctionAddresses ret)
+        {
+            //Exception.get_Message() - first call is either to codegen_initialize_method (< v27) or codegen_initialize_runtime_metadata
+            Console.WriteLine("\t\t\tLooking for Type System.Exception, Method get_Message...");
+            var (type, arrayEnumeratorMethods) = methodData.Find(t => t.type.FullName == "System.Exception");
+            if (type != null)
+            {
+                Console.WriteLine("\t\t\t\tType Located. Ensuring method exists...");
+                var targetMethod = arrayEnumeratorMethods.Find(m => m.MethodName == "get_Message");
+                if (targetMethod.MethodName != null) //Check struct contains valid data 
+                {
+                    Console.WriteLine("\t\t\t\tTarget Method Located. Taking first CALL as the (version-specific) metadata initialization function...");
+                    
+                    var disasm = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe!.is32Bit, targetMethod.MethodBytes, targetMethod.MethodOffsetRam);
+                    var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
+
+                    if (LibCpp2IlMain.MetadataVersion < 27)
+                    {
+                        ret.il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
+                        Console.WriteLine($"\t\t\t\til2cpp_codegen_initialize_method => 0x{ret.il2cpp_codegen_initialize_method:X}");
+                    }
+                    else
+                    {
+                        ret.il2cpp_codegen_initialize_runtime_metadata = calls.First().NearBranchTarget;
+                        Console.WriteLine($"\t\t\t\til2cpp_codegen_initialize_runtime_metadata => 0x{ret.il2cpp_codegen_initialize_runtime_metadata:X}");
+                    }
+                }
+            }
+        }
+
         private static void TryUseArrayEnumerator(List<(TypeDefinition type, List<CppMethodData> methods)> methodData, KeyFunctionAddresses ret)
         {
             //ArrayEnumerator.get_Current can get us:
@@ -451,6 +488,49 @@ namespace Cpp2IL
             }
             else
                 Console.WriteLine("\t\t\t\tType not present, not using.");
+        }
+
+        private static void TryUseExportedIl2CppObjectNew(KeyFunctionAddresses ret)
+        {
+            Console.Write("\t\t\tLooking for exported il2cpp_object_new function...");
+            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfUnmanagedExportByName("il2cpp_object_new");
+            Console.WriteLine($"Found at 0x{address:X}");
+
+            Console.Write("\t\t\t\tSearching for a CALL to vm::Object::New...");
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, address, true);
+            try
+            {
+                var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Call);
+
+                ret.il2cpp_vm_object_new = matchingCall.NearBranchTarget;
+                Console.WriteLine($"Located address of il2cpp::vm::Object::New: 0x{ret.il2cpp_vm_object_new:X}");
+                
+                Console.Write("\t\t\t\tLooking for a solo unconditional jump to Object::New...");
+                
+                var allInstructions = LibCpp2IlMain.ThePe.DisassembleTextSection();
+                var matchingJmps = allInstructions.Where(i => i.Mnemonic == Mnemonic.Jmp && i.NearBranchTarget == ret.il2cpp_vm_object_new).ToList();
+                
+                foreach (var matchingJmp in matchingJmps)
+                {
+                    var offsetInPe = (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw((uint) matchingJmp.IP);
+                    if(offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.ThePe!.raw.Length - 1))
+                        continue;
+
+                    var previousByte = LibCpp2IlMain.ThePe!.raw[offsetInPe - 1];
+                    var nextByte = LibCpp2IlMain.ThePe!.raw[offsetInPe + (ulong) matchingJmp.Length];
+
+                    if (previousByte == 0xCC && nextByte == 0xCC)
+                    {
+                        ret.il2cpp_codegen_object_new = matchingJmp.IP;
+                        Console.WriteLine($"Found il2cpp_codegen_object_new at 0x{ret.il2cpp_codegen_object_new:X}");
+                        break;
+                    }
+                }
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("\t\t\t\tCould not find or disassemble call. Failed to find il2cpp_object_new.");
+            }
         }
 
         private static void TryUseExportedIl2cppRaiseException(KeyFunctionAddresses ret)

@@ -30,7 +30,7 @@ namespace Cpp2IL.Analysis
     internal partial class AsmDumper
     {
         private static readonly List<ulong> _functionAddresses = SharedState.MethodsByAddress.Keys.ToList();
-        
+
         private readonly MethodDefinition _methodDefinition;
         private readonly ulong _methodStart;
         private ulong _methodEnd;
@@ -139,7 +139,6 @@ namespace Cpp2IL.Analysis
                     instructionWhichOverran = i;
                     break;
                 }
-                
             }
 
             if (instructionWhichOverran != default)
@@ -363,7 +362,7 @@ namespace Cpp2IL.Analysis
             _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
 
             //Main instruction loop
-            while (index < _instructions.Count - 1)
+            while (index < _instructions.Count)
             {
                 var instruction = _instructions[index];
                 index++;
@@ -623,6 +622,11 @@ namespace Cpp2IL.Analysis
                         //Init method
                         Analysis.Actions.Add(new CallInitMethodAction(Analysis, instruction));
                     }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_runtime_metadata && _keyFunctionAddresses.il2cpp_codegen_initialize_runtime_metadata != 0)
+                    {
+                        //Init runtime metadata
+                        Analysis.Actions.Add(new InitializeRuntimeMetadataAction(Analysis, instruction));
+                    }
                     else if (jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_actual || jumpTarget == _keyFunctionAddresses.il2cpp_runtime_class_init_export)
                     {
                         //Runtime class init
@@ -781,26 +785,29 @@ namespace Cpp2IL.Analysis
                     Analysis.Actions.Add(new LoadVirtualFunctionPointerAction(Analysis, instruction));
                     break;
                 }
+                case Mnemonic.Lea when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
+                case Mnemonic.Lea when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0:
                 case Mnemonic.Mov when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
                 case Mnemonic.Mov when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryDisplacement64 != 0 && instruction.MemoryBase == Register.None:
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
                     var globalAddress = _cppAssembly.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
-                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global && global.Offset == globalAddress)
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global)
                     {
                         //Have a global here.
-                        switch (global.IdentifierType)
+                        switch (global.Type)
                         {
-                            case GlobalIdentifier.Type.TYPEREF:
+                            case MetadataUsageType.Type:
+                            case MetadataUsageType.TypeInfo:
                                 Analysis.Actions.Add(new GlobalTypeRefToConstantAction(Analysis, instruction));
                                 break;
-                            case GlobalIdentifier.Type.METHODREF:
+                            case MetadataUsageType.MethodDef:
                                 Analysis.Actions.Add(new GlobalMethodRefToConstantAction(Analysis, instruction));
                                 break;
-                            case GlobalIdentifier.Type.FIELDREF:
+                            case MetadataUsageType.FieldInfo:
                                 //needed?
                                 break;
-                            case GlobalIdentifier.Type.LITERAL:
+                            case MetadataUsageType.StringLiteral:
                                 Analysis.Actions.Add(new GlobalStringRefToConstantAction(Analysis, instruction));
                                 break;
                         }

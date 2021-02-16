@@ -10,7 +10,7 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class GlobalTypeRefToConstantAction : BaseAction
     {
-        public readonly TypeDefinition? ResolvedType;
+        public readonly TypeReference? ResolvedType;
         public readonly ConstantDefinition? ConstantWritten;
         private readonly string? _destReg;
 
@@ -28,7 +28,7 @@ namespace Cpp2IL.Analysis.Actions
             _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             var name = ResolvedType.Name;
 
-            ConstantWritten = context.MakeConstant(typeof(TypeDefinition), ResolvedType, name, _destReg);
+            ConstantWritten = context.MakeConstant(typeof(TypeReference), ResolvedType, name, _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()

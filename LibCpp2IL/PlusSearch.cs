@@ -153,9 +153,7 @@ namespace LibCpp2IL
 
         public ulong TryFindCodeRegUsingMetaReg(ulong metadataRegistration)
         {
-            var textSection = _pe.sections.First(s => s.Name == ".text");
-            var toDisasm = _pe.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
-            var allInstructions = LibCpp2ILUtils.DisassembleBytesNew(_pe.is32Bit, toDisasm, textSection.VirtualAddress + _pe.imageBase);
+            var allInstructions = _pe.DisassembleTextSection();
 
             var pushMetaReg = allInstructions.FirstOrDefault(i => i.Mnemonic == Mnemonic.Push && i.Op0Kind.IsImmediate() && i.GetImmediate(0) == metadataRegistration);
             if (pushMetaReg.Mnemonic == Mnemonic.Push) //Check non-default.
@@ -169,7 +167,7 @@ namespace LibCpp2IL
 
             return 0;
         }
-        
+
         internal ulong FindCodeRegistrationUsingMscorlib()
         {
             //Works only on >=24.2

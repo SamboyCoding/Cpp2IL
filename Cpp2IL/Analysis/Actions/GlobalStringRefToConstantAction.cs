@@ -8,8 +8,8 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class GlobalStringRefToConstantAction : BaseAction
     {
-        public string? ResolvedString;
-        public ConstantDefinition ConstantWritten;
+        public readonly string? ResolvedString;
+        public readonly ConstantDefinition? ConstantWritten;
         
         public GlobalStringRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -35,7 +35,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Loads the string literal \"{ResolvedString}\" as a constant \"{ConstantWritten.Name}\"";
+            return $"Loads the string literal \"{ResolvedString}\" as a constant \"{ConstantWritten?.Name}\"";
         }
     }
 }
