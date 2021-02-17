@@ -17,6 +17,12 @@ namespace Cpp2IL.Analysis.ResultModels
             if (Type == typeof(bool))
                 return Convert.ToString((bool) Value);
 
+            if (Type == typeof(int))
+                return Convert.ToString(Value)!;
+
+            if (Type == typeof(UnknownGlobalAddr))
+                return Value.ToString()!;
+
             if (Type == typeof(MethodDefinition) && Value is MethodDefinition reference)
             {
                 return $"{reference.DeclaringType.FullName}.{reference.Name}";

@@ -754,7 +754,7 @@ namespace Cpp2IL.Analysis
 
             switch (instruction.Mnemonic)
             {
-                case Mnemonic.Mov when type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null:
+                case Mnemonic.Mov when type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null:
                     //Both zero offsets and a known secondary operand = Register content copy
                     Analysis.Actions.Add(new RegToRegMoveAction(Analysis, instruction));
                     return;
