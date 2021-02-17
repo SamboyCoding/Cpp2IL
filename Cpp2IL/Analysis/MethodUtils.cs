@@ -18,20 +18,32 @@ namespace Cpp2IL.Analysis
         {
             MethodReference managedMethod = SharedState.UnmanagedToManagedMethods[method];
 
+            TypeReference? beingCalledOn = null;
             if (managedMethod.DeclaringType.HasGenericParameters && objectMethodBeingCalledOn?.Type is GenericInstanceType {HasGenericArguments: true} git)
             {
-                managedMethod = managedMethod.MakeGeneric(git.GenericArguments.ToArray());
+                // managedMethod = managedMethod.MakeGeneric(git.GenericArguments.ToArray());
+                var gim = new GenericInstanceMethod(managedMethod);
+                foreach (var gitGenericArgument in git.GenericArguments)
+                {
+                    gim.GenericArguments.Add(gitGenericArgument);
+                }
+
+                managedMethod = gim;
+                beingCalledOn = git;
             }
             
-            return CheckParameters(associatedInstruction, managedMethod, context, isInstance, out arguments, failOnLeftoverArgs);
+            return CheckParameters(associatedInstruction, managedMethod, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
-        public static bool CheckParameters(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
+        public static bool CheckParameters(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference? beingCalledOn = null, bool failOnLeftoverArgs = true)
         {
-            return LibCpp2IlMain.ThePe!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, out arguments) : CheckParameters64(method, context, isInstance, out arguments, failOnLeftoverArgs);
+            if (beingCalledOn == null)
+                beingCalledOn = method.DeclaringType;
+            
+            return LibCpp2IlMain.ThePe!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, beingCalledOn, out arguments) : CheckParameters64(method, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
-        private static bool CheckParameters64(MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, bool failOnLeftoverArgs = true)
+        private static bool CheckParameters64(MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference beingCalledOn, bool failOnLeftoverArgs = true)
         {
             arguments = null;
 
@@ -48,13 +60,21 @@ namespace Cpp2IL.Analysis
             {
                 if (actualArgs.Count(a => a != null) == 0) return false;
 
+                var parameterType = parameterData.ParameterType;
+
+                if (parameterType is GenericParameter gp && beingCalledOn is GenericInstanceType git)
+                {
+                    var genericIdx = git.ElementType.GenericParameters.ToList().FindIndex(g => g.Name == gp.FullName);
+                    parameterType = git.GenericArguments[genericIdx];
+                }
+
                 var arg = actualArgs.RemoveAndReturn(0);
                 switch (arg)
                 {
-                    case ConstantDefinition cons when cons.Type.FullName != parameterData.ParameterType.ToString(): //Constant type mismatch
+                    case ConstantDefinition cons when cons.Type.FullName != parameterType.ToString(): //Constant type mismatch
                         return false;
-                    case LocalDefinition local when local.Type == null || !parameterData.ParameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
-                        if(!parameterData.ParameterType.IsPrimitive || local.Type?.IsPrimitive != true)
+                    case LocalDefinition local when local.Type == null || !parameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
+                        if(!parameterType.IsPrimitive || local.Type?.IsPrimitive != true)
                             return false;
                         break; //If both are primitive we forgive.
                 }
@@ -71,7 +91,7 @@ namespace Cpp2IL.Analysis
             return true;
         }
 
-        private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
+        private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
         {
             arguments = new List<IAnalysedOperand>();
 

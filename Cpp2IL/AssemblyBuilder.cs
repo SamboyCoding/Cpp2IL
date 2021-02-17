@@ -424,7 +424,13 @@ namespace Cpp2IL
                     var parameterName = metadata.GetStringFromIndex(parameterDef.nameIndex);
                     var parameterType = cppAssembly.types[parameterDef.typeIndex];
                     var parameterTypeRef = Utils.ImportTypeInto(methodDefinition, parameterType, cppAssembly, metadata);
-                    var parameterDefinition = new ParameterDefinition(parameterName, (ParameterAttributes) parameterType.attrs, parameterTypeRef);
+                    
+                    ParameterDefinition parameterDefinition;
+                    if (parameterTypeRef is GenericParameter genericParameter)
+                        parameterDefinition = new ParameterDefinition(genericParameter);
+                    else
+                        parameterDefinition = new ParameterDefinition(parameterName, (ParameterAttributes) parameterType.attrs, parameterTypeRef);
+                    
                     methodDefinition.Parameters.Add(parameterDefinition);
                     //Default values for params
                     if (parameterDefinition.HasDefault)

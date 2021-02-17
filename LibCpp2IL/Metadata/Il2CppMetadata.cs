@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -245,7 +246,7 @@ namespace LibCpp2IL.Metadata
             return metadataHeader.fieldAndParameterDefaultValueDataOffset + index;
         }
 
-        private Dictionary<int, string> _cachedStrings = new Dictionary<int, string>();
+        private ConcurrentDictionary<int, string> _cachedStrings = new ConcurrentDictionary<int, string>();
 
         public string GetStringFromIndex(int index)
         {

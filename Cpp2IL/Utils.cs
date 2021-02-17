@@ -218,6 +218,8 @@ namespace Cpp2IL
                 {
                     if (SharedState.GenericParamsByIndex.TryGetValue(toImport.data.genericParameterIndex, out var genericParameter))
                     {
+                        if(importInto is MethodDefinition mDef)
+                            mDef.GenericParameters.Add(genericParameter);
                         return genericParameter;
                     }
 
@@ -227,6 +229,7 @@ namespace Cpp2IL
                     {
                         genericParameter = new GenericParameter(genericName, methodDefinition.DeclaringType);
                         methodDefinition.DeclaringType.GenericParameters.Add(genericParameter);
+                        methodDefinition.GenericParameters.Add(genericParameter);
                         SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
                         return genericParameter;
                     }

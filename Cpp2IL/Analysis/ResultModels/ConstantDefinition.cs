@@ -12,7 +12,7 @@ namespace Cpp2IL.Analysis.ResultModels
         public override string ToString()
         {
             if (Type == typeof(string))
-                return (string) Value;
+                return $"\"{Value}\"";
 
             if (Type == typeof(bool))
                 return Convert.ToString((bool) Value);
