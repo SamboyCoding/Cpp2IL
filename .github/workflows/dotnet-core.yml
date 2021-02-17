@@ -18,7 +18,7 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
     - name: Build - Common Lib
-      run: dotnet publish /p:Configuration 2Release --no-restore
+      run: dotnet publish /p:Configuration=Release --no-restore
       working-directory: ./LibCpp2IL/
     - name: Build - Windows x64
       working-directory: ./Cpp2IL/
