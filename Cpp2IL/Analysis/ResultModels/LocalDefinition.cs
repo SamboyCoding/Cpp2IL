@@ -6,6 +6,7 @@ namespace Cpp2IL.Analysis.ResultModels
     {
         public string Name;
         public TypeReference? Type;
+        public object? KnownInitialValue;
 
         public override string ToString()
         {

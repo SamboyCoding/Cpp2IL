@@ -16,7 +16,17 @@ namespace Cpp2IL.Analysis.ResultModels
 
             if (Type == typeof(bool))
                 return Convert.ToString((bool) Value);
-            
+
+            if (Type == typeof(MethodDefinition) && Value is MethodDefinition reference)
+            {
+                return $"{reference.DeclaringType.FullName}.{reference.Name}";
+            }
+
+            if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)
+            {
+                return $"{fieldDefinition.DeclaringType.FullName}.{fieldDefinition.Name}";
+            }
+
             return $"{{'{Name}' (constant value of type {Type.FullName})}}";
         }
 

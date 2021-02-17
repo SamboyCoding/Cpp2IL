@@ -19,7 +19,10 @@ namespace Cpp2IL
             new UsefulOffset("static_fields", 0x5C, typeof(IntPtr), true),
             
             //64-bit offsets:
-            new UsefulOffset("interfaceOffsets", X86_64_INTERFACE_OFFSET_COUNT_OFFSET, typeof(IntPtr), false)
+            new UsefulOffset("interfaceOffsets", X86_64_INTERFACE_OFFSET_COUNT_OFFSET, typeof(IntPtr), false),
+            new UsefulOffset("static_fields", 0xB8, typeof(IntPtr), false),
+            new UsefulOffset("cctor_finished", 0xE0, typeof(uint), false),
+            new UsefulOffset("flags1", 0x133, typeof(byte), false),
         };
 
         public static bool IsStaticFieldsPtr(uint offset)

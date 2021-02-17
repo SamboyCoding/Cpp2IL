@@ -11,11 +11,14 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class CallManagedFunctionAction : BaseAction
     {
-        internal MethodDefinition? ManagedMethodBeingCalled;
+        internal readonly MethodDefinition? ManagedMethodBeingCalled;
         private List<IAnalysedOperand>? arguments;
-        private ulong _jumpTarget;
-        private LocalDefinition? _objectMethodBeingCalledOn;
-        private LocalDefinition? _returnedLocal;
+        private readonly ulong _jumpTarget;
+        private readonly LocalDefinition? _objectMethodBeingCalledOn;
+        private readonly LocalDefinition? _returnedLocal;
+
+        private readonly bool wasArrayInstantiation;
+        private readonly long[]? instantiatedArrayValues = null;
 
         public CallManagedFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -66,9 +69,13 @@ namespace Cpp2IL.Analysis.Actions
                         }
 
                         //Check defining type matches instance, and check params.
-                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
+                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type))
                         {
                             possibleTarget = m;
+                            
+                            if(!MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
+                                AddComment("parameters do not match, but declaring type of method matches instance.");
+                            
                             break;
                         }
 
@@ -129,6 +136,16 @@ namespace Cpp2IL.Analysis.Actions
                 _returnedLocal = context.MakeLocal(returnType, reg: destReg);
             }
 
+            if (ManagedMethodBeingCalled?.FullName == "System.Void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(System.Array,System.RuntimeFieldHandle)")
+            {
+                if(arguments?.Count > 1 && arguments[1] is ConstantDefinition {Value: FieldDefinition fieldDefinition} && arguments[0] is LocalDefinition {KnownInitialValue: AllocatedArray arr})
+                {
+                    instantiatedArrayValues = Utils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
+                    wasArrayInstantiation = true;
+                    AddComment("Initializes array containing values: " + instantiatedArrayValues.ToStringEnumerable());
+                }
+            }
+
             // SharedState.MethodsByAddress.TryGetValue(jumpTarget, out target);
         }
 
@@ -151,6 +168,12 @@ namespace Cpp2IL.Analysis.Actions
         public override string? ToPsuedoCode()
         {
             if (ManagedMethodBeingCalled == null) return "[instruction error - managed method being called is null]";
+
+            if (wasArrayInstantiation)
+            {
+                var arrayType = ((ArrayType) ((LocalDefinition) arguments[0]).Type).ElementType;
+                return $"{arguments![0].GetPseudocodeRepresentation()} = new {arrayType}[] {{{string.Join(", ", instantiatedArrayValues!)}}}";
+            }
 
             var ret = new StringBuilder();
 
@@ -189,6 +212,11 @@ namespace Cpp2IL.Analysis.Actions
         }
 
         public override bool IsImportant()
+        {
+            return true;
+        }
+
+        public override bool PseudocodeNeedsLinebreakBefore()
         {
             return true;
         }

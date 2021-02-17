@@ -19,19 +19,13 @@ namespace Cpp2IL.Analysis
             MethodReference managedMethod = SharedState.UnmanagedToManagedMethods[method];
 
             TypeReference? beingCalledOn = null;
-            if (managedMethod.DeclaringType.HasGenericParameters && objectMethodBeingCalledOn?.Type is GenericInstanceType {HasGenericArguments: true} git)
+            var objectType = objectMethodBeingCalledOn?.Type;
+            if (managedMethod.HasGenericParameters && managedMethod.DeclaringType.HasGenericParameters && objectType is GenericInstanceType {HasGenericArguments: true} git)
             {
-                // managedMethod = managedMethod.MakeGeneric(git.GenericArguments.ToArray());
-                var gim = new GenericInstanceMethod(managedMethod);
-                foreach (var gitGenericArgument in git.GenericArguments)
-                {
-                    gim.GenericArguments.Add(gitGenericArgument);
-                }
-
-                managedMethod = gim;
+                managedMethod = Utils.MakeGenericMethodFromType(managedMethod, git);
                 beingCalledOn = git;
             }
-            
+
             return CheckParameters(associatedInstruction, managedMethod, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
@@ -39,7 +33,7 @@ namespace Cpp2IL.Analysis
         {
             if (beingCalledOn == null)
                 beingCalledOn = method.DeclaringType;
-            
+
             return LibCpp2IlMain.ThePe!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, beingCalledOn, out arguments) : CheckParameters64(method, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
@@ -47,7 +41,7 @@ namespace Cpp2IL.Analysis
         {
             arguments = null;
 
-            var actualArgs = new List<IAnalysedOperand>();
+            var actualArgs = new List<IAnalysedOperand?>();
             if (!isInstance)
                 actualArgs.Add(context.GetOperandInRegister("rcx") ?? context.GetOperandInRegister("xmm0"));
 
@@ -72,11 +66,17 @@ namespace Cpp2IL.Analysis
                 switch (arg)
                 {
                     case ConstantDefinition cons when cons.Type.FullName != parameterType.ToString(): //Constant type mismatch
+                        if (cons.Type.IsAssignableTo(typeof(MemberReference)) && parameterType.Name == "IntPtr")
+                            break; //We allow this, because an IntPtr is usually a type or, more commonly, method pointer.
+                        if(cons.Type.IsAssignableTo(typeof(FieldReference)) && parameterType.Name == "RuntimeFieldHandle")
+                            break; //These are the same struct - we represent it as a FieldReference but it's actually a runtime field handle.
                         return false;
                     case LocalDefinition local when local.Type == null || !parameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
-                        if(!parameterType.IsPrimitive || local.Type?.IsPrimitive != true)
-                            return false;
-                        break; //If both are primitive we forgive.
+                        if (parameterType.IsPrimitive && local.Type?.IsPrimitive == true)
+                            break; //Forgive primitive coercion.
+                        if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(Utils.ArrayReference))
+                            break;
+                        return false;
                 }
 
                 //todo handle value types (Structs)
@@ -84,8 +84,13 @@ namespace Cpp2IL.Analysis
                 tempArgs.Add(arg);
             }
 
-            if (failOnLeftoverArgs && actualArgs.Any(a => a != null && !context.IsEmptyRegArg(a)))
-                return false; //Left over args - it's probably not this one
+            if (failOnLeftoverArgs && actualArgs.Any(a => a != null && !context.IsEmptyRegArg(a) && !(a is LocalDefinition {KnownInitialValue: 0})))
+            {
+                if (actualArgs.Count != 1 || !(actualArgs[0] is ConstantDefinition {Value: MethodReference reference}) || reference != method)
+                {
+                    return false; //Left over args - it's probably not this one
+                }
+            }
 
             arguments = tempArgs;
             return true;

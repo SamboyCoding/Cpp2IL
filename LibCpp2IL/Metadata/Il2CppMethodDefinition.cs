@@ -98,7 +98,7 @@ namespace LibCpp2IL.Metadata
                                 Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
                                 ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
                                 ParameterAttributes = paramFlags,
-                                DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex, LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe),
+                                DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex),
                             };
                         }).ToArray();
                 }

@@ -13,15 +13,21 @@ namespace Cpp2IL
 {
     public class KeyFunctionAddresses
     {
+        public ulong il2cpp_vm_object_new;
+        public ulong il2cpp_codegen_object_new;
+        
         public ulong il2cpp_vm_metadatacache_initializemethodmetadata;
         public ulong il2cpp_codegen_initialize_method;
         public ulong il2cpp_codegen_initialize_runtime_metadata;
-        public ulong il2cpp_vm_object_new;
-        public ulong AddrBailOutFunction;
+
         public ulong il2cpp_runtime_class_init_export;
         public ulong il2cpp_runtime_class_init_actual;
-        public ulong il2cpp_codegen_object_new;
+        
         public ulong il2cpp_array_new_specific;
+        public ulong il2cpp_vm_array_new_specific;
+        public ulong SzArrayNew;
+        
+        public ulong AddrBailOutFunction;
         public ulong AddrNativeLookup;
         public ulong AddrNativeLookupGenMissingMethod;
         public ulong il2cpp_value_box;
@@ -51,6 +57,9 @@ namespace Cpp2IL
             
             //Try use exported il2cpp_object_new
             TryUseExportedIl2CppObjectNew(ret);
+            
+            //Try and find il2cpp_array_new_specific
+            TryUseExportedIl2CppArrayNewSpecific(ret);
 
             //TODO: move everything else to this ^ format so we can pick-and-choose which structs we need 
 
@@ -205,24 +214,7 @@ namespace Cpp2IL
                 }
             }
 
-            Console.WriteLine("\t\t\tLooking for System.BitConverter$GetBytes...");
-            //Find new[] using BitConverter
-            methods = methodData.Find(t => t.type.Name == "BitConverter" && t.type.Namespace == "System").methods;
-
-            method = methods.Find(m => m.MethodName == "GetBytes");
-
-            Console.WriteLine($"\t\t\t\tSearching for il2cpp_array_new_specific function near offset 0x{method.MethodOffsetRam:X}...");
-
-            instructions = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.MethodBytes);
-
-            //Once again just get the second call
-            calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
-
-            addr = Utils.GetJumpTarget(calls[1], method.MethodOffsetRam + calls[1].PC);
-            Console.WriteLine($"\t\t\t\tLocated il2cpp_array_new_specific (`new[]`) function at 0x{addr:X}");
-
-            ret.il2cpp_array_new_specific = addr;
-
+            
             methods = methodData.Find(t => t.type.Name == "Mesh" && t.type.Namespace == "UnityEngine").methods;
 
             if (methods != null)
@@ -507,30 +499,79 @@ namespace Cpp2IL
                 
                 Console.Write("\t\t\t\tLooking for a solo unconditional jump to Object::New...");
                 
-                var allInstructions = LibCpp2IlMain.ThePe.DisassembleTextSection();
-                var matchingJmps = allInstructions.Where(i => i.Mnemonic == Mnemonic.Jmp && i.NearBranchTarget == ret.il2cpp_vm_object_new).ToList();
-                
-                foreach (var matchingJmp in matchingJmps)
-                {
-                    var offsetInPe = (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw((uint) matchingJmp.IP);
-                    if(offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.ThePe!.raw.Length - 1))
-                        continue;
-
-                    var previousByte = LibCpp2IlMain.ThePe!.raw[offsetInPe - 1];
-                    var nextByte = LibCpp2IlMain.ThePe!.raw[offsetInPe + (ulong) matchingJmp.Length];
-
-                    if (previousByte == 0xCC && nextByte == 0xCC)
-                    {
-                        ret.il2cpp_codegen_object_new = matchingJmp.IP;
-                        Console.WriteLine($"Found il2cpp_codegen_object_new at 0x{ret.il2cpp_codegen_object_new:X}");
-                        break;
-                    }
-                }
+                ret.il2cpp_codegen_object_new = FindThunkFunction(ret.il2cpp_vm_object_new);
+                Console.WriteLine($"Found il2cpp_codegen_object_new at 0x{ret.il2cpp_codegen_object_new:X}");
             }
             catch (Exception)
             {
                 Console.WriteLine("\t\t\t\tCould not find or disassemble call. Failed to find il2cpp_object_new.");
             }
+        }
+        
+        private static void TryUseExportedIl2CppArrayNewSpecific(KeyFunctionAddresses ret)
+        {
+            Console.Write("\t\t\tLooking for exported il2cpp_array_new_specific function...");
+            ret.il2cpp_array_new_specific = LibCpp2IlMain.ThePe!.GetVirtualAddressOfUnmanagedExportByName("il2cpp_array_new_specific");
+            Console.WriteLine($"Found at 0x{ret.il2cpp_array_new_specific:X}");
+
+            Console.Write("\t\t\t\tSearching for a JMP to vm::Array::NewSpecific...");
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, ret.il2cpp_array_new_specific, true);
+            try
+            {
+                var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Jmp);
+
+                ret.il2cpp_vm_array_new_specific = matchingCall.NearBranchTarget;
+                Console.WriteLine($"Located address of il2cpp::vm::Array::NewSpecific: 0x{ret.il2cpp_vm_object_new:X}");
+                
+                Console.Write("\t\t\t\tLooking for a thunk function proxying Array::NewSpecific...");
+                
+                ret.SzArrayNew = FindThunkFunction(ret.il2cpp_vm_array_new_specific, 4, ret.il2cpp_array_new_specific);
+                Console.WriteLine($"Found SzArrayNew at 0x{ret.SzArrayNew:X}");
+            }
+            catch (Exception)
+            {
+                Console.WriteLine("\t\t\t\tCould not find or disassemble call. Failed to find vm::Array::NewSpecific.");
+            }
+        }
+
+        private static ulong FindThunkFunction(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
+        {
+            //Disassemble .text
+            var allInstructions = LibCpp2IlMain.ThePe.DisassembleTextSection();
+            
+            //Find all jumps to the target address
+            var matchingJmps = allInstructions.Where(i => i.Mnemonic == Mnemonic.Jmp && i.NearBranchTarget == addr).ToList();
+
+            foreach (var matchingJmp in matchingJmps)
+            {
+                if(addressesToIgnore.Contains(matchingJmp.IP)) continue;
+                
+                //Find this instruction in the raw file
+                var offsetInPe = (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw((uint) matchingJmp.IP);
+                if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.ThePe!.raw.Length - 1))
+                    continue;
+
+                //get next and previous bytes
+                var previousByte = LibCpp2IlMain.ThePe!.raw[offsetInPe - 1];
+                var nextByte = LibCpp2IlMain.ThePe!.raw[offsetInPe + (ulong) matchingJmp.Length];
+
+                //Double-cc = thunk
+                if (previousByte == 0xCC && nextByte == 0xCC)
+                {
+                    return matchingJmp.IP;
+                }
+
+                if (nextByte == 0xCC && maxBytesBack > 0)
+                {
+                    for (ulong backtrack = 1; backtrack < maxBytesBack && (offsetInPe - backtrack) > 0; backtrack++)
+                    {
+                        if (LibCpp2IlMain.ThePe!.raw[offsetInPe - backtrack] == 0xCC)
+                            return matchingJmp.IP - (backtrack - 1);
+                    }
+                }
+            }
+
+            return 0;
         }
 
         private static void TryUseExportedIl2cppRaiseException(KeyFunctionAddresses ret)

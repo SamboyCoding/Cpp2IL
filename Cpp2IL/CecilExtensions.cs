@@ -26,7 +26,7 @@ namespace Cpp2IL
         /// <param name="childType"></param>
         /// <param name="parentInterfaceDef"></param>
         /// <returns></returns>
-        public static bool DoesAnySubTypeImplementInterface(this TypeReference childType, TypeReference parentInterfaceDef)
+        public static bool DoesAnySuperTypeImplementInterface(this TypeReference childType, TypeReference parentInterfaceDef)
         {
             return childType
                 .EnumerateBaseClasses()
@@ -56,20 +56,22 @@ namespace Cpp2IL
         /// <returns></returns>
         public static bool DoesSpecificInterfaceImplementInterface(TypeReference iface0, TypeReference iface1)
         {
-            return iface0.MetadataToken == iface1.MetadataToken || iface0.DoesAnySubTypeImplementInterface(iface1);
+            return iface0.MetadataToken == iface1.MetadataToken || iface0.DoesAnySuperTypeImplementInterface(iface1);
         }
 
         /// <summary>
         /// Is source type assignable to target type
         /// </summary>
-        /// <param name="target"></param>
-        /// <param name="source"></param>
+        /// <param name="instanceOrBaseClass"></param>
+        /// <param name="potentialSubclass"></param>
         /// <returns></returns>
-        public static bool IsAssignableFrom(this TypeDefinition? target, TypeReference? source)
-            => target != null && source != null && (target == source
-               || target.MetadataToken == source.Resolve()?.MetadataToken
-               || source.IsSubclassOf(target)
-               || target.IsInterface && source.DoesAnySubTypeImplementInterface(target));
+        public static bool IsAssignableFrom(this TypeDefinition? instanceOrBaseClass, TypeReference? potentialSubclass)
+            => instanceOrBaseClass != null && potentialSubclass != null && (instanceOrBaseClass == potentialSubclass
+                                                                            || instanceOrBaseClass.MetadataToken == potentialSubclass.Resolve()?.MetadataToken
+                                                                            || potentialSubclass.IsSubclassOf(instanceOrBaseClass)
+                                                                            || instanceOrBaseClass.IsInterface && potentialSubclass.DoesAnySuperTypeImplementInterface(instanceOrBaseClass)
+                                                                            || instanceOrBaseClass.IsEnumerableLikeAndSoIs(potentialSubclass)
+                );
 
         /// <summary>
         /// Enumerate the current type, it's parent and all the way to the top type
@@ -82,6 +84,17 @@ namespace Cpp2IL
             {
                 yield return typeDefinition;
             }
+        }
+
+        public static bool IsEnumerableLikeAndSoIs(this TypeDefinition reference, TypeReference otherType)
+        {
+            //-able
+            if (reference.FullName.StartsWith("System.Collections.Generic.IEnumerable"))
+            {
+                return Utils.IEnumerableReference.IsAssignableFrom(otherType);
+            }
+
+            return false;
         }
     }
 }

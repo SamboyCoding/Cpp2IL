@@ -637,7 +637,7 @@ namespace Cpp2IL.Analysis
                         //Allocate object
                         Analysis.Actions.Add(new AllocateInstanceAction(Analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_array_new_specific)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_array_new_specific || jumpTarget == _keyFunctionAddresses.SzArrayNew || jumpTarget == _keyFunctionAddresses.il2cpp_vm_array_new_specific)
                     {
                         //Allocate array
                         Analysis.Actions.Add(new AllocateArrayAction(Analysis, instruction));
@@ -802,10 +802,13 @@ namespace Cpp2IL.Analysis
                                 Analysis.Actions.Add(new GlobalTypeRefToConstantAction(Analysis, instruction));
                                 break;
                             case MetadataUsageType.MethodDef:
+                                Analysis.Actions.Add(new GlobalMethodDefToConstantAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.MethodRef:
                                 Analysis.Actions.Add(new GlobalMethodRefToConstantAction(Analysis, instruction));
                                 break;
                             case MetadataUsageType.FieldInfo:
-                                //needed?
+                                Analysis.Actions.Add(new GlobalFieldDefToConstantAction(Analysis, instruction));
                                 break;
                             case MetadataUsageType.StringLiteral:
                                 Analysis.Actions.Add(new GlobalStringRefToConstantAction(Analysis, instruction));
@@ -833,7 +836,7 @@ namespace Cpp2IL.Analysis
                 }
                 case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 == 0 && type0 == OpKind.Register:
                     //Constant move to reg
-                    var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m));
+                    var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));
 
                     Analysis.Actions.Add(new ConstantToRegAction(Analysis, instruction, mayNotBeAConstant));
                     return;
@@ -874,6 +877,10 @@ namespace Cpp2IL.Analysis
                     //Move reg, [reg+reg] => usually array reads.
                     //So much so that this is guarded behind an array read check - change the case if you need to change this.
                     Analysis.Actions.Add(new RegOffsetArrayValueReadRegToRegAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mov when !LibCpp2IlMain.ThePe!.is32Bit && type1 == OpKind.Memory && type0 == OpKind.Register && memR == "rsp" && instruction.MemoryIndex == Register.None:
+                    //x64 Stack pointer read.
+                    Analysis.Actions.Add(new StackOffsetReadX64Action(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None:
                     //Move generic memory to register - field read.

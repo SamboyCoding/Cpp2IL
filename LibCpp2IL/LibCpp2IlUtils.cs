@@ -170,8 +170,11 @@ namespace LibCpp2IL
             return ret;
         }
 
-        internal static object? GetDefaultValue(int dataIndex, int typeIndex, Il2CppMetadata metadata, PE.PE theDll)
+        internal static object? GetDefaultValue(int dataIndex, int typeIndex)
         {
+            var metadata = LibCpp2IlMain.TheMetadata!;
+            var theDll = LibCpp2IlMain.ThePe!;
+            
             var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
             if (pointer <= 0) return null;
 

@@ -15,6 +15,7 @@ using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 using Mono.Cecil;
+using Mono.Cecil.Rocks;
 using SharpDisasm;
 using SharpDisasm.Udis86;
 using Instruction = SharpDisasm.Instruction;
@@ -25,6 +26,7 @@ namespace Cpp2IL
     {
         //Disable these because they're initialised in BuildPrimitiveMappings
         // ReSharper disable NotNullMemberIsNotInitialized
+#pragma warning disable 8618
         internal static TypeDefinition StringReference;
         internal static TypeDefinition Int64Reference;
         internal static TypeDefinition SingleReference;
@@ -33,6 +35,9 @@ namespace Cpp2IL
         internal static TypeDefinition UInt32Reference;
         internal static TypeDefinition UInt64Reference;
         internal static TypeDefinition BooleanReference;
+        internal static TypeDefinition ArrayReference;
+        internal static TypeDefinition IEnumerableReference;
+#pragma warning restore 8618
         // ReSharper restore NotNullMemberIsNotInitialized
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
@@ -66,6 +71,8 @@ namespace Cpp2IL
             UInt32Reference = TryLookupTypeDefKnownNotGeneric("System.UInt32")!;
             UInt64Reference = TryLookupTypeDefKnownNotGeneric("System.UInt64")!;
             BooleanReference = TryLookupTypeDefKnownNotGeneric("System.Boolean")!;
+            ArrayReference = TryLookupTypeDefKnownNotGeneric("System.Array")!;
+            IEnumerableReference = TryLookupTypeDefKnownNotGeneric("System.Collections.IEnumerable")!;
 
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
             {
@@ -99,7 +106,18 @@ namespace Cpp2IL
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
 
-            if (cppType.isType && !cppType.isGenericType) return cppType.baseType.FullName == managedType.FullName;
+            if (cppType.baseType.Name != managedType.Name)
+                return false;
+
+            if (cppType.isType && !cppType.isGenericType)
+            {
+                if (managedType.IsGenericInstance)
+                {
+                    return AreManagedAndCppTypesEqual(cppType, ((GenericInstanceType) managedType).ElementType);
+                }
+
+                return cppType.baseType.FullName == managedType.FullName;
+            }
 
             if (cppType.isType && cppType.isGenericType)
             {
@@ -908,6 +926,14 @@ namespace Cpp2IL
                 var genericType = baseType.MakeGenericType(typeData.genericParams.Select(TryResolveTypeReflectionData).ToArray());
 
                 theType = genericType;
+            } else if (typeData.isArray)
+            {
+                theType = TryResolveTypeReflectionData(typeData.arrayType);
+
+                for (var i = 0; i < typeData.arrayRank; i++)
+                {
+                    theType = theType.MakeArrayType();
+                }
             }
             else
             {
@@ -915,6 +941,50 @@ namespace Cpp2IL
             }
 
             return theType;
+        }
+
+
+        public static GenericInstanceMethod MakeGenericMethodFromType(MethodReference managedMethod, GenericInstanceType git)
+        {
+            var gim = new GenericInstanceMethod(managedMethod);
+            foreach (var gitGenericArgument in git.GenericArguments)
+            {
+                gim.GenericArguments.Add(gitGenericArgument);
+            }
+
+            return gim;
+        }
+
+        public static long[] ReadArrayInitializerForFieldDefinition(FieldDefinition fieldDefinition, AllocatedArray allocatedArray)
+        {
+            var fieldDef = SharedState.ManagedToUnmanagedFields[fieldDefinition];
+            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(fieldDef.FieldIndex);
+            
+            var metadata = LibCpp2IlMain.TheMetadata!;
+            
+            var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
+            var results = new long[allocatedArray.Size];
+            
+            if (pointer <= 0) return results;
+
+            metadata.Position = pointer;
+            
+            //This should at least work for simple arrays.
+            var elementSize = GetSizeOfObject(allocatedArray.ArrayType.ElementType);
+            
+            for (var i = 0; i < allocatedArray.Size; i++)
+            {
+                results[i] = Convert.ToInt64(elementSize switch
+                {
+                    1 => metadata.ReadPrimitive(typeof(byte))!,
+                    2 => metadata.ReadPrimitive(typeof(short))!,
+                    4 => metadata.ReadPrimitive(typeof(int))!,
+                    8 => metadata.ReadPrimitive(typeof(long))!,
+                    _ => results[i]
+                });
+            }
+
+            return results;
         }
     }
 }

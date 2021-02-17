@@ -1,40 +1,54 @@
-﻿using System;
+﻿using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
-using LibCpp2IL;
-using LibCpp2IL.Metadata;
-using Mono.Cecil;
 using Iced.Intel;
-using SharpDisasm.Udis86;
+using LibCpp2IL;
+using Mono.Cecil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Analysis.Actions
 {
     public class GlobalMethodRefToConstantAction : BaseAction
     {
-        public Il2CppMethodDefinition? MethodData;
-        public MethodDefinition? ResolvedMethod;
+        private Il2CppGlobalGenericMethodRef? _genericMethodRef;
+        private TypeReference? _declaringType;
+        private MethodReference? _method;
+        private List<TypeReference>? _genericTypeParams;
+        private List<TypeReference>? _genericMethodParams;
         public ConstantDefinition? ConstantWritten;
-        
+
         public GlobalMethodRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
-            MethodData = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(globalAddress);
-            var type = SharedState.UnmanagedToManagedTypes[MethodData!.DeclaringType];
+            var usage = LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress);
 
-            if (type == null)
-            {
-                Console.WriteLine("Failed to lookup managed type for declaring type of " + MethodData.GlobalKey + ", which is " + MethodData.DeclaringType.FullName);
+            if(usage == null)
                 return;
-            }
             
-            ResolvedMethod = type.Methods.FirstOrDefault(m => m.Name == MethodData.Name);
+            _genericMethodRef = usage.AsGenericMethodRef();
 
-            if (ResolvedMethod == null) return;
-            
+            _declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.declaringType];
+            _method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.baseMethod];
+
+            _genericTypeParams = _genericMethodRef.typeGenericParams.Select(Utils.TryResolveTypeReflectionData).ToList();
+            _genericMethodParams = _genericMethodRef.methodGenericParams.Select(Utils.TryResolveTypeReflectionData).ToList();
+
+            if (_genericTypeParams.Count > 0)
+            {
+                _declaringType = _declaringType.MakeGenericInstanceType(_genericTypeParams.ToArray());
+            }
+
+            if (_genericMethodParams.Count > 0)
+            {
+                var gMethod = new GenericInstanceMethod(_method);
+                _genericMethodParams.ForEach(gMethod.GenericArguments.Add);
+                _method = gMethod;
+            }
+
             var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
-            var name = ResolvedMethod.Name;
+            var name = _method.Name;
             
-            ConstantWritten = context.MakeConstant(typeof(MethodDefinition), ResolvedMethod, name, destReg);
+            ConstantWritten = context.MakeConstant(typeof(MethodReference), _method, name, destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -42,14 +56,14 @@ namespace Cpp2IL.Analysis.Actions
             throw new System.NotImplementedException();
         }
 
-        public override string ToPsuedoCode()
+        public override string? ToPsuedoCode()
         {
             throw new System.NotImplementedException();
         }
 
         public override string ToTextSummary()
         {
-            return $"Loads the type definition for managed method {ResolvedMethod!.FullName} as a constant \"{ConstantWritten?.Name}\"";
+            return $"Loads the global generic method reference for method {_method} on type {_declaringType} and stores the result in constant {ConstantWritten}";
         }
     }
 }

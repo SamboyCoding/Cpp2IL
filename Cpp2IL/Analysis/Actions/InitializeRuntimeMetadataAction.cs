@@ -22,7 +22,7 @@ namespace Cpp2IL.Analysis.Actions
             else
                 consDef = context.GetConstantInReg("rcx");
 
-            if (consDef?.Value is TypeReference || consDef?.Value is MethodDefinition || consDef?.Value is string)
+            if (consDef?.Value is TypeReference || consDef?.Value is MethodReference || consDef?.Value is FieldDefinition || consDef?.Value is string)
             {
                 _metadataUsage = consDef.Value;
                 

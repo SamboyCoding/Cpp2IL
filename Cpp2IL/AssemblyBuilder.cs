@@ -294,17 +294,20 @@ namespace Cpp2IL
                 ilTypeDefinition.Fields.Add(fieldDefinition);
 
                 SharedState.UnmanagedToManagedFields[fieldDef] = fieldDefinition;
+                SharedState.ManagedToUnmanagedFields[fieldDefinition] = fieldDef;
 
                 //Field default values
                 if (fieldDefinition.HasDefault)
                 {
                     var fieldDefault = metadata.GetFieldDefaultValueFromIndex(fieldIdx);
-                    if (fieldDefault != null && fieldDefault.dataIndex != -1)
+                    if (fieldDefault?.dataIndex > 0)
                     {
                         fieldDefinition.Constant = LibCpp2ILUtils.GetDefaultValue(fieldDefault.dataIndex,
-                            fieldDefault.typeIndex, metadata, cppAssembly);
+                            fieldDefault.typeIndex);
                     }
                 }
+
+                
                 
                 var thisFieldOffset = cppAssembly.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, fieldIdx - cppTypeDefinition.firstFieldIdx, fieldIdx, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
                 HandleField(fieldTypeRef, thisFieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
@@ -438,7 +441,7 @@ namespace Cpp2IL
                         var parameterDefault = metadata.GetParameterDefaultValueFromIndex(methodDef.parameterStart + paramIdx);
                         if (parameterDefault != null && parameterDefault.dataIndex != -1)
                         {
-                            parameterDefinition.Constant = LibCpp2ILUtils.GetDefaultValue(parameterDefault.dataIndex, parameterDefault.typeIndex, metadata, cppAssembly);
+                            parameterDefinition.Constant = LibCpp2ILUtils.GetDefaultValue(parameterDefault.dataIndex, parameterDefault.typeIndex);
                         }
                     }
 
@@ -618,7 +621,8 @@ namespace Cpp2IL
             {
                 typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
                     .Append($"\t\tType: {field.FieldType.FullName}\n")
-                    .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n");
+                    .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n")
+                    .Append($"\t\tHas Default: {fieldDefinition.HasDefault}\n");
 
                 if (field.Constant is char c && char.IsSurrogate(c)) return;
                 

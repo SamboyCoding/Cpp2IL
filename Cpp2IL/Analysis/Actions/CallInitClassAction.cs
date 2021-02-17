@@ -7,7 +7,7 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class CallInitClassAction : BaseAction
     {
-        public TypeDefinition theType;
+        public TypeReference theType;
         public CallInitClassAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             ConstantDefinition? consDef;
@@ -20,8 +20,8 @@ namespace Cpp2IL.Analysis.Actions
             else
                 consDef = context.GetConstantInReg("rcx");
 
-            if (consDef != null && consDef.Type == typeof(TypeDefinition))
-                theType = (TypeDefinition) consDef.Value;
+            if (consDef != null && consDef.Type == typeof(TypeReference))
+                theType = (TypeReference) consDef.Value;
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()

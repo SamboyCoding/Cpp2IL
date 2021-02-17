@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 
 namespace LibCpp2IL.Metadata
@@ -231,9 +232,22 @@ namespace LibCpp2IL.Metadata
         }
 
         //Getters for human readability
-        public Il2CppFieldDefaultValue GetFieldDefaultValueFromIndex(int index)
+        public Il2CppFieldDefaultValue? GetFieldDefaultValueFromIndex(int index)
         {
             return _fieldDefaultValueLookup.GetValueOrDefault(index);
+        }
+
+        public (int ptr, int type) GetFieldDefaultValue(int fieldIdx)
+        {
+            var fieldDef = fieldDefs[fieldIdx];
+            var fieldType = LibCpp2IlMain.ThePe!.types[fieldDef.typeIndex];
+            if ((fieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
+            {
+                var fieldDefault = GetFieldDefaultValueFromIndex(fieldIdx);
+                return (ptr: fieldDefault.dataIndex, type: fieldDefault.typeIndex);
+            }
+
+            return (-1, -1);
         }
 
         public Il2CppParameterDefaultValue GetParameterDefaultValueFromIndex(int index)

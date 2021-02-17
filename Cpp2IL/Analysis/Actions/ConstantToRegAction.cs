@@ -18,7 +18,7 @@ namespace Cpp2IL.Analysis.Actions
 
             if (mayNotBeAConstant)
                 //Let's be safe and make this a local
-                dest = context.MakeLocal(Utils.Int64Reference, reg: destReg);
+                dest = context.MakeLocal(Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
             else
                 dest = context.MakeConstant(typeof(ulong), constantValue, constantValue.ToString(), destReg);
         }

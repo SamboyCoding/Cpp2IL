@@ -110,7 +110,9 @@ namespace Cpp2IL.Analysis
 
         public static FieldDefinition? GetStaticFieldByOffset(StaticFieldsPtr fieldsPtr, uint fieldOffset)
         {
-            var type = fieldsPtr.TypeTheseFieldsAreFor;
+            var type = fieldsPtr.TypeTheseFieldsAreFor.Resolve();
+
+            if (type == null) return null;
 
             var theFields = SharedState.FieldsByType[type];
             string fieldName;

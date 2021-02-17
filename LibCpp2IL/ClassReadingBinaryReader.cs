@@ -27,7 +27,7 @@ namespace LibCpp2IL
             set => BaseStream.Position = value;
         }
 
-        private object? ReadPrimitive(Type type)
+        internal object? ReadPrimitive(Type type)
         {
             if (type == typeof(int))
                 return ReadInt32();

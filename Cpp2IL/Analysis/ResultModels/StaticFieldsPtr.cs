@@ -4,9 +4,9 @@ namespace Cpp2IL.Analysis.ResultModels
 {
     public class StaticFieldsPtr
     {
-        public TypeDefinition TypeTheseFieldsAreFor;
+        public TypeReference TypeTheseFieldsAreFor;
 
-        public StaticFieldsPtr(TypeDefinition typeTheseFieldsAreFor)
+        public StaticFieldsPtr(TypeReference typeTheseFieldsAreFor)
         {
             TypeTheseFieldsAreFor = typeTheseFieldsAreFor;
         }

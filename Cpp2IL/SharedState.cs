@@ -28,6 +28,7 @@ namespace Cpp2IL
         
         //Fields
         internal static readonly Dictionary<Il2CppFieldDefinition, FieldDefinition> UnmanagedToManagedFields = new Dictionary<Il2CppFieldDefinition, FieldDefinition>();
+        internal static readonly Dictionary<FieldDefinition, Il2CppFieldDefinition> ManagedToUnmanagedFields = new Dictionary<FieldDefinition, Il2CppFieldDefinition>();
         internal static readonly Dictionary<TypeDefinition, List<FieldInType>> FieldsByType = new Dictionary<TypeDefinition, List<FieldInType>>();
         
         //Globals

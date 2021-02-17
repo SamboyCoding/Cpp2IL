@@ -16,9 +16,9 @@ namespace Cpp2IL.Analysis.Actions
             var theConstant = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
-            if (theConstant == null || theConstant.Type != typeof(TypeDefinition)) return;
+            if (theConstant == null || theConstant.Type != typeof(TypeReference)) return;
 
-            var typeFieldsAreFor = (TypeDefinition) theConstant.Value;
+            var typeFieldsAreFor = (TypeReference) theConstant.Value;
             _staticFieldPtrObject = new StaticFieldsPtr(typeFieldsAreFor);
 
             _constantMade = context.MakeConstant(typeof(StaticFieldsPtr), _staticFieldPtrObject, reg: _destReg);
