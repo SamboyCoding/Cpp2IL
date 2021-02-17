@@ -435,7 +435,7 @@ namespace Cpp2IL
         
         private static ConcurrentDictionary<string, AsmDumper.TaintReason> DoAssemblyCSharpAnalysis(string methodOutputDir, List<(TypeDefinition type, List<CppMethodData> methods)> methods, KeyFunctionAddresses keyFunctionAddresses, out int total)
         {
-            var assembly = Assemblies.Find(a => a.Name.Name == "Assembly-CSharp" || a.Name.Name == "CSharp3");
+            var assembly = Assemblies.Find(a => a.Name.Name == "Assembly-CSharp" || a.Name.Name == "CSharp3" || a.Name.Name == "CSharp2");
 
             if (assembly == null)
             {

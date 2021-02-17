@@ -132,6 +132,11 @@ namespace Cpp2IL.Analysis.Actions
 
             if (ManagedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
             {
+                if (returnType is GenericParameter gp && _objectMethodBeingCalledOn?.Type != null)
+                {
+                    returnType = MethodUtils.ResolveGenericParameterType(ManagedMethodBeingCalled, _objectMethodBeingCalledOn.Type, gp);
+                }
+                
                 var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
                 _returnedLocal = context.MakeLocal(returnType, reg: destReg);
             }

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cpp2IL.Analysis.Actions;
@@ -7,7 +6,6 @@ using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
 using Mono.Cecil;
 
 namespace Cpp2IL.Analysis
@@ -49,6 +47,9 @@ namespace Cpp2IL.Analysis
             actualArgs.Add(context.GetOperandInRegister("r8") ?? context.GetOperandInRegister("xmm2"));
             actualArgs.Add(context.GetOperandInRegister("r9") ?? context.GetOperandInRegister("xmm3"));
 
+            if (actualArgs.FindLast(a => a is ConstantDefinition {Value: MethodReference ag} && ag.Name == method.Name && ag.DeclaringType == method.DeclaringType) is ConstantDefinition {Value: MethodReference actualGenericMethod})
+                method = actualGenericMethod;
+
             var tempArgs = new List<IAnalysedOperand>();
             foreach (var parameterData in method.Parameters!)
             {
@@ -56,10 +57,11 @@ namespace Cpp2IL.Analysis
 
                 var parameterType = parameterData.ParameterType;
 
-                if (parameterType is GenericParameter gp && beingCalledOn is GenericInstanceType git)
+                if (parameterType is GenericParameter gp)
                 {
-                    var genericIdx = git.ElementType.GenericParameters.ToList().FindIndex(g => g.Name == gp.FullName);
-                    parameterType = git.GenericArguments[genericIdx];
+                    var temp = ResolveGenericParameterType(method, beingCalledOn, gp);
+                    temp ??= parameterType;
+                    parameterType = temp;
                 }
 
                 var arg = actualArgs.RemoveAndReturn(0);
@@ -84,7 +86,8 @@ namespace Cpp2IL.Analysis
                 tempArgs.Add(arg);
             }
 
-            if (failOnLeftoverArgs && actualArgs.Any(a => a != null && !context.IsEmptyRegArg(a) && !(a is LocalDefinition {KnownInitialValue: 0})))
+            actualArgs = actualArgs.Where(a => a != null && !context.IsEmptyRegArg(a) && !(a is LocalDefinition {KnownInitialValue: 0})).ToList();
+            if (failOnLeftoverArgs && actualArgs.Count > 0)
             {
                 if (actualArgs.Count != 1 || !(actualArgs[0] is ConstantDefinition {Value: MethodReference reference}) || reference != method)
                 {
@@ -94,6 +97,27 @@ namespace Cpp2IL.Analysis
 
             arguments = tempArgs;
             return true;
+        }
+
+        internal static TypeReference? ResolveGenericParameterType(MethodReference method, TypeReference instance, GenericParameter gp)
+        {
+            var git = instance as GenericInstanceType;
+            if (git?.ElementType.GenericParameters.ToList().FindIndex(g => g.Name == gp.FullName) is { } genericIdx && genericIdx >= 0)
+                return git.GenericArguments[genericIdx];
+            
+            if (method is GenericInstanceMethod gim && gim.ElementMethod.HasGenericParameters)
+            {
+                var p = gim.ElementMethod.GenericParameters.ToList();
+
+                if (git != null && git.ElementType.HasGenericParameters)
+                    //Filter to generic params not specified in the type
+                    p = p.Where(genericParam => git.ElementType.GenericParameters.All(gitP => gitP.FullName != genericParam.FullName)).ToList();
+
+                if (p.FindIndex(g => g.Name == gp.FullName) is { } methodGenericIdx && methodGenericIdx >= 0)
+                    return gim.GenericArguments[methodGenericIdx];
+            }
+
+            return null;
         }
 
         private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)

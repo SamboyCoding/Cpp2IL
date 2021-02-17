@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
+using Mono.Cecil;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -24,7 +25,10 @@ namespace Cpp2IL.Analysis.Actions
             
             //Regardless of if we have an index local, we can still work out the type of the array and make a local.
             //Resolve() turns array types into non-array types
-            _destLocal = context.MakeLocal(_arrayLocal.Type.Resolve(), reg: destinationReg);
+
+            var elementType = _arrayLocal.Type is ArrayType at ? at.ElementType : _arrayLocal.Type.Resolve();
+            
+            _destLocal = context.MakeLocal(elementType, reg: destinationReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()

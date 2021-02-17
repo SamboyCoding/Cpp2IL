@@ -712,6 +712,10 @@ namespace Cpp2IL.Analysis
                 case Mnemonic.Jne:
                     Analysis.Actions.Add(new JumpIfNonZeroOrNonNullAction(Analysis, instruction));
                     break;
+                case Mnemonic.Ja:
+                    //Jump if >
+                    Analysis.Actions.Add(new JumpIfGreaterThanAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Jge:
                 case Mnemonic.Jae: //JNC in Ghidra
                     //Jump if >=
@@ -865,6 +869,7 @@ namespace Cpp2IL.Analysis
                     Analysis.Actions.Add(new StaticFieldOffsetToRegAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition local && local.Type?.IsArray == true:
+                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition local2 && local2.Type?.IsArray == true:
                     //Move reg, [reg+0x10]
                     //Reading a field from an array at a fixed offset
                     if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement))

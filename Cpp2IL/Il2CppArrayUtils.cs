@@ -8,7 +8,7 @@ namespace Cpp2IL
 {
     public static class Il2CppArrayUtils
     {
-        public static uint FirstItemOffset = (uint) (LibCpp2IlMain.ThePe!.is32Bit ? 0x10 : 0x28); 
+        public static uint FirstItemOffset = (uint) (LibCpp2IlMain.ThePe!.is32Bit ? 0x10 : 0x20); 
         //32-bit:
         //0x0: klass ptr
         //0x4: monitor ptr
