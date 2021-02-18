@@ -136,6 +136,11 @@ namespace Cpp2IL.Analysis.Actions
                 {
                     returnType = MethodUtils.ResolveGenericParameterType(ManagedMethodBeingCalled, _objectMethodBeingCalledOn.Type, gp);
                 }
+
+                if (returnType is GenericInstanceType git)
+                {
+                    returnType = MethodUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type);
+                }
                 
                 var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
                 _returnedLocal = context.MakeLocal(returnType, reg: destReg);

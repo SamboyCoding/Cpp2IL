@@ -7,6 +7,7 @@ using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Analysis
 {
@@ -99,7 +100,7 @@ namespace Cpp2IL.Analysis
             return true;
         }
 
-        internal static TypeReference? ResolveGenericParameterType(MethodReference method, TypeReference instance, GenericParameter gp)
+        internal static TypeReference? ResolveGenericParameterType(MethodReference method, TypeReference? instance, GenericParameter gp)
         {
             var git = instance as GenericInstanceType;
             if (git?.ElementType.GenericParameters.ToList().FindIndex(g => g.Name == gp.FullName) is { } genericIdx && genericIdx >= 0)
@@ -118,6 +119,13 @@ namespace Cpp2IL.Analysis
             }
 
             return null;
+        }
+
+        internal static GenericInstanceType ResolveMethodGIT(GenericInstanceType unresolved, MethodReference method, TypeReference? instance)
+        {
+            var baseType = unresolved.ElementType;
+
+            return baseType.MakeGenericInstanceType(unresolved.GenericArguments.Select(ga => ga is GenericParameter p ? ResolveGenericParameterType(method, instance, p) : ga).ToArray());
         }
 
         private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
