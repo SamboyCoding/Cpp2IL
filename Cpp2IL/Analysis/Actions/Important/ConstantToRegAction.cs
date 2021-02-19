@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
@@ -23,7 +24,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 dest = context.MakeConstant(typeof(ulong), constantValue, constantValue.ToString(), destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             //TODO we'll need a load of some sort.
             return new Mono.Cecil.Cil.Instruction[0];
@@ -41,6 +42,9 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override bool IsImportant()
         {
+            if (dest is ConstantDefinition constantDefinition && !constantDefinition.GetPseudocodeRepresentation().StartsWith("{"))
+                return false;
+            
             return true;
         }
     }

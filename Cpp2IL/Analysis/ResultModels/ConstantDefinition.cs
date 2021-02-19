@@ -17,7 +17,7 @@ namespace Cpp2IL.Analysis.ResultModels
             if (Type == typeof(bool))
                 return Convert.ToString((bool) Value);
 
-            if (Type == typeof(int))
+            if (Type == typeof(int) || Type == typeof(ulong))
                 return Convert.ToString(Value)!;
 
             if (Type == typeof(UnknownGlobalAddr))

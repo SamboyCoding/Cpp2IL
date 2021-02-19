@@ -24,7 +24,8 @@ namespace Cpp2IL.Analysis.ResultModels
         private readonly InstructionList _allInstructions;
 
         private MethodDefinition _method;
-
+        
+        private readonly List<IfData> IfOnlyBlockData = new List<IfData>();
         private readonly List<IfElseData> IfElseBlockData = new List<IfElseData>();
         private readonly List<LoopData> LoopBlockData = new List<LoopData>();
 
@@ -262,6 +263,26 @@ namespace Cpp2IL.Analysis.ResultModels
                 }
             ));
         }
+        
+        public void RegisterIfStatement(ulong startOfIf, ulong endOfIf, BaseAction conditionalJump)
+        {
+            IfOnlyBlockData.Add(SaveAnalysisState(
+                new IfData
+                {
+                    Stack = Stack.Clone(),
+                    ConditionalJumpStatement = conditionalJump,
+                    IfStatementEnd = endOfIf,
+                    IfStatementStart = startOfIf,
+                }
+            ));
+        }
+
+        public ulong GetAddressOfIfBlockEndingHere(ulong end)
+        {
+            var ifData = IfOnlyBlockData.Find(i => i.IfStatementEnd == end);
+
+            return ifData?.IfStatementStart ?? 0UL;
+        }
 
         public ulong GetAddressOfElseThisIsTheEndOf(ulong jumpDest)
         {
@@ -283,6 +304,16 @@ namespace Cpp2IL.Analysis.ResultModels
                 return;
 
             LoadAnalysisState(ifElseData);
+        }
+
+        public void PopStashedIfDataFrom(ulong ifStartAddr)
+        {
+            var ifData = IfOnlyBlockData.Find(i => i.IfStatementStart == ifStartAddr);
+            
+            if(ifData == null)
+                return;
+            
+            LoadAnalysisState(ifData);
         }
 
         public ulong GetEndOfLoopWhichPossiblyStartsHere(ulong instructionIp)

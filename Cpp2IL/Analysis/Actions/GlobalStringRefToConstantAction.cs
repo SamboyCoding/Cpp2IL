@@ -2,7 +2,9 @@
 using LibCpp2IL;
 using Mono.Cecil;
 using Iced.Intel;
+using Mono.Cecil.Cil;
 using SharpDisasm.Udis86;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -23,7 +25,7 @@ namespace Cpp2IL.Analysis.Actions
             ConstantWritten = context.MakeConstant(typeof(string), ResolvedString, null, destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

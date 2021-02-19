@@ -4,7 +4,9 @@ using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -51,7 +53,7 @@ namespace Cpp2IL.Analysis.Actions
             ConstantWritten = context.MakeConstant(typeof(MethodReference), _method, name, destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

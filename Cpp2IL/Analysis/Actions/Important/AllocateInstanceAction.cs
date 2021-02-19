@@ -1,14 +1,12 @@
 ﻿using System.Diagnostics;
 using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
-    /// <summary>
-    /// Used for error-checking, doesn't generate any pseudocode or IL
-    /// </summary>
     public class AllocateInstanceAction : BaseAction
     {
         public TypeReference? TypeCreated;
@@ -38,7 +36,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             return new Mono.Cecil.Cil.Instruction[0];
         }

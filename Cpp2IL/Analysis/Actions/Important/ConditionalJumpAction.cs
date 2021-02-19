@@ -27,14 +27,20 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             if (context.IsThereProbablyAnElseAt(jumpTarget))
             {
+                //If-Else
                 context.RegisterIfElseStatement(instruction.NextIP, jumpTarget, this);
                 isIfElse = true;
                 context.IndentLevel += 1;
-            }
-
-            if (associatedCompare?.IsProbablyWhileLoop() == true)
+            } else if (associatedCompare?.IsProbablyWhileLoop() == true)
             {
+                //While loop
                 isWhile = true;
+                context.IndentLevel += 1;
+            }
+            else if(associatedCompare?.unimportantComparison == false)
+            {
+                //Just an if. No else, no while.
+                context.RegisterIfStatement(instruction.NextIP, jumpTarget, this);
                 context.IndentLevel += 1;
             }
         }
@@ -45,7 +51,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override bool IsImportant()
         {
-            return associatedCompare?.unimportantComparison == false && (isIfElse || isWhile);
+            return associatedCompare?.unimportantComparison == false && (isIfElse || isWhile || isIfStatement);
         }
 
         protected string GetArgumentOnePseudocodeValue()

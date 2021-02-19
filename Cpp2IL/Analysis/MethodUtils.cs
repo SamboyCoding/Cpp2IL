@@ -69,9 +69,11 @@ namespace Cpp2IL.Analysis
                 switch (arg)
                 {
                     case ConstantDefinition cons when cons.Type.FullName != parameterType.ToString(): //Constant type mismatch
+                        if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
+                            break; //Forgive primitive coercion.
                         if (cons.Type.IsAssignableTo(typeof(MemberReference)) && parameterType.Name == "IntPtr")
                             break; //We allow this, because an IntPtr is usually a type or, more commonly, method pointer.
-                        if(cons.Type.IsAssignableTo(typeof(FieldReference)) && parameterType.Name == "RuntimeFieldHandle")
+                        if (cons.Type.IsAssignableTo(typeof(FieldReference)) && parameterType.Name == "RuntimeFieldHandle")
                             break; //These are the same struct - we represent it as a FieldReference but it's actually a runtime field handle.
                         return false;
                     case LocalDefinition local when local.Type == null || !parameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
@@ -100,12 +102,29 @@ namespace Cpp2IL.Analysis
             return true;
         }
 
+        private static int GetIndexOfGenericParameterWithName(GenericInstanceType git, string name)
+        {
+            var res = git.ElementType.GenericParameters.ToList().FindIndex(g => g.Name == name);
+            if (res >= 0)
+                return res;
+            
+            return git.GenericArguments.ToList().FindIndex(g => g.Name == name);
+        }
+
+        private static TypeReference? GetGenericArgumentByNameFromGenericInstanceType(GenericInstanceType git, GenericParameter gp)
+        {
+            if (GetIndexOfGenericParameterWithName(git, gp.FullName) is { } genericIdx && genericIdx >= 0)
+                return git.GenericArguments[genericIdx];
+
+            return null;
+        }
+
         internal static TypeReference? ResolveGenericParameterType(MethodReference method, TypeReference? instance, GenericParameter gp)
         {
             var git = instance as GenericInstanceType;
-            if (git?.ElementType.GenericParameters.ToList().FindIndex(g => g.Name == gp.FullName) is { } genericIdx && genericIdx >= 0)
-                return git.GenericArguments[genericIdx];
-            
+            if (git != null && GetGenericArgumentByNameFromGenericInstanceType(git, gp) is { } t)
+                return t;
+
             if (method is GenericInstanceMethod gim && gim.ElementMethod.HasGenericParameters)
             {
                 var p = gim.ElementMethod.GenericParameters.ToList();
@@ -121,11 +140,33 @@ namespace Cpp2IL.Analysis
             return null;
         }
 
-        internal static GenericInstanceType ResolveMethodGIT(GenericInstanceType unresolved, MethodReference method, TypeReference? instance)
+        private static TypeReference? TryLookupGenericParamBasedOnFunctionArguments(GenericParameter p, MethodReference methodReference, TypeReference?[] argumentTypes)
+        {
+            if (!methodReference.HasGenericParameters) return null;
+
+            for (var i = 0; i < methodReference.Parameters.Count; i++)
+            {
+                var parameterType = methodReference.Parameters[i].ParameterType;
+                var argumentType = argumentTypes[i];
+
+                if (parameterType.IsGenericInstance && parameterType is GenericInstanceType baseGit && argumentType is GenericInstanceType actualGit && GetIndexOfGenericParameterWithName(baseGit, p.FullName) is { } idx && idx >= 0)
+                {
+                    return actualGit.GenericArguments[idx];
+                }
+            }
+
+            return null;
+        }
+
+        internal static GenericInstanceType ResolveMethodGIT(GenericInstanceType unresolved, MethodReference method, TypeReference? instance, TypeReference?[] parameterTypes)
         {
             var baseType = unresolved.ElementType;
 
-            return baseType.MakeGenericInstanceType(unresolved.GenericArguments.Select(ga => ga is GenericParameter p ? ResolveGenericParameterType(method, instance, p) : ga).ToArray());
+            var genericArgs = unresolved.GenericArguments.Select(
+                ga => !(ga is GenericParameter p) ? ga : ResolveGenericParameterType(method, instance, p) ?? TryLookupGenericParamBasedOnFunctionArguments(p, method, parameterTypes)
+            ).ToArray();
+
+            return baseType.MakeGenericInstanceType(genericArgs);
         }
 
         private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)

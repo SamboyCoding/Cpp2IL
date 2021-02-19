@@ -1,18 +1,22 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
     public class EndIfMarkerAction : BaseAction
     {
+        private readonly bool _hasElse;
         private ulong _elsePtr;
 
-        public EndIfMarkerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public EndIfMarkerAction(MethodAnalysis context, Instruction instruction, bool hasElse) : base(context, instruction)
         {
-            _elsePtr = context.GetAddressOfElseThisIsTheEndOf(instruction.IP);
+            _hasElse = hasElse;
+            if(hasElse)
+                _elsePtr = context.GetAddressOfElseThisIsTheEndOf(instruction.IP);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

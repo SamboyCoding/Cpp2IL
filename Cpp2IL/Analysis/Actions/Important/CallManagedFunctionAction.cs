@@ -2,10 +2,11 @@
 using System.Linq;
 using System.Text;
 using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
@@ -19,6 +20,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         private readonly bool wasArrayInstantiation;
         private readonly long[]? instantiatedArrayValues = null;
+        private readonly bool _isSuperMethod;
 
         public CallManagedFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -48,6 +50,11 @@ namespace Cpp2IL.Analysis.Actions.Important
 
                 if (!possibleTarget.IsStatic && _objectMethodBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), _objectMethodBeingCalledOn.Type))
                     AddComment($"This is an instance method, but the type of the 'this' parameter is mismatched. Expecting {possibleTarget.DeclaringType.Name}, actually {_objectMethodBeingCalledOn.Type.FullName}");
+                else if (!possibleTarget.IsStatic && _objectMethodBeingCalledOn?.Type != null)
+                {
+                    //Matching type, but is it us or a base type?
+                    _isSuperMethod = !Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), _objectMethodBeingCalledOn.Type);
+                }
             }
             else
             {
@@ -105,6 +112,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                             if (Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
                             {
                                 possibleTarget = m;
+                                _isSuperMethod = true;
                                 break;
                             }
 
@@ -144,7 +152,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
                 if (returnType is GenericInstanceType git)
                 {
-                    returnType = MethodUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type);
+                    returnType = MethodUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type, arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? new TypeReference[0]);
                 }
                 
                 var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
@@ -164,7 +172,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             // SharedState.MethodsByAddress.TryGetValue(jumpTarget, out target);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }
@@ -197,6 +205,8 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             if (ManagedMethodBeingCalled.IsStatic)
                 ret.Append(ManagedMethodBeingCalled.DeclaringType.FullName);
+            else if (_objectMethodBeingCalledOn?.Name == "this")
+                ret.Append(_isSuperMethod ? "base" : "this");
             else
                 ret.Append(_objectMethodBeingCalledOn?.Name);
 

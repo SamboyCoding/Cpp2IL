@@ -432,14 +432,15 @@ namespace Cpp2IL.Analysis
             {
                 if (Analysis.IdentifiedJumpDestinationAddresses.FirstOrDefault(s => s <= action.AssociatedInstruction.IP && s > lastIfAddress) is { } jumpDestinationAddress && jumpDestinationAddress != 0)
                 {
-                    var ifStart = Analysis.GetAddressOfAssociatedIfForThisElse(jumpDestinationAddress);
+                    var associatedIfForThisElse = Analysis.GetAddressOfAssociatedIfForThisElse(jumpDestinationAddress);
                     var elseStart = Analysis.GetAddressOfElseThisIsTheEndOf(jumpDestinationAddress);
-                    if (ifStart != 0UL)
+                    var ifStart = Analysis.GetAddressOfIfBlockEndingHere(jumpDestinationAddress);
+                    if (associatedIfForThisElse != 0UL)
                     {
                         _methodFunctionality.Append("\n\t\tElse Block (starting at 0x")
                             .Append(jumpDestinationAddress.ToString("x8").ToUpperInvariant())
                             .Append(") for Comparison at 0x")
-                            .Append(ifStart.ToString("x8").ToUpperInvariant())
+                            .Append(associatedIfForThisElse.ToString("x8").ToUpperInvariant())
                             .Append('\n');
                     }
                     else if (elseStart != 0UL)
@@ -448,6 +449,13 @@ namespace Cpp2IL.Analysis
                             .Append(jumpDestinationAddress.ToString("x8").ToUpperInvariant())
                             .Append(") where the else started at 0x")
                             .Append(elseStart.ToString("x8").ToUpperInvariant())
+                            .Append('\n');
+                    } else if (ifStart != 0UL)
+                    {
+                        _methodFunctionality.Append("\n\t\tEnd Of If Block (at 0x")
+                            .Append(jumpDestinationAddress.ToString("x8").ToUpperInvariant())
+                            .Append(") where the if started at 0x")
+                            .Append(ifStart.ToString("x8").ToUpperInvariant())
                             .Append('\n');
                     }
                     else
@@ -896,6 +904,10 @@ namespace Cpp2IL.Analysis
                     //Write static field
                     Analysis.Actions.Add(new RegToStaticFieldAction(Analysis, instruction));
                     break;
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition:
+                    //Write non-static field
+                    Analysis.Actions.Add(new LocalToFieldAction(Analysis, instruction));
+                    break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic
                 case Mnemonic.Add when type0 == OpKind.Register && type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && r0 != "rsp":
@@ -928,11 +940,12 @@ namespace Cpp2IL.Analysis
 
         private void PerformInstructionChecks(Instruction instruction)
         {
-            var associatedIf = Analysis.GetAddressOfAssociatedIfForThisElse(instruction.IP);
+            var associatedIfFromIfElse = Analysis.GetAddressOfAssociatedIfForThisElse(instruction.IP);
             var associatedElse = Analysis.GetAddressOfElseThisIsTheEndOf(instruction.IP);
             var hasEndedLoop = Analysis.HaveWeExitedALoopOnThisInstruction(instruction.IP);
+            var associatedIf = Analysis.GetAddressOfIfBlockEndingHere(instruction.IP);
 
-            if (associatedIf != 0)
+            if (associatedIfFromIfElse != 0)
             {
                 //We've just started an else block - pop the state from when we started the if.
                 Analysis.PopStashedIfDataForElseAt(instruction.IP);
@@ -943,13 +956,19 @@ namespace Cpp2IL.Analysis
             else if (associatedElse != 0)
             {
                 Analysis.IndentLevel -= 1; //For the end if statement
-                Analysis.Actions.Add(new EndIfMarkerAction(Analysis, instruction));
+                Analysis.Actions.Add(new EndIfMarkerAction(Analysis, instruction, true));
             }
-
-            if (hasEndedLoop)
+            else if (hasEndedLoop)
             {
                 Analysis.IndentLevel -= 1;
                 Analysis.Actions.Add(new EndWhileMarkerAction(Analysis, instruction));
+            }
+            else if (associatedIf != 0)
+            {
+                Analysis.PopStashedIfDataFrom(associatedIf);
+                
+                Analysis.IndentLevel -= 1;
+                Analysis.Actions.Add(new EndIfMarkerAction(Analysis, instruction, false));
             }
 
             var operandCount = instruction.OpCount;

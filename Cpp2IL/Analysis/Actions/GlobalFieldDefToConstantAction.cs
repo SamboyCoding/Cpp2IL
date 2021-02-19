@@ -3,6 +3,8 @@ using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -24,7 +26,7 @@ namespace Cpp2IL.Analysis.Actions
             ConstantWritten = context.MakeConstant(typeof(FieldDefinition), ResolvedField, name, destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

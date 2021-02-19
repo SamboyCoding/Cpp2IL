@@ -1,7 +1,8 @@
 ﻿using System;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions
 {
@@ -28,7 +29,7 @@ namespace Cpp2IL.Analysis.Actions
 
             if (!(beingMoved is LocalDefinition localBeingMoved) || localBeingMoved.Type == null) return;
 
-            if (localBeingMoved.Type == _localBeingOverwritten?.Type)
+            if (localBeingMoved.Type.FullName == _localBeingOverwritten?.Type?.FullName)
             {
                 //Variable being overwritten is the same type as this one - are we maybe just changing the value of that one (e.g. in a loop)?
                 context.SetRegContent(newReg, _localBeingOverwritten);
@@ -49,7 +50,7 @@ namespace Cpp2IL.Analysis.Actions
             copyingValueNotLocal = true;
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             //No-op
             return new Mono.Cecil.Cil.Instruction[0];

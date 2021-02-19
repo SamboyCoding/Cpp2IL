@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
@@ -16,7 +17,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             _localMade = context.MakeLocal(Utils.Int32Reference, reg: regCleared, knownInitialValue: 0);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }
