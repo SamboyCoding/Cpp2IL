@@ -450,7 +450,8 @@ namespace Cpp2IL.Analysis
                             .Append(") where the else started at 0x")
                             .Append(elseStart.ToString("x8").ToUpperInvariant())
                             .Append('\n');
-                    } else if (ifStart != 0UL)
+                    }
+                    else if (ifStart != 0UL)
                     {
                         _methodFunctionality.Append("\n\t\tEnd Of If Block (at 0x")
                             .Append(jumpDestinationAddress.ToString("x8").ToUpperInvariant())
@@ -968,7 +969,7 @@ namespace Cpp2IL.Analysis
             else if (associatedIf != 0)
             {
                 Analysis.PopStashedIfDataFrom(associatedIf);
-                
+
                 Analysis.IndentLevel -= 1;
                 Analysis.Actions.Add(new EndIfMarkerAction(Analysis, instruction, false));
             }
@@ -988,8 +989,9 @@ namespace Cpp2IL.Analysis
                     return;
             }
         }
-#else
-       
+#endif
+
+#if !USE_NEW_ANALYSIS_METHOD
         private void CheckForArithmeticOperations(Instruction instruction)
         {
             if (instruction.Mnemonic == ud_mnemonic_code.UD_Iimul && instruction.Operands.Length <= 3 && instruction.Operands.Length > 0)
