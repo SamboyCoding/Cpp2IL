@@ -19,6 +19,7 @@ using Iced.Intel;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Analysis.Actions.Important;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.PE;

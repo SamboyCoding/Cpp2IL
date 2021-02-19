@@ -284,6 +284,7 @@ namespace LibCpp2IL.PE
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             Console.Write("\tReading generic methods...");
+            var builder = new StringBuilder();
             start = DateTime.Now;
             genericMethodDictionary = new Dictionary<int, ulong>(genericMethodTables.Length);
             foreach (var table in genericMethodTables)
@@ -313,6 +314,7 @@ namespace LibCpp2IL.PE
                         GenericVariantPtr = concreteMethodPtr
                     };
 
+                    
                     ConcreteGenericMethods[baseMethod].Add(concreteMethod);
                     ConcreteGenericImplementationsByAddress[concreteMethodPtr].Add(concreteMethod);
                 }

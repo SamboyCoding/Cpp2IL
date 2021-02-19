@@ -1,10 +1,10 @@
 ﻿using System.Diagnostics;
 using Cpp2IL.Analysis.ResultModels;
-using Mono.Cecil;
 using Iced.Intel;
 using LibCpp2IL;
+using Mono.Cecil;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     /// <summary>
     /// Used for error-checking, doesn't generate any pseudocode or IL

@@ -1,11 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Cpp2IL.Analysis.ResultModels;
+﻿using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     public class StaticFieldToRegAction : BaseAction
     {

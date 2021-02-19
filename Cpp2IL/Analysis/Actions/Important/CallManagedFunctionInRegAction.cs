@@ -4,7 +4,7 @@ using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     public class CallManagedFunctionInRegAction : BaseAction
     {

@@ -28,7 +28,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Writes the constant {constantValue} into the field {destinationField?.Name} of {instance}";
+            return $"[!] Writes the constant {constantValue} into the field {destinationField?.Name} of {instance}";
         }
     }
 }

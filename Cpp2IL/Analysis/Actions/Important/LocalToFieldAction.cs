@@ -1,9 +1,8 @@
 ﻿using System.Diagnostics;
 using Cpp2IL.Analysis.ResultModels;
-using Mono.Cecil;
 using Iced.Intel;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     public class LocalToFieldAction : BaseAction
     {

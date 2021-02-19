@@ -4,7 +4,7 @@ using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     public class ComparisonAction : BaseAction
     {

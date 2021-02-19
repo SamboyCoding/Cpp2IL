@@ -2,7 +2,7 @@
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     public abstract class ConditionalJumpAction : BaseAction
     {

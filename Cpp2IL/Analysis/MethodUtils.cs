@@ -1,7 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using Cpp2IL.Analysis.Actions;
+using Cpp2IL.Analysis.Actions.Important;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;

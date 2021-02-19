@@ -2,12 +2,12 @@
 using System.Linq;
 using System.Text;
 using Cpp2IL.Analysis.ResultModels;
+using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
-using Iced.Intel;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     public class CallManagedFunctionAction : BaseAction
     {
@@ -123,6 +123,11 @@ namespace Cpp2IL.Analysis.Actions
                 else if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                     //Instance method
                     _objectMethodBeingCalledOn = local; //32-bit and we have an instance
+            }
+
+            if (possibleTarget == null && LibCpp2IlMain.ThePe.ConcreteGenericImplementationsByAddress.TryGetValue(_jumpTarget, out var concreteGenericMethods))
+            {
+                AddComment($"Probably a jump to a concrete generic method, there are {concreteGenericMethods.Count} here.");
             }
 
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.Actions;
+using Cpp2IL.Analysis.Actions.Important;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;

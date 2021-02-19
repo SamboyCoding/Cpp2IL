@@ -1,11 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
-using LibCpp2IL;
-using Mono.Cecil;
 using Iced.Intel;
+using Mono.Cecil;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
     public class CallVirtualMethodAction : BaseAction
     {

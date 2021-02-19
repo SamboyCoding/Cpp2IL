@@ -1,4 +1,5 @@
 ﻿using Cpp2IL.Analysis.Actions;
+using Cpp2IL.Analysis.Actions.Important;
 using Iced.Intel;
 
 namespace Cpp2IL.Analysis.ResultModels

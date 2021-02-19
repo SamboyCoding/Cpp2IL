@@ -14,6 +14,7 @@ using System.Threading;
 using CommandLine;
 using Cpp2IL.Analysis;
 using Cpp2IL.Analysis.Actions;
+using Cpp2IL.Analysis.Actions.Important;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;

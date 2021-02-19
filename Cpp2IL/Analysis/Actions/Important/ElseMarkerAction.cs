@@ -1,15 +1,16 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Analysis.Actions.Important
 {
-    public class EndIfMarkerAction : BaseAction
+    public class ElseMarkerAction : BaseAction
     {
-        private ulong _elsePtr;
+        private ulong _ifPtr;
 
-        public EndIfMarkerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ElseMarkerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            _elsePtr = context.GetAddressOfElseThisIsTheEndOf(instruction.IP);
+            _ifPtr = context.GetAddressOfAssociatedIfForThisElse(instruction.IP);
+            context.IndentLevel += 1; //For else block
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions()
@@ -19,7 +20,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string? ToPsuedoCode()
         {
-            return "endif\n";
+            return "else";
         }
 
         public override string ToTextSummary()
