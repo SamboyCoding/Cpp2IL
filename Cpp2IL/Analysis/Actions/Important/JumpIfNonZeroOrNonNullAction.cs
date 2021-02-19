@@ -17,11 +17,6 @@ namespace Cpp2IL.Analysis.Actions.Important
             booleanMode = nullMode && associatedCompare.ArgumentOne is LocalDefinition local && local.Type?.FullName == "System.Boolean";
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
-        {
-            throw new System.NotImplementedException();
-        }
-
         protected override string GetPseudocodeCondition()
         {
             //We have to invert the condition, so in this case we want "is false", "is null", or "is equal"
@@ -35,6 +30,16 @@ namespace Cpp2IL.Analysis.Actions.Important
                 return $"({GetArgumentOnePseudocodeValue()} == {GetArgumentTwoPseudocodeValue()})";
 
             return "(<missing compare>";
+        }
+
+        protected override bool OnlyNeedToLoadOneOperand() => nullMode || booleanMode;
+
+        protected override OpCode GetJumpOpcode()
+        {
+            if(OnlyNeedToLoadOneOperand())
+                return OpCodes.Brtrue;
+            
+            return OpCodes.Bne_Un;
         }
 
         protected override string GetTextSummaryCondition()

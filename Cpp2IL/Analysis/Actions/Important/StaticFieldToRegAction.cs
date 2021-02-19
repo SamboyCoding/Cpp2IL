@@ -27,9 +27,16 @@ namespace Cpp2IL.Analysis.Actions.Important
             _localMade = context.MakeLocal(_theField.FieldType, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_theField == null || _localMade == null)
+                throw new TaintedInstructionException();
+            
+            return new[]
+            {
+                processor.Create(OpCodes.Ldsfld, _theField),
+                processor.Create(OpCodes.Stloc, _localMade.Variable)
+            };
         }
 
         public override string? ToPsuedoCode()

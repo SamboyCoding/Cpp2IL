@@ -18,13 +18,16 @@ namespace Cpp2IL.Analysis.Actions.Important
             destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
             if (mayNotBeAConstant)
+            {
                 //Let's be safe and make this a local
                 dest = context.MakeLocal(Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
+                RegisterDefinedLocalWithoutSideEffects((LocalDefinition) dest);
+            }
             else
                 dest = context.MakeConstant(typeof(ulong), constantValue, constantValue.ToString(), destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             //TODO we'll need a load of some sort.
             return new Mono.Cecil.Cil.Instruction[0];

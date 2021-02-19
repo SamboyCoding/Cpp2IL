@@ -21,6 +21,8 @@ namespace Cpp2IL.Analysis.Actions.Important
             _arrayLocal = context.GetLocalInReg(arrayContainingReg);
 
             if (_arrayLocal?.Type?.IsArray != true) return;
+            
+            RegisterUsedLocal(_arrayLocal);
 
             _index = (int) ((arrayOffset - Il2CppArrayUtils.FirstItemOffset) / Utils.GetPointerSizeBytes());
             
@@ -32,7 +34,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             _destLocal = context.MakeLocal(elementType, reg: destinationReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

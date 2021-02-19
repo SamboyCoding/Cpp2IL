@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Analysis.ResultModels;
@@ -12,7 +13,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 {
     public class CallManagedFunctionAction : BaseAction
     {
-        internal readonly MethodDefinition? ManagedMethodBeingCalled;
+        internal readonly MethodReference? ManagedMethodBeingCalled;
         private List<IAnalysedOperand>? arguments;
         private readonly ulong _jumpTarget;
         private readonly LocalDefinition? _objectMethodBeingCalledOn;
@@ -79,10 +80,10 @@ namespace Cpp2IL.Analysis.Actions.Important
                         if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type))
                         {
                             possibleTarget = m;
-                            
-                            if(!MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
+
+                            if (!MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
                                 AddComment("parameters do not match, but declaring type of method matches instance.");
-                            
+
                             break;
                         }
 
@@ -154,14 +155,14 @@ namespace Cpp2IL.Analysis.Actions.Important
                 {
                     returnType = MethodUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type, arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? new TypeReference[0]);
                 }
-                
+
                 var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
                 _returnedLocal = context.MakeLocal(returnType, reg: destReg);
             }
 
             if (ManagedMethodBeingCalled?.FullName == "System.Void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(System.Array,System.RuntimeFieldHandle)")
             {
-                if(arguments?.Count > 1 && arguments[1] is ConstantDefinition {Value: FieldDefinition fieldDefinition} && arguments[0] is LocalDefinition {KnownInitialValue: AllocatedArray arr})
+                if (arguments?.Count > 1 && arguments[1] is ConstantDefinition {Value: FieldDefinition fieldDefinition} && arguments[0] is LocalDefinition {KnownInitialValue: AllocatedArray arr})
                 {
                     instantiatedArrayValues = Utils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
                     wasArrayInstantiation = true;
@@ -169,12 +170,59 @@ namespace Cpp2IL.Analysis.Actions.Important
                 }
             }
 
+            arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o));
+            if(_objectMethodBeingCalledOn != null)
+                RegisterUsedLocal(_objectMethodBeingCalledOn);
+
             // SharedState.MethodsByAddress.TryGetValue(jumpTarget, out target);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public List<Mono.Cecil.Cil.Instruction> GetILToLoadParams(MethodAnalysis context, ILProcessor processor, bool includeThis = true)
         {
-            throw new System.NotImplementedException();
+            if (ManagedMethodBeingCalled == null || arguments == null || arguments.Count != ManagedMethodBeingCalled.Parameters.Count)
+                throw new TaintedInstructionException();
+
+            var result = new List<Mono.Cecil.Cil.Instruction>();
+
+            if (ManagedMethodBeingCalled.HasThis && includeThis)
+                result.Add(context.GetILToLoad(_objectMethodBeingCalledOn ?? throw new TaintedInstructionException(), processor));
+
+            foreach (var operand in arguments)
+            {
+                if (operand is LocalDefinition l)
+                    result.Add(context.GetILToLoad(l, processor));
+                else if (operand is ConstantDefinition c)
+                    result.AddRange(c.GetILToLoad(context, processor));
+                else
+                    throw new TaintedInstructionException();
+            }
+
+            return result;
+        }
+
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        {
+            if (ManagedMethodBeingCalled?.Name == ".ctor")
+            {
+                //todo check if calling alternative constructor
+                if (!(_isSuperMethod && _objectMethodBeingCalledOn?.Name == "this"))
+                    return Array.Empty<Mono.Cecil.Cil.Instruction>(); //Ignore ctors that aren't super calls, because we're allocating a new instance.
+            }
+            
+            var result = GetILToLoadParams(context, processor);
+
+            //todo support callvirt
+            result.Add(processor.Create(OpCodes.Call, ManagedMethodBeingCalled));
+
+            if (ManagedMethodBeingCalled.ReturnType.FullName == "System.Void")
+                return result.ToArray();
+
+            if (_returnedLocal == null)
+                throw new TaintedInstructionException();
+
+            result.Add(processor.Create(OpCodes.Stloc, _returnedLocal.Variable));
+
+            return result.ToArray();
         }
 
         private IEnumerable<string> GetReadableArguments()
@@ -203,7 +251,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (_returnedLocal != null)
                 ret.Append(_returnedLocal?.Type?.FullName).Append(' ').Append(_returnedLocal?.Name).Append(" = ");
 
-            if (ManagedMethodBeingCalled.IsStatic)
+            if (!ManagedMethodBeingCalled.HasThis)
                 ret.Append(ManagedMethodBeingCalled.DeclaringType.FullName);
             else if (_objectMethodBeingCalledOn?.Name == "this")
                 ret.Append(_isSuperMethod ? "base" : "this");
@@ -223,7 +271,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         public override string ToTextSummary()
         {
             string result;
-            result = ManagedMethodBeingCalled?.IsStatic == true
+            result = ManagedMethodBeingCalled?.HasThis == false
                 ? $"[!] Calls static managed method {ManagedMethodBeingCalled?.FullName} (0x{_jumpTarget:X})"
                 : $"[!] Calls managed method {ManagedMethodBeingCalled?.FullName} (0x{_jumpTarget:X}) on instance {_objectMethodBeingCalledOn}";
 

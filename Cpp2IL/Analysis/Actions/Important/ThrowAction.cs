@@ -11,9 +11,12 @@ namespace Cpp2IL.Analysis.Actions.Important
         public ThrowAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             exceptionToThrow = context.GetOperandInRegister("rcx");
+            
+            if(exceptionToThrow is LocalDefinition l)
+                RegisterUsedLocal(l);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

@@ -11,11 +11,6 @@ namespace Cpp2IL.Analysis.Actions.Important
             //All handled by base class
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
-        {
-            throw new System.NotImplementedException();
-        }
-
         protected override string GetPseudocodeCondition()
         {
             //Invert condition, so greater than than, not <=
@@ -28,6 +23,11 @@ namespace Cpp2IL.Analysis.Actions.Important
                 return "the compare showed that it was less than or equal";
 
             return $"{associatedCompare.ArgumentOne} is less than or equal to {associatedCompare.ArgumentTwo}";
+        }
+
+        protected override OpCode GetJumpOpcode()
+        {
+            return OpCodes.Ble;
         }
     }
 }

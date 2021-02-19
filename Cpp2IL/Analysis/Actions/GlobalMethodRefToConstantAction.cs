@@ -53,7 +53,7 @@ namespace Cpp2IL.Analysis.Actions
             ConstantWritten = context.MakeConstant(typeof(MethodReference), _method, name, destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

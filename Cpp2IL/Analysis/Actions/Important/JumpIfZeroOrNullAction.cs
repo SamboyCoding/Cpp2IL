@@ -18,11 +18,6 @@ namespace Cpp2IL.Analysis.Actions.Important
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
-        {
-            throw new System.NotImplementedException();
-        }
-
         protected override string GetPseudocodeCondition()
         {
             //Have to invert
@@ -37,6 +32,16 @@ namespace Cpp2IL.Analysis.Actions.Important
             
             return "the arguments are equal";
         }
+
+        protected override OpCode GetJumpOpcode()
+        {
+            if(OnlyNeedToLoadOneOperand())
+                return OpCodes.Brfalse;
+            
+            return OpCodes.Beq;
+        }
+
+        protected override bool OnlyNeedToLoadOneOperand() => booleanMode || nullMode;
 
         protected override string GetTextSummaryCondition()
         {

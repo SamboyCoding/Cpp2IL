@@ -307,6 +307,14 @@ namespace Cpp2IL
                     }
                 }
 
+                if ((fieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
+                {
+                    if (fieldTypeRef.Name.StartsWith("__StaticArrayInitTypeSize="))
+                    {
+                        var length = int.Parse(fieldTypeRef.Name.Replace("__StaticArrayInitTypeSize=", ""));
+                        fieldDefinition.InitialValue = Utils.GetFieldRVA(fieldDefinition, length); 
+                    }
+                }
                 
                 
                 var thisFieldOffset = cppAssembly.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, fieldIdx - cppTypeDefinition.firstFieldIdx, fieldIdx, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);

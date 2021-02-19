@@ -1,4 +1,5 @@
 ﻿using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Analysis.ResultModels
 {
@@ -8,6 +9,16 @@ namespace Cpp2IL.Analysis.ResultModels
         public TypeReference? Type;
         public object? KnownInitialValue;
 
+        //Set during IL generation
+        public VariableDefinition? Variable;
+        public ParameterDefinition? ParameterDefinition { get; private set; }
+
+        internal LocalDefinition WithParameter(ParameterDefinition parameterDefinition)
+        {
+            ParameterDefinition = parameterDefinition;
+            return this;
+        }
+
         public override string ToString()
         {
             return $"{{'{Name}' (type {Type?.FullName})}}";
@@ -16,6 +27,11 @@ namespace Cpp2IL.Analysis.ResultModels
         public string GetPseudocodeRepresentation()
         {
             return Name;
+        }
+
+        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor processor)
+        {
+            return new[] {context.GetILToLoad(this, processor)};
         }
     }
 }

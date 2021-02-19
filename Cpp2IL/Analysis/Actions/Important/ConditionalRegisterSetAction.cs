@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;
@@ -24,9 +25,23 @@ namespace Cpp2IL.Analysis.Actions.Important
         
         protected abstract string GetPseudocodeCondition();
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        protected abstract Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis context, ILProcessor processor);
+
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+
+            if (_associatedCompare?.ArgumentOne == null || _associatedCompare?.ArgumentTwo == null)
+                throw new TaintedInstructionException();
+
+            ret.AddRange(_associatedCompare.ArgumentOne.GetILToLoad(context, processor));
+            ret.AddRange(_associatedCompare.ArgumentTwo.GetILToLoad(context, processor));
+            
+            ret.Add(GetComparisonIl(context, processor));
+            
+            ret.Add(processor.Create(OpCodes.Stloc, _localMade.Variable));
+            
+            return ret.ToArray();
         }
 
         public override string? ToPsuedoCode()

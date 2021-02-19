@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
@@ -17,6 +18,11 @@ namespace Cpp2IL.Analysis.Actions.Important
         protected override string GetPseudocodeCondition()
         {
             return $"{_associatedCompare?.ArgumentOne?.GetPseudocodeRepresentation()} > {_associatedCompare?.ArgumentTwo?.GetPseudocodeRepresentation()}";
+        }
+
+        protected override Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis context, ILProcessor processor)
+        {
+            return processor.Create(OpCodes.Cgt);
         }
     }
 }

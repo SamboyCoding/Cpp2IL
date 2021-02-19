@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System.Collections.Generic;
+using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -19,12 +20,27 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (!(destStaticFieldsPtr?.Value is StaticFieldsPtr staticFieldsPtr)) 
                 return;
 
+            if (_sourceOperand is LocalDefinition l)
+                RegisterUsedLocal(l);
+
             _theField = FieldUtils.GetStaticFieldByOffset(staticFieldsPtr, staticFieldOffset);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_theField == null || _sourceOperand == null)
+                throw new TaintedInstructionException();
+
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+            
+            if(_sourceOperand is ConstantDefinition c)
+                ret.AddRange(c.GetILToLoad(context, processor));
+            else
+                ret.Add(context.GetILToLoad((LocalDefinition) _sourceOperand, processor));
+            
+            ret.Add(processor.Create(OpCodes.Stsfld, _theField));
+
+            return ret.ToArray();
         }
 
         public override string? ToPsuedoCode()

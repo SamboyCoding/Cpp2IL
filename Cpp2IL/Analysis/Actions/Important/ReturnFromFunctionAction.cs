@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System.Collections.Generic;
+using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -13,11 +14,26 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             _isVoid = context.IsVoid();
             returnValue = context.GetOperandInRegister("rax");
+
+            if (returnValue is LocalDefinition l)
+                RegisterUsedLocal(l);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+
+            if (!_isVoid)
+            {
+                if (returnValue == null)
+                    throw new TaintedInstructionException();
+                
+                ret.AddRange(returnValue.GetILToLoad(context, processor));
+            }
+            
+            ret.Add(processor.Create(OpCodes.Ret));
+
+            return ret.ToArray();
         }
 
         public override string? ToPsuedoCode()

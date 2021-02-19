@@ -16,15 +16,21 @@ using LibCpp2IL.Metadata;
 using Cpp2IL.Analysis.Actions;
 using Iced.Intel;
 #endif
+using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Cpp2IL.Analysis.Actions.Important;
+using Cpp2IL.Analysis.PostProcessActions;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.PE;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using SharpDisasm.Udis86;
+using Instruction = Iced.Intel.Instruction;
+using MethodBody = Mono.Cecil.Cil.MethodBody;
 
 namespace Cpp2IL.Analysis
 {
@@ -122,6 +128,8 @@ namespace Cpp2IL.Analysis
         {
             _methodDefinition = methodDefinition;
             _methodStart = methodStart;
+
+            _methodDefinition.Body = new MethodBody(_methodDefinition);
 
             _keyFunctionAddresses = keyFunctionAddresses;
             _cppAssembly = cppAssembly;
@@ -376,12 +384,14 @@ namespace Cpp2IL.Analysis
                     line = instruction.ToString();
 #else
                 var line = new StringBuilder();
-                line.Append(instruction.IP.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction);
+                line.Append("0x").Append(instruction.IP.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction);
 
                 //Dump debug data
+#if DEBUG_PRINT_OPERAND_DATA
                 line.Append("\t\t; DEBUG: {").Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
                 line.Append('{').Append(instruction.Op1Kind).Append('}').Append('/').Append(instruction.Op1Register).Append(" ||| ");
                 line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement).Append(" | ").Append(instruction.MemoryIndex);
+#endif
 #endif
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
@@ -426,6 +436,8 @@ namespace Cpp2IL.Analysis
             }
 
 #if USE_NEW_ANALYSIS_METHOD
+            new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition);
+            
             _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", Analysis.IdentifiedJumpDestinationAddresses.Select(s => $"\t\t\t0x{s:X}"))).Append('\n');
             var lastIfAddress = 0UL;
             foreach (var action in Analysis.Actions)
@@ -510,7 +522,42 @@ namespace Cpp2IL.Analysis
                 .ToList()
                 .ForEach(code => typeDump.Append(code).Append('\n')); //Append
 
-            typeDump.Append('\n');
+            typeDump.Append("\n\n");
+
+            //IL Generation
+            //Anyone reading my commits: This is a *start*. It's nowhere near done.
+            var body = _methodDefinition.Body;
+            var processor = body.GetILProcessor();
+
+            typeDump.Append("Generated IL:\n\t");
+
+            foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null))
+            {
+                localDefinition.Variable = new VariableDefinition(localDefinition.Type);
+                body.Variables.Add(localDefinition.Variable);
+            }
+
+            foreach (var action in Analysis.Actions.Where(i => i.IsImportant()))
+            {
+                try
+                {
+                    var il = action.ToILInstructions(Analysis, processor);
+                    typeDump.Append(string.Join("\n\t", il.AsEnumerable()))
+                        .Append("\n\t");
+                }
+                catch (NotImplementedException)
+                {
+                    typeDump.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
+                    break;
+                }
+                catch (TaintedInstructionException)
+                {
+                    typeDump.Append($"Action of type {action.GetType()} is corrupt and cannot be created as IL. Aborting here.\n");
+                    break;
+                }
+            }
+
+            typeDump.Append("\n\n");
 
 #if !USE_NEW_ANALYSIS_METHOD
             return _taintReason;

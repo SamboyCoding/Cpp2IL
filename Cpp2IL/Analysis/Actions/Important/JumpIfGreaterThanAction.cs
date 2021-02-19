@@ -11,15 +11,15 @@ namespace Cpp2IL.Analysis.Actions.Important
             //All handled by base class
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
-        {
-            throw new System.NotImplementedException();
-        }
-
         protected override string GetPseudocodeCondition()
         {
             //Invert condition, so <=, not >
             return $"({GetArgumentOnePseudocodeValue()} <= {GetArgumentTwoPseudocodeValue()})";
+        }
+
+        protected override OpCode GetJumpOpcode()
+        {
+            return OpCodes.Bgt;
         }
 
         protected override string GetTextSummaryCondition()

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -27,11 +28,30 @@ namespace Cpp2IL.Analysis.Actions.Important
             if(FieldRead == null) return;
 
             LocalWritten = context.MakeLocal(FieldRead.GetFinalType(), reg: _destRegName);
+            RegisterDefinedLocalWithoutSideEffects(LocalWritten);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new NotImplementedException();
+            if (LocalWritten == null || _readFrom == null || FieldRead == null)
+                throw new TaintedInstructionException();
+            
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+
+            ret.AddRange(_readFrom.GetILToLoad(context, processor));
+
+            var f = FieldRead;
+            while (f.NextChainLink != null)
+            {
+                ret.Add(processor.Create(OpCodes.Ldfld, f.ImpliedFieldLoad));
+                f = f.NextChainLink;
+            }
+            
+            ret.Add(processor.Create(OpCodes.Ldfld, f.FinalLoadInChain));
+            
+            ret.Add(processor.Create(OpCodes.Stloc, LocalWritten.Variable));
+            
+            return ret.ToArray();
         }
 
         public override string ToPsuedoCode()

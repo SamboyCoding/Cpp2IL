@@ -36,10 +36,10 @@ namespace Cpp2IL.Analysis.Actions
             var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             var name = ResolvedMethod.Name;
             
-            ConstantWritten = context.MakeConstant(typeof(MethodDefinition), ResolvedMethod, name, destReg);
+            ConstantWritten = context.MakeConstant(typeof(MethodReference), ResolvedMethod, name, destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

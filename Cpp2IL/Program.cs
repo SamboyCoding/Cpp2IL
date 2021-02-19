@@ -432,7 +432,7 @@ namespace Cpp2IL
             }
         }
 
-        private static List<MethodDefinition> allCalledMethods = new List<MethodDefinition>();
+        private static List<MethodReference> allCalledMethods = new List<MethodReference>();
         
         private static ConcurrentDictionary<string, AsmDumper.TaintReason> DoAssemblyCSharpAnalysis(string methodOutputDir, List<(TypeDefinition type, List<CppMethodData> methods)> methods, KeyFunctionAddresses keyFunctionAddresses, out int total)
         {

@@ -50,7 +50,7 @@ namespace Cpp2IL.Analysis.Actions
             copyingValueNotLocal = true;
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             //No-op
             return new Mono.Cecil.Cil.Instruction[0];

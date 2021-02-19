@@ -6,6 +6,8 @@ using Cpp2IL.Analysis.Actions.Important;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Instruction = Mono.Cecil.Cil.Instruction;
 
 namespace Cpp2IL.Analysis.ResultModels
 {
@@ -13,7 +15,7 @@ namespace Cpp2IL.Analysis.ResultModels
     {
         public readonly List<LocalDefinition> Locals = new List<LocalDefinition>();
         public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
-        public readonly List<BaseAction> Actions = new List<BaseAction>();
+        public List<BaseAction> Actions = new List<BaseAction>();
         public readonly List<ulong> IdentifiedJumpDestinationAddresses = new List<ulong>();
         public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
 
@@ -53,14 +55,14 @@ namespace Cpp2IL.Analysis.ResultModels
                 var regList = new List<string> {"rcx", "rdx", "r8", "r9"};
 
                 if (!method.IsStatic)
-                    FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this", regList.RemoveAndReturn(0)));
+                    FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this", regList.RemoveAndReturn(0)).WithParameter(method.Body.ThisParameter));
 
                 while (args.Count > 0 && regList.Count > 0)
                 {
                     var arg = args.RemoveAndReturn(0);
                     var dest = regList.RemoveAndReturn(0);
 
-                    FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType.Resolve(), arg.Name, dest));
+                    FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType.Resolve(), arg.Name, dest).WithParameter(arg));
                 }
             }
             else if (!method.IsStatic)
@@ -369,6 +371,16 @@ namespace Cpp2IL.Analysis.ResultModels
             if (matchingBlock == null) return;
             
             LoadAnalysisState(matchingBlock);
+        }
+
+        public Instruction GetILToLoad(LocalDefinition localDefinition, ILProcessor processor)
+        {
+            if (FunctionArgumentLocals.Contains(localDefinition))
+            {
+                return processor.Create(OpCodes.Ldarg, localDefinition.ParameterDefinition);
+            }
+
+            return processor.Create(OpCodes.Ldloc, localDefinition.Variable);
         }
     }
 }

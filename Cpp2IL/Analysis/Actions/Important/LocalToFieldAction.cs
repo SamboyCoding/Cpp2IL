@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System.Collections.Generic;
+using System.Diagnostics;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -20,6 +21,9 @@ namespace Cpp2IL.Analysis.Actions.Important
             _writtenOn = context.GetLocalInReg(destRegName);
             
             if(_writtenOn?.Type?.Resolve() == null) return;
+            
+            if(LocalRead != null)
+                RegisterUsedLocal(LocalRead);
 
             FieldWritten = FieldUtils.GetFieldBeingAccessed(_writtenOn.Type, destFieldOffset, false);
         }
@@ -33,9 +37,28 @@ namespace Cpp2IL.Analysis.Actions.Important
             LocalRead = readFrom;
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (LocalRead == null || _writtenOn == null || FieldWritten == null)
+                throw new TaintedInstructionException();
+            
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+
+            ret.AddRange(_writtenOn.GetILToLoad(context, processor));
+
+            var f = FieldWritten;
+            while (f.NextChainLink != null)
+            {
+                ret.Add(processor.Create(OpCodes.Ldfld, f.ImpliedFieldLoad));
+                f = f.NextChainLink;
+            }
+            
+            ret.AddRange(LocalRead.GetILToLoad(context, processor));
+            
+            ret.Add(processor.Create(OpCodes.Stfld, f.FinalLoadInChain));
+            
+            
+            return ret.ToArray();
         }
 
         public override string ToPsuedoCode()

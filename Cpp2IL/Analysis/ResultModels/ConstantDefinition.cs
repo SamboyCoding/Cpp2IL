@@ -1,5 +1,6 @@
 ﻿using System;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Analysis.ResultModels
 {
@@ -43,6 +44,34 @@ namespace Cpp2IL.Analysis.ResultModels
                 return Name;
 
             return str;
+        }
+
+        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor ilProcessor)
+        {
+            if (Type == typeof(string))
+                return new[] {ilProcessor.Create(OpCodes.Ldstr, $"{Value}")};
+
+            if (Type == typeof(bool))
+                return new[] {ilProcessor.Create((bool) Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)};
+
+            if (Type == typeof(int))
+                return new[] {ilProcessor.Create(OpCodes.Ldc_I4, Convert.ToInt32(Value))};
+
+            if (Type == typeof(ulong))
+                return new[]
+                {
+                    ilProcessor.Create(OpCodes.Ldc_I4, unchecked((int) (ulong) Value)), //Load as int
+                    ilProcessor.Create(OpCodes.Conv_U8) //Convert to ulong
+                };
+
+            if (Type == typeof(MethodReference) && Value is MethodReference reference)
+                return new[] {ilProcessor.Create(OpCodes.Ldftn, reference)};
+            
+
+            if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)
+                return new[] {ilProcessor.Create(OpCodes.Ldtoken, fieldDefinition)};
+
+            throw new TaintedInstructionException();
         }
     }
 }

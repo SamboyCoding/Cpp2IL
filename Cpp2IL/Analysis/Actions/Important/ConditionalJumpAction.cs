@@ -1,6 +1,8 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
-using Iced.Intel;
+using Mono.Cecil.Cil;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
@@ -72,6 +74,29 @@ namespace Cpp2IL.Analysis.Actions.Important
         public override string ToTextSummary()
         {
             return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {GetTextSummaryCondition()}\n";
+        }
+
+        protected virtual bool OnlyNeedToLoadOneOperand() => false;
+
+        protected abstract OpCode GetJumpOpcode();
+
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        {
+            if (associatedCompare?.ArgumentOne == null || associatedCompare.ArgumentTwo == null)
+                throw new TaintedInstructionException();
+            
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+            var dummyTarget = processor.Create(OpCodes.Nop);
+            
+            ret.AddRange(associatedCompare.ArgumentOne.GetILToLoad(context, processor));
+            
+            if(!OnlyNeedToLoadOneOperand())
+                ret.AddRange(associatedCompare.ArgumentTwo.GetILToLoad(context, processor));
+            
+            //Will have to be swapped to correct one in post-processing.
+            ret.Add(processor.Create(GetJumpOpcode(), dummyTarget));
+
+            return ret.ToArray();
         }
 
         public override bool PseudocodeNeedsLinebreakBefore()

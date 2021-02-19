@@ -87,7 +87,7 @@ namespace Cpp2IL
             };
         }
 
-        public static bool IsManagedTypeAnInstanceOfCppOne(Il2CppTypeReflectionData cppType, TypeReference managedType)
+        public static bool IsManagedTypeAnInstanceOfCppOne(Il2CppTypeReflectionData cppType, TypeReference? managedType)
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
 
@@ -953,6 +953,25 @@ namespace Cpp2IL
             }
 
             return gim;
+        }
+
+        public static byte[] GetFieldRVA(FieldDefinition fieldDefinition, int length)
+        {
+            var fieldDef = SharedState.ManagedToUnmanagedFields[fieldDefinition];
+            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(fieldDef.FieldIndex);
+            
+            var metadata = LibCpp2IlMain.TheMetadata!;
+            
+            var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
+            var results = new byte[length];
+            
+            if (pointer <= 0) return results;
+
+            metadata.Position = pointer;
+
+            metadata.Read(results, 0, length);
+
+            return results;
         }
 
         public static long[] ReadArrayInitializerForFieldDefinition(FieldDefinition fieldDefinition, AllocatedArray allocatedArray)

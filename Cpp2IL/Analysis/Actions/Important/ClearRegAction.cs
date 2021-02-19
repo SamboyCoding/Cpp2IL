@@ -15,11 +15,16 @@ namespace Cpp2IL.Analysis.Actions.Important
             // context.ZeroRegister(regCleared);
             //We make this a local and clean up unused ones in post-processing
             _localMade = context.MakeLocal(Utils.Int32Reference, reg: regCleared, knownInitialValue: 0);
+            RegisterDefinedLocalWithoutSideEffects(_localMade);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            return new[]
+            {
+                processor.Create(OpCodes.Ldc_I4_0),
+                processor.Create(OpCodes.Stloc, _localMade.Variable)
+            };
         }
 
         public override string? ToPsuedoCode()

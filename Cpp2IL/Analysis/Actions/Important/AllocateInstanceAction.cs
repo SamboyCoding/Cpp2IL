@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -36,9 +37,32 @@ namespace Cpp2IL.Analysis.Actions.Important
             LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            return new Mono.Cecil.Cil.Instruction[0];
+            if (LocalReturned == null)
+                throw new TaintedInstructionException();
+            
+            var managedConstructorCall = (CallManagedFunctionAction) context.Actions.Skip(context.Actions.IndexOf(this)).First(i => i is CallManagedFunctionAction);
+
+            //Next call should be to a constructor.
+            if (managedConstructorCall.ManagedMethodBeingCalled?.Name != ".ctor")
+                throw new TaintedInstructionException();
+
+            var result = managedConstructorCall.GetILToLoadParams(context, processor, false);
+
+            var ctorToCall = managedConstructorCall.ManagedMethodBeingCalled!;
+            
+            if (ctorToCall.DeclaringType != TypeCreated)
+                ctorToCall = TypeCreated?.Resolve()?.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == ctorToCall.Parameters.Count) ?? throw new TaintedInstructionException();
+
+            if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
+                ctorToCall = ctorToCall.MakeGeneric(git.GenericArguments.ToArray());
+
+            result.Add(processor.Create(OpCodes.Newobj, ctorToCall));
+            
+            result.Add(processor.Create(OpCodes.Stloc, LocalReturned.Variable));
+
+            return result.ToArray();
         }
 
         public override string ToPsuedoCode()

@@ -20,15 +20,20 @@ namespace Cpp2IL.Analysis.Actions.Important
             _arrayLocal = context.GetLocalInReg(arrayContainingReg);
 
             if (_arrayLocal?.Type?.IsArray != true) return;
+            
+            RegisterUsedLocal(_arrayLocal);
 
             _indexLocal = context.GetLocalInReg(indexReg);
+            
+            if(_indexLocal != null)
+                RegisterUsedLocal(_indexLocal);
             
             //Regardless of if we have an index local, we can still work out the type of the array and make a local.
             //Resolve() turns array types into non-array types
             _destLocal = context.MakeLocal(_arrayLocal.Type.Resolve(), reg: destinationReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

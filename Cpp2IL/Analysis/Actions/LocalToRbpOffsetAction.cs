@@ -21,7 +21,7 @@ namespace Cpp2IL.Analysis.Actions
             _slotNum = StackPointerUtils.SaveLocalToStack(context, instruction, _localBeingRead);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

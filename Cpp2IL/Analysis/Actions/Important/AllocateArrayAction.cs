@@ -1,4 +1,7 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -8,7 +11,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 {
     public class AllocateArrayAction : BaseAction
     {
-        private readonly long sizeAllocated;
+        private readonly int sizeAllocated;
         private readonly TypeReference? arrayType;
         private readonly LocalDefinition? _localWritten;
 
@@ -20,9 +23,9 @@ namespace Cpp2IL.Analysis.Actions.Important
                 context.Stack.Pop(); //Pop off array type
 
             if (typeConstant == null) return;
-            
+
             var sizeOperand = !LibCpp2IlMain.ThePe!.is32Bit ? context.GetOperandInRegister("rdx") : context.Stack.Peek();
-            
+
             if (sizeOperand != null && LibCpp2IlMain.ThePe.is32Bit)
                 context.Stack.Pop(); //Pop off array size
 
@@ -33,22 +36,32 @@ namespace Cpp2IL.Analysis.Actions.Important
                 arrayType = reference;
             }
 
-            if (sizeOperand is LocalDefinition {KnownInitialValue: ulong sizeL})
+            if (sizeOperand is LocalDefinition {KnownInitialValue: ulong sizeL} local)
             {
-                sizeAllocated = (long) sizeL;
-            } else if (sizeOperand is ConstantDefinition {Value: ulong sizeC})
+                RegisterUsedLocal(local);
+                sizeAllocated = (int) sizeL;
+            }
+            else if (sizeOperand is ConstantDefinition {Value: ulong sizeC})
             {
-                sizeAllocated = (long) sizeC;
+                sizeAllocated = (int) sizeC;
             }
 
-            if (arrayType == null) return; 
+            if (arrayType == null) return;
 
-            _localWritten = context.MakeLocal(arrayType, reg: "rax", knownInitialValue: new AllocatedArray((int) sizeAllocated, (ArrayType) arrayType));
+            _localWritten = context.MakeLocal(arrayType, reg: "rax", knownInitialValue: new AllocatedArray(sizeAllocated, (ArrayType) arrayType));
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_localWritten == null || arrayType == null)
+                throw new TaintedInstructionException();
+
+            return new []
+            {
+                processor.Create(OpCodes.Ldc_I4, sizeAllocated),
+                processor.Create(OpCodes.Newarr, arrayType),
+                processor.Create(OpCodes.Stloc, _localWritten.Variable)
+            };
         }
 
         public override string? ToPsuedoCode()

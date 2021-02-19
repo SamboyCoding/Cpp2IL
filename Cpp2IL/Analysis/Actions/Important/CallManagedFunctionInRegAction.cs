@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
@@ -49,9 +50,11 @@ namespace Cpp2IL.Analysis.Actions.Important
             {
                 AddComment("Mismatched parameters detected here.");
             }
+            
+            arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o));
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

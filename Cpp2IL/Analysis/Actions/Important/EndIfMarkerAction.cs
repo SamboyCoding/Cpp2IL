@@ -16,9 +16,9 @@ namespace Cpp2IL.Analysis.Actions.Important
                 _elsePtr = context.GetAddressOfElseThisIsTheEndOf(instruction.IP);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            return new Mono.Cecil.Cil.Instruction[0];
         }
 
         public override string? ToPsuedoCode()
