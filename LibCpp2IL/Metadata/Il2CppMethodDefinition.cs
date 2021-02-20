@@ -39,25 +39,31 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
+        private ulong? _methodPointer = null;
         public ulong MethodPointer
         {
             get
             {
-                if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
-                    return 0;
-
-                var asmIdx = 0; //Not needed pre-24.2
-                if (LibCpp2IlMain.MetadataVersion >= 27)
+                if (!_methodPointer.HasValue)
                 {
-                    var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.Where(m => m.Name == DeclaringType!.DeclaringAssembly!.Name).First();
-                    asmIdx = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
-                }
-                else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
-                {
-                    asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
+                    if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
+                        return 0;
+
+                    var asmIdx = 0; //Not needed pre-24.2
+                    if (LibCpp2IlMain.MetadataVersion >= 27)
+                    {
+                        var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.First(m => m.Name == DeclaringType!.DeclaringAssembly!.Name);
+                        asmIdx = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
+                    }
+                    else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                    {
+                        asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
+                    }
+
+                    _methodPointer = LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
                 }
 
-                return LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
+                return _methodPointer.Value;
             }
         }
 

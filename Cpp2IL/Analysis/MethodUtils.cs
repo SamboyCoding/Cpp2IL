@@ -48,8 +48,13 @@ namespace Cpp2IL.Analysis
             actualArgs.Add(context.GetOperandInRegister("r8") ?? context.GetOperandInRegister("xmm2"));
             actualArgs.Add(context.GetOperandInRegister("r9") ?? context.GetOperandInRegister("xmm3"));
 
-            if (actualArgs.FindLast(a => a is ConstantDefinition {Value: MethodReference ag} && ag.Name == method.Name && ag.DeclaringType == method.DeclaringType) is ConstantDefinition {Value: MethodReference actualGenericMethod})
-                method = actualGenericMethod;
+            if (actualArgs.FindLast(a => a is ConstantDefinition {Value: MethodReference _}) is ConstantDefinition {Value: MethodReference actualGenericMethod})
+            {
+                if (actualGenericMethod.Name == method.Name && actualGenericMethod.DeclaringType == method.DeclaringType)
+                    method = actualGenericMethod;
+                else
+                    return false; //We have a method which isn't this one.
+            }
 
             var tempArgs = new List<IAnalysedOperand>();
             foreach (var parameterData in method.Parameters!)

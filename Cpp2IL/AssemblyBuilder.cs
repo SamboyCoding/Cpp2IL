@@ -355,9 +355,10 @@ namespace Cpp2IL
 
                 SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
 
-                var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.First(m => m.Name == imageDef.Name);
-                var imageIndex = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
-                var offsetInRam = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageIndex, methodDef.token);
+
+                var offsetInRam = LibCpp2IlMain.MetadataVersion >= 27 
+                    ? methodDef.MethodPointer 
+                    : cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token); //This method is significantly faster.
 
 
                 var offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
@@ -461,9 +462,13 @@ namespace Cpp2IL
                             .Append($"\t\t\tDefault Value: {parameterDefinition.Constant}");
                 }
 
-                matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.First(m => m.Name == imageDef.Name);
-                imageIndex = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
-                var methodPointer = cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageIndex, methodDef.token);
+
+                
+                
+                var methodPointer = LibCpp2IlMain.MetadataVersion >= 27 
+                    ? methodDef.MethodPointer 
+                    : cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token); //This method is significantly faster.
+                
                 //Address attribute
                 if (methodPointer > 0)
                 {
