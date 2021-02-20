@@ -24,7 +24,7 @@ namespace Cpp2IL.Analysis.Actions
             localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition {Value: NewSafeCastResult result} ? result.original : null;
             if (localCopiedFrom?.Type?.Resolve() == null) return;
 
-            var cppTypeDef = SharedState.MonoToCppTypeDefs[localCopiedFrom.Type.Resolve()];
+            var cppTypeDef = SharedState.ManagedToUnmanagedTypes[localCopiedFrom.Type.Resolve()];
             destinationConstant = context.MakeConstant(typeof(Il2CppClassIdentifier), new Il2CppClassIdentifier
             {
                 backingType = cppTypeDef,

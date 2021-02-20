@@ -97,30 +97,61 @@ namespace Cpp2IL.Analysis.Actions.Important
                     //Check for base class instance methods
                     if (possibleTarget == null)
                     {
-                        foreach (var m in listOfCallableMethods)
+                        LocalDefinition toPushBackIfNeeded = null;
+                        if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                         {
-                            if (m.IsStatic) continue; //Only checking instance methods here.
+                            _objectMethodBeingCalledOn = local;
+                            toPushBackIfNeeded = local;
+                        }
 
-                            //Again, have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
-                            LocalDefinition toPushBackIfNeeded = null;
-                            if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                        //Methods which are non-static and for which the declaring type is some form of supertype of the object we're calling on.
+                        var baseClassMethods = listOfCallableMethods.Where(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type)).ToList();
+                        
+                        if (baseClassMethods.Count == 0 && toPushBackIfNeeded != null)
+                        {
+                            //mismatch, push back instance
+                            context.Stack.Push(toPushBackIfNeeded);
+                        }
+
+                        if (baseClassMethods.Count == 1)
+                        {
+                            possibleTarget = baseClassMethods.Single();
+                            _isSuperMethod = true;
+                            
+                            //Only one method - we can be less strict on leftover parameters.
+                            if(!MethodUtils.CheckParameters(instruction, baseClassMethods.Single(), context, true, out arguments, _objectMethodBeingCalledOn, false))
+                                AddComment("Parameter mismatch, but there is only one method here for which the instance matches.");
+                        }
+                        else
+                        {
+                            foreach (var m in baseClassMethods)
                             {
-                                _objectMethodBeingCalledOn = local;
-                                toPushBackIfNeeded = local;
+                                //Check params, and be strict about it (no leftover arguments).
+                                if (MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
+                                {
+                                    possibleTarget = m;
+                                    _isSuperMethod = true;
+                                    break;
+                                }
                             }
 
-                            //Check defining type is a superclass or interface of instance, and check params.
-                            if (Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), _objectMethodBeingCalledOn.Type) && MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn))
+                            if (possibleTarget == null)
                             {
-                                possibleTarget = m;
-                                _isSuperMethod = true;
-                                break;
-                            }
-
-                            if (toPushBackIfNeeded != null)
-                            {
-                                //mismatch, push back instance
-                                context.Stack.Push(toPushBackIfNeeded);
+                                //Iterate again, and accept (but warn) leftover arguments.
+                                
+                                //Sort by number of parameters, descending, so we don't pick up a no-arg function by mistake.
+                                baseClassMethods.Sort((a, b) => a.parameterCount - b.parameterCount);
+                                foreach (var m in baseClassMethods)
+                                {
+                                    //Check params, and be strict about it (no leftover arguments).
+                                    if (MethodUtils.CheckParameters(instruction, m, context, true, out arguments, _objectMethodBeingCalledOn, false))
+                                    {
+                                        possibleTarget = m;
+                                        _isSuperMethod = true;
+                                        AddComment("Leftover parameters detected, but first few match.");
+                                        break;
+                                    }
+                                }
                             }
                         }
                     }
@@ -137,6 +168,16 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (possibleTarget == null && LibCpp2IlMain.ThePe.ConcreteGenericImplementationsByAddress.TryGetValue(_jumpTarget, out var concreteGenericMethods))
             {
                 AddComment($"Probably a jump to a concrete generic method, there are {concreteGenericMethods.Count} here.");
+            }
+
+            if (possibleTarget == null && _objectMethodBeingCalledOn?.Type != null)
+            {
+                var il2cppType = SharedState.ManagedToUnmanagedTypes[_objectMethodBeingCalledOn.Type.Resolve()];
+                var rgctxs = il2cppType.RGCTXs;
+                if (rgctxs.Length > 0)
+                {
+                    AddComment("Found at least one RGCTX");
+                }
             }
 
 

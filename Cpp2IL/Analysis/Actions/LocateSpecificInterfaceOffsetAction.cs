@@ -22,7 +22,7 @@ namespace Cpp2IL.Analysis.Actions
 
             offsetReads = (InterfaceOffsetsReadAction) context.Actions.Last(a => a is InterfaceOffsetsReadAction);
             
-            var cppType = SharedState.MonoToCppTypeDefs[_interfaceType];
+            var cppType = SharedState.ManagedToUnmanagedTypes[_interfaceType];
             _matchingInterfaceOffset = offsetReads.InterfaceOffsets.First(i => i.type == cppType);
         }
 

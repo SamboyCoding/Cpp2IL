@@ -1,6 +1,8 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata
@@ -78,6 +80,53 @@ namespace LibCpp2IL.Metadata
                     .Where(t => t.assemblyDefinition.firstTypeIndex <= typeIdx && typeIdx <= t.lastIdx)
                     .Select(t => t.assemblyDefinition)
                     .FirstOrDefault();
+            }
+        }
+
+        public Il2CppCodeGenModule? CodeGenModule
+        {
+            get
+            {
+                if (LibCpp2IlMain.ThePe == null) return null;
+
+                if (LibCpp2IlMain.MetadataVersion < 24.2f) return null;
+
+                return LibCpp2IlMain.ThePe.codeGenModules.First(m => m.Name == DeclaringAssembly!.Name);
+            }
+        }
+
+        public Il2CppRGCTXDefinition[] RGCTXs
+        {
+            get
+            {
+                var cgm = CodeGenModule;
+
+                if (cgm == null)
+                    return new Il2CppRGCTXDefinition[0];
+                
+                var index = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, cgm);
+
+                var rangePair = LibCpp2IlMain.ThePe.codegenModuleRgctxRanges[index].FirstOrDefault(r => r.token == token);
+
+                if (rangePair == null)
+                    return new Il2CppRGCTXDefinition[0];
+
+                return LibCpp2IlMain.ThePe.codegenModuleRgctxs[index].Skip(rangePair.start).Take(rangePair.length).ToArray();
+            }
+        }
+
+        public ulong[] RGCTXMethodPointers
+        {
+            get
+            {
+                var cgm = CodeGenModule;
+
+                if (cgm == null)
+                    return new ulong[0];
+                
+                var index = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, cgm);
+                
+                return RGCTXs.Where(r => r.type == Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_METHOD).Select(r => LibCpp2IlMain.ThePe!.codeGenModuleMethodPointers[index][r.MethodIndex]).ToArray();
             }
         }
 

@@ -261,7 +261,7 @@ namespace Cpp2IL
             }
 
             //Invert dict for CppToMono
-            SharedState.UnmanagedToManagedTypes = SharedState.MonoToCppTypeDefs.ToDictionary(i => i.Value, i => i.Key);
+            SharedState.UnmanagedToManagedTypes = SharedState.ManagedToUnmanagedTypes.ToDictionary(i => i.Value, i => i.Key);
 
             Console.WriteLine("\tPass 4: Applying type, method, and field attributes...");
 

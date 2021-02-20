@@ -12,9 +12,11 @@ namespace LibCpp2IL.PE
         public ulong invokerIndices; //ulong
         public ulong reversePInvokeWrapperCount; //ulong
         public ulong reversePInvokeWrapperIndices;
-        public ulong rgctxRangesCount;
-        public ulong rgctxRanges;
-        public ulong rgctxsCount;
+        
+        public long rgctxRangesCount;
+        public ulong pRgctxRanges;
+
+        public long rgctxsCount;
         public ulong rgctxs;
         public ulong debuggerMetadata;
 

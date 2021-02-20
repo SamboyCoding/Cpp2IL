@@ -218,7 +218,7 @@ namespace Cpp2IL
             {
                 var typeDef = metadata.typeDefs[index];
                 var typeDefinition = SharedState.TypeDefsByIndex[index];
-                SharedState.MonoToCppTypeDefs[typeDefinition] = typeDef;
+                SharedState.ManagedToUnmanagedTypes[typeDefinition] = typeDef;
 
                 methods.Add((type: typeDefinition, methods: ProcessTypeContents(metadata, theDll, typeDef, typeDefinition, imageDef)));
             }

@@ -76,6 +76,13 @@ namespace LibCpp2IL
 
                     return (T) value!;
                 }
+
+                if (type.IsEnum)
+                {
+                    var value = ReadPrimitive(type.GetEnumUnderlyingType());
+
+                    return (T) value!;
+                }
                 
                 foreach (var i in t.GetType().GetFields())
                 {
@@ -109,7 +116,6 @@ namespace LibCpp2IL
                         var gm = readClass.MakeGenericMethod(i.FieldType);
                         var o = gm.Invoke(this, new object[] {-1});
                         i.SetValue(t, o);
-                        break;
                     }
                 }
             }
