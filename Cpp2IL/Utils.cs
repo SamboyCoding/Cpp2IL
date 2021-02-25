@@ -37,6 +37,7 @@ namespace Cpp2IL
         internal static TypeDefinition BooleanReference;
         internal static TypeDefinition ArrayReference;
         internal static TypeDefinition IEnumerableReference;
+        internal static TypeDefinition ExceptionReference;
 #pragma warning restore 8618
         // ReSharper restore NotNullMemberIsNotInitialized
 
@@ -73,6 +74,7 @@ namespace Cpp2IL
             BooleanReference = TryLookupTypeDefKnownNotGeneric("System.Boolean")!;
             ArrayReference = TryLookupTypeDefKnownNotGeneric("System.Array")!;
             IEnumerableReference = TryLookupTypeDefKnownNotGeneric("System.Collections.IEnumerable")!;
+            ExceptionReference = TryLookupTypeDefKnownNotGeneric("System.Exception")!;
 
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
             {

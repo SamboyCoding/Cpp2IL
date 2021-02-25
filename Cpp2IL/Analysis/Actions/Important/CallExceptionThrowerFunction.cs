@@ -6,6 +6,7 @@ using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
@@ -90,7 +91,27 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_exceptionType == null)
+                throw new TaintedInstructionException();
+
+            var ctor = _exceptionType.GetConstructors().FirstOrDefault(c => !c.HasParameters);
+
+            if (ctor == null)
+            {
+                var exceptionCtor = Utils.ExceptionReference.GetConstructors().First(c => c.HasParameters && c.Parameters.Count == 1 && c.Parameters[0].ParameterType.Name == "String");
+                return new[]
+                {
+                    processor.Create(OpCodes.Ldstr, $"Exception of type {_exceptionType.FullName}, but couldn't find a no-arg ctor"),
+                    processor.Create(OpCodes.Newobj, exceptionCtor),
+                    processor.Create(OpCodes.Throw)
+                };
+            }
+
+            return new[]
+            {
+                processor.Create(OpCodes.Newobj, ctor),
+                processor.Create(OpCodes.Throw)
+            };
         }
 
         public override string? ToPsuedoCode()

@@ -445,7 +445,7 @@ namespace Cpp2IL.Analysis
 
 #if USE_NEW_ANALYSIS_METHOD
             new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition);
-            
+
             _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", Analysis.IdentifiedJumpDestinationAddresses.Select(s => $"\t\t\t0x{s:X}"))).Append('\n');
             var lastIfAddress = 0UL;
             foreach (var action in Analysis.Actions)
@@ -507,7 +507,7 @@ namespace Cpp2IL.Analysis
                 {
                     Console.WriteLine($"Failed to generate synopsis for method {_methodDefinition.FullName}, instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
                     throw new AnalysisExceptionRaisedException("Exception generating synopsis entry", e);
-                } 
+                }
 
                 if (!string.IsNullOrWhiteSpace(synopsisEntry))
                 {
@@ -570,6 +570,12 @@ namespace Cpp2IL.Analysis
                 catch (TaintedInstructionException)
                 {
                     typeDump.Append($"Action of type {action.GetType()} is corrupt and cannot be created as IL. Aborting here.\n");
+                    break;
+                }
+                catch (Exception e)
+                {
+                    typeDump.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
+                    Console.WriteLine(e);
                     break;
                 }
             }
@@ -970,6 +976,9 @@ namespace Cpp2IL.Analysis
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: StaticFieldsPtr _}:
                     //Write static field
                     Analysis.Actions.Add(new RegToStaticFieldAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition {Type: ArrayType _} && Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement):
+                    Analysis.Actions.Add(new RegToConstantArrayOffsetAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition:
                     //Write non-static field

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection.Metadata;
 using Cpp2IL.Analysis.Actions.Important;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
@@ -9,6 +10,9 @@ using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
+using GenericParameter = Mono.Cecil.GenericParameter;
+using MemberReference = Mono.Cecil.MemberReference;
+using TypeReference = Mono.Cecil.TypeReference;
 
 namespace Cpp2IL.Analysis
 {
@@ -110,6 +114,10 @@ namespace Cpp2IL.Analysis
                 if (actualArgs.Count != 1 || !(actualArgs[0] is ConstantDefinition {Value: MethodReference reference}) || reference != method)
                 {
                     return false; //Left over args - it's probably not this one
+                } else if (actualArgs.Count == 1 && actualArgs[0] is ConstantDefinition {Value: MethodReference _} c)
+                {
+                    var reg = context.GetConstantInReg("rcx") == c ? "rcx" : context.GetConstantInReg("rdx") == c ? "rdx" : context.GetConstantInReg("r8") == c ? "r8" : "r9";
+                    context.ZeroRegister(reg);
                 }
             }
 
