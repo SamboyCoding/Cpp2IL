@@ -1,4 +1,6 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
+using Iced.Intel;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -17,14 +19,16 @@ namespace Cpp2IL.Analysis.Actions.Important
             constantValue = instruction.GetImmediate(1);
             destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
+            var is32BitInteger = instruction.Op0Register >= Register.EAX || instruction.Op0Register <= Register.R15D;
+
             if (mayNotBeAConstant)
             {
                 //Let's be safe and make this a local
-                dest = context.MakeLocal(Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
+                dest = context.MakeLocal(is32BitInteger ? Utils.Int32Reference : Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
                 RegisterDefinedLocalWithoutSideEffects((LocalDefinition) dest);
             }
             else
-                dest = context.MakeConstant(typeof(ulong), constantValue, constantValue.ToString(), destReg);
+                dest = context.MakeConstant(is32BitInteger ? typeof(int) : typeof(ulong), constantValue, constantValue.ToString(), destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

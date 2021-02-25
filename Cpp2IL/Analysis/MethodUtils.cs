@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cpp2IL.Analysis.Actions.Important;
@@ -62,15 +63,24 @@ namespace Cpp2IL.Analysis
                 if (actualArgs.Count(a => a != null) == 0) return false;
 
                 var parameterType = parameterData.ParameterType;
+                var arg = actualArgs.RemoveAndReturn(0);
 
                 if (parameterType is GenericParameter gp)
                 {
                     var temp = ResolveGenericParameterType(method, beingCalledOn, gp);
+
+                    if (temp == null)
+                    {
+                        //Infer from context - we *assume* that whatever the argument is, is the type of this generic param.
+                        //As we have already checked for any parameter containing the generic method.
+                        if (arg is LocalDefinition l)
+                            parameterType = l.Type;
+                    }
+                    
                     temp ??= parameterType;
                     parameterType = temp;
                 }
-
-                var arg = actualArgs.RemoveAndReturn(0);
+                
                 switch (arg)
                 {
                     case ConstantDefinition cons when cons.Type.FullName != parameterType.ToString(): //Constant type mismatch
@@ -158,6 +168,9 @@ namespace Cpp2IL.Analysis
                 {
                     return actualGit.GenericArguments[idx];
                 }
+
+                if (parameterType.IsGenericParameter && parameterType.FullName == p.FullName)
+                    return argumentType;
             }
 
             return null;
@@ -170,6 +183,9 @@ namespace Cpp2IL.Analysis
             var genericArgs = unresolved.GenericArguments.Select(
                 ga => !(ga is GenericParameter p) ? ga : ResolveGenericParameterType(method, instance, p) ?? TryLookupGenericParamBasedOnFunctionArguments(p, method, parameterTypes)
             ).ToArray();
+
+            if (genericArgs.Any(g => g == null))
+                throw new Exception($"Generic argument null! Full list {genericArgs.ToStringEnumerable()} (length {genericArgs.Length}, nulls omitted), base type {unresolved}");
 
             return baseType.MakeGenericInstanceType(genericArgs);
         }

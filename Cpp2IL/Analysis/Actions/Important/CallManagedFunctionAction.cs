@@ -184,6 +184,8 @@ namespace Cpp2IL.Analysis.Actions.Important
             //Resolve unmanaged => managed method.
             if (possibleTarget != null)
                 ManagedMethodBeingCalled = SharedState.UnmanagedToManagedMethods[possibleTarget];
+            else
+                AddComment($"Failed to resolve any matching method (there are {listOfCallableMethods.Count} at this address)");
 
             if (ManagedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
             {

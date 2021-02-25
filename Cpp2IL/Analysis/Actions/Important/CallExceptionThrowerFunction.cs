@@ -83,6 +83,9 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             var calledAddr = instruction.NearBranchTarget;
             _exceptionType = ExceptionThrowers[calledAddr];
+            
+            if(_exceptionType != null)
+                context.MakeLocal(_exceptionType, reg: "rax");
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

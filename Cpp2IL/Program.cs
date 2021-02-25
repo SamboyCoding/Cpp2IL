@@ -505,17 +505,17 @@ namespace Cpp2IL
 
                         var dumper = new AsmDumper(methodDefinition, method, methodStart, keyFunctionAddresses!, LibCpp2IlMain.ThePe);
                         var taintResult = dumper.AnalyzeMethod(typeDump, ref allUsedMnemonics);
-                        
+
                         foreach (var thisAction in dumper.Analysis.Actions)
                         {
-                            if(!(thisAction is CallManagedFunctionAction callAction)) continue;
+                            if (!(thisAction is CallManagedFunctionAction callAction)) continue;
 
                             var m = callAction.ManagedMethodBeingCalled;
-                            
-                            if(!allCalledMethods.Contains(m))
+
+                            if (!allCalledMethods.Contains(m))
                                 allCalledMethods.Add(m);
                         }
-                        
+
 
                         var key = new StringBuilder();
 
@@ -533,6 +533,10 @@ namespace Cpp2IL
 
                     lock (type)
                         File.WriteAllText(filename, typeDump.ToString());
+                }
+                catch (AnalysisExceptionRaisedException)
+                {
+                    //Ignore, logged already.
                 }
                 catch (Exception e)
                 {

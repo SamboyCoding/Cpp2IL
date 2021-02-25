@@ -408,7 +408,15 @@ namespace Cpp2IL.Analysis
                 typeDump.Append(string.Join(" | ", instruction.Operands.Select((op, pos) => $"Op{pos}: {op.Type}")));
 #endif
 
-                PerformInstructionChecks(instruction);
+                try
+                {
+                    PerformInstructionChecks(instruction);
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Failed to perform analysis on method {_methodDefinition.FullName}, instruction {instruction} at 0x{instruction.IP:X} - got exception {e}");
+                    throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
+                }
 
                 typeDump.Append("\n");
 #if !USE_NEW_ANALYSIS_METHOD
@@ -490,7 +498,16 @@ namespace Cpp2IL.Analysis
                     lastIfAddress = loopAddress;
                 }
 
-                var synopsisEntry = action.GetSynopsisEntry();
+                string synopsisEntry;
+                try
+                {
+                    synopsisEntry = action.GetSynopsisEntry();
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine($"Failed to generate synopsis for method {_methodDefinition.FullName}, instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
+                    throw new AnalysisExceptionRaisedException("Exception generating synopsis entry", e);
+                } 
 
                 if (!string.IsNullOrWhiteSpace(synopsisEntry))
                 {
