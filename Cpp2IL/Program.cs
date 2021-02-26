@@ -260,8 +260,9 @@ namespace Cpp2IL
                 methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe, imageDef));
             }
 
-            //Invert dict for CppToMono
+            //Invert dicts
             SharedState.UnmanagedToManagedTypes = SharedState.ManagedToUnmanagedTypes.ToDictionary(i => i.Value, i => i.Key);
+            SharedState.ManagedToUnmanagedMethods = SharedState.UnmanagedToManagedMethods.ToDictionary(i => i.Value, i => i.Key);
 
             Console.WriteLine("\tPass 4: Applying type, method, and field attributes...");
 

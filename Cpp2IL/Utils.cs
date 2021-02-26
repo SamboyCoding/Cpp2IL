@@ -125,10 +125,13 @@ namespace Cpp2IL
             {
                 if (!managedType.HasGenericParameters || managedType.GenericParameters.Count != cppType.genericParams.Length) return false;
 
-                for (var i = 0; i < managedType.GenericParameters.Count; i++)
-                {
-                    
-                }
+                // for (var i = 0; i < managedType.GenericParameters.Count; i++)
+                // {
+                //     if (managedType.GenericParameters[i].FullName != cppType.genericParams[i].ToString())
+                //         return false;
+                // }
+
+                return true;
             }
 
             return false;
@@ -687,6 +690,9 @@ namespace Cpp2IL
         public static string GetRegisterNameNew(Register register)
         {
             if (register == Register.None) return "";
+
+            if (!register.IsVectorRegister())
+                return register.GetFullRegister().ToString().ToLowerInvariant();
 
             if (!CachedRegNamesNew.TryGetValue(register, out var ret))
             {

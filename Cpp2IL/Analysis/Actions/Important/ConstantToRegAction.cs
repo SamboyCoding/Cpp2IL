@@ -19,7 +19,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             constantValue = instruction.GetImmediate(1);
             destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
-            var is32BitInteger = instruction.Op0Register >= Register.EAX || instruction.Op0Register <= Register.R15D;
+            var is32BitInteger = instruction.Op0Register.IsGPR32();
 
             if (mayNotBeAConstant)
             {

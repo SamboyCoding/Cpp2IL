@@ -15,6 +15,7 @@ namespace Cpp2IL
         internal static readonly Dictionary<ulong, MethodDefinition> MethodsByAddress = new Dictionary<ulong, MethodDefinition>();
         internal static readonly Dictionary<long, MethodDefinition> MethodsByIndex = new Dictionary<long, MethodDefinition>();
         internal static readonly Dictionary<Il2CppMethodDefinition, MethodDefinition> UnmanagedToManagedMethods = new Dictionary<Il2CppMethodDefinition, MethodDefinition>();
+        internal static Dictionary<MethodDefinition, Il2CppMethodDefinition> ManagedToUnmanagedMethods = new Dictionary<MethodDefinition, Il2CppMethodDefinition>();
 
         //Generic params
         internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndex = new Dictionary<long, GenericParameter>();

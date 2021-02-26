@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System.Collections.Generic;
+using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -10,6 +11,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         private readonly LocalDefinition? _arrayLocal;
         private readonly int _index;
         private readonly LocalDefinition? _destLocal;
+        private TypeReference? _elementType;
 
         public ConstantArrayOffsetToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -29,14 +31,31 @@ namespace Cpp2IL.Analysis.Actions.Important
             //Regardless of if we have an index local, we can still work out the type of the array and make a local.
             //Resolve() turns array types into non-array types
 
-            var elementType = _arrayLocal.Type is ArrayType at ? at.ElementType : _arrayLocal.Type.Resolve();
+            _elementType = _arrayLocal.Type is ArrayType at ? at.ElementType : _arrayLocal.Type.Resolve();
             
-            _destLocal = context.MakeLocal(elementType, reg: destinationReg);
+            _destLocal = context.MakeLocal(_elementType, reg: destinationReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_destLocal == null || _arrayLocal == null || _index < 0)
+                throw new TaintedInstructionException();
+
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+            
+            //Load array
+            ret.AddRange(_arrayLocal.GetILToLoad(context, processor));
+            
+            //Load offset
+            ret.Add(processor.Create(OpCodes.Ldc_I4, _index));
+            
+            //Pop offset and array, push element
+            ret.Add(processor.Create(OpCodes.Ldelem_Any, _elementType));
+            
+            //Store in local
+            ret.Add(processor.Create(OpCodes.Stloc, _destLocal.Variable));
+
+            return ret.ToArray();
         }
 
         public override string? ToPsuedoCode()

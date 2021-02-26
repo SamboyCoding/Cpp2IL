@@ -134,7 +134,7 @@ namespace Cpp2IL.Analysis
             return git.GenericArguments.ToList().FindIndex(g => g.Name == name);
         }
 
-        private static TypeReference? GetGenericArgumentByNameFromGenericInstanceType(GenericInstanceType git, GenericParameter gp)
+        public static TypeReference? GetGenericArgumentByNameFromGenericInstanceType(GenericInstanceType git, GenericParameter gp)
         {
             if (GetIndexOfGenericParameterWithName(git, gp.FullName) is { } genericIdx && genericIdx >= 0)
                 return git.GenericArguments[genericIdx];
@@ -170,6 +170,10 @@ namespace Cpp2IL.Analysis
             for (var i = 0; i < methodReference.Parameters.Count; i++)
             {
                 var parameterType = methodReference.Parameters[i].ParameterType;
+
+                if (argumentTypes.Length <= i)
+                    return null;
+                
                 var argumentType = argumentTypes[i];
 
                 if (parameterType.IsGenericInstance && parameterType is GenericInstanceType baseGit && argumentType is GenericInstanceType actualGit && GetIndexOfGenericParameterWithName(baseGit, p.FullName) is { } idx && idx >= 0)

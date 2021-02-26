@@ -156,7 +156,7 @@ namespace LibCpp2IL.Metadata
 
         public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? null : (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
 
-        public Il2CppTypeDefinition? BaseType => LibCpp2IlReflection.GetTypeDefinitionByTypeIndex(parentIndex);
+        public Il2CppTypeReflectionData? BaseType => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.types[parentIndex]);
 
         public Il2CppFieldDefinition[]? Fields => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.fieldDefs.Skip(firstFieldIdx).Take(field_count).ToArray();
 

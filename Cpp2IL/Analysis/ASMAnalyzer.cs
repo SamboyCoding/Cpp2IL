@@ -761,14 +761,11 @@ namespace Cpp2IL.Analysis
                     {
                         Analysis.Actions.Add(new CallExceptionThrowerFunction(Analysis, instruction));
                     }
-                    else if (Analysis.GetConstantInReg("rcx") is { } castConstant
-                             && castConstant.Value is NewSafeCastResult //We have a cast result
-                             && Analysis.GetConstantInReg("rdx") is { } interfaceConstant
-                             && interfaceConstant.Value is TypeDefinition //we have a type
-                             && Analysis.GetConstantInReg("r8") is { } slotConstant
-                             && slotConstant.Value is int // We have a slot
-                             && Analysis.Actions.Any(a => a is LocateSpecificInterfaceOffsetAction) //We've looked up an interface offset
-                             && (!Analysis.Actions.Any(a => a is LoadInterfaceMethodDataAction) //Either we don't have any load method datas...
+                    else if (Analysis.GetLocalInReg("rcx") is {}
+                             && Analysis.GetConstantInReg("rdx") is {Value: TypeDefinition _}
+                             && (Analysis.GetConstantInReg("r8") is {Value: uint _} || Analysis.GetLocalInReg("r8") is {Type: {Name: "UInt32"}})
+                             && Analysis.Actions.Any(a => a is LocateSpecificInterfaceOffsetAction)
+                             && (!Analysis.Actions.Any(a => a is LoadInterfaceMethodDataAction)  //Either we don't have any load method datas...
                                  || Analysis.Actions.FindLastIndex(a => a is LocateSpecificInterfaceOffsetAction) > Analysis.Actions.FindLastIndex(a => a is LoadInterfaceMethodDataAction))) //Or the last load offset is after the last load method data 
                     {
                         //Unknown function call but matches values for a Interface lookup
@@ -838,8 +835,29 @@ namespace Cpp2IL.Analysis
             var type0 = instruction.Op0Kind;
             var type1 = instruction.Op1Kind;
 
-            switch (instruction.Mnemonic)
+            var mnemonic = instruction.Mnemonic;
+
+            if (mnemonic == Mnemonic.Movzx)
+                mnemonic = Mnemonic.Mov;
+
+            switch (mnemonic)
             {
+                case Mnemonic.Mov when !_cppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():
+                    //Move of a 32-bit register when we are 64-bit - check for structs
+                    if (op1 is LocalDefinition {Type: {IsValueType: true, IsPrimitive: false} t})
+                    {
+                        //Struct.
+                        if (FieldUtils.GetFieldBeingAccessed(t, 0, false) != FieldUtils.GetFieldBeingAccessed(t, 4, false))
+                        {
+                            //Different fields at 0 and 4 (i.e. first field is an int, etc).
+                            Analysis.Actions.Add(new Implicit4ByteFieldReadAction(Analysis, instruction));
+                            break;
+                        }
+                    }
+
+                    //Fallback to a reg->reg move.
+                    Analysis.Actions.Add(new RegToRegMoveAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Mov when type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null:
                     //Both zero offsets and a known secondary operand = Register content copy
                     Analysis.Actions.Add(new RegToRegMoveAction(Analysis, instruction));
@@ -856,19 +874,25 @@ namespace Cpp2IL.Analysis
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
-                    if (Analysis.GetLocalInReg(r1) != null)
+                    if (Analysis.GetLocalInReg(memR) != null)
                         Analysis.Actions.Add(new ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     return;
                 }
                 //0xb0 == Il2CppRuntimeInterfaceOffsetPair* interfaceOffsets;
-                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 == 0xb0 && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
+                case Mnemonic.Mov when type1 == OpKind.Memory && Il2CppClassUsefulOffsets.IsInterfaceOffsetsPtr(offset1) && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
                     //Class pointer interface offset read
                     Analysis.Actions.Add(new InterfaceOffsetsReadAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && offset1 > 0x128 && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
+                case Mnemonic.Mov when type1 == OpKind.Memory && Il2CppClassUsefulOffsets.IsPointerIntoVtable(offset1) && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
                 {
                     //Virtual method pointer load
                     Analysis.Actions.Add(new LoadVirtualFunctionPointerAction(Analysis, instruction));
+                    break;
+                }
+                case Mnemonic.Mov when type1 == OpKind.Memory && Il2CppClassUsefulOffsets.IsInterfaceOffsetsCount(offset1) && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
+                {
+                    //Interface offsets count - ignore for now
+                    Analysis.Actions.Add(new InterfaceOffsetCountToLocalAction(Analysis, instruction));
                     break;
                 }
                 case Mnemonic.Lea when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
@@ -969,6 +993,20 @@ namespace Cpp2IL.Analysis
                     //x64 Stack pointer read.
                     Analysis.Actions.Add(new StackOffsetReadX64Action(Analysis, instruction));
                     break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: MethodReference mr}:
+                    //Read offset on method global
+                    if (Il2CppMethodUsefulOffsets.IsSlotOffset(instruction.MemoryDisplacement))
+                    {
+                        Analysis.Actions.Add(new MethodSlotToLocalAction(Analysis, instruction));
+                        break;
+                    }
+
+                    if (Il2CppMethodUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement))
+                    {
+                        Analysis.Actions.Add(new MethodDefiningTypeToConstantAction(Analysis, instruction));
+                    }
+
+                    break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None:
                     //Move generic memory to register - field read.
                     Analysis.Actions.Add(new FieldToLocalAction(Analysis, instruction));
@@ -998,9 +1036,11 @@ namespace Cpp2IL.Analysis
                         Analysis.Actions.Add(new ClearRegAction(Analysis, instruction));
                     break;
                 }
-                case Mnemonic.Cmp when memOp is ConstantDefinition interfaceOffsetReadTestCons && interfaceOffsetReadTestCons.Value is Il2CppInterfaceOffset[]:
+                //Check if we have an Interface Offset array in the memory operand
+                case Mnemonic.Cmp when memOp is ConstantDefinition {Value: Il2CppInterfaceOffset[] _}:
                     //Format is generally something like `cmp [r9+rax*8], r10`, where r9 is the interface offset array we have here, rax is the current loop index, and r10 is the target interface
-                    if (instruction.MemoryIndexScale == 0x8 && op1 is ConstantDefinition interfaceOffsetReadTypeCons && interfaceOffsetReadTypeCons.Value is TypeDefinition)
+                    //So now check that the target interface is present.
+                    if (instruction.MemoryIndexScale == 0x8 && op1 is ConstantDefinition {Value: TypeDefinition _})
                     {
                         Analysis.Actions.Add(new LocateSpecificInterfaceOffsetAction(Analysis, instruction));
                     }

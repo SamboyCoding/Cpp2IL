@@ -22,8 +22,7 @@ namespace Cpp2IL.Analysis.Actions
 
             offsetReads = (InterfaceOffsetsReadAction) context.Actions.Last(a => a is InterfaceOffsetsReadAction);
             
-            var cppType = SharedState.ManagedToUnmanagedTypes[_interfaceType];
-            _matchingInterfaceOffset = offsetReads.InterfaceOffsets.First(i => i.type == cppType);
+            _matchingInterfaceOffset = offsetReads.InterfaceOffsets.Last(i => Utils.AreManagedAndCppTypesEqual(i.type, _interfaceType));
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

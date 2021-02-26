@@ -20,8 +20,12 @@ namespace Cpp2IL.Analysis.Actions.Important
             var sourceFieldOffset = instruction.MemoryDisplacement;
 
             _readFrom = context.GetLocalInReg(sourceRegName);
-            
-            if(_readFrom?.Type?.Resolve() == null) return;
+
+            if (_readFrom?.Type?.Resolve() == null)
+            {
+                AddComment($"This shouldn't be a field read? Op in reg {sourceRegName} is {context.GetOperandInRegister(sourceRegName)}, offset is {sourceFieldOffset} (0x{sourceFieldOffset:X})");
+                return;
+            }
 
             FieldRead = FieldUtils.GetFieldBeingAccessed(_readFrom.Type, sourceFieldOffset, false);
             
@@ -38,17 +42,13 @@ namespace Cpp2IL.Analysis.Actions.Important
             
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 
+            //Load object
             ret.AddRange(_readFrom.GetILToLoad(context, processor));
 
-            var f = FieldRead;
-            while (f.NextChainLink != null)
-            {
-                ret.Add(processor.Create(OpCodes.Ldfld, f.ImpliedFieldLoad));
-                f = f.NextChainLink;
-            }
-            
-            ret.Add(processor.Create(OpCodes.Ldfld, f.FinalLoadInChain));
-            
+            //Access field
+            ret.AddRange(FieldRead.GetILToLoad(context, processor));
+
+            //Store to local
             ret.Add(processor.Create(OpCodes.Stloc, LocalWritten.Variable));
             
             return ret.ToArray();

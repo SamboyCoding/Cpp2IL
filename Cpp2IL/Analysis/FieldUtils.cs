@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Analysis
 {
@@ -65,7 +66,7 @@ namespace Cpp2IL.Analysis
             var subAccess = GetFieldBeingAccessed(structType, offset, tryFindFloatingPointValue);
 
             if (subAccess == null) return null;
-            
+
             data.NextChainLink = subAccess;
 
             return data;
@@ -101,10 +102,57 @@ namespace Cpp2IL.Analysis
 
                 return $"{ImpliedFieldLoad!.Name}.{NextChainLink}";
             }
-            
+
+            public List<Instruction> GetILToLoad(MethodAnalysis context, ILProcessor processor)
+            {
+                if (NextChainLink != null)
+                {
+                    var ret = new List<Instruction>
+                    {
+                        processor.Create(OpCodes.Ldfld, ImpliedFieldLoad)
+                    };
+                    
+                    ret.AddRange(NextChainLink.GetILToLoad(context, processor));
+                    return ret;
+                }
+
+                return new List<Instruction>
+                {
+                    processor.Create(OpCodes.Ldfld, FinalLoadInChain)
+                };
+            }
+
             public TypeReference GetFinalType()
             {
                 return FinalLoadInChain?.FieldType ?? NextChainLink!.GetFinalType();
+            }
+
+            protected bool Equals(FieldBeingAccessedData other)
+            {
+                return Equals(ImpliedFieldLoad, other.ImpliedFieldLoad) && Equals(FinalLoadInChain, other.FinalLoadInChain) && Equals(NextChainLink, other.NextChainLink);
+            }
+
+            public override bool Equals(object? obj)
+            {
+                if (ReferenceEquals(null, obj)) return false;
+                if (ReferenceEquals(this, obj)) return true;
+                if (obj.GetType() != this.GetType()) return false;
+                return Equals((FieldBeingAccessedData) obj);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(ImpliedFieldLoad, FinalLoadInChain, NextChainLink);
+            }
+
+            public static bool operator ==(FieldBeingAccessedData? left, FieldBeingAccessedData? right)
+            {
+                return Equals(left, right);
+            }
+
+            public static bool operator !=(FieldBeingAccessedData? left, FieldBeingAccessedData? right)
+            {
+                return !Equals(left, right);
             }
         }
 

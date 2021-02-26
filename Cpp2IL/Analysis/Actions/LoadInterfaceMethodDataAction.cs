@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -10,25 +11,33 @@ namespace Cpp2IL.Analysis.Actions
     {
         private LocalDefinition _invokedOn;
         private TypeDefinition _interfaceType;
-        private int _slotNumber;
+        private uint _slotNumber;
         private MethodDefinition resolvedMethod;
         private ConstantDefinition _resultConstant;
 
         public LoadInterfaceMethodDataAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            if (context.GetConstantInReg("rcx") is {} castConstant
-                && castConstant.Value is NewSafeCastResult castResult
-                && context.GetConstantInReg("rdx") is {} interfaceConstant
-                && interfaceConstant.Value is TypeDefinition interfaceType
-                && context.GetConstantInReg("r8") is {} slotConstant
-                && slotConstant.Value is int slot
-                && context.Actions.FirstOrDefault(a => a is LocateSpecificInterfaceOffsetAction) is LocateSpecificInterfaceOffsetAction locator
-            )
+            if (context.GetLocalInReg("rcx") is { } invokedOn
+                && context.GetConstantInReg("rdx") is {Value: TypeDefinition interfaceType}
+                && context.Actions.LastOrDefault(a => a is LocateSpecificInterfaceOffsetAction) is LocateSpecificInterfaceOffsetAction act)
             {
-                _invokedOn = castResult.original;
+                _invokedOn = invokedOn;
                 _interfaceType = interfaceType;
-                _slotNumber = slot;
-                resolvedMethod = SharedState.VirtualMethodsBySlot[(ushort) (locator._matchingInterfaceOffset.offset + _slotNumber)];
+                // _slotNumber = constantUint;
+
+                if (context.GetConstantInReg("r8") is {Value: uint constantUint})
+                {
+                    _slotNumber = constantUint;
+                } else if (context.GetLocalInReg("r8") is {Type: {Name: "UInt32"}, KnownInitialValue: ushort localUint})
+                {
+                    _slotNumber = localUint;
+                }
+                else
+                {
+                    throw new Exception("We had and now don't have a slot number?");
+                }
+
+                resolvedMethod = SharedState.VirtualMethodsBySlot[(ushort) (act._matchingInterfaceOffset.offset + _slotNumber)];
 
                 _resultConstant = context.MakeConstant(typeof(MethodDefinition), resolvedMethod, reg: "rax");
             }

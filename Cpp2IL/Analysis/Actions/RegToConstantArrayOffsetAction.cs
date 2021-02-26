@@ -11,6 +11,7 @@ namespace Cpp2IL.Analysis.Actions
         private long _offsetIdx;
         private LocalDefinition? _arrayInMem;
         private IAnalysedOperand? _opRead;
+        private TypeReference? _elementType;
 
         public RegToConstantArrayOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -19,6 +20,11 @@ namespace Cpp2IL.Analysis.Actions
             _offsetIdx = relativeOffset / Utils.GetPointerSizeBytes();
 
             _arrayInMem = context.GetLocalInReg(memReg);
+
+            if (_arrayInMem?.Type?.IsArray != true)
+                return;
+
+            _elementType = ((ArrayType) _arrayInMem.Type).ElementType;
 
             var regRead = Utils.GetRegisterNameNew(instruction.Op1Register);
             _opRead = context.GetOperandInRegister(regRead);
@@ -46,8 +52,8 @@ namespace Cpp2IL.Analysis.Actions
             //Load value
             ret.AddRange(_opRead.GetILToLoad(context, processor));
             
-            //Store in array - todo do we need to be smarter about this? probably, for non-ref types.
-            ret.Add(processor.Create(OpCodes.Stelem_Ref));
+            //Store in array
+            ret.Add(processor.Create(OpCodes.Stelem_Any, _elementType));
 
             return ret.ToArray();
         }

@@ -10,10 +10,11 @@ namespace Cpp2IL.Analysis.PostProcessActions
         public override void PostProcess(MethodAnalysis analysis, MethodDefinition definition)
         {
             var unused = analysis.Locals.Where(l => !analysis.FunctionArgumentLocals.Contains(l) && analysis.Actions.All(a => !a.GetUsedLocals().Contains(l))).ToList();
-            Console.WriteLine($"Found {unused.Count} unused locals for method {definition}");
+            Console.WriteLine($"Found {unused.Count} unused locals for method {definition}: ");
             
             foreach (var unusedLocal in unused)
             {
+                Console.WriteLine($"\t{unusedLocal.Name}");
                 analysis.Actions = analysis.Actions.Where(a => !a.GetRegisteredLocalsWithoutSideEffects().Contains(unusedLocal)).ToList();
             }
 

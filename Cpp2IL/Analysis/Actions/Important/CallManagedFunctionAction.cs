@@ -196,11 +196,21 @@ namespace Cpp2IL.Analysis.Actions.Important
 
                 if (returnType is GenericInstanceType git)
                 {
-                    returnType = MethodUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type, arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? new TypeReference[0]);
+                    try
+                    {
+                        returnType = MethodUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type, arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? new TypeReference[0]);
+                    }
+                    catch (Exception e)
+                    {
+                        AddComment("Failed to resolve return type generic arguments.");
+                    }
                 }
 
                 var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
                 _returnedLocal = context.MakeLocal(returnType, reg: destReg);
+                
+                //todo maybe improve?
+                RegisterUsedLocal(_returnedLocal);
             }
 
             if (ManagedMethodBeingCalled?.FullName == "System.Void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(System.Array,System.RuntimeFieldHandle)")

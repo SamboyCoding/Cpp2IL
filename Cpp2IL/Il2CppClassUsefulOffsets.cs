@@ -7,27 +7,51 @@ namespace Cpp2IL
 {
     public static class Il2CppClassUsefulOffsets
     {
-        public const int X86_INTERFACE_OFFSET_COUNT_OFFSET = 0x50;
-        public const int X86_64_INTERFACE_OFFSET_COUNT_OFFSET = 0xB0;
-        
+        public const int X86_INTERFACE_OFFSETS_OFFSET = 0x50;
+        public const int X86_64_INTERFACE_OFFSETS_OFFSET = 0xB0;
+
+        public const int X86_VTABLE_OFFSET = 0x999; //todo
+        public const int X86_64_VTABLE_OFFSET = 0x138; //TODO Check if this is lower (0x128?) on older metadata versions
+
+        public static readonly int VTABLE_OFFSET = LibCpp2IlMain.ThePe!.is32Bit ? X86_VTABLE_OFFSET : X86_64_VTABLE_OFFSET;
+
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {
             //32-bit offsets:
             new UsefulOffset("cctor_finished", 0x74, typeof(uint), true),
             new UsefulOffset("flags1", 0xBB, typeof(byte), true),
-            new UsefulOffset("interfaceOffsets", X86_INTERFACE_OFFSET_COUNT_OFFSET, typeof(IntPtr), true),
+            //new UsefulOffset("interface_offsets_count", 0x12A, typeof(ushort), true), //TODO
+            new UsefulOffset("interfaceOffsets", X86_INTERFACE_OFFSETS_OFFSET, typeof(IntPtr), true),
             new UsefulOffset("static_fields", 0x5C, typeof(IntPtr), true),
-            
+            //new UsefulOffset("vtable", 0x138, typeof(IntPtr), true), //TODO
+
             //64-bit offsets:
-            new UsefulOffset("interfaceOffsets", X86_64_INTERFACE_OFFSET_COUNT_OFFSET, typeof(IntPtr), false),
+            new UsefulOffset("interface_offsets_count", 0x12A, typeof(ushort), false),
+            new UsefulOffset("interfaceOffsets", X86_64_INTERFACE_OFFSETS_OFFSET, typeof(IntPtr), false),
             new UsefulOffset("static_fields", 0xB8, typeof(IntPtr), false),
             new UsefulOffset("cctor_finished", 0xE0, typeof(uint), false),
             new UsefulOffset("flags1", 0x133, typeof(byte), false),
+            new UsefulOffset("vtable", 0x138, typeof(IntPtr), false),
         };
 
         public static bool IsStaticFieldsPtr(uint offset)
         {
             return GetOffsetName(offset) == "static_fields";
+        }
+
+        public static bool IsInterfaceOffsetsPtr(uint offset)
+        {
+            return GetOffsetName(offset) == "interfaceOffsets";
+        }
+        
+        public static bool IsInterfaceOffsetsCount(uint offset)
+        {
+            return GetOffsetName(offset) == "interface_offsets_count";
+        }
+
+        public static bool IsPointerIntoVtable(uint offset)
+        {
+            return offset >= VTABLE_OFFSET;
         }
 
         public static string? GetOffsetName(uint offset)
