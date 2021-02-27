@@ -114,11 +114,13 @@ namespace Cpp2IL.Analysis
                 if (actualArgs.Count != 1 || !(actualArgs[0] is ConstantDefinition {Value: MethodReference reference}) || reference != method)
                 {
                     return false; //Left over args - it's probably not this one
-                } else if (actualArgs.Count == 1 && actualArgs[0] is ConstantDefinition {Value: MethodReference _} c)
-                {
-                    var reg = context.GetConstantInReg("rcx") == c ? "rcx" : context.GetConstantInReg("rdx") == c ? "rdx" : context.GetConstantInReg("r8") == c ? "r8" : "r9";
-                    context.ZeroRegister(reg);
                 }
+            }
+            
+            if (actualArgs.Count == 1 && actualArgs[0] is ConstantDefinition {Value: MethodReference _} c)
+            {
+                var reg = context.GetConstantInReg("rcx") == c ? "rcx" : context.GetConstantInReg("rdx") == c ? "rdx" : context.GetConstantInReg("r8") == c ? "r8" : "r9";
+                context.ZeroRegister(reg);
             }
 
             arguments = tempArgs;

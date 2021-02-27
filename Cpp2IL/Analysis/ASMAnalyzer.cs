@@ -567,9 +567,10 @@ namespace Cpp2IL.Analysis
                     typeDump.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
                     break;
                 }
-                catch (TaintedInstructionException)
+                catch (TaintedInstructionException e)
                 {
-                    typeDump.Append($"Action of type {action.GetType()} is corrupt and cannot be created as IL. Aborting here.\n");
+                    var message = e.ActualMessage ?? "No further info";
+                    typeDump.Append($"Action of type {action.GetType()} is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
                     break;
                 }
                 catch (Exception e)

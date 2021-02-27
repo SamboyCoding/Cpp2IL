@@ -71,7 +71,7 @@ namespace Cpp2IL.Analysis.ResultModels
             if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)
                 return new[] {ilProcessor.Create(OpCodes.Ldtoken, fieldDefinition)};
 
-            throw new TaintedInstructionException();
+            throw new TaintedInstructionException($"Don't know how to get IL to load a {Type}");
         }
     }
 }

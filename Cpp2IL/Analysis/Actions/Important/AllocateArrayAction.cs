@@ -54,12 +54,15 @@ namespace Cpp2IL.Analysis.Actions.Important
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             if (_localWritten == null || arrayType == null)
-                throw new TaintedInstructionException();
+                throw new TaintedInstructionException("Missing created local or type of array");
+
+            if (!(arrayType is ArrayType actualArrayType))
+                throw new TaintedInstructionException("Array type isn't an array");
 
             return new []
             {
                 processor.Create(OpCodes.Ldc_I4, sizeAllocated),
-                processor.Create(OpCodes.Newarr, arrayType),
+                processor.Create(OpCodes.Newarr, actualArrayType.ElementType),
                 processor.Create(OpCodes.Stloc, _localWritten.Variable)
             };
         }

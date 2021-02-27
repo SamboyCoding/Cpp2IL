@@ -232,8 +232,8 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public List<Mono.Cecil.Cil.Instruction> GetILToLoadParams(MethodAnalysis context, ILProcessor processor, bool includeThis = true)
         {
-            if (ManagedMethodBeingCalled == null || arguments == null || arguments.Count != ManagedMethodBeingCalled.Parameters.Count)
-                throw new TaintedInstructionException();
+            if (arguments == null || arguments.Count != ManagedMethodBeingCalled!.Parameters.Count)
+                throw new TaintedInstructionException($"Couldn't get arguments, or actual count ({arguments?.Count ?? -1}) is not equal to expected count ({ManagedMethodBeingCalled!.Parameters.Count})");
 
             var result = new List<Mono.Cecil.Cil.Instruction>();
 
@@ -247,7 +247,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 else if (operand is ConstantDefinition c)
                     result.AddRange(c.GetILToLoad(context, processor));
                 else
-                    throw new TaintedInstructionException();
+                    throw new TaintedInstructionException($"Don't know how to generate IL to load parameter of type {operand.GetType()}");
             }
 
             return result;
@@ -255,6 +255,9 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
+            if (ManagedMethodBeingCalled == null)
+                throw new TaintedInstructionException("Don't know what method is being called");
+            
             if (ManagedMethodBeingCalled?.Name == ".ctor")
             {
                 //todo check if calling alternative constructor
@@ -271,7 +274,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 return result.ToArray();
 
             if (_returnedLocal == null)
-                throw new TaintedInstructionException();
+                throw new TaintedInstructionException("Returned local is null but non-void");
 
             result.Add(processor.Create(OpCodes.Stloc, _returnedLocal.Variable));
 

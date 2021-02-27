@@ -53,7 +53,14 @@ namespace Cpp2IL.Analysis.Actions
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             //No-op
-            return new Mono.Cecil.Cil.Instruction[0];
+            if(!copyingValueNotLocal)
+                return Array.Empty<Mono.Cecil.Cil.Instruction>();
+
+            return new[]
+            {
+                context.GetILToLoad((LocalDefinition) beingMoved!, processor),
+                processor.Create(OpCodes.Stloc, _localBeingOverwritten!.Variable)
+            };
         }
 
         public override string? ToPsuedoCode()
