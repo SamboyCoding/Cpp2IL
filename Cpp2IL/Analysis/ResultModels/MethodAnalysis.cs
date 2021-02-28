@@ -55,14 +55,23 @@ namespace Cpp2IL.Analysis.ResultModels
                 var regList = new List<string> {"rcx", "rdx", "r8", "r9"};
 
                 if (!method.IsStatic)
+                {
+                    method.Body.ThisParameter.Name = "this";
                     FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this", regList.RemoveAndReturn(0)).WithParameter(method.Body.ThisParameter));
+                }
 
+                var counter = -1;
                 while (args.Count > 0 && regList.Count > 0)
                 {
+                    counter++;
                     var arg = args.RemoveAndReturn(0);
                     var dest = regList.RemoveAndReturn(0);
 
-                    FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType.Resolve(), arg.Name, dest).WithParameter(arg));
+                    var name = arg.Name;
+                    if (string.IsNullOrWhiteSpace(name))
+                        name = arg.Name = $"cpp2il__autoParamName__idx_{counter}";
+
+                    FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType, name, dest).WithParameter(arg));
                 }
             }
             else if (!method.IsStatic)

@@ -46,6 +46,14 @@ namespace Cpp2IL
             return result;
         }
 
+        public static IEnumerable<T> Repeat<T>(this T t, int count)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                yield return t;
+            }
+        }
+
         public static string Repeat(this string source, int count)
         {
             var res = new StringBuilder();

@@ -27,6 +27,7 @@ namespace Cpp2IL
         //Disable these because they're initialised in BuildPrimitiveMappings
         // ReSharper disable NotNullMemberIsNotInitialized
 #pragma warning disable 8618
+        internal static TypeDefinition ObjectReference;
         internal static TypeDefinition StringReference;
         internal static TypeDefinition Int64Reference;
         internal static TypeDefinition SingleReference;
@@ -64,6 +65,7 @@ namespace Cpp2IL
 
         public static void BuildPrimitiveMappings()
         {
+            ObjectReference = TryLookupTypeDefKnownNotGeneric("System.Object")!;
             StringReference = TryLookupTypeDefKnownNotGeneric("System.String")!;
             Int64Reference = TryLookupTypeDefKnownNotGeneric("System.Int64")!;
             SingleReference = TryLookupTypeDefKnownNotGeneric("System.Single")!;
@@ -630,6 +632,12 @@ namespace Cpp2IL
 
         public static ulong GetSizeOfObject(TypeReference type)
         {
+            if (type.IsValueType && !type.IsPrimitive && type.Resolve() is {} def)
+            {
+                //Struct - sum fields, including any nested structs.
+                return (ulong) def.Fields.Select(f => f.FieldType).Select(GetSizeOfObject).Select(u => (long) u).Sum();
+            }
+            
             return PrimitiveSizes.TryGetValue(type.Name, out var result)
                 ? result
                 : PrimitiveSizes["IntPtr"];

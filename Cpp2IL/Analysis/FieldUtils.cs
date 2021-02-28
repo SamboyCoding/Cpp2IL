@@ -4,11 +4,40 @@ using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Analysis
 {
     public static class FieldUtils
     {
+        private static List<FieldInType> RecalculateFieldOffsetsForGenericType(TypeReference type)
+        {
+            var baseType = type.Resolve();
+            var ret = new List<FieldInType>();
+            
+            //Initialize to either 0, 0x8, or 0x10
+            var offset = type.IsValueType ? 0UL : (ulong) (Utils.GetPointerSizeBytes() * 2);
+            foreach (var field in baseType.Fields.Where(f => !f.IsStatic))
+            {
+                var fieldType = field.FieldType!;
+                if (fieldType is GenericParameter gp)
+                    fieldType = GenericInstanceUtils.ResolveGenericParameterType(gp, type) ?? fieldType;
+                
+                ret.Add(new FieldInType
+                {
+                    Name = field.Name,
+                    DeclaringType = field.DeclaringType,
+                    FieldType = fieldType,
+                    Static = false,
+                    Offset = offset
+                });
+
+                offset += Utils.GetSizeOfObject(fieldType);
+            }
+
+            return ret;
+        }
+        
         public static FieldBeingAccessedData? GetFieldBeingAccessed(TypeReference onWhat, ulong offset, bool tryFindFloatingPointValue)
         {
             var typeDef = onWhat.Resolve();
@@ -16,6 +45,12 @@ namespace Cpp2IL.Analysis
             if (typeDef == null) return null;
 
             var fields = SharedState.FieldsByType[typeDef];
+
+            // if (onWhat is TypeDefinition {HasGenericParameters: true})
+            //     onWhat = onWhat.MakeGenericInstanceType(Utils.ObjectReference.Repeat(onWhat.GenericParameters.Count).Cast<TypeReference>().ToArray());
+
+            if (onWhat is GenericInstanceType git || onWhat.HasGenericParameters)
+                fields = RecalculateFieldOffsetsForGenericType(onWhat);
 
             if (fields == null) return null;
 

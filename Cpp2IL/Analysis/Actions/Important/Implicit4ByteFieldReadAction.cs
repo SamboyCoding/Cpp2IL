@@ -29,7 +29,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             if (type is GenericParameter p && _readOn.Type is GenericInstanceType git)
             {
-                type = MethodUtils.GetGenericArgumentByNameFromGenericInstanceType(git, p);
+                type = GenericInstanceUtils.GetGenericArgumentByNameFromGenericInstanceType(git, p);
                 type ??= _read.GetFinalType();
             }
 

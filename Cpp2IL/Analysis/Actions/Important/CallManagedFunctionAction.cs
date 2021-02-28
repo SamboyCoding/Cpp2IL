@@ -191,14 +191,14 @@ namespace Cpp2IL.Analysis.Actions.Important
             {
                 if (returnType is GenericParameter gp && _objectMethodBeingCalledOn?.Type != null)
                 {
-                    returnType = MethodUtils.ResolveGenericParameterType(ManagedMethodBeingCalled, _objectMethodBeingCalledOn.Type, gp);
+                    returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, _objectMethodBeingCalledOn.Type, ManagedMethodBeingCalled);
                 }
 
                 if (returnType is GenericInstanceType git)
                 {
                     try
                     {
-                        returnType = MethodUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type, arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? new TypeReference[0]);
+                        returnType = GenericInstanceUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, _objectMethodBeingCalledOn?.Type, arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? new TypeReference[0]);
                     }
                     catch (Exception e)
                     {

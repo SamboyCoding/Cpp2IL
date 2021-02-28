@@ -29,6 +29,7 @@ using LibCpp2IL.PE;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using SharpDisasm.Udis86;
+using Code = Iced.Intel.Code;
 using Instruction = Iced.Intel.Instruction;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
 
@@ -144,6 +145,12 @@ namespace Cpp2IL.Analysis
             {
                 idx++;
                 if (SharedState.MethodsByAddress.ContainsKey(i.IP))
+                {
+                    instructionWhichOverran = i;
+                    break;
+                }
+
+                if (i.Code == Code.Int3)
                 {
                     instructionWhichOverran = i;
                     break;
