@@ -1,4 +1,6 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System.Collections.Generic;
+using Cpp2IL.Analysis.ResultModels;
+using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -21,14 +23,16 @@ namespace Cpp2IL.Analysis.Actions.Important
                 _argOne = context.GetOperandInRegister(argOneReg);
             else
             {
-                _argOne = context.MakeConstant(typeof(ulong), instruction.GetImmediate(1));
+                var type = instruction.Op0Register.IsGPR32() ? typeof(int) : typeof(long);
+                _argOne = context.MakeConstant(type, instruction.GetImmediate(1));
             }
             
             if(!string.IsNullOrEmpty(argTwoReg))
                 _argTwo = context.GetOperandInRegister(argTwoReg);
             else
             {
-                _argTwo = context.MakeConstant(typeof(ulong), instruction.GetImmediate(2));
+                var type = instruction.Op0Register.IsGPR32() ? typeof(int) : typeof(long);
+                _argTwo = context.MakeConstant(type, instruction.GetImmediate(2));
             }
             
             if(_argOne is LocalDefinition l1)
@@ -41,7 +45,24 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_argOne == null || _argTwo == null)
+                throw new TaintedInstructionException("Missing an argument");
+            
+            List<Mono.Cecil.Cil.Instruction> ret = new List<Mono.Cecil.Cil.Instruction>();
+            
+            //Load arg one
+            ret.AddRange(_argOne.GetILToLoad(context, processor));
+            
+            //Load arg two
+            ret.AddRange(_argTwo.GetILToLoad(context, processor));
+            
+            //Multiply
+            ret.Add(processor.Create(OpCodes.Mul));
+
+            //Set local
+            ret.Add(processor.Create(OpCodes.Stloc, _resultLocal.Variable));
+
+            return ret.ToArray();
         }
 
         public override string ToPsuedoCode()

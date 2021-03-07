@@ -26,6 +26,8 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             ManagedMethodBeingCalled = SharedState.UnmanagedToManagedMethods[methodSpec.MethodDefinition];
 
+            ShouldUseCallvirt = true;
+
             if (methodSpec.classIndexIndex != -1)
                 ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeGeneric(methodSpec.GenericClassParams.Select(p => Utils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled)).ToArray()!);
 

@@ -7,6 +7,8 @@ namespace Cpp2IL.Analysis.Actions.Important
     {
         public CallVirtualMethodAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
+            ShouldUseCallvirt = true;
+            
             var inReg = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;

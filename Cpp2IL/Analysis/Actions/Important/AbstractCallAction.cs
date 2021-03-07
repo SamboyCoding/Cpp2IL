@@ -16,6 +16,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         public LocalDefinition? ReturnedLocal;
         protected LocalDefinition? InstanceBeingCalledOn;
         protected bool IsCallToSuperclassMethod;
+        protected bool ShouldUseCallvirt;
 
         public AbstractCallAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -53,7 +54,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (ManagedMethodBeingCalled == null)
                 throw new TaintedInstructionException("Don't know what method is being called");
             
-            if (ManagedMethodBeingCalled?.Name == ".ctor")
+            if (ManagedMethodBeingCalled.Name == ".ctor")
             {
                 //todo check if calling alternative constructor
                 if (!(IsCallToSuperclassMethod && InstanceBeingCalledOn?.Name == "this"))
@@ -62,8 +63,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             
             var result = GetILToLoadParams(context, processor);
 
-            //todo support callvirt
-            result.Add(processor.Create(OpCodes.Call, ManagedMethodBeingCalled));
+            result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, ManagedMethodBeingCalled));
 
             if (ManagedMethodBeingCalled.ReturnType.FullName == "System.Void")
                 return result.ToArray();

@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System.Collections.Generic;
+using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -26,7 +27,24 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_firstOp == null || _secondOp == null)
+                throw new TaintedInstructionException("Missing an argument");
+            
+            List<Mono.Cecil.Cil.Instruction> ret = new List<Mono.Cecil.Cil.Instruction>();
+            
+            //Load arg one
+            ret.AddRange(_firstOp.GetILToLoad(context, processor));
+            
+            //Load arg two
+            ret.AddRange(_secondOp.GetILToLoad(context, processor));
+            
+            //Add
+            ret.Add(processor.Create(OpCodes.Add));
+
+            //Set local
+            ret.Add(processor.Create(OpCodes.Stloc, _firstOp.Variable));
+
+            return ret.ToArray();
         }
 
         public override string? ToPsuedoCode()
