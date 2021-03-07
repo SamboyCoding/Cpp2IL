@@ -1,107 +1,39 @@
-﻿using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using Cpp2IL.Analysis.ResultModels;
+﻿using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
-using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
-    public class CallManagedFunctionInRegAction : BaseAction
+    public class CallManagedFunctionInRegAction : AbstractCallAction
     {
-        private MethodDefinition? _targetMethod;
-        private LocalDefinition? _instanceCalledOn;
-        private List<IAnalysedOperand>? arguments;
-        private LocalDefinition? _returnedLocal;
-
         public CallManagedFunctionInRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var regName = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var operand = context.GetConstantInReg(regName);
-            _targetMethod = (MethodDefinition) operand.Value;
+            ManagedMethodBeingCalled = (MethodDefinition) operand?.Value;
+            
+            if(ManagedMethodBeingCalled == null)
+                return;
 
-            if (!_targetMethod.IsStatic)
+            if (ManagedMethodBeingCalled.HasThis)
             {
-                _instanceCalledOn = context.GetLocalInReg("rcx");
-                if (_instanceCalledOn == null)
+                InstanceBeingCalledOn = context.GetLocalInReg("rcx");
+                if (InstanceBeingCalledOn == null)
                 {
                     var cons = context.GetConstantInReg("rcx");
                     if (cons?.Value is NewSafeCastResult castResult)
-                        _instanceCalledOn = castResult.original;
-                }
-            }
-            
-            if (_targetMethod?.ReturnType is { } returnType && returnType.FullName != "System.Void")
-            {
-                if (Utils.TryResolveType(returnType, out var returnDef))
-                {
-                    //Push return type to rax.
-                    var destReg = Utils.ShouldBeInFloatingPointRegister(returnDef) ? "xmm0" : "rax";
-                    _returnedLocal = context.MakeLocal(returnDef, reg: destReg);
-                }
-                else
-                {
-                    AddComment($"Failed to resolve return type {returnType} for pushing to rax.");
+                        InstanceBeingCalledOn = castResult.original;
                 }
             }
 
-            if (!MethodUtils.CheckParameters(instruction, _targetMethod, context, !_targetMethod.IsStatic, out arguments, failOnLeftoverArgs: false))
+            if (!MethodUtils.CheckParameters(instruction, ManagedMethodBeingCalled, context, ManagedMethodBeingCalled.HasThis, out Arguments, failOnLeftoverArgs: false))
             {
                 AddComment("Mismatched parameters detected here.");
             }
             
-            arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o));
-        }
-
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        private IEnumerable<string> GetReadableArguments()
-        {
-            foreach (var arg in arguments)
-            {
-                if (arg is ConstantDefinition constantDefinition)
-                    yield return constantDefinition.ToString();
-                else
-                    yield return ((LocalDefinition) arg).Name;
-            }
-        }
-        
-        public override string? ToPsuedoCode()
-        {
-            if (_targetMethod == null) return "[instruction error - managed method being called is null]";
+            CreateLocalForReturnType(context);
             
-            var ret = new StringBuilder();
-
-            if (_returnedLocal != null)
-                ret.Append(_returnedLocal?.Type?.FullName).Append(' ').Append(_returnedLocal?.Name).Append(" = ");
-
-            if (_targetMethod.IsStatic)
-                ret.Append(_targetMethod.DeclaringType.FullName);
-            else
-                ret.Append(_instanceCalledOn?.Name ?? "<ERRINSTANCE>");
-
-            ret.Append('.').Append(_targetMethod?.Name).Append('(');
-
-            if (arguments != null && arguments.Count > 0)
-                ret.Append(string.Join(", ", GetReadableArguments()));
-
-            ret.Append(')');
-
-            return ret.ToString();
-        }
-
-        public override string ToTextSummary()
-        {
-            return $"[!] Calls method {_targetMethod.FullName} from a register, on instance {_instanceCalledOn} if applicable\n";
-        }
-        
-        public override bool IsImportant()
-        {
-            return true;
+            RegisterLocals();
         }
     }
 }
