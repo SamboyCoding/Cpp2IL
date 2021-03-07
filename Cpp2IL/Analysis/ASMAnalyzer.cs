@@ -1,6 +1,6 @@
 //Feature flags
 
-// #define DEBUG_PRINT_OPERAND_DATA
+#define DEBUG_PRINT_OPERAND_DATA
 
 #define USE_NEW_ANALYSIS_METHOD
 
@@ -394,7 +394,7 @@ namespace Cpp2IL.Analysis
                 line.Append("0x").Append(instruction.IP.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction);
 
                 //Dump debug data
-#if DEBUG_PRINT_OPERAND_DATA
+#if DEBUG_PRINT_OPERAND_DATA && USE_NEW_ANALYSIS_METHOD
                 line.Append("\t\t; DEBUG: {").Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
                 line.Append('{').Append(instruction.Op1Kind).Append('}').Append('/').Append(instruction.Op1Register).Append(" ||| ");
                 line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement).Append(" | ").Append(instruction.MemoryIndex);
@@ -410,7 +410,7 @@ namespace Cpp2IL.Analysis
 
                 typeDump.Append("\t\t").Append(line); //write the current disassembled instruction to the type dump
 
-#if DEBUG_PRINT_OPERAND_DATA
+#if DEBUG_PRINT_OPERAND_DATA && !USE_NEW_ANALYSIS_METHOD
                 typeDump.Append(" ; ");
                 typeDump.Append(string.Join(" | ", instruction.Operands.Select((op, pos) => $"Op{pos}: {op.Type}")));
 #endif
@@ -938,7 +938,7 @@ namespace Cpp2IL.Analysis
 
                     return;
                 }
-                case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 == 0 && type0 == OpKind.Register:
+                case Mnemonic.Mov when type1.IsImmediate() && offset0 == 0 && type0 == OpKind.Register:
                     //Constant move to reg
                     var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));
 
@@ -1054,9 +1054,15 @@ namespace Cpp2IL.Analysis
                     break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic
-                case Mnemonic.Add when type0 == OpKind.Register && type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && r0 != "rsp":
+                case Mnemonic.Add when type0 == OpKind.Register && type1.IsImmediate() && r0 != "rsp":
                     //Add reg, val
                     Analysis.Actions.Add(new AddConstantToRegAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Add when type0 == OpKind.Register && type1 == OpKind.Register && r0 != "rsp":
+                    Analysis.Actions.Add(new AddRegToRegAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Sub when type0 == OpKind.Register && type1 == OpKind.Register && r0 != "rsp":
+                    Analysis.Actions.Add(new SubtractRegFromRegAction(Analysis, instruction));
                     break;
                 case Mnemonic.Xor:
                 case Mnemonic.Xorps:
@@ -1080,6 +1086,35 @@ namespace Cpp2IL.Analysis
                 case Mnemonic.Cmp:
                     //Condition
                     Analysis.Actions.Add(new ComparisonAction(Analysis, instruction));
+                    break;
+            }
+        }
+
+        private void CheckForThreeOpInstruction(Instruction instruction)
+        {
+            var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var r1 = Utils.GetRegisterNameNew(instruction.Op1Register);
+            var r2 = Utils.GetRegisterNameNew(instruction.Op2Register);
+            var memR = Utils.GetRegisterNameNew(instruction.MemoryBase);
+
+            var op0 = Analysis.GetOperandInRegister(r0);
+            var op1 = Analysis.GetOperandInRegister(r1);
+            var op2 = Analysis.GetOperandInRegister(r2);
+            var memOp = Analysis.GetOperandInRegister(memR);
+            var memIdxOp = instruction.MemoryIndex == Register.None ? null : Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryIndex));
+
+            var offset0 = instruction.MemoryDisplacement;
+            var offset1 = offset0;
+            var offset2 = offset1;
+
+            var type0 = instruction.Op0Kind;
+            var type1 = instruction.Op1Kind;
+            var type2 = instruction.Op2Kind;
+
+            switch (instruction.Mnemonic)
+            {
+                case Mnemonic.Imul:
+                    Analysis.Actions.Add(new ThreeOperandImulAction(Analysis, instruction));
                     break;
             }
         }
@@ -1130,8 +1165,12 @@ namespace Cpp2IL.Analysis
                 case 2:
                     CheckForTwoOpInstruction(instruction);
                     return;
+                case 3:
+                    CheckForThreeOpInstruction(instruction);
+                    return;
             }
         }
+
 #endif
 
 #if !USE_NEW_ANALYSIS_METHOD

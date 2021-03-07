@@ -39,7 +39,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string? ToPsuedoCode()
         {
-            return $"ulong {(dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition) dest).Name)} = {constantValue}";
+            return $"{Utils.Int64Reference} {(dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition) dest).Name)} = {(constantValue > 1024 ? $"0x{constantValue:X}" : $"{constantValue}")}";
         }
 
         public override string ToTextSummary()

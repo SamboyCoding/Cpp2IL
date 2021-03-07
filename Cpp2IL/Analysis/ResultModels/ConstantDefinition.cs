@@ -19,7 +19,14 @@ namespace Cpp2IL.Analysis.ResultModels
                 return Convert.ToString((bool) Value);
 
             if (Type == typeof(int) || Type == typeof(ulong))
-                return Convert.ToString(Value)!;
+            {
+                var intValue = Convert.ToInt64(Value);
+
+                if (intValue > 1024)
+                    return $"0x{intValue:X}";
+                
+                return Convert.ToString(intValue)!;
+            }
 
             if (Type == typeof(UnknownGlobalAddr))
                 return Value.ToString()!;
@@ -71,7 +78,7 @@ namespace Cpp2IL.Analysis.ResultModels
             if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)
                 return new[] {ilProcessor.Create(OpCodes.Ldtoken, fieldDefinition)};
 
-            throw new TaintedInstructionException($"Don't know how to get IL to load a {Type}");
+            throw new TaintedInstructionException($"ConstantDefinition: Don't know how to get IL to load a {Type}");
         }
     }
 }
