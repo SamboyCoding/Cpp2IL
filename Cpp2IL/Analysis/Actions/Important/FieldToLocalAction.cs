@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -19,15 +20,25 @@ namespace Cpp2IL.Analysis.Actions.Important
             _destRegName = Utils.GetRegisterNameNew(instruction.Op0Register);
             var sourceFieldOffset = instruction.MemoryDisplacement;
 
-            _readFrom = context.GetLocalInReg(sourceRegName);
+            var readFrom = context.GetOperandInRegister(sourceRegName);
 
-            if (_readFrom?.Type?.Resolve() == null)
+            TypeReference readFromType;
+            if (readFrom is ConstantDefinition {Value: NewSafeCastResult result})
+            {
+                readFromType = result.castTo;
+                _readFrom = result.original;
+            }
+            else if(readFrom is LocalDefinition {IsMethodInfoParam: false} l && l.Type?.Resolve() != null)
+            {
+                _readFrom = l;
+                readFromType = _readFrom!.Type!;
+            } else
             {
                 AddComment($"This shouldn't be a field read? Op in reg {sourceRegName} is {context.GetOperandInRegister(sourceRegName)}, offset is {sourceFieldOffset} (0x{sourceFieldOffset:X})");
                 return;
             }
 
-            FieldRead = FieldUtils.GetFieldBeingAccessed(_readFrom.Type, sourceFieldOffset, false);
+            FieldRead = FieldUtils.GetFieldBeingAccessed(readFromType, sourceFieldOffset, false);
             
             if(FieldRead == null) return;
 

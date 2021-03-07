@@ -2,6 +2,7 @@
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
+using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -118,7 +119,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                     return null; //Unknown operand - memory type, not a global, but not a constant, or local
                 
                 var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement:X}}}";
-                if (constant.Type == typeof(TypeDefinition))
+                if (constant.Type == typeof(TypeDefinition) || constant.Type == typeof(TypeReference))
                 {
                     unimportant = true;
                     var offset = instruction.MemoryDisplacement;

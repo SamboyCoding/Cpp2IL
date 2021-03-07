@@ -25,7 +25,14 @@ namespace Cpp2IL.Analysis.Actions
             classReadFrom = klass.backingType;
 
             var readOffset = instruction.MemoryDisplacement;
-            methodPointerRead = Utils.GetMethodFromReadKlassOffset((int) readOffset);
+            
+            //TODO These are coming up as null - probably need to check base classes!
+            var usage = classReadFrom.VTable[Utils.GetSlotNum((int) readOffset)];
+            
+            if(usage == null)
+                return;
+
+            methodPointerRead = SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
 
             if (methodPointerRead == null) return;
 

@@ -85,16 +85,9 @@ namespace LibCpp2IL
         public static MetadataUsage? CheckForPost27GlobalAt(ulong address)
         {
             var encoded = LibCpp2IlMain.ThePe!.ReadClassAtVirtualAddress<ulong>(address);
-            var encodedType = encoded & 0xE000_0000;
-            var type = (MetadataUsageType)(encodedType >> 29);
-            if (type <= MetadataUsageType.MethodRef && type >= MetadataUsageType.TypeInfo)
-            {
-                var index = (uint) ((encoded & 0x1FFF_FFFF) >> 1);
-
-                return new MetadataUsage(type, address, index);
-            }
-
-            return null;
+            var metadataUsage = MetadataUsage.DecodeMetadataUsage(encoded, address);
+            
+            return metadataUsage;
         }
     }
 }

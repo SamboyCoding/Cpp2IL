@@ -33,6 +33,22 @@ namespace LibCpp2IL
             {25, "UIntPtr"},
             {28, "object"}
         };
+        
+        private static readonly Dictionary<string, ulong> PrimitiveSizes = new()
+        {
+            {"Byte", 1},
+            {"SByte", 1},
+            {"Boolean", 1},
+            {"Int16", 2},
+            {"UInt16", 2},
+            {"Char", 2},
+            {"Int32", 4},
+            {"UInt32", 4},
+            {"Single", 4},
+            {"Int64", 8},
+            {"UInt64", 8},
+            {"Double", 8},
+        };
 
 
         public static InstructionList DisassembleBytesNew(bool is32Bit, byte[] bytes, ulong methodBase)
@@ -368,6 +384,9 @@ namespace LibCpp2IL
 
         public static int VersionAwareSizeOf(Type type)
         {
+            if (type.IsPrimitive)
+                return (int) PrimitiveSizes[type.Name];
+            
             var size = 0;
             foreach (var i in type.GetFields())
             {

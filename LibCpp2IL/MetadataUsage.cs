@@ -179,5 +179,19 @@ namespace LibCpp2IL
         {
             return $"Metadata Usage {{type={Type}, Value={Value}}}";
         }
+
+        public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address)
+        {
+            var encodedType = encoded & 0xE000_0000;
+            var type = (MetadataUsageType) (encodedType >> 29);
+            if (type <= MetadataUsageType.MethodRef && type >= MetadataUsageType.TypeInfo)
+            {
+                var index = (uint) ((encoded & 0x1FFF_FFFF) >> 1);
+
+                return new MetadataUsage(type, address, index);
+            }
+
+            return null;
+        }
     }
 }

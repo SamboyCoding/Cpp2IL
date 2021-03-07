@@ -12,10 +12,18 @@ namespace Cpp2IL.Analysis.ResultModels
         //Set during IL generation
         public VariableDefinition? Variable;
         public ParameterDefinition? ParameterDefinition { get; private set; }
+        
+        public bool IsMethodInfoParam { get; private set; }
 
         internal LocalDefinition WithParameter(ParameterDefinition parameterDefinition)
         {
             ParameterDefinition = parameterDefinition;
+            return this;
+        }
+
+        internal LocalDefinition MarkAsIl2CppMethodInfo()
+        {
+            IsMethodInfoParam = true;
             return this;
         }
 

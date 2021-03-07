@@ -726,7 +726,7 @@ namespace Cpp2IL
             return ret;
         }
 
-        public static MethodDefinition? GetMethodFromReadKlassOffset(int offset)
+        public static int GetSlotNum(int offset)
         {
             var offsetInVtable = offset - 0x128; //0x128 being the address of the vtable in an Il2CppClass
 
@@ -737,15 +737,10 @@ namespace Cpp2IL
             {
                 var slotNum = (decimal) offsetInVtable / 0x10;
 
-                if (Math.Round(slotNum) == slotNum)
-                {
-                    //Actual whole-number slot number, we can lookup the method
-                    var slotShort = (ushort) slotNum; //FIXME Sometimes the value here throws an overflow exception (too small or large)
-                    return SharedState.VirtualMethodsBySlot[slotShort];
-                }
+                return (int) slotNum;
             }
 
-            return null;
+            return -1;
         }
 
         public static InstructionList GetMethodBodyAtVirtAddressNew(PE theDll, ulong addr, bool peek)
@@ -927,9 +922,14 @@ namespace Cpp2IL
             throw new ArgumentException("Do not know how to get a numeric constant of type " + type);
         }
 
-        public static TypeReference TryResolveTypeReflectionData(Il2CppTypeReflectionData typeData)
+        public static TypeReference? TryResolveTypeReflectionData(Il2CppTypeReflectionData? typeData) => TryResolveTypeReflectionData(typeData, null);
+
+        public static TypeReference? TryResolveTypeReflectionData(Il2CppTypeReflectionData? typeData, IGenericParameterProvider? owner)
         {
-            TypeReference theType;
+            if (typeData == null)
+                return null;
+            
+            TypeReference? theType;
             if (!typeData.isArray && typeData.isType && !typeData.isGenericType)
             {
                 theType = SharedState.UnmanagedToManagedTypes[typeData.baseType!];
@@ -939,7 +939,7 @@ namespace Cpp2IL
                 //TODO TryGetValue this.
                 var baseType = SharedState.UnmanagedToManagedTypes[typeData.baseType];
                 
-                var genericType = baseType.MakeGenericType(typeData.genericParams.Select(TryResolveTypeReflectionData).ToArray());
+                var genericType = baseType.MakeGenericType(typeData.genericParams.Select(a => TryResolveTypeReflectionData(a, baseType)).ToArray());
 
                 theType = genericType;
             } else if (typeData.isArray)
@@ -953,7 +953,8 @@ namespace Cpp2IL
             }
             else
             {
-                theType = null;
+                //Generic parameter
+                theType = new GenericParameter(typeData.variableGenericParamName, owner);
             }
 
             return theType;

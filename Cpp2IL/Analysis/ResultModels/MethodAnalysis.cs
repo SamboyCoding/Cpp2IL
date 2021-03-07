@@ -40,6 +40,8 @@ namespace Cpp2IL.Analysis.ResultModels
         public Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
         public Stack<IAnalysedOperand> FloatingPointStack = new Stack<IAnalysedOperand>();
 
+        public TypeDefinition DeclaringType => _method.DeclaringType;
+
         internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions)
         {
             _method = method;
@@ -49,6 +51,7 @@ namespace Cpp2IL.Analysis.ResultModels
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
 
             var args = method.Parameters.ToList();
+            var haveHandledMethodInfoArg = false;
             //Set up parameters in registers & as locals.
             if (!LibCpp2IlMain.ThePe!.is32Bit)
             {
@@ -73,6 +76,12 @@ namespace Cpp2IL.Analysis.ResultModels
 
                     FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType, name, dest).WithParameter(arg));
                 }
+
+                if (regList.Count > 0)
+                {
+                    FunctionArgumentLocals.Add(MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", regList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
+                    haveHandledMethodInfoArg = true;
+                }
             }
             else if (!method.IsStatic)
             {
@@ -90,6 +99,13 @@ namespace Cpp2IL.Analysis.ResultModels
                 var localDefinition = MakeLocal(arg.ParameterType.Resolve(), arg.Name);
                 Stack.Push(localDefinition);
                 FunctionArgumentLocals.Add(localDefinition);
+            }
+
+            if (!haveHandledMethodInfoArg)
+            {
+                var local = MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
+                Stack.Push(local);
+                FunctionArgumentLocals.Add(local);
             }
         }
 

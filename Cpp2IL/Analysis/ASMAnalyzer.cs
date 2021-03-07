@@ -691,12 +691,15 @@ namespace Cpp2IL.Analysis
 
                     break;
                 }
-                case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement > 0x128 && operand is ConstantDefinition checkForVirtualCallCons &&
-                                        checkForVirtualCallCons.Value is Il2CppClassIdentifier:
+                case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement > 0x128 && operand is ConstantDefinition {Value: Il2CppClassIdentifier _}:
                     //Virtual method call
                     Analysis.Actions.Add(new CallVirtualMethodAction(Analysis, instruction));
                     break;
-                case Mnemonic.Call when instruction.Op0Kind != OpKind.Register:
+                case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && operand is ConstantDefinition {Value: Il2CppMethodSpec _}:
+                    //Call method spec (used in RGCTX)
+                    Analysis.Actions.Add(new CallMethodSpecAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Call when instruction.Op0Kind != OpKind.Register && instruction.Op0Kind != OpKind.Memory:
                 {
                     var jumpTarget = instruction.NearBranchTarget;
 
@@ -878,30 +881,13 @@ namespace Cpp2IL.Analysis
                     //Load a specific static field.
                     Analysis.Actions.Add(new StaticFieldToRegAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp != null && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
                     if (Analysis.GetLocalInReg(memR) != null)
                         Analysis.Actions.Add(new ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     return;
-                }
-                //0xb0 == Il2CppRuntimeInterfaceOffsetPair* interfaceOffsets;
-                case Mnemonic.Mov when type1 == OpKind.Memory && Il2CppClassUsefulOffsets.IsInterfaceOffsetsPtr(offset1) && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
-                    //Class pointer interface offset read
-                    Analysis.Actions.Add(new InterfaceOffsetsReadAction(Analysis, instruction));
-                    break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && Il2CppClassUsefulOffsets.IsPointerIntoVtable(offset1) && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
-                {
-                    //Virtual method pointer load
-                    Analysis.Actions.Add(new LoadVirtualFunctionPointerAction(Analysis, instruction));
-                    break;
-                }
-                case Mnemonic.Mov when type1 == OpKind.Memory && Il2CppClassUsefulOffsets.IsInterfaceOffsetsCount(offset1) && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
-                {
-                    //Interface offsets count - ignore for now
-                    Analysis.Actions.Add(new InterfaceOffsetCountToLocalAction(Analysis, instruction));
-                    break;
                 }
                 case Mnemonic.Lea when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
                 case Mnemonic.Lea when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0:
@@ -1001,19 +987,55 @@ namespace Cpp2IL.Analysis
                     //x64 Stack pointer read.
                     Analysis.Actions.Add(new StackOffsetReadX64Action(Analysis, instruction));
                     break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
+                    if (Il2CppClassUsefulOffsets.IsInterfaceOffsetsPtr(offset1))
+                    {
+                        //Class pointer interface offset read
+                        Analysis.Actions.Add(new InterfaceOffsetsReadAction(Analysis, instruction));
+                    } else if (Il2CppClassUsefulOffsets.IsPointerIntoVtable(offset1))
+                    {
+                        //Virtual method pointer load
+                        Analysis.Actions.Add(new LoadVirtualFunctionPointerAction(Analysis, instruction));
+                    } else if (Il2CppClassUsefulOffsets.IsInterfaceOffsetsCount(offset1))
+                    {
+                        //Interface offsets count
+                        Analysis.Actions.Add(new InterfaceOffsetCountToLocalAction(Analysis, instruction));
+                    } else if (Il2CppClassUsefulOffsets.IsRGCTXDataPtr(offset1))
+                    {
+                        //RGCTX data read
+                        Analysis.Actions.Add(new ReadRGCTXDataListAction(Analysis, instruction));
+                    }
+                    else
+                    {
+                        Analysis.Actions.Add(new UnknownClassOffsetReadAction(Analysis, instruction));
+                    }
+
+                    break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: MethodReference mr}:
                     //Read offset on method global
-                    if (Il2CppMethodUsefulOffsets.IsSlotOffset(instruction.MemoryDisplacement))
+                    if (Il2CppMethodDefinitionUsefulOffsets.IsSlotOffset(instruction.MemoryDisplacement))
                     {
                         Analysis.Actions.Add(new MethodSlotToLocalAction(Analysis, instruction));
                         break;
                     }
 
-                    if (Il2CppMethodUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement))
+                    if (Il2CppMethodDefinitionUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement))
                     {
                         Analysis.Actions.Add(new MethodDefiningTypeToConstantAction(Analysis, instruction));
                     }
 
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: Il2CppRGCTXArray arr}:
+                    //Read RGCTX array value
+                    Analysis.Actions.Add(new ReadSpecificRGCTXDataAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {IsMethodInfoParam: true}:
+                    //MethodInfo offset read
+                    if (Il2CppMethodInfoUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement))
+                    {
+                        //Read klass ptr.
+                        Analysis.Actions.Add(new LoadClassPointerFromMethodInfoAction(Analysis, instruction));
+                    }
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None:
                     //Move generic memory to register - field read.

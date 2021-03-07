@@ -8,7 +8,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 {
     public class CallVirtualMethodAction : BaseAction
     {
-        public LocalDefinition CalledOn;
+        public LocalDefinition? CalledOn;
         public MethodDefinition? Called;
         public List<IAnalysedOperand> Arguments = new List<IAnalysedOperand>();
 
@@ -16,12 +16,18 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             var inReg = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryBase));
 
-            if (!(inReg is ConstantDefinition cons) || !(cons.Value is Il2CppClassIdentifier klass)) return;
-
+            if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
+            
             var classReadFrom = klass.backingType;
 
             var readOffset = instruction.MemoryDisplacement;
-            Called = Utils.GetMethodFromReadKlassOffset((int) readOffset);
+            var usage = classReadFrom.VTable[Utils.GetSlotNum((int) readOffset)];
+            
+            if(usage == null)
+                return;
+
+            //TODO These are coming up as null - probably need to check base classes!
+            Called = SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
 
             if (Called == null) return;
 
@@ -35,7 +41,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string ToPsuedoCode()
         {
-            throw new System.NotImplementedException();
+            return $"{CalledOn?.Name}.{Called?.Name}() //TODO Arguments and return type";
         }
 
         public override string ToTextSummary()

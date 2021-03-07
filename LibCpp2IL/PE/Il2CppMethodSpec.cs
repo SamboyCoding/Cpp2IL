@@ -1,3 +1,4 @@
+using System.Text;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -18,5 +19,24 @@ namespace LibCpp2IL.PE
         public Il2CppTypeReflectionData[] GenericClassParams => LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
         
         public Il2CppTypeReflectionData[] GenericMethodParams => LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+
+            sb.Append(MethodDefinition?.ReturnType).Append(" ");
+
+            sb.Append(MethodDefinition?.DeclaringType?.FullName);
+
+            if (classIndexIndex != -1)
+                sb.Append("<").Append(string.Join(", ", GenericClassParams.GetEnumerator())).Append(">");
+
+            sb.Append(".").Append(MethodDefinition?.Name);
+            
+            if(methodIndexIndex != -1)
+                sb.Append("<").Append(string.Join(", ", GenericMethodParams.GetEnumerator())).Append(">");
+
+            return sb.ToString();
+        }
     };
 }

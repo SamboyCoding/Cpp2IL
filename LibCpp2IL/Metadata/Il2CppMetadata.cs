@@ -16,6 +16,7 @@ namespace LibCpp2IL.Metadata
         public Il2CppImageDefinition[] imageDefinitions;
         public Il2CppTypeDefinition[] typeDefs;
         internal Il2CppInterfaceOffset[] interfaceOffsets;
+        public uint[] VTableMethodIndices;
         public Il2CppMethodDefinition[] methodDefs;
         public Il2CppParameterDefinition[] parameterDefs;
         public Il2CppFieldDefinition[] fieldDefs;
@@ -96,6 +97,11 @@ namespace LibCpp2IL.Metadata
             Console.Write("\tReading interface offsets...");
             start = DateTime.Now;
             interfaceOffsets = ReadMetadataClassArray<Il2CppInterfaceOffset>(metadataHeader.interfaceOffsetsOffset, metadataHeader.interfaceOffsetsCount);
+            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            Console.Write("\tReading vtable indices...");
+            start = DateTime.Now;
+            VTableMethodIndices = ReadMetadataClassArray<uint>(metadataHeader.vtableMethodsOffset, metadataHeader.vtableMethodsCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             Console.Write("\tReading method definitions...");

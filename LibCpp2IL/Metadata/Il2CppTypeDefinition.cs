@@ -66,6 +66,16 @@ namespace LibCpp2IL.Metadata
             }
         }
 
+        public MetadataUsage?[] VTable
+        {
+            get
+            {
+                if (vtableStart < 0) return new MetadataUsage[0];
+
+                return LibCpp2IlMain.TheMetadata!.VTableMethodIndices.SubArray(vtableStart, vtable_count).Select(v => MetadataUsage.DecodeMetadataUsage(v, 0)).ToArray();
+            }
+        }
+
         public int TypeIndex => LibCpp2IlReflection.GetTypeIndexFromType(this);
 
         public Il2CppImageDefinition? DeclaringAssembly

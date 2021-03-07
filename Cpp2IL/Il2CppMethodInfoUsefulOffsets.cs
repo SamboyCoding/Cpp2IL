@@ -5,25 +5,19 @@ using LibCpp2IL;
 
 namespace Cpp2IL
 {
-    public static class Il2CppMethodUsefulOffsets
+    public static class Il2CppMethodInfoUsefulOffsets
     {
-        public const int X86_SLOT_OFFSET = 0x00; //TODO
-        public const int X86_64_SLOT_OFFSET = 0x48;
+        public const int X86_KLASS_OFFSET = 0x00; //TODO
+        public const int X86_64_KLASS_OFFSET = 0x18;
         
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {
             //32-bit offsets:
-            new UsefulOffset("slot", X86_SLOT_OFFSET, typeof(ushort), true),
+            new UsefulOffset("klass", X86_KLASS_OFFSET, typeof(ushort), true),
             
             //64-bit offsets:
-            new UsefulOffset("slot", X86_64_SLOT_OFFSET, typeof(ushort), false),
-            new UsefulOffset("klass", 0x18, typeof(IntPtr), false),
+            new UsefulOffset("klass", X86_64_KLASS_OFFSET, typeof(IntPtr), false),
         };
-
-        public static bool IsSlotOffset(uint offset)
-        {
-            return GetOffsetName(offset) == "slot";
-        }
 
         public static bool IsKlassPtr(uint offset)
         {
