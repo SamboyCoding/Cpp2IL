@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -10,7 +12,8 @@ namespace Cpp2IL.Analysis.Actions.Important
     {
         public LocalDefinition? CalledOn;
         public MethodDefinition? Called;
-        public List<IAnalysedOperand> Arguments = new List<IAnalysedOperand>();
+        public List<IAnalysedOperand>? Arguments = new List<IAnalysedOperand>();
+        private LocalDefinition? _localMade;
 
         public CallVirtualMethodAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -19,19 +22,29 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
             
             var classReadFrom = klass.backingType;
-
-            var readOffset = instruction.MemoryDisplacement;
-            var usage = classReadFrom.VTable[Utils.GetSlotNum((int) readOffset)];
+            var slotNum = Utils.GetSlotNum((int) instruction.MemoryDisplacement);
             
-            if(usage == null)
-                return;
-
-            //TODO These are coming up as null - probably need to check base classes!
-            Called = SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
+            Called = MethodUtils.GetMethodFromVtableSlot(classReadFrom, slotNum);
 
             if (Called == null) return;
 
-            CalledOn = context.GetLocalInReg("rcx");
+            CalledOn = Called.IsStatic ? null : context.GetLocalInReg("rcx");
+            
+            if(CalledOn != null)
+                RegisterUsedLocal(CalledOn);
+
+            var isVoid = Called.ReturnType.FullName == "System.Void";
+
+            if(!MethodUtils.CheckParameters(instruction, Called, context, !Called.IsStatic, out Arguments, CalledOn?.Type, false))
+                AddComment("Arguments are incorrect?");
+            
+            if(Arguments != null)
+                foreach (var analysedOperand in Arguments)
+                    if (analysedOperand is LocalDefinition l)
+                        RegisterUsedLocal(l);
+
+            if (!isVoid) 
+                _localMade = context.MakeLocal(Called.ReturnType, reg: "rax");
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
@@ -41,12 +54,19 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string ToPsuedoCode()
         {
-            return $"{CalledOn?.Name}.{Called?.Name}() //TODO Arguments and return type";
+            var argString = $"({string.Join(", ", Arguments?.Select(a => a.GetPseudocodeRepresentation()).ToArray() ?? Array.Empty<string>())})";
+            
+            if (_localMade != null)
+                return $"{_localMade.Type} {_localMade.Name} = {(CalledOn == null ? "" : CalledOn.Name + ".")}{Called?.Name}{argString}";
+                    
+            return $"{CalledOn?.Name}.{Called?.Name}{argString}";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Calls virtual function {Called?.FullName} on instance {CalledOn} with {Arguments.Count} arguments\n";
+            return $"[!] Calls virtual function {Called?.FullName} on instance {CalledOn?.ToString() ?? "null"} with arguments {Arguments?.ToStringEnumerable()}" +
+                   (_localMade != null ? $" and stores the result in new local {_localMade} in register rax" : "") +
+                   $"\n";
         }
         
         public override bool IsImportant()

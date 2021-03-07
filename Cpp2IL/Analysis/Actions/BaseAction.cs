@@ -66,7 +66,7 @@ namespace Cpp2IL.Analysis.Actions
             {
                 var oldLen = summary.Length;
                 summary = summary.TrimEnd('\n');
-                newlineCount = summary.Length - oldLen;
+                newlineCount = oldLen - summary.Length;
             }
 
             return $"{summary} ; {GetLineComment()}{"\n".Repeat(newlineCount)}";

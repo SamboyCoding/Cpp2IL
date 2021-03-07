@@ -26,7 +26,7 @@ namespace Cpp2IL.Analysis
 
         internal static TypeReference? ResolveGenericParameterType(GenericParameter gp, TypeReference? instance, MethodReference? method = null)
         {
-            var git = instance as GenericInstanceType;
+            var git = instance as GenericInstanceType ?? method?.DeclaringType as GenericInstanceType;
             if (git != null && GetGenericArgumentByNameFromGenericInstanceType(git, gp) is { } t)
                 return t;
 

@@ -327,6 +327,26 @@ namespace Cpp2IL
                 Disassembler.Translator.IncludeBinary = true;
 
                 keyFunctionAddresses = KeyFunctionAddresses.Find(methods, LibCpp2IlMain.ThePe);
+                
+                Console.WriteLine("Pass 7: Finding Concrete Implementations of abstract classes...");
+                
+                foreach (var def in LibCpp2IlMain.TheMetadata.typeDefs)
+                {
+                    if(def.IsAbstract)
+                        continue;
+                    
+                    var baseTypeReflectionData = def.BaseType;
+                    while (baseTypeReflectionData != null)
+                    {
+                        if (baseTypeReflectionData.baseType == null)
+                            break;
+                        
+                        if (baseTypeReflectionData.isType && baseTypeReflectionData.baseType.IsAbstract && !SharedState.ConcreteImplementations.ContainsKey(baseTypeReflectionData.baseType))
+                            SharedState.ConcreteImplementations[baseTypeReflectionData.baseType] = def;
+
+                        baseTypeReflectionData = baseTypeReflectionData.baseType.BaseType;
+                    }
+                }
             }
 
             #endregion

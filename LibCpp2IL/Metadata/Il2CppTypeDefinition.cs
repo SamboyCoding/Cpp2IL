@@ -77,6 +77,8 @@ namespace LibCpp2IL.Metadata
         }
 
         public int TypeIndex => LibCpp2IlReflection.GetTypeIndexFromType(this);
+        
+        public bool IsAbstract => ((TypeAttributes) flags & TypeAttributes.Abstract) != 0;
 
         public Il2CppImageDefinition? DeclaringAssembly
         {
@@ -166,7 +168,7 @@ namespace LibCpp2IL.Metadata
 
         public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? null : (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
 
-        public Il2CppTypeReflectionData? BaseType => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.types[parentIndex]);
+        public Il2CppTypeReflectionData? BaseType => parentIndex == -1 ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.types[parentIndex]);
 
         public Il2CppFieldDefinition[]? Fields => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.fieldDefs.Skip(firstFieldIdx).Take(field_count).ToArray();
 

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -23,16 +24,9 @@ namespace Cpp2IL.Analysis.Actions
             if (!(inReg is ConstantDefinition cons) || !(cons.Value is Il2CppClassIdentifier klass)) return;
 
             classReadFrom = klass.backingType;
-
-            var readOffset = instruction.MemoryDisplacement;
+            var slotNum = Utils.GetSlotNum((int) instruction.MemoryDisplacement);
             
-            //TODO These are coming up as null - probably need to check base classes!
-            var usage = classReadFrom.VTable[Utils.GetSlotNum((int) readOffset)];
-            
-            if(usage == null)
-                return;
-
-            methodPointerRead = SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
+            methodPointerRead = MethodUtils.GetMethodFromVtableSlot(classReadFrom, slotNum);
 
             if (methodPointerRead == null) return;
 

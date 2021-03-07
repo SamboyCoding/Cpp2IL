@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Text;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
@@ -29,7 +30,7 @@ namespace LibCpp2IL.PE
             sb.Append(MethodDefinition?.DeclaringType?.FullName);
 
             if (classIndexIndex != -1)
-                sb.Append("<").Append(string.Join(", ", GenericClassParams.GetEnumerator())).Append(">");
+                sb.Append("<").Append(string.Join(", ", GenericClassParams.AsEnumerable())).Append(">");
 
             sb.Append(".").Append(MethodDefinition?.Name);
             

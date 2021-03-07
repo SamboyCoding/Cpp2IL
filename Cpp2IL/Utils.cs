@@ -728,7 +728,7 @@ namespace Cpp2IL
 
         public static int GetSlotNum(int offset)
         {
-            var offsetInVtable = offset - 0x128; //0x128 being the address of the vtable in an Il2CppClass
+            var offsetInVtable = offset - Il2CppClassUsefulOffsets.VTABLE_OFFSET; //0x128 being the address of the vtable in an Il2CppClass
 
             if (offsetInVtable % 0x10 != 0 && offsetInVtable % 0x8 == 0)
                 offsetInVtable -= 0x8; //Handle read of the second pointer in the struct.

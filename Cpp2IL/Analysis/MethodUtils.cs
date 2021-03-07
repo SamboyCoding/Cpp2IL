@@ -12,6 +12,7 @@ using Mono.Cecil;
 using Mono.Cecil.Rocks;
 using GenericParameter = Mono.Cecil.GenericParameter;
 using MemberReference = Mono.Cecil.MemberReference;
+using MethodDefinition = Mono.Cecil.MethodDefinition;
 using TypeReference = Mono.Cecil.TypeReference;
 
 namespace Cpp2IL.Analysis
@@ -99,6 +100,8 @@ namespace Cpp2IL.Analysis
                         if (parameterType.IsPrimitive && local.Type?.IsPrimitive == true)
                             break; //Forgive primitive coercion.
                         if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(Utils.ArrayReference))
+                            break;
+                        if(local.Type is GenericParameter && parameterType is GenericParameter && local.Type.Name == parameterType.Name)
                             break;
                         return false;
                 }
@@ -258,6 +261,24 @@ namespace Cpp2IL.Analysis
             {
                 context.Stack.Push(analysedOperand);
             }
+        }
+
+        public static MethodDefinition GetMethodFromVtableSlot(Il2CppTypeDefinition klass, int slotNum)
+        {
+            var usage = klass.VTable[slotNum];
+
+            if (usage != null) 
+                return SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
+            
+            //Find concrete implementation - this method is abstract
+            var concrete = SharedState.ConcreteImplementations[klass];
+            var concreteUsage = concrete.VTable[slotNum];
+            var concreteMethod = concreteUsage!.AsMethod();
+
+            var unmanagedMethod = klass.Methods!.First(m => m.Name == concreteMethod.Name && m.parameterCount == concreteMethod.parameterCount);
+
+            return SharedState.UnmanagedToManagedMethods[unmanagedMethod];
+
         }
     }
 }

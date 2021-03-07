@@ -2,6 +2,7 @@
 using Cpp2IL.Analysis;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.PE;
 using Mono.Cecil;
 
 namespace Cpp2IL
@@ -25,6 +26,8 @@ namespace Cpp2IL
         internal static readonly List<TypeDefinition> AllTypeDefinitions = new List<TypeDefinition>();
         internal static readonly Dictionary<TypeDefinition, Il2CppTypeDefinition> ManagedToUnmanagedTypes = new Dictionary<TypeDefinition, Il2CppTypeDefinition>();
         internal static Dictionary<Il2CppTypeDefinition, TypeDefinition> UnmanagedToManagedTypes = new Dictionary<Il2CppTypeDefinition, TypeDefinition>();
+
+        internal static readonly Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition> ConcreteImplementations = new Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition>();
         
         
         //Fields
