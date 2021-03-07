@@ -22,9 +22,14 @@ namespace Cpp2IL.Analysis.Actions
             var sourceReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(sourceReg);
             localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition {Value: NewSafeCastResult result} ? result.original : null;
-            if (localCopiedFrom?.Type?.Resolve() == null) return;
 
-            var cppTypeDef = SharedState.ManagedToUnmanagedTypes[localCopiedFrom.Type.Resolve()];
+            if(localCopiedFrom == null)
+                return;
+            
+            var localType = localCopiedFrom.Type?.Resolve();
+            localType ??= Utils.ObjectReference;
+
+            var cppTypeDef = SharedState.ManagedToUnmanagedTypes[localType];
             destinationConstant = context.MakeConstant(typeof(Il2CppClassIdentifier), new Il2CppClassIdentifier
             {
                 backingType = cppTypeDef,

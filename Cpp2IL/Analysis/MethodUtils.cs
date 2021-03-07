@@ -103,6 +103,8 @@ namespace Cpp2IL.Analysis
                             break;
                         if(local.Type is GenericParameter && parameterType is GenericParameter && local.Type.Name == parameterType.Name)
                             break;
+                        if(local.KnownInitialValue is int i && i == 0)
+                            break; //Null.
                         return false;
                 }
 
