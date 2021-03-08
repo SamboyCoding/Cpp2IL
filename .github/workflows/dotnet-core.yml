@@ -33,7 +33,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: LibCpp2IL
-        path: ./LibCpp2IL/bin/Release/netstandard2.1/publish/LibCpp2IL*
+        path: ./LibCpp2IL/bin/Release/netstandard2.0/publish/LibCpp2IL*
     - name: Upload Win x64 Artifact
       uses: actions/upload-artifact@v2
       with:
