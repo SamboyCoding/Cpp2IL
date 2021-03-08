@@ -106,6 +106,9 @@ namespace LibCpp2IL
         {
             var global = GetMethodGlobalByAddress(address);
 
+            if (global?.Type == MetadataUsageType.MethodRef)
+                return global.AsGenericMethodRef().baseMethod;
+
             return global?.AsMethod();
         }
 

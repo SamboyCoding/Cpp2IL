@@ -56,18 +56,18 @@ Il2CppMethodDefinition method = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress
 
 If you want more complex data, such as type and/or method generic params, you can use this code to get the raw global struct, and obtain the generic data like so:
 ```c#
-GlobalIdentifier? nullableGlobal = LibCpp2IlMain.GetMethodGlobalByAddress(0x182938239);
-if(!nullableGlobal.HasValue) return;
+MetadataUsage? usage = LibCpp2IlMain.GetMethodGlobalByAddress(0x182938239);
+if(usage == null) return;
 
-var global = nullableGlobal.Value;
-if(global.Value is Il2CppGlobalGenericMethodRef genericMethodRef) {
+if(usage.Type == MetadataUsageType.MethodRef) {
+    var genericMethodRef = usage.AsGenericMethodRef();
     Console.WriteLine(genericMethodRef.declaringType); //Il2CppTypeDefinition
     Console.WriteLine(genericMethodRef.baseMethod); //Il2CppMethodDefinition, equal to the one returned by the above method
     Console.WriteLine(genericMethodRef.typeGenericParams); //Il2CppTypeReflectionData[]
     Console.WriteLine(genericMethodRef.methodGenericParams); //Il2CppTypeReflectionData[]
-} else if(global.Value is Il2CppMethodDefinition methodDefinition) {
+} else {
     //Method is not generic
-    Console.WriteLine(methodDefinition);
+    Console.WriteLine(usage.AsMethod()); //Il2CppMethodDefinition
 }
 ```
 
@@ -117,7 +117,7 @@ Console.WriteLine(type.Name); //String
 Console.WriteLine(type.FullName); //System.String
 ```
 
-### Inheritence
+### Inheritance
 ```c#
 //Base class
 Console.WriteLine(type.BaseType.FullName); //System.Object
