@@ -77,7 +77,7 @@ namespace LibCpp2IL.Metadata
         }
 
         public int TypeIndex => LibCpp2IlReflection.GetTypeIndexFromType(this);
-        
+
         public bool IsAbstract => ((TypeAttributes) flags & TypeAttributes.Abstract) != 0;
 
         public Il2CppImageDefinition? DeclaringAssembly
@@ -115,7 +115,7 @@ namespace LibCpp2IL.Metadata
 
                 if (cgm == null)
                     return new Il2CppRGCTXDefinition[0];
-                
+
                 var index = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, cgm);
 
                 var rangePair = LibCpp2IlMain.ThePe.codegenModuleRgctxRanges[index].FirstOrDefault(r => r.token == token);
@@ -135,19 +135,20 @@ namespace LibCpp2IL.Metadata
 
                 if (cgm == null)
                     return new ulong[0];
-                
+
                 var index = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, cgm);
-                
+
                 return RGCTXs.Where(r => r.type == Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_METHOD).Select(r => LibCpp2IlMain.ThePe!.codeGenModuleMethodPointers[index][r.MethodIndex]).ToArray();
             }
         }
 
         private string? _cachedNamespace;
+
         public string? Namespace
         {
             get
             {
-                if(_cachedNamespace == null)
+                if (_cachedNamespace == null)
                     _cachedNamespace = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(namespaceIndex);
 
                 return _cachedNamespace;
@@ -155,11 +156,12 @@ namespace LibCpp2IL.Metadata
         }
 
         private string? _cachedName;
+
         public string? Name
         {
             get
             {
-                if(_cachedName == null)
+                if (_cachedName == null)
                     _cachedName = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
                 return _cachedName;
@@ -167,6 +169,8 @@ namespace LibCpp2IL.Metadata
         }
 
         public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? null : (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
+
+        public Il2CppType? RawBaseType => parentIndex == -1 ? null : LibCpp2IlMain.ThePe!.types[parentIndex];
 
         public Il2CppTypeReflectionData? BaseType => parentIndex == -1 ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.types[parentIndex]);
 
@@ -206,13 +210,18 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppTypeDefinition[]? NestedTypes => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.nestedTypeIndices.Skip(nestedTypesStart).Take(nested_type_count).Select(idx => LibCpp2IlMain.TheMetadata.typeDefs[idx]).ToArray();
 
-        public Il2CppTypeReflectionData[]? Interfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
-            ? null
+        public Il2CppType[] RawInterfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
+            ? Array.Empty<Il2CppType>()
             : LibCpp2IlMain.TheMetadata.interfaceIndices
                 .Skip(interfacesStart)
                 .Take(interfaces_count)
                 .Select(idx => LibCpp2IlMain.ThePe.types[idx])
-                .Select(type => LibCpp2ILUtils.GetTypeReflectionData(type)!)
+                .ToArray();
+
+        public Il2CppTypeReflectionData[]? Interfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
+            ? null
+            : RawInterfaces
+                .Select(LibCpp2ILUtils.GetTypeReflectionData)
                 .ToArray();
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.ThePe.types[declaringTypeIndex].data.classIndex];

@@ -41,6 +41,7 @@ namespace LibCpp2IL.Metadata
         public Il2CppGenericParameter[] genericParameters;
 
         private readonly Dictionary<int, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new Dictionary<int, Il2CppFieldDefaultValue>();
+        private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue>();
 
         public static Il2CppMetadata? ReadFrom(byte[] bytes, int[] unityVer)
         {
@@ -194,6 +195,7 @@ namespace LibCpp2IL.Metadata
             foreach (var il2CppFieldDefaultValue in fieldDefaultValues)
             {
                 _fieldDefaultValueLookup[il2CppFieldDefaultValue.fieldIndex] = il2CppFieldDefaultValue;
+                _fieldDefaultLookupNew[fieldDefs[il2CppFieldDefaultValue.fieldIndex]] = il2CppFieldDefaultValue;
             }
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
@@ -241,6 +243,11 @@ namespace LibCpp2IL.Metadata
         public Il2CppFieldDefaultValue? GetFieldDefaultValueFromIndex(int index)
         {
             return _fieldDefaultValueLookup.GetValueOrDefault(index);
+        }
+
+        public Il2CppFieldDefaultValue? GetFieldDefaultValue(Il2CppFieldDefinition field)
+        {
+            return _fieldDefaultLookupNew.GetValueOrDefault(field);
         }
 
         public (int ptr, int type) GetFieldDefaultValue(int fieldIdx)

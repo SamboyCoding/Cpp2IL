@@ -27,55 +27,7 @@ namespace Cpp2IL
     [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
     internal class Program
     {
-        [SuppressMessage("ReSharper", "NotNullMemberIsNotInitialized")]
-        [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
-        internal class Options
-        {
-            [Option("game-path", Required = true, HelpText = "Specify path to the game folder (containing the exe)")]
-            public string GamePath { get; set; }
-
-            [Option("exe-name", Required = false, HelpText = "Specify an override for the unity executable name in case the auto-detection doesn't work.")]
-            public string? ExeName { get; set; }
-
-            [Option("skip-analysis", Required = false, HelpText = "Skip the analysis section and stop once DummyDLLs have been generated.")]
-            public bool SkipAnalysis { get; set; }
-
-            [Option("skip-metadata-txts", Required = false, HelpText = "Skip the generation of [classname]_metadata.txt files.")]
-            public bool SkipMetadataTextFiles { get; set; }
-
-            [Option("disable-registration-prompts", Required = false, HelpText = "Disable the prompt if Code or Metadata Registration function addresses cannot be located.")]
-            public bool DisableRegistrationPrompts { get; set; }
-            
-            [Option("force-binary-path", Required = false, HelpText = "Force the path to the il2cpp binary. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
-            public string? ForcedBinaryPath { get; set; }
-            
-            [Option("force-metadata-path", Required = false, HelpText = "Force the path to the il2cpp metadata file. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
-            public string? ForcedMetadataPath { get; set; }
-            
-            [Option("force-unity-version", Required = false, HelpText = "Override the unity version detection. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
-            public string? ForcedUnityVersion { get; set; }
-        }
-
-        private static readonly string[] BlacklistedExecutableFilenames =
-        {
-            "UnityCrashHandler.exe",
-            "UnityCrashHandler64.exe",
-            "install.exe",
-            "MelonLoader.Installer.exe"
-        };
-
         private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
-        internal static Options? CommandLineOptions;
-
-        private static bool CheckForceOptionsAreValid()
-        {
-            if (CommandLineOptions!.ForcedBinaryPath != null && CommandLineOptions.ForcedMetadataPath != null && CommandLineOptions.ForcedUnityVersion != null)
-                return true;
-            if (CommandLineOptions.ForcedBinaryPath == null && CommandLineOptions.ForcedMetadataPath == null && CommandLineOptions.ForcedUnityVersion == null)
-                return true;
-
-            return false;
-        }
 
         public static int Main(string[] args)
         {
@@ -83,131 +35,9 @@ namespace Cpp2IL
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
             Console.WriteLine("Running on " + Environment.OSVersion.Platform);
 
-            #region Command Line Parsing
+            var runtimeArgs = Cpp2IlTasks.GetRuntimeOptionsFromCommandLine(args);
 
-            CommandLineOptions = null;
-            Parser.Default.ParseArguments<Options>(args).WithParsed(options => { CommandLineOptions = options; });
-
-            if (CommandLineOptions == null)
-            {
-                Console.WriteLine("Invalid command line. Exiting.");
-                return 1;
-            }
-
-            if (!CheckForceOptionsAreValid())
-            {
-                Console.WriteLine("Read the help.");
-                return 1;
-            }
-
-            int[] unityVerUseful;
-            string assemblyPath;
-            string metadataPath;
-            if (CommandLineOptions.ForcedBinaryPath == null)
-            {
-                var baseGamePath = CommandLineOptions.GamePath;
-
-                Console.WriteLine("Using path: " + baseGamePath);
-
-                if (!Directory.Exists(baseGamePath))
-                {
-                    Console.WriteLine("Specified game-path does not exist: " + baseGamePath);
-                    return 2;
-                }
-
-                assemblyPath = Path.Combine(baseGamePath, "GameAssembly.dll");
-                var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
-                    .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
-
-                if (CommandLineOptions.ExeName != null)
-                {
-                    exeName = CommandLineOptions.ExeName;
-                    Console.WriteLine($"Using OVERRIDDEN game name: {exeName}");
-                }
-                else
-                {
-                    Console.WriteLine($"Auto-detected game name: {exeName}");
-                }
-
-                var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
-                metadataPath = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
-
-                if (!File.Exists(assemblyPath) || !File.Exists(unityPlayerPath) || !File.Exists(metadataPath))
-                {
-                    Console.WriteLine("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
-                                      $"\t{assemblyPath}\n" +
-                                      $"\t{unityPlayerPath}\n" +
-                                      $"\t{metadataPath}\n");
-
-                    return 2;
-                }
-
-                #endregion
-
-                Console.WriteLine($"Located game EXE: {unityPlayerPath}");
-                Console.WriteLine($"Located global-metadata: {metadataPath}");
-
-                #region Unity Version Determination
-
-                Console.WriteLine("\nAttempting to determine Unity version...");
-
-                if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-                {
-                    var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
-
-                    unityVerUseful = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
-                }
-                else
-                {
-                    //Globalgamemanagers
-                    var globalgamemanagersPath = Path.Combine(baseGamePath, $"{exeName}_Data", "globalgamemanagers");
-                    var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
-                    var verString = new StringBuilder();
-                    var idx = 0x14;
-                    while (ggmBytes[idx] != 0)
-                    {
-                        verString.Append(Convert.ToChar(ggmBytes[idx]));
-                        idx++;
-                    }
-
-                    var unityVer = verString.ToString();
-                    unityVer = unityVer.Substring(0, unityVer.IndexOf("f", StringComparison.Ordinal));
-                    Console.WriteLine("Read version string from globalgamemanagers: " + unityVer);
-                    unityVerUseful = unityVer.Split(".").Select(int.Parse).ToArray();
-                }
-
-                Console.WriteLine("This game is built with Unity version " + string.Join(".", unityVerUseful));
-
-                if (unityVerUseful[0] <= 4)
-                {
-                    Console.WriteLine("Unable to determine a valid unity version. Aborting.");
-                    return 1;
-                }
-
-                #endregion
-            }
-            else
-            {
-                Console.WriteLine("Warning: Using force options, I sure hope you know what you're doing!");
-                assemblyPath = CommandLineOptions.ForcedBinaryPath!;
-                metadataPath = CommandLineOptions.ForcedMetadataPath!;
-                unityVerUseful = CommandLineOptions.ForcedUnityVersion!.Split('.').Select(int.Parse).ToArray();
-            }
-
-            //Set this flag from command line options
-            LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = !CommandLineOptions.DisableRegistrationPrompts;
-            
-            //Disable Method Ptr Mapping and Global Resolving if skipping analysis
-            LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = CommandLineOptions.SkipAnalysis;
-
-            //Disable Method Ptr Mapping and Global Resolving if skipping analysis
-            LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = CommandLineOptions.SkipAnalysis;
-
-            if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVerUseful))
-            {
-                Console.WriteLine("Initialization with LibCpp2IL failed.");
-                return 1;
-            }
+            Cpp2IlTasks.InitializeLibCpp2Il(runtimeArgs);
 
             //Dump DLLs
 
@@ -225,16 +55,19 @@ namespace Cpp2IL
             Console.WriteLine("Building assemblies...");
             Console.WriteLine("\tPass 1: Creating empty types...");
 
-            Assemblies = AssemblyBuilder.CreateAssemblies(LibCpp2IlMain.TheMetadata!, resolver, moduleParams);
+            Assemblies = EmptyAssemblyBuilder.GetEmptyAssemblies(LibCpp2IlMain.TheMetadata!, moduleParams);
+            Assemblies.ForEach(resolver.Register);
 
             Utils.BuildPrimitiveMappings();
 
             Console.WriteLine("\tPass 2: Setting parents and handling inheritance...");
 
             //Stateful method, no return value
-            AssemblyBuilder.ConfigureHierarchy(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe!);
+            AssemblyPopulator.ConfigureHierarchy();
 
             Console.WriteLine("\tPass 3: Populating types...");
+
+            AssemblyPopulator.EmitMetadataFiles = runtimeArgs.EnableMetadataGeneration;
 
             var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
 
@@ -244,7 +77,7 @@ namespace Cpp2IL
                 Directory.CreateDirectory(outputPath);
 
             var methodOutputDir = Path.Combine(outputPath, "types");
-            if (!(CommandLineOptions.SkipAnalysis && CommandLineOptions.SkipMetadataTextFiles) && !Directory.Exists(methodOutputDir))
+            if ((runtimeArgs.EnableAnalysis || runtimeArgs.EnableMetadataGeneration) && !Directory.Exists(methodOutputDir))
                 Directory.CreateDirectory(methodOutputDir);
 
             for (var imageIndex = 0; imageIndex < LibCpp2IlMain.TheMetadata.imageDefinitions.Length; imageIndex++)
@@ -254,14 +87,13 @@ namespace Cpp2IL
                 Console.WriteLine($"\t\tPopulating {imageDef.typeCount} types in assembly {imageIndex + 1} of {LibCpp2IlMain.TheMetadata.imageDefinitions.Length}: {imageDef.Name}...");
 
                 var assemblySpecificPath = Path.Combine(methodOutputDir, imageDef.Name.Replace(".dll", ""));
-                if (!(CommandLineOptions.SkipMetadataTextFiles && CommandLineOptions.SkipAnalysis) && !Directory.Exists(assemblySpecificPath))
+                if ((runtimeArgs.EnableMetadataGeneration || runtimeArgs.EnableAnalysis) && !Directory.Exists(assemblySpecificPath))
                     Directory.CreateDirectory(assemblySpecificPath);
 
-                methods.AddRange(AssemblyBuilder.ProcessAssemblyTypes(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe, imageDef));
+                methods.AddRange(AssemblyPopulator.ProcessAssemblyTypes(LibCpp2IlMain.TheMetadata, LibCpp2IlMain.ThePe, imageDef));
             }
 
             //Invert dicts
-            SharedState.UnmanagedToManagedTypes = SharedState.ManagedToUnmanagedTypes.ToDictionary(i => i.Value, i => i.Key);
             SharedState.ManagedToUnmanagedMethods = SharedState.UnmanagedToManagedMethods.ToDictionary(i => i.Value, i => i.Key);
 
             Console.WriteLine("\tPass 4: Applying type, method, and field attributes...");
@@ -310,7 +142,7 @@ namespace Cpp2IL
             #endregion
 
             KeyFunctionAddresses keyFunctionAddresses = null;
-            if (!CommandLineOptions.SkipAnalysis)
+            if (runtimeArgs.EnableAnalysis)
             {
                 Console.WriteLine("\tPass 5: Locating Globals...");
 
@@ -355,7 +187,7 @@ namespace Cpp2IL
 
             SaveHeaderDLLs(outputPath);
 
-            if (!CommandLineOptions.SkipAnalysis)
+            if (runtimeArgs.EnableAnalysis)
             {
 
                 GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;

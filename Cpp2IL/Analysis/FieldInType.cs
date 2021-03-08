@@ -12,6 +12,7 @@ namespace Cpp2IL.Analysis
         public bool Static;
         public object? Constant;
         public TypeDefinition DeclaringType;
+        public FieldDefinition Definition;
 
 
         public int CompareTo(FieldInType other)
@@ -19,10 +20,6 @@ namespace Cpp2IL.Analysis
             return Offset.CompareTo(other.Offset);
         }
 
-        public FieldDefinition? ResolveToFieldDef()
-        {
-            var name = Name;
-            return DeclaringType.Fields.FirstOrDefault(f => f.Name == name);
-        }
+        public FieldDefinition ResolveToFieldDef() => Definition;
     }
 }

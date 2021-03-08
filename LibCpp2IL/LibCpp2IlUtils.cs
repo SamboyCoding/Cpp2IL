@@ -241,9 +241,10 @@ namespace LibCpp2IL
             };
         }
 
-        public static Il2CppTypeReflectionData? GetTypeReflectionData(Il2CppType forWhat)
+        public static Il2CppTypeReflectionData GetTypeReflectionData(Il2CppType forWhat)
         {
-            if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null) return null;
+            if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null)
+                throw new Exception("Can't get type reflection data when not initialized. How did you even get the type?");
 
             switch (forWhat.type)
             {
@@ -378,8 +379,7 @@ namespace LibCpp2IL
                 }
             }
 
-            Console.WriteLine($"Unknown type {forWhat.type}");
-            return null;
+            throw new ArgumentException($"Unknown type {forWhat.type}");
         }
 
         public static int VersionAwareSizeOf(Type type)

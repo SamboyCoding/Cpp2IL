@@ -147,8 +147,11 @@ namespace Cpp2IL
             return def == Int32Reference || def == Int64Reference || def == SingleReference || def == DoubleReference || def == UInt32Reference;
         }
 
-        public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport, PE theDll, Il2CppMetadata metadata)
+        public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport)
         {
+            var theDll = LibCpp2IlMain.ThePe!;
+            var metadata = LibCpp2IlMain.TheMetadata!;
+            
             var moduleDefinition = importInto.Module;
             switch (toImport.type)
             {
@@ -199,7 +202,7 @@ namespace Cpp2IL
                 {
                     var arrayType = theDll.ReadClassAtVirtualAddress<Il2CppArrayType>(toImport.data.array);
                     var oriType = theDll.GetIl2CppTypeFromPointer(arrayType.etype);
-                    return new ArrayType(ImportTypeInto(importInto, oriType, theDll, metadata), arrayType.rank);
+                    return new ArrayType(ImportTypeInto(importInto, oriType), arrayType.rank);
                 }
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
@@ -216,7 +219,7 @@ namespace Cpp2IL
                         //V27 - type indexes are pointers now. 
                         var type = theDll.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
                         type.Init();
-                        typeDefinition = ImportTypeInto(importInto, type, theDll, metadata).Resolve();
+                        typeDefinition = ImportTypeInto(importInto, type).Resolve();
                     }
 
                     var genericInstanceType = new GenericInstanceType(moduleDefinition.ImportReference(typeDefinition));
@@ -226,8 +229,7 @@ namespace Cpp2IL
                     foreach (var pointer in pointers)
                     {
                         var oriType = theDll.GetIl2CppTypeFromPointer(pointer);
-                        genericInstanceType.GenericArguments.Add(ImportTypeInto(importInto, oriType, theDll,
-                            metadata));
+                        genericInstanceType.GenericArguments.Add(ImportTypeInto(importInto, oriType));
                     }
 
                     return genericInstanceType;
@@ -236,7 +238,7 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
                 {
                     var oriType = theDll.GetIl2CppTypeFromPointer(toImport.data.type);
-                    return new ArrayType(ImportTypeInto(importInto, oriType, theDll, metadata));
+                    return new ArrayType(ImportTypeInto(importInto, oriType));
                 }
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
@@ -286,7 +288,7 @@ namespace Cpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
                 {
                     var oriType = theDll.GetIl2CppTypeFromPointer(toImport.data.type);
-                    return new PointerType(ImportTypeInto(importInto, oriType, theDll, metadata));
+                    return new PointerType(ImportTypeInto(importInto, oriType));
                 }
 
                 default:
@@ -970,25 +972,6 @@ namespace Cpp2IL
             }
 
             return gim;
-        }
-
-        public static byte[] GetFieldRVA(FieldDefinition fieldDefinition, int length)
-        {
-            var fieldDef = SharedState.ManagedToUnmanagedFields[fieldDefinition];
-            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(fieldDef.FieldIndex);
-            
-            var metadata = LibCpp2IlMain.TheMetadata!;
-            
-            var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
-            var results = new byte[length];
-            
-            if (pointer <= 0) return results;
-
-            metadata.Position = pointer;
-
-            metadata.Read(results, 0, length);
-
-            return results;
         }
 
         public static long[] ReadArrayInitializerForFieldDefinition(FieldDefinition fieldDefinition, AllocatedArray allocatedArray)

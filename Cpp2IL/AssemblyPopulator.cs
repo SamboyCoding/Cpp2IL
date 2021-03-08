@@ -1,8 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using Cpp2IL.Analysis;
 using LibCpp2IL;
@@ -21,127 +19,26 @@ using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace Cpp2IL
 {
-    internal static class AssemblyBuilder
+    internal static class AssemblyPopulator
     {
-        /// <summary>
-        /// Creates all the Assemblies defined in the provided metadata, along with (stub) definitions of all the types contained therein, and registers them with the resolver.
-        /// </summary>
-        /// <param name="metadata">The Il2Cpp metadata to extract assemblies from</param>
-        /// <param name="resolver">The Assembly Resolver that assemblies are registered with, used to ensure assemblies can cross reference.</param>
-        /// <param name="moduleParams">Configuration for the module creation.</param>
-        /// <returns>A list of Mono.Cecil Assemblies, containing empty type definitions for each defined type.</returns>
-        internal static List<AssemblyDefinition> CreateAssemblies(Il2CppMetadata metadata, RegistryAssemblyResolver resolver, ModuleParameters moduleParams)
+        private const string InjectedNamespaceName = "Cpp2IlInjected";
+        private static readonly Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)> _attributesByModule = new Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)>();
+
+        internal static bool EmitMetadataFiles;
+
+        public static void ConfigureHierarchy()
         {
-            var assemblies = new List<AssemblyDefinition>();
-
-            foreach (var assemblyDefinition in metadata.imageDefinitions)
+            foreach (var typeDefinition in SharedState.AllTypeDefinitions)
             {
-                //Get the name of the assembly (= the name of the DLL without the file extension)
-                var assemblyNameString = metadata.GetStringFromIndex(assemblyDefinition.nameIndex).Replace(".dll", "");
+                var il2cppTypeDef = SharedState.ManagedToUnmanagedTypes[typeDefinition];
 
-                //Build a Mono.Cecil assembly name from this name
-                var asmName = new AssemblyNameDefinition(assemblyNameString, new Version("0.0.0.0"));
-                Console.Write($"\t\t{assemblyNameString}...");
+                //Set base type
+                if (il2cppTypeDef.RawBaseType is { } parent)
+                    typeDefinition.BaseType = Utils.ImportTypeInto(typeDefinition, parent);
 
-                //Create an empty assembly and register it
-                var assembly = AssemblyDefinition.CreateAssembly(asmName, metadata.GetStringFromIndex(assemblyDefinition.nameIndex), moduleParams);
-                resolver.Register(assembly);
-                assemblies.Add(assembly);
-
-                //Ensure it really _is_ empty
-                var mainModule = assembly.MainModule;
-                mainModule.Types.Clear();
-
-                //Find the end index of the types belonging to this assembly (as they're all in one huge list in the metadata)
-                var end = assemblyDefinition.firstTypeIndex + assemblyDefinition.typeCount;
-
-                for (var defNumber = assemblyDefinition.firstTypeIndex; defNumber < end; defNumber++)
-                {
-                    //Get the metadata type info, its namespace, and name.
-                    var type = metadata.typeDefs[defNumber];
-                    var ns = metadata.GetStringFromIndex(type.namespaceIndex);
-                    var name = metadata.GetStringFromIndex(type.nameIndex);
-
-                    TypeDefinition? definition = null;
-                    if (type.declaringTypeIndex != -1)
-                    {
-                        //This is a type declared within another (inner class/type)
-                        
-                        //Have we already declared this type due to handling its parent?
-                        SharedState.TypeDefsByIndex.TryGetValue(defNumber, out definition);
-                    }
-                    
-                    if(definition == null)
-                    {
-                        //This is a new type (including nested type with parent not defined yet) so ensure it's registered
-                        definition = new TypeDefinition(ns, name, (TypeAttributes) type.flags);
-                        if (ns == "System" && name == "String")
-                        {
-                            typeof(TypeReference).GetField("etype", BindingFlags.NonPublic | BindingFlags.Instance).SetValue(definition, (byte) 0x0e); //mark as string
-                        }
-
-                        mainModule.Types.Add(definition);
-                        SharedState.AllTypeDefinitions.Add(definition);
-                        SharedState.TypeDefsByIndex.Add(defNumber, definition);
-                    }
-
-                    //Ensure we include all inner types within this type.
-                    for (var nestedNumber = 0; nestedNumber < type.nested_type_count; nestedNumber++)
-                    {
-                        //These are stored in a separate field in the metadata.
-                        var nestedIndex = metadata.nestedTypeIndices[type.nestedTypesStart + nestedNumber];
-                        var nested = metadata.typeDefs[nestedIndex];
-
-                        
-                        if (SharedState.TypeDefsByIndex.TryGetValue(nestedIndex, out var alreadyMadeNestedType))
-                        {
-                            //Type has already been defined (can be out-of-order in v27+) so we just add it.
-                            definition.NestedTypes.Add(alreadyMadeNestedType);
-                        }
-                        else
-                        {
-                            //Create it and register.
-                            var nestedDef = new TypeDefinition(metadata.GetStringFromIndex(nested.namespaceIndex),
-                                metadata.GetStringFromIndex(nested.nameIndex), (TypeAttributes) nested.flags);
-
-                            definition.NestedTypes.Add(nestedDef);
-                            SharedState.AllTypeDefinitions.Add(nestedDef);
-                            SharedState.TypeDefsByIndex.Add(nestedIndex, nestedDef);
-                        }
-                    }
-                }
-
-                Console.WriteLine("OK");
-            }
-
-            return assemblies;
-        }
-
-        public static void ConfigureHierarchy(Il2CppMetadata metadata, PE theDll)
-        {
-            //Iterate through all types defined in the metadata
-            for (var typeIndex = 0; typeIndex < metadata.typeDefs.Length; typeIndex++)
-            {
-                var type = metadata.typeDefs[typeIndex];
-                var definition = SharedState.TypeDefsByIndex[typeIndex];
-
-                //Resolve this type's base class and import if required.
-                if (type.parentIndex >= 0)
-                {
-                    var parent = theDll.types[type.parentIndex];
-                    var parentRef = Utils.ImportTypeInto(definition, parent, theDll, metadata);
-                    definition.BaseType = parentRef;
-                }
-
-                //Resolve this type's interfaces and import each if required.
-                for (var i = 0; i < type.interfaces_count; i++)
-                {
-                    var interfaceType = theDll.types[metadata.interfaceIndices[type.interfacesStart + i]];
-                    var interfaceTypeRef = Utils.ImportTypeInto(definition, interfaceType, theDll, metadata);
-                    definition.Interfaces.Add(new InterfaceImplementation(interfaceTypeRef));
-                }
-
-                SharedState.TypeDefsByIndex[typeIndex] = definition;
+                //Set interfaces
+                foreach (var interfaceType in il2cppTypeDef.RawInterfaces)
+                    typeDefinition.Interfaces.Add(new InterfaceImplementation(Utils.ImportTypeInto(typeDefinition, interfaceType)));
             }
         }
 
@@ -162,43 +59,27 @@ namespace Cpp2IL
             typeDefinition.Methods.Add(defaultConstructor);
         }
 
+        private static void InjectAttribute(string name, TypeReference stringRef, TypeReference attributeRef, AssemblyDefinition assembly, params string[] fields)
+        {
+            var attribute = new TypeDefinition(InjectedNamespaceName, name, (TypeAttributes) 0x100001, attributeRef);
+
+            foreach (var field in fields)
+                attribute.Fields.Add(new FieldDefinition(field, FieldAttributes.Public, stringRef));
+
+            assembly.MainModule.Types.Add(attribute);
+            CreateDefaultConstructor(attribute);
+        }
+
         private static void InjectCustomAttributes(AssemblyDefinition imageDef)
         {
-            //From il2cppdumper. Credit perfare
-            var namespaceName = "Cpp2IlInjected";
+            var stringTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
+            var attributeTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute"));
 
-            var stringTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefByName("System.String").Item1);
-            var attributeTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefByName("System.Attribute").Item1);
-
-            var addressAttribute = new TypeDefinition(namespaceName, "AddressAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
-            addressAttribute.Fields.Add(new FieldDefinition("RVA", FieldAttributes.Public, stringTypeReference));
-            addressAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
-            addressAttribute.Fields.Add(new FieldDefinition("VA", FieldAttributes.Public, stringTypeReference));
-            addressAttribute.Fields.Add(new FieldDefinition("Slot", FieldAttributes.Public, stringTypeReference));
-            imageDef.MainModule.Types.Add(addressAttribute);
-            CreateDefaultConstructor(addressAttribute);
-
-            var fieldOffsetAttribute = new TypeDefinition(namespaceName, "FieldOffsetAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
-            fieldOffsetAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
-            imageDef.MainModule.Types.Add(fieldOffsetAttribute);
-            CreateDefaultConstructor(fieldOffsetAttribute);
-
-            var attributeAttribute = new TypeDefinition(namespaceName, "AttributeAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
-            attributeAttribute.Fields.Add(new FieldDefinition("Name", FieldAttributes.Public, stringTypeReference));
-            attributeAttribute.Fields.Add(new FieldDefinition("RVA", FieldAttributes.Public, stringTypeReference));
-            attributeAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
-            imageDef.MainModule.Types.Add(attributeAttribute);
-            CreateDefaultConstructor(attributeAttribute);
-
-            var metadataOffsetAttribute = new TypeDefinition(namespaceName, "MetadataOffsetAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
-            metadataOffsetAttribute.Fields.Add(new FieldDefinition("Offset", FieldAttributes.Public, stringTypeReference));
-            imageDef.MainModule.Types.Add(metadataOffsetAttribute);
-            CreateDefaultConstructor(metadataOffsetAttribute);
-
-            var tokenAttribute = new TypeDefinition(namespaceName, "TokenAttribute", (TypeAttributes) 0x100001, attributeTypeReference);
-            tokenAttribute.Fields.Add(new FieldDefinition("Token", FieldAttributes.Public, stringTypeReference));
-            imageDef.MainModule.Types.Add(tokenAttribute);
-            CreateDefaultConstructor(tokenAttribute);
+            InjectAttribute("AddressAttribute", stringTypeReference, attributeTypeReference, imageDef, "RVA", "Offset", "VA", "Slot");
+            InjectAttribute("FieldOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
+            InjectAttribute("AttributeAttribute", stringTypeReference, attributeTypeReference, imageDef, "Name", "RVA", "Offset");
+            InjectAttribute("MetadataOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
+            InjectAttribute("TokenAttribute", stringTypeReference, attributeTypeReference, imageDef, "Token");
         }
 
         public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE theDll, Il2CppImageDefinition imageDef)
@@ -209,51 +90,22 @@ namespace Cpp2IL
             InjectCustomAttributes(currentAssembly);
 
             //Ensure type directory exists
-            if (!Program.CommandLineOptions.SkipMetadataTextFiles && !Program.CommandLineOptions.SkipAnalysis)
+            if (EmitMetadataFiles)
                 Directory.CreateDirectory(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", currentAssembly.Name.Name));
 
-            var lastTypeIndex = imageDef.firstTypeIndex + imageDef.typeCount;
-            var methods = new List<(TypeDefinition type, List<CppMethodData> methods)>();
-            for (var index = imageDef.firstTypeIndex; index < lastTypeIndex; index++)
-            {
-                var typeDef = metadata.typeDefs[index];
-                var typeDefinition = SharedState.TypeDefsByIndex[index];
-                SharedState.ManagedToUnmanagedTypes[typeDefinition] = typeDef;
-
-                methods.Add((type: typeDefinition, methods: ProcessTypeContents(metadata, theDll, typeDef, typeDefinition, imageDef)));
-            }
-
-            return methods;
+            return (from il2CppTypeDefinition in imageDef.Types!
+                    let type = SharedState.UnmanagedToManagedTypes[il2CppTypeDefinition]
+                    let methods = ProcessTypeContents(metadata, theDll, il2CppTypeDefinition, type, imageDef)
+                    select (type, methods))
+                .ToList();
         }
-
-        private static Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)> _attributesByModule = new Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)>();
 
         private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppImageDefinition imageDef)
         {
             var typeMetaText = new StringBuilder();
 
-            if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
-            {
-                typeMetaText.Append($"Type: {ilTypeDefinition.FullName}:")
-                    .Append($"\n\tBase Class: \n\t\t{ilTypeDefinition.BaseType}\n")
-                    .Append("\n\tInterfaces:\n");
-
-                foreach (var iface in ilTypeDefinition.Interfaces)
-                {
-                    typeMetaText.Append($"\t\t{iface.InterfaceType.FullName}\n");
-                }
-
-                if (ilTypeDefinition.NestedTypes.Count > 0)
-                {
-                    typeMetaText.Append("\n\tNested Types:\n");
-
-                    foreach (var nestedType in ilTypeDefinition.NestedTypes)
-                    {
-                        typeMetaText.Append($"\t\t{nestedType.FullName}\n");
-                    }
-                }
-            }
-
+            if (EmitMetadataFiles)
+                typeMetaText.Append(GetBasicTypeMetadataString(ilTypeDefinition));
 
             MethodDefinition addressAttribute;
             MethodDefinition fieldOffsetAttribute;
@@ -271,7 +123,7 @@ namespace Cpp2IL
                 (addressAttribute, fieldOffsetAttribute, tokenAttribute) = _attributesByModule[ilTypeDefinition.Module];
             }
 
-            var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefByName("System.String").Item1);
+            var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
 
             //Token attribute
             var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
@@ -279,67 +131,10 @@ namespace Cpp2IL
             ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
 
             //field
-            var fields = new List<FieldInType>();
-
-            var lastFieldIdx = cppTypeDefinition.firstFieldIdx + cppTypeDefinition.field_count;
-            for (var fieldIdx = cppTypeDefinition.firstFieldIdx; fieldIdx < lastFieldIdx; ++fieldIdx)
-            {
-                var fieldDef = metadata.fieldDefs[fieldIdx];
-                var fieldType = cppAssembly.types[fieldDef.typeIndex];
-                var fieldName = metadata.GetStringFromIndex(fieldDef.nameIndex);
-                var fieldTypeRef = Utils.ImportTypeInto(ilTypeDefinition, fieldType, cppAssembly, metadata);
-
-                var fieldDefinition = new FieldDefinition(fieldName, (FieldAttributes) fieldType.attrs, fieldTypeRef);
-
-                ilTypeDefinition.Fields.Add(fieldDefinition);
-
-                SharedState.UnmanagedToManagedFields[fieldDef] = fieldDefinition;
-                SharedState.ManagedToUnmanagedFields[fieldDefinition] = fieldDef;
-
-                //Field default values
-                if (fieldDefinition.HasDefault)
-                {
-                    var fieldDefault = metadata.GetFieldDefaultValueFromIndex(fieldIdx);
-                    if (fieldDefault?.dataIndex > 0)
-                    {
-                        fieldDefinition.Constant = LibCpp2ILUtils.GetDefaultValue(fieldDefault.dataIndex,
-                            fieldDefault.typeIndex);
-                    }
-                }
-
-                if ((fieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
-                {
-                    if (fieldTypeRef.Name.StartsWith("__StaticArrayInitTypeSize="))
-                    {
-                        var length = int.Parse(fieldTypeRef.Name.Replace("__StaticArrayInitTypeSize=", ""));
-                        fieldDefinition.InitialValue = Utils.GetFieldRVA(fieldDefinition, length); 
-                    }
-                }
-                
-                
-                var thisFieldOffset = cppAssembly.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, fieldIdx - cppTypeDefinition.firstFieldIdx, fieldIdx, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
-                HandleField(fieldTypeRef, thisFieldOffset, fieldName, fieldDefinition, ref fields, typeMetaText);
-
-                if (!fieldDefinition.IsStatic)
-                {
-                    //Add [FieldOffset(Offset = "0xDEADBEEF")]
-                    var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
-                    fieldOffsetAttributeInst.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fields.Last().Offset:X}")));
-                    fieldDefinition.CustomAttributes.Add(fieldOffsetAttributeInst);
-                }
-
-                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{fieldDef.token:X}")));
-                fieldDefinition.CustomAttributes.Add(customTokenAttribute);
-
-                // var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(metadataOffsetAttribute));
-                // var offset = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fieldOffset:X}"));
-                // customAttribute.Fields.Add(offset);
-                // fieldDefinition.CustomAttributes.Add(customAttribute);
-            }
-
-            fields.Sort(); //By offset
-            SharedState.FieldsByType[ilTypeDefinition] = fields;
+            var fields = ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
+            
+            if(EmitMetadataFiles)
+                fields.ForEach(f => typeMetaText.Append(GetFieldMetadataString(f)));
 
             //Methods
             var lastMethodId = cppTypeDefinition.firstMethodIdx + cppTypeDefinition.method_count;
@@ -356,13 +151,13 @@ namespace Cpp2IL
                 SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
 
 
-                var offsetInRam = LibCpp2IlMain.MetadataVersion >= 27 
-                    ? methodDef.MethodPointer 
+                var offsetInRam = LibCpp2IlMain.MetadataVersion >= 27
+                    ? methodDef.MethodPointer
                     : cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token); //This method is significantly faster.
 
 
                 var offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
-                if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+                if (EmitMetadataFiles)
                     typeMetaText.Append($"\n\tMethod: {methodName}:\n")
                         .Append($"\t\tFile Offset 0x{offsetInFile:X8}\n")
                         .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n")
@@ -378,12 +173,13 @@ namespace Cpp2IL
                         bytes.Add(b);
                         break;
                     }
+
                     if (b == 0xCC && bytes.Count > 0 && bytes.Last() == 0xc3) break;
                     bytes.Add(b);
                     offset++;
                 }
 
-                if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+                if (EmitMetadataFiles)
                     typeMetaText.Append($"\t\tMethod Length: {bytes.Count} bytes\n");
 
                 typeMethods.Add(new CppMethodData
@@ -396,7 +192,7 @@ namespace Cpp2IL
 
 
                 ilTypeDefinition.Methods.Add(methodDefinition);
-                methodDefinition.ReturnType = Utils.ImportTypeInto(methodDefinition, methodReturnType, cppAssembly, metadata);
+                methodDefinition.ReturnType = Utils.ImportTypeInto(methodDefinition, methodReturnType);
 
                 customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{methodDef.token:X}")));
@@ -429,20 +225,17 @@ namespace Cpp2IL
                 //Method Params
                 for (var paramIdx = 0; paramIdx < methodDef.parameterCount; ++paramIdx)
                 {
-                    //TODO Can we investigate this code to make it so that the generic parameters are correctly resolved?
-                    //TODO E.g. Class<T1, T2>..ctor(T1, T2) doesn't have the method having generic params, and doesn't link the T1, T2 to the class.
-                    
                     var parameterDef = metadata.parameterDefs[methodDef.parameterStart + paramIdx];
                     var parameterName = metadata.GetStringFromIndex(parameterDef.nameIndex);
                     var parameterType = cppAssembly.types[parameterDef.typeIndex];
-                    var parameterTypeRef = Utils.ImportTypeInto(methodDefinition, parameterType, cppAssembly, metadata);
-                    
+                    var parameterTypeRef = Utils.ImportTypeInto(methodDefinition, parameterType);
+
                     ParameterDefinition parameterDefinition;
                     if (parameterTypeRef is GenericParameter genericParameter)
                         parameterDefinition = new ParameterDefinition(genericParameter);
                     else
                         parameterDefinition = new ParameterDefinition(parameterName, (ParameterAttributes) parameterType.attrs, parameterTypeRef);
-                    
+
                     methodDefinition.Parameters.Add(parameterDefinition);
                     //Default values for params
                     if (parameterDefinition.HasDefault)
@@ -455,7 +248,7 @@ namespace Cpp2IL
                     }
 
 
-                    if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+                    if (EmitMetadataFiles)
                         typeMetaText.Append($"\n\t\tParameter {paramIdx}:\n")
                             .Append($"\t\t\tName: {parameterName}\n")
                             .Append($"\t\t\tType: {(parameterTypeRef.Namespace == "" ? "<None>" : parameterTypeRef.Namespace)}.{parameterTypeRef.Name}\n")
@@ -463,12 +256,10 @@ namespace Cpp2IL
                 }
 
 
-                
-                
-                var methodPointer = LibCpp2IlMain.MetadataVersion >= 27 
-                    ? methodDef.MethodPointer 
+                var methodPointer = LibCpp2IlMain.MetadataVersion >= 27
+                    ? methodDef.MethodPointer
                     : cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token); //This method is significantly faster.
-                
+
                 //Address attribute
                 if (methodPointer > 0)
                 {
@@ -567,7 +358,7 @@ namespace Cpp2IL
                 var eventDef = metadata.eventDefs[eventId];
                 var eventName = metadata.GetStringFromIndex(eventDef.nameIndex);
                 var eventType = cppAssembly.types[eventDef.typeIndex];
-                var eventTypeRef = Utils.ImportTypeInto(ilTypeDefinition, eventType, cppAssembly, metadata);
+                var eventTypeRef = Utils.ImportTypeInto(ilTypeDefinition, eventType);
                 var eventDefinition = new EventDefinition(eventName, (EventAttributes) eventType.attrs, eventTypeRef);
                 if (eventDef.add >= 0)
                     eventDefinition.AddMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.add];
@@ -583,7 +374,7 @@ namespace Cpp2IL
                 ilTypeDefinition.Events.Add(eventDefinition);
             }
 
-            if (!Program.CommandLineOptions.SkipMetadataTextFiles)
+            if (EmitMetadataFiles)
                 File.WriteAllText(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"), typeMetaText.ToString());
 
             if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
@@ -612,7 +403,57 @@ namespace Cpp2IL
             return typeMethods;
         }
 
-        private static void HandleField(TypeReference fieldTypeRef, int fieldOffset, string fieldName, FieldDefinition fieldDefinition, ref List<FieldInType> fields, StringBuilder typeMetaText)
+        private static List<FieldInType> ProcessFieldsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, TypeReference stringType, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute)
+        {
+            var fields = new List<FieldInType>();
+
+            var counter = -1;
+            foreach (var fieldDef in cppTypeDefinition.Fields!)
+            {
+                counter++;
+                var fieldTypeRef = Utils.ImportTypeInto(ilTypeDefinition, fieldDef.RawFieldType!);
+
+                var fieldDefinition = new FieldDefinition(fieldDef.Name, (FieldAttributes) fieldDef.RawFieldType.attrs, fieldTypeRef);
+
+                ilTypeDefinition.Fields.Add(fieldDefinition);
+
+                SharedState.UnmanagedToManagedFields[fieldDef] = fieldDefinition;
+                SharedState.ManagedToUnmanagedFields[fieldDefinition] = fieldDef;
+
+                //Field default values
+                if (fieldDefinition.HasDefault)
+                {
+                    fieldDefinition.Constant = fieldDef.DefaultValue?.Value;
+                }
+
+                if ((fieldDef.RawFieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
+                {
+                    fieldDefinition.InitialValue = fieldDef.StaticArrayInitialValue;
+                }
+
+                var thisFieldOffset = LibCpp2IlMain.ThePe!.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, counter, fieldDef.FieldIndex, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
+                fields.Add(GetFieldInType(fieldTypeRef, thisFieldOffset, fieldDef.Name!, fieldDefinition));
+
+                if (!fieldDefinition.IsStatic)
+                {
+                    //Add [FieldOffset(Offset = "0xDEADBEEF")]
+                    var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
+                    fieldOffsetAttributeInst.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{fields.Last().Offset:X}")));
+                    fieldDefinition.CustomAttributes.Add(fieldOffsetAttributeInst);
+                }
+
+                var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{fieldDef.token:X}")));
+                fieldDefinition.CustomAttributes.Add(customTokenAttribute);
+            }
+
+            fields.Sort(); //By offset
+            SharedState.FieldsByType[ilTypeDefinition] = fields;
+
+            return fields;
+        }
+
+        private static FieldInType GetFieldInType(TypeReference fieldTypeRef, int fieldOffset, string fieldName, FieldDefinition fieldDefinition)
         {
             //ONE correction. String#start_char is remapped to a char[] not a char because the block allocated for all chars is directly sequential to the length of the string, because that's how c++ works.
             if (fieldDefinition.DeclaringType.FullName == "System.String" && fieldTypeRef.FullName == "System.Char")
@@ -625,23 +466,53 @@ namespace Cpp2IL
                 Offset = (ulong) fieldOffset,
                 Static = fieldDefinition.IsStatic,
                 Constant = fieldDefinition.Constant,
-                DeclaringType = fieldDefinition.DeclaringType
+                DeclaringType = fieldDefinition.DeclaringType,
+                Definition = fieldDefinition,
             };
 
-            fields.Add(field);
+            return field;
+        }
 
-            if (!Program.CommandLineOptions!.SkipMetadataTextFiles)
+        private static StringBuilder GetBasicTypeMetadataString(TypeDefinition ilTypeDefinition)
+        {
+            StringBuilder ret = new StringBuilder();
+            ret.Append($"Type: {ilTypeDefinition.FullName}:")
+                .Append($"\n\tBase Class: \n\t\t{ilTypeDefinition.BaseType}\n")
+                .Append("\n\tInterfaces:\n");
+
+            foreach (var implementation in ilTypeDefinition.Interfaces)
             {
-                typeMetaText.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
-                    .Append($"\t\tType: {field.FieldType.FullName}\n")
-                    .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n")
-                    .Append($"\t\tHas Default: {fieldDefinition.HasDefault}\n");
-
-                if (field.Constant is char c && char.IsSurrogate(c)) return;
-                
-                if (field.Constant != null)
-                    typeMetaText.Append($"\t\tDefault Value: {field.Constant}\n");
+                ret.Append($"\t\t{implementation.InterfaceType.FullName}\n");
             }
+
+            if (ilTypeDefinition.NestedTypes.Count > 0)
+            {
+                ret.Append("\n\tNested Types:\n");
+
+                foreach (var nestedType in ilTypeDefinition.NestedTypes)
+                {
+                    ret.Append($"\t\t{nestedType.FullName}\n");
+                }
+            }
+
+            return ret;
+        }
+
+        private static StringBuilder GetFieldMetadataString(FieldInType field)
+        {
+            var ret = new StringBuilder();
+            ret.Append($"\n\t{(field.Static ? "Static Field" : "Field")}: {field.Name}\n")
+                .Append($"\t\tType: {field.FieldType?.FullName}\n")
+                .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n")
+                .Append($"\t\tHas Default: {field.Definition.HasDefault}\n");
+
+            if (field.Constant is char c && char.IsSurrogate(c)) 
+                return ret;
+
+            if (field.Constant != null)
+                ret.Append($"\t\tDefault Value: {field.Constant}\n");
+            
+            return ret;
         }
     }
 }
