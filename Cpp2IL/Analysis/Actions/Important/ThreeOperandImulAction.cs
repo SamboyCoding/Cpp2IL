@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
+using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -21,18 +22,23 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             if(!string.IsNullOrEmpty(argOneReg))
                 _argOne = context.GetOperandInRegister(argOneReg);
-            else
+            else if(instruction.Op1Kind.IsImmediate())
             {
-                var type = instruction.Op0Register.IsGPR32() ? typeof(int) : typeof(long);
-                _argOne = context.MakeConstant(type, instruction.GetImmediate(1));
+                //Note to self - this can be a field/memory operand as well.
+                if (instruction.Op0Register.IsGPR32())
+                    _argOne = context.MakeConstant(typeof(uint), (uint) (instruction.GetImmediate(1) & 0xFFFFFFFF));
+                else
+                    _argOne = context.MakeConstant(typeof(ulong), instruction.GetImmediate(1));
             }
             
             if(!string.IsNullOrEmpty(argTwoReg))
                 _argTwo = context.GetOperandInRegister(argTwoReg);
-            else
+            else if(instruction.Op2Kind.IsImmediate())
             {
-                var type = instruction.Op0Register.IsGPR32() ? typeof(int) : typeof(long);
-                _argTwo = context.MakeConstant(type, instruction.GetImmediate(2));
+                if (instruction.Op0Register.IsGPR32())
+                    _argTwo = context.MakeConstant(typeof(uint), (uint) (instruction.GetImmediate(2) & 0xFFFFFFFF));
+                else
+                    _argTwo = context.MakeConstant(typeof(ulong), instruction.GetImmediate(2));
             }
             
             if(_argOne is LocalDefinition l1)

@@ -583,7 +583,7 @@ namespace Cpp2IL.Analysis
                 catch (Exception e)
                 {
                     typeDump.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
-                    Console.WriteLine(e);
+                    Console.WriteLine($"Exception generating IL for {_methodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
                     break;
                 }
             }
@@ -771,6 +771,11 @@ namespace Cpp2IL.Analysis
                     else if (CallExceptionThrowerFunction.IsExceptionThrower(jumpTarget))
                     {
                         Analysis.Actions.Add(new CallExceptionThrowerFunction(Analysis, instruction));
+                    }
+                    else if (LibCpp2IlMain.ThePe!.ConcreteGenericImplementationsByAddress.ContainsKey(jumpTarget))
+                    {
+                        //Call concrete generic function
+                        Analysis.Actions.Add(new CallManagedFunctionAction(Analysis, instruction));
                     }
                     else if (Analysis.GetLocalInReg("rcx") is {}
                              && Analysis.GetConstantInReg("rdx") is {Value: TypeDefinition _}
@@ -1004,6 +1009,11 @@ namespace Cpp2IL.Analysis
                     {
                         //RGCTX data read
                         Analysis.Actions.Add(new ReadRGCTXDataListAction(Analysis, instruction));
+                    } else if (Il2CppClassUsefulOffsets.IsElementTypePtr(offset1))
+                    {
+                        //Element Type Read
+                        //Valid for arrays at least, maybe others
+                        Analysis.Actions.Add(new ReadElementTypeFromClassPtrAction(Analysis, instruction));
                     }
                     else
                     {

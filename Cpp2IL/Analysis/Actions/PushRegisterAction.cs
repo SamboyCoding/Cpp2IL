@@ -13,11 +13,14 @@ namespace Cpp2IL.Analysis.Actions
         {
             regPushedFrom = Utils.GetRegisterNameNew(instruction.Op0Register);
             whatIsPushed = context.GetOperandInRegister(regPushedFrom);
-            
+
             if(whatIsPushed != null)
                 context.Stack.Push(whatIsPushed);
             else
                 context.PushEmptyStackFrames(1);
+
+            if (whatIsPushed is LocalDefinition l)
+                RegisterUsedLocal(l);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

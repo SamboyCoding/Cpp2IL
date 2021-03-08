@@ -21,6 +21,9 @@ namespace Cpp2IL.Analysis.Actions.Important
             TypeCreated = (TypeReference) constant.Value;
 
             LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
+            
+            //Keeping this as used implicitly because we have to create instances of things.
+            RegisterUsedLocal(LocalReturned);
 
             if (LibCpp2IlMain.ThePe.is32Bit)
                 context.Stack.Pop(); //Pop off the type created

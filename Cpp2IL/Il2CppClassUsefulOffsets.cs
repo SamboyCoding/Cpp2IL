@@ -18,6 +18,7 @@ namespace Cpp2IL
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {
             //32-bit offsets:
+            // new UsefulOffset("elementType", 0x40, typeof(IntPtr), true), //todo
             new UsefulOffset("cctor_finished", 0x74, typeof(uint), true),
             new UsefulOffset("flags1", 0xBB, typeof(byte), true),
             //new UsefulOffset("interface_offsets_count", 0x12A, typeof(ushort), true), //TODO
@@ -27,11 +28,12 @@ namespace Cpp2IL
             //new UsefulOffset("vtable", 0x138, typeof(IntPtr), true), //TODO
 
             //64-bit offsets:
-            new UsefulOffset("interface_offsets_count", 0x12A, typeof(ushort), false),
+            new UsefulOffset("elementType", 0x40, typeof(IntPtr), false),
             new UsefulOffset("interfaceOffsets", X86_64_INTERFACE_OFFSETS_OFFSET, typeof(IntPtr), false),
             new UsefulOffset("static_fields", 0xB8, typeof(IntPtr), false),
             new UsefulOffset("rgctx_data", 0xC0, typeof(IntPtr), false),
             new UsefulOffset("cctor_finished", 0xE0, typeof(uint), false),
+            new UsefulOffset("interface_offsets_count", 0x12A, typeof(ushort), false),
             new UsefulOffset("flags1", 0x132, typeof(byte), false),
             new UsefulOffset("flags2", 0x133, typeof(byte), false),
             new UsefulOffset("vtable", 0x138, typeof(IntPtr), false),
@@ -55,6 +57,11 @@ namespace Cpp2IL
         public static bool IsRGCTXDataPtr(uint offset)
         {
             return GetOffsetName(offset) == "rgctx_data";
+        }
+
+        public static bool IsElementTypePtr(uint offset)
+        {
+            return GetOffsetName(offset) == "elementType";
         }
 
         public static bool IsPointerIntoVtable(uint offset)

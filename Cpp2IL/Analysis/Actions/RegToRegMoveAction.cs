@@ -56,6 +56,9 @@ namespace Cpp2IL.Analysis.Actions
             if(!copyingValueNotLocal)
                 return Array.Empty<Mono.Cecil.Cil.Instruction>();
 
+            if (_localBeingOverwritten?.Variable == null)
+                throw new TaintedInstructionException($"Local being overwritten, {_localBeingOverwritten} has been stripped or is a parameter");
+
             return new[]
             {
                 context.GetILToLoad((LocalDefinition) beingMoved!, processor),

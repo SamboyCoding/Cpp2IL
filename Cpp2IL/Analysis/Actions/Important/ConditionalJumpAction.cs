@@ -26,6 +26,20 @@ namespace Cpp2IL.Analysis.Actions.Important
             }
 
             associatedCompare = (ComparisonAction) context.Actions.LastOrDefault(a => a is ComparisonAction);
+            
+            if(associatedCompare?.ArgumentOne is LocalDefinition l)
+                RegisterUsedLocal(l);
+            else if(associatedCompare?.ArgumentOne is ComparisonDirectFieldAccess a)
+                RegisterUsedLocal(a.localAccessedOn);
+            else if(associatedCompare?.ArgumentOne is ComparisonDirectPropertyAccess p)
+                RegisterUsedLocal(p.localAccessedOn);
+            
+            if(associatedCompare?.ArgumentTwo is LocalDefinition l2)
+                RegisterUsedLocal(l2);
+            else if(associatedCompare?.ArgumentTwo is ComparisonDirectFieldAccess a2)
+                RegisterUsedLocal(a2.localAccessedOn);
+            else if(associatedCompare?.ArgumentTwo is ComparisonDirectPropertyAccess p2)
+                RegisterUsedLocal(p2.localAccessedOn);
 
             if (context.IsThereProbablyAnElseAt(jumpTarget))
             {

@@ -21,14 +21,25 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             var is32BitInteger = instruction.Op0Register.IsGPR32();
 
+            if (is32BitInteger)
+                constantValue &= 0xFFFFFFFF;
+
             if (mayNotBeAConstant)
             {
                 //Let's be safe and make this a local
-                dest = context.MakeLocal(is32BitInteger ? Utils.Int32Reference : Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
+                if (is32BitInteger)
+                    dest = context.MakeLocal(Utils.UInt32Reference, reg: destReg, knownInitialValue: (uint) constantValue);
+                else
+                    dest = context.MakeLocal(Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
                 RegisterDefinedLocalWithoutSideEffects((LocalDefinition) dest);
             }
             else
-                dest = context.MakeConstant(is32BitInteger ? typeof(int) : typeof(ulong), constantValue, constantValue.ToString(), destReg);
+            {
+                if (is32BitInteger)
+                    dest = context.MakeConstant(typeof(uint), (uint) constantValue, constantValue.ToString(), destReg);
+                else
+                    dest = context.MakeConstant(typeof(ulong), constantValue, constantValue.ToString(), destReg);
+            }
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
@@ -44,14 +55,14 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string ToTextSummary()
         {
-            return $"[!] Writes the constant {constantValue} into operand {dest} in register {destReg}";
+            return $"[!] Writes the constant 0x{constantValue:X} into operand {dest} in register {destReg}";
         }
 
         public override bool IsImportant()
         {
             if (dest is ConstantDefinition constantDefinition && !constantDefinition.GetPseudocodeRepresentation().StartsWith("{"))
                 return false;
-            
+
             return true;
         }
     }

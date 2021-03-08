@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -40,6 +41,10 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             if (_destLocal == null || _arrayLocal == null || _index < 0)
                 throw new TaintedInstructionException();
+
+            if (_destLocal.Variable == null)
+                //Stripped out - couldn't find a usage for this local.
+                return Array.Empty<Mono.Cecil.Cil.Instruction>();
 
             var ret = new List<Mono.Cecil.Cil.Instruction>();
             

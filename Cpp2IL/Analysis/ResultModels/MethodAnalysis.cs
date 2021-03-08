@@ -86,7 +86,8 @@ namespace Cpp2IL.Analysis.ResultModels
             else if (!method.IsStatic)
             {
                 //32-bit, instance method
-                FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this"));
+                method.Body.ThisParameter.Name = "this";
+                FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this").WithParameter(method.Body.ThisParameter));
                 Stack.Push(FunctionArgumentLocals.First());
             }
 
@@ -96,7 +97,7 @@ namespace Cpp2IL.Analysis.ResultModels
             {
                 //Push remainder to stack
                 var arg = args.RemoveAndReturn(0);
-                var localDefinition = MakeLocal(arg.ParameterType.Resolve(), arg.Name);
+                var localDefinition = MakeLocal(arg.ParameterType.Resolve(), arg.Name).WithParameter(arg);
                 Stack.Push(localDefinition);
                 FunctionArgumentLocals.Add(localDefinition);
             }
@@ -402,8 +403,14 @@ namespace Cpp2IL.Analysis.ResultModels
         {
             if (FunctionArgumentLocals.Contains(localDefinition))
             {
+                if (localDefinition.ParameterDefinition == null)
+                    throw new TaintedInstructionException($"Local {localDefinition.Name} is a function parameter but is missing its parameter definition");
+                
                 return processor.Create(OpCodes.Ldarg, localDefinition.ParameterDefinition);
             }
+
+            if (localDefinition.Variable == null)
+                throw new TaintedInstructionException($"Local {localDefinition.Name} is a variable but it has been stripped out. Are you missing a call to RegisterUsedLocal?");
 
             return processor.Create(OpCodes.Ldloc, localDefinition.Variable);
         }

@@ -49,6 +49,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (arrayType == null) return;
 
             _localWritten = context.MakeLocal(arrayType, reg: "rax", knownInitialValue: new AllocatedArray(sizeAllocated, (ArrayType) arrayType));
+            RegisterUsedLocal(_localWritten); //Used implicitly until I can find out what's causing these issues
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

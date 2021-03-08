@@ -378,7 +378,7 @@ namespace Cpp2IL
                         bytes.Add(b);
                         break;
                     }
-                    if (b == 0xCC && bytes.Count > 0 && (bytes.Last() == 0xcc || bytes.Last() == 0xc3)) break;
+                    if (b == 0xCC && bytes.Count > 0 && bytes.Last() == 0xc3) break;
                     bytes.Add(b);
                     offset++;
                 }

@@ -22,5 +22,10 @@ namespace Cpp2IL.Analysis.ResultModels
 
             return ret.ToArray();
         }
+
+        public override string ToString()
+        {
+            return $"{{field {fieldAccessed.Name}, read from local {localAccessedOn}}}";
+        }
     }
 }

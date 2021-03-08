@@ -1,4 +1,5 @@
-﻿using Mono.Cecil;
+﻿using System;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Analysis.ResultModels
@@ -40,6 +41,34 @@ namespace Cpp2IL.Analysis.ResultModels
         public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor processor)
         {
             return new[] {context.GetILToLoad(this, processor)};
+        }
+
+        public override bool Equals(object? obj)
+        {
+            if (ReferenceEquals(null, obj)) return false;
+            if (ReferenceEquals(this, obj)) return true;
+            if (obj.GetType() != this.GetType()) return false;
+            return Equals((LocalDefinition) obj);
+        }
+
+        protected bool Equals(LocalDefinition other)
+        {
+            return Name == other.Name && Equals(Type, other.Type) && Equals(KnownInitialValue, other.KnownInitialValue) && IsMethodInfoParam == other.IsMethodInfoParam;
+        }
+
+        public override int GetHashCode()
+        {
+            return HashCode.Combine(Name, Type, KnownInitialValue, IsMethodInfoParam);
+        }
+
+        public static bool operator ==(LocalDefinition? left, LocalDefinition? right)
+        {
+            return Equals(left, right);
+        }
+
+        public static bool operator !=(LocalDefinition? left, LocalDefinition? right)
+        {
+            return !Equals(left, right);
         }
     }
 }

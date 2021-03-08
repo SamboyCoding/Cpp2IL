@@ -72,7 +72,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             }
 
             if (opKind.IsImmediate())
-                return context.MakeConstant(typeof(int), instruction.GetImmediate(operandIdx));
+                return context.MakeConstant(typeof(ulong), instruction.GetImmediate(operandIdx));
             
             if (opKind == OpKind.Memory && instruction.MemoryBase != Register.None && instruction.MemoryBase != Register.RIP)
             {

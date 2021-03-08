@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;
@@ -24,6 +25,8 @@ namespace Cpp2IL.Analysis.Actions.Important
             
             if(LocalRead != null)
                 RegisterUsedLocal(LocalRead);
+            
+            RegisterUsedLocal(_writtenOn);
 
             FieldWritten = FieldUtils.GetFieldBeingAccessed(_writtenOn.Type, destFieldOffset, false);
         }
@@ -35,6 +38,9 @@ namespace Cpp2IL.Analysis.Actions.Important
             FieldWritten = fieldWritten;
             _writtenOn = writtenOn;
             LocalRead = readFrom;
+            
+            RegisterUsedLocal(_writtenOn);
+            RegisterUsedLocal(LocalRead);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

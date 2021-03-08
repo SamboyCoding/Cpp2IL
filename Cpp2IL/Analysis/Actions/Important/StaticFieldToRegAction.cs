@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System;
+using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -30,7 +31,11 @@ namespace Cpp2IL.Analysis.Actions.Important
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             if (_theField == null || _localMade == null)
-                throw new TaintedInstructionException();
+                throw new TaintedInstructionException("Couldn't identify the field being read (or its type).");
+
+            if (_localMade.Variable == null)
+                //Stripped out - no use found for the dest local.
+                return Array.Empty<Mono.Cecil.Cil.Instruction>();
             
             return new[]
             {

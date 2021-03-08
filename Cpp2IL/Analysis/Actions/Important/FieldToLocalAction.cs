@@ -27,11 +27,13 @@ namespace Cpp2IL.Analysis.Actions.Important
             {
                 readFromType = result.castTo;
                 _readFrom = result.original;
+                RegisterUsedLocal(_readFrom);
             }
             else if(readFrom is LocalDefinition {IsMethodInfoParam: false} l && l.Type?.Resolve() != null)
             {
                 _readFrom = l;
                 readFromType = _readFrom!.Type!;
+                RegisterUsedLocal(_readFrom);
             } else
             {
                 AddComment($"This shouldn't be a field read? Op in reg {sourceRegName} is {context.GetOperandInRegister(sourceRegName)}, offset is {sourceFieldOffset} (0x{sourceFieldOffset:X})");

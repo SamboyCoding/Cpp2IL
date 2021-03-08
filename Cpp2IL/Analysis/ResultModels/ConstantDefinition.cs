@@ -20,7 +20,7 @@ namespace Cpp2IL.Analysis.ResultModels
 
             if (Type == typeof(int) || Type == typeof(ulong))
             {
-                var intValue = Convert.ToInt64(Value);
+                var intValue = Convert.ToUInt64(Value);
 
                 if (intValue > 1024)
                     return $"0x{intValue:X}";
@@ -63,6 +63,13 @@ namespace Cpp2IL.Analysis.ResultModels
 
             if (Type == typeof(int))
                 return new[] {ilProcessor.Create(OpCodes.Ldc_I4, Convert.ToInt32(Value))};
+            
+            if (Type == typeof(uint))
+                return new[]
+                {
+                    ilProcessor.Create(OpCodes.Ldc_I4, (int) Convert.ToUInt32(Value)),
+                    ilProcessor.Create(OpCodes.Conv_U4) //Convert to uint
+                };
 
             if (Type == typeof(ulong))
                 return new[]
