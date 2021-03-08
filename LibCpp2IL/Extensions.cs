@@ -42,5 +42,26 @@ namespace LibCpp2IL
             builder.Append("]");
             return builder.ToString();
         }
+        
+        public static TValue? GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key, TValue? defaultValue)
+        {
+            if (dictionary == null)
+            {
+                throw new ArgumentNullException(nameof(dictionary));
+            }
+
+            TValue value;
+            if (dictionary.TryGetValue(key, out value))
+                return value;
+            return defaultValue;
+        }
+        
+        public static TValue? GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key) => dictionary.GetValueOrDefault(key, default);
+
+        public static void Deconstruct<TKey, TValue>(this KeyValuePair<TKey, TValue> pair, out TKey one, out TValue two)
+        {
+            one = pair.Key;
+            two = pair.Value;
+        }
     }
 }
