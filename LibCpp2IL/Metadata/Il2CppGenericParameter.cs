@@ -8,5 +8,7 @@ namespace LibCpp2IL.Metadata
         public short constraintsCount;
         public ushort num;
         public ushort flags;
+
+        public string? Name => LibCpp2IlMain.TheMetadata?.GetStringFromIndex(nameIndex);
     }
 }

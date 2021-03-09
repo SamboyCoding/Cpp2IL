@@ -8,7 +8,7 @@ using TypeAttributes = Mono.Cecil.TypeAttributes;
 
 namespace Cpp2IL
 {
-    public class EmptyAssemblyBuilder
+    public class StubAssemblyBuilder
     {
         /// <summary>
         /// Creates all the Assemblies defined in the provided metadata, along with (stub) definitions of all the types contained therein.
@@ -16,15 +16,15 @@ namespace Cpp2IL
         /// <param name="metadata">The Il2Cpp metadata to extract assemblies from</param>
         /// <param name="moduleParams">Configuration for the module creation.</param>
         /// <returns>A list of Mono.Cecil Assemblies, containing empty type definitions for each defined type.</returns>
-        internal static List<AssemblyDefinition> GetEmptyAssemblies(Il2CppMetadata metadata, ModuleParameters moduleParams)
+        internal static List<AssemblyDefinition> BuildStubAssemblies(Il2CppMetadata metadata, ModuleParameters moduleParams)
         {
             return metadata.imageDefinitions
                 .AsParallel()
-                .Select(assemblyDefinition => GetEmptyAssembly(moduleParams, assemblyDefinition))
+                .Select(assemblyDefinition => BuildStubAssembly(moduleParams, assemblyDefinition))
                 .ToList();
         }
 
-        private static AssemblyDefinition GetEmptyAssembly(ModuleParameters moduleParams, Il2CppImageDefinition assemblyDefinition)
+        private static AssemblyDefinition BuildStubAssembly(ModuleParameters moduleParams, Il2CppImageDefinition assemblyDefinition)
         {
             //Get the name of the assembly (= the name of the DLL without the file extension)
             var assemblyNameString = assemblyDefinition.Name!.Replace(".dll", "");

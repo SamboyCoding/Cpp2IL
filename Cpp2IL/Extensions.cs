@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Text;
 using Iced.Intel;
+using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Collections.Generic;
 
@@ -90,6 +92,24 @@ namespace Cpp2IL
             builder.Append(string.Join(", ", enumerable));
             builder.Append("]");
             return builder.ToString();
+        }
+
+        [return: NotNullIfNotNull("unmanaged")]
+        public static MethodDefinition? AsManaged(this Il2CppMethodDefinition? unmanaged)
+        {
+            if (unmanaged == null)
+                return null;
+
+            return SharedState.UnmanagedToManagedMethods[unmanaged];
+        }
+        
+        [return: NotNullIfNotNull("managed")]
+        public static Il2CppMethodDefinition? AsUnmanaged(this MethodDefinition? managed)
+        {
+            if (managed == null)
+                return null;
+
+            return SharedState.ManagedToUnmanagedMethods[managed];
         }
     }
 }

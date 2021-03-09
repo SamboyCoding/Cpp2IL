@@ -1,3 +1,4 @@
+using System;
 using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 
@@ -37,13 +38,10 @@ namespace LibCpp2IL.Metadata
                 var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(FieldIndex);
 
                 var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
-                var results = new byte[length];
 
-                if (pointer <= 0) return results;
+                if (pointer <= 0) return Array.Empty<byte>();
 
-                LibCpp2IlMain.TheMetadata!.Position = pointer;
-
-                LibCpp2IlMain.TheMetadata!.Read(results, 0, length);
+                var results = LibCpp2IlMain.TheMetadata.ReadByteArray(pointer, length);
 
                 return results;
             }

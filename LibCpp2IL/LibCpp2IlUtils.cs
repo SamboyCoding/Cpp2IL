@@ -50,6 +50,7 @@ namespace LibCpp2IL
             {"Double", 8},
         };
 
+        public static InstructionList DisassembleBytesNew(bool is32Bit, List<byte> bytes, ulong methodBase) => DisassembleBytesNew(is32Bit, bytes.ToArray(), methodBase);
 
         public static InstructionList DisassembleBytesNew(bool is32Bit, byte[] bytes, ulong methodBase)
         {
@@ -195,36 +196,35 @@ namespace LibCpp2IL
             if (pointer <= 0) return null;
 
             var defaultValueType = theDll.types[typeIndex];
-            metadata.Position = pointer;
             switch (defaultValueType.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-                    return metadata.ReadBoolean();
+                    return metadata.ReadClass<bool>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-                    return metadata.ReadByte();
+                    return metadata.ReadClass<byte>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-                    return metadata.ReadSByte();
+                    return metadata.ReadClass<sbyte>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-                    return BitConverter.ToChar(metadata.ReadBytes(2), 0);
+                    return BitConverter.ToChar(metadata.ReadByteArray(pointer, 2), 0);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-                    return metadata.ReadUInt16();
+                    return metadata.ReadClass<ushort>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-                    return metadata.ReadInt16();
+                    return metadata.ReadClass<short>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    return metadata.ReadUInt32();
+                    return metadata.ReadClass<uint>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    return metadata.ReadInt32();
+                    return metadata.ReadClass<int>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-                    return metadata.ReadUInt64();
+                    return metadata.ReadClass<ulong>(pointer, true);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-                    return metadata.ReadInt64();
+                    return metadata.ReadClass<long>(pointer, true);
                 case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-                    return metadata.ReadSingle();
+                    return metadata.ReadClass<float>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-                    return metadata.ReadDouble();
+                    return metadata.ReadClass<double>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    var len = metadata.ReadInt32();
-                    return Encoding.UTF8.GetString(metadata.ReadBytes(len));
+                    var len = metadata.ReadClass<int>(pointer);
+                    return Encoding.UTF8.GetString(metadata.ReadByteArray(pointer + 4, len));
                 default:
                     return null;
             }
@@ -416,5 +416,16 @@ namespace LibCpp2IL
 
             return size;
         }
+
+        internal static void PopulateDeclaringAssemblyCache()
+        {
+            foreach (var assembly in LibCpp2IlMain.TheMetadata!.imageDefinitions)
+            {
+                foreach (var il2CppTypeDefinition in assembly.Types!)
+                {
+                    il2CppTypeDefinition.DeclaringAssembly = assembly;
+                }
+            }
+        } 
     }
 }

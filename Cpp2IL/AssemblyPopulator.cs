@@ -5,7 +5,6 @@ using System.Text;
 using Cpp2IL.Analysis;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.PE;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -23,8 +22,6 @@ namespace Cpp2IL
     {
         private const string InjectedNamespaceName = "Cpp2IlInjected";
         private static readonly Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)> _attributesByModule = new Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)>();
-
-        internal static bool EmitMetadataFiles;
 
         public static void ConfigureHierarchy()
         {
@@ -82,31 +79,55 @@ namespace Cpp2IL
             InjectAttribute("TokenAttribute", stringTypeReference, attributeTypeReference, imageDef, "Token");
         }
 
-        public static List<(TypeDefinition type, List<CppMethodData> methods)> ProcessAssemblyTypes(Il2CppMetadata metadata, PE theDll, Il2CppImageDefinition imageDef)
+        public static void PopulateStubTypesInAssembly(Il2CppImageDefinition imageDef)
         {
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
 
             InjectCustomAttributes(currentAssembly);
 
-            //Ensure type directory exists
-            if (EmitMetadataFiles)
-                Directory.CreateDirectory(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", currentAssembly.Name.Name));
-
-            return (from il2CppTypeDefinition in imageDef.Types!
-                    let type = SharedState.UnmanagedToManagedTypes[il2CppTypeDefinition]
-                    let methods = ProcessTypeContents(metadata, theDll, il2CppTypeDefinition, type, imageDef)
-                    select (type, methods))
-                .ToList();
+            foreach (var il2CppTypeDefinition in imageDef.Types)
+            {
+                var managedType = SharedState.UnmanagedToManagedTypes[il2CppTypeDefinition];
+                CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+            }
         }
 
-        private static List<CppMethodData> ProcessTypeContents(Il2CppMetadata metadata, PE cppAssembly, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, Il2CppImageDefinition imageDef)
+        private static void CopyIl2CppDataToManagedType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
         {
-            var typeMetaText = new StringBuilder();
+            var (addressAttribute, fieldOffsetAttribute, tokenAttribute) = GetInjectedAttributes(ilTypeDefinition);
 
-            if (EmitMetadataFiles)
-                typeMetaText.Append(GetBasicTypeMetadataString(ilTypeDefinition));
+            var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
 
+            //Token attribute
+            var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+            customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
+            ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
+
+            //Fields
+            var fields = ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
+
+            //Methods
+            ProcessMethodsInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, addressAttribute, stringType);
+
+            //Properties
+            ProcessPropertiesInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, stringType);
+
+            //Events
+            ProcessEventsInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, stringType);
+
+            if (cppTypeDefinition.GenericContainer == null)
+                return;
+            
+            //Type generic params.
+            foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
+            {
+                ilTypeDefinition.GenericParameters.Add(new GenericParameter(param.Name, ilTypeDefinition));
+            }
+        }
+
+        private static (MethodDefinition addressAttribute, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute) GetInjectedAttributes(TypeDefinition ilTypeDefinition)
+        {
             MethodDefinition addressAttribute;
             MethodDefinition fieldOffsetAttribute;
             MethodDefinition tokenAttribute;
@@ -123,284 +144,7 @@ namespace Cpp2IL
                 (addressAttribute, fieldOffsetAttribute, tokenAttribute) = _attributesByModule[ilTypeDefinition.Module];
             }
 
-            var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
-
-            //Token attribute
-            var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-            customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
-            ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
-
-            //field
-            var fields = ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
-            
-            if(EmitMetadataFiles)
-                fields.ForEach(f => typeMetaText.Append(GetFieldMetadataString(f)));
-
-            //Methods
-            var lastMethodId = cppTypeDefinition.firstMethodIdx + cppTypeDefinition.method_count;
-            var typeMethods = new List<CppMethodData>();
-            Il2CppGenericContainer genericContainer;
-            for (var methodId = cppTypeDefinition.firstMethodIdx; methodId < lastMethodId; ++methodId)
-            {
-                var methodDef = metadata.methodDefs[methodId];
-                var methodReturnType = cppAssembly.types[methodDef.returnTypeIdx];
-                var methodName = metadata.GetStringFromIndex(methodDef.nameIndex);
-                var methodDefinition = new MethodDefinition(methodName, (MethodAttributes) methodDef.flags,
-                    ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefByName("System.Void").Item1));
-
-                SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
-
-
-                var offsetInRam = LibCpp2IlMain.MetadataVersion >= 27
-                    ? methodDef.MethodPointer
-                    : cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token); //This method is significantly faster.
-
-
-                var offsetInFile = offsetInRam == 0 ? 0 : cppAssembly.MapVirtualAddressToRaw(offsetInRam);
-                if (EmitMetadataFiles)
-                    typeMetaText.Append($"\n\tMethod: {methodName}:\n")
-                        .Append($"\t\tFile Offset 0x{offsetInFile:X8}\n")
-                        .Append($"\t\tRam Offset 0x{offsetInRam:x8}\n")
-                        .Append($"\t\tVirtual Method Slot: {methodDef.slot}\n");
-
-                var bytes = new List<byte>();
-                var offset = offsetInFile;
-                while (true)
-                {
-                    var b = cppAssembly.raw[offset];
-                    if (b == 0xC3 && cppAssembly.raw[offset + 1] == 0xCC)
-                    {
-                        bytes.Add(b);
-                        break;
-                    }
-
-                    if (b == 0xCC && bytes.Count > 0 && bytes.Last() == 0xc3) break;
-                    bytes.Add(b);
-                    offset++;
-                }
-
-                if (EmitMetadataFiles)
-                    typeMetaText.Append($"\t\tMethod Length: {bytes.Count} bytes\n");
-
-                typeMethods.Add(new CppMethodData
-                {
-                    MethodName = methodName,
-                    MethodId = methodId,
-                    MethodBytes = bytes.ToArray(),
-                    MethodOffsetRam = offsetInRam
-                });
-
-
-                ilTypeDefinition.Methods.Add(methodDefinition);
-                methodDefinition.ReturnType = Utils.ImportTypeInto(methodDefinition, methodReturnType);
-
-                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{methodDef.token:X}")));
-                methodDefinition.CustomAttributes.Add(customTokenAttribute);
-
-                if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate")
-                {
-                    var ilprocessor = methodDefinition.Body.GetILProcessor();
-                    if (methodDefinition.ReturnType.FullName == "System.Void")
-                    {
-                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
-                    }
-                    else if (methodDefinition.ReturnType.IsValueType)
-                    {
-                        var variable = new VariableDefinition(methodDefinition.ReturnType);
-                        methodDefinition.Body.Variables.Add(variable);
-                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ldloca_S, variable));
-                        ilprocessor.Append(ilprocessor.Create(OpCodes.Initobj, methodDefinition.ReturnType));
-                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ldloc_0));
-                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
-                    }
-                    else
-                    {
-                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ldnull));
-                        ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
-                    }
-                }
-
-                SharedState.MethodsByIndex.Add(methodId, methodDefinition);
-                //Method Params
-                for (var paramIdx = 0; paramIdx < methodDef.parameterCount; ++paramIdx)
-                {
-                    var parameterDef = metadata.parameterDefs[methodDef.parameterStart + paramIdx];
-                    var parameterName = metadata.GetStringFromIndex(parameterDef.nameIndex);
-                    var parameterType = cppAssembly.types[parameterDef.typeIndex];
-                    var parameterTypeRef = Utils.ImportTypeInto(methodDefinition, parameterType);
-
-                    ParameterDefinition parameterDefinition;
-                    if (parameterTypeRef is GenericParameter genericParameter)
-                        parameterDefinition = new ParameterDefinition(genericParameter);
-                    else
-                        parameterDefinition = new ParameterDefinition(parameterName, (ParameterAttributes) parameterType.attrs, parameterTypeRef);
-
-                    methodDefinition.Parameters.Add(parameterDefinition);
-                    //Default values for params
-                    if (parameterDefinition.HasDefault)
-                    {
-                        var parameterDefault = metadata.GetParameterDefaultValueFromIndex(methodDef.parameterStart + paramIdx);
-                        if (parameterDefault != null && parameterDefault.dataIndex != -1)
-                        {
-                            parameterDefinition.Constant = LibCpp2ILUtils.GetDefaultValue(parameterDefault.dataIndex, parameterDefault.typeIndex);
-                        }
-                    }
-
-
-                    if (EmitMetadataFiles)
-                        typeMetaText.Append($"\n\t\tParameter {paramIdx}:\n")
-                            .Append($"\t\t\tName: {parameterName}\n")
-                            .Append($"\t\t\tType: {(parameterTypeRef.Namespace == "" ? "<None>" : parameterTypeRef.Namespace)}.{parameterTypeRef.Name}\n")
-                            .Append($"\t\t\tDefault Value: {parameterDefinition.Constant}");
-                }
-
-
-                var methodPointer = LibCpp2IlMain.MetadataVersion >= 27
-                    ? methodDef.MethodPointer
-                    : cppAssembly.GetMethodPointer(methodDef.methodIndex, methodId, imageDef.assemblyIndex, methodDef.token); //This method is significantly faster.
-
-                //Address attribute
-                if (methodPointer > 0)
-                {
-                    var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));
-                    var fixedMethodPointer = LibCpp2IlMain.ThePe.GetRVA(methodPointer);
-                    var rva = new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{fixedMethodPointer:X}"));
-                    var offsetArg = new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(methodPointer):X}"));
-                    var va = new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}"));
-                    customAttribute.Fields.Add(rva);
-                    customAttribute.Fields.Add(offsetArg);
-                    customAttribute.Fields.Add(va);
-                    if (methodDef.slot != ushort.MaxValue)
-                    {
-                        var slot = new CustomAttributeNamedArgument("Slot", new CustomAttributeArgument(stringType, methodDef.slot.ToString()));
-                        customAttribute.Fields.Add(slot);
-                    }
-
-                    methodDefinition.CustomAttributes.Add(customAttribute);
-                }
-
-                if (methodDef.genericContainerIndex >= 0)
-                {
-                    genericContainer = metadata.genericContainers[methodDef.genericContainerIndex];
-                    if (genericContainer.type_argc > methodDefinition.GenericParameters.Count)
-                    {
-                        for (var j = 0; j < genericContainer.type_argc; j++)
-                        {
-                            var genericParameterIndex = genericContainer.genericParameterStart + j;
-                            var param = metadata.genericParameters[genericParameterIndex];
-                            var genericName = metadata.GetStringFromIndex(param.nameIndex);
-                            if (!SharedState.GenericParamsByIndex.TryGetValue(genericParameterIndex,
-                                out var genericParameter))
-                            {
-                                genericParameter = new GenericParameter(genericName, methodDefinition);
-                                methodDefinition.GenericParameters.Add(genericParameter);
-                                SharedState.GenericParamsByIndex.Add(genericParameterIndex, genericParameter);
-                            }
-                            else
-                            {
-                                if (!methodDefinition.GenericParameters.Contains(genericParameter))
-                                {
-                                    methodDefinition.GenericParameters.Add(genericParameter);
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if (methodDef.slot < ushort.MaxValue)
-                {
-                    SharedState.VirtualMethodsBySlot[methodDef.slot] = methodDefinition;
-                }
-
-                SharedState.MethodsByAddress[offsetInRam] = methodDefinition;
-            }
-
-            //Properties
-            var lastPropertyId = cppTypeDefinition.firstPropertyId + cppTypeDefinition.propertyCount;
-            for (var propertyId = cppTypeDefinition.firstPropertyId; propertyId < lastPropertyId; ++propertyId)
-            {
-                var propertyDef = metadata.propertyDefs[propertyId];
-                var propertyName = metadata.GetStringFromIndex(propertyDef.nameIndex);
-                TypeReference propertyType = null;
-                MethodDefinition getter = null;
-                MethodDefinition setter = null;
-                if (propertyDef.get >= 0)
-                {
-                    getter = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + propertyDef.get];
-                    propertyType = getter.ReturnType;
-                }
-
-                if (propertyDef.set >= 0)
-                {
-                    setter = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + propertyDef.set];
-                    if (propertyType == null)
-                        propertyType = setter.Parameters[0].ParameterType;
-                }
-
-                var propertyDefinition = new PropertyDefinition(propertyName, (PropertyAttributes) propertyDef.attrs, propertyType)
-                {
-                    GetMethod = getter,
-                    SetMethod = setter
-                };
-
-                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{propertyDef.token:X}")));
-                propertyDefinition.CustomAttributes.Add(customTokenAttribute);
-
-                ilTypeDefinition.Properties.Add(propertyDefinition);
-            }
-
-            //Events
-            var lastEventId = cppTypeDefinition.firstEventId + cppTypeDefinition.eventCount;
-            for (var eventId = cppTypeDefinition.firstEventId; eventId < lastEventId; ++eventId)
-            {
-                var eventDef = metadata.eventDefs[eventId];
-                var eventName = metadata.GetStringFromIndex(eventDef.nameIndex);
-                var eventType = cppAssembly.types[eventDef.typeIndex];
-                var eventTypeRef = Utils.ImportTypeInto(ilTypeDefinition, eventType);
-                var eventDefinition = new EventDefinition(eventName, (EventAttributes) eventType.attrs, eventTypeRef);
-                if (eventDef.add >= 0)
-                    eventDefinition.AddMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.add];
-                if (eventDef.remove >= 0)
-                    eventDefinition.RemoveMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.remove];
-                if (eventDef.raise >= 0)
-                    eventDefinition.InvokeMethod = SharedState.MethodsByIndex[cppTypeDefinition.firstMethodIdx + eventDef.raise];
-
-                customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{eventDef.token:X}")));
-                eventDefinition.CustomAttributes.Add(customTokenAttribute);
-
-                ilTypeDefinition.Events.Add(eventDefinition);
-            }
-
-            if (EmitMetadataFiles)
-                File.WriteAllText(Path.Combine(Path.GetFullPath("cpp2il_out"), "types", ilTypeDefinition.Module.Assembly.Name.Name, ilTypeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"), typeMetaText.ToString());
-
-            if (cppTypeDefinition.genericContainerIndex < 0) return typeMethods; //Finished processing if not generic
-
-            genericContainer = metadata.genericContainers[cppTypeDefinition.genericContainerIndex];
-            if (genericContainer.type_argc <= ilTypeDefinition.GenericParameters.Count) return typeMethods; //Finished processing
-
-            for (var i = 0; i < genericContainer.type_argc; i++)
-            {
-                var genericParameterIndex = genericContainer.genericParameterStart + i;
-                var param = metadata.genericParameters[genericParameterIndex];
-                var genericName = metadata.GetStringFromIndex(param.nameIndex);
-                if (!SharedState.GenericParamsByIndex.TryGetValue(genericParameterIndex, out var genericParameter))
-                {
-                    genericParameter = new GenericParameter(genericName, ilTypeDefinition);
-                    ilTypeDefinition.GenericParameters.Add(genericParameter);
-                    SharedState.GenericParamsByIndex.Add(genericParameterIndex, genericParameter);
-                }
-                else
-                {
-                    if (ilTypeDefinition.GenericParameters.Contains(genericParameter)) continue;
-                    ilTypeDefinition.GenericParameters.Add(genericParameter);
-                }
-            }
-
-            return typeMethods;
+            return (addressAttribute, fieldOffsetAttribute, tokenAttribute);
         }
 
         private static List<FieldInType> ProcessFieldsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, TypeReference stringType, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute)
@@ -426,6 +170,7 @@ namespace Cpp2IL
                     fieldDefinition.Constant = fieldDef.DefaultValue?.Value;
                 }
 
+                //Field Initial Values (used for allocation of Array Literals)
                 if ((fieldDef.RawFieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
                 {
                     fieldDefinition.InitialValue = fieldDef.StaticArrayInitialValue;
@@ -453,6 +198,102 @@ namespace Cpp2IL
             return fields;
         }
 
+        private static void ProcessMethodsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition tokenAttribute, MethodDefinition addressAttribute, TypeReference stringType)
+        {
+            foreach (var methodDef in cppTypeDefinition.Methods!)
+            {
+                var methodReturnType = methodDef.RawReturnType!;
+
+                var methodDefinition = new MethodDefinition(methodDef.Name, (MethodAttributes) methodDef.flags,
+                    ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Void")));
+
+                SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
+                SharedState.ManagedToUnmanagedMethods[methodDefinition] = methodDef;
+
+                ilTypeDefinition.Methods.Add(methodDefinition);
+                methodDefinition.ReturnType = Utils.ImportTypeInto(methodDefinition, methodReturnType);
+
+                CustomAttribute customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{methodDef.token:X}")));
+                methodDefinition.CustomAttributes.Add(customTokenAttribute);
+
+                if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate") 
+                    FillMethodBodyWithStub(methodDefinition);
+
+                SharedState.MethodsByIndex[methodDef.MethodIndex] = methodDefinition;
+                SharedState.MethodsByAddress[methodDef.MethodPointer] = methodDefinition;
+                
+                //Method Params
+                HandleMethodParameters(methodDef, methodDefinition);
+
+                var methodPointer = methodDef.MethodPointer;
+
+                //Address attribute
+                if (methodPointer > 0)
+                {
+                    var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));
+                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.ThePe.GetRVA(methodPointer):X}")));
+                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(methodPointer):X}")));
+                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}")));
+                    if (methodDef.slot != ushort.MaxValue)
+                    {
+                        customAttribute.Fields.Add(new CustomAttributeNamedArgument("Slot", new CustomAttributeArgument(stringType, methodDef.slot.ToString())));
+                    }
+
+                    methodDefinition.CustomAttributes.Add(customAttribute);
+                }
+
+                //Handle generic parameters.
+                methodDef.GenericContainer?.GenericParameters
+                    .Select(p => new GenericParameter(p.Name, methodDefinition))
+                    .ToList()
+                    .ForEach(methodDefinition.GenericParameters.Add);
+
+                if (methodDef.slot < ushort.MaxValue) 
+                    SharedState.VirtualMethodsBySlot[methodDef.slot] = methodDefinition;
+            }
+        }
+
+        private static void ProcessPropertiesInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition tokenAttribute, TypeReference stringType)
+        {
+            foreach (var propertyDef in cppTypeDefinition.Properties!)
+            {
+                var getter = propertyDef.Getter?.AsManaged();
+                var setter = propertyDef.Setter?.AsManaged();
+
+                var propertyDefinition = new PropertyDefinition(propertyDef.Name, (PropertyAttributes) propertyDef.attrs, getter?.ReturnType ?? setter?.ReturnType)
+                {
+                    GetMethod = getter,
+                    SetMethod = setter
+                };
+
+                var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{propertyDef.token:X}")));
+                propertyDefinition.CustomAttributes.Add(customTokenAttribute);
+
+                ilTypeDefinition.Properties.Add(propertyDefinition);
+            }
+        }
+
+        private static void ProcessEventsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition tokenAttribute, TypeReference stringType)
+        {
+            foreach (var il2cppEventDef in cppTypeDefinition.Events!)
+            {
+                var monoDef = new EventDefinition(il2cppEventDef.Name, (EventAttributes) il2cppEventDef.EventAttributes, Utils.ImportTypeInto(ilTypeDefinition, il2cppEventDef.RawType!))
+                {
+                    AddMethod = il2cppEventDef.Adder?.AsManaged(),
+                    RemoveMethod = il2cppEventDef.Remover?.AsManaged(),
+                    InvokeMethod = il2cppEventDef.Invoker?.AsManaged()
+                };
+
+                var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{il2cppEventDef.token:X}")));
+                monoDef.CustomAttributes.Add(customTokenAttribute);
+
+                ilTypeDefinition.Events.Add(monoDef);
+            }
+        }
+
         private static FieldInType GetFieldInType(TypeReference fieldTypeRef, int fieldOffset, string fieldName, FieldDefinition fieldDefinition)
         {
             //ONE correction. String#start_char is remapped to a char[] not a char because the block allocated for all chars is directly sequential to the length of the string, because that's how c++ works.
@@ -471,6 +312,61 @@ namespace Cpp2IL
             };
 
             return field;
+        }
+
+        private static void FillMethodBodyWithStub(MethodDefinition methodDefinition)
+        {
+            var ilprocessor = methodDefinition.Body.GetILProcessor();
+            if (methodDefinition.ReturnType.FullName == "System.Void")
+            {
+                ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
+            }
+            else if (methodDefinition.ReturnType.IsValueType)
+            {
+                var variable = new VariableDefinition(methodDefinition.ReturnType);
+                methodDefinition.Body.Variables.Add(variable);
+                ilprocessor.Append(ilprocessor.Create(OpCodes.Ldloca_S, variable));
+                ilprocessor.Append(ilprocessor.Create(OpCodes.Initobj, methodDefinition.ReturnType));
+                ilprocessor.Append(ilprocessor.Create(OpCodes.Ldloc_0));
+                ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
+            }
+            else
+            {
+                ilprocessor.Append(ilprocessor.Create(OpCodes.Ldnull));
+                ilprocessor.Append(ilprocessor.Create(OpCodes.Ret));
+            }
+        }
+
+        private static void HandleMethodParameters(Il2CppMethodDefinition il2CppMethodDef, MethodDefinition monoMethodDef)
+        {
+            foreach (var il2cppParam in il2CppMethodDef.Parameters!)
+            {
+                var parameterTypeRef = Utils.ImportTypeInto(monoMethodDef, il2cppParam.RawType);
+
+                ParameterDefinition monoParam;
+                if (parameterTypeRef is GenericParameter genericParameter)
+                    monoParam = new ParameterDefinition(genericParameter);
+                else
+                    monoParam = new ParameterDefinition(il2cppParam.ParameterName, (ParameterAttributes) il2cppParam.ParameterAttributes, parameterTypeRef);
+
+                if (il2cppParam.DefaultValue != null)
+                    monoParam.Constant = il2cppParam.DefaultValue;
+
+                monoMethodDef.Parameters.Add(monoParam);
+            }
+        }
+
+        internal static string BuildWholeMetadataString(TypeDefinition typeDefinition)
+        {
+            var ret = new StringBuilder();
+
+            ret.Append(GetBasicTypeMetadataString(typeDefinition));
+            
+            SharedState.FieldsByType[typeDefinition].ToList().ForEach(f => ret.Append(GetFieldMetadataString(f)));
+            
+            typeDefinition.Methods.ToList().ForEach(m => ret.Append(GetMethodMetadataString(m.AsUnmanaged())));
+
+            return ret.ToString();
         }
 
         private static StringBuilder GetBasicTypeMetadataString(TypeDefinition ilTypeDefinition)
@@ -513,6 +409,27 @@ namespace Cpp2IL
                 ret.Append($"\t\tDefault Value: {field.Constant}\n");
             
             return ret;
+        }
+
+        private static StringBuilder GetMethodMetadataString(Il2CppMethodDefinition methodDef)
+        {
+            var typeMetaText = new StringBuilder();
+            typeMetaText.Append($"\n\tMethod: {methodDef.Name}:\n")
+                .Append($"\t\tFile Offset 0x{methodDef.MethodOffsetInFile:X8}\n")
+                .Append($"\t\tRam Offset 0x{methodDef.MethodPointer:x8}\n")
+                .Append($"\t\tVirtual Method Slot: {methodDef.slot}\n");
+
+            var counter = -1;
+            foreach (var parameter in methodDef.Parameters!)
+            {
+                counter++;
+                typeMetaText.Append($"\n\t\tParameter {counter}:\n")
+                    .Append($"\t\t\tName: {parameter.ParameterName}\n")
+                    .Append($"\t\t\tType: {parameter.Type}\n")
+                    .Append($"\t\t\tDefault Value: {parameter.DefaultValue}");
+            }
+
+            return typeMetaText;
         }
     }
 }

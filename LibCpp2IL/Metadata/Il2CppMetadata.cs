@@ -263,7 +263,7 @@ namespace LibCpp2IL.Metadata
             return (-1, -1);
         }
 
-        public Il2CppParameterDefaultValue GetParameterDefaultValueFromIndex(int index)
+        public Il2CppParameterDefaultValue? GetParameterDefaultValueFromIndex(int index)
         {
             return parameterDefaultValues.FirstOrDefault(x => x.parameterIndex == index);
         }

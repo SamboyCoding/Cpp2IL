@@ -88,11 +88,10 @@ namespace LibCpp2IL
         {
             foreach (var section in search)
             {
-                _pe.Position = (long) section.RawStartAddress;
-                while ((ulong) _pe.Position < section.RawEndAddress)
+                var position = section.RawStartAddress;
+                while (position < section.RawEndAddress)
                 {
-                    var addr = _pe.Position;
-                    if (_pe.ReadUInt32() == methodCount)
+                    if (_pe.ReadClass<uint>((long) position) == methodCount)
                     {
                         try
                         {
@@ -102,7 +101,7 @@ namespace LibCpp2IL
                                 var pointers = _pe.ReadClassArray<uint>(pointer, methodCount);
                                 if (CheckAllInExecSection(pointers))
                                 {
-                                    return (ulong) addr - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
+                                    return position - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
                                 }
                             }
                         }
@@ -112,7 +111,7 @@ namespace LibCpp2IL
                         }
                     }
 
-                    _pe.Position = addr + 4;
+                    position += 4;
                 }
             }
 
@@ -175,7 +174,7 @@ namespace LibCpp2IL
             var mscorlibs = _pe.raw.Search(searchBytes).Select(idx => _pe.MapRawAddressToVirtual(idx));
             var pMscorlibCodegenModule = FindAllMappedWords(mscorlibs); //CodeGenModule address will be in here
             var pMscorlibCodegenEntryInCodegenModulesList = FindAllMappedWords(pMscorlibCodegenModule); //CodeGenModules list address will be in here
-            
+
             IEnumerable<ulong>? pCodegenModules = null;
             if (!(LibCpp2IlMain.MetadataVersion >= 27f))
             {
@@ -192,7 +191,7 @@ namespace LibCpp2IL
                 for (var backtrack = 0; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
                 {
                     pCodegenModules = FindAllMappedWords(pSomewhereInCodegenModules);
-                    
+
                     //Sanity check the count, which is one pointer back
                     if (pCodegenModules.Count() == 1)
                     {
@@ -220,10 +219,10 @@ namespace LibCpp2IL
                 var allInstructions = LibCpp2ILUtils.DisassembleBytesNew(_pe.is32Bit, toDisasm, textSection.VirtualAddress + _pe.imageBase);
 
                 var allSensibleInstructions = allInstructions.Where(i =>
-                    i.Mnemonic == Mnemonic.Lea
-                    && i.OpCount == 2
-                    && i.Op0Kind == OpKind.Register
-                    && i.Op1Kind == OpKind.Memory
+                        i.Mnemonic == Mnemonic.Lea
+                        && i.OpCount == 2
+                        && i.Op0Kind == OpKind.Register
+                        && i.Op1Kind == OpKind.Memory
                     /*&& i.Op0Register == Register.RCX*/).ToList();
 
                 var sanity = 0;
@@ -258,14 +257,14 @@ namespace LibCpp2IL
                 return pCodegenModules.First();
             }
         }
-        
+
         private ulong FindCodeRegistration64BitPost2019()
         {
             //NOTE: With 64-bit ELF binaries we should iterate on exec, on everything else data.
             var matchingAddresses = dataSections.Select(section =>
                 {
-                    _pe.Position = (long) section.RawStartAddress;
-                    var secContent = _pe.ReadBytes((int) (section.RawEndAddress - section.RawStartAddress));
+                    var position = section.RawStartAddress;
+                    var secContent = _pe.ReadByteArray((long) position, (int) (section.RawEndAddress - section.RawStartAddress));
 
                     //Find every virtual address of an occurrence of the search bytes
                     var virtualAddressesOfSearchBytes = secContent
@@ -324,13 +323,14 @@ namespace LibCpp2IL
             return sections.Select(sec =>
                 {
                     //Find all virtual addresses that reference this search result
-                    _pe.Position = (long) sec.RawStartAddress;
+                    var position = (long) sec.RawStartAddress;
                     var positions = new List<ulong>();
-                    while (_pe.Position < (long) sec.RawEndAddress)
+                    while (position < (long) sec.RawEndAddress)
                     {
-                        if (_pe.ReadUInt64() == va)
+                        if (_pe.ReadClass<ulong>(position) == va)
                             positions.Add((ulong) _pe.Position - sec.RawStartAddress + sec.VirtualStartAddress);
-                        _pe.Position += 8;
+
+                        position += 8;
                     }
 
                     return positions.Count > 0 ? (sec, positions) : default;
@@ -343,24 +343,25 @@ namespace LibCpp2IL
         {
             foreach (var section in search)
             {
-                _pe.Position = (long) section.RawStartAddress;
-                while ((ulong) _pe.Position < section.RawEndAddress)
+                var position = section.RawStartAddress;
+                while (position < section.RawEndAddress)
                 {
-                    var addr = _pe.Position;
+                    var addr = position;
                     //Check for the method count as an int64
-                    if (_pe.ReadInt64() == methodCount)
+                    if (_pe.ReadClass<long>((long) position) == methodCount)
                     {
+                        position += 4;
                         try
                         {
                             //Should be followed by a pointer to the first function
-                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadUInt64());
+                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClass<ulong>((long) position));
                             //Which has to be in the data section
                             if (CheckPointerInDataSection((ulong) pointer))
                             {
                                 var pointers = _pe.ReadClassArray<ulong>(pointer, methodCount);
                                 if (CheckAllInExecSection(pointers))
                                 {
-                                    return (ulong) addr - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
+                                    return position - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
                                 }
                             }
                         }
@@ -370,7 +371,7 @@ namespace LibCpp2IL
                         }
                     }
 
-                    _pe.Position = addr + 8;
+                    position = addr + 4;
                 }
             }
 
@@ -381,22 +382,23 @@ namespace LibCpp2IL
         {
             foreach (var section in search)
             {
-                _pe.Position = (long) section.RawStartAddress;
+                var position = (long) section.RawStartAddress;
                 while ((ulong) _pe.Position < section.RawEndAddress)
                 {
-                    var addr = _pe.Position;
-                    if (_pe.ReadInt32() == typeDefinitionsCount)
+                    var addr = position;
+                    if (_pe.ReadClass<int>(position) == typeDefinitionsCount)
                     {
+                        position += 4; //For the int 
                         try
                         {
-                            _pe.Position += 8;
-                            long pointer = _pe.MapVirtualAddressToRaw(_pe.ReadUInt32());
+                            position += 16; //Move to pMetadataUsages
+                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClass<uint>(position));
                             if (CheckPointerInDataSection((ulong) pointer))
                             {
                                 var pointers = _pe.ReadClassArray<uint>(pointer, maxMetadataUsages);
                                 if (CheckAllInExecSection(pointers))
                                 {
-                                    return (ulong) addr - 48ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
+                                    return (ulong) addr - 40ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
                                 }
                             }
                         }
@@ -406,7 +408,7 @@ namespace LibCpp2IL
                         }
                     }
 
-                    _pe.Position = addr + 4;
+                    position = addr + 4;
                 }
             }
 
@@ -417,23 +419,23 @@ namespace LibCpp2IL
         {
             foreach (var section in search)
             {
-                _pe.Position = (long) section.RawStartAddress;
-                while ((ulong) _pe.Position < section.RawEndAddress)
+                var position = section.RawStartAddress;
+                while (position < section.RawEndAddress)
                 {
-                    var addr = _pe.Position;
+                    var addr = position;
                     //Find an int64 equal to the type definition count
-                    if (_pe.ReadInt64() == typeDefinitionsCount)
+                    if (_pe.ReadClass<long>((long) position) == typeDefinitionsCount)
                     {
                         try
                         {
-                            _pe.Position += 16;
-                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadUInt64());
+                            position += 16;
+                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClass<ulong>((long) position));
                             if (CheckPointerInDataSection((ulong) pointer))
                             {
                                 var pointers = _pe.ReadClassArray<ulong>(pointer, maxMetadataUsages);
                                 if (CheckAllInExecSection(pointers))
                                 {
-                                    return (ulong) addr - 96ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
+                                    return addr - 96ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
                                 }
                             }
                         }
@@ -443,7 +445,7 @@ namespace LibCpp2IL
                         }
                     }
 
-                    _pe.Position = addr + 8;
+                    position = addr + 8;
                 }
             }
 
@@ -474,12 +476,14 @@ namespace LibCpp2IL
             var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4);
 
             var mrFieldCount = sizeOfMr / (ulong) (ptrSize);
-            foreach (var va in possibleMetadataUsages) {
+            foreach (var va in possibleMetadataUsages)
+            {
                 var mrWords = _pe.ReadClassArrayAtVirtualAddress<long>(va, (int) mrFieldCount);
 
                 // Even field indices are counts, odd field indices are pointers
                 var ok = true;
-                for (var i = 0; i < mrWords.Length && ok; i++) {
+                for (var i = 0; i < mrWords.Length && ok; i++)
+                {
                     ok = i % 2 == 0 ? mrWords[i] < 0x30000 : mrWords[i] == 0 || _pe.TryMapVirtualAddressToRaw((ulong) mrWords[i], out _); //Maybe need an investigation here, but metadataUsages can be a null ptr.
                 }
 

@@ -24,6 +24,7 @@ namespace Cpp2IL
 {
     public static class Utils
     {
+        private static readonly object _pointerReadLock = new object(); 
         //Disable these because they're initialised in BuildPrimitiveMappings
         // ReSharper disable NotNullMemberIsNotInitialized
 #pragma warning disable 8618
@@ -223,9 +224,12 @@ namespace Cpp2IL
                     }
 
                     var genericInstanceType = new GenericInstanceType(moduleDefinition.ImportReference(typeDefinition));
-                    var genericInst =
-                        theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
-                    var pointers = theDll.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
+                    var genericInst = theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
+                    ulong[] pointers;
+                    
+                    lock(_pointerReadLock)
+                        pointers = theDll.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
+                    
                     foreach (var pointer in pointers)
                     {
                         var oriType = theDll.GetIl2CppTypeFromPointer(pointer);
@@ -986,8 +990,6 @@ namespace Cpp2IL
             
             if (pointer <= 0) return results;
 
-            metadata.Position = pointer;
-            
             //This should at least work for simple arrays.
             var elementSize = GetSizeOfObject(allocatedArray.ArrayType.ElementType);
             
@@ -995,10 +997,10 @@ namespace Cpp2IL
             {
                 results[i] = Convert.ToInt64(elementSize switch
                 {
-                    1 => metadata.ReadPrimitive(typeof(byte))!,
-                    2 => metadata.ReadPrimitive(typeof(short))!,
-                    4 => metadata.ReadPrimitive(typeof(int))!,
-                    8 => metadata.ReadPrimitive(typeof(long))!,
+                    1 => metadata.ReadClass<byte>(pointer)!,
+                    2 => metadata.ReadClass<short>(pointer)!,
+                    4 => metadata.ReadClass<int>(pointer)!,
+                    8 => metadata.ReadClass<long>(pointer)!,
                     _ => results[i]
                 });
             }

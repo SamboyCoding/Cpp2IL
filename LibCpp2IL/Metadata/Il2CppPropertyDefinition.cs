@@ -19,12 +19,15 @@ namespace LibCpp2IL.Metadata
         {
             get
             {
-                if (_type != null) return _type;
+                if (_type != null)
+                    return _type;
+                
                 if (LibCpp2IlMain.TheMetadata == null) return null;
 
                 _type = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(t => t.Properties!.Contains(this));
                 return _type;
             }
+            internal set => _type = value;
         }
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);

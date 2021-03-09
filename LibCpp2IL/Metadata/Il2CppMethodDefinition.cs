@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using LibCpp2IL.PE;
@@ -35,6 +36,8 @@ namespace LibCpp2IL.Metadata
 
         internal string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
+        public Il2CppType? RawReturnType => LibCpp2IlMain.ThePe?.types[returnTypeIdx];
+        
         public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.types[returnTypeIdx]);
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
@@ -104,6 +107,7 @@ namespace LibCpp2IL.Metadata
                                 Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
                                 ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
                                 ParameterAttributes = paramFlags,
+                                RawType = paramType,
                                 DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex),
                             };
                         }).ToArray();
@@ -113,6 +117,32 @@ namespace LibCpp2IL.Metadata
             }
         }
 
+        public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
+
+
+        public List<byte> CppMethodBodyBytes
+        {
+            get
+            {
+                var bytes = new List<byte>();
+                var offset = MethodOffsetInFile;
+                while (true)
+                {
+                    var b = LibCpp2IlMain.ThePe!.raw[offset];
+                    if (b == 0xC3 && LibCpp2IlMain.ThePe!.raw[offset + 1] == 0xCC)
+                    {
+                        bytes.Add(b);
+                        break;
+                    }
+
+                    if (b == 0xCC && bytes.Count > 0 && bytes.Last() == 0xc3) break;
+                    bytes.Add(b);
+                    offset++;
+                }
+
+                return bytes;
+            }
+        }
 
         public override string ToString()
         {

@@ -80,19 +80,21 @@ namespace LibCpp2IL.Metadata
 
         public bool IsAbstract => ((TypeAttributes) flags & TypeAttributes.Abstract) != 0;
 
+        private Il2CppImageDefinition? _cachedDeclaringAssembly;
         public Il2CppImageDefinition? DeclaringAssembly
         {
             get
             {
-                if (LibCpp2IlMain.TheMetadata == null) return null;
-                var typeIdx = TypeIndex;
+                if (_cachedDeclaringAssembly == null)
+                {
+                    if (LibCpp2IlMain.TheMetadata == null) return null;
+                    
+                    LibCpp2ILUtils.PopulateDeclaringAssemblyCache();
+                }
 
-                return LibCpp2IlMain.TheMetadata.imageDefinitions
-                    .Select(assemblyDefinition => new {assemblyDefinition, lastIdx = assemblyDefinition.firstTypeIndex + assemblyDefinition.typeCount - 1})
-                    .Where(t => t.assemblyDefinition.firstTypeIndex <= typeIdx && typeIdx <= t.lastIdx)
-                    .Select(t => t.assemblyDefinition)
-                    .FirstOrDefault();
+                return _cachedDeclaringAssembly;
             }
+            internal set => _cachedDeclaringAssembly = value;
         }
 
         public Il2CppCodeGenModule? CodeGenModule
@@ -204,9 +206,17 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppMethodDefinition[]? Methods => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.methodDefs.Skip(firstMethodIdx).Take(method_count).ToArray();
 
-        public Il2CppPropertyDefinition[]? Properties => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.propertyDefs.Skip(firstPropertyId).Take(propertyCount).ToArray();
+        public Il2CppPropertyDefinition[]? Properties => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.propertyDefs.Skip(firstPropertyId).Take(propertyCount).Select(p =>
+        {
+            p.DeclaringType = this;
+            return p;
+        }).ToArray();
 
-        public Il2CppEventDefinition[]? Events => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.eventDefs.Skip(firstEventId).Take(eventCount).ToArray();
+        public Il2CppEventDefinition[]? Events => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.eventDefs.Skip(firstEventId).Take(eventCount).Select(e =>
+        {
+            e.DeclaringType = this;
+            return e;
+        }).ToArray();
 
         public Il2CppTypeDefinition[]? NestedTypes => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.nestedTypeIndices.Skip(nestedTypesStart).Take(nested_type_count).Select(idx => LibCpp2IlMain.TheMetadata.typeDefs[idx]).ToArray();
 
@@ -225,6 +235,8 @@ namespace LibCpp2IL.Metadata
                 .ToArray();
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.ThePe.types[declaringTypeIndex].data.classIndex];
+
+        public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex]; 
 
         public override string ToString()
         {

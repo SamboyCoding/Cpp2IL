@@ -125,7 +125,7 @@ namespace Cpp2IL.Analysis
         };
 #endif
 
-        internal AsmDumper(MethodDefinition methodDefinition, CppMethodData method, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses, PE cppAssembly)
+        internal AsmDumper(MethodDefinition methodDefinition, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses)
         {
             _methodDefinition = methodDefinition;
             _methodStart = methodStart;
@@ -133,11 +133,11 @@ namespace Cpp2IL.Analysis
             _methodDefinition.Body = new MethodBody(_methodDefinition);
 
             _keyFunctionAddresses = keyFunctionAddresses;
-            _cppAssembly = cppAssembly;
+            _cppAssembly = LibCpp2IlMain.ThePe!;
 
             //Pass 0: Disassemble
 #if USE_NEW_ANALYSIS_METHOD
-            _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe!.is32Bit, method.MethodBytes, methodStart);
+            _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart);
 
             var instructionWhichOverran = new Instruction();
             var idx = 1;

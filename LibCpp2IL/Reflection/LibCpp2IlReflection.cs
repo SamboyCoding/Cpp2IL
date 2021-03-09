@@ -6,9 +6,12 @@ namespace LibCpp2IL
 {
     public static class LibCpp2IlReflection
     {
-        private static Dictionary<(string, string?), Il2CppTypeDefinition> _cachedTypes = new Dictionary<(string, string?), Il2CppTypeDefinition>();
-        private static Dictionary<string, Il2CppTypeDefinition> _cachedTypesByFullName = new Dictionary<string, Il2CppTypeDefinition>();
-        private static Dictionary<Il2CppTypeDefinition, int> _typeIndexes = new Dictionary<Il2CppTypeDefinition, int>();
+        private static readonly Dictionary<(string, string?), Il2CppTypeDefinition> _cachedTypes = new();
+        private static readonly Dictionary<string, Il2CppTypeDefinition> _cachedTypesByFullName = new();
+        private static readonly Dictionary<Il2CppTypeDefinition, int> _typeIndices = new();
+        
+        private static readonly Dictionary<Il2CppMethodDefinition, int> _methodIndices = new();
+        private static readonly Dictionary<Il2CppFieldDefinition, int> _fieldIndices = new();
         public static Il2CppTypeDefinition? GetType(string name, string? @namespace = null)
         {
             if (LibCpp2IlMain.TheMetadata == null) return null;
@@ -57,45 +60,68 @@ namespace LibCpp2IL
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            lock (_typeIndexes)
+            lock (_typeIndices)
             {
-                if (!_typeIndexes.ContainsKey(typeDefinition))
+                if (!_typeIndices.ContainsKey(typeDefinition))
                 {
                     for (var i = 0; i < LibCpp2IlMain.TheMetadata.typeDefs.Length; i++)
                     {
                         if (LibCpp2IlMain.TheMetadata.typeDefs[i] == typeDefinition)
                         {
-                            _typeIndexes[typeDefinition] = i;
+                            _typeIndices[typeDefinition] = i;
                         }
                     }
                 }
 
-                return _typeIndexes.GetValueOrDefault(typeDefinition, -1);
+                return _typeIndices.GetValueOrDefault(typeDefinition, -1);
             }
         }
         
+        // ReSharper disable InconsistentlySynchronizedField
         public static int GetMethodIndexFromMethod(Il2CppMethodDefinition methodDefinition)
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
-
-            for (var i = 0; i < LibCpp2IlMain.TheMetadata.methodDefs.Length; i++)
+            
+            if (_methodIndices.Count == 0)
             {
-                if (LibCpp2IlMain.TheMetadata.methodDefs[i] == methodDefinition) return i;
+                lock (_methodIndices)
+                {
+                    if (_methodIndices.Count == 0)
+                    {
+                        //Check again inside lock
+                        for (var i = 0; i < LibCpp2IlMain.TheMetadata.methodDefs.Length; i++)
+                        {
+                            var def = LibCpp2IlMain.TheMetadata.methodDefs[i];
+                            _methodIndices[def] = i;
+                        }
+                    }
+                }
             }
 
-            return -1;
+            return _methodIndices.GetValueOrDefault(methodDefinition, -1);
         }
         
+        // ReSharper disable InconsistentlySynchronizedField
         public static int GetFieldIndexFromField(Il2CppFieldDefinition fieldDefinition)
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            for (var i = 0; i < LibCpp2IlMain.TheMetadata.fieldDefs.Length; i++)
+            if (_fieldIndices.Count == 0)
             {
-                if (LibCpp2IlMain.TheMetadata.fieldDefs[i] == fieldDefinition) return i;
+                lock (_fieldIndices)
+                {
+                    if (_fieldIndices.Count == 0)
+                    {
+                        for (var i = 0; i < LibCpp2IlMain.TheMetadata.fieldDefs.Length; i++)
+                        {
+                            var def = LibCpp2IlMain.TheMetadata.fieldDefs[i];
+                            _fieldIndices[def] = i;
+                        }
+                    }
+                }
             }
 
-            return -1;
+            return _fieldIndices[fieldDefinition];
         }
     }
 }

@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -22,7 +23,7 @@ namespace LibCpp2IL.PE
         public ulong[] customAttributeGenerators;
         private long[] fieldOffsets;
         public Il2CppType[] types;
-        private Dictionary<ulong, Il2CppType> typesDict = new Dictionary<ulong, Il2CppType>();
+        private ConcurrentDictionary<ulong, Il2CppType> typesDict = new ConcurrentDictionary<ulong, Il2CppType>();
         public ulong[] metadataUsages;
         private Il2CppGenericMethodFunctionsDefinitions[] genericMethodTables;
         public Il2CppGenericInst[] genericInsts;
@@ -218,7 +219,7 @@ namespace LibCpp2IL.PE
             {
                 types[i] = ReadClassAtVirtualAddress<Il2CppType>(typesAddress[i]);
                 types[i].Init();
-                typesDict.Add(typesAddress[i], types[i]);
+                typesDict[typesAddress[i]] = types[i];
             }
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");

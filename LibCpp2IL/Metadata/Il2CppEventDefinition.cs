@@ -1,5 +1,7 @@
 using System;
 using System.Linq;
+using System.Reflection;
+using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata
@@ -26,11 +28,16 @@ namespace LibCpp2IL.Metadata
                 _type = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(t => t.Events!.Contains(this));
                 return _type;
             }
+            internal set => _type = value;
         }
-        
+
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
-        public Il2CppTypeReflectionData? EventType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.types[typeIndex]);
+        public Il2CppType? RawType => LibCpp2IlMain.ThePe?.types[typeIndex];
+        
+        public Il2CppTypeReflectionData? EventType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
+
+        public EventAttributes EventAttributes => (EventAttributes) RawType?.attrs;
 
         public Il2CppMethodDefinition? Adder => LibCpp2IlMain.TheMetadata == null || add < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + add];
         
