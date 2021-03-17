@@ -350,7 +350,7 @@ namespace LibCpp2IL
                     //Check for the method count as an int64
                     if (_pe.ReadClass<long>((long) position) == methodCount)
                     {
-                        position += 4;
+                        position += 8; //For the long
                         try
                         {
                             //Should be followed by a pointer to the first function
@@ -361,7 +361,7 @@ namespace LibCpp2IL
                                 var pointers = _pe.ReadClassArray<ulong>(pointer, methodCount);
                                 if (CheckAllInExecSection(pointers))
                                 {
-                                    return position - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
+                                    return addr - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
                                 }
                             }
                         }
@@ -426,6 +426,7 @@ namespace LibCpp2IL
                     //Find an int64 equal to the type definition count
                     if (_pe.ReadClass<long>((long) position) == typeDefinitionsCount)
                     {
+                        position += 8; //For the long
                         try
                         {
                             position += 16;
