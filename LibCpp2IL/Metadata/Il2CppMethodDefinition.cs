@@ -125,6 +125,10 @@ namespace LibCpp2IL.Metadata
             get
             {
                 var bytes = new List<byte>();
+
+                if (MethodOffsetInFile == 0)
+                    return bytes; //Empty list.
+                
                 var offset = MethodOffsetInFile;
                 while (true)
                 {

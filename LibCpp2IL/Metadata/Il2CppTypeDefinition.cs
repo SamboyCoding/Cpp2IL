@@ -170,7 +170,19 @@ namespace LibCpp2IL.Metadata
             }
         }
 
-        public string? FullName => LibCpp2IlMain.TheMetadata == null || Namespace == null ? null : (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
+        public string? FullName
+        {
+            get
+            {
+                if(LibCpp2IlMain.TheMetadata == null)
+                    return null;
+
+                if (DeclaringType != null)
+                    return DeclaringType.FullName + "/" + Name;
+
+                return (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
+            }
+        }
 
         public Il2CppType? RawBaseType => parentIndex == -1 ? null : LibCpp2IlMain.ThePe!.types[parentIndex];
 
