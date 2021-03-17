@@ -191,6 +191,9 @@ namespace LibCpp2IL
         {
             var metadata = LibCpp2IlMain.TheMetadata!;
             var theDll = LibCpp2IlMain.ThePe!;
+
+            if (dataIndex == -1)
+                return null; //Literally null.
             
             var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
             if (pointer <= 0) return null;

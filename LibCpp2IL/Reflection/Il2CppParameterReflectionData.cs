@@ -22,8 +22,8 @@ namespace LibCpp2IL.Reflection
 
             result.Append(Type).Append(" ").Append(ParameterName);
 
-            if (DefaultValue != null)
-                result.Append(" = ").Append(DefaultValue);
+            if ((ParameterAttributes & ParameterAttributes.HasDefault) != 0)
+                result.Append(" = ").Append(DefaultValue ?? "null");
 
             return result.ToString();
         }
