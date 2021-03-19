@@ -253,10 +253,14 @@ namespace LibCpp2IL.Metadata
         public (int ptr, int type) GetFieldDefaultValue(int fieldIdx)
         {
             var fieldDef = fieldDefs[fieldIdx];
-            var fieldType = LibCpp2IlMain.ThePe!.types[fieldDef.typeIndex];
+            var fieldType = LibCpp2IlMain.ThePe!.GetType(fieldDef.typeIndex);
             if ((fieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
             {
                 var fieldDefault = GetFieldDefaultValueFromIndex(fieldIdx);
+
+                if (fieldDefault == null)
+                    return (-1, -1);
+                
                 return (ptr: fieldDefault.dataIndex, type: fieldDefault.typeIndex);
             }
 

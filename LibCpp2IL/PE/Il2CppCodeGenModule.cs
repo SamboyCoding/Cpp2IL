@@ -37,5 +37,7 @@ namespace LibCpp2IL.PE
                 return _cachedName!;
             }
         }
+
+        public Il2CppTokenRangePair[] RGCTXRanges => LibCpp2IlMain.ThePe!.GetRGCTXRangePairsForModule(this);
     }
 }

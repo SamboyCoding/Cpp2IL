@@ -13,9 +13,9 @@ namespace LibCpp2IL.PE
 
         public Il2CppMethodDefinition? MethodDefinition => LibCpp2IlMain.TheMetadata?.methodDefs[methodDefinitionIndex];
 
-        public Il2CppGenericInst? GenericClassInst => LibCpp2IlMain.ThePe?.genericInsts[classIndexIndex];
+        public Il2CppGenericInst? GenericClassInst => LibCpp2IlMain.ThePe?.GetGenericInst(classIndexIndex);
         
-        public Il2CppGenericInst? GenericMethodInst => LibCpp2IlMain.ThePe?.genericInsts[methodIndexIndex];
+        public Il2CppGenericInst? GenericMethodInst => LibCpp2IlMain.ThePe?.GetGenericInst(methodIndexIndex);
 
         public Il2CppTypeReflectionData[] GenericClassParams => LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
         

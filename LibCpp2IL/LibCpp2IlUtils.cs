@@ -80,7 +80,7 @@ namespace LibCpp2IL
 
             if (typeDef.declaringTypeIndex != -1)
             {
-                ret += GetTypeName(metadata, cppAssembly, cppAssembly.types[typeDef.declaringTypeIndex]) + ".";
+                ret += GetTypeName(metadata, cppAssembly, cppAssembly.GetType(typeDef.declaringTypeIndex)) + ".";
             }
 
             ret += metadata.GetStringFromIndex(typeDef.nameIndex);
@@ -198,7 +198,7 @@ namespace LibCpp2IL
             var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
             if (pointer <= 0) return null;
 
-            var defaultValueType = theDll.types[typeIndex];
+            var defaultValueType = theDll.GetType(typeIndex);
             switch (defaultValueType.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
@@ -208,7 +208,7 @@ namespace LibCpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_I1:
                     return metadata.ReadClass<sbyte>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-                    return BitConverter.ToChar(metadata.ReadByteArray(pointer, 2), 0);
+                    return BitConverter.ToChar(metadata.ReadByteArrayAtRawAddress(pointer, 2), 0);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U2:
                     return metadata.ReadClass<ushort>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
@@ -227,7 +227,7 @@ namespace LibCpp2IL
                     return metadata.ReadClass<double>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
                     var len = metadata.ReadClass<int>(pointer);
-                    return Encoding.UTF8.GetString(metadata.ReadByteArray(pointer + 4, len));
+                    return Encoding.UTF8.GetString(metadata.ReadByteArrayAtRawAddress(pointer + 4, len));
                 default:
                     return null;
             }

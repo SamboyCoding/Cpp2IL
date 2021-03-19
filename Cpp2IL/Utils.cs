@@ -24,7 +24,7 @@ namespace Cpp2IL
 {
     public static class Utils
     {
-        private static readonly object _pointerReadLock = new object(); 
+        private static readonly object _pointerReadLock = new object();
         //Disable these because they're initialised in BuildPrimitiveMappings
         // ReSharper disable NotNullMemberIsNotInitialized
 #pragma warning disable 8618
@@ -103,10 +103,10 @@ namespace Cpp2IL
             }
 
             //todo generics etc.
-            
+
             return false;
         }
-        
+
         public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeReference managedType)
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
@@ -152,7 +152,7 @@ namespace Cpp2IL
         {
             var theDll = LibCpp2IlMain.ThePe!;
             var metadata = LibCpp2IlMain.TheMetadata!;
-            
+
             var moduleDefinition = importInto.Module;
             switch (toImport.type)
             {
@@ -226,10 +226,10 @@ namespace Cpp2IL
                     var genericInstanceType = new GenericInstanceType(moduleDefinition.ImportReference(typeDefinition));
                     var genericInst = theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     ulong[] pointers;
-                    
-                    lock(_pointerReadLock)
+
+                    lock (_pointerReadLock)
                         pointers = theDll.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
-                    
+
                     foreach (var pointer in pointers)
                     {
                         var oriType = theDll.GetIl2CppTypeFromPointer(pointer);
@@ -249,7 +249,7 @@ namespace Cpp2IL
                 {
                     if (SharedState.GenericParamsByIndex.TryGetValue(toImport.data.genericParameterIndex, out var genericParameter))
                     {
-                        if(importInto is MethodDefinition mDef)
+                        if (importInto is MethodDefinition mDef)
                             mDef.GenericParameters.Add(genericParameter);
                         return genericParameter;
                     }
@@ -318,7 +318,7 @@ namespace Cpp2IL
             var addrOfCall = GetJumpTarget(jump, offsetInRam + jump.PC);
 
             //Disassemble 5 bytes at that destination (it should be a call)
-            var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
+            var bytes = cppAssembly.ReadByteArrayAtRawAddress(cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
             var callInstruction = DisassembleBytes(LibCpp2IlMain.ThePe!.is32Bit, bytes).First();
 
             //Make sure it *is* a call
@@ -406,7 +406,6 @@ namespace Cpp2IL
                 return callAddr == kfe.il2cpp_runtime_class_init_actual || callAddr == kfe.il2cpp_runtime_class_init_export ? 5 : 0;
             }
         }
-
 
 
         public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name)
@@ -593,14 +592,14 @@ namespace Cpp2IL
 
         public static string? TryGetLiteralAt(PE theDll, ulong rawAddr)
         {
-            var c = Convert.ToChar(theDll.raw[rawAddr]);
+            var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
             if (char.IsLetter(c) && c < 'z') //includes uppercase
             {
-                var isUnicode = theDll.raw[rawAddr + 1] == 0;
+                var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0;
                 var literal = new StringBuilder();
-                while ((theDll.raw[rawAddr] != 0 || isUnicode && theDll.raw[rawAddr + 1] != 0) && literal.Length < 250)
+                while ((theDll.GetByteAtRawAddress(rawAddr) != 0 || isUnicode && theDll.GetByteAtRawAddress(rawAddr + 1) != 0) && literal.Length < 250)
                 {
-                    literal.Append(Convert.ToChar(theDll.raw[rawAddr]));
+                    literal.Append(Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr)));
                     rawAddr++;
                     if (isUnicode) rawAddr++;
                 }
@@ -638,12 +637,12 @@ namespace Cpp2IL
 
         public static ulong GetSizeOfObject(TypeReference type)
         {
-            if (type.IsValueType && !type.IsPrimitive && type.Resolve() is {} def)
+            if (type.IsValueType && !type.IsPrimitive && type.Resolve() is { } def)
             {
                 //Struct - sum fields, including any nested structs.
                 return (ulong) def.Fields.Select(f => f.FieldType).Select(GetSizeOfObject).Select(u => (long) u).Sum();
             }
-            
+
             return PrimitiveSizes.TryGetValue(type.Name, out var result)
                 ? result
                 : PrimitiveSizes["IntPtr"];
@@ -655,9 +654,9 @@ namespace Cpp2IL
 
         public static string UpscaleRegisters(string replaceIn)
         {
-            if (_cachedUpscaledRegisters.ContainsKey(replaceIn)) 
+            if (_cachedUpscaledRegisters.ContainsKey(replaceIn))
                 return _cachedUpscaledRegisters[replaceIn];
-            
+
             if (replaceIn.Length < 2) return replaceIn;
 
             //Special case the few 8-bit register: "al" => "rax" etc
@@ -675,9 +674,9 @@ namespace Cpp2IL
             //R9d, etc.
             if (replaceIn[0] == 'r' && replaceIn[^1] == 'd')
                 return replaceIn.Substring(0, replaceIn.Length - 1);
-            
+
             _cachedUpscaledRegisters[replaceIn] = UpscaleRegex.Replace(replaceIn, "$1r$2");
-            
+
             return _cachedUpscaledRegisters[replaceIn];
         }
 
@@ -716,7 +715,7 @@ namespace Cpp2IL
 
             return ret;
         }
-        
+
         public static string GetRegisterName(Operand operand)
         {
             var theBase = operand.Base;
@@ -757,15 +756,15 @@ namespace Cpp2IL
             var buff = new List<byte>();
             var rawAddr = theDll.MapVirtualAddressToRaw(addr);
 
-            if (rawAddr < 0 || rawAddr >= theDll.raw.Length)
+            if (rawAddr < 0 || rawAddr >= theDll.RawLength)
             {
                 Console.WriteLine($"Invalid call to GetMethodBodyAtVirtAddressNew, virt addr {addr} resolves to raw {rawAddr} which is out of bounds");
                 return ret;
             }
 
-                while (con)
+            while (con)
             {
-                buff.Add(theDll.raw[rawAddr]);
+                buff.Add(theDll.GetByteAtRawAddress((ulong) rawAddr));
 
                 ret = LibCpp2ILUtils.DisassembleBytesNew(theDll.is32Bit, buff.ToArray(), functionStart);
 
@@ -791,7 +790,7 @@ namespace Cpp2IL
             var buff = new List<byte>();
             while (con)
             {
-                buff.Add(theDll.raw[addr]);
+                buff.Add(theDll.GetByteAtRawAddress((ulong) addr));
 
                 ret = DisassembleBytes(theDll.is32Bit, buff.ToArray());
 
@@ -911,18 +910,18 @@ namespace Cpp2IL
         public static object GetNumericConstant(ulong addr, TypeReference type)
         {
             var rawAddr = LibCpp2IlMain.ThePe!.MapVirtualAddressToRaw(addr);
-            var bytes = LibCpp2IlMain.ThePe.raw.SubArray((int) rawAddr, (int) GetSizeOfObject(type));
+            var bytes = LibCpp2IlMain.ThePe.ReadByteArrayAtRawAddress(rawAddr, (int) GetSizeOfObject(type));
 
             if (type == Int32Reference)
                 return BitConverter.ToInt32(bytes);
-            
-            if(type == Int64Reference)
+
+            if (type == Int64Reference)
                 return BitConverter.ToInt64(bytes);
-            
-            if(type == SingleReference)
+
+            if (type == SingleReference)
                 return BitConverter.ToSingle(bytes);
-            
-            if(type == DoubleReference)
+
+            if (type == DoubleReference)
                 return BitConverter.ToDouble(bytes);
 
             throw new ArgumentException("Do not know how to get a numeric constant of type " + type);
@@ -934,21 +933,22 @@ namespace Cpp2IL
         {
             if (typeData == null)
                 return null;
-            
+
             TypeReference? theType;
             if (!typeData.isArray && typeData.isType && !typeData.isGenericType)
             {
                 theType = SharedState.UnmanagedToManagedTypes[typeData.baseType!];
             }
-            else if(typeData.isGenericType)
+            else if (typeData.isGenericType)
             {
                 //TODO TryGetValue this.
                 var baseType = SharedState.UnmanagedToManagedTypes[typeData.baseType];
-                
+
                 var genericType = baseType.MakeGenericType(typeData.genericParams.Select(a => TryResolveTypeReflectionData(a, baseType)).ToArray());
 
                 theType = genericType;
-            } else if (typeData.isArray)
+            }
+            else if (typeData.isArray)
             {
                 theType = TryResolveTypeReflectionData(typeData.arrayType);
 
@@ -982,17 +982,17 @@ namespace Cpp2IL
         {
             var fieldDef = SharedState.ManagedToUnmanagedFields[fieldDefinition];
             var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(fieldDef.FieldIndex);
-            
+
             var metadata = LibCpp2IlMain.TheMetadata!;
-            
+
             var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
             var results = new long[allocatedArray.Size];
-            
+
             if (pointer <= 0) return results;
 
             //This should at least work for simple arrays.
             var elementSize = GetSizeOfObject(allocatedArray.ArrayType.ElementType);
-            
+
             for (var i = 0; i < allocatedArray.Size; i++)
             {
                 results[i] = Convert.ToInt64(elementSize switch

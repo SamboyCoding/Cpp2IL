@@ -13,42 +13,49 @@ namespace LibCpp2IL.PE
 {
     public sealed class PE : ClassReadingBinaryReader
     {
+        //Initialized in constructor
+        internal readonly byte[] raw; //Internal for PlusSearch
+        private readonly long maxMetadataUsages;
+        
+        //PE-Specific Stuff
+        internal readonly SectionHeader[] peSectionHeaders; //Internal for the one use in PlusSearch
+        internal readonly ulong peImageBase; //Internal for the one use in PlusSearch
+        private readonly OptionalHeader64 peOptionalHeader64;
+        private readonly OptionalHeader peOptionalHeader32;
+        
+        //Disable null check because this stuff is initialized post-constructor
 #pragma warning disable 8618
-//Disable null check because this stuff is initialized by reflection
+        private uint[]? peExportedFunctionPointers;
+        private uint[] peExportedFunctionNamePtrs;
+        private ushort[] peExportedFunctionOrdinals;
+        
+        //Il2cpp binary fields:
+        
+        //Top-level structs
         private Il2CppMetadataRegistration metadataRegistration;
         private Il2CppCodeRegistration codeRegistration;
-        public ulong[] methodPointers;
-        public ulong[] genericMethodPointers;
-        public ulong[] invokerPointers;
-        public ulong[] customAttributeGenerators;
+
+        //Pointers
+        private ulong[] methodPointers;
+        private ulong[] genericMethodPointers;
+        private ulong[] invokerPointers;
+        private ulong[] customAttributeGenerators; //Pre-27 only
         private long[] fieldOffsets;
-        public Il2CppType[] types;
-        private ConcurrentDictionary<ulong, Il2CppType> typesDict = new ConcurrentDictionary<ulong, Il2CppType>();
-        public ulong[] metadataUsages;
+        private ulong[] metadataUsages; //Pre-27 only
+        private ulong[][] codeGenModuleMethodPointers; //24.2+
+
+        private Il2CppType[] types;
         private Il2CppGenericMethodFunctionsDefinitions[] genericMethodTables;
-        public Il2CppGenericInst[] genericInsts;
-        public Il2CppMethodSpec[] methodSpecs;
+        private Il2CppGenericInst[] genericInsts;
+        private Il2CppMethodSpec[] methodSpecs;
+        private Il2CppCodeGenModule[] codeGenModules;
+        private Il2CppTokenRangePair[][] codegenModuleRgctxRanges;
+        private Il2CppRGCTXDefinition[][] codegenModuleRgctxs;
+
         private Dictionary<int, ulong> genericMethodDictionary;
-        private long maxMetadataUsages;
-        public Il2CppCodeGenModule[] codeGenModules;
-        public ulong[][] codeGenModuleMethodPointers;
-        public Il2CppTokenRangePair[][] codegenModuleRgctxRanges;
-        public Il2CppRGCTXDefinition[][] codegenModuleRgctxs;
-        public Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>>();
-        public Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new Dictionary<ulong, List<Il2CppConcreteGenericMethod>>();
-
-        internal SectionHeader[] sections;
-        internal ulong imageBase;
-
-        public byte[] raw;
-
-        //One of these will be present.
-        private OptionalHeader64 optionalHeader64;
-        private OptionalHeader optionalHeader;
-
-        private uint[]? exportFunctionPointers;
-        private uint[] exportFunctionNamePtrs;
-        private ushort[] exportFunctionOrdinals;
+        private readonly ConcurrentDictionary<ulong, Il2CppType> typesDict = new();
+        public readonly Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new();
+        public readonly Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new();
 
         public PE(MemoryStream input, long maxMetadataUsages) : base(input)
         {
@@ -68,25 +75,25 @@ namespace LibCpp2IL.PE
             if (fileHeader.Machine == 0x014c) //Intel 386
             {
                 is32Bit = true;
-                optionalHeader = ReadClass<OptionalHeader>(-1);
-                optionalHeader.DataDirectory = ReadClassArray<DataDirectory>(-1, optionalHeader.NumberOfRvaAndSizes);
-                imageBase = optionalHeader.ImageBase;
+                peOptionalHeader32 = ReadClass<OptionalHeader>(-1);
+                peOptionalHeader32.DataDirectory = ReadClassArray<DataDirectory>(-1, peOptionalHeader32.NumberOfRvaAndSizes);
+                peImageBase = peOptionalHeader32.ImageBase;
             }
             else if (fileHeader.Machine == 0x8664) //AMD64
             {
-                optionalHeader64 = ReadClass<OptionalHeader64>(-1);
-                optionalHeader64.DataDirectory = ReadClassArray<DataDirectory>(-1, optionalHeader64.NumberOfRvaAndSizes);
-                imageBase = optionalHeader64.ImageBase;
+                peOptionalHeader64 = ReadClass<OptionalHeader64>(-1);
+                peOptionalHeader64.DataDirectory = ReadClassArray<DataDirectory>(-1, peOptionalHeader64.NumberOfRvaAndSizes);
+                peImageBase = peOptionalHeader64.ImageBase;
             }
             else
             {
                 throw new NotSupportedException("ERROR: Unsupported machine.");
             }
 
-            sections = new SectionHeader[fileHeader.NumberOfSections];
+            peSectionHeaders = new SectionHeader[fileHeader.NumberOfSections];
             for (var i = 0; i < fileHeader.NumberOfSections; i++)
             {
-                sections[i] = new SectionHeader
+                peSectionHeaders[i] = new SectionHeader
                 {
                     Name = Encoding.UTF8.GetString(ReadBytes(8)).Trim('\0'),
                     VirtualSize = ReadUInt32(),
@@ -102,7 +109,7 @@ namespace LibCpp2IL.PE
             }
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            Console.WriteLine($"\tImage Base at 0x{imageBase:X}");
+            Console.WriteLine($"\tImage Base at 0x{peImageBase:X}");
             Console.WriteLine($"\tDLL is {(is32Bit ? "32" : "64")}-bit");
         }
 #pragma warning restore 8618
@@ -119,17 +126,17 @@ namespace LibCpp2IL.PE
 
         public long MapVirtualAddressToRaw(ulong uiAddr)
         {
-            var addr = (uint) (uiAddr - imageBase);
+            var addr = (uint) (uiAddr - peImageBase);
 
             if (addr == (uint) int.MaxValue + 1)
-                throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{imageBase:X}");
+                throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
 
-            var last = sections[sections.Length - 1];
+            var last = peSectionHeaders[peSectionHeaders.Length - 1];
             if (addr > last.VirtualAddress + last.VirtualSize)
                 // throw new ArgumentOutOfRangeException($"Provided address maps to image offset {addr} which is outside the range of the file (last section ends at {last.VirtualAddress + last.VirtualSize})");
                 return 0L;
 
-            var section = sections.FirstOrDefault(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
+            var section = peSectionHeaders.FirstOrDefault(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
 
             if (section == null) return 0L;
 
@@ -138,9 +145,9 @@ namespace LibCpp2IL.PE
 
         public ulong MapRawAddressToVirtual(uint offset)
         {
-            var section = sections.First(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
+            var section = peSectionHeaders.First(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
 
-            return imageBase + section.VirtualAddress + offset - section.PointerToRawData;
+            return peImageBase + section.VirtualAddress + offset - section.PointerToRawData;
         }
 
 
@@ -171,7 +178,7 @@ namespace LibCpp2IL.PE
         public void AlignStream(uint alignSize)
         {
             var virtPos = MapRawAddressToVirtual((uint) Position);
-            if (virtPos % alignSize is {} remainder && remainder != 0)
+            if (virtPos % alignSize is { } remainder && remainder != 0)
             {
                 Position += (long) (alignSize - remainder);
             }
@@ -223,7 +230,7 @@ namespace LibCpp2IL.PE
             }
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             Console.WriteLine($"\tLast type starts at virt address 0x{typesAddress.Max():X}");
 
             if (this.metadataRegistration.metadataUsages != 0)
@@ -326,7 +333,7 @@ namespace LibCpp2IL.PE
             {
                 var genericMethodIndex = table.genericMethodIndex;
                 var genericMethodPointerIndex = table.indices.methodIndex;
-                
+
                 var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex, out _);
 
                 if (!genericMethodDictionary.ContainsKey(methodDefIndex))
@@ -340,21 +347,21 @@ namespace LibCpp2IL.PE
 
         public int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex, out Il2CppConcreteGenericMethod? concreteMethod)
         {
-            var methodSpec = methodSpecs[genericMethodIndex];
+            var methodSpec = GetMethodSpec(genericMethodIndex);
             var methodDefIndex = methodSpec.methodDefinitionIndex;
             concreteMethod = null;
             if (methodSpec.methodIndexIndex >= 0)
             {
-                var genericInst = genericInsts[methodSpec.methodIndexIndex];
+                var genericInst = GetGenericInst(methodSpec.methodIndexIndex);
                 var ptrs = ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
                 var genericTypes = ptrs.Select(GetIl2CppTypeFromPointer).ToArray();
 
                 var genericParamData = genericTypes.Select(type => LibCpp2ILUtils.GetTypeReflectionData(type)!).ToArray();
 
                 ulong concreteMethodPtr = 0;
-                if(genericMethodPointerIndex >= 0)
+                if (genericMethodPointerIndex >= 0)
                     concreteMethodPtr = genericMethodPointers[genericMethodPointerIndex];
-                
+
                 var baseMethod = LibCpp2IlMain.TheMetadata!.methodDefs[methodDefIndex];
 
                 if (!ConcreteGenericMethods.ContainsKey(baseMethod))
@@ -366,7 +373,7 @@ namespace LibCpp2IL.PE
                     GenericParams = genericParamData,
                     GenericVariantPtr = concreteMethodPtr
                 };
-                
+
                 ConcreteGenericMethods[baseMethod].Add(concreteMethod);
 
                 if (concreteMethodPtr > 0)
@@ -386,7 +393,7 @@ namespace LibCpp2IL.PE
 
             var execList = new List<SectionHeader>();
             var dataList = new List<SectionHeader>();
-            foreach (var section in sections)
+            foreach (var section in peSectionHeaders)
             {
                 switch (section.Characteristics)
                 {
@@ -410,22 +417,22 @@ namespace LibCpp2IL.PE
             var plusSearch = new PlusSearch(this, methodCount, typeDefinitionsCount, maxMetadataUsages);
             var dataSections = dataList.ToArray();
             var execSections = execList.ToArray();
-            plusSearch.SetSearch(imageBase, dataSections);
-            plusSearch.SetDataSections(imageBase, dataSections);
-            plusSearch.SetExecSections(imageBase, execSections);
+            plusSearch.SetSearch(peImageBase, dataSections);
+            plusSearch.SetDataSections(peImageBase, dataSections);
+            plusSearch.SetExecSections(peImageBase, execSections);
 
             if (LibCpp2IlMain.MetadataVersion < 27f)
             {
                 if (is32Bit)
                 {
                     Console.WriteLine("\t(32-bit PE)");
-                    plusSearch.SetExecSections(imageBase, dataSections);
+                    plusSearch.SetExecSections(peImageBase, dataSections);
                     metadataRegistration = plusSearch.FindMetadataRegistration();
                 }
                 else
                 {
                     Console.WriteLine("\t(64-bit PE)");
-                    plusSearch.SetExecSections(imageBase, dataSections);
+                    plusSearch.SetExecSections(peImageBase, dataSections);
                     metadataRegistration = plusSearch.FindMetadataRegistration64Bit();
                 }
             }
@@ -450,7 +457,6 @@ namespace LibCpp2IL.PE
                 else
                     codeRegistration = is32Bit ? plusSearch.FindCodeRegistration() : plusSearch.FindCodeRegistration64Bit();
             }
-
 
 
 #if ALLOW_CODEREG_FALLBACK
@@ -743,14 +749,15 @@ namespace LibCpp2IL.PE
                     var ptr = (ulong) fieldOffsets[typeIndex];
                     if (ptr > 0)
                     {
-                        Position = (long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong)fieldIndexInType);
+                        Position = (long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType);
                         offset = ReadInt32();
                     }
                 }
                 else
                 {
-                    offset = (int)fieldOffsets[fieldIndex];
+                    offset = (int) fieldOffsets[fieldIndex];
                 }
+
                 if (offset > 0)
                 {
                     if (isValueType && !isStatic)
@@ -765,6 +772,7 @@ namespace LibCpp2IL.PE
                         }
                     }
                 }
+
                 return offset;
             }
             catch
@@ -803,37 +811,37 @@ namespace LibCpp2IL.PE
             uint addrExportTable;
             if (is32Bit)
             {
-                if (optionalHeader?.DataDirectory == null || optionalHeader.DataDirectory.Length == 0)
+                if (peOptionalHeader32?.DataDirectory == null || peOptionalHeader32.DataDirectory.Length == 0)
                     throw new InvalidDataException("Could not load 32-bit optional header or data directory, or data directory was empty!");
 
                 //We assume, per microsoft guidelines, that the first datadirectory is the export table.
-                addrExportTable = optionalHeader.DataDirectory.First().VirtualAddress;
+                addrExportTable = peOptionalHeader32.DataDirectory.First().VirtualAddress;
             }
             else
             {
-                if (optionalHeader64?.DataDirectory == null || optionalHeader64.DataDirectory.Length == 0)
+                if (peOptionalHeader64?.DataDirectory == null || peOptionalHeader64.DataDirectory.Length == 0)
                     throw new InvalidDataException("Could not load 64-bit optional header or data directory, or data directory was empty!");
 
                 //We assume, per microsoft guidelines, that the first datadirectory is the export table.
-                addrExportTable = optionalHeader64.DataDirectory.First().VirtualAddress;
+                addrExportTable = peOptionalHeader64.DataDirectory.First().VirtualAddress;
             }
 
             //Non-virtual addresses for these
-            var directoryEntryExports = ReadClassAtVirtualAddress<PeDirectoryEntryExport>(addrExportTable + imageBase);
+            var directoryEntryExports = ReadClassAtVirtualAddress<PeDirectoryEntryExport>(addrExportTable + peImageBase);
 
-            exportFunctionPointers = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportTable + imageBase, directoryEntryExports.NumberOfExports);
-            exportFunctionNamePtrs = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportNameTable + imageBase, directoryEntryExports.NumberOfExportNames);
-            exportFunctionOrdinals = ReadClassArrayAtVirtualAddress<ushort>(directoryEntryExports.RawAddressOfExportOrdinalTable + imageBase, directoryEntryExports.NumberOfExportNames); //This uses the name count per MSoft spec
+            peExportedFunctionPointers = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportTable + peImageBase, directoryEntryExports.NumberOfExports);
+            peExportedFunctionNamePtrs = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportNameTable + peImageBase, directoryEntryExports.NumberOfExportNames);
+            peExportedFunctionOrdinals = ReadClassArrayAtVirtualAddress<ushort>(directoryEntryExports.RawAddressOfExportOrdinalTable + peImageBase, directoryEntryExports.NumberOfExportNames); //This uses the name count per MSoft spec
         }
 
         public ulong GetVirtualAddressOfUnmanagedExportByName(string toFind)
         {
-            if (exportFunctionPointers == null)
+            if (peExportedFunctionPointers == null)
                 LoadExportTable();
 
-            var index = Array.FindIndex(exportFunctionNamePtrs, stringAddress =>
+            var index = Array.FindIndex(peExportedFunctionNamePtrs, stringAddress =>
             {
-                var rawStringAddress = MapVirtualAddressToRaw(stringAddress + imageBase);
+                var rawStringAddress = MapVirtualAddressToRaw(stringAddress + peImageBase);
                 string exportName = ReadStringToNull(rawStringAddress);
                 return exportName == toFind;
             });
@@ -841,15 +849,15 @@ namespace LibCpp2IL.PE
             if (index < 0)
                 return 0;
 
-            var ordinal = exportFunctionOrdinals[index];
-            var functionPointer = exportFunctionPointers![ordinal];
+            var ordinal = peExportedFunctionOrdinals[index];
+            var functionPointer = peExportedFunctionPointers![ordinal];
 
-            return functionPointer + imageBase;
+            return functionPointer + peImageBase;
         }
 
         public ulong GetRVA(ulong pointer)
         {
-            return pointer - imageBase;
+            return pointer - peImageBase;
         }
 
         public bool TryMapVirtualAddressToRaw(ulong virtAddr, out long result)
@@ -868,9 +876,35 @@ namespace LibCpp2IL.PE
 
         public InstructionList DisassembleTextSection()
         {
-            var textSection = this.sections.First(s => s.Name == ".text");
-            var toDisasm = this.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
-            return LibCpp2ILUtils.DisassembleBytesNew(this.is32Bit, toDisasm, textSection.VirtualAddress + this.imageBase);
+            var textSection = peSectionHeaders.First(s => s.Name == ".text");
+            var toDisasm = raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
+            return LibCpp2ILUtils.DisassembleBytesNew(is32Bit, toDisasm, textSection.VirtualAddress + peImageBase);
         }
+
+        public Il2CppGenericInst GetGenericInst(int index) => genericInsts[index];
+
+        public Il2CppMethodSpec GetMethodSpec(int index) => methodSpecs[index];
+
+        public Il2CppType GetType(int index) => types[index];
+
+        public int NumTypes => types.Length;
+
+        public ulong GetRawMetadataUsage(uint index) => metadataUsages[index];
+
+        public ulong[] GetCodegenModuleMethodPointers(int codegenModuleIndex) => codeGenModuleMethodPointers[codegenModuleIndex];
+        
+        public Il2CppCodeGenModule? GetCodegenModuleByName(string name) => codeGenModules.FirstOrDefault(m => m.Name == name);
+
+        public int GetCodegenModuleIndex(Il2CppCodeGenModule module) => Array.IndexOf(codeGenModules, module);
+
+        public int GetCodegenModuleIndexByName(string name) => GetCodegenModuleByName(name) is { } module ? GetCodegenModuleIndex(module) : -1;
+
+        public Il2CppTokenRangePair[] GetRGCTXRangePairsForModule(Il2CppCodeGenModule module) => codegenModuleRgctxRanges[GetCodegenModuleIndex(module)];
+
+        public Il2CppRGCTXDefinition[] GetRGCTXDataForPair(Il2CppCodeGenModule module, Il2CppTokenRangePair rangePair) => codegenModuleRgctxs[GetCodegenModuleIndex(module)].Skip(rangePair.start).Take(rangePair.length).ToArray();
+
+        public byte GetByteAtRawAddress(ulong addr) => raw[addr];
+
+        public long RawLength => raw.Length;
     }
 }

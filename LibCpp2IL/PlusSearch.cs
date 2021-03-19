@@ -214,9 +214,9 @@ namespace LibCpp2IL
             if (!_pe.is32Bit)
             {
                 var codeGenAddr = pCodegenModules.First();
-                var textSection = _pe.sections.First(s => s.Name == ".text");
+                var textSection = _pe.peSectionHeaders.First(s => s.Name == ".text");
                 var toDisasm = _pe.raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
-                var allInstructions = LibCpp2ILUtils.DisassembleBytesNew(_pe.is32Bit, toDisasm, textSection.VirtualAddress + _pe.imageBase);
+                var allInstructions = LibCpp2ILUtils.DisassembleBytesNew(_pe.is32Bit, toDisasm, textSection.VirtualAddress + _pe.peImageBase);
 
                 var allSensibleInstructions = allInstructions.Where(i =>
                         i.Mnemonic == Mnemonic.Lea
@@ -264,7 +264,7 @@ namespace LibCpp2IL
             var matchingAddresses = dataSections.Select(section =>
                 {
                     var position = section.RawStartAddress;
-                    var secContent = _pe.ReadByteArray((long) position, (int) (section.RawEndAddress - section.RawStartAddress));
+                    var secContent = _pe.ReadByteArrayAtRawAddress((long) position, (int) (section.RawEndAddress - section.RawStartAddress));
 
                     //Find every virtual address of an occurrence of the search bytes
                     var virtualAddressesOfSearchBytes = secContent

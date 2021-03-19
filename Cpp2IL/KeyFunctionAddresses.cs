@@ -99,7 +99,7 @@ namespace Cpp2IL
 
                         //Get 5 bytes at that point so we can disasm
                         //Warning: This might be fragile if the x86 instruction set ever changes.
-                        var bytes = cppAssembly.raw.SubArray((int) cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
+                        var bytes = cppAssembly.ReadByteArrayAtRawAddress(cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
                         var callInstruction = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, bytes).First();
 
                         addr = Utils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
@@ -352,12 +352,12 @@ namespace Cpp2IL
                 
                 //Find this instruction in the raw file
                 var offsetInPe = (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw((uint) matchingJmp.IP);
-                if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.ThePe!.raw.Length - 1))
+                if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.ThePe!.RawLength - 1))
                     continue;
 
                 //get next and previous bytes
-                var previousByte = LibCpp2IlMain.ThePe!.raw[offsetInPe - 1];
-                var nextByte = LibCpp2IlMain.ThePe!.raw[offsetInPe + (ulong) matchingJmp.Length];
+                var previousByte = LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offsetInPe - 1);
+                var nextByte = LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offsetInPe + (ulong) matchingJmp.Length);
 
                 //Double-cc = thunk
                 if (previousByte == 0xCC && nextByte == 0xCC)
@@ -367,9 +367,9 @@ namespace Cpp2IL
 
                 if (nextByte == 0xCC && maxBytesBack > 0)
                 {
-                    for (ulong backtrack = 1; backtrack < maxBytesBack && (offsetInPe - backtrack) > 0; backtrack++)
+                    for (ulong backtrack = 1; backtrack < maxBytesBack && offsetInPe - backtrack > 0; backtrack++)
                     {
-                        if (LibCpp2IlMain.ThePe!.raw[offsetInPe - backtrack] == 0xCC)
+                        if (LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
                             return matchingJmp.IP - (backtrack - 1);
                     }
                 }

@@ -63,7 +63,7 @@ namespace LibCpp2IL
                 {
                     case MetadataUsageType.Type:
                     case MetadataUsageType.TypeInfo:
-                        _cachedType = LibCpp2IlMain.ThePe!.types[_value];
+                        _cachedType = LibCpp2IlMain.ThePe!.GetType((int) _value);
                         _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)!;
                         _cachedName = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)?.ToString();
                         break;
@@ -136,7 +136,7 @@ namespace LibCpp2IL
                 switch (Type)
                 {
                     case MetadataUsageType.MethodRef: 
-                        var methodSpec = LibCpp2IlMain.ThePe!.methodSpecs[_value];
+                        var methodSpec = LibCpp2IlMain.ThePe!.GetMethodSpec((int) _value);
                         
                         var typeName = methodSpec.MethodDefinition!.DeclaringType!.FullName;
                         

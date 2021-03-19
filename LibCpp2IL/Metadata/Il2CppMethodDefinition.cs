@@ -36,9 +36,9 @@ namespace LibCpp2IL.Metadata
 
         internal string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
-        public Il2CppType? RawReturnType => LibCpp2IlMain.ThePe?.types[returnTypeIdx];
+        public Il2CppType? RawReturnType => LibCpp2IlMain.ThePe?.GetType(returnTypeIdx);
         
-        public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.types[returnTypeIdx]);
+        public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.GetType(returnTypeIdx));
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
@@ -55,8 +55,7 @@ namespace LibCpp2IL.Metadata
                     var asmIdx = 0; //Not needed pre-24.2
                     if (LibCpp2IlMain.MetadataVersion >= 27)
                     {
-                        var matchingCodegenModule = LibCpp2IlMain.ThePe!.codeGenModules.First(m => m.Name == DeclaringType!.DeclaringAssembly!.Name);
-                        asmIdx = Array.IndexOf(LibCpp2IlMain.ThePe!.codeGenModules, matchingCodegenModule);
+                        asmIdx = LibCpp2IlMain.ThePe.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
                     }
                     else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
                     {
@@ -85,7 +84,7 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppType[]? InternalParameterTypes => InternalParameterData == null
             ? null
-            : InternalParameterData.Select(paramDef => LibCpp2IlMain.ThePe!.types[paramDef.typeIndex])
+            : InternalParameterData.Select(paramDef => LibCpp2IlMain.ThePe!.GetType(paramDef.typeIndex))
                 .ToArray();
 
         private Il2CppParameterReflectionData[]? _cachedParameters;
@@ -99,7 +98,7 @@ namespace LibCpp2IL.Metadata
                     _cachedParameters = InternalParameterData
                         .Select((paramDef, idx) =>
                         {
-                            var paramType = LibCpp2IlMain.ThePe!.types[paramDef.typeIndex];
+                            var paramType = LibCpp2IlMain.ThePe!.GetType(paramDef.typeIndex);
                             var paramFlags = (ParameterAttributes) paramType.attrs;
                             var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(parameterStart + idx) : null;
                             return new Il2CppParameterReflectionData
@@ -129,11 +128,11 @@ namespace LibCpp2IL.Metadata
                 if (MethodOffsetInFile == 0)
                     return bytes; //Empty list.
                 
-                var offset = MethodOffsetInFile;
+                var offset = (ulong) MethodOffsetInFile;
                 while (true)
                 {
-                    var b = LibCpp2IlMain.ThePe!.raw[offset];
-                    if (b == 0xC3 && LibCpp2IlMain.ThePe!.raw[offset + 1] == 0xCC)
+                    var b = LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offset);
+                    if (b == 0xC3 && LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offset + 1) == 0xCC)
                     {
                         bytes.Add(b);
                         break;

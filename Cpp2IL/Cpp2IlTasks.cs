@@ -166,6 +166,9 @@ namespace Cpp2IL
         {
             foreach (var mainModuleType in assemblyDefinition.MainModule.Types)
             {
+                if(mainModuleType.Namespace == AssemblyPopulator.InjectedNamespaceName)
+                    continue;
+                
                 GenerateMetadataForType(mainModuleType);
             }
         }
@@ -228,7 +231,7 @@ namespace Cpp2IL
             for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
             {
                 var attributeTypeIndex = LibCpp2IlMain.TheMetadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
-                var attributeType = LibCpp2IlMain.ThePe!.types[attributeTypeIndex];
+                var attributeType = LibCpp2IlMain.ThePe!.GetType(attributeTypeIndex);
                 if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS) continue;
 
                 if (!attributeCtorsByClassIndex.ContainsKey(attributeType.data.classIndex))

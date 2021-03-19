@@ -20,7 +20,7 @@ namespace Cpp2IL
 {
     internal static class AssemblyPopulator
     {
-        private const string InjectedNamespaceName = "Cpp2IlInjected";
+        internal const string InjectedNamespaceName = "Cpp2IlInjected";
         private static readonly Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)> _attributesByModule = new Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)>();
 
         public static void ConfigureHierarchy()

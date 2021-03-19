@@ -166,7 +166,7 @@ namespace Cpp2IL
             var allUsedMnemonics = new List<ud_mnemonic_code>();
 
             var counter = 0;
-            var toProcess = assembly.MainModule.Types.ToList();
+            var toProcess = assembly.MainModule.Types.Where(t => t.Namespace != AssemblyPopulator.InjectedNamespaceName).ToList();
             //Sort alphabetically by type.
             toProcess.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
             var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();

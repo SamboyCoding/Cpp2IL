@@ -49,9 +49,9 @@ namespace LibCpp2IL
         {
             if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null) return null;
 
-            if (index >= LibCpp2IlMain.ThePe.types.Length || index < 0) return null;
+            if (index >= LibCpp2IlMain.ThePe.NumTypes || index < 0) return null;
 
-            var type = LibCpp2IlMain.ThePe.types[index];
+            var type = LibCpp2IlMain.ThePe.GetType(index);
             
             return LibCpp2IlMain.TheMetadata.typeDefs[type.data.classIndex];
         }

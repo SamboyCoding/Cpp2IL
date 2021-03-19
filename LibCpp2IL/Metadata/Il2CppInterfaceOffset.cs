@@ -8,7 +8,7 @@ namespace LibCpp2IL.Metadata
         public int typeIndex;
         public int offset;
 
-        public Il2CppTypeReflectionData? type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.types[typeIndex]);
+        public Il2CppTypeReflectionData? type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.GetType(typeIndex));
 
         public override string ToString()
         {

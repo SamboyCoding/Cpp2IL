@@ -207,7 +207,7 @@ namespace LibCpp2IL
             }
         }
 
-        public byte[] ReadByteArray(long offset, int count)
+        public byte[] ReadByteArrayAtRawAddress(long offset, int count)
         {
             var obtained = false;
             PositionShiftLock.Enter(ref obtained);
