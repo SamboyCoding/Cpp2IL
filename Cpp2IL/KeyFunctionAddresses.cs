@@ -118,7 +118,7 @@ namespace Cpp2IL
             }
 
             Console.Write("\t\t\tGrabbing il2cpp_runtime_class_init from exports...");
-            ret.il2cpp_runtime_class_init_export = cppAssembly.GetVirtualAddressOfUnmanagedExportByName("il2cpp_runtime_class_init");
+            ret.il2cpp_runtime_class_init_export = cppAssembly.GetVirtualAddressOfPeExportByName("il2cpp_runtime_class_init");
             Console.WriteLine($"Got address 0x{ret.il2cpp_runtime_class_init_export:X}");
             
             Console.Write("\t\t\tDisassembling to get il2cpp:vm::Runtime::ClassInit...");
@@ -289,7 +289,7 @@ namespace Cpp2IL
         private static void TryUseExportedIl2CppObjectNew(KeyFunctionAddresses ret)
         {
             Console.Write("\t\t\tLooking for exported il2cpp_object_new function...");
-            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfUnmanagedExportByName("il2cpp_object_new");
+            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfPeExportByName("il2cpp_object_new");
             Console.WriteLine($"Found at 0x{address:X}");
 
             Console.Write("\t\t\t\tSearching for a CALL to vm::Object::New...");
@@ -315,7 +315,7 @@ namespace Cpp2IL
         private static void TryUseExportedIl2CppArrayNewSpecific(KeyFunctionAddresses ret)
         {
             Console.Write("\t\t\tLooking for exported il2cpp_array_new_specific function...");
-            ret.il2cpp_array_new_specific = LibCpp2IlMain.ThePe!.GetVirtualAddressOfUnmanagedExportByName("il2cpp_array_new_specific");
+            ret.il2cpp_array_new_specific = LibCpp2IlMain.ThePe!.GetVirtualAddressOfPeExportByName("il2cpp_array_new_specific");
             Console.WriteLine($"Found at 0x{ret.il2cpp_array_new_specific:X}");
 
             Console.Write("\t\t\t\tSearching for a JMP to vm::Array::NewSpecific...");
@@ -381,7 +381,7 @@ namespace Cpp2IL
         private static void TryUseExportedIl2cppRaiseException(KeyFunctionAddresses ret)
         {
             Console.Write("\t\t\t\tLooking for exported il2cpp_raise_exception function...");
-            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfUnmanagedExportByName("il2cpp_raise_exception");
+            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfPeExportByName("il2cpp_raise_exception");
             Console.WriteLine($"Found at 0x{address:X}");
             
             Console.WriteLine("\t\t\t\tSearching for a CALL to il2cpp_raise_managed_exception...");
