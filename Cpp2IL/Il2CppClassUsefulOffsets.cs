@@ -13,7 +13,7 @@ namespace Cpp2IL
         public const int X86_VTABLE_OFFSET = 0x999; //todo
         public const int X86_64_VTABLE_OFFSET = 0x138; //TODO Check if this is lower (0x128?) on older metadata versions
 
-        public static readonly int VTABLE_OFFSET = LibCpp2IlMain.ThePe!.is32Bit ? X86_VTABLE_OFFSET : X86_64_VTABLE_OFFSET;
+        public static readonly int VTABLE_OFFSET = LibCpp2IlMain.Binary!.is32Bit ? X86_VTABLE_OFFSET : X86_64_VTABLE_OFFSET;
 
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {
@@ -71,7 +71,7 @@ namespace Cpp2IL
 
         public static string? GetOffsetName(uint offset)
         {
-            var is32Bit = LibCpp2IlMain.ThePe!.is32Bit;
+            var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
 
             return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
         }

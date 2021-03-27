@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using LibCpp2IL.Elf;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -19,7 +20,7 @@ namespace LibCpp2IL
         public static readonly LibCpp2IlSettings Settings = new();
 
         public static float MetadataVersion = 24f;
-        public static PE.PE? ThePe;
+        public static Il2CppBinary? Binary;
         public static Il2CppMetadata? TheMetadata;
 
         private static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new();
@@ -115,13 +116,13 @@ namespace LibCpp2IL
         /// <summary>
         /// Initialize the metadata and PE from a pair of byte arrays.
         /// </summary>
-        /// <param name="peBytes">The content of the GameAssembly.dll file.</param>
+        /// <param name="binaryBytes">The content of the GameAssembly.dll file.</param>
         /// <param name="metadataBytes">The content of the global-metadata.dat file</param>
         /// <param name="unityVersion">The unity version, split on periods, with the patch version (e.g. f1) stripped out. For example, [2018, 2, 0]</param>
         /// <returns>True if the initialize succeeded, else false</returns>
         /// <throws><see cref="System.FormatException"/> if the metadata is invalid (bad magic number, bad version), or if the PE is invalid (bad header signature, bad magic number)<br/></throws>
         /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
-        public static bool Initialize(byte[] peBytes, byte[] metadataBytes, int[] unityVersion)
+        public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, int[] unityVersion)
         {
             TheMetadata = Il2CppMetadata.ReadFrom(metadataBytes, unityVersion);
 
@@ -129,18 +130,38 @@ namespace LibCpp2IL
                 return false;
 
             Console.WriteLine("Read Metadata ok.");
+            
+            if (BitConverter.ToInt16(binaryBytes.Take(2).ToArray(), 0) == 0x5A4D)
+            {
+                var pe = new PE.PE(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
+                Binary = pe;
+                if (!pe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length))
+                    return false;
+                
+                Console.WriteLine("Read PE Data ok.");
+            } else if (BitConverter.ToInt32(binaryBytes.Take(4).ToArray(), 0) == 0x464c457f)
+            {
+                var elf = new ElfFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, true, true), TheMetadata.maxMetadataUsages);
+                Binary = elf;
+                var (codereg, metareg) = elf.FindCodeAndMetadataReg();
 
-            ThePe = new PE.PE(new MemoryStream(peBytes, 0, peBytes.Length, false, true), TheMetadata.maxMetadataUsages);
-            if (!ThePe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length))
-                return false;
-
-            Console.WriteLine("Read PE Data ok.");
+                if (codereg == 0 || metareg == 0)
+                    throw new Exception("Failed to find ELF code or metadata registration");
+                
+                Console.WriteLine($"Got ELF codereg: 0x{codereg:X}, metareg: 0x{metareg:X}");
+                
+                elf.Init(codereg, metareg);
+            }
+            else
+            {
+                throw new Exception("Unknown binary type");
+            }
 
             if (!Settings.DisableGlobalResolving && MetadataVersion < 27)
             {
                 var start = DateTime.Now;
                 Console.Write("Mapping Globals...");
-                LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, ThePe);
+                LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, Binary);
                 Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
             }
 

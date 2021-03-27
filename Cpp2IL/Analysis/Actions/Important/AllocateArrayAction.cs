@@ -17,16 +17,16 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public AllocateArrayAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var typeConstant = !LibCpp2IlMain.ThePe!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
+            var typeConstant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
 
-            if (typeConstant != null && LibCpp2IlMain.ThePe.is32Bit)
+            if (typeConstant != null && LibCpp2IlMain.Binary.is32Bit)
                 context.Stack.Pop(); //Pop off array type
 
             if (typeConstant == null) return;
 
-            var sizeOperand = !LibCpp2IlMain.ThePe!.is32Bit ? context.GetOperandInRegister("rdx") : context.Stack.Peek();
+            var sizeOperand = !LibCpp2IlMain.Binary!.is32Bit ? context.GetOperandInRegister("rdx") : context.Stack.Peek();
 
-            if (sizeOperand != null && LibCpp2IlMain.ThePe.is32Bit)
+            if (sizeOperand != null && LibCpp2IlMain.Binary.is32Bit)
                 context.Stack.Pop(); //Pop off array size
 
             if (sizeOperand == null) return;

@@ -53,7 +53,7 @@ namespace Cpp2IL.Analysis.ResultModels
             var args = method.Parameters.ToList();
             var haveHandledMethodInfoArg = false;
             //Set up parameters in registers & as locals.
-            if (!LibCpp2IlMain.ThePe!.is32Bit)
+            if (!LibCpp2IlMain.Binary!.is32Bit)
             {
                 var regList = new List<string> {"rcx", "rdx", "r8", "r9"};
 

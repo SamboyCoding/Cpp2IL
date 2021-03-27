@@ -60,8 +60,8 @@ namespace Cpp2IL
             {"Int64", 8},
             {"UInt64", 8},
             {"Double", 8},
-            {"IntPtr", LibCpp2IlMain.ThePe!.is32Bit ? 4UL : 8UL},
-            {"UIntPtr", LibCpp2IlMain.ThePe!.is32Bit ? 4UL : 8UL},
+            {"IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL},
+            {"UIntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL},
         };
 
         public static void BuildPrimitiveMappings()
@@ -150,7 +150,7 @@ namespace Cpp2IL
 
         public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport)
         {
-            var theDll = LibCpp2IlMain.ThePe!;
+            var theDll = LibCpp2IlMain.Binary!;
             var metadata = LibCpp2IlMain.TheMetadata!;
 
             var moduleDefinition = importInto.Module;
@@ -319,7 +319,7 @@ namespace Cpp2IL
 
             //Disassemble 5 bytes at that destination (it should be a call)
             var bytes = cppAssembly.ReadByteArrayAtRawAddress(cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-            var callInstruction = DisassembleBytes(LibCpp2IlMain.ThePe!.is32Bit, bytes).First();
+            var callInstruction = DisassembleBytes(LibCpp2IlMain.Binary!.is32Bit, bytes).First();
 
             //Make sure it *is* a call
             if (callInstruction.Mnemonic != ud_mnemonic_code.UD_Icall) return false;
@@ -590,7 +590,7 @@ namespace Cpp2IL
         //     return baseClass.FullName == subClass.FullName; //Simple check
         // }
 
-        public static string? TryGetLiteralAt(PE theDll, ulong rawAddr)
+        public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
         {
             var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
             if (char.IsLetter(c) && c < 'z') //includes uppercase
@@ -748,7 +748,7 @@ namespace Cpp2IL
             return -1;
         }
 
-        public static InstructionList GetMethodBodyAtVirtAddressNew(PE theDll, ulong addr, bool peek)
+        public static InstructionList GetMethodBodyAtVirtAddressNew(Il2CppBinary theDll, ulong addr, bool peek)
         {
             var functionStart = addr;
             var ret = new InstructionList();
@@ -783,7 +783,7 @@ namespace Cpp2IL
             return ret;
         }
 
-        public static List<Instruction> GetMethodBodyAtRawAddress(PE theDll, long addr, bool peek)
+        public static List<Instruction> GetMethodBodyAtRawAddress(Il2CppBinary theDll, long addr, bool peek)
         {
             var ret = new List<Instruction>();
             var con = true;
@@ -904,13 +904,13 @@ namespace Cpp2IL
 
         public static int GetPointerSizeBytes()
         {
-            return LibCpp2IlMain.ThePe!.is32Bit ? 4 : 8;
+            return LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
         }
 
         public static object GetNumericConstant(ulong addr, TypeReference type)
         {
-            var rawAddr = LibCpp2IlMain.ThePe!.MapVirtualAddressToRaw(addr);
-            var bytes = LibCpp2IlMain.ThePe.ReadByteArrayAtRawAddress(rawAddr, (int) GetSizeOfObject(type));
+            var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
+            var bytes = LibCpp2IlMain.Binary.ReadByteArrayAtRawAddress(rawAddr, (int) GetSizeOfObject(type));
 
             if (type == Int32Reference)
                 return BitConverter.ToInt32(bytes);
@@ -997,10 +997,10 @@ namespace Cpp2IL
             {
                 results[i] = Convert.ToInt64(elementSize switch
                 {
-                    1 => metadata.ReadClass<byte>(pointer)!,
-                    2 => metadata.ReadClass<short>(pointer)!,
-                    4 => metadata.ReadClass<int>(pointer)!,
-                    8 => metadata.ReadClass<long>(pointer)!,
+                    1 => metadata.ReadClassAtRawAddr<byte>(pointer)!,
+                    2 => metadata.ReadClassAtRawAddr<short>(pointer)!,
+                    4 => metadata.ReadClassAtRawAddr<int>(pointer)!,
+                    8 => metadata.ReadClassAtRawAddr<long>(pointer)!,
                     _ => results[i]
                 });
             }

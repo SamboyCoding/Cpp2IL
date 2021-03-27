@@ -33,7 +33,7 @@ namespace LibCpp2IL
             {25, "UIntPtr"},
             {28, "object"}
         };
-        
+
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new()
         {
             {"Byte", 1},
@@ -66,7 +66,7 @@ namespace LibCpp2IL
             return instructions;
         }
 
-        internal static string GetTypeName(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppTypeDefinition typeDef, bool fullName = false)
+        internal static string GetTypeName(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppTypeDefinition typeDef, bool fullName = false)
         {
             var ret = string.Empty;
             if (fullName)
@@ -103,20 +103,20 @@ namespace LibCpp2IL
 
         internal static Il2CppTypeReflectionData[]? GetGenericTypeParams(Il2CppGenericInst genericInst)
         {
-            if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null) return null;
+            if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null) return null;
 
             var types = new List<Il2CppTypeReflectionData>();
-            var pointers = LibCpp2IlMain.ThePe.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
+            var pointers = LibCpp2IlMain.Binary.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
             for (uint i = 0; i < genericInst.pointerCount; ++i)
             {
-                var oriType = LibCpp2IlMain.ThePe.GetIl2CppTypeFromPointer(pointers[i]);
+                var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointers[i]);
                 types.Add(GetTypeReflectionData(oriType)!);
             }
 
             return types.ToArray();
         }
 
-        internal static string GetGenericTypeParamNames(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppGenericInst genericInst)
+        internal static string GetGenericTypeParamNames(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppGenericInst genericInst)
         {
             var typeNames = new List<string>();
             var pointers = cppAssembly.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
@@ -129,7 +129,7 @@ namespace LibCpp2IL
             return $"<{string.Join(", ", typeNames)}>";
         }
 
-        public static string GetTypeName(Il2CppMetadata metadata, PE.PE cppAssembly, Il2CppType type, bool fullName = false)
+        public static string GetTypeName(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppType type, bool fullName = false)
         {
             string ret;
             switch (type.type)
@@ -190,11 +190,11 @@ namespace LibCpp2IL
         internal static object? GetDefaultValue(int dataIndex, int typeIndex)
         {
             var metadata = LibCpp2IlMain.TheMetadata!;
-            var theDll = LibCpp2IlMain.ThePe!;
+            var theDll = LibCpp2IlMain.Binary!;
 
             if (dataIndex == -1)
                 return null; //Literally null.
-            
+
             var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
             if (pointer <= 0) return null;
 
@@ -202,31 +202,31 @@ namespace LibCpp2IL
             switch (defaultValueType.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-                    return metadata.ReadClass<bool>(pointer);
+                    return metadata.ReadClassAtRawAddr<bool>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-                    return metadata.ReadClass<byte>(pointer);
+                    return metadata.ReadClassAtRawAddr<byte>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-                    return metadata.ReadClass<sbyte>(pointer);
+                    return metadata.ReadClassAtRawAddr<sbyte>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
                     return BitConverter.ToChar(metadata.ReadByteArrayAtRawAddress(pointer, 2), 0);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-                    return metadata.ReadClass<ushort>(pointer);
+                    return metadata.ReadClassAtRawAddr<ushort>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-                    return metadata.ReadClass<short>(pointer);
+                    return metadata.ReadClassAtRawAddr<short>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    return metadata.ReadClass<uint>(pointer);
+                    return metadata.ReadClassAtRawAddr<uint>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    return metadata.ReadClass<int>(pointer);
+                    return metadata.ReadClassAtRawAddr<int>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-                    return metadata.ReadClass<ulong>(pointer, true);
+                    return metadata.ReadClassAtRawAddr<ulong>(pointer, true);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-                    return metadata.ReadClass<long>(pointer, true);
+                    return metadata.ReadClassAtRawAddr<long>(pointer, true);
                 case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-                    return metadata.ReadClass<float>(pointer);
+                    return metadata.ReadClassAtRawAddr<float>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-                    return metadata.ReadClass<double>(pointer);
+                    return metadata.ReadClassAtRawAddr<double>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    var len = metadata.ReadClass<int>(pointer);
+                    var len = metadata.ReadClassAtRawAddr<int>(pointer);
                     return Encoding.UTF8.GetString(metadata.ReadByteArrayAtRawAddress(pointer + 4, len));
                 default:
                     return null;
@@ -246,7 +246,7 @@ namespace LibCpp2IL
 
         public static Il2CppTypeReflectionData GetTypeReflectionData(Il2CppType forWhat)
         {
-            if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null)
+            if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null)
                 throw new Exception("Can't get type reflection data when not initialized. How did you even get the type?");
 
             switch (forWhat.type)
@@ -300,8 +300,8 @@ namespace LibCpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 {
                     //Generic type
-                    var genericClass = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppGenericClass>(forWhat.data.generic_class);
-                    
+                    var genericClass = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppGenericClass>(forWhat.data.generic_class);
+
                     //CHANGED IN v27: typeDefinitionIndex is a ptr to the type in the file.
                     Il2CppTypeDefinition typeDefinition;
                     if (LibCpp2IlMain.MetadataVersion < 27f)
@@ -309,15 +309,15 @@ namespace LibCpp2IL
                     else
                     {
                         //This is slightly annoying, because we will have already read this type, but we have to re-read it. TODO FUTURE: Make a mapping of type definition addr => type def?
-                        var type = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
+                        var type = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
                         type.Init();
                         typeDefinition = LibCpp2IlMain.TheMetadata!.typeDefs[type.data.classIndex];
                     }
 
-                    var genericInst = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
-                    var pointers = LibCpp2IlMain.ThePe.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
+                    var genericInst = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
+                    var pointers = LibCpp2IlMain.Binary.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
                     var genericParams = pointers
-                        .Select(pointer => LibCpp2IlMain.ThePe.GetIl2CppTypeFromPointer(pointer))
+                        .Select(pointer => LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointer))
                         .Select(type => GetTypeReflectionData(type)!) //Recursive call here
                         .ToList();
 
@@ -346,7 +346,7 @@ namespace LibCpp2IL
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
                 {
-                    var oriType = LibCpp2IlMain.ThePe.GetIl2CppTypeFromPointer(forWhat.data.type);
+                    var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(forWhat.data.type);
                     return new Il2CppTypeReflectionData
                     {
                         baseType = null,
@@ -360,8 +360,8 @@ namespace LibCpp2IL
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 {
-                    var arrayType = LibCpp2IlMain.ThePe.ReadClassAtVirtualAddress<Il2CppArrayType>(forWhat.data.array);
-                    var oriType = LibCpp2IlMain.ThePe.GetIl2CppTypeFromPointer(arrayType.etype);
+                    var arrayType = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppArrayType>(forWhat.data.array);
+                    var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(arrayType.etype);
                     return new Il2CppTypeReflectionData
                     {
                         baseType = null,
@@ -375,7 +375,7 @@ namespace LibCpp2IL
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
                 {
-                    var oriType = LibCpp2IlMain.ThePe.GetIl2CppTypeFromPointer(forWhat.data.type);
+                    var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(forWhat.data.type);
                     var ret = GetTypeReflectionData(oriType)!;
                     ret.isPointer = true;
                     return ret;
@@ -385,19 +385,22 @@ namespace LibCpp2IL
             throw new ArgumentException($"Unknown type {forWhat.type}");
         }
 
-        public static int VersionAwareSizeOf(Type type)
+        public static int VersionAwareSizeOf(Type type, bool hasNoVersionAttributes = false)
         {
             if (type.IsPrimitive)
                 return (int) PrimitiveSizes[type.Name];
-            
+
             var size = 0;
             foreach (var i in type.GetFields())
             {
-                var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
-                if (attr != null)
+                if (!hasNoVersionAttributes)
                 {
-                    if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
-                        continue;
+                    var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
+                    if (attr != null)
+                    {
+                        if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
+                            continue;
+                    }
                 }
 
                 switch (i.FieldType.Name)
@@ -414,6 +417,10 @@ namespace LibCpp2IL
                     case "UInt16":
                         size += 2;
                         break;
+                    case "Byte":
+                    case "SByte":
+                        size += 1;
+                        break;
                 }
             }
 
@@ -429,6 +436,6 @@ namespace LibCpp2IL
                     il2CppTypeDefinition.DeclaringAssembly = assembly;
                 }
             }
-        } 
+        }
     }
 }

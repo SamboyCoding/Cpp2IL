@@ -97,7 +97,7 @@ namespace LibCpp2IL.Metadata
             internal set => _cachedDeclaringAssembly = value;
         }
 
-        public Il2CppCodeGenModule? CodeGenModule => LibCpp2IlMain.ThePe == null ? null : LibCpp2IlMain.ThePe.GetCodegenModuleByName(DeclaringAssembly!.Name!);
+        public Il2CppCodeGenModule? CodeGenModule => LibCpp2IlMain.Binary == null ? null : LibCpp2IlMain.Binary.GetCodegenModuleByName(DeclaringAssembly!.Name!);
 
         public Il2CppRGCTXDefinition[] RGCTXs
         {
@@ -113,7 +113,7 @@ namespace LibCpp2IL.Metadata
                 if (rangePair == null)
                     return new Il2CppRGCTXDefinition[0];
 
-                return LibCpp2IlMain.ThePe!.GetRGCTXDataForPair(cgm, rangePair);
+                return LibCpp2IlMain.Binary!.GetRGCTXDataForPair(cgm, rangePair);
             }
         }
 
@@ -121,12 +121,12 @@ namespace LibCpp2IL.Metadata
         {
             get
             {
-                var index = LibCpp2IlMain.ThePe!.GetCodegenModuleIndexByName(DeclaringAssembly!.Name!);
+                var index = LibCpp2IlMain.Binary!.GetCodegenModuleIndexByName(DeclaringAssembly!.Name!);
 
                 if (index < 0)
                     return new ulong[0];
 
-                var pointers = LibCpp2IlMain.ThePe!.GetCodegenModuleMethodPointers(index);
+                var pointers = LibCpp2IlMain.Binary!.GetCodegenModuleMethodPointers(index);
 
                 return RGCTXs
                     .Where(r => r.type == Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_METHOD)
@@ -175,15 +175,15 @@ namespace LibCpp2IL.Metadata
             }
         }
 
-        public Il2CppType? RawBaseType => parentIndex == -1 ? null : LibCpp2IlMain.ThePe!.GetType(parentIndex);
+        public Il2CppType? RawBaseType => parentIndex == -1 ? null : LibCpp2IlMain.Binary!.GetType(parentIndex);
 
-        public Il2CppTypeReflectionData? BaseType => parentIndex == -1 ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.GetType(parentIndex));
+        public Il2CppTypeReflectionData? BaseType => parentIndex == -1 ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(parentIndex));
 
         public Il2CppFieldDefinition[]? Fields => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.fieldDefs.Skip(firstFieldIdx).Take(field_count).ToArray();
 
         public FieldAttributes[]? FieldAttributes => Fields?
             .Select(f => f.typeIndex)
-            .Select(idx => LibCpp2IlMain.ThePe!.GetType(idx))
+            .Select(idx => LibCpp2IlMain.Binary!.GetType(idx))
             .Select(t => (FieldAttributes) t.attrs)
             .ToArray();
 
@@ -223,21 +223,21 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppTypeDefinition[]? NestedTypes => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.nestedTypeIndices.Skip(nestedTypesStart).Take(nested_type_count).Select(idx => LibCpp2IlMain.TheMetadata.typeDefs[idx]).ToArray();
 
-        public Il2CppType[] RawInterfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
+        public Il2CppType[] RawInterfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null
             ? Array.Empty<Il2CppType>()
             : LibCpp2IlMain.TheMetadata.interfaceIndices
                 .Skip(interfacesStart)
                 .Take(interfaces_count)
-                .Select(idx => LibCpp2IlMain.ThePe.GetType(idx))
+                .Select(idx => LibCpp2IlMain.Binary.GetType(idx))
                 .ToArray();
 
-        public Il2CppTypeReflectionData[]? Interfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
+        public Il2CppTypeReflectionData[]? Interfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null
             ? null
             : RawInterfaces
                 .Select(LibCpp2ILUtils.GetTypeReflectionData)
                 .ToArray();
 
-        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.ThePe.GetType(declaringTypeIndex).data.classIndex];
+        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(declaringTypeIndex).data.classIndex];
 
         public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex]; 
 

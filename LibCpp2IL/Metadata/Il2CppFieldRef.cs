@@ -7,7 +7,7 @@ namespace LibCpp2IL.Metadata
         public int typeIndex;
         public int fieldIndex; // local offset into type fields
 
-        public Il2CppType? DeclaringType => LibCpp2IlMain.ThePe?.GetType(typeIndex);
+        public Il2CppType? DeclaringType => LibCpp2IlMain.Binary?.GetType(typeIndex);
 
         public Il2CppTypeDefinition? DeclaringTypeDefinition => LibCpp2IlMain.TheMetadata?.typeDefs[DeclaringType!.data.classIndex];
 

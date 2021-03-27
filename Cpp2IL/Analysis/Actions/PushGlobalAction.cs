@@ -13,7 +13,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public PushGlobalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var offset = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var offset = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             MetadataUsage? usage;
             if (LibCpp2IlMain.GetAnyGlobalByAddress(offset) is { } globalIdentifier)
             {

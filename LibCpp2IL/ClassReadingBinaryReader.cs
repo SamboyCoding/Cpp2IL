@@ -7,7 +7,7 @@ using System.Threading;
 
 namespace LibCpp2IL
 {
-    public class ClassReadingBinaryReader : BinaryReader
+    public class ClassReadingBinaryReader : EndianAwareBinaryReader
     {
         private SpinLock PositionShiftLock;
 
@@ -69,7 +69,7 @@ namespace LibCpp2IL
         private Dictionary<FieldInfo, VersionAttribute?> _cachedVersionAttributes = new Dictionary<FieldInfo, VersionAttribute?>();
         private Dictionary<FieldInfo, bool> _cachedNoSerialize = new Dictionary<FieldInfo, bool>();
 
-        public T ReadClass<T>(long offset, bool overrideArchCheck = false) where T : new()
+        public T ReadClassAtRawAddr<T>(long offset, bool overrideArchCheck = false) where T : new()
         {
             var obtained = false;
             PositionShiftLock.Enter(ref obtained);
@@ -111,7 +111,7 @@ namespace LibCpp2IL
 
             if (type.IsEnum)
             {
-                var value = ReadPrimitive(type.GetEnumUnderlyingType(), true);
+                var value = ReadPrimitive(type.GetEnumUnderlyingType());
 
                 return (T) value!;
             }
@@ -154,7 +154,9 @@ namespace LibCpp2IL
             return t;
         }
 
-        public T[] ReadClassArray<T>(long offset, long count) where T : new()
+        public T[] ReadClassArrayAtRawAddr<T>(ulong offset, ulong count) where T : new() => ReadClassArrayAtRawAddr<T>((long) offset, (long) count);
+
+        public T[] ReadClassArrayAtRawAddr<T>(long offset, long count) where T : new()
         {
             var t = new T[count];
 
@@ -180,6 +182,8 @@ namespace LibCpp2IL
                 PositionShiftLock.Exit();
             }
         }
+
+        public string ReadStringToNull(ulong offset) => ReadStringToNull((long) offset);
 
         public string ReadStringToNull(long offset)
         {
@@ -222,6 +226,62 @@ namespace LibCpp2IL
                 Read(ret, 0, count);
                 
                 return ret;
+            }
+            finally
+            {
+                PositionShiftLock.Exit();
+            }
+        }
+
+        protected void WriteWord(int position, ulong word) => WriteWord(position, (long) word);
+
+        /// <summary>
+        /// Used for ELF Relocations.
+        /// </summary>
+        protected void WriteWord(int position, long word)
+        {
+            var obtained = false;
+            PositionShiftLock.Enter(ref obtained);
+
+            if (!obtained)
+                throw new Exception("Failed to obtain lock");
+
+            try
+            {
+                byte[] rawBytes;
+                if (is32Bit)
+                {
+                    var value = (int) word;
+                    rawBytes = BitConverter.GetBytes(value);
+                }
+                else
+                {
+                    rawBytes = BitConverter.GetBytes(word);
+                }
+
+                if (shouldReverseArrays)
+                    rawBytes = rawBytes.Reverse();
+
+                if (position > _memoryStream.Length)
+                    throw new Exception($"WriteWord: Position {position} beyond length {_memoryStream.Length}");
+
+                var count = is32Bit ? 4 : 8;
+                if (position + count > _memoryStream.Length)
+                    throw new Exception($"WriteWord: Writing {count} bytes at {position} would go beyond length {_memoryStream.Length}");
+
+                if (rawBytes.Length != count)
+                    throw new Exception($"WriteWord: Expected {count} bytes from BitConverter, got {position}");
+
+                try
+                {
+                    _memoryStream.Seek(position, SeekOrigin.Begin);
+                    _memoryStream.Write(rawBytes, 0, count);
+                }
+                catch
+                {
+                    Console.WriteLine("WriteWord: Unexpected exception!");
+                    throw;
+                }
             }
             finally
             {

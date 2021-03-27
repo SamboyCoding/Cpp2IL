@@ -32,12 +32,12 @@ namespace LibCpp2IL.PE
             get
             {
                 if(_cachedName == null)
-                    _cachedName = LibCpp2IlMain.ThePe!.ReadStringToNull(LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(moduleName));
+                    _cachedName = LibCpp2IlMain.Binary!.ReadStringToNull(LibCpp2IlMain.Binary.MapVirtualAddressToRaw(moduleName));
 
                 return _cachedName!;
             }
         }
 
-        public Il2CppTokenRangePair[] RGCTXRanges => LibCpp2IlMain.ThePe!.GetRGCTXRangePairsForModule(this);
+        public Il2CppTokenRangePair[] RGCTXRanges => LibCpp2IlMain.Binary!.GetRGCTXRangePairsForModule(this);
     }
 }

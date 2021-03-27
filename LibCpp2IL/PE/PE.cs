@@ -11,11 +11,10 @@ using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.PE
 {
-    public sealed class PE : ClassReadingBinaryReader
+    public sealed class PE : Il2CppBinary
     {
         //Initialized in constructor
         internal readonly byte[] raw; //Internal for PlusSearch
-        private readonly long maxMetadataUsages;
         
         //PE-Specific Stuff
         internal readonly SectionHeader[] peSectionHeaders; //Internal for the one use in PlusSearch
@@ -32,38 +31,15 @@ namespace LibCpp2IL.PE
         //Il2cpp binary fields:
         
         //Top-level structs
-        private Il2CppMetadataRegistration metadataRegistration;
-        private Il2CppCodeRegistration codeRegistration;
 
         //Pointers
-        private ulong[] methodPointers;
-        private ulong[] genericMethodPointers;
-        private ulong[] invokerPointers;
-        private ulong[] customAttributeGenerators; //Pre-27 only
-        private long[] fieldOffsets;
-        private ulong[] metadataUsages; //Pre-27 only
-        private ulong[][] codeGenModuleMethodPointers; //24.2+
 
-        private Il2CppType[] types;
-        private Il2CppGenericMethodFunctionsDefinitions[] genericMethodTables;
-        private Il2CppGenericInst[] genericInsts;
-        private Il2CppMethodSpec[] methodSpecs;
-        private Il2CppCodeGenModule[] codeGenModules;
-        private Il2CppTokenRangePair[][] codegenModuleRgctxRanges;
-        private Il2CppRGCTXDefinition[][] codegenModuleRgctxs;
-
-        private Dictionary<int, ulong> genericMethodDictionary;
-        private readonly ConcurrentDictionary<ulong, Il2CppType> typesDict = new();
-        public readonly Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new();
-        public readonly Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new();
-
-        public PE(MemoryStream input, long maxMetadataUsages) : base(input)
+        public PE(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
         {
             raw = input.GetBuffer();
             Console.Write("Reading PE File Header...");
             var start = DateTime.Now;
 
-            this.maxMetadataUsages = maxMetadataUsages;
             if (ReadUInt16() != 0x5A4D) //Magic number
                 throw new FormatException("ERROR: Magic number mismatch.");
             Position = 0x3C; //Signature position position (lol)
@@ -71,18 +47,20 @@ namespace LibCpp2IL.PE
             if (ReadUInt32() != 0x00004550) //Signature
                 throw new FormatException("ERROR: Invalid PE file signature");
 
-            var fileHeader = ReadClass<FileHeader>(-1);
+            var fileHeader = ReadClassAtRawAddr<FileHeader>(-1);
             if (fileHeader.Machine == 0x014c) //Intel 386
             {
                 is32Bit = true;
-                peOptionalHeader32 = ReadClass<OptionalHeader>(-1);
-                peOptionalHeader32.DataDirectory = ReadClassArray<DataDirectory>(-1, peOptionalHeader32.NumberOfRvaAndSizes);
+                InstructionSet = InstructionSet.X86_32;
+                peOptionalHeader32 = ReadClassAtRawAddr<OptionalHeader>(-1);
+                peOptionalHeader32.DataDirectory = ReadClassArrayAtRawAddr<DataDirectory>(-1, peOptionalHeader32.NumberOfRvaAndSizes);
                 peImageBase = peOptionalHeader32.ImageBase;
             }
             else if (fileHeader.Machine == 0x8664) //AMD64
             {
-                peOptionalHeader64 = ReadClass<OptionalHeader64>(-1);
-                peOptionalHeader64.DataDirectory = ReadClassArray<DataDirectory>(-1, peOptionalHeader64.NumberOfRvaAndSizes);
+                InstructionSet = InstructionSet.X86_64;
+                peOptionalHeader64 = ReadClassAtRawAddr<OptionalHeader64>(-1);
+                peOptionalHeader64.DataDirectory = ReadClassArrayAtRawAddr<DataDirectory>(-1, peOptionalHeader64.NumberOfRvaAndSizes);
                 peImageBase = peOptionalHeader64.ImageBase;
             }
             else
@@ -124,7 +102,7 @@ namespace LibCpp2IL.PE
             return true;
         }
 
-        public long MapVirtualAddressToRaw(ulong uiAddr)
+        public override long MapVirtualAddressToRaw(ulong uiAddr)
         {
             var addr = (uint) (uiAddr - peImageBase);
 
@@ -143,238 +121,11 @@ namespace LibCpp2IL.PE
             return addr - (section.VirtualAddress - section.PointerToRawData);
         }
 
-        public ulong MapRawAddressToVirtual(uint offset)
+        public override ulong MapRawAddressToVirtual(uint offset)
         {
             var section = peSectionHeaders.First(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
 
             return peImageBase + section.VirtualAddress + offset - section.PointerToRawData;
-        }
-
-
-        public bool TryMapRawAddressToVirtual(in uint offset, out ulong va)
-        {
-            try
-            {
-                va = MapRawAddressToVirtual(offset);
-                return true;
-            }
-            catch (Exception)
-            {
-                va = 0;
-                return false;
-            }
-        }
-
-        public T[] ReadClassArrayAtVirtualAddress<T>(ulong addr, long count) where T : new()
-        {
-            return ReadClassArray<T>(MapVirtualAddressToRaw(addr), count);
-        }
-
-        public T ReadClassAtVirtualAddress<T>(ulong addr) where T : new()
-        {
-            return ReadClass<T>(MapVirtualAddressToRaw(addr));
-        }
-
-        public void Init(ulong pCodeRegistration, ulong pMetadataRegistration)
-        {
-            Console.WriteLine("Initializing PE data...");
-            codeRegistration = ReadClassAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration);
-            metadataRegistration = ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(pMetadataRegistration);
-
-            Console.Write("\tReading generic instances...");
-            var start = DateTime.Now;
-            genericInsts = Array.ConvertAll(ReadClassArrayAtVirtualAddress<ulong>(metadataRegistration.genericInsts, metadataRegistration.genericInstsCount), x => ReadClassAtVirtualAddress<Il2CppGenericInst>(x));
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            Console.Write("\tReading generic method pointers...");
-            start = DateTime.Now;
-            genericMethodPointers = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.genericMethodPointers, (long) codeRegistration.genericMethodPointersCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            Console.Write("\tReading invoker pointers...");
-            start = DateTime.Now;
-            invokerPointers = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.invokerPointers, (long) codeRegistration.invokerPointersCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            if (LibCpp2IlMain.MetadataVersion < 27)
-            {
-                Console.Write("\tReading custom attribute generators...");
-                start = DateTime.Now;
-                customAttributeGenerators = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.customAttributeGeneratorListAddress, codeRegistration.customAttributeCount);
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            }
-
-            Console.Write("\tReading field offsets...");
-            start = DateTime.Now;
-            fieldOffsets = ReadClassArrayAtVirtualAddress<long>(metadataRegistration.fieldOffsetListAddress, metadataRegistration.fieldOffsetsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            Console.Write("\tReading types...");
-            start = DateTime.Now;
-            var typesAddress = ReadClassArrayAtVirtualAddress<ulong>(metadataRegistration.typeAddressListAddress, metadataRegistration.numTypes);
-            types = new Il2CppType[metadataRegistration.numTypes];
-            for (var i = 0; i < metadataRegistration.numTypes; ++i)
-            {
-                types[i] = ReadClassAtVirtualAddress<Il2CppType>(typesAddress[i]);
-                types[i].Init();
-                typesDict[typesAddress[i]] = types[i];
-            }
-
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            Console.WriteLine($"\tLast type starts at virt address 0x{typesAddress.Max():X}");
-
-            if (metadataRegistration.metadataUsages != 0)
-            {
-                //Empty in v27
-                Console.Write("\tReading metadata usages...");
-                start = DateTime.Now;
-                metadataUsages = ReadClassArrayAtVirtualAddress<ulong>(metadataRegistration.metadataUsages, maxMetadataUsages);
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            }
-
-            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
-            {
-                Console.WriteLine("\tReading code gen modules...");
-                start = DateTime.Now;
-
-                var codeGenModulePtrs = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.addrCodeGenModulePtrs, (long) codeRegistration.codeGenModulesCount);
-                codeGenModules = new Il2CppCodeGenModule[codeGenModulePtrs.Length];
-                codeGenModuleMethodPointers = new ulong[codeGenModulePtrs.Length][];
-                codegenModuleRgctxRanges = new Il2CppTokenRangePair[codeGenModulePtrs.Length][];
-                codegenModuleRgctxs = new Il2CppRGCTXDefinition[codeGenModulePtrs.Length][];
-                for (var i = 0; i < codeGenModulePtrs.Length; i++)
-                {
-                    var codeGenModule = ReadClassAtVirtualAddress<Il2CppCodeGenModule>(codeGenModulePtrs[i]);
-                    codeGenModules[i] = codeGenModule;
-                    string name = ReadStringToNull(MapVirtualAddressToRaw(codeGenModule.moduleName));
-                    Console.WriteLine($"\t\t-Read module data for {name}, contains {codeGenModule.methodPointerCount} method pointers starting at 0x{codeGenModule.methodPointers:X}");
-                    if (codeGenModule.methodPointerCount > 0)
-                    {
-                        try
-                        {
-                            var ptrs = ReadClassArrayAtVirtualAddress<ulong>(codeGenModule.methodPointers, codeGenModule.methodPointerCount);
-                            codeGenModuleMethodPointers[i] = ptrs;
-                            Console.WriteLine($"\t\t\t-Read {codeGenModule.methodPointerCount} method pointers.");
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine($"\t\t\tWARNING: Unable to get function pointers for {name}: {e.Message}");
-                            codeGenModuleMethodPointers[i] = new ulong[codeGenModule.methodPointerCount];
-                        }
-                    }
-
-                    if (codeGenModule.rgctxRangesCount > 0)
-                    {
-                        try
-                        {
-                            var ranges = ReadClassArrayAtVirtualAddress<Il2CppTokenRangePair>(codeGenModule.pRgctxRanges, codeGenModule.rgctxRangesCount);
-                            codegenModuleRgctxRanges[i] = ranges;
-                            Console.WriteLine($"\t\t\t-Read {codeGenModule.rgctxRangesCount} RGCTX ranges.");
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine($"\t\t\tWARNING: Unable to get RGCTX ranges for {name}: {e.Message}");
-                            codegenModuleRgctxRanges[i] = new Il2CppTokenRangePair[codeGenModule.rgctxRangesCount];
-                        }
-                    }
-
-                    if (codeGenModule.rgctxsCount > 0)
-                    {
-                        try
-                        {
-                            var rgctxs = ReadClassArrayAtVirtualAddress<Il2CppRGCTXDefinition>(codeGenModule.rgctxs, codeGenModule.rgctxsCount);
-                            codegenModuleRgctxs[i] = rgctxs;
-                            Console.WriteLine($"\t\t\t-Read {codeGenModule.rgctxsCount} RGCTXs.");
-                        }
-                        catch (Exception e)
-                        {
-                            Console.WriteLine($"\t\t\tWARNING: Unable to get RGCTXs for {name}: {e.Message}");
-                            codegenModuleRgctxs[i] = new Il2CppRGCTXDefinition[codeGenModule.rgctxsCount];
-                        }
-                    }
-                }
-
-                Console.WriteLine($"\tOK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            }
-            else
-            {
-                Console.Write("\tReading method pointers...");
-                start = DateTime.Now;
-                methodPointers = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.methodPointers, (long) codeRegistration.methodPointersCount);
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            }
-
-
-            Console.Write("\tReading generic method tables...");
-            start = DateTime.Now;
-            genericMethodTables = ReadClassArrayAtVirtualAddress<Il2CppGenericMethodFunctionsDefinitions>(metadataRegistration.genericMethodTable, metadataRegistration.genericMethodTableCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            Console.Write("\tReading method specifications...");
-            start = DateTime.Now;
-            methodSpecs = ReadClassArrayAtVirtualAddress<Il2CppMethodSpec>(metadataRegistration.methodSpecs, metadataRegistration.methodSpecsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            Console.Write("\tReading generic methods...");
-            start = DateTime.Now;
-            genericMethodDictionary = new Dictionary<int, ulong>(genericMethodTables.Length);
-            foreach (var table in genericMethodTables)
-            {
-                var genericMethodIndex = table.genericMethodIndex;
-                var genericMethodPointerIndex = table.indices.methodIndex;
-
-                var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex, out _);
-
-                if (!genericMethodDictionary.ContainsKey(methodDefIndex))
-                {
-                    genericMethodDictionary.Add(methodDefIndex, genericMethodPointers[genericMethodPointerIndex]);
-                }
-            }
-
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-        }
-
-        private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex, out Il2CppConcreteGenericMethod? concreteMethod)
-        {
-            var methodSpec = GetMethodSpec(genericMethodIndex);
-            var methodDefIndex = methodSpec.methodDefinitionIndex;
-            concreteMethod = null;
-            if (methodSpec.methodIndexIndex >= 0)
-            {
-                var genericInst = GetGenericInst(methodSpec.methodIndexIndex);
-                var ptrs = ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
-                var genericTypes = ptrs.Select(GetIl2CppTypeFromPointer).ToArray();
-
-                var genericParamData = genericTypes.Select(type => LibCpp2ILUtils.GetTypeReflectionData(type)!).ToArray();
-
-                ulong concreteMethodPtr = 0;
-                if (genericMethodPointerIndex >= 0)
-                    concreteMethodPtr = genericMethodPointers[genericMethodPointerIndex];
-
-                var baseMethod = LibCpp2IlMain.TheMetadata!.methodDefs[methodDefIndex];
-
-                if (!ConcreteGenericMethods.ContainsKey(baseMethod))
-                    ConcreteGenericMethods[baseMethod] = new List<Il2CppConcreteGenericMethod>();
-
-                concreteMethod = new Il2CppConcreteGenericMethod
-                {
-                    BaseMethod = baseMethod,
-                    GenericParams = genericParamData,
-                    GenericVariantPtr = concreteMethodPtr
-                };
-
-                ConcreteGenericMethods[baseMethod].Add(concreteMethod);
-
-                if (concreteMethodPtr > 0)
-                {
-                    if (!ConcreteGenericImplementationsByAddress.ContainsKey(concreteMethodPtr))
-                        ConcreteGenericImplementationsByAddress[concreteMethodPtr] = new List<Il2CppConcreteGenericMethod>();
-                    ConcreteGenericImplementationsByAddress[concreteMethodPtr].Add(concreteMethod);
-                }
-            }
-
-            return methodDefIndex;
         }
 
         public bool PlusSearch(int methodCount, int typeDefinitionsCount)
@@ -472,85 +223,6 @@ namespace LibCpp2IL.PE
             return AutoInit(pCodeRegistration, pMetadataRegistration);
         }
 
-        public Il2CppType GetIl2CppTypeFromPointer(ulong pointer)
-        {
-            return typesDict[pointer];
-        }
-
-        public ulong[] GetPointers(ulong pointer, long count)
-        {
-            if (is32Bit)
-                return Array.ConvertAll(ReadClassArrayAtVirtualAddress<uint>(pointer, count), x => (ulong) x);
-            return ReadClassArrayAtVirtualAddress<ulong>(pointer, count);
-        }
-
-        public int GetFieldOffsetFromIndex(int typeIndex, int fieldIndexInType, int fieldIndex, bool isValueType, bool isStatic)
-        {
-            try
-            {
-                var offset = -1;
-                if (LibCpp2IlMain.MetadataVersion > 21)
-                {
-                    var ptr = (ulong) fieldOffsets[typeIndex];
-                    if (ptr > 0)
-                    {
-                        Position = (long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType);
-                        offset = ReadInt32();
-                    }
-                }
-                else
-                {
-                    offset = (int) fieldOffsets[fieldIndex];
-                }
-
-                if (offset > 0)
-                {
-                    if (isValueType && !isStatic)
-                    {
-                        if (is32Bit)
-                        {
-                            offset -= 8;
-                        }
-                        else
-                        {
-                            offset -= 16;
-                        }
-                    }
-                }
-
-                return offset;
-            }
-            catch
-            {
-                return -1;
-            }
-        }
-
-        public ulong GetMethodPointer(int methodIndex, int methodDefinitionIndex, int imageIndex, uint methodToken)
-        {
-            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
-            {
-                if (genericMethodDictionary.TryGetValue(methodDefinitionIndex, out var methodPointer))
-                {
-                    return methodPointer;
-                }
-
-                var ptrs = codeGenModuleMethodPointers[imageIndex];
-                var methodPointerIndex = methodToken & 0x00FFFFFFu;
-                return ptrs[methodPointerIndex - 1];
-            }
-            else
-            {
-                if (methodIndex >= 0)
-                {
-                    return methodPointers[methodIndex];
-                }
-
-                genericMethodDictionary.TryGetValue(methodDefinitionIndex, out var methodPointer);
-                return methodPointer;
-            }
-        }
-
         private void LoadPeExportTable()
         {
             uint addrExportTable;
@@ -600,23 +272,9 @@ namespace LibCpp2IL.PE
             return functionPointer + peImageBase;
         }
 
-        public ulong GetRVA(ulong pointer)
+        public override ulong GetRVA(ulong pointer)
         {
             return pointer - peImageBase;
-        }
-
-        public bool TryMapVirtualAddressToRaw(ulong virtAddr, out long result)
-        {
-            try
-            {
-                result = MapVirtualAddressToRaw(virtAddr);
-                return true;
-            }
-            catch (Exception)
-            {
-                result = 0;
-                return false;
-            }
         }
 
         public InstructionList DisassembleTextSection()
@@ -626,30 +284,8 @@ namespace LibCpp2IL.PE
             return LibCpp2ILUtils.DisassembleBytesNew(is32Bit, toDisasm, textSection.VirtualAddress + peImageBase);
         }
 
-        public Il2CppGenericInst GetGenericInst(int index) => genericInsts[index];
+        public override byte GetByteAtRawAddress(ulong addr) => raw[addr];
 
-        public Il2CppMethodSpec GetMethodSpec(int index) => methodSpecs[index];
-
-        public Il2CppType GetType(int index) => types[index];
-
-        public int NumTypes => types.Length;
-
-        public ulong GetRawMetadataUsage(uint index) => metadataUsages[index];
-
-        public ulong[] GetCodegenModuleMethodPointers(int codegenModuleIndex) => codeGenModuleMethodPointers[codegenModuleIndex];
-        
-        public Il2CppCodeGenModule? GetCodegenModuleByName(string name) => codeGenModules.FirstOrDefault(m => m.Name == name);
-
-        public int GetCodegenModuleIndex(Il2CppCodeGenModule module) => Array.IndexOf(codeGenModules, module);
-
-        public int GetCodegenModuleIndexByName(string name) => GetCodegenModuleByName(name) is { } module ? GetCodegenModuleIndex(module) : -1;
-
-        public Il2CppTokenRangePair[] GetRGCTXRangePairsForModule(Il2CppCodeGenModule module) => codegenModuleRgctxRanges[GetCodegenModuleIndex(module)];
-
-        public Il2CppRGCTXDefinition[] GetRGCTXDataForPair(Il2CppCodeGenModule module, Il2CppTokenRangePair rangePair) => codegenModuleRgctxs[GetCodegenModuleIndex(module)].Skip(rangePair.start).Take(rangePair.length).ToArray();
-
-        public byte GetByteAtRawAddress(ulong addr) => raw[addr];
-
-        public long RawLength => raw.Length;
+        public override long RawLength => raw.Length;
     }
 }

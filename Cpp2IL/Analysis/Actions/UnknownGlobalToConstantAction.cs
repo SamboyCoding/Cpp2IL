@@ -12,7 +12,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public UnknownGlobalToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var offset = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var offset = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             _global = new UnknownGlobalAddr(offset);
             
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);

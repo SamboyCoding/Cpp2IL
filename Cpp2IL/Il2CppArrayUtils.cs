@@ -8,7 +8,7 @@ namespace Cpp2IL
 {
     public static class Il2CppArrayUtils
     {
-        public static uint FirstItemOffset = (uint) (LibCpp2IlMain.ThePe!.is32Bit ? 0x10 : 0x20); 
+        public static uint FirstItemOffset = (uint) (LibCpp2IlMain.Binary!.is32Bit ? 0x10 : 0x20); 
         //32-bit:
         //0x0: klass ptr
         //0x4: monitor ptr
@@ -27,7 +27,7 @@ namespace Cpp2IL
 
         public static string? GetOffsetName(uint offset)
         {
-            var is32Bit = LibCpp2IlMain.ThePe!.is32Bit;
+            var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
 
             return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
         }

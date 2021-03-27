@@ -63,5 +63,7 @@ namespace LibCpp2IL
             one = pair.Key;
             two = pair.Value;
         }
+        
+        public static uint Bits(this uint x, int low, int count) => (x >> low) & (uint) ((1 << count) - 1);
     }
 }

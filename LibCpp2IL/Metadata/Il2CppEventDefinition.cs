@@ -33,9 +33,9 @@ namespace LibCpp2IL.Metadata
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
-        public Il2CppType? RawType => LibCpp2IlMain.ThePe?.GetType(typeIndex);
+        public Il2CppType? RawType => LibCpp2IlMain.Binary?.GetType(typeIndex);
         
-        public Il2CppTypeReflectionData? EventType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
+        public Il2CppTypeReflectionData? EventType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
 
         public EventAttributes EventAttributes => (EventAttributes) RawType!.attrs;
 

@@ -11,8 +11,8 @@ namespace LibCpp2IL.PE
 
         public int TypeIndex => _rawIndex;
 
-        public Il2CppMethodSpec? MethodSpec => LibCpp2IlMain.ThePe?.GetMethodSpec(MethodIndex);
+        public Il2CppMethodSpec? MethodSpec => LibCpp2IlMain.Binary?.GetMethodSpec(MethodIndex);
 
-        public Il2CppTypeReflectionData? Type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe!.GetType(TypeIndex));
+        public Il2CppTypeReflectionData? Type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(TypeIndex));
     }
 }

@@ -60,7 +60,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         private static IComparisonArgument? ExtractArgument(MethodAnalysis context, Instruction instruction, string registerName, int operandIdx, OpKind opKind, out bool unimportant, out string? argumentRegister)
         {
-            var globalMemoryOffset = LibCpp2IlMain.ThePe!.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var globalMemoryOffset = LibCpp2IlMain.Binary!.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             
             unimportant = false;
             argumentRegister = null;

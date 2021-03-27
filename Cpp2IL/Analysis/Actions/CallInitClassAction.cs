@@ -12,7 +12,7 @@ namespace Cpp2IL.Analysis.Actions
         public CallInitClassAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             ConstantDefinition? consDef;
-            if (LibCpp2IlMain.ThePe!.is32Bit)
+            if (LibCpp2IlMain.Binary!.is32Bit)
             {
                 consDef = context.Stack.Count > 0 ? context.Stack.Peek() as ConstantDefinition : null;
                 if (consDef != null)

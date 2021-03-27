@@ -17,7 +17,7 @@ namespace LibCpp2IL
         internal static Dictionary<ulong, MetadataUsage> FieldRefsByAddress = new();
         internal static Dictionary<ulong, MetadataUsage> LiteralsByAddress = new();
 
-        internal static void MapGlobalIdentifiers(Il2CppMetadata metadata, PE.PE cppAssembly)
+        internal static void MapGlobalIdentifiers(Il2CppMetadata metadata, Il2CppBinary cppAssembly)
         {
             if(LibCpp2IlMain.MetadataVersion < 27)
                 MapGlobalIdentifiersPre27(metadata, cppAssembly);
@@ -25,12 +25,12 @@ namespace LibCpp2IL
                 MapGlobalIdentifiersPost27(metadata, cppAssembly);
         }
 
-        private static void MapGlobalIdentifiersPost27(Il2CppMetadata metadata, PE.PE cppAssembly)
+        private static void MapGlobalIdentifiersPost27(Il2CppMetadata metadata, Il2CppBinary cppAssembly)
         {
             //No-op
         }
 
-        private static void MapGlobalIdentifiersPre27(Il2CppMetadata metadata, PE.PE cppAssembly)
+        private static void MapGlobalIdentifiersPre27(Il2CppMetadata metadata, Il2CppBinary cppAssembly)
         {
             //Type 1 => TypeInfo
             //Type 2 => Il2CppType
@@ -84,7 +84,7 @@ namespace LibCpp2IL
 
         public static MetadataUsage? CheckForPost27GlobalAt(ulong address)
         {
-            var encoded = LibCpp2IlMain.ThePe!.ReadClassAtVirtualAddress<ulong>(address);
+            var encoded = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ulong>(address);
             var metadataUsage = MetadataUsage.DecodeMetadataUsage(encoded, address);
             
             return metadataUsage;

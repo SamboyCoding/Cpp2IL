@@ -32,7 +32,7 @@ namespace Cpp2IL
 
         public static string? GetOffsetName(uint offset)
         {
-            var is32Bit = LibCpp2IlMain.ThePe!.is32Bit;
+            var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
 
             return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
         }

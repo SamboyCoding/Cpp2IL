@@ -18,7 +18,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             _jumpTarget = instruction.NearBranchTarget;
 
-            if (!LibCpp2IlMain.ThePe!.is32Bit)
+            if (!LibCpp2IlMain.Binary!.is32Bit)
                 InstanceBeingCalledOn = context.GetLocalInReg("rcx"); //64-bit, we can get this immediately, no penalty if this is a static method.
 
             var listOfCallableMethods = LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(_jumpTarget);
@@ -30,7 +30,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             {
                 possibleTarget = listOfCallableMethods.First();
 
-                if (!possibleTarget.IsStatic && LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                if (!possibleTarget.IsStatic && LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                 {
                     InstanceBeingCalledOn = local; //32-bit and we have an instance
                     context.Stack.Pop(); //remove instance from stack
@@ -60,7 +60,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
                         //Have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
                         LocalDefinition toPushBackIfNeeded = null;
-                        if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                        if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                         {
                             InstanceBeingCalledOn = local;
                             toPushBackIfNeeded = local;
@@ -88,7 +88,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                     if (possibleTarget == null)
                     {
                         LocalDefinition toPushBackIfNeeded = null;
-                        if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                        if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                         {
                             InstanceBeingCalledOn = local;
                             toPushBackIfNeeded = local;
@@ -150,12 +150,12 @@ namespace Cpp2IL.Analysis.Actions.Important
                 if (possibleTarget == null)
                     //Check static methods. No need for a complicated foreach here, we don't have to worry about an instance.
                     possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(instruction, m, context, false, out Arguments, InstanceBeingCalledOn));
-                else if (LibCpp2IlMain.ThePe!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                else if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                     //Instance method
                     InstanceBeingCalledOn = local; //32-bit and we have an instance
             }
 
-            if (possibleTarget == null && LibCpp2IlMain.ThePe.ConcreteGenericImplementationsByAddress.TryGetValue(_jumpTarget, out var concreteGenericMethods))
+            if (possibleTarget == null && LibCpp2IlMain.Binary.ConcreteGenericImplementationsByAddress.TryGetValue(_jumpTarget, out var concreteGenericMethods))
             {
                 AddComment($"Probably a jump to a concrete generic method, there are {concreteGenericMethods.Count} here.");
             }

@@ -77,7 +77,7 @@ namespace LibCpp2IL.Metadata
 
         private Il2CppMetadata(MemoryStream stream) : base(stream)
         {
-            metadataHeader = ReadClass<Il2CppGlobalMetadataHeader>(-1);
+            metadataHeader = ReadClassAtRawAddr<Il2CppGlobalMetadataHeader>(-1);
             if (metadataHeader.magicNumber != 0xFAB11BAF)
             {
                 throw new Exception("ERROR: Magic number mismatch. Expecting " + 0xFAB11BAF + " but got " + metadataHeader.magicNumber);
@@ -137,12 +137,12 @@ namespace LibCpp2IL.Metadata
 
             Console.Write("\tReading interface definitions...");
             start = DateTime.Now;
-            interfaceIndices = ReadClassArray<int>(metadataHeader.interfacesOffset, metadataHeader.interfacesCount / 4);
+            interfaceIndices = ReadClassArrayAtRawAddr<int>(metadataHeader.interfacesOffset, metadataHeader.interfacesCount / 4);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             Console.Write("\tReading nested type definitions...");
             start = DateTime.Now;
-            nestedTypeIndices = ReadClassArray<int>(metadataHeader.nestedTypesOffset, metadataHeader.nestedTypesCount / 4);
+            nestedTypeIndices = ReadClassArrayAtRawAddr<int>(metadataHeader.nestedTypesOffset, metadataHeader.nestedTypesCount / 4);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             Console.Write("\tReading event definitions...");
@@ -187,7 +187,7 @@ namespace LibCpp2IL.Metadata
             Console.Write("\tReading attribute types...");
             start = DateTime.Now;
             attributeTypeRanges = ReadMetadataClassArray<Il2CppCustomAttributeTypeRange>(metadataHeader.attributesInfoOffset, metadataHeader.attributesInfoCount);
-            attributeTypes = ReadClassArray<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
+            attributeTypes = ReadClassArrayAtRawAddr<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
             Console.Write("\tBuilding Lookup Table for field defaults...");
@@ -203,7 +203,7 @@ namespace LibCpp2IL.Metadata
 
         private T[] ReadMetadataClassArray<T>(int offset, int length) where T : new()
         {
-            return ReadClassArray<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T)));
+            return ReadClassArrayAtRawAddr<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T)));
         }
 
         private void DecipherMetadataUsage()
@@ -253,7 +253,7 @@ namespace LibCpp2IL.Metadata
         public (int ptr, int type) GetFieldDefaultValue(int fieldIdx)
         {
             var fieldDef = fieldDefs[fieldIdx];
-            var fieldType = LibCpp2IlMain.ThePe!.GetType(fieldDef.typeIndex);
+            var fieldType = LibCpp2IlMain.Binary!.GetType(fieldDef.typeIndex);
             if ((fieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
             {
                 var fieldDefault = GetFieldDefaultValueFromIndex(fieldIdx);

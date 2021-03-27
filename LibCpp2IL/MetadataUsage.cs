@@ -63,7 +63,7 @@ namespace LibCpp2IL
                 {
                     case MetadataUsageType.Type:
                     case MetadataUsageType.TypeInfo:
-                        _cachedType = LibCpp2IlMain.ThePe!.GetType((int) _value);
+                        _cachedType = LibCpp2IlMain.Binary!.GetType((int) _value);
                         _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)!;
                         _cachedName = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)?.ToString();
                         break;
@@ -136,7 +136,7 @@ namespace LibCpp2IL
                 switch (Type)
                 {
                     case MetadataUsageType.MethodRef: 
-                        var methodSpec = LibCpp2IlMain.ThePe!.GetMethodSpec((int) _value);
+                        var methodSpec = LibCpp2IlMain.Binary!.GetMethodSpec((int) _value);
                         
                         var typeName = methodSpec.MethodDefinition!.DeclaringType!.FullName;
                         
@@ -145,7 +145,7 @@ namespace LibCpp2IL
                         {
                             var classInst = methodSpec.GenericClassInst;
                             declaringTypeGenericParams = LibCpp2ILUtils.GetGenericTypeParams(classInst!)!;
-                            typeName += LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.ThePe!, classInst!);
+                            typeName += LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.Binary!, classInst!);
                         }
 
                         var methodName = typeName + "." + methodSpec.MethodDefinition.Name;
@@ -154,7 +154,7 @@ namespace LibCpp2IL
                         if (methodSpec.methodIndexIndex != -1)
                         {
                             var methodInst = methodSpec.GenericMethodInst;
-                            methodName += LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.ThePe!, methodInst!);
+                            methodName += LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.Binary!, methodInst!);
                             genericMethodParameters = LibCpp2ILUtils.GetGenericTypeParams(methodInst!)!;
                         }
 

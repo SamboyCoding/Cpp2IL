@@ -47,11 +47,11 @@ namespace LibCpp2IL
 
         public static Il2CppTypeDefinition? GetTypeDefinitionByTypeIndex(int index)
         {
-            if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null) return null;
+            if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null) return null;
 
-            if (index >= LibCpp2IlMain.ThePe.NumTypes || index < 0) return null;
+            if (index >= LibCpp2IlMain.Binary.NumTypes || index < 0) return null;
 
-            var type = LibCpp2IlMain.ThePe.GetType(index);
+            var type = LibCpp2IlMain.Binary.GetType(index);
             
             return LibCpp2IlMain.TheMetadata.typeDefs[type.data.classIndex];
         }

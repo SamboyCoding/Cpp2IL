@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         
         public AllocateInstanceAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var constant = !LibCpp2IlMain.ThePe!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
+            var constant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
             if (constant == null || !typeof(TypeReference).IsAssignableFrom(constant.Type)) return;
 
             TypeCreated = (TypeReference) constant.Value;
@@ -25,7 +25,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             //Keeping this as used implicitly because we have to create instances of things.
             RegisterUsedLocal(LocalReturned);
 
-            if (LibCpp2IlMain.ThePe.is32Bit)
+            if (LibCpp2IlMain.Binary.is32Bit)
                 context.Stack.Pop(); //Pop off the type created
         }
 

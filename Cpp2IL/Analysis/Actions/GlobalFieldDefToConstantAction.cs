@@ -16,7 +16,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public GlobalFieldDefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var globalAddress = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             FieldData = LibCpp2IlMain.GetFieldGlobalByAddress(globalAddress);
             ResolvedField = SharedState.UnmanagedToManagedFields[FieldData];
 

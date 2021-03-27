@@ -43,7 +43,7 @@ namespace Cpp2IL.Analysis
         private readonly ulong _methodStart;
         private ulong _methodEnd;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
-        private readonly PE _cppAssembly;
+        private readonly Il2CppBinary _cppAssembly;
 
         private readonly StringBuilder _methodFunctionality = new StringBuilder();
 #if !USE_NEW_ANALYSIS_METHOD
@@ -133,11 +133,11 @@ namespace Cpp2IL.Analysis
             _methodDefinition.Body = new MethodBody(_methodDefinition);
 
             _keyFunctionAddresses = keyFunctionAddresses;
-            _cppAssembly = LibCpp2IlMain.ThePe!;
+            _cppAssembly = LibCpp2IlMain.Binary!;
 
             //Pass 0: Disassemble
 #if USE_NEW_ANALYSIS_METHOD
-            _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart);
+            _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart);
 
             var instructionWhichOverran = new Instruction();
             var idx = 1;
@@ -772,7 +772,7 @@ namespace Cpp2IL.Analysis
                     {
                         Analysis.Actions.Add(new CallExceptionThrowerFunction(Analysis, instruction));
                     }
-                    else if (LibCpp2IlMain.ThePe!.ConcreteGenericImplementationsByAddress.ContainsKey(jumpTarget))
+                    else if (LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.ContainsKey(jumpTarget))
                     {
                         //Call concrete generic function
                         Analysis.Actions.Add(new CallManagedFunctionAction(Analysis, instruction));
@@ -926,7 +926,7 @@ namespace Cpp2IL.Analysis
                     }
                     else
                     {
-                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe!, (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(instruction.GetRipBasedInstructionMemoryAddress()));
+                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(instruction.GetRipBasedInstructionMemoryAddress()));
                         if (potentialLiteral != null)
                         {
                             // if (r0 == "rsp")
@@ -988,7 +988,7 @@ namespace Cpp2IL.Analysis
                     //So much so that this is guarded behind an array read check - change the case if you need to change this.
                     Analysis.Actions.Add(new RegOffsetArrayValueReadRegToRegAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mov when !LibCpp2IlMain.ThePe!.is32Bit && type1 == OpKind.Memory && type0 == OpKind.Register && memR == "rsp" && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Mov when !LibCpp2IlMain.Binary!.is32Bit && type1 == OpKind.Memory && type0 == OpKind.Register && memR == "rsp" && instruction.MemoryIndex == Register.None:
                     //x64 Stack pointer read.
                     Analysis.Actions.Add(new StackOffsetReadX64Action(Analysis, instruction));
                     break;

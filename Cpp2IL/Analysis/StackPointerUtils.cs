@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis
             //12 => second param, etc
             //-4 => first local
             //-8 => second local, etc
-            var firstParamOffset = LibCpp2IlMain.ThePe!.is32Bit ? 8 : 16;
+            var firstParamOffset = LibCpp2IlMain.Binary!.is32Bit ? 8 : 16;
             if (offset >= firstParamOffset)
             {
                 offset -= firstParamOffset; //Subtract the base offsets
@@ -28,7 +28,7 @@ namespace Cpp2IL.Analysis
             }
             else
             {
-                var firstLocalOffset = LibCpp2IlMain.ThePe!.is32Bit ? -4 : -8;
+                var firstLocalOffset = LibCpp2IlMain.Binary!.is32Bit ? -4 : -8;
                 if (offset <= firstLocalOffset)
                 {
                     //We have a local
@@ -52,10 +52,10 @@ namespace Cpp2IL.Analysis
             //12 => second param, etc
             //-4 => first local
             //-8 => second local, etc
-            var firstParamOffset = LibCpp2IlMain.ThePe!.is32Bit ? 8 : 16;
+            var firstParamOffset = LibCpp2IlMain.Binary!.is32Bit ? 8 : 16;
             if (offset < firstParamOffset)
             {
-                var firstLocalOffset = LibCpp2IlMain.ThePe!.is32Bit ? -4 : -8;
+                var firstLocalOffset = LibCpp2IlMain.Binary!.is32Bit ? -4 : -8;
                 if (offset <= firstLocalOffset)
                 {
                     //We have a local

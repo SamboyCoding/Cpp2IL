@@ -36,9 +36,9 @@ namespace LibCpp2IL.Metadata
 
         internal string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
-        public Il2CppType? RawReturnType => LibCpp2IlMain.ThePe?.GetType(returnTypeIdx);
+        public Il2CppType? RawReturnType => LibCpp2IlMain.Binary?.GetType(returnTypeIdx);
         
-        public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.ThePe == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.ThePe.GetType(returnTypeIdx));
+        public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary.GetType(returnTypeIdx));
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
@@ -49,33 +49,33 @@ namespace LibCpp2IL.Metadata
             {
                 if (!_methodPointer.HasValue)
                 {
-                    if (LibCpp2IlMain.ThePe == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
+                    if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
                         return 0;
 
                     var asmIdx = 0; //Not needed pre-24.2
                     if (LibCpp2IlMain.MetadataVersion >= 27)
                     {
-                        asmIdx = LibCpp2IlMain.ThePe.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
+                        asmIdx = LibCpp2IlMain.Binary.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
                     }
                     else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
                     {
                         asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
                     }
 
-                    _methodPointer = LibCpp2IlMain.ThePe.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
+                    _methodPointer = LibCpp2IlMain.Binary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
                 }
 
                 return _methodPointer.Value;
             }
         }
 
-        public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.ThePe == null ? 0 : LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(MethodPointer);
+        public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.MapVirtualAddressToRaw(MethodPointer);
 
-        public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.ThePe == null ? 0 : LibCpp2IlMain.ThePe.GetRVA(MethodPointer);
+        public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRVA(MethodPointer);
 
         public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
 
-        public Il2CppParameterDefinition[]? InternalParameterData => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.ThePe == null
+        public Il2CppParameterDefinition[]? InternalParameterData => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null
             ? null
             : LibCpp2IlMain.TheMetadata.parameterDefs
                 .Skip(parameterStart)
@@ -84,7 +84,7 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppType[]? InternalParameterTypes => InternalParameterData == null
             ? null
-            : InternalParameterData.Select(paramDef => LibCpp2IlMain.ThePe!.GetType(paramDef.typeIndex))
+            : InternalParameterData.Select(paramDef => LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex))
                 .ToArray();
 
         private Il2CppParameterReflectionData[]? _cachedParameters;
@@ -98,7 +98,7 @@ namespace LibCpp2IL.Metadata
                     _cachedParameters = InternalParameterData
                         .Select((paramDef, idx) =>
                         {
-                            var paramType = LibCpp2IlMain.ThePe!.GetType(paramDef.typeIndex);
+                            var paramType = LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex);
                             var paramFlags = (ParameterAttributes) paramType.attrs;
                             var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(parameterStart + idx) : null;
                             return new Il2CppParameterReflectionData
@@ -131,8 +131,8 @@ namespace LibCpp2IL.Metadata
                 var offset = (ulong) MethodOffsetInFile;
                 while (true)
                 {
-                    var b = LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offset);
-                    if (b == 0xC3 && LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offset + 1) == 0xCC)
+                    var b = LibCpp2IlMain.Binary!.GetByteAtRawAddress(offset);
+                    if (b == 0xC3 && LibCpp2IlMain.Binary!.GetByteAtRawAddress(offset + 1) == 0xCC)
                     {
                         bytes.Add(b);
                         break;

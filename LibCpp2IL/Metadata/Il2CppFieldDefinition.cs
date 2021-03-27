@@ -13,7 +13,7 @@ namespace LibCpp2IL.Metadata
         
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
-        public Il2CppType? RawFieldType => LibCpp2IlMain.ThePe?.GetType(typeIndex);
+        public Il2CppType? RawFieldType => LibCpp2IlMain.Binary?.GetType(typeIndex);
         public Il2CppTypeReflectionData? FieldType => RawFieldType == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawFieldType);
 
         public int FieldIndex => LibCpp2IlReflection.GetFieldIndexFromField(this);

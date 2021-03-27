@@ -176,7 +176,7 @@ namespace Cpp2IL
                     fieldDefinition.InitialValue = fieldDef.StaticArrayInitialValue;
                 }
 
-                var thisFieldOffset = LibCpp2IlMain.ThePe!.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, counter, fieldDef.FieldIndex, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
+                var thisFieldOffset = LibCpp2IlMain.Binary!.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, counter, fieldDef.FieldIndex, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
                 fields.Add(GetFieldInType(fieldTypeRef, thisFieldOffset, fieldDef.Name!, fieldDefinition));
 
                 if (!fieldDefinition.IsStatic)
@@ -232,8 +232,8 @@ namespace Cpp2IL
                 if (methodPointer > 0)
                 {
                     var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));
-                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.ThePe.GetRVA(methodPointer):X}")));
-                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(methodPointer):X}")));
+                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.GetRVA(methodPointer):X}")));
+                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.MapVirtualAddressToRaw(methodPointer):X}")));
                     customAttribute.Fields.Add(new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}")));
                     if (methodDef.slot != ushort.MaxValue)
                     {

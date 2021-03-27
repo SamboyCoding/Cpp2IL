@@ -4,6 +4,7 @@ using System.Linq;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.PE;
 using Mono.Cecil;
 using SharpDisasm.Udis86;
 using Instruction = SharpDisasm.Instruction;
@@ -37,7 +38,7 @@ namespace Cpp2IL
 
         public static KeyFunctionAddresses Find()
         {
-            var cppAssembly = LibCpp2IlMain.ThePe!; 
+            var cppAssembly = LibCpp2IlMain.Binary!; 
             var ret = new KeyFunctionAddresses();
 
             //First: The function that sets up a method, only needs to be located so we can ignore it.
@@ -77,7 +78,7 @@ namespace Cpp2IL
                 {
                     Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_codegen_initialize_method near offset 0x{tatn!.AsUnmanaged().MethodPointer:X}...");
 
-                    instructions = Utils.DisassembleBytes(LibCpp2IlMain.ThePe!.is32Bit, tatn!.AsUnmanaged().CppMethodBodyBytes.ToArray());
+                    instructions = Utils.DisassembleBytes(LibCpp2IlMain.Binary!.is32Bit, tatn!.AsUnmanaged().CppMethodBodyBytes.ToArray());
 
                     //Need to find the bail-out function, again so we can ignore it, as it's injected for null safety because cpp really doesn't like null pointer dereferences.
                     //But it can be safely stripped out of IL - it'll just throw an NRE which is what this is a replacement for anyway.
@@ -100,7 +101,7 @@ namespace Cpp2IL
                         //Get 5 bytes at that point so we can disasm
                         //Warning: This might be fragile if the x86 instruction set ever changes.
                         var bytes = cppAssembly.ReadByteArrayAtRawAddress(cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-                        var callInstruction = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, bytes).First();
+                        var callInstruction = Utils.DisassembleBytes(LibCpp2IlMain.Binary.is32Bit, bytes).First();
 
                         addr = Utils.GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
                         Console.WriteLine($"\t\t\t\tLocated Bailout function at 0x{addr:X}");
@@ -118,7 +119,7 @@ namespace Cpp2IL
             }
 
             Console.Write("\t\t\tGrabbing il2cpp_runtime_class_init from exports...");
-            ret.il2cpp_runtime_class_init_export = cppAssembly.GetVirtualAddressOfPeExportByName("il2cpp_runtime_class_init");
+            ret.il2cpp_runtime_class_init_export = ((PE) cppAssembly).GetVirtualAddressOfPeExportByName("il2cpp_runtime_class_init");
             Console.WriteLine($"Got address 0x{ret.il2cpp_runtime_class_init_export:X}");
             
             Console.Write("\t\t\tDisassembling to get il2cpp:vm::Runtime::ClassInit...");
@@ -136,7 +137,7 @@ namespace Cpp2IL
 
                 Console.WriteLine($"\t\t\t\tSearching for a call to the safe cast function near offset 0x{method.AsUnmanaged()!.MethodPointer:X}...");
 
-                instructions = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, method.AsUnmanaged().CppMethodBodyBytes.ToArray());
+                instructions = Utils.DisassembleBytes(LibCpp2IlMain.Binary.is32Bit, method.AsUnmanaged().CppMethodBodyBytes.ToArray());
 
                 var calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
@@ -189,7 +190,7 @@ namespace Cpp2IL
                 {
                     Console.WriteLine("\t\t\t\tTarget Method Located. Taking first CALL as the (version-specific) metadata initialization function...");
                     
-                    var disasm = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.ThePe!.is32Bit, targetMethod.AsUnmanaged().CppMethodBodyBytes, targetMethod.AsUnmanaged().MethodPointer);
+                    var disasm = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, targetMethod.AsUnmanaged().CppMethodBodyBytes, targetMethod.AsUnmanaged().MethodPointer);
                     var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
 
                     if (LibCpp2IlMain.MetadataVersion < 27)
@@ -221,7 +222,7 @@ namespace Cpp2IL
                 if (targetMethod != null) 
                 {
                     Console.WriteLine("\t\t\t\tTarget Method Located. Ensuring signature matches what we're expecting...");
-                    var disasm = Utils.DisassembleBytes(LibCpp2IlMain.ThePe.is32Bit, targetMethod.AsUnmanaged().CppMethodBodyBytes.ToArray());
+                    var disasm = Utils.DisassembleBytes(LibCpp2IlMain.Binary.is32Bit, targetMethod.AsUnmanaged().CppMethodBodyBytes.ToArray());
 
                     var callInstructions = disasm.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Icall).ToList();
 
@@ -261,7 +262,7 @@ namespace Cpp2IL
                         ret.il2cpp_raise_managed_exception = potentialRME;
 
                         //Sometimes this CIM pointer actually points at vm::MetadataCache::InitializeMethodMetadata
-                        var cimMethodBody = Utils.GetMethodBodyAtRawAddress(LibCpp2IlMain.ThePe, LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(ret.il2cpp_codegen_initialize_method), true);
+                        var cimMethodBody = Utils.GetMethodBodyAtRawAddress(LibCpp2IlMain.Binary, LibCpp2IlMain.Binary.MapVirtualAddressToRaw(ret.il2cpp_codegen_initialize_method), true);
                         if (cimMethodBody[0].Mnemonic == ud_mnemonic_code.UD_Ijmp)
                         {
                             //We have the actual cim, and the jump target is MC::IMM
@@ -289,11 +290,11 @@ namespace Cpp2IL
         private static void TryUseExportedIl2CppObjectNew(KeyFunctionAddresses ret)
         {
             Console.Write("\t\t\tLooking for exported il2cpp_object_new function...");
-            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfPeExportByName("il2cpp_object_new");
+            var address = ((PE) LibCpp2IlMain.Binary).GetVirtualAddressOfPeExportByName("il2cpp_object_new");
             Console.WriteLine($"Found at 0x{address:X}");
 
             Console.Write("\t\t\t\tSearching for a CALL to vm::Object::New...");
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, address, true);
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, address, true);
             try
             {
                 var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Call);
@@ -315,11 +316,11 @@ namespace Cpp2IL
         private static void TryUseExportedIl2CppArrayNewSpecific(KeyFunctionAddresses ret)
         {
             Console.Write("\t\t\tLooking for exported il2cpp_array_new_specific function...");
-            ret.il2cpp_array_new_specific = LibCpp2IlMain.ThePe!.GetVirtualAddressOfPeExportByName("il2cpp_array_new_specific");
+            ret.il2cpp_array_new_specific = ((PE) LibCpp2IlMain.Binary).GetVirtualAddressOfPeExportByName("il2cpp_array_new_specific");
             Console.WriteLine($"Found at 0x{ret.il2cpp_array_new_specific:X}");
 
             Console.Write("\t\t\t\tSearching for a JMP to vm::Array::NewSpecific...");
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, ret.il2cpp_array_new_specific, true);
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, ret.il2cpp_array_new_specific, true);
             try
             {
                 var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Jmp);
@@ -341,7 +342,7 @@ namespace Cpp2IL
         private static ulong FindThunkFunction(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
         {
             //Disassemble .text
-            var allInstructions = LibCpp2IlMain.ThePe.DisassembleTextSection();
+            var allInstructions = ((PE) LibCpp2IlMain.Binary).DisassembleTextSection();
             
             //Find all jumps to the target address
             var matchingJmps = allInstructions.Where(i => i.Mnemonic == Mnemonic.Jmp && i.NearBranchTarget == addr).ToList();
@@ -351,13 +352,13 @@ namespace Cpp2IL
                 if(addressesToIgnore.Contains(matchingJmp.IP)) continue;
                 
                 //Find this instruction in the raw file
-                var offsetInPe = (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw((uint) matchingJmp.IP);
-                if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.ThePe!.RawLength - 1))
+                var offsetInPe = (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw((uint) matchingJmp.IP);
+                if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.Binary!.RawLength - 1))
                     continue;
 
                 //get next and previous bytes
-                var previousByte = LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offsetInPe - 1);
-                var nextByte = LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offsetInPe + (ulong) matchingJmp.Length);
+                var previousByte = LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - 1);
+                var nextByte = LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe + (ulong) matchingJmp.Length);
 
                 //Double-cc = thunk
                 if (previousByte == 0xCC && nextByte == 0xCC)
@@ -369,7 +370,7 @@ namespace Cpp2IL
                 {
                     for (ulong backtrack = 1; backtrack < maxBytesBack && offsetInPe - backtrack > 0; backtrack++)
                     {
-                        if (LibCpp2IlMain.ThePe!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
+                        if (LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
                             return matchingJmp.IP - (backtrack - 1);
                     }
                 }
@@ -381,11 +382,11 @@ namespace Cpp2IL
         private static void TryUseExportedIl2cppRaiseException(KeyFunctionAddresses ret)
         {
             Console.Write("\t\t\t\tLooking for exported il2cpp_raise_exception function...");
-            var address = LibCpp2IlMain.ThePe!.GetVirtualAddressOfPeExportByName("il2cpp_raise_exception");
+            var address = ((PE) LibCpp2IlMain.Binary).GetVirtualAddressOfPeExportByName("il2cpp_raise_exception");
             Console.WriteLine($"Found at 0x{address:X}");
             
             Console.WriteLine("\t\t\t\tSearching for a CALL to il2cpp_raise_managed_exception...");
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, address, true);
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, address, true);
             try
             {
                 var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Call);

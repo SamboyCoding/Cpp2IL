@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions
         
         public GlobalStringRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = LibCpp2IlMain.ThePe.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var globalAddress = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             ResolvedString = LibCpp2IlMain.GetLiteralByAddress(globalAddress);
 
             if (ResolvedString == null) return;

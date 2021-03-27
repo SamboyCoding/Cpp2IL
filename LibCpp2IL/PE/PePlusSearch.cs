@@ -91,14 +91,14 @@ namespace LibCpp2IL
                 var position = section.RawStartAddress;
                 while (position < section.RawEndAddress)
                 {
-                    if (_pe.ReadClass<uint>((long) position) == methodCount)
+                    if (_pe.ReadClassAtRawAddr<uint>((long) position) == methodCount)
                     {
                         try
                         {
                             var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadUInt32());
                             if (CheckPointerInDataSection((ulong) pointer))
                             {
-                                var pointers = _pe.ReadClassArray<uint>(pointer, methodCount);
+                                var pointers = _pe.ReadClassArrayAtRawAddr<uint>(pointer, methodCount);
                                 if (CheckAllInExecSection(pointers))
                                 {
                                     return position - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
@@ -327,7 +327,7 @@ namespace LibCpp2IL
                     var positions = new List<ulong>();
                     while (position < (long) sec.RawEndAddress)
                     {
-                        if (_pe.ReadClass<ulong>(position) == va)
+                        if (_pe.ReadClassAtRawAddr<ulong>(position) == va)
                             positions.Add((ulong) _pe.Position - sec.RawStartAddress + sec.VirtualStartAddress);
 
                         position += 8;
@@ -348,17 +348,17 @@ namespace LibCpp2IL
                 {
                     var addr = position;
                     //Check for the method count as an int64
-                    if (_pe.ReadClass<long>((long) position) == methodCount)
+                    if (_pe.ReadClassAtRawAddr<long>((long) position) == methodCount)
                     {
                         position += 8; //For the long
                         try
                         {
                             //Should be followed by a pointer to the first function
-                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClass<ulong>((long) position));
+                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClassAtRawAddr<ulong>((long) position));
                             //Which has to be in the data section
                             if (CheckPointerInDataSection((ulong) pointer))
                             {
-                                var pointers = _pe.ReadClassArray<ulong>(pointer, methodCount);
+                                var pointers = _pe.ReadClassArrayAtRawAddr<ulong>(pointer, methodCount);
                                 if (CheckAllInExecSection(pointers))
                                 {
                                     return addr - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
@@ -386,16 +386,16 @@ namespace LibCpp2IL
                 while ((ulong) _pe.Position < section.RawEndAddress)
                 {
                     var addr = position;
-                    if (_pe.ReadClass<int>(position) == typeDefinitionsCount)
+                    if (_pe.ReadClassAtRawAddr<int>(position) == typeDefinitionsCount)
                     {
                         position += 4; //For the int 
                         try
                         {
                             position += 16; //Move to pMetadataUsages
-                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClass<uint>(position));
+                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClassAtRawAddr<uint>(position));
                             if (CheckPointerInDataSection((ulong) pointer))
                             {
-                                var pointers = _pe.ReadClassArray<uint>(pointer, maxMetadataUsages);
+                                var pointers = _pe.ReadClassArrayAtRawAddr<uint>(pointer, maxMetadataUsages);
                                 if (CheckAllInExecSection(pointers))
                                 {
                                     return (ulong) addr - 40ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
@@ -424,16 +424,16 @@ namespace LibCpp2IL
                 {
                     var addr = position;
                     //Find an int64 equal to the type definition count
-                    if (_pe.ReadClass<long>((long) position) == typeDefinitionsCount)
+                    if (_pe.ReadClassAtRawAddr<long>((long) position) == typeDefinitionsCount)
                     {
                         position += 8; //For the long
                         try
                         {
                             position += 16;
-                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClass<ulong>((long) position));
+                            var pointer = _pe.MapVirtualAddressToRaw(_pe.ReadClassAtRawAddr<ulong>((long) position));
                             if (CheckPointerInDataSection((ulong) pointer))
                             {
-                                var pointers = _pe.ReadClassArray<ulong>(pointer, maxMetadataUsages);
+                                var pointers = _pe.ReadClassArrayAtRawAddr<ulong>(pointer, maxMetadataUsages);
                                 if (CheckAllInExecSection(pointers))
                                 {
                                     return addr - 96ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress

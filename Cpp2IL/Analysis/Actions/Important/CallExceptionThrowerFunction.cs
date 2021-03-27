@@ -25,13 +25,13 @@ namespace Cpp2IL.Analysis.Actions.Important
                 return ExceptionThrowers[addr] != null;
             }
 
-            var body = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.ThePe, addr, true);
+            var body = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, addr, true);
             List<string> strings;
-            if (LibCpp2IlMain.ThePe.is32Bit)
+            if (LibCpp2IlMain.Binary.is32Bit)
             {
                 //Didn't know this, but in 32-bit assemblies, strings are immediate values? Interesting... not memory?
                 strings = body.Where(i => i.Mnemonic == Mnemonic.Push && i.Op0Kind.IsImmediate())
-                    .Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(i.GetImmediate(0))))
+                    .Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(i.GetImmediate(0))))
                     .Where(s => s != null)
                     .ToList();
             }
@@ -41,7 +41,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 if (leas.Count > 1)
                 {
                     //LEA to load strings in 64-bit mode
-                    strings = leas.Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.ThePe, (ulong) LibCpp2IlMain.ThePe.MapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress()))).ToList();
+                    strings = leas.Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress()))).ToList();
                 }
                 else
                 {
