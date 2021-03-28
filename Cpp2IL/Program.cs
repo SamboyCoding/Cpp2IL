@@ -69,6 +69,9 @@ namespace Cpp2IL
             KeyFunctionAddresses keyFunctionAddresses = null;
             if (runtimeArgs.EnableAnalysis)
             {
+                if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
+                    throw new NotImplementedException("Analysis engine is only implemented for x86. Use --skip-analysis to avoid this error.");
+                
                 Console.WriteLine("\tPass 5: Locating Globals...");
 
                 Console.WriteLine($"\t\tFound {LibCpp2IlGlobalMapper.TypeRefs.Count} type globals");

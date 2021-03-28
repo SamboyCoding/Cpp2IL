@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.PE;
@@ -397,9 +398,13 @@ namespace LibCpp2IL.Elf
             if (codeReg != 0 && metadataReg != 0)
                 return (codeReg, metadataReg);
             
-            //TODO Other architectures.
             //Well, that didn't work. Look for the specific initializer function which calls into Il2CppCodegenRegistration.
-            return FindCodeAndMetadataRegArm32();
+            return InstructionSet switch
+            {
+                //TODO Other architectures.
+                InstructionSet.ARM32 => FindCodeAndMetadataRegArm32(),
+                _ => throw new NotImplementedException($"Support for finding structs on {InstructionSet} is not yet implemented"),
+            };
         }
 
         private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm32()
