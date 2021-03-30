@@ -34,7 +34,8 @@ Subject to change
 - [x] ~~IL2CPP Metadata v27 Support~~
 - [x] ~~x86-32 support~~
 - [x] ~~Migrate to 0xd4d's iced decompiler?~~
-- [ ] ARM support.
+- [x] ~~Support for Loading ELF binaries (Linux x86, and ARM, for Android etc.)~~
+- [ ] ARM support (Partially present: Dummy DLLs can be generated, analysis is not implemented).
 
 
 ## Credit

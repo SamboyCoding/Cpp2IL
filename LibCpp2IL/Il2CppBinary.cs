@@ -41,7 +41,7 @@ namespace LibCpp2IL
         }
 
         public abstract long RawLength { get; }
-        public virtual int NumTypes => types.Length;
+        public int NumTypes => types.Length;
 
         public void Init(ulong pCodeRegistration, ulong pMetadataRegistration)
         {
@@ -377,5 +377,7 @@ namespace LibCpp2IL
                 return methodPointer;
             }
         }
+
+        public abstract byte[] GetRawBinaryContent();
     }
 }

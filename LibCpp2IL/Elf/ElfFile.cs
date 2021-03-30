@@ -19,6 +19,8 @@ namespace LibCpp2IL.Elf
         private readonly Dictionary<string, ElfSymbolTableEntry> _exportTable = new();
         private List<long>? _initializerPointers;
 
+        private readonly List<(ulong start, ulong end)> relocationBlocks = new(); 
+
         private ulong _globalOffset;
 
         public ElfFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
@@ -60,7 +62,8 @@ namespace LibCpp2IL.Elf
             Console.WriteLine("Reading ELF section header table and names...");
             start = DateTime.Now;
 
-            _elfSectionHeaderEntries = ReadClassArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
+            //Non-null assertion reason: The elf header has already been checked while reading the program header.
+            _elfSectionHeaderEntries = ReadClassArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader!.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
 
             var pSectionHeaderStringTable = _elfSectionHeaderEntries[_elfHeader.SectionNameSectionOffset].RawAddress;
 
@@ -162,6 +165,8 @@ namespace LibCpp2IL.Elf
                     var table = ReadClassArrayAtRawAddr<ElfRelEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
 
                     Console.WriteLine($"\t-Got {table.Length} from REL section {section.Name}");
+                    
+                    relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
 
                     //Insert into rels list.
                     rels.UnionWith(table.Select(r => new ElfRelocation(this, r, relatedTablePointer)));
@@ -177,6 +182,8 @@ namespace LibCpp2IL.Elf
                     var table = ReadClassArrayAtRawAddr<ElfRelaEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
 
                     Console.WriteLine($"\t-Got {table.Length} from RELA section {section.Name}");
+                    
+                    relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
 
                     //Insert into rels list.
                     rels.UnionWith(table.Select(r => new ElfRelocation(this, r, relatedTablePointer)));
@@ -186,7 +193,8 @@ namespace LibCpp2IL.Elf
                 if (GetDynamicEntryOfType(ElfDynamicType.DT_REL) is { } dt_rel)
                 {
                     //Null-assertion reason: We must have both a RELSZ and a RELENT or this is an error.
-                    var relCount = (int) (GetDynamicEntryOfType(ElfDynamicType.DT_RELSZ)!.Value / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
+                    var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELSZ)!.Value;
+                    var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
                     var startAddr = (uint) MapVirtualAddressToRaw(dt_rel.Value);
                     var entries = ReadClassArrayAtRawAddr<ElfRelEntry>(startAddr, relCount);
 
@@ -194,6 +202,8 @@ namespace LibCpp2IL.Elf
 
                     //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_REL
                     var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
+                    
+                    relocationBlocks.Add((startAddr, startAddr + relocationSectionSize));
 
                     rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
                 }
@@ -202,7 +212,8 @@ namespace LibCpp2IL.Elf
                 if (GetDynamicEntryOfType(ElfDynamicType.DT_RELA) is { } dt_rela)
                 {
                     //Null-assertion reason: We must have both a RELSZ and a RELENT or this is an error.
-                    var relCount = (int) (GetDynamicEntryOfType(ElfDynamicType.DT_RELASZ)!.Value / GetDynamicEntryOfType(ElfDynamicType.DT_RELAENT)!.Value);
+                    var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELASZ)!.Value;
+                    var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELAENT)!.Value);
                     var startAddr = (uint) MapVirtualAddressToRaw(dt_rela.Value);
                     var entries = ReadClassArrayAtRawAddr<ElfRelaEntry>(startAddr, relCount);
 
@@ -210,6 +221,8 @@ namespace LibCpp2IL.Elf
 
                     //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_RELA
                     var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
+                    
+                    relocationBlocks.Add((startAddr, startAddr + relocationSectionSize));
 
                     rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
                 }
@@ -218,7 +231,6 @@ namespace LibCpp2IL.Elf
 
                 Console.Write($"\t-Now Processing {rels.Count} relocations...");
 
-                var count = 0;
                 foreach (var rel in rels)
                 {
                     var pointer = rel.pRelatedSymbolTable + rel.IndexInSymbolTable * sizeOfRelocationStruct;
@@ -273,8 +285,6 @@ namespace LibCpp2IL.Elf
                     {
                         WriteWord((int) targetLocation, result.newValue);
                     }
-
-                    count++;
                 }
             }
             catch
@@ -340,7 +350,7 @@ namespace LibCpp2IL.Elf
 
                 foreach (var symbol in symbols)
                 {
-                    var name = string.Empty;
+                    string name;
                     try
                     {
                         name = ReadStringToNull(stringTable + symbol.NameOffset);
@@ -403,7 +413,7 @@ namespace LibCpp2IL.Elf
             {
                 //TODO Other architectures.
                 InstructionSet.ARM32 => FindCodeAndMetadataRegArm32(),
-                _ => throw new NotImplementedException($"Support for finding structs on {InstructionSet} is not yet implemented"),
+                _ => FindCodeAndMetadataRegDefaultBehavior(),
             };
         }
 
@@ -507,7 +517,27 @@ namespace LibCpp2IL.Elf
             return (0, 0);
         }
 
-        public override int NumTypes { get; }
+        private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegDefaultBehavior()
+        {
+            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+            {
+                Console.WriteLine("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
+                var searcher = new BinarySearcher(this, LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length, maxMetadataUsages);
+                
+                Console.Write("\tLooking for code reg (this might take a while)...");
+                var codeReg = searcher.FindCodeRegistrationUsingMscorlib();
+                Console.WriteLine($"Got 0x{codeReg:X}");
+
+                Console.Write($"\tLooking for meta reg ({(LibCpp2IlMain.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
+                var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationV27() : searcher.FindMetadataRegistrationNewApproachPre27();
+                Console.WriteLine($"Got 0x{metaReg:x}");
+
+                return (codeReg, metaReg);
+            }
+
+            throw new Exception("Pre-24.2 support for non-ARM ELF lookup is not yet implemented.");
+        }
+
         public override long RawLength => _raw.Length;
 
         public override long MapVirtualAddressToRaw(ulong addr)
@@ -522,19 +552,18 @@ namespace LibCpp2IL.Elf
 
         public override ulong MapRawAddressToVirtual(uint offset)
         {
+            if (relocationBlocks.Any(b => b.start <= offset && b.end >= offset))
+                throw new InvalidOperationException("Attempt to map a relocation block to a virtual address");
+            
             var section = _elfProgramHeaderEntries.First(x => offset >= x.RawAddress && offset < x.RawAddress + x.RawSize);
 
             return section.VirtualAddress + offset - section.RawAddress;
         }
 
-        public override byte GetByteAtRawAddress(ulong addr)
-        {
-            return _raw[addr];
-        }
+        public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-        public override ulong GetRVA(ulong pointer)
-        {
-            return pointer - _globalOffset;
-        }
+        public override ulong GetRVA(ulong pointer) => pointer - _globalOffset;
+
+        public override byte[] GetRawBinaryContent() => _raw;
     }
 }

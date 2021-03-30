@@ -155,25 +155,23 @@ namespace LibCpp2IL.PE
 
             Console.WriteLine("Attempting to locate code and metadata registration functions...");
 
-            var plusSearch = new PlusSearch(this, methodCount, typeDefinitionsCount, maxMetadataUsages);
+            var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount, maxMetadataUsages);
             var dataSections = dataList.ToArray();
             var execSections = execList.ToArray();
-            plusSearch.SetSearch(peImageBase, dataSections);
-            plusSearch.SetDataSections(peImageBase, dataSections);
-            plusSearch.SetExecSections(peImageBase, execSections);
+            plusSearch.SetSearchSectionsFromPe(peImageBase, dataSections);
+            plusSearch.SetDataSectionsFromPe(peImageBase, dataSections);
 
             if (LibCpp2IlMain.MetadataVersion < 27f)
             {
+                plusSearch.SetExecSectionsFromPe(peImageBase, dataSections);
                 if (is32Bit)
                 {
                     Console.WriteLine("\t(32-bit PE)");
-                    plusSearch.SetExecSections(peImageBase, dataSections);
                     pMetadataRegistration = plusSearch.FindMetadataRegistration();
                 }
                 else
                 {
                     Console.WriteLine("\t(64-bit PE)");
-                    plusSearch.SetExecSections(peImageBase, dataSections);
                     pMetadataRegistration = plusSearch.FindMetadataRegistration64Bit();
                 }
             }
@@ -182,10 +180,12 @@ namespace LibCpp2IL.PE
                 //v27+ metadata location
                 pMetadataRegistration = plusSearch.FindMetadataRegistrationV27();
             }
+            
+            plusSearch.SetExecSectionsFromPe(peImageBase, execSections);
 
             if (is32Bit && pMetadataRegistration != 0)
             {
-                pCodeRegistration = plusSearch.TryFindCodeRegUsingMetaReg(pMetadataRegistration);
+                pCodeRegistration = plusSearch.TryFindCodeRegUsingFunctionAndMetaRegX86_32(pMetadataRegistration);
             }
 
             if (pCodeRegistration == 0)
@@ -196,7 +196,7 @@ namespace LibCpp2IL.PE
                     pCodeRegistration = plusSearch.FindCodeRegistrationUsingMscorlib();
                 }
                 else
-                    pCodeRegistration = is32Bit ? plusSearch.FindCodeRegistration() : plusSearch.FindCodeRegistration64Bit();
+                    pCodeRegistration = is32Bit ? plusSearch.FindCodeRegistrationUsingMethodCount() : plusSearch.FindCodeRegistration64BitPre2019();
             }
 
 
@@ -287,5 +287,7 @@ namespace LibCpp2IL.PE
         public override byte GetByteAtRawAddress(ulong addr) => raw[addr];
 
         public override long RawLength => raw.Length;
+
+        public override byte[] GetRawBinaryContent() => raw;
     }
 }
