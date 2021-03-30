@@ -203,7 +203,7 @@ namespace LibCpp2IL.Metadata
 
         private T[] ReadMetadataClassArray<T>(int offset, int length) where T : new()
         {
-            return ReadClassArrayAtRawAddr<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T)));
+            return ReadClassArrayAtRawAddr<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T), downsize: false));
         }
 
         private void DecipherMetadataUsage()

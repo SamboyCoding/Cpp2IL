@@ -385,10 +385,12 @@ namespace LibCpp2IL
             throw new ArgumentException($"Unknown type {forWhat.type}");
         }
 
-        public static int VersionAwareSizeOf(Type type, bool hasNoVersionAttributes = false)
+        public static int VersionAwareSizeOf(Type type, bool hasNoVersionAttributes = false, bool downsize = true)
         {
             if (type.IsPrimitive)
                 return (int) PrimitiveSizes[type.Name];
+
+            var shouldDownsize = downsize && LibCpp2IlMain.Binary!.is32Bit;
 
             var size = 0;
             foreach (var i in type.GetFields())
@@ -407,7 +409,7 @@ namespace LibCpp2IL
                 {
                     case "Int64":
                     case "UInt64":
-                        size += 8;
+                        size += shouldDownsize ? 4 : 8;
                         break;
                     case "Int32":
                     case "UInt32":

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.PE;
@@ -155,6 +154,8 @@ namespace LibCpp2IL.Elf
             {
                 var rels = new HashSet<ElfRelocation>();
 
+                var relSectionStarts = new List<ulong>();
+
                 //REL tables
                 foreach (var section in GetSections(ElfSectionEntryType.SHT_REL))
                 {
@@ -167,6 +168,7 @@ namespace LibCpp2IL.Elf
                     Console.WriteLine($"\t-Got {table.Length} from REL section {section.Name}");
                     
                     relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
+                    relSectionStarts.Add(section.RawAddress);
 
                     //Insert into rels list.
                     rels.UnionWith(table.Select(r => new ElfRelocation(this, r, relatedTablePointer)));
@@ -190,20 +192,19 @@ namespace LibCpp2IL.Elf
                 }
 
                 //Dynamic Rel Table
-                if (GetDynamicEntryOfType(ElfDynamicType.DT_REL) is { } dt_rel)
+                if (GetDynamicEntryOfType(ElfDynamicType.DT_REL) is { } dt_rel&& (uint) MapVirtualAddressToRaw(dt_rel.Value) is {} dtRelStartAddr && !relSectionStarts.Contains(dtRelStartAddr))
                 {
                     //Null-assertion reason: We must have both a RELSZ and a RELENT or this is an error.
                     var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELSZ)!.Value;
                     var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
-                    var startAddr = (uint) MapVirtualAddressToRaw(dt_rel.Value);
-                    var entries = ReadClassArrayAtRawAddr<ElfRelEntry>(startAddr, relCount);
+                    var entries = ReadClassArrayAtRawAddr<ElfRelEntry>(dtRelStartAddr, relCount);
 
                     Console.WriteLine($"\t-Got {entries.Length} from dynamic REL section.");
 
                     //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_REL
                     var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
                     
-                    relocationBlocks.Add((startAddr, startAddr + relocationSectionSize));
+                    relocationBlocks.Add((dtRelStartAddr, dtRelStartAddr + relocationSectionSize));
 
                     rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
                 }
@@ -227,7 +228,7 @@ namespace LibCpp2IL.Elf
                     rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
                 }
 
-                var sizeOfRelocationStruct = (ulong) (is32Bit ? LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol32), true) : LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol64), true));
+                var sizeOfRelocationStruct = (ulong) (is32Bit ? LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol32), true, false) : LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol64), true, false));
 
                 Console.Write($"\t-Now Processing {rels.Count} relocations...");
 
@@ -322,7 +323,7 @@ namespace LibCpp2IL.Elf
                 if (GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB) is { } dynamicSymTab)
                 {
                     var end = _dynamicSection.Where(x => x.Value > dynamicSymTab.Value).OrderBy(x => x.Value).First().Value;
-                    var dynSymSize = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(is32Bit ? typeof(ElfDynamicSymbol32) : typeof(ElfDynamicSymbol64), true);
+                    var dynSymSize = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(is32Bit ? typeof(ElfDynamicSymbol32) : typeof(ElfDynamicSymbol64), true, false);
 
                     var address = (ulong) MapVirtualAddressToRaw(dynamicSymTab.Value);
 
@@ -522,14 +523,14 @@ namespace LibCpp2IL.Elf
             if (LibCpp2IlMain.MetadataVersion >= 24.2f)
             {
                 Console.WriteLine("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
-                var searcher = new BinarySearcher(this, LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length, maxMetadataUsages);
+                var searcher = new BinarySearcher(this, LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length);
                 
                 Console.Write("\tLooking for code reg (this might take a while)...");
-                var codeReg = searcher.FindCodeRegistrationUsingMscorlib();
+                var codeReg = searcher.FindCodeRegistrationPost2019();
                 Console.WriteLine($"Got 0x{codeReg:X}");
 
                 Console.Write($"\tLooking for meta reg ({(LibCpp2IlMain.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
-                var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationV27() : searcher.FindMetadataRegistrationNewApproachPre27();
+                var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost27() : searcher.FindMetadataRegistrationPre27();
                 Console.WriteLine($"Got 0x{metaReg:x}");
 
                 return (codeReg, metaReg);

@@ -24,103 +24,13 @@ namespace LibCpp2IL
         private readonly byte[] binaryBytes;
         private readonly int methodCount;
         private readonly int typeDefinitionsCount;
-        private readonly long maxMetadataUsages;
 
-        private readonly List<Section> _searchSections = new();
-        private readonly List<Section> _dataSections = new();
-        private readonly List<Section> _execSections = new();
-
-        public BinarySearcher(PE.PE pe, int methodCount, int typeDefinitionsCount, long maxMetadataUsages)
-        {
-            _binary = pe;
-            binaryBytes = pe.raw;
-            this.methodCount = methodCount;
-            this.typeDefinitionsCount = typeDefinitionsCount;
-            this.maxMetadataUsages = maxMetadataUsages;
-        }
-
-        public BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefinitionsCount, long maxMetadataUsages)
+        public BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefinitionsCount)
         {
             _binary = binary;
             binaryBytes = binary.GetRawBinaryContent();
             this.methodCount = methodCount;
             this.typeDefinitionsCount = typeDefinitionsCount;
-            this.maxMetadataUsages = maxMetadataUsages;
-        }
-
-
-        public void SetSearchSectionsFromPe(ulong imageBase, params SectionHeader[] sections)
-        {
-            foreach (var section in sections)
-            {
-                _searchSections.Add(new Section
-                {
-                    RawStartAddress = section.PointerToRawData,
-                    RawEndAddress = section.PointerToRawData + section.SizeOfRawData,
-                    VirtualStartAddress = section.VirtualAddress + imageBase
-                });
-            }
-        }
-
-        public void SetDataSectionsFromPe(ulong imageBase, params SectionHeader[] sections)
-        {
-            foreach (var section in sections)
-            {
-                _dataSections.Add(new Section
-                {
-                    RawStartAddress = section.PointerToRawData,
-                    RawEndAddress = section.PointerToRawData + section.SizeOfRawData,
-                    VirtualStartAddress = section.VirtualAddress + imageBase
-                });
-            }
-        }
-
-        public void SetExecSectionsFromPe(ulong imageBase, params SectionHeader[] sections)
-        {
-            _execSections.Clear();
-            foreach (var section in sections)
-            {
-                _execSections.Add(new Section
-                {
-                    RawStartAddress = section.VirtualAddress,
-                    RawEndAddress = section.VirtualAddress + section.VirtualSize + imageBase,
-                    VirtualStartAddress = section.VirtualAddress + imageBase
-                });
-            }
-        }
-
-        public ulong FindCodeRegistrationUsingMethodCount()
-        {
-            foreach (var section in _searchSections)
-            {
-                var position = section.RawStartAddress;
-                while (position < section.RawEndAddress)
-                {
-                    if (_binary.ReadClassAtRawAddr<uint>((long) position) == methodCount)
-                    {
-                        try
-                        {
-                            var pointer = _binary.MapVirtualAddressToRaw(_binary.ReadUInt32());
-                            if (CheckPointerInDataSection((ulong) pointer))
-                            {
-                                var pointers = _binary.ReadClassArrayAtRawAddr<uint>(pointer, methodCount);
-                                if (CheckAllInExecSection(pointers))
-                                {
-                                    return position - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
-
-                    position += 4;
-                }
-            }
-
-            return 0ul;
         }
         
         private int FindBytes(byte[] blob, byte[] signature, int requiredAlignment = 1, int startOffset = 0) {
@@ -175,29 +85,27 @@ namespace LibCpp2IL
         // Find all valid virtual address pointers to a set of virtual addresses
         private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(FindAllMappedWords);
 
-        //Try to find the code registration via the codereg function, by looking for a push on the meta reg. Will only work on x86_32.
-        public ulong TryFindCodeRegUsingFunctionAndMetaRegX86_32(ulong metadataRegistration)
+        public ulong FindCodeRegistrationPre2019()
         {
-            if (!(_binary is PE.PE pe))
+            //First item in the CodeRegistration is the number of methods.
+            var vas = FindAllMappedWords((ulong) methodCount).ToList();
+
+            if (vas.Count == 0)
                 return 0;
-
-            var allInstructions = pe.DisassembleTextSection();
-
-            var pushMetaReg = allInstructions.FirstOrDefault(i => i.Mnemonic == Mnemonic.Push && i.Op0Kind.IsImmediate() && i.GetImmediate(0) == metadataRegistration);
-            if (pushMetaReg.Mnemonic == Mnemonic.Push) //Check non-default.
+            
+            foreach (var va in vas)
             {
-                var idx = allInstructions.IndexOf(pushMetaReg);
-                //Code reg has to be pushed after meta reg, cause that's how functions are called on 32-bit stdcall.
-                var hopefullyPushCodeReg = allInstructions[idx + 1];
-                if (hopefullyPushCodeReg.Mnemonic == Mnemonic.Push && hopefullyPushCodeReg.Op0Kind.IsImmediate())
-                    return hopefullyPushCodeReg.GetImmediate(0);
+                var cr = _binary.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(va);
+
+                if (cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Length)
+                    return va;
             }
 
             return 0;
         }
 
         [SuppressMessage("ReSharper", "PossibleMultipleEnumeration")]
-        internal ulong FindCodeRegistrationUsingMscorlib()
+        internal ulong FindCodeRegistrationPost2019()
         {
             //Works only on >=24.2
             var mscorlibs = FindAllStrings("mscorlib.dll\0").Select(idx => _binary.MapRawAddressToVirtual(idx));
@@ -270,23 +178,6 @@ namespace LibCpp2IL
 
                     return 0;
                 }
-                case InstructionSet.X86_32:
-                {
-                    IEnumerable<ulong>? codeRegVas = null;
-                    var sanity = 0;
-                    while ((codeRegVas?.Count() ?? 0) != 1)
-                    {
-                        if (sanity++ > 500) break;
-
-                        pCodegenModules = pCodegenModules.Select(va => va - 4);
-                        codeRegVas = FindAllMappedWords(pCodegenModules).AsParallel().ToList();
-                    }
-
-                    if (pCodegenModules.Count() != 1)
-                        return 0ul;
-
-                    return pCodegenModules.First();
-                }
                 default:
                     //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
                     //So, subtract the size of one pointer from that...
@@ -297,132 +188,7 @@ namespace LibCpp2IL
             }
         }
 
-        public ulong FindCodeRegistration64BitPre2019()
-        {
-            foreach (var section in _searchSections)
-            {
-                var position = section.RawStartAddress;
-                while (position < section.RawEndAddress)
-                {
-                    var addr = position;
-                    //Check for the method count as an int64
-                    if (_binary.ReadClassAtRawAddr<long>((long) position) == methodCount)
-                    {
-                        position += 8; //For the long
-                        try
-                        {
-                            //Should be followed by a pointer to the first function
-                            var pointer = _binary.MapVirtualAddressToRaw(_binary.ReadClassAtRawAddr<ulong>((long) position));
-                            //Which has to be in the data section
-                            if (CheckPointerInDataSection((ulong) pointer))
-                            {
-                                var pointers = _binary.ReadClassArrayAtRawAddr<ulong>(pointer, methodCount);
-                                if (CheckAllInExecSection(pointers))
-                                {
-                                    return addr - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
-
-                    position = addr + 4;
-                }
-            }
-
-            return 0ul;
-        }
-
-        public ulong FindMetadataRegistrationAuto()
-        {
-            if (LibCpp2IlMain.MetadataVersion >= 27f)
-                return FindMetadataRegistrationV27();
-
-            if (_binary.is32Bit)
-                return FindMetadataRegistration();
-
-            return FindMetadataRegistration64Bit();
-        }
-
-        public ulong FindMetadataRegistration()
-        {
-            foreach (var section in _searchSections)
-            {
-                var position = (long) section.RawStartAddress;
-                while ((ulong) _binary.Position < section.RawEndAddress)
-                {
-                    var addr = position;
-                    if (_binary.ReadClassAtRawAddr<int>(position) == typeDefinitionsCount)
-                    {
-                        position += 4; //For the int 
-                        try
-                        {
-                            position += 16; //Move to pMetadataUsages
-                            var pointer = _binary.MapVirtualAddressToRaw(_binary.ReadClassAtRawAddr<uint>(position));
-                            if (CheckPointerInDataSection((ulong) pointer))
-                            {
-                                var pointers = _binary.ReadClassArrayAtRawAddr<uint>(pointer, maxMetadataUsages);
-                                if (CheckAllInExecSection(pointers))
-                                {
-                                    return (ulong) addr - 40ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
-
-                    position = addr + 4;
-                }
-            }
-
-            return 0ul;
-        }
-
-        public ulong FindMetadataRegistration64Bit()
-        {
-            foreach (var section in _searchSections)
-            {
-                var position = section.RawStartAddress;
-                while (position < section.RawEndAddress)
-                {
-                    var addr = position;
-                    //Find an int64 equal to the type definition count
-                    if (_binary.ReadClassAtRawAddr<long>((long) position) == typeDefinitionsCount)
-                    {
-                        position += 8; //For the long
-                        try
-                        {
-                            position += 16;
-                            var pointer = _binary.MapVirtualAddressToRaw(_binary.ReadClassAtRawAddr<ulong>((long) position));
-                            if (CheckPointerInDataSection((ulong) pointer))
-                            {
-                                var pointers = _binary.ReadClassArrayAtRawAddr<ulong>(pointer, maxMetadataUsages);
-                                if (CheckAllInExecSection(pointers))
-                                {
-                                    return addr - 96ul - section.RawStartAddress + section.VirtualStartAddress; //VirtualAddress
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // ignored
-                        }
-                    }
-
-                    position = addr + 8;
-                }
-            }
-
-            return 0ul;
-        }
-
-        public ulong FindMetadataRegistrationNewApproachPre27()
+        public ulong FindMetadataRegistrationPre27()
         {
             //We're looking for TypeDefinitionsSizesCount, which is the 4th-to-last field
             var sizeOfMr = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
@@ -441,22 +207,7 @@ namespace LibCpp2IL
                 .FirstOrDefault();
         }
 
-        private bool CheckPointerInDataSection(ulong pointer)
-        {
-            return _dataSections.Any(x => pointer >= x.RawStartAddress && pointer <= x.RawEndAddress);
-        }
-
-        private bool CheckAllInExecSection(IEnumerable<ulong> pointers)
-        {
-            return pointers.All(x => _execSections.Any(y => x >= y.RawStartAddress && x <= y.RawEndAddress));
-        }
-
-        private bool CheckAllInExecSection(IEnumerable<uint> pointers)
-        {
-            return pointers.All(x => _execSections.Any(y => x >= y.RawStartAddress && x <= y.RawEndAddress));
-        }
-
-        public ulong FindMetadataRegistrationV27()
+        public ulong FindMetadataRegistrationPost27()
         {
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
             var sizeOfMr = (uint) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));

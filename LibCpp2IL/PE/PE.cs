@@ -130,80 +130,32 @@ namespace LibCpp2IL.PE
 
         public bool PlusSearch(int methodCount, int typeDefinitionsCount)
         {
-            Console.WriteLine("Looking for registration functions...");
-
-            var execList = new List<SectionHeader>();
-            var dataList = new List<SectionHeader>();
-            foreach (var section in peSectionHeaders)
-            {
-                switch (section.Characteristics)
-                {
-                    case 0x60000020:
-                        Console.WriteLine("\tIdentified execute section " + section.Name);
-                        execList.Add(section);
-                        break;
-                    case 0x40000040:
-                    case 0xC0000040:
-                        Console.WriteLine("\tIdentified data section " + section.Name);
-                        dataList.Add(section);
-                        break;
-                }
-            }
-
             ulong pCodeRegistration = 0;
             ulong pMetadataRegistration;
 
             Console.WriteLine("Attempting to locate code and metadata registration functions...");
 
-            var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount, maxMetadataUsages);
-            var dataSections = dataList.ToArray();
-            var execSections = execList.ToArray();
-            plusSearch.SetSearchSectionsFromPe(peImageBase, dataSections);
-            plusSearch.SetDataSectionsFromPe(peImageBase, dataSections);
+            var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount);
 
-            if (LibCpp2IlMain.MetadataVersion < 27f)
-            {
-                plusSearch.SetExecSectionsFromPe(peImageBase, dataSections);
-                if (is32Bit)
-                {
-                    Console.WriteLine("\t(32-bit PE)");
-                    pMetadataRegistration = plusSearch.FindMetadataRegistration();
-                }
-                else
-                {
-                    Console.WriteLine("\t(64-bit PE)");
-                    pMetadataRegistration = plusSearch.FindMetadataRegistration64Bit();
-                }
-            }
-            else
-            {
-                //v27+ metadata location
-                pMetadataRegistration = plusSearch.FindMetadataRegistrationV27();
-            }
-            
-            plusSearch.SetExecSectionsFromPe(peImageBase, execSections);
+            pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 27f 
+                ? plusSearch.FindMetadataRegistrationPre27() 
+                : plusSearch.FindMetadataRegistrationPost27();
 
-            if (is32Bit && pMetadataRegistration != 0)
-            {
-                pCodeRegistration = plusSearch.TryFindCodeRegUsingFunctionAndMetaRegX86_32(pMetadataRegistration);
-            }
+            // if (is32Bit && pMetadataRegistration != 0)
+            // {
+            //     pCodeRegistration = plusSearch.TryFindCodeRegUsingFunctionAndMetaRegX86_32(pMetadataRegistration);
+            // }
 
             if (pCodeRegistration == 0)
             {
                 if (LibCpp2IlMain.MetadataVersion >= 24.2f)
                 {
                     Console.WriteLine("\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
-                    pCodeRegistration = plusSearch.FindCodeRegistrationUsingMscorlib();
+                    pCodeRegistration = plusSearch.FindCodeRegistrationPost2019();
                 }
                 else
-                    pCodeRegistration = is32Bit ? plusSearch.FindCodeRegistrationUsingMethodCount() : plusSearch.FindCodeRegistration64BitPre2019();
+                    pCodeRegistration = plusSearch.FindCodeRegistrationPre2019();
             }
-
-
-#if ALLOW_CODEREG_FALLBACK
-            if (codeRegistration == 0 || metadataRegistration == 0)
-                (codeRegistration, metadataRegistration) = UseDecompilationBasedFallback();
-#endif
 
             if (pCodeRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
             {
