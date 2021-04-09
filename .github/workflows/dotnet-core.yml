@@ -29,6 +29,10 @@ jobs:
     - name: Build - OSX x64
       working-directory: ./Cpp2IL/
       run: dotnet publish /p:Configuration=Release --no-restore -r osx-x64
+    - name: Run Tests
+      run: |
+        dotnet build
+        dotnet test -v=n --no-build
     - name: Upload Common Lib Files
       uses: actions/upload-artifact@v2
       with:
