@@ -289,7 +289,12 @@ namespace LibCpp2IL
         }
 
         public Il2CppGenericInst GetGenericInst(int index) => genericInsts[index];
-        public Il2CppMethodSpec GetMethodSpec(int index) => methodSpecs[index];
+
+        public Il2CppMethodSpec GetMethodSpec(int index) => index >= methodSpecs.Length
+            ? throw new ArgumentException($"GetMethodSpec: index {index} >= length {methodSpecs.Length}")
+            : index <= 0
+                ? throw new ArgumentException($"GetMethodSpec: index {index} < 0")
+                : methodSpecs[index];
         public Il2CppType GetType(int index) => types[index];
         public ulong GetRawMetadataUsage(uint index) => metadataUsages[index];
         public ulong[] GetCodegenModuleMethodPointers(int codegenModuleIndex) => codeGenModuleMethodPointers[codegenModuleIndex];

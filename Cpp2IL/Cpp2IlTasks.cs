@@ -117,8 +117,17 @@ namespace Cpp2IL
             //Disable Method Ptr Mapping and Global Resolving if skipping analysis
             LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = runtimeArgs.EnableAnalysis;
 
-            if (!LibCpp2IlMain.LoadFromFile(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion))
-                throw new SoftException("Initialization with LibCpp2Il failed");
+            try
+            {
+                if (!LibCpp2IlMain.LoadFromFile(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion))
+                    throw new SoftException("Initialization with LibCpp2Il failed");
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine($"\n\nFatal Exception initializing LibCpp2IL!\n{e}\n\nWaiting for you to press enter - feel free to copy the error...");
+                Console.ReadLine();
+                Environment.Exit(-1);
+            }
         }
 
         public static List<AssemblyDefinition> MakeDummyDLLs(Cpp2IlRuntimeArgs runtimeArgs)

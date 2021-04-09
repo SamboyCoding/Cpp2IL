@@ -104,6 +104,9 @@ namespace LibCpp2IL.PE
 
         public override long MapVirtualAddressToRaw(ulong uiAddr)
         {
+            if(uiAddr < peImageBase)
+                throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
+            
             var addr = (uint) (uiAddr - peImageBase);
 
             if (addr == (uint) int.MaxValue + 1)
@@ -137,20 +140,19 @@ namespace LibCpp2IL.PE
 
             var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount);
 
+            Console.WriteLine("\t-Searching for MetadataReg...");
+            
             pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 27f 
                 ? plusSearch.FindMetadataRegistrationPre27() 
                 : plusSearch.FindMetadataRegistrationPost27();
 
-            // if (is32Bit && pMetadataRegistration != 0)
-            // {
-            //     pCodeRegistration = plusSearch.TryFindCodeRegUsingFunctionAndMetaRegX86_32(pMetadataRegistration);
-            // }
+            Console.WriteLine("\t-Searching for CodeReg...");
 
             if (pCodeRegistration == 0)
             {
                 if (LibCpp2IlMain.MetadataVersion >= 24.2f)
                 {
-                    Console.WriteLine("\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
+                    Console.WriteLine("\t\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
                     pCodeRegistration = plusSearch.FindCodeRegistrationPost2019();
                 }
                 else
