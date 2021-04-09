@@ -292,7 +292,7 @@ namespace LibCpp2IL
 
         public Il2CppMethodSpec GetMethodSpec(int index) => index >= methodSpecs.Length
             ? throw new ArgumentException($"GetMethodSpec: index {index} >= length {methodSpecs.Length}")
-            : index <= 0
+            : index < 0
                 ? throw new ArgumentException($"GetMethodSpec: index {index} < 0")
                 : methodSpecs[index];
         public Il2CppType GetType(int index) => types[index];
