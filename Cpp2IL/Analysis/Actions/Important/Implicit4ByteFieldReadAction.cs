@@ -39,7 +39,10 @@ namespace Cpp2IL.Analysis.Actions.Important
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             if (_localMade == null || _readOn == null || _read == null)
-                throw new TaintedInstructionException();
+                throw new TaintedInstructionException("Missing the object being read from, or the field being read.");
+
+            if (_localMade.Variable == null)
+                throw new TaintedInstructionException($"Local {_localMade.Name} has been stripped out for being unused, so doesn't have a variable.");
             
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 

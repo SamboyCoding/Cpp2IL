@@ -24,8 +24,6 @@ namespace LibCpp2IL.Elf
             Type = (ElfRelocationType) GetTypeBitsFromInfo(relocation.Info, f);
             IndexInSymbolTable = GetSymBitsFromInfo(relocation.Info, f);
             pRelatedSymbolTable = tablePointer;
-            
-            // CheckIndex(f);
         }
 
         public ElfRelocation(ElfFile f, ElfRelaEntry relocation, ulong tablePointer)
@@ -35,14 +33,6 @@ namespace LibCpp2IL.Elf
             Type = (ElfRelocationType) GetTypeBitsFromInfo(relocation.Info, f);
             IndexInSymbolTable = GetSymBitsFromInfo(relocation.Info, f);
             pRelatedSymbolTable = tablePointer;
-            
-            // CheckIndex(f);
-        }
-
-        private void CheckIndex(ElfFile f)
-        {
-            if (IndexInSymbolTable * 0x10 > (ulong) f.RawLength)
-                throw new Exception("IndexInSymbolTable is WAY too big!");
         }
 
         protected bool Equals(ElfRelocation other)

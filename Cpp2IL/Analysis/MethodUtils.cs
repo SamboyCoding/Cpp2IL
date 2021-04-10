@@ -265,21 +265,39 @@ namespace Cpp2IL.Analysis
             }
         }
 
-        public static MethodDefinition GetMethodFromVtableSlot(Il2CppTypeDefinition klass, int slotNum)
+        public static MethodDefinition? GetMethodFromVtableSlot(Il2CppTypeDefinition klass, int slotNum)
         {
-            var usage = klass.VTable[slotNum];
+            try
+            {
+                var usage = klass.VTable[slotNum];
 
-            if (usage != null) 
-                return SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
-            
+                if (usage != null)
+                    return SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
+            }
+            catch (IndexOutOfRangeException)
+            {
+                //Ignore
+            }
+
+            if (!SharedState.ConcreteImplementations.ContainsKey(klass))
+                return null;
+
             //Find concrete implementation - this method is abstract
             var concrete = SharedState.ConcreteImplementations[klass];
-            var concreteUsage = concrete.VTable[slotNum];
-            var concreteMethod = concreteUsage!.AsMethod();
 
-            var unmanagedMethod = klass.Methods!.First(m => m.Name == concreteMethod.Name && m.parameterCount == concreteMethod.parameterCount);
+            try
+            {
+                var concreteUsage = concrete.VTable[slotNum];
+                var concreteMethod = concreteUsage!.AsMethod();
 
-            return SharedState.UnmanagedToManagedMethods[unmanagedMethod];
+                var unmanagedMethod = klass.Methods!.First(m => m.Name == concreteMethod.Name && m.parameterCount == concreteMethod.parameterCount);
+
+                return SharedState.UnmanagedToManagedMethods[unmanagedMethod];
+            }
+            catch (IndexOutOfRangeException)
+            {
+                return null;
+            }
 
         }
     }

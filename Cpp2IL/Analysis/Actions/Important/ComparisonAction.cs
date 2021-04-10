@@ -135,7 +135,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             }
 
             if (LibCpp2IlMain.GetAnyGlobalByAddress(globalMemoryOffset) is {} usage)
-                return context.MakeConstant(typeof(GlobalIdentifier), usage);
+                return context.MakeConstant(typeof(MetadataUsage), usage);
             
             unimportant = true;
             return context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));

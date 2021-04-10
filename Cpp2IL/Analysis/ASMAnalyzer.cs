@@ -421,7 +421,7 @@ namespace Cpp2IL.Analysis
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Failed to perform analysis on method {_methodDefinition.FullName}, instruction {instruction} at 0x{instruction.IP:X} - got exception {e}");
+                    Console.WriteLine($"Failed to perform analysis on method {_methodDefinition.FullName}\nWhile analysing instruction {instruction} at 0x{instruction.IP:X}\nGot exception: {e}\n");
                     throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
                 }
 

@@ -140,6 +140,9 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             foreach (var operand in Arguments)
             {
+                if (operand == null)
+                    throw new TaintedInstructionException($"Found null operand in Arguments: {Arguments.ToStringEnumerable()}");
+                
                 if (operand is LocalDefinition l)
                     result.Add(context.GetILToLoad(l, processor));
                 else if (operand is ConstantDefinition c)

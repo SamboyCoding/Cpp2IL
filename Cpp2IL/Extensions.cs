@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Text;
 using Iced.Intel;
 using LibCpp2IL.Metadata;
@@ -89,7 +90,7 @@ namespace Cpp2IL
         public static string ToStringEnumerable<T>(this IEnumerable<T> enumerable)
         {
             var builder = new StringBuilder("[");
-            builder.Append(string.Join(", ", enumerable));
+            builder.Append(string.Join(", ", enumerable.Select(s => s?.ToString() ?? "null")));
             builder.Append("]");
             return builder.ToString();
         }

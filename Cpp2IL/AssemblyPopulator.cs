@@ -105,7 +105,7 @@ namespace Cpp2IL
             ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
 
             //Fields
-            var fields = ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
+            ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
 
             //Methods
             ProcessMethodsInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, addressAttribute, stringType);
@@ -147,7 +147,7 @@ namespace Cpp2IL
             return (addressAttribute, fieldOffsetAttribute, tokenAttribute);
         }
 
-        private static List<FieldInType> ProcessFieldsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, TypeReference stringType, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute)
+        private static void ProcessFieldsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, TypeReference stringType, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute)
         {
             var fields = new List<FieldInType>();
 
@@ -194,8 +194,6 @@ namespace Cpp2IL
 
             fields.Sort(); //By offset
             SharedState.FieldsByType[ilTypeDefinition] = fields;
-
-            return fields;
         }
 
         private static void ProcessMethodsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition tokenAttribute, MethodDefinition addressAttribute, TypeReference stringType)
@@ -247,7 +245,7 @@ namespace Cpp2IL
                 methodDef.GenericContainer?.GenericParameters
                     .Select(p => new GenericParameter(p.Name, methodDefinition))
                     .ToList()
-                    .ForEach(methodDefinition.GenericParameters.Add);
+                    .ForEach(parameter => methodDefinition.GenericParameters.Add(parameter));
 
                 if (methodDef.slot < ushort.MaxValue) 
                     SharedState.VirtualMethodsBySlot[methodDef.slot] = methodDefinition;

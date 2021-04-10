@@ -485,8 +485,10 @@ namespace Cpp2IL
 
         private static TypeReference MakeGenericType(this TypeReference self, params TypeReference[] arguments)
         {
-            if (self.GenericParameters.Count != arguments.Length)
-                throw new ArgumentException();
+            var actualParams = self.GenericParameters.Where(p => p.Type == GenericParameterType.Type).ToList();
+            
+            if (actualParams.Count != arguments.Length)
+                throw new ArgumentException($"Trying to create generic instance of type {self}, which expects {actualParams.Count} generic parameter(s) ({actualParams.ToStringEnumerable()}), but provided {arguments.Length} argument(s) ({arguments.ToStringEnumerable()})");
 
             var instance = new GenericInstanceType(self);
             foreach (var argument in arguments)
@@ -640,7 +642,7 @@ namespace Cpp2IL
             if (type.IsValueType && !type.IsPrimitive && type.Resolve() is { } def)
             {
                 //Struct - sum fields, including any nested structs.
-                return (ulong) def.Fields.Select(f => f.FieldType).Select(GetSizeOfObject).Select(u => (long) u).Sum();
+                return (ulong) def.Fields.Select(f => f.FieldType).Select(reference => reference == type ? throw new Exception($"Cannot get size of a self-referencing value type: {type} has field of type {reference}") : GetSizeOfObject(reference)).Select(u => (long) u).Sum();
             }
 
             return PrimitiveSizes.TryGetValue(type.Name, out var result)

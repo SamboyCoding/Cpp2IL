@@ -115,7 +115,7 @@ namespace Cpp2IL
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = runtimeArgs.EnableRegistrationPrompts;
 
             //Disable Method Ptr Mapping and Global Resolving if skipping analysis
-            LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = runtimeArgs.EnableAnalysis;
+            LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = !runtimeArgs.EnableAnalysis;
 
             try
             {
@@ -277,7 +277,16 @@ namespace Cpp2IL
                 if (reference != null)
                     assembly.MainModule.AssemblyReferences.Remove(reference);
 
-                assembly.Write(dllPath);
+                try
+                {
+                    assembly.Write(dllPath);
+                }
+                catch (Exception e)
+                {
+                    Console.Error.WriteLine($"\n\nFatal Exception writing DLL {dllPath}!\n{e}\n\nWaiting for you to press enter - feel free to copy the error...");
+                    Console.ReadLine();
+                    Environment.Exit(-1);
+                }
             }
         }
     }
