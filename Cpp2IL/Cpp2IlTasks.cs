@@ -8,6 +8,7 @@ using System.Threading;
 using CommandLine;
 using Cpp2IL.Analysis;
 using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using Mono.Cecil;

@@ -1,5 +1,6 @@
 ﻿using System.Reflection;
 using System.Text;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.PE;
 
 #pragma warning disable 8618

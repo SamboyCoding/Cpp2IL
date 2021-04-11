@@ -1,5 +1,6 @@
 ﻿using System;
 using Cpp2IL.Analysis.ResultModels;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.PE;
 using Mono.Cecil;
 using Mono.Cecil.Cil;

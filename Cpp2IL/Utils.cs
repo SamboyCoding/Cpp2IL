@@ -9,6 +9,7 @@ using System.Text.RegularExpressions;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 using Mono.Cecil;
@@ -448,8 +449,8 @@ namespace Cpp2IL
             {
                 //Replace < > with the number of generic params after a ` 
                 var origName = name;
-                genericParams = name.Substring(name.IndexOf("<", StringComparison.Ordinal) + 1).TrimEnd('>').Split(',');
-                name = name.Substring(0, name.IndexOf("<", StringComparison.Ordinal));
+                genericParams = name[(name.IndexOf("<", StringComparison.Ordinal) + 1)..].TrimEnd('>').Split(',');
+                name = name[..name.IndexOf("<", StringComparison.Ordinal)];
                 if (!name.Contains("`"))
                     name = name + "`" + (origName.Count(c => c == ',') + 1);
 
@@ -460,21 +461,20 @@ namespace Cpp2IL
 
             //It's possible they didn't specify a `System.` prefix
             var searchString = $"System.{name}";
-            definedType = SharedState.AllTypeDefinitions.Find(t => String.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
+            definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
 
             if (definedType != null) return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
-            var matches = SharedState.AllTypeDefinitions.Where(t => String.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+            var matches = SharedState.AllTypeDefinitions.Where(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 
             if (definedType != null || !name.Contains(".")) return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
 
+            searchString = name;
             //Try subclasses
-            var lastIdx = name.LastIndexOf(".", StringComparison.Ordinal);
-            searchString = name.Substring(0, lastIdx) + "/" + name.Substring(lastIdx + 1);
-            matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.EndsWith(searchString)).ToList();
+            matches = SharedState.AllTypeDefinitions.Where(t => t.FullName.Replace('/', '.').EndsWith(searchString)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 

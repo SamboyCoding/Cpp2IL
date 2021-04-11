@@ -121,10 +121,11 @@ namespace Cpp2IL
 
                 if (baseType == null) 
                     continue;
-                        
-                MethodReference? baseRef = null;
+
+                var targetParameters = methodDefinition.Parameters.Select(p => p.ParameterType.FullName).ToArray();
+                MethodReference? baseRef;
                 if (genericParamNames.Length == 0)
-                    baseRef = baseType.Methods.Single(m => m.Name == baseMethodName && m.Parameters.Count == methodDefinition.Parameters.Count);
+                    baseRef = baseType.Methods.SingleOrDefault(m => m.Name == baseMethodName && m.Parameters.Count == methodDefinition.Parameters.Count && m.ReturnType.FullName == methodDefinition.ReturnType.FullName && m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(targetParameters));
                 else
                 {
                     var nonGenericRef = baseType.Methods.Single(m => m.Name == baseMethodName && m.Parameters.Count == methodDefinition.Parameters.Count);
@@ -138,7 +139,9 @@ namespace Cpp2IL
 
                     if (genericParams.All(gp => gp != null))
                     {
-                        baseRef = nonGenericRef.MakeGeneric(genericParams.ToArray()!); //Non-null assertion because we've null-checked the params above.
+                        //Non-null assertion because we've null-checked the params above.
+                        genericParams = genericParams.Select(p => p is GenericParameter ? p : ilTypeDefinition.Module.ImportReference(p, methodDefinition)).ToList()!;
+                        baseRef = nonGenericRef.MakeGeneric(genericParams.ToArray()!);
                     }
                     else
                     {

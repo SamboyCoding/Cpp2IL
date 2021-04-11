@@ -124,50 +124,59 @@ namespace LibCpp2IL
         /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
         public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, int[] unityVersion)
         {
+            var start = DateTime.Now;
+            
+            Console.WriteLine("Initializing Metadata...");
+            
             TheMetadata = Il2CppMetadata.ReadFrom(metadataBytes, unityVersion);
+            
+            Console.WriteLine($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (TheMetadata == null)
                 return false;
 
-            Console.WriteLine("Read Metadata ok.");
-            
+            Console.WriteLine("Searching Binary for Required Data...");
+            start = DateTime.Now;
+
+            ulong codereg, metareg;
             if (BitConverter.ToInt16(binaryBytes.Take(2).ToArray(), 0) == 0x5A4D)
             {
                 var pe = new PE.PE(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
                 Binary = pe;
-                if (!pe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length))
-                    return false;
-                
-                Console.WriteLine("Read PE Data ok.");
+
+                (codereg, metareg) = pe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
             } else if (BitConverter.ToInt32(binaryBytes.Take(4).ToArray(), 0) == 0x464c457f)
             {
                 var elf = new ElfFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, true, true), TheMetadata.maxMetadataUsages);
                 Binary = elf;
-                var (codereg, metareg) = elf.FindCodeAndMetadataReg();
-
-                if (codereg == 0 || metareg == 0)
-                    throw new Exception("Failed to find ELF code or metadata registration");
-                
-                Console.WriteLine($"Got ELF codereg: 0x{codereg:X}, metareg: 0x{metareg:X}");
-                
-                elf.Init(codereg, metareg);
+                (codereg, metareg) = elf.FindCodeAndMetadataReg();
             }
             else
             {
                 throw new Exception("Unknown binary type");
             }
+            
+            if (codereg == 0 || metareg == 0)
+                throw new Exception("Failed to find Binary code or metadata registration");
+                
+            Console.WriteLine($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.\nInitializing Binary...");
+            start = DateTime.Now;
+                
+            Binary.Init(codereg, metareg);
+            
+            Console.WriteLine($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (!Settings.DisableGlobalResolving && MetadataVersion < 27)
             {
-                var start = DateTime.Now;
+                start = DateTime.Now;
                 Console.Write("Mapping Globals...");
                 LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, Binary);
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
             }
 
             if (!Settings.DisableMethodPointerMapping)
             {
-                var start = DateTime.Now;
+                start = DateTime.Now;
                 Console.Write("Mapping pointers to Il2CppMethodDefinitions...");
                 foreach (var (method, ptr) in TheMetadata.methodDefs.AsParallel().Select(method => (method, ptr: method.MethodPointer)))
                 {
@@ -177,7 +186,7 @@ namespace LibCpp2IL
                     MethodsByPtr[ptr].Add(method);
                 }
 
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds}ms)");
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
             }
 
             return true;

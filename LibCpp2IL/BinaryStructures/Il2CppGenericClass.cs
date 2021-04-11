@@ -1,6 +1,6 @@
 #pragma warning disable 8618
 //Disable null check because this stuff is initialized by reflection
-namespace LibCpp2IL.PE
+namespace LibCpp2IL.BinaryStructures
 {
     public class Il2CppGenericClass
     {

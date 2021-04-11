@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
@@ -45,7 +46,6 @@ namespace LibCpp2IL
 
         public void Init(ulong pCodeRegistration, ulong pMetadataRegistration)
         {
-            Console.WriteLine("Initializing Binary data...");
             codeRegistration = ReadClassAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration);
             metadataRegistration = ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(pMetadataRegistration);
 

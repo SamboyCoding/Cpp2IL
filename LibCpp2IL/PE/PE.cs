@@ -127,7 +127,7 @@ namespace LibCpp2IL.PE
             return peImageBase + section.VirtualAddress + offset - section.PointerToRawData;
         }
 
-        public bool PlusSearch(int methodCount, int typeDefinitionsCount)
+        public (ulong pCodeRegistration, ulong pMetadataRegistration) PlusSearch(int methodCount, int typeDefinitionsCount)
         {
             ulong pCodeRegistration = 0;
             ulong pMetadataRegistration;
@@ -169,8 +169,7 @@ namespace LibCpp2IL.PE
                 ulong.TryParse(mrInput, NumberStyles.HexNumber, null, out pMetadataRegistration);
             }
 
-            Console.WriteLine("Initializing with located addresses:");
-            return AutoInit(pCodeRegistration, pMetadataRegistration);
+            return (pCodeRegistration, pMetadataRegistration);
         }
 
         private void LoadPeExportTable()

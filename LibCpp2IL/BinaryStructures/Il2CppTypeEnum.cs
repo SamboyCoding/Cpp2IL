@@ -1,4 +1,4 @@
-namespace LibCpp2IL.PE
+namespace LibCpp2IL.BinaryStructures
 {
     public enum Il2CppTypeEnum
     {

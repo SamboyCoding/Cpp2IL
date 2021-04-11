@@ -1,4 +1,5 @@
-﻿using LibCpp2IL.PE;
+﻿using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.PE;
 
 namespace Cpp2IL.Analysis.ResultModels
 {

@@ -26,7 +26,7 @@ namespace LibCpp2IL.Elf
         {
             _raw = input.GetBuffer();
 
-            Console.Write("Reading Elf File Ident...");
+            Console.Write("\tReading Elf File Ident...");
             var start = DateTime.Now;
 
             ReadAndValidateIdent();
@@ -34,20 +34,20 @@ namespace LibCpp2IL.Elf
             var isBigEndian = _elfFileIdent!.Endianness == 2;
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            Console.WriteLine($"Binary is {(is32Bit ? "32-bit" : "64-bit")} and {(isBigEndian ? "big-endian" : "little-endian")}.");
+            Console.WriteLine($"\tBinary is {(is32Bit ? "32-bit" : "64-bit")} and {(isBigEndian ? "big-endian" : "little-endian")}.");
 
             if (isBigEndian)
                 SetBigEndian();
 
-            Console.Write("Reading and validating full ELF header...");
+            Console.Write("\tReading and validating full ELF header...");
             start = DateTime.Now;
 
             ReadHeader();
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            Console.WriteLine($"Elf File contains instructions of type {InstructionSet}");
+            Console.WriteLine($"\tElf File contains instructions of type {InstructionSet}");
 
-            Console.Write("Reading ELF program header table...");
+            Console.Write("\tReading ELF program header table...");
             start = DateTime.Now;
 
             ReadProgramHeaderTable();
@@ -58,7 +58,7 @@ namespace LibCpp2IL.Elf
 
             Console.WriteLine($"Read {_elfProgramHeaderEntries!.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.WriteLine("Reading ELF section header table and names...");
+            Console.WriteLine("\tReading ELF section header table and names...");
             start = DateTime.Now;
 
             //Non-null assertion reason: The elf header has already been checked while reading the program header.
@@ -69,30 +69,30 @@ namespace LibCpp2IL.Elf
             foreach (var section in _elfSectionHeaderEntries)
             {
                 section.Name = ReadStringToNull(pSectionHeaderStringTable + section.NameOffset);
-                Console.WriteLine($"\t-Name for section at 0x{section.RawAddress:X} is {section.Name}");
+                Console.WriteLine($"\t\t-Name for section at 0x{section.RawAddress:X} is {section.Name}");
             }
 
-            Console.WriteLine($"Read {_elfSectionHeaderEntries.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            Console.WriteLine($"\tRead {_elfSectionHeaderEntries.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //Get dynamic section.
             if (GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is { } dynamicSegment)
                 _dynamicSection = ReadClassArrayAtRawAddr<ElfDynamicEntry>(dynamicSegment.RawAddress, dynamicSegment.RawSize / (is32Bit ? 8ul : 16ul)).ToList();
 
-            Console.WriteLine("Processing Relocations...");
+            Console.WriteLine("\tFinding Relocations...");
             start = DateTime.Now;
 
             ProcessRelocations();
 
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.WriteLine("Processing Symbols...");
+            Console.WriteLine("\tProcessing Symbols...");
             start = DateTime.Now;
 
             ProcessSymbols();
 
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            Console.WriteLine($"\tOK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
-            Console.Write("Processing Initializers...");
+            Console.Write("\tProcessing Initializers...");
             start = DateTime.Now;
 
             ProcessInitializers();
@@ -165,7 +165,7 @@ namespace LibCpp2IL.Elf
                     //Read rel table
                     var table = ReadClassArrayAtRawAddr<ElfRelEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
 
-                    Console.WriteLine($"\t-Got {table.Length} from REL section {section.Name}");
+                    Console.WriteLine($"\t\t-Got {table.Length} from REL section {section.Name}");
                     
                     relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
                     relSectionStarts.Add(section.RawAddress);
@@ -183,7 +183,7 @@ namespace LibCpp2IL.Elf
                     //Read rela table
                     var table = ReadClassArrayAtRawAddr<ElfRelaEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
 
-                    Console.WriteLine($"\t-Got {table.Length} from RELA section {section.Name}");
+                    Console.WriteLine($"\t\t-Got {table.Length} from RELA section {section.Name}");
                     
                     relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
 
@@ -199,7 +199,7 @@ namespace LibCpp2IL.Elf
                     var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
                     var entries = ReadClassArrayAtRawAddr<ElfRelEntry>(dtRelStartAddr, relCount);
 
-                    Console.WriteLine($"\t-Got {entries.Length} from dynamic REL section.");
+                    Console.WriteLine($"\t\t-Got {entries.Length} from dynamic REL section.");
 
                     //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_REL
                     var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
@@ -218,7 +218,7 @@ namespace LibCpp2IL.Elf
                     var startAddr = (uint) MapVirtualAddressToRaw(dt_rela.Value);
                     var entries = ReadClassArrayAtRawAddr<ElfRelaEntry>(startAddr, relCount);
 
-                    Console.WriteLine($"\t-Got {entries.Length} from dynamic RELA section.");
+                    Console.WriteLine($"\t\t-Got {entries.Length} from dynamic RELA section.");
 
                     //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_RELA
                     var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
@@ -305,14 +305,14 @@ namespace LibCpp2IL.Elf
                 //Look for .symtab
                 if (GetSingleSection(ElfSectionEntryType.SHT_SYMTAB) is { } symtab)
                 {
-                    Console.WriteLine($"\t-Found .symtab at 0x{symtab.RawAddress:X}");
+                    Console.WriteLine($"\t\t-Found .symtab at 0x{symtab.RawAddress:X}");
                     symbolTables.Add((symtab.RawAddress, symtab.Size / (ulong) symtab.EntrySize, strTab.RawAddress));
                 }
 
                 //Look for .dynsym
                 if (GetSingleSection(ElfSectionEntryType.SHT_DYNSYM) is { } dynsym)
                 {
-                    Console.WriteLine($"\t-Found .dynsym at 0x{dynsym.RawAddress:X}");
+                    Console.WriteLine($"\t\t-Found .dynsym at 0x{dynsym.RawAddress:X}");
                     symbolTables.Add((dynsym.RawAddress, dynsym.Size / (ulong) dynsym.EntrySize, strTab.RawAddress));
                 }
             }
@@ -327,7 +327,7 @@ namespace LibCpp2IL.Elf
 
                     var address = (ulong) MapVirtualAddressToRaw(dynamicSymTab.Value);
 
-                    Console.WriteLine($"\t-Found DT_SYMTAB at 0x{address:X}");
+                    Console.WriteLine($"\t\t-Found DT_SYMTAB at 0x{address:X}");
 
                     symbolTables.Add((
                         address,
@@ -347,7 +347,7 @@ namespace LibCpp2IL.Elf
                     ? ReadClassArrayAtRawAddr<ElfDynamicSymbol32>(offset, count).Cast<IElfDynamicSymbol>().ToList()
                     : ReadClassArrayAtRawAddr<ElfDynamicSymbol64>(offset, count).Cast<IElfDynamicSymbol>().ToList();
 
-                Console.WriteLine($"\t-Found {symbols.Count} symbols in table at 0x{offset:X}");
+                Console.WriteLine($"\t\t-Found {symbols.Count} symbols in table at 0x{offset:X}");
 
                 foreach (var symbol in symbols)
                 {
