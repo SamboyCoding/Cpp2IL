@@ -1,7 +1,6 @@
 ﻿using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.PE;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important

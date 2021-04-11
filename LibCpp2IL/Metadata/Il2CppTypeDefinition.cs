@@ -2,7 +2,6 @@ using System;
 using System.Linq;
 using System.Reflection;
 using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata

@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL

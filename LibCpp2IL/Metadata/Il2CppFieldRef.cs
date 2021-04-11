@@ -1,5 +1,4 @@
 using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.PE;
 
 namespace LibCpp2IL.Metadata
 {
