@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -45,7 +46,7 @@ namespace Cpp2IL
             var defaultConstructor = new MethodDefinition(
                 ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
-                module.ImportReference(Utils.TryLookupTypeDefByName("System.Void").Item1)
+                module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Void"))
             );
 
             var processor = defaultConstructor.Body.GetILProcessor();
@@ -86,10 +87,65 @@ namespace Cpp2IL
 
             InjectCustomAttributes(currentAssembly);
 
-            foreach (var il2CppTypeDefinition in imageDef.Types)
+            foreach (var il2CppTypeDefinition in imageDef.Types!)
             {
                 var managedType = SharedState.UnmanagedToManagedTypes[il2CppTypeDefinition];
                 CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+            }
+        }
+
+        public static void FixupExplicitOverridesInAssembly(Il2CppImageDefinition imageDef)
+        {
+            foreach (var il2CppTypeDefinition in imageDef.Types!)
+            {
+                var managedType = SharedState.UnmanagedToManagedTypes[il2CppTypeDefinition];
+                FixupExplicitOverridesInType(managedType);
+            }
+        }
+
+        private static void FixupExplicitOverridesInType(TypeDefinition ilTypeDefinition)
+        {
+            //Fixup explicit Override (e.g. System.Collections.Generic.Dictionary`2's IDictionary.Add method) methods.
+            foreach (var methodDefinition in ilTypeDefinition.Methods)
+            {
+                var methodDef = SharedState.ManagedToUnmanagedMethods[methodDefinition];
+                
+                //The two StartsWith calls are for a) .ctor / .cctor and b) compiler-generated enumerator methods for these two methods.
+                if (!methodDef.Name!.Contains(".") || methodDef.Name.StartsWith(".") || methodDef.Name.StartsWith("<")) continue;
+
+                //Helpfully, the full name of the method is actually the full name of the base method. Unless generics come into play.
+                var baseMethodType = methodDef.Name[..methodDef.Name.LastIndexOf(".", StringComparison.Ordinal)];
+                var baseMethodName = methodDef.Name[(methodDef.Name.LastIndexOf(".", StringComparison.Ordinal) + 1)..];
+
+                //Unfortunately, the only way we can get these types is by name - there is no metadata reference.
+                var (baseType, genericParamNames) = Utils.TryLookupTypeDefByName(baseMethodType);
+
+                if (baseType == null) continue;
+                        
+                MethodReference? baseRef = null;
+                if (genericParamNames.Length == 0)
+                    baseRef = baseType.Methods.Single(m => m.Name == baseMethodName && m.Parameters.Count == methodDefinition.Parameters.Count);
+                else
+                {
+                    var nonGenericRef = baseType.Methods.Single(m => m.Name == baseMethodName && m.Parameters.Count == methodDefinition.Parameters.Count);
+
+                    var genericParams = genericParamNames
+                        .Select(g =>
+                            (TypeReference?) Utils.TryLookupTypeDefKnownNotGeneric(g)
+                            ?? GenericInstanceUtils.ResolveGenericParameterType(new GenericParameter(g, baseType), ilTypeDefinition)
+                        )
+                        .ToArray();
+
+                    if (genericParams.All(gp => gp != null))
+                    {
+                        baseRef = nonGenericRef.MakeGeneric(genericParams!); //Non-null assertion because we've null-checked the params above.
+                    }
+                }
+
+                if (baseRef != null)
+                    methodDefinition.Overrides.Add(ilTypeDefinition.Module.ImportReference(baseRef, methodDefinition));
+                else
+                    Console.WriteLine($"Failed to resolve base method override in type {ilTypeDefinition.FullName}: Type {baseMethodType} / Name {baseMethodName}");
             }
         }
 
@@ -103,7 +159,7 @@ namespace Cpp2IL
             var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
             customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
             ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
-            
+
             if (cppTypeDefinition.GenericContainer != null)
             {
                 //Type generic params.
@@ -115,14 +171,14 @@ namespace Cpp2IL
                         SharedState.GenericParamsByIndex[param.Index] = p;
                     }
 
-                    if(!ilTypeDefinition.GenericParameters.Contains(p))
+                    if (!ilTypeDefinition.GenericParameters.Contains(p))
                         ilTypeDefinition.GenericParameters.Add(p);
                 }
             }
 
             //Fields
             ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
-            
+
             //Methods
             ProcessMethodsInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, addressAttribute, stringType);
 

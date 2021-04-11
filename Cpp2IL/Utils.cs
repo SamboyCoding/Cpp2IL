@@ -44,7 +44,7 @@ namespace Cpp2IL
         // ReSharper restore NotNullMemberIsNotInitialized
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
-        private static readonly Dictionary<string, Tuple<TypeDefinition, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition, string[]>>();
+        private static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition?, string[]>>();
 
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
         {
@@ -413,14 +413,11 @@ namespace Cpp2IL
         }
 
 
-        public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name)
-        {
-            return TryLookupTypeDefByName(name).Item1;
-        }
+        public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name) => TryLookupTypeDefByName(name).Item1;
 
         public static Tuple<TypeDefinition?, string[]> TryLookupTypeDefByName(string? name)
         {
-            if (name == null) return new Tuple<TypeDefinition, string[]>(null, new string[0]);
+            if (name == null) return new Tuple<TypeDefinition?, string[]>(null, Array.Empty<string>());
 
             var key = name.ToLower(CultureInfo.InvariantCulture);
 
@@ -434,22 +431,22 @@ namespace Cpp2IL
             return result;
         }
 
-        private static Tuple<TypeDefinition, string[]> InternalTryLookupTypeDefByName(string name)
+        private static Tuple<TypeDefinition?, string[]> InternalTryLookupTypeDefByName(string name)
         {
             if (primitiveTypeMappings.ContainsKey(name))
-                return new Tuple<TypeDefinition, string[]>(primitiveTypeMappings[name], new string[0]);
+                return new Tuple<TypeDefinition?, string[]>(primitiveTypeMappings[name], Array.Empty<string>());
 
-            var definedType = SharedState.AllTypeDefinitions.Find(t => String.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
+            var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
 
             if (name.EndsWith("[]"))
             {
-                var without = name.Substring(0, name.Length - 2);
+                var without = name[..^2];
                 var result = TryLookupTypeDefByName(without);
                 return result;
             }
 
             //Generics are dumb.
-            var genericParams = new string[0];
+            var genericParams = Array.Empty<string>();
             if (definedType == null && name.Contains("<"))
             {
                 //Replace < > with the number of generic params after a ` 
@@ -462,20 +459,20 @@ namespace Cpp2IL
                 definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
             }
 
-            if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+            if (definedType != null) return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
 
             //It's possible they didn't specify a `System.` prefix
             var searchString = $"System.{name}";
             definedType = SharedState.AllTypeDefinitions.Find(t => String.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
 
-            if (definedType != null) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+            if (definedType != null) return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
             var matches = SharedState.AllTypeDefinitions.Where(t => String.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 
-            if (definedType != null || !name.Contains(".")) return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+            if (definedType != null || !name.Contains(".")) return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
 
             //Try subclasses
             var lastIdx = name.LastIndexOf(".", StringComparison.Ordinal);
@@ -485,7 +482,7 @@ namespace Cpp2IL
                 definedType = matches.First();
 
 
-            return new Tuple<TypeDefinition, string[]>(definedType, genericParams);
+            return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
         }
 
         private static TypeReference MakeGenericType(this TypeReference self, params TypeReference[] arguments)
@@ -634,14 +631,6 @@ namespace Cpp2IL
                     return false;
             }
         }
-
-        public static bool TryResolveType(TypeReference type, [NotNullWhen(true)] out TypeDefinition? definition)
-        {
-            definition = type.Resolve() ?? TryLookupTypeDefByName(type.FullName).Item1;
-
-            return definition != null;
-        }
-
         public static ulong GetSizeOfObject(TypeReference type)
         {
             if (type.IsValueType && !type.IsPrimitive && type.Resolve() is { } def)

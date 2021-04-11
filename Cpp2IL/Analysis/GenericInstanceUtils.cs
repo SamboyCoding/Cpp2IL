@@ -42,6 +42,9 @@ namespace Cpp2IL.Analysis
                     return gim.GenericArguments[methodGenericIdx];
             }
 
+            if (instance?.GenericParameters.FirstOrDefault(gp2 => gp2.Name == gp.Name) is { } matchingGpInInstance && matchingGpInInstance != gp)
+                return matchingGpInInstance;
+
             return null;
         }
 

@@ -159,7 +159,7 @@ namespace Cpp2IL
             if ((runtimeArgs.EnableAnalysis || runtimeArgs.EnableMetadataGeneration) && !Directory.Exists(methodOutputDir))
                 Directory.CreateDirectory(methodOutputDir);
 
-            foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions)
+            foreach (var imageDef in LibCpp2IlMain.TheMetadata!.imageDefinitions)
             {
                 var assemblySpecificPath = Path.Combine(methodOutputDir, imageDef.Name!.Replace(".dll", ""));
                 if (runtimeArgs.EnableMetadataGeneration && !Directory.Exists(assemblySpecificPath))
@@ -167,6 +167,11 @@ namespace Cpp2IL
 
                 AssemblyPopulator.PopulateStubTypesInAssembly(imageDef);
             }
+            
+            Console.WriteLine("Fixing up explicit overrides...");
+            //Fixup explicit overrides.
+            foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions) 
+                AssemblyPopulator.FixupExplicitOverridesInAssembly(imageDef);
 
             return Assemblies;
         }
