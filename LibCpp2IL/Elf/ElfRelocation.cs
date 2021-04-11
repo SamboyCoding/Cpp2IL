@@ -1,6 +1,4 @@
-﻿using System;
-
-namespace LibCpp2IL.Elf
+﻿namespace LibCpp2IL.Elf
 {
     /// <summary>
     /// Not an actual Elf struct, but an internal representation for a bunch of them.

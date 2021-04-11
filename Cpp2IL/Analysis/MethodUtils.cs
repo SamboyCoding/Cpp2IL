@@ -2,14 +2,12 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection.Metadata;
 using Cpp2IL.Analysis.Actions.Important;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
-using Mono.Cecil.Rocks;
 using GenericParameter = Mono.Cecil.GenericParameter;
 using MemberReference = Mono.Cecil.MemberReference;
 using MethodDefinition = Mono.Cecil.MethodDefinition;

@@ -1,5 +1,4 @@
-﻿using LibCpp2IL.PE;
-using LibCpp2IL.Reflection;
+﻿using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata
 {

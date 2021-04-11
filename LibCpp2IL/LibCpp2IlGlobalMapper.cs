@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL
 {

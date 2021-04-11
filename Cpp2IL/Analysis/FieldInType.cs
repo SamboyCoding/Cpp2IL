@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Linq;
 using Mono.Cecil;
 
 namespace Cpp2IL.Analysis

@@ -1,5 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Diagnostics;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;

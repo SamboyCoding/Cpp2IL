@@ -3,9 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Iced.Intel;
 using LibCpp2IL;
-using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
-using Mono.Cecil;
 using SharpDisasm.Udis86;
 using Instruction = SharpDisasm.Instruction;
 

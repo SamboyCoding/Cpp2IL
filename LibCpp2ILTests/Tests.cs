@@ -1,4 +1,3 @@
-using System;
 using System.Net;
 using LibCpp2IL;
 using Xunit;

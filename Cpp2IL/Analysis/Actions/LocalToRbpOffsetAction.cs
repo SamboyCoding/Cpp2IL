@@ -1,5 +1,4 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
-using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 

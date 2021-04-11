@@ -1,8 +1,6 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using System.Reflection;
@@ -11,7 +9,6 @@ using System.Text.RegularExpressions;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
-using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 using Mono.Cecil;

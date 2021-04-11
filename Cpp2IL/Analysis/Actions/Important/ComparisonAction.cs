@@ -2,7 +2,6 @@
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
-using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;

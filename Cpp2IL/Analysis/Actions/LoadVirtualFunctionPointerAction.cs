@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
-using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;

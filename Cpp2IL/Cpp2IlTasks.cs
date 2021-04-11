@@ -4,7 +4,9 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using CommandLine;
+using Cpp2IL.Analysis;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
@@ -132,6 +134,9 @@ namespace Cpp2IL
 
         public static List<AssemblyDefinition> MakeDummyDLLs(Cpp2IlRuntimeArgs runtimeArgs)
         {
+            Console.WriteLine("Building assemblies...This may take some time.");
+            var start = DateTime.Now;
+            
             var resolver = new RegistryAssemblyResolver();
             var moduleParams = new ModuleParameters
             {
@@ -168,10 +173,15 @@ namespace Cpp2IL
                 AssemblyPopulator.PopulateStubTypesInAssembly(imageDef);
             }
             
-            Console.WriteLine("Fixing up explicit overrides...");
+            Console.WriteLine($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+            Console.WriteLine("Fixing up explicit overrides. Any warnings you see here aren't errors - they usually indicate improperly stripped or obfuscated types, but this is not a big deal. This should only take a second...");
+            start = DateTime.Now;
+            
             //Fixup explicit overrides.
             foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions) 
                 AssemblyPopulator.FixupExplicitOverridesInAssembly(imageDef);
+            
+            Console.WriteLine($"Fixup complete ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
 
             return Assemblies;
         }
@@ -293,6 +303,83 @@ namespace Cpp2IL
                     Environment.Exit(-1);
                 }
             }
+        }
+
+        public static void AnalyseAssembly(AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
+        {
+            Console.WriteLine("Dumping method bytes to " + methodOutputDir);
+            Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
+
+            var counter = 0;
+            var toProcess = assembly.MainModule.Types.Where(t => t.Namespace != AssemblyPopulator.InjectedNamespaceName).ToList();
+            //Sort alphabetically by type.
+            toProcess.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
+            var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
+            var nextThreshold = thresholds.First();
+
+            var successfullyProcessed = 0;
+
+            var startTime = DateTime.Now;
+
+            thresholds.RemoveAt(0);
+
+            void ProcessType(TypeDefinition type)
+            {
+                counter++;
+                var pct = 100 * ((decimal) counter / toProcess.Count);
+                if (pct > nextThreshold)
+                {
+                    lock (thresholds)
+                    {
+                        //Check again to prevent races
+                        if (pct > nextThreshold)
+                        {
+                            var elapsedSoFar = DateTime.Now - startTime;
+                            var rate = counter / elapsedSoFar.TotalSeconds;
+                            var remaining = toProcess.Count - counter;
+                            Console.WriteLine($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
+                            nextThreshold = thresholds.First();
+                            thresholds.RemoveAt(0);
+                        }
+                    }
+                }
+
+                try
+                {
+                    var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
+                    var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
+
+                    foreach (var methodDefinition in type.Methods)
+                    {
+                        var methodStart = methodDefinition.AsUnmanaged().MethodPointer;
+
+                        if (methodStart == 0) continue;
+
+                        var dumper = new AsmDumper(methodDefinition, methodStart, keyFunctionAddresses!);
+                        dumper.AnalyzeMethod(typeDump);
+
+                        Interlocked.Increment(ref successfullyProcessed);
+                    }
+
+                    lock (type) File.WriteAllText(filename, typeDump.ToString());
+                }
+                catch (AnalysisExceptionRaisedException)
+                {
+                    //Ignore, logged already.
+                }
+                catch (Exception e)
+                {
+                    Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
+                }
+            }
+
+            if (parallel)
+                toProcess.AsParallel().ForAll(ProcessType);
+            else
+                toProcess.ForEach(ProcessType);
+            
+            var elapsed = DateTime.Now - startTime;
+            Console.WriteLine($"Finished processing {successfullyProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
         }
     }
 }

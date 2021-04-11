@@ -2,7 +2,6 @@
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil.Cil;
-using SharpDisasm.Udis86;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions

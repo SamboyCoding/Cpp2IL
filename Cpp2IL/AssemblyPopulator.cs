@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Analysis;
@@ -120,7 +119,8 @@ namespace Cpp2IL
                 //Unfortunately, the only way we can get these types is by name - there is no metadata reference.
                 var (baseType, genericParamNames) = Utils.TryLookupTypeDefByName(baseMethodType);
 
-                if (baseType == null) continue;
+                if (baseType == null) 
+                    continue;
                         
                 MethodReference? baseRef = null;
                 if (genericParamNames.Length == 0)
@@ -134,18 +134,24 @@ namespace Cpp2IL
                             (TypeReference?) Utils.TryLookupTypeDefKnownNotGeneric(g)
                             ?? GenericInstanceUtils.ResolveGenericParameterType(new GenericParameter(g, baseType), ilTypeDefinition)
                         )
-                        .ToArray();
+                        .ToList();
 
                     if (genericParams.All(gp => gp != null))
                     {
-                        baseRef = nonGenericRef.MakeGeneric(genericParams!); //Non-null assertion because we've null-checked the params above.
+                        baseRef = nonGenericRef.MakeGeneric(genericParams.ToArray()!); //Non-null assertion because we've null-checked the params above.
+                    }
+                    else
+                    {
+                        var failedIdx = genericParams.FindIndex(g => g == null);
+                        Console.WriteLine($"\tWarning: Failed to resolve generic parameter \"{genericParamNames[failedIdx]}\" for base method override {methodDef.Name}.");
+                        continue; //Move to next method.
                     }
                 }
 
                 if (baseRef != null)
                     methodDefinition.Overrides.Add(ilTypeDefinition.Module.ImportReference(baseRef, methodDefinition));
                 else
-                    Console.WriteLine($"Failed to resolve base method override in type {ilTypeDefinition.FullName}: Type {baseMethodType} / Name {baseMethodName}");
+                    Console.WriteLine($"\tWarning: Failed to resolve base method override in type {ilTypeDefinition.FullName}: Type {baseMethodType} / Name {baseMethodName}");
             }
         }
 

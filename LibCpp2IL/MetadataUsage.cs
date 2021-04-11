@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
