@@ -53,6 +53,9 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             if (_argOne == null || _argTwo == null)
                 throw new TaintedInstructionException("Missing an argument");
+
+            if (_resultLocal.Variable == null)
+                throw new TaintedInstructionException("Destination local has been stripped");
             
             List<Mono.Cecil.Cil.Instruction> ret = new List<Mono.Cecil.Cil.Instruction>();
             

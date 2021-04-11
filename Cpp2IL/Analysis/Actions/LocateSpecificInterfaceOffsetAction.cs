@@ -12,7 +12,7 @@ namespace Cpp2IL.Analysis.Actions
     {
         private TypeDefinition _interfaceType;
         private InterfaceOffsetsReadAction offsetReads;
-        public Il2CppInterfaceOffset _matchingInterfaceOffset;
+        public Il2CppInterfaceOffset? _matchingInterfaceOffset;
 
         public LocateSpecificInterfaceOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -22,7 +22,10 @@ namespace Cpp2IL.Analysis.Actions
 
             offsetReads = (InterfaceOffsetsReadAction) context.Actions.Last(a => a is InterfaceOffsetsReadAction);
             
-            _matchingInterfaceOffset = offsetReads.InterfaceOffsets.Last(i => Utils.AreManagedAndCppTypesEqual(i.type, _interfaceType));
+            _matchingInterfaceOffset = offsetReads.InterfaceOffsets.LastOrDefault(i => Utils.AreManagedAndCppTypesEqual(i.type, _interfaceType));
+            
+            if(_matchingInterfaceOffset == null)
+                AddComment($"Warning: Could not find an interface offset for class {offsetReads.loadedFor.backingType.FullName}, where it implements interface {_interfaceType.FullName}.");
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
@@ -37,7 +40,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Checks for specific interface offset of type {_interfaceType.FullName} which resolves to offset {_matchingInterfaceOffset.offset}";
+            return $"Checks for specific interface offset of type {_interfaceType.FullName} which resolves to offset {_matchingInterfaceOffset?.offset}";
         }
     }
 }

@@ -42,7 +42,7 @@ namespace Cpp2IL.Analysis.Actions
                 case Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_TYPE:
                     break;
                 case Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_CLASS:
-                    _dataValue = Utils.TryResolveTypeReflectionData(_actualRgctx.Type);
+                    _dataValue = Utils.TryResolveTypeReflectionData(_actualRgctx.Type, context.DeclaringType);
                     if (_dataValue != null)
                     {
                         _constantMade = context.MakeConstant(typeof(TypeReference), _dataValue, reg: _destReg);

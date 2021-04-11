@@ -60,6 +60,9 @@ namespace Cpp2IL.Analysis.Actions.Important
             }
             
             ret.AddRange(LocalRead.GetILToLoad(context, processor));
+
+            if (f.FinalLoadInChain == null)
+                throw new TaintedInstructionException("Final load in chain is null");
             
             ret.Add(processor.Create(OpCodes.Stfld, f.FinalLoadInChain));
             

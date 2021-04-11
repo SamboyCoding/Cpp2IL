@@ -50,7 +50,7 @@ namespace Cpp2IL.Analysis.Actions.Important
             ret.AddRange(_readOn.GetILToLoad(context, processor));
 
             //Access field
-            ret.AddRange(_read.GetILToLoad(context, processor));
+            ret.AddRange(_read.GetILToLoad(processor));
 
             //Store to local
             ret.Add(processor.Create(OpCodes.Stloc, _localMade.Variable));

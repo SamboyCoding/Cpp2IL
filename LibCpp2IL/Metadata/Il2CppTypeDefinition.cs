@@ -103,6 +103,12 @@ namespace LibCpp2IL.Metadata
         {
             get
             {
+                if (LibCpp2IlMain.MetadataVersion < 24.2f)
+                {
+                    //No codegen modules here.
+                    return LibCpp2IlMain.TheMetadata!.RgctxDefinitions.Skip(rgctxStartIndex).Take(rgctxCount).ToArray();
+                }
+                
                 var cgm = CodeGenModule;
 
                 if (cgm == null)

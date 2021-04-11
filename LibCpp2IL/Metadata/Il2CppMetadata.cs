@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using LibCpp2IL.PE;
 
 namespace LibCpp2IL.Metadata
 {
@@ -27,6 +28,7 @@ namespace LibCpp2IL.Metadata
         private Il2CppStringLiteral[] stringLiterals;
         public Il2CppMetadataUsageList[] metadataUsageLists;
         private Il2CppMetadataUsagePair[] metadataUsagePairs;
+        public Il2CppRGCTXDefinition[] RgctxDefinitions; //Moved to binary in v24.2
         public int[] attributeTypes;
         public int[] interfaceIndices;
         
@@ -165,6 +167,16 @@ namespace LibCpp2IL.Metadata
             start = DateTime.Now;
             stringLiterals = ReadMetadataClassArray<Il2CppStringLiteral>(metadataHeader.stringLiteralOffset, metadataHeader.stringLiteralCount);
             Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
+            if (LibCpp2IlMain.MetadataVersion < 24.2f)
+            {
+                Console.Write("\tReading RGCTX data...");
+                start = DateTime.Now;
+
+                RgctxDefinitions = ReadMetadataClassArray<Il2CppRGCTXDefinition>(metadataHeader.rgctxEntriesOffset, metadataHeader.rgctxEntriesCount);
+                
+                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
 
             //Removed in v27 (2020.2)
             if (LibCpp2IlMain.MetadataVersion < 27f)

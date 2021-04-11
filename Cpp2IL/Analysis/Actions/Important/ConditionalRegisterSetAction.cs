@@ -32,7 +32,10 @@ namespace Cpp2IL.Analysis.Actions.Important
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 
             if (_associatedCompare?.ArgumentOne == null || _associatedCompare?.ArgumentTwo == null)
-                throw new TaintedInstructionException();
+                throw new TaintedInstructionException("Missing a comparison argument");
+
+            if (_localMade.Variable == null)
+                throw new TaintedInstructionException("Destination local has been stripped");
 
             ret.AddRange(_associatedCompare.ArgumentOne.GetILToLoad(context, processor));
             ret.AddRange(_associatedCompare.ArgumentTwo.GetILToLoad(context, processor));

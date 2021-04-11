@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 
 namespace LibCpp2IL.Metadata
@@ -17,6 +18,21 @@ namespace LibCpp2IL.Metadata
         /* Our type parameters. */
         public int genericParameterStart;
 
-        public Il2CppGenericParameter[] GenericParameters => LibCpp2IlMain.TheMetadata?.genericParameters.Skip(genericParameterStart).Take(type_argc).ToArray() ?? Array.Empty<Il2CppGenericParameter>();
+        public IEnumerable<Il2CppGenericParameter> GenericParameters
+        {
+            get
+            {
+                if(type_argc == 0)
+                    yield break;
+                
+                var end = genericParameterStart + type_argc;
+                for (var i = genericParameterStart; i < end; i++)
+                {
+                    var p = LibCpp2IlMain.TheMetadata!.genericParameters[i];
+                    p.Index = i;
+                    yield return p;
+                }
+            }
+        }
     }
 }

@@ -12,8 +12,8 @@ namespace Cpp2IL.Analysis.Actions
         private LocalDefinition _invokedOn;
         private TypeDefinition _interfaceType;
         private uint _slotNumber;
-        private MethodDefinition resolvedMethod;
-        private ConstantDefinition _resultConstant;
+        private MethodDefinition? resolvedMethod;
+        private ConstantDefinition? _resultConstant;
 
         public LoadInterfaceMethodDataAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -28,7 +28,7 @@ namespace Cpp2IL.Analysis.Actions
                 if (context.GetConstantInReg("r8") is {Value: uint constantUint})
                 {
                     _slotNumber = constantUint;
-                } else if (context.GetLocalInReg("r8") is {Type: {Name: "UInt32"}, KnownInitialValue: ushort localUint})
+                } else if (context.GetLocalInReg("r8") is {Type: {Name: "UInt32"}, KnownInitialValue: uint localUint})
                 {
                     _slotNumber = localUint;
                 }
@@ -36,6 +36,9 @@ namespace Cpp2IL.Analysis.Actions
                 {
                     throw new Exception("We had and now don't have a slot number?");
                 }
+                
+                if(act._matchingInterfaceOffset == null)
+                    return;
 
                 resolvedMethod = SharedState.VirtualMethodsBySlot[(ushort) (act._matchingInterfaceOffset.offset + _slotNumber)];
 
@@ -55,7 +58,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Loads the pointer to the interface function defined in {_interfaceType.FullName} - specifically the implementation in {_invokedOn.Type?.FullName} - which has slot number {_slotNumber}, which resolves to {resolvedMethod?.FullName}, and stores in constant {_resultConstant.Name} in rax";
+            return $"Loads the pointer to the interface function defined in {_interfaceType.FullName} - specifically the implementation in {_invokedOn.Type?.FullName} - which has slot number {_slotNumber}, which resolves to {resolvedMethod?.FullName}, and stores in constant {_resultConstant?.Name} in rax";
         }
     }
 }

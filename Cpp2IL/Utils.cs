@@ -249,8 +249,12 @@ namespace Cpp2IL
                 {
                     if (SharedState.GenericParamsByIndex.TryGetValue(toImport.data.genericParameterIndex, out var genericParameter))
                     {
-                        if (importInto is MethodDefinition mDef)
-                            mDef.GenericParameters.Add(genericParameter);
+                        // if (importInto is MethodDefinition mDef)
+                        // {
+                        //     mDef.GenericParameters.Add(genericParameter);
+                        //     mDef.DeclaringType.GenericParameters[mDef.DeclaringType.GenericParameters.IndexOf(genericParameter)] = genericParameter;
+                        // }
+
                         return genericParameter;
                     }
 
@@ -259,13 +263,14 @@ namespace Cpp2IL
                     if (importInto is MethodDefinition methodDefinition)
                     {
                         genericParameter = new GenericParameter(genericName, methodDefinition.DeclaringType);
-                        methodDefinition.DeclaringType.GenericParameters.Add(genericParameter);
                         methodDefinition.GenericParameters.Add(genericParameter);
+                        methodDefinition.DeclaringType.GenericParameters.Add(genericParameter);
                         SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
                         return genericParameter;
                     }
 
                     var typeDefinition = (TypeDefinition) importInto;
+
                     genericParameter = new GenericParameter(genericName, typeDefinition);
                     typeDefinition.GenericParameters.Add(genericParameter);
                     SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
@@ -641,8 +646,16 @@ namespace Cpp2IL
         {
             if (type.IsValueType && !type.IsPrimitive && type.Resolve() is { } def)
             {
-                //Struct - sum fields, including any nested structs.
-                return (ulong) def.Fields.Select(f => f.FieldType).Select(reference => reference == type ? throw new Exception($"Cannot get size of a self-referencing value type: {type} has field of type {reference}") : GetSizeOfObject(reference)).Select(u => (long) u).Sum();
+                //Struct - sum instance fields, including any nested structs.
+                return (ulong) def.Fields
+                    .Where(f => !f.IsStatic)
+                    .Select(f => f.FieldType)
+                    .Select(reference => 
+                        reference == type 
+                            ? throw new Exception($"Cannot get size of a self-referencing value type: {type} has field of type {reference}") 
+                            : GetSizeOfObject(reference))
+                    .Select(u => (long) u)
+                    .Sum();
             }
 
             return PrimitiveSizes.TryGetValue(type.Name, out var result)
@@ -952,7 +965,7 @@ namespace Cpp2IL
             }
             else if (typeData.isArray)
             {
-                theType = TryResolveTypeReflectionData(typeData.arrayType);
+                theType = TryResolveTypeReflectionData(typeData.arrayType, owner);
 
                 for (var i = 0; i < typeData.arrayRank; i++)
                 {

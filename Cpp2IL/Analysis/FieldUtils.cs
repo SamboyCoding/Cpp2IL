@@ -80,9 +80,9 @@ namespace Cpp2IL.Analysis
         private static FieldBeingAccessedData? GetIndirectlyPointedAtField(List<FieldInType> allFields, ulong offset, bool tryFindFloatingPointValue)
         {
             //We have no field directly at this offset - find the one immediately prior, and map that struct to its own fields
-            var structFIT = allFields.FindLast(f => f.Offset <= offset);
+            var structFIT = allFields.FindLast(f => !f.Static && f.Offset <= offset);
 
-            if (structFIT.Name == null || structFIT.Constant != null) return null; //Couldn't find one, or they're all constants
+            if (structFIT.FieldType == null || structFIT.Constant != null) return null; //Couldn't find one, or they're all constants
 
             if (!structFIT.FieldType.IsValueType || structFIT.FieldType.IsPrimitive) return null; //Not a struct
 
@@ -90,19 +90,16 @@ namespace Cpp2IL.Analysis
 
             if (structType == null) return null;
 
+            if (structFIT.Offset == 0 && structFIT.FieldType == structFIT.DeclaringType)
+                throw new Exception($"Self-referencing field? Field {structFIT.Name} in {structFIT.DeclaringType} is at offset 0 and is of the same type as that which declares it. Bailing out to avoid stack overflow.");
+
             offset -= structFIT.Offset;
 
-            var data = new FieldBeingAccessedData
-            {
-                ImpliedFieldLoad = structFIT.ResolveToFieldDef(),
-                FinalLoadInChain = null,
-            };
+            if (structFIT.ResolveToFieldDef() == null)
+                //This was gonna break anyway, give some context
+                throw new Exception($"GetFieldInType: Encountered a field with a null def? {structFIT.Name} of type {structFIT.FieldType} in {structFIT.DeclaringType} has null FieldDef.");
 
-            var subAccess = GetFieldBeingAccessed(structType, offset, tryFindFloatingPointValue);
-
-            if (subAccess == null) return null;
-
-            data.NextChainLink = subAccess;
+            var data = FieldBeingAccessedData.FromImpliedLoad(structFIT.ResolveToFieldDef(), GetFieldBeingAccessed(structType, offset, tryFindFloatingPointValue));
 
             return data;
         }
@@ -118,16 +115,28 @@ namespace Cpp2IL.Analysis
         /// </summary>
         public class FieldBeingAccessedData
         {
-            public FieldDefinition? ImpliedFieldLoad;
-            public FieldDefinition? FinalLoadInChain;
-            public FieldBeingAccessedData? NextChainLink;
+            public readonly FieldDefinition? ImpliedFieldLoad;
+            public readonly FieldDefinition? FinalLoadInChain;
+            public readonly FieldBeingAccessedData? NextChainLink;
+
+            private FieldBeingAccessedData(FieldDefinition? impliedFieldLoad, FieldDefinition? finalLoadInChain, FieldBeingAccessedData? nextChainLink)
+            {
+                ImpliedFieldLoad = impliedFieldLoad;
+                FinalLoadInChain = finalLoadInChain;
+                NextChainLink = nextChainLink;
+            }
 
             public static FieldBeingAccessedData FromDirectField(FieldDefinition directLoad)
             {
-                return new FieldBeingAccessedData
-                {
-                    FinalLoadInChain = directLoad
-                };
+                return new FieldBeingAccessedData(null, directLoad, null);
+            }
+
+            public static FieldBeingAccessedData FromImpliedLoad(FieldDefinition? impliedLoad, FieldBeingAccessedData? nextLink)
+            {
+                if (impliedLoad == null)
+                    throw new ArgumentException($"Cannot implicitly load null field before accessing {nextLink}");
+
+                return new FieldBeingAccessedData(impliedLoad, null, nextLink);
             }
 
             public override string ToString()
@@ -138,7 +147,7 @@ namespace Cpp2IL.Analysis
                 return $"{ImpliedFieldLoad!.Name}.{NextChainLink}";
             }
 
-            public List<Instruction> GetILToLoad(MethodAnalysis context, ILProcessor processor)
+            public List<Instruction> GetILToLoad(ILProcessor processor)
             {
                 if (NextChainLink != null)
                 {
@@ -147,9 +156,12 @@ namespace Cpp2IL.Analysis
                         processor.Create(OpCodes.Ldfld, ImpliedFieldLoad)
                     };
                     
-                    ret.AddRange(NextChainLink.GetILToLoad(context, processor));
+                    ret.AddRange(NextChainLink.GetILToLoad(processor));
                     return ret;
                 }
+
+                if (FinalLoadInChain == null)
+                    throw new TaintedInstructionException("FinalLoadInChain is null");
 
                 return new List<Instruction>
                 {
@@ -157,9 +169,12 @@ namespace Cpp2IL.Analysis
                 };
             }
 
-            public TypeReference GetFinalType()
+            public TypeReference? GetFinalType()
             {
-                return FinalLoadInChain?.FieldType ?? NextChainLink!.GetFinalType();
+                if (NextChainLink != null)
+                    return NextChainLink.GetFinalType();
+
+                return FinalLoadInChain?.FieldType;
             }
 
             protected bool Equals(FieldBeingAccessedData other)
@@ -171,7 +186,7 @@ namespace Cpp2IL.Analysis
             {
                 if (ReferenceEquals(null, obj)) return false;
                 if (ReferenceEquals(this, obj)) return true;
-                if (obj.GetType() != this.GetType()) return false;
+                if (obj.GetType() != GetType()) return false;
                 return Equals((FieldBeingAccessedData) obj);
             }
 
@@ -206,7 +221,7 @@ namespace Cpp2IL.Analysis
             catch (InvalidOperationException)
             {
                 var matchingFields = theFields.Where(f => f.Static && f.Constant == null && f.Offset == fieldOffset).ToList();
-                Console.WriteLine($"More than one static field at offset 0x{fieldOffset:X}! Matches: " + matchingFields.Select(f => f.Name).ToStringEnumerable());
+                Console.WriteLine($"FieldUtils#GetStaticFieldByOffset: More than one static field at offset 0x{fieldOffset:X} in type {type}! Matches: " + matchingFields.Select(f => f.Name).ToStringEnumerable());
                 return null;
             }
 

@@ -103,10 +103,26 @@ namespace Cpp2IL
             var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
             customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
             ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
+            
+            if (cppTypeDefinition.GenericContainer != null)
+            {
+                //Type generic params.
+                foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
+                {
+                    if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
+                    {
+                        p = new GenericParameter(param.Name, ilTypeDefinition);
+                        SharedState.GenericParamsByIndex[param.Index] = p;
+                    }
+
+                    if(!ilTypeDefinition.GenericParameters.Contains(p))
+                        ilTypeDefinition.GenericParameters.Add(p);
+                }
+            }
 
             //Fields
             ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
-
+            
             //Methods
             ProcessMethodsInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, addressAttribute, stringType);
 
@@ -115,15 +131,6 @@ namespace Cpp2IL
 
             //Events
             ProcessEventsInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, stringType);
-
-            if (cppTypeDefinition.GenericContainer == null)
-                return;
-            
-            //Type generic params.
-            foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
-            {
-                ilTypeDefinition.GenericParameters.Add(new GenericParameter(param.Name, ilTypeDefinition));
-            }
         }
 
         private static (MethodDefinition addressAttribute, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute) GetInjectedAttributes(TypeDefinition ilTypeDefinition)
@@ -215,12 +222,12 @@ namespace Cpp2IL
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{methodDef.token:X}")));
                 methodDefinition.CustomAttributes.Add(customTokenAttribute);
 
-                if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate") 
+                if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate")
                     FillMethodBodyWithStub(methodDefinition);
 
                 SharedState.MethodsByIndex[methodDef.MethodIndex] = methodDefinition;
                 SharedState.MethodsByAddress[methodDef.MethodPointer] = methodDefinition;
-                
+
                 //Method Params
                 HandleMethodParameters(methodDef, methodDefinition);
 
@@ -243,11 +250,11 @@ namespace Cpp2IL
 
                 //Handle generic parameters.
                 methodDef.GenericContainer?.GenericParameters
-                    .Select(p => new GenericParameter(p.Name, methodDefinition))
+                    .Select(p => SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp) ? gp : new GenericParameter(p.Name, methodDefinition))
                     .ToList()
                     .ForEach(parameter => methodDefinition.GenericParameters.Add(parameter));
 
-                if (methodDef.slot < ushort.MaxValue) 
+                if (methodDef.slot < ushort.MaxValue)
                     SharedState.VirtualMethodsBySlot[methodDef.slot] = methodDefinition;
             }
         }
@@ -359,9 +366,9 @@ namespace Cpp2IL
             var ret = new StringBuilder();
 
             ret.Append(GetBasicTypeMetadataString(typeDefinition));
-            
+
             SharedState.FieldsByType[typeDefinition].ToList().ForEach(f => ret.Append(GetFieldMetadataString(f)));
-            
+
             typeDefinition.Methods.ToList().ForEach(m => ret.Append(GetMethodMetadataString(m.AsUnmanaged())));
 
             return ret.ToString();
@@ -400,12 +407,12 @@ namespace Cpp2IL
                 .Append($"\t\tOffset in Defining Type: 0x{field.Offset:X}\n")
                 .Append($"\t\tHas Default: {field.Definition.HasDefault}\n");
 
-            if (field.Constant is char c && char.IsSurrogate(c)) 
+            if (field.Constant is char c && char.IsSurrogate(c))
                 return ret;
 
             if (field.Constant != null)
                 ret.Append($"\t\tDefault Value: {field.Constant}\n");
-            
+
             return ret;
         }
 

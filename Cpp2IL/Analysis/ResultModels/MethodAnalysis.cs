@@ -126,6 +126,9 @@ namespace Cpp2IL.Analysis.ResultModels
 
         public LocalDefinition MakeLocal(TypeReference type, string? name = null, string? reg = null, object? knownInitialValue = null)
         {
+            // if (type == null)
+            //     throw new Exception($"Tried to create a local (in reg {reg}, with name {name}), with a null type");
+            
             var local = new LocalDefinition
             {
                 Name = name ?? $"local{Locals.Count}",

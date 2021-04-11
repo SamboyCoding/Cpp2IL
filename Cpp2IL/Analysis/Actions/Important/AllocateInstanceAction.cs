@@ -42,10 +42,13 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            if (LocalReturned == null)
-                throw new TaintedInstructionException();
+            if (LocalReturned == null || TypeCreated == null)
+                throw new TaintedInstructionException("Local being returned, or type being allocated, couldn't be determined.");
             
-            var managedConstructorCall = (CallManagedFunctionAction) context.Actions.Skip(context.Actions.IndexOf(this)).First(i => i is CallManagedFunctionAction);
+            var managedConstructorCall = (CallManagedFunctionAction?) context.Actions.Skip(context.Actions.IndexOf(this)).FirstOrDefault(i => i is CallManagedFunctionAction);
+
+            if (managedConstructorCall == null)
+                throw new TaintedInstructionException($"Cannot find the call to the constructor for instance allocation, of type {TypeCreated} (Is Value: {TypeCreated?.IsValueType})");
 
             //Next call should be to a constructor.
             if (managedConstructorCall.ManagedMethodBeingCalled?.Name != ".ctor")

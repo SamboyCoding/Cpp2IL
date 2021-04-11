@@ -30,6 +30,9 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (_firstOp == null || _secondOp == null)
                 throw new TaintedInstructionException("Missing an argument");
             
+            if (_firstOp.Variable == null)
+                throw new TaintedInstructionException($"SubRFromR: First operand, {_firstOp}, has been stripped or has no variable");
+            
             List<Mono.Cecil.Cil.Instruction> ret = new List<Mono.Cecil.Cil.Instruction>();
             
             //Load arg one

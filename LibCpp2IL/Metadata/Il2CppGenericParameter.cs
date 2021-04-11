@@ -10,5 +10,7 @@ namespace LibCpp2IL.Metadata
         public ushort flags;
 
         public string? Name => LibCpp2IlMain.TheMetadata?.GetStringFromIndex(nameIndex);
+        
+        public int Index { get; internal set; }
     }
 }

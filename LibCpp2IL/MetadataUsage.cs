@@ -186,7 +186,11 @@ namespace LibCpp2IL
             var type = (MetadataUsageType) (encodedType >> 29);
             if (type <= MetadataUsageType.MethodRef && type >= MetadataUsageType.TypeInfo)
             {
-                var index = (uint) ((encoded & 0x1FFF_FFFF) >> 1);
+                var index = (uint) (encoded & 0x1FFF_FFFF);
+
+                if (LibCpp2IlMain.MetadataVersion >= 27)
+                    index >>= 1;
+                
 
                 return new MetadataUsage(type, address, index);
             }

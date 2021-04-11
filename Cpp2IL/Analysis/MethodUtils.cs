@@ -68,7 +68,11 @@ namespace Cpp2IL.Analysis
                 if (actualArgs.Count(a => a != null) == 0) return false;
 
                 var parameterType = parameterData.ParameterType;
-                var arg = actualArgs.RemoveAndReturn(0);
+
+                if (parameterType == null)
+                    throw new ArgumentException($"Parameter \"{parameterData}\" of method {method.FullName} has a null type??");
+                
+                var arg = actualArgs.RemoveAndReturn(0)!;
 
                 if (parameterType is GenericParameter gp)
                 {
@@ -78,7 +82,7 @@ namespace Cpp2IL.Analysis
                     {
                         //Infer from context - we *assume* that whatever the argument is, is the type of this generic param.
                         //As we have already checked for any parameter containing the generic method.
-                        if (arg is LocalDefinition l)
+                        if (arg is LocalDefinition {Type: {}} l)
                             parameterType = l.Type;
                     }
                     
@@ -88,7 +92,9 @@ namespace Cpp2IL.Analysis
                 
                 switch (arg)
                 {
-                    case ConstantDefinition cons when cons.Type.FullName != parameterType.ToString(): //Constant type mismatch
+                    //We assert parameter type to be non-null in all of these cases, because we've null-checked the default value further up.
+                    
+                    case ConstantDefinition cons when cons.Type.FullName != parameterType!.ToString(): //Constant type mismatch
                         if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
                             break; //Forgive primitive coercion.
                         if (cons.Type.IsAssignableTo(typeof(MemberReference)) && parameterType.Name == "IntPtr")
@@ -96,8 +102,8 @@ namespace Cpp2IL.Analysis
                         if (cons.Type.IsAssignableTo(typeof(FieldReference)) && parameterType.Name == "RuntimeFieldHandle")
                             break; //These are the same struct - we represent it as a FieldReference but it's actually a runtime field handle.
                         return false;
-                    case LocalDefinition local when local.Type == null || !parameterType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
-                        if (parameterType.IsPrimitive && local.Type?.IsPrimitive == true)
+                    case LocalDefinition local when local.Type == null || !parameterType!.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
+                        if (parameterType!.IsPrimitive && local.Type?.IsPrimitive == true)
                             break; //Forgive primitive coercion.
                         if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(Utils.ArrayReference))
                             break;
@@ -290,7 +296,18 @@ namespace Cpp2IL.Analysis
                 var concreteUsage = concrete.VTable[slotNum];
                 var concreteMethod = concreteUsage!.AsMethod();
 
-                var unmanagedMethod = klass.Methods!.First(m => m.Name == concreteMethod.Name && m.parameterCount == concreteMethod.parameterCount);
+                Il2CppMethodDefinition? unmanagedMethod = null;
+                var thisType = klass;
+
+                while (thisType != null && unmanagedMethod == null)
+                {
+                    unmanagedMethod = thisType.Methods!.FirstOrDefault(m => m.Name == concreteMethod.Name && m.parameterCount == concreteMethod.parameterCount);
+                    thisType = thisType.BaseType?.baseType;
+                }
+
+                if (unmanagedMethod == null)
+                    //Let's just give a little more context
+                    throw new Exception($"GetMethodFromVtableSlot: Looking for base method of {concreteMethod.HumanReadableSignature} (concretely defined in {concreteMethod.DeclaringType!.FullName}), in type {klass.FullName}, for vtable slot {slotNum}, but couldn't find it?");
 
                 return SharedState.UnmanagedToManagedMethods[unmanagedMethod];
             }

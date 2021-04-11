@@ -27,7 +27,7 @@ namespace LibCpp2IL
         private Il2CppGenericMethodFunctionsDefinitions[] genericMethodTables;
         protected Il2CppGenericInst[] genericInsts;
         protected Il2CppMethodSpec[] methodSpecs;
-        protected Il2CppCodeGenModule[] codeGenModules;
+        protected Il2CppCodeGenModule[] codeGenModules; //24.2+
         protected Il2CppTokenRangePair[][] codegenModuleRgctxRanges;
         protected Il2CppRGCTXDefinition[][] codegenModuleRgctxs;
         protected Dictionary<int, ulong> genericMethodDictionary;

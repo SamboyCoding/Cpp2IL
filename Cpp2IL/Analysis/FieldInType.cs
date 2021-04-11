@@ -20,6 +20,6 @@ namespace Cpp2IL.Analysis
             return Offset.CompareTo(other.Offset);
         }
 
-        public FieldDefinition ResolveToFieldDef() => Definition;
+        public FieldDefinition? ResolveToFieldDef() => Definition;
     }
 }
