@@ -382,6 +382,8 @@ namespace LibCpp2IL
             }
         }
 
+        public ulong GetCustomAttributeGenerator(int index) => customAttributeGenerators[index];
+
         public abstract byte[] GetRawBinaryContent();
     }
 }

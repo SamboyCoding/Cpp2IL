@@ -769,7 +769,7 @@ namespace Cpp2IL
 
                 ret = LibCpp2ILUtils.DisassembleBytesNew(theDll.is32Bit, buff.ToArray(), functionStart);
 
-                if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Mnemonic == Mnemonic.Int))
+                if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
                     con = false;
 
                 if (peek && buff.Count > 50)
