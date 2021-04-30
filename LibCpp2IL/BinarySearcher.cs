@@ -149,34 +149,34 @@ namespace LibCpp2IL
 
             switch (_binary.InstructionSet)
             {
-                case InstructionSet.X86_64:
-                {
-                    if (!(_binary is PE.PE pe)) return 0;
-
-                    var codeGenAddr = pCodegenModules.First();
-                    var allInstructions = pe.DisassembleTextSection();
-
-                    var allSensibleInstructions = allInstructions.Where(i =>
-                            i.Mnemonic == Mnemonic.Lea
-                            && i.OpCount == 2
-                            && i.Op0Kind == OpKind.Register
-                            && i.Op1Kind == OpKind.Memory
-                        /*&& i.Op0Register == Register.RCX*/).ToList();
-
-                    var sanity = 0;
-                    while (sanity++ < 500)
-                    {
-                        var instruction = allSensibleInstructions.FirstOrDefault(i =>
-                            i.GetRipBasedInstructionMemoryAddress() == codeGenAddr
-                        );
-
-                        if (instruction != default) return codeGenAddr;
-
-                        codeGenAddr -= 8; //Always 64-bit here so IntPtr is 8
-                    }
-
-                    return 0;
-                }
+                // case InstructionSet.X86_64:
+                // {
+                //     if (!(_binary is PE.PE pe)) return 0;
+                //
+                //     var codeGenAddr = pCodegenModules.First();
+                //     var allInstructions = pe.DisassembleTextSection();
+                //
+                //     var allSensibleInstructions = allInstructions.Where(i =>
+                //             i.Mnemonic == Mnemonic.Lea
+                //             && i.OpCount == 2
+                //             && i.Op0Kind == OpKind.Register
+                //             && i.Op1Kind == OpKind.Memory
+                //         /*&& i.Op0Register == Register.RCX*/).ToList();
+                //
+                //     var sanity = 0;
+                //     while (sanity++ < 500)
+                //     {
+                //         var instruction = allSensibleInstructions.FirstOrDefault(i =>
+                //             i.GetRipBasedInstructionMemoryAddress() == codeGenAddr
+                //         );
+                //
+                //         if (instruction != default) return codeGenAddr;
+                //
+                //         codeGenAddr -= 8; //Always 64-bit here so IntPtr is 8
+                //     }
+                //
+                //     return 0;
+                // }
                 default:
                     //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
                     //So, subtract the size of one pointer from that...

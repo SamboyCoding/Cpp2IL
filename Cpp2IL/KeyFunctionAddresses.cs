@@ -24,6 +24,8 @@ namespace Cpp2IL
         public ulong il2cpp_array_new_specific;
         public ulong il2cpp_vm_array_new_specific;
         public ulong SzArrayNew;
+
+        public ulong il2cpp_type_get_object;
         
         public ulong AddrBailOutFunction;
         public ulong AddrNativeLookup;
@@ -56,6 +58,10 @@ namespace Cpp2IL
             
             //Try use exported il2cpp_object_new
             TryUseExportedIl2CppObjectNew(ret);
+
+            Console.Write("\t\t\tLooking for Exported il2cpp_type_get_object function...");
+            ret.il2cpp_type_get_object = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_type_get_object");
+            Console.WriteLine($"Found at 0x{ret.il2cpp_type_get_object:X}");
             
             //Try and find il2cpp_array_new_specific
             TryUseExportedIl2CppArrayNewSpecific(ret);
@@ -72,7 +78,7 @@ namespace Cpp2IL
             {
                 var tatn = methods.FirstOrDefault(m => m.Name == "TidyAssemblyTypeName");
                 
-                if (tatn.AsUnmanaged()?.MethodPointer != 0)
+                if (tatn != null && tatn.AsUnmanaged().MethodPointer != 0)
                 {
                     Console.WriteLine($"\t\t\t\tSearching for a call to il2cpp_codegen_initialize_method near offset 0x{tatn!.AsUnmanaged().MethodPointer:X}...");
 
@@ -255,7 +261,11 @@ namespace Cpp2IL
                     {
                         Console.WriteLine("\t\t\t\tChecks passed, pulling pointers...");
 
-                        ret.il2cpp_codegen_initialize_method = potentialCIM;
+                        if (LibCpp2IlMain.MetadataVersion < 27)
+                            ret.il2cpp_codegen_initialize_method = potentialCIM;
+                        else
+                            ret.il2cpp_codegen_initialize_runtime_metadata = potentialCIM;
+                        
                         ret.il2cpp_codegen_object_new = potentialCON;
                         ret.il2cpp_raise_managed_exception = potentialRME;
 

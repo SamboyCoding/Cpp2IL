@@ -300,7 +300,7 @@ namespace LibCpp2IL.Metadata
         }
 
         private Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]>();
-        public Il2CppCustomAttributeTypeRange? GetCustomAttributeIndex(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token)
+        public Il2CppCustomAttributeTypeRange? GetCustomAttributeData(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token)
         {
             if (LibCpp2IlMain.MetadataVersion <= 24f) 
                 return attributeTypeRanges[customAttributeIndex];

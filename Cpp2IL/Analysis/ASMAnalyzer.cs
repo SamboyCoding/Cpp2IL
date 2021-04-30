@@ -6,6 +6,7 @@ using LibCpp2IL.Metadata;
 using Cpp2IL.Analysis.Actions;
 using Iced.Intel;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Analysis.Actions.Important;
@@ -21,15 +22,17 @@ using MethodBody = Mono.Cecil.Cil.MethodBody;
 
 namespace Cpp2IL.Analysis
 {
-    internal partial class AsmDumper
+    internal class AsmAnalyzer
     {
-        private readonly MethodDefinition _methodDefinition;
+        private readonly MethodDefinition? _methodDefinition;
         private readonly ulong _methodEnd;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly Il2CppBinary _cppAssembly;
 
         private readonly StringBuilder _methodFunctionality = new StringBuilder();
         private readonly InstructionList _instructions;
+
+        internal List<MethodReference>? AttributeCtorsForRestoration;
 
         private static readonly Mnemonic[] MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT =
         {
@@ -38,7 +41,26 @@ namespace Cpp2IL.Analysis
 
         private readonly MethodAnalysis Analysis;
 
-        internal AsmDumper(MethodDefinition methodDefinition, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses)
+        internal AsmAnalyzer(ulong methodPointer, InstructionList instructions, KeyFunctionAddresses keyFunctionAddresses)
+        {
+            _keyFunctionAddresses = keyFunctionAddresses;
+            _cppAssembly = LibCpp2IlMain.Binary!;
+            _instructions = instructions;
+            
+            var instructionWhichOverran = FindInstructionWhichOverran(out var idx);
+
+            if (instructionWhichOverran != default)
+            {
+                _instructions = new InstructionList(_instructions.Take(idx).ToList());
+            }
+
+            _methodEnd = _instructions.LastOrDefault().NextIP;
+            if (_methodEnd == 0) _methodEnd = methodPointer;
+
+            Analysis = new MethodAnalysis(methodPointer, _methodEnd, _instructions);
+        }
+
+        internal AsmAnalyzer(MethodDefinition methodDefinition, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses)
         {
             _methodDefinition = methodDefinition;
 
@@ -50,8 +72,28 @@ namespace Cpp2IL.Analysis
             //Pass 0: Disassemble
             _instructions = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart);
 
+            var instructionWhichOverran = FindInstructionWhichOverran(out var idx);
+
+            if (instructionWhichOverran != default)
+            {
+                _instructions = new InstructionList(_instructions.Take(idx).ToList());
+            }
+
+            _methodEnd = _instructions.LastOrDefault().NextIP;
+            if (_methodEnd == 0) _methodEnd = methodStart;
+
+            Analysis = new MethodAnalysis(_methodDefinition, methodStart, _methodEnd, _instructions);
+        }
+
+        internal void AddParameter(TypeDefinition type, string name)
+        {
+            Analysis.AddParameter(new ParameterDefinition(name, ParameterAttributes.None, type));
+        }
+
+        private Instruction FindInstructionWhichOverran(out int idx)
+        {
             var instructionWhichOverran = new Instruction();
-            var idx = 1;
+            idx = 1;
             foreach (var i in _instructions.Skip(1))
             {
                 idx++;
@@ -68,37 +110,30 @@ namespace Cpp2IL.Analysis
                 }
             }
 
-            if (instructionWhichOverran != default)
-            {
-                _instructions = new InstructionList(_instructions.Take(idx).ToList());
-            }
-
-            _methodEnd = _instructions.LastOrDefault().NextIP;
-            if (_methodEnd == 0) _methodEnd = methodStart;
-
-            Analysis = new MethodAnalysis(_methodDefinition, methodStart, _methodEnd, _instructions);
+            return instructionWhichOverran;
         }
 
-        internal void AnalyzeMethod(StringBuilder typeDump)
+        internal StringBuilder GetFullDumpNoIL()
         {
-            //On windows x86_64, function params are passed RCX RDX R8 R9, then the stack
-            //If these are floating point numbers, they're put in XMM0 to 3
-            //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
+            var builder = new StringBuilder();
+            
+            builder.Append(GetAssemblyDump());
+            builder.Append(GetWordyFunctionality());
+            builder.Append(GetPseudocode());
 
-            typeDump.Append($"Method: {_methodDefinition.FullName}:");
+            return builder;
+        }
 
-            typeDump.Append("\tMethod Body (x86 ASM):\n");
+        internal StringBuilder GetAssemblyDump()
+        {
+            var builder = new StringBuilder();
+            
+            builder.Append($"Method: {_methodDefinition?.FullName}:");
 
-            var index = 0;
-
-            _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
-
-            //Main instruction loop
-            while (index < _instructions.Count)
+            builder.Append("\tMethod Body (x86 ASM):\n");
+            
+            foreach (var instruction in _instructions)
             {
-                var instruction = _instructions[index];
-                index++;
-
                 var line = new StringBuilder();
                 line.Append("0x").Append(instruction.IP.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction);
 
@@ -106,29 +141,117 @@ namespace Cpp2IL.Analysis
 #if DEBUG_PRINT_OPERAND_DATA
                 line.Append("\t\t; DEBUG: {").Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
                 line.Append('{').Append(instruction.Op1Kind).Append('}').Append('/').Append(instruction.Op1Register).Append(" ||| ");
-                line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement).Append(" | ").Append(instruction.MemoryIndex);
+                line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement64).Append(" | ").Append(instruction.MemoryIndex);
 #endif
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
                 // line = Utils.UpscaleRegisters(line);
 
-                typeDump.Append("\t\t").Append(line); //write the current disassembled instruction to the type dump
+                builder.Append("\t\t").Append(line); //write the current disassembled instruction to the type dump
+                
+                builder.Append('\n');
+            }
 
+            return builder;
+        }
+
+        internal StringBuilder GetWordyFunctionality()
+        {
+            var builder = new StringBuilder();
+            
+            builder.Append($"\n\tMethod Synopsis For {(_methodDefinition?.IsStatic == true ? "Static " : "")}Method ")
+                .Append(_methodDefinition?.FullName ?? "[unknown name]")
+                .Append(":\n")
+                .Append(_methodFunctionality)
+                .Append("\n\n");
+
+            return builder;
+        }
+
+        internal StringBuilder GetPseudocode()
+        {
+            var builder = new StringBuilder();
+            
+            builder.Append("\n\tGenerated Pseudocode:\n\n");
+
+            //Preamble
+            builder.Append($"\tDeclaring Type: {_methodDefinition?.DeclaringType.FullName ?? "unknown"}\n");
+            builder.Append('\t').Append(_methodDefinition?.IsStatic == true ? "static " : "").Append(_methodDefinition?.ReturnType.FullName).Append(' ') //Staticness and return type
+                .Append(_methodDefinition?.Name).Append('(') //Name and opening paranthesis
+                .Append(string.Join(", ", _methodDefinition?.Parameters.Select(p => $"{p.ParameterType.FullName} {p.Name}") ?? new List<string>())) //Parameters
+                .Append(')').Append('\n'); //Closing parenthesis and new line.
+            
+            //Actions
+            Analysis.Actions
+                .Where(action => action.IsImportant()) //Action requires pseudocode generation
+                .Select(action => $"{(action.PseudocodeNeedsLinebreakBefore() ? "\n" : "")}\t\t{"    ".Repeat(action.IndentLevel)}{action.ToPsuedoCode()}") //Generate it 
+                .Where(code => !string.IsNullOrWhiteSpace(code)) //Check it's valid
+                .ToList()
+                .ForEach(code => builder.Append(code).Append('\n')); //Append
+
+            builder.Append("\n\n");
+
+            return builder;
+        }
+
+        internal StringBuilder BuildILToString()
+        {
+            var builder = new StringBuilder();
+            
+            //IL Generation
+            //Anyone reading my commits: This is a *start*. It's nowhere near done.
+            var body = _methodDefinition!.Body;
+            var processor = body.GetILProcessor();
+
+            builder.Append("Generated IL:\n\t");
+
+            foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null))
+            {
+                localDefinition.Variable = new VariableDefinition(localDefinition.Type);
+                body.Variables.Add(localDefinition.Variable);
+            }
+
+            foreach (var action in Analysis.Actions.Where(i => i.IsImportant()))
+            {
                 try
                 {
-                    PerformInstructionChecks(instruction);
+                    var il = action.ToILInstructions(Analysis, processor);
+                    builder.Append(string.Join("\n\t", il.AsEnumerable()))
+                        .Append("\n\t");
+                }
+                catch (NotImplementedException)
+                {
+                    builder.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
+                    break;
+                }
+                catch (TaintedInstructionException e)
+                {
+                    var message = e.ActualMessage ?? "No further info";
+                    builder.Append($"Action of type {action.GetType()} is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
+                    break;
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Failed to perform analysis on method {_methodDefinition.FullName}\nWhile analysing instruction {instruction} at 0x{instruction.IP:X}\nGot exception: {e}\n");
-                    throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
+                    builder.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
+                    Console.WriteLine($"Exception generating IL for {_methodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
+                    break;
                 }
-
-                typeDump.Append('\n');
             }
 
-            new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition);
+            builder.Append("\n\n");
 
+            return builder;
+        }
+
+        internal void RunPostProcessors()
+        {
+            new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
+        }
+
+        internal void BuildMethodFunctionality()
+        {
+            _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
+            
             _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", Analysis.IdentifiedJumpDestinationAddresses.Select(s => $"\t\t\t0x{s:X}"))).Append('\n');
             var lastIfAddress = 0UL;
             foreach (var action in Analysis.Actions)
@@ -188,7 +311,7 @@ namespace Cpp2IL.Analysis
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Failed to generate synopsis for method {_methodDefinition.FullName}, instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
+                    Console.WriteLine($"Failed to generate synopsis for method {_methodDefinition?.FullName}, instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
                     throw new AnalysisExceptionRaisedException("Exception generating synopsis entry", e);
                 }
 
@@ -201,69 +324,31 @@ namespace Cpp2IL.Analysis
                         .Append('\n');
                 }
             }
-            // _methodFunctionality.Append(string.Join("\n", _analysis.Actions.Select(a => $"\t\t0x{a.AssociatedInstruction.IP.ToString("X8").ToUpperInvariant()}: {a.GetSynopsisEntry()}")));
+        }
 
-            // Console.WriteLine("Processed " + _methodDefinition.FullName);
-            typeDump.Append($"\n\tMethod Synopsis For {(_methodDefinition.IsStatic ? "Static " : "")}Method ").Append(_methodDefinition.FullName).Append(":\n").Append(_methodFunctionality).Append("\n\n");
+        /// <summary>
+        /// Performs analysis in order to populate the Action list. Doesn't generate any text. 
+        /// </summary>
+        /// <exception cref="AnalysisExceptionRaisedException">If an unhandled exception occurs while analyzing.</exception>
+        internal void AnalyzeMethod()
+        {
+            //On windows x86_64, function params are passed RCX RDX R8 R9, then the stack
+            //If these are floating point numbers, they're put in XMM0 to 3
+            //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
 
-            typeDump.Append("\n\tGenerated Pseudocode:\n\n");
-
-            typeDump.Append($"\tDeclaring Type: {_methodDefinition.DeclaringType.FullName}\n");
-            typeDump.Append('\t').Append(_methodDefinition.IsStatic ? "static " : "").Append(_methodDefinition.ReturnType.FullName).Append(' ') //Staticness and return type
-                .Append(_methodDefinition.Name).Append('(') //Name and opening paranthesis
-                .Append(string.Join(", ", _methodDefinition.Parameters.Select(p => $"{p.ParameterType.FullName} {p.Name}"))) //Parameters
-                .Append(')').Append('\n'); //Closing parenthesis and new line.
-
-            Analysis.Actions
-                .Where(action => action.IsImportant()) //Action requires pseudocode generation
-                .Select(action => $"{(action.PseudocodeNeedsLinebreakBefore() ? "\n" : "")}\t\t{"    ".Repeat(action.IndentLevel)}{action.ToPsuedoCode()}") //Generate it 
-                .Where(code => !string.IsNullOrWhiteSpace(code)) //Check it's valid
-                .ToList()
-                .ForEach(code => typeDump.Append(code).Append('\n')); //Append
-
-            typeDump.Append("\n\n");
-
-            //IL Generation
-            //Anyone reading my commits: This is a *start*. It's nowhere near done.
-            var body = _methodDefinition.Body;
-            var processor = body.GetILProcessor();
-
-            typeDump.Append("Generated IL:\n\t");
-
-            foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null))
-            {
-                localDefinition.Variable = new VariableDefinition(localDefinition.Type);
-                body.Variables.Add(localDefinition.Variable);
-            }
-
-            foreach (var action in Analysis.Actions.Where(i => i.IsImportant()))
+            //Main instruction loop
+            foreach (var instruction in _instructions)
             {
                 try
                 {
-                    var il = action.ToILInstructions(Analysis, processor);
-                    typeDump.Append(string.Join("\n\t", il.AsEnumerable()))
-                        .Append("\n\t");
-                }
-                catch (NotImplementedException)
-                {
-                    typeDump.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
-                    break;
-                }
-                catch (TaintedInstructionException e)
-                {
-                    var message = e.ActualMessage ?? "No further info";
-                    typeDump.Append($"Action of type {action.GetType()} is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
-                    break;
+                    PerformInstructionChecks(instruction);
                 }
                 catch (Exception e)
                 {
-                    typeDump.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
-                    Console.WriteLine($"Exception generating IL for {_methodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
-                    break;
+                    Console.WriteLine($"Failed to perform analysis on method {_methodDefinition?.FullName}\nWhile analysing instruction {instruction} at 0x{instruction.IP:X}\nGot exception: {e}\n");
+                    throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
                 }
             }
-
-            typeDump.Append("\n\n");
         }
 
         private void CheckForZeroOpInstruction(Instruction instruction)
@@ -283,7 +368,7 @@ namespace Cpp2IL.Analysis
 
             var memR = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var memOp = Analysis.GetOperandInRegister(memR);
-            var memOffset = instruction.MemoryDisplacement;
+            var memOffset = instruction.MemoryDisplacement64;
 
             switch (instruction.Mnemonic)
             {
@@ -307,7 +392,7 @@ namespace Cpp2IL.Analysis
                 //Likewise, (pop [val]) is the same as (mov [val], esp) + (add esp, 4)
                 case Mnemonic.Pop:
                     break;
-                case Mnemonic.Jmp when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement == 0 && operand is ConstantDefinition callRegCons && callRegCons.Value is MethodDefinition:
+                case Mnemonic.Jmp when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement64 == 0 && operand is ConstantDefinition callRegCons && callRegCons.Value is MethodDefinition:
                     Analysis.Actions.Add(new CallManagedFunctionInRegAction(Analysis, instruction));
                     //This is a jmp, so return
                     Analysis.Actions.Add(new ReturnFromFunctionAction(Analysis, instruction));
@@ -333,7 +418,7 @@ namespace Cpp2IL.Analysis
 
                     break;
                 }
-                case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement > 0x128 && operand is ConstantDefinition {Value: Il2CppClassIdentifier _}:
+                case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement64 > 0x128 && operand is ConstantDefinition {Value: Il2CppClassIdentifier _}:
                     //Virtual method call
                     Analysis.Actions.Add(new CallVirtualMethodAction(Analysis, instruction));
                     break;
@@ -404,6 +489,10 @@ namespace Cpp2IL.Analysis
                     {
                         //P/Invoke lookup
                         //TODO work out how this works
+                    } else if (jumpTarget == _keyFunctionAddresses.il2cpp_type_get_object)
+                    {
+                        //Equivalent to typeof(blah)
+                        Analysis.Actions.Add(new TypeToObjectAction(Analysis, instruction));
                     }
                     else if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
                     {
@@ -487,7 +576,7 @@ namespace Cpp2IL.Analysis
             var memOp = Analysis.GetOperandInRegister(memR);
             var memIdxOp = instruction.MemoryIndex == Register.None ? null : Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryIndex));
 
-            var offset0 = instruction.MemoryDisplacement;
+            var offset0 = instruction.MemoryDisplacement32;
             var offset1 = offset0; //todo?
 
             var type0 = instruction.Op0Kind;
@@ -527,6 +616,10 @@ namespace Cpp2IL.Analysis
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition constant && constant.Type == typeof(StaticFieldsPtr):
                     //Load a specific static field.
                     Analysis.Actions.Add(new StaticFieldToRegAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memOp is LocalDefinition l && l.Type == AttributeRestorer.DummyTypeDefForAttributeList:
+                    //Move of attribute list entry, used for restoration of attribute constructors
+                    Analysis.Actions.Add(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributeCtorsForRestoration));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
                 {
@@ -611,7 +704,7 @@ namespace Cpp2IL.Analysis
                     //Local to stack pointer (opposite of above)
                     Analysis.Actions.Add(new LocalToRbpOffsetAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && Analysis.GetConstantInReg(memR) != null && Il2CppClassUsefulOffsets.IsStaticFieldsPtr(instruction.MemoryDisplacement):
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && Analysis.GetConstantInReg(memR) != null && Il2CppClassUsefulOffsets.IsStaticFieldsPtr(instruction.MemoryDisplacement32):
                     //Static fields ptr read
                     Analysis.Actions.Add(new StaticFieldOffsetToRegAction(Analysis, instruction));
                     break;
@@ -619,7 +712,7 @@ namespace Cpp2IL.Analysis
                 case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition local2 && local2.Type?.IsArray == true:
                     //Move reg, [reg+0x10]
                     //Reading a field from an array at a fixed offset
-                    if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement))
+                    if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new ConstantArrayOffsetToRegAction(Analysis, instruction));
                     }
@@ -669,13 +762,13 @@ namespace Cpp2IL.Analysis
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: MethodReference _}:
                     //Read offset on method global
-                    if (Il2CppMethodDefinitionUsefulOffsets.IsSlotOffset(instruction.MemoryDisplacement))
+                    if (Il2CppMethodDefinitionUsefulOffsets.IsSlotOffset(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new MethodSlotToLocalAction(Analysis, instruction));
                         break;
                     }
 
-                    if (Il2CppMethodDefinitionUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement))
+                    if (Il2CppMethodDefinitionUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new MethodDefiningTypeToConstantAction(Analysis, instruction));
                     }
@@ -687,7 +780,7 @@ namespace Cpp2IL.Analysis
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {IsMethodInfoParam: true}:
                     //MethodInfo offset read
-                    if (Il2CppMethodInfoUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement))
+                    if (Il2CppMethodInfoUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement32))
                     {
                         //Read klass ptr.
                         Analysis.Actions.Add(new LoadClassPointerFromMethodInfoAction(Analysis, instruction));
@@ -702,7 +795,7 @@ namespace Cpp2IL.Analysis
                     //Write static field
                     Analysis.Actions.Add(new RegToStaticFieldAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition {Type: ArrayType _} && Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement):
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition {Type: ArrayType _} && Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32):
                     Analysis.Actions.Add(new RegToConstantArrayOffsetAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition:
@@ -760,7 +853,7 @@ namespace Cpp2IL.Analysis
             var memOp = Analysis.GetOperandInRegister(memR);
             var memIdxOp = instruction.MemoryIndex == Register.None ? null : Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryIndex));
 
-            var offset0 = instruction.MemoryDisplacement;
+            var offset0 = instruction.MemoryDisplacement32;
             var offset1 = offset0;
             var offset2 = offset1;
 

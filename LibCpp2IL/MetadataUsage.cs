@@ -62,9 +62,17 @@ namespace LibCpp2IL
                 {
                     case MetadataUsageType.Type:
                     case MetadataUsageType.TypeInfo:
-                        _cachedType = LibCpp2IlMain.Binary!.GetType((int) _value);
-                        _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)!;
-                        _cachedName = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)?.ToString();
+                        try
+                        {
+                            _cachedType = LibCpp2IlMain.Binary!.GetType((int) _value);
+                            _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)!;
+                            _cachedName = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)?.ToString();
+                        }
+                        catch (Exception e)
+                        {
+                            throw new Exception($"Failed to convert this metadata usage to a type, but it is of type {Type}, with a value of {_value} (0x{_value:X}). There are {LibCpp2IlMain.Binary!.NumTypes} types", e);
+                        }
+
                         break;
                     default:
                         throw new Exception($"Cannot cast metadata usage of kind {Type} to a Type");
@@ -186,10 +194,16 @@ namespace LibCpp2IL
             if (type <= MetadataUsageType.MethodRef && type >= MetadataUsageType.TypeInfo)
             {
                 var index = (uint) (encoded & 0x1FFF_FFFF);
-
+                
                 if (LibCpp2IlMain.MetadataVersion >= 27)
                     index >>= 1;
-                
+
+                if (type is MetadataUsageType.Type or MetadataUsageType.TypeInfo && index > LibCpp2IlMain.Binary!.NumTypes)
+                    return null;
+
+                if (type == MetadataUsageType.MethodDef && index > LibCpp2IlMain.TheMetadata!.methodDefs.Length)
+                    return null;
+
 
                 return new MetadataUsage(type, address, index);
             }

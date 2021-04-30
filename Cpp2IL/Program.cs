@@ -45,19 +45,11 @@ namespace Cpp2IL
             if (runtimeArgs.EnableMetadataGeneration)
                 Assemblies.ForEach(Cpp2IlTasks.GenerateMetadataForAssembly);
 
-            Console.WriteLine("Applying type, method, and field attributes...This may take a couple of seconds");
-            var start = DateTime.Now;
-
-            LibCpp2IlMain.TheMetadata!.imageDefinitions.ToList().ForEach(Cpp2IlTasks.ApplyCustomAttributesToAllTypesInAssembly);
-
-            Console.WriteLine($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
-
             KeyFunctionAddresses? keyFunctionAddresses = null;
-            if (runtimeArgs.EnableAnalysis)
-            {
-                if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
-                    throw new NotImplementedException("Analysis engine is only implemented for x86. Use --skip-analysis to avoid this error.");
 
+            //We have to always run key function scan (if we can), so that attribute reconstruction can run.
+            if (LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_32 || LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_64)
+            {
                 Console.WriteLine("Running Scan for Known Functions...");
 
                 Disassembler.Translator.IncludeAddress = true;
@@ -65,6 +57,19 @@ namespace Cpp2IL
 
                 //This part involves decompiling known functions to search for other function calls
                 keyFunctionAddresses = KeyFunctionAddresses.Find();
+            }
+
+            Console.WriteLine("Applying type, method, and field attributes...This may take a couple of seconds");
+            var start = DateTime.Now;
+
+            LibCpp2IlMain.TheMetadata!.imageDefinitions.ToList().ForEach(definition => AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly(definition, keyFunctionAddresses));
+
+            Console.WriteLine($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+
+            if (runtimeArgs.EnableAnalysis)
+            {
+                if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
+                    throw new NotImplementedException("Analysis engine is only implemented for x86. Use --skip-analysis to avoid this error.");
 
                 Console.WriteLine("Populating Concrete Implementation Table...");
 

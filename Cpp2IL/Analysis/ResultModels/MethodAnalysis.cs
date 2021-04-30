@@ -20,12 +20,14 @@ namespace Cpp2IL.Analysis.ResultModels
         public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
 
         private ConstantDefinition EmptyRegConstant;
+        private List<string> _parameterDestRegList = new List<string>();
+        private int numParamsAdded = 0;
 
         internal ulong MethodStart;
         internal ulong AbsoluteMethodEnd;
         private readonly InstructionList _allInstructions;
 
-        private MethodDefinition _method;
+        private MethodDefinition? _method;
         
         private readonly List<IfData> IfOnlyBlockData = new List<IfData>();
         private readonly List<IfElseData> IfElseBlockData = new List<IfElseData>();
@@ -40,7 +42,20 @@ namespace Cpp2IL.Analysis.ResultModels
         public Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
         public Stack<IAnalysedOperand> FloatingPointStack = new Stack<IAnalysedOperand>();
 
-        public TypeDefinition DeclaringType => _method.DeclaringType;
+        public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
+
+        //For analysing cpp-only methods, like attribute generators
+        internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions)
+        {
+            MethodStart = methodStart;
+            AbsoluteMethodEnd = initialMethodEnd;
+            _allInstructions = allInstructions;
+            EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
+            
+            //Can't handle params - we don't have any - but can populate reg list if needed.
+            if (!LibCpp2IlMain.Binary!.is32Bit) 
+                _parameterDestRegList = new List<string> {"rcx", "rdx", "r8", "r9"};
+        }
 
         internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions)
         {
@@ -55,31 +70,23 @@ namespace Cpp2IL.Analysis.ResultModels
             //Set up parameters in registers & as locals.
             if (!LibCpp2IlMain.Binary!.is32Bit)
             {
-                var regList = new List<string> {"rcx", "rdx", "r8", "r9"};
+                _parameterDestRegList = new List<string> {"rcx", "rdx", "r8", "r9"};
 
                 if (!method.IsStatic)
                 {
                     method.Body.ThisParameter.Name = "this";
-                    FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this", regList.RemoveAndReturn(0)).WithParameter(method.Body.ThisParameter));
+                    FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this", _parameterDestRegList.RemoveAndReturn(0)).WithParameter(method.Body.ThisParameter));
                 }
 
-                var counter = -1;
-                while (args.Count > 0 && regList.Count > 0)
+                while (args.Count > 0)
                 {
-                    counter++;
                     var arg = args.RemoveAndReturn(0);
-                    var dest = regList.RemoveAndReturn(0);
-
-                    var name = arg.Name;
-                    if (string.IsNullOrWhiteSpace(name))
-                        name = arg.Name = $"cpp2il__autoParamName__idx_{counter}";
-
-                    FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType, name, dest).WithParameter(arg));
+                    AddParameter(arg);
                 }
 
-                if (regList.Count > 0)
+                if (_parameterDestRegList.Count > 0)
                 {
-                    FunctionArgumentLocals.Add(MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", regList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
+                    FunctionArgumentLocals.Add(MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", _parameterDestRegList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
                     haveHandledMethodInfoArg = true;
                 }
             }
@@ -97,9 +104,7 @@ namespace Cpp2IL.Analysis.ResultModels
             {
                 //Push remainder to stack
                 var arg = args.RemoveAndReturn(0);
-                var localDefinition = MakeLocal(arg.ParameterType.Resolve(), arg.Name).WithParameter(arg);
-                Stack.Push(localDefinition);
-                FunctionArgumentLocals.Add(localDefinition);
+                AddParameter(arg);
             }
 
             if (!haveHandledMethodInfoArg)
@@ -110,18 +115,41 @@ namespace Cpp2IL.Analysis.ResultModels
             }
         }
 
-        public bool IsVoid() => _method.ReturnType?.FullName == "System.Void";
+        internal void AddParameter(ParameterDefinition arg)
+        {
+            if (_parameterDestRegList.Count > 0)
+            {
+                var dest = _parameterDestRegList.RemoveAndReturn(0);
 
-        public bool IsConstructor() => _method.IsConstructor;
+                var name = arg.Name;
+                if (string.IsNullOrWhiteSpace(name))
+                    name = arg.Name = $"cpp2il__autoParamName__idx_{numParamsAdded}";
+                
+                FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType, name, dest).WithParameter(arg));
+            }
+            else
+            {
+                //Push any remainders to stack
+                var localDefinition = MakeLocal(arg.ParameterType.Resolve(), arg.Name).WithParameter(arg);
+                Stack.Push(localDefinition);
+                FunctionArgumentLocals.Add(localDefinition);
+            }
+            
+            numParamsAdded++;
+        }
 
-        public TypeDefinition GetTypeOfThis() => _method.DeclaringType;
+        public bool IsVoid() => _method?.ReturnType?.FullName == "System.Void";
 
-        public bool IsStatic() => _method.IsStatic;
+        public bool IsConstructor() => _method?.IsConstructor ?? false;
+
+        public TypeDefinition GetTypeOfThis() => _method?.DeclaringType ?? Utils.ObjectReference;
+
+        public bool IsStatic() => _method?.IsStatic ?? true;
 
 
         public override string ToString()
         {
-            return $"Method Analysis for {_method.FullName}";
+            return $"Method Analysis for {_method?.FullName ?? "A cpp method"}";
         }
 
         public LocalDefinition MakeLocal(TypeReference type, string? name = null, string? reg = null, object? knownInitialValue = null)
@@ -175,7 +203,7 @@ namespace Cpp2IL.Analysis.ResultModels
                 Stack.TryPop(out _);
         }
 
-        public void SetRegContent(string reg, IAnalysedOperand? content)
+        public void SetRegContent(string reg, IAnalysedOperand content)
         {
             RegisterData[reg] = content;
         }

@@ -59,6 +59,8 @@ namespace Cpp2IL
                                             $"\t{result.PathToMetadata}\n");
 
                 result.UnityVersion = DetermineUnityVersion(unityPlayerPath, Path.Combine(baseGamePath, $"{exeName}_Data"));
+                
+                Console.WriteLine($"Determined game's unity version to be {string.Join(".", result.UnityVersion)}");
 
                 if (result.UnityVersion[0] <= 4)
                     throw new SoftException($"Unable to determine a valid unity version (got {result.UnityVersion.ToStringEnumerable()})");
@@ -116,8 +118,8 @@ namespace Cpp2IL
             //Set this flag from command line options
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = runtimeArgs.EnableRegistrationPrompts;
 
-            //Disable Method Ptr Mapping and Global Resolving if skipping analysis
-            LibCpp2IlMain.Settings.DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableGlobalResolving = !runtimeArgs.EnableAnalysis;
+            //We have to have this on, despite the cost, because we need them for attribute restoration
+            LibCpp2IlMain.Settings.DisableMethodPointerMapping = false;
 
             try
             {
@@ -204,141 +206,6 @@ namespace Cpp2IL
                 AssemblyPopulator.BuildWholeMetadataString(typeDefinition));
         }
 
-        public static void ApplyCustomAttributesToAllTypesInAssembly(Il2CppImageDefinition imageDef)
-        {
-            //Cache these per-module.
-            var attributeCtorsByClassIndex = new Dictionary<long, MethodReference>();
-
-            foreach (var typeDef in imageDef.Types!)
-            {
-                var typeDefinition = SharedState.UnmanagedToManagedTypes[typeDef];
-
-                //Apply custom attributes to types
-                GetCustomAttributesByAttributeIndex(imageDef, typeDef.customAttributeIndex, typeDef.token, attributeCtorsByClassIndex, typeDefinition.Module)
-                    .ForEach(attribute => typeDefinition.CustomAttributes.Add(attribute));
-
-                foreach (var fieldDef in typeDef.Fields!)
-                {
-                    var fieldDefinition = SharedState.UnmanagedToManagedFields[fieldDef];
-
-                    //Apply custom attributes to fields
-                    GetCustomAttributesByAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token, attributeCtorsByClassIndex, typeDefinition.Module)
-                        .ForEach(attribute => fieldDefinition.CustomAttributes.Add(attribute));
-                }
-
-                foreach (var methodDef in typeDef.Methods!)
-                {
-                    var methodDefinition = SharedState.UnmanagedToManagedMethods[methodDef];
-
-                    //Apply custom attributes to methods
-                    GetCustomAttributesByAttributeIndex(imageDef, methodDef.customAttributeIndex, methodDef.token, attributeCtorsByClassIndex, typeDefinition.Module)
-                        .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
-                }
-            }
-        }
-
-        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, int attributeIndex, uint token, IDictionary<long, MethodReference> attributeCtorsByClassIndex, ModuleDefinition module)
-        {
-            var attributes = new List<CustomAttribute>();
-
-            //Get attributes and look for the serialize field attribute.
-            var attributeTypeRange = LibCpp2IlMain.TheMetadata!.GetCustomAttributeIndex(imageDef, attributeIndex, token);
-
-            if (attributeTypeRange == null) return attributes;
-
-            //At AttributeGeneratorAddress there'll be a series of function calls, each one essentially taking the attribute type and its constructor params.
-            //Float values are obtained using BitConverter.ToSingle(byte[], 0) with the 4 bytes making up the float.
-            //FUTURE: Do we want to try to get the values for these?
-
-            for (var attributeIdxIdx = 0; attributeIdxIdx < attributeTypeRange.count; attributeIdxIdx++)
-            {
-                var attributeTypeIndex = LibCpp2IlMain.TheMetadata.attributeTypes[attributeTypeRange.start + attributeIdxIdx];
-                var attributeType = LibCpp2IlMain.Binary!.GetType(attributeTypeIndex);
-                if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS) continue;
-
-                if (!attributeCtorsByClassIndex.ContainsKey(attributeType.data.classIndex))
-                {
-                    var cppAttribType = LibCpp2IlMain.TheMetadata.typeDefs[attributeType.data.classIndex];
-
-                    // var attributeName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(cppAttribType.nameIndex);
-                    var cppMethodDefinition = cppAttribType.Methods!.First();
-                    var managedCtor = SharedState.UnmanagedToManagedMethods[cppMethodDefinition];
-                    attributeCtorsByClassIndex[attributeType.data.classIndex] = managedCtor;
-                }
-
-                // if (attributeName != "SerializeField") continue;
-                var attributeConstructor = attributeCtorsByClassIndex[attributeType.data.classIndex];
-
-                if (attributeConstructor.HasParameters)
-                {
-                    //By far the most annoying part of this is that attribute parameters are defined as blobs, not as actual data.
-                    //The CustomAttribute constructor takes a method ref for the attribute's constructor, and the blob. That's our only option - cecil doesn't 
-                    //even attempt to parse the blob, itself, at any point.
-                    
-                    //Format of the blob - from c058046_ISO_IEC_23271_2012(E) section II.23.3:
-                    //It's little-endian
-                    //Always a prolog of 0x0001, or LE: 01 00
-                    //Then the fixed constructor params, in raw format.
-                    //  - If this is an array, it's preceded by the number of elements as an unsigned int32.
-                    //    - This can also be FF FF FF FF to indicate a null value.
-                    //  - If this is a simple type, it's directly inline (bools are one byte, chars and shorts 2, ints 4, etc)
-                    //  - If this is a string, it's a count of bytes, with FF indicating null string, and 00 indicating empty string, and then the raw chars
-                    //      - Remember each char is two bytes.
-                    //  - If this is a System.Type, it's stored as the canonical name of the type, optionally followed by the assembly, including its version, culture, and public-key token, if defined.
-                    //      - I.e. it's a string, see above.
-                    //      - If the assembly name isn't specified, it's assumed to be a) in the currently assembly, or then b) in mscorlib, if it's not found in the current assembly.
-                    //          - Not specifying it otherwise is an error.
-                    //  - If the constructor parameter type is defined as System.Object, the blob contains:
-                    //      - Some information about the type of this data:
-                    //        - If this is a boxed enum, the byte 0x55 followed by a string, as above.
-                    //        - Otherwise, If this is a boxed value type, the byte 0x51, then the data as below.
-                    //        - Else if this is a single-dimensional, zero-based array, the byte 1D, then the data as below
-                    //        - Regardless of if either of the *two* above conditions are true, there is then a byte indicating element type (see Lib's Il2CppTypeEnum, valid values are TYPE_BOOLEAN to TYPE_STRING)
-                    //      - This is then followed by the raw "unboxed" value, as one defined above (simple type or string).
-                    //      - Nulls are NOT supported in this case.
-                    //Then the number of named-argument pairs, which MUST be present, and is TWO bytes. If there are none, this is 00 00.
-                    //Then the named arguments, if any:
-                    //  - Named arguments are similar, except each is preceded by the byte 0x53, indicating a named field, or 0x54, indicating a named property.
-                    //  - This is followed by the element type, again a byte, Lib's Il2CppTypeEnum, TYPE_BOOLEAN to TYPE_STRING
-                    //  - Then the name of the field or property
-                    //  - Finally the same data format as the fixed argument above.
-                    
-                    if(LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_32 &&  LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_64)
-                        continue; //Skip attempting to recover for non-x86 architectures.
-
-                    var rangeIndex = Array.IndexOf(LibCpp2IlMain.TheMetadata.attributeTypeRanges, attributeTypeRange);
-                    ulong attributeGeneratorAddress;
-                    if(LibCpp2IlMain.MetadataVersion < 27)
-                        attributeGeneratorAddress = LibCpp2IlMain.Binary!.GetCustomAttributeGenerator(rangeIndex);
-                    else
-                    {
-                        var baseAddress = LibCpp2IlMain.Binary.GetCodegenModuleByName(imageDef.Name).customAttributeCacheGenerator;
-                        var ptrToAddress = baseAddress + (ulong) rangeIndex * (LibCpp2IlMain.Binary.is32Bit ? 4ul : 8ul);
-                        attributeGeneratorAddress = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<ulong>(ptrToAddress);
-                    }
-                    
-                    //We hope for alignment bytes (0xcc), so this works properly.
-                    //TODO How does this look on pre-27? 
-                    //On v27, this is: 
-                    //  Initialise metadata for type, if this has not been done (which we can skip, assuming we have Key Function Addresses, which we don't at this point currently.)
-                    //  Then a series of:
-                    //    Load of relevant attribute instance from CustomAttributeCache object (which is the generator function's only param)
-                    //    Load any System.Type instances required for ctor, using il2cpp_type_get_object (should be exported, equivalent of `typeof`)
-                    //    Load simple params for constructor (ints, bools, etc) 
-                    //    Call constructor of attribute, on instance from cache, with arguments.
-                    //  Notably, the constructors are called in the same order as the attributes are defined in the metadata.
-                    var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, attributeGeneratorAddress, false);
-                    
-                    continue; //Skip attributes which have arguments.
-                }
-
-                var customAttribute = new CustomAttribute(module.ImportReference(attributeConstructor));
-                attributes.Add(customAttribute);
-            }
-
-            return attributes;
-        }
-
         public static void SaveAssemblies(string containingFolder, List<AssemblyDefinition> assemblies)
         {
             foreach (var assembly in assemblies)
@@ -411,10 +278,18 @@ namespace Cpp2IL
                     {
                         var methodStart = methodDefinition.AsUnmanaged().MethodPointer;
 
-                        if (methodStart == 0) continue;
+                        if (methodStart == 0)
+                            //No body
+                            continue;
 
-                        var dumper = new AsmDumper(methodDefinition, methodStart, keyFunctionAddresses!);
-                        dumper.AnalyzeMethod(typeDump);
+                        var dumper = new AsmAnalyzer(methodDefinition, methodStart, keyFunctionAddresses!);
+
+                        dumper.AnalyzeMethod();
+                        dumper.RunPostProcessors();
+                        dumper.BuildMethodFunctionality();
+
+                        typeDump.Append(dumper.GetFullDumpNoIL());
+                        typeDump.Append(dumper.BuildILToString());
 
                         Interlocked.Increment(ref successfullyProcessed);
                     }

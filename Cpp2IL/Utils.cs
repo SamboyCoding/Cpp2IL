@@ -43,6 +43,7 @@ namespace Cpp2IL
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
         private static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition?, string[]>>();
+        private static readonly Dictionary<(TypeDefinition, TypeReference), bool> _assignableCache = new Dictionary<(TypeDefinition, TypeReference), bool>();
 
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
         {
@@ -92,12 +93,17 @@ namespace Cpp2IL
 
         public static bool IsManagedTypeAnInstanceOfCppOne(Il2CppTypeReflectionData cppType, TypeReference? managedType)
         {
-            if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
+            if (managedType == null)
+                return false;
+            
+            if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) 
+                return false;
 
             if (cppType.isType && !cppType.isGenericType)
             {
                 var managedBaseType = SharedState.UnmanagedToManagedTypes[cppType.baseType!];
-                return managedBaseType.IsAssignableFrom(managedType);
+
+                return CheckAssignability(managedBaseType, managedType);
             }
 
             //todo generics etc.
@@ -105,6 +111,17 @@ namespace Cpp2IL
             return false;
         }
 
+        private static bool CheckAssignability(TypeDefinition baseType, TypeReference potentialChild)
+        {
+            var key = (baseType, potentialChild);
+            if (!_assignableCache.ContainsKey(key))
+            {
+                _assignableCache[key] = baseType.IsAssignableFrom(potentialChild);
+            }
+
+            return _assignableCache[key];
+        }
+        
         public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeReference managedType)
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;

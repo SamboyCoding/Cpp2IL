@@ -2,11 +2,7 @@
 	<s:String x:Key="/Default/Environment/Highlighting/HighlightingSourceSnapshotLocation/@EntryValue">C:\Users\Sam\AppData\Local\JetBrains\Rider2021.1\resharper-host\temp\Rider\vAny\CoverageData\_Cpp2IL.-711988971\Snapshot\snapshot.utdcvr</s:String>
 	<s:String x:Key="/Default/Environment/UnitTesting/UnitTestSessionStore/Sessions/=25e25394_002D70a8_002D4b01_002D93c4_002Dbb887c4123e0/@EntryIndexedValue">&lt;SessionState ContinuousTestingMode="0" IsActive="True" Name="Metadata24_1_64BitSupportIsPresent" xmlns="urn:schemas-jetbrains-com:jetbrains-ut-session"&gt;&#xD;
   &lt;TestAncestor&gt;&#xD;
-    &lt;TestId&gt;xUnit::EB3CFC80-2125-48D2-AA2F-548F5AA58342::net5.0::LibCpp2ILTests.Tests.Metadata24_1_64BitSupportIsPresent&lt;/TestId&gt;&#xD;
-    &lt;TestId&gt;xUnit::EB3CFC80-2125-48D2-AA2F-548F5AA58342::net5.0::LibCpp2ILTests.Tests.Metadata27_1_32BitSupportIsPresent&lt;/TestId&gt;&#xD;
-    &lt;TestId&gt;xUnit::EB3CFC80-2125-48D2-AA2F-548F5AA58342::net5.0::LibCpp2ILTests.Tests.Metadata24_3_ARM32ElfSupportIsPresent&lt;/TestId&gt;&#xD;
-    &lt;TestId&gt;xUnit::EB3CFC80-2125-48D2-AA2F-548F5AA58342::net5.0::LibCpp2ILTests.Tests.Metadata27_1_AARCH64ElfSupportIsPresent&lt;/TestId&gt;&#xD;
-    &lt;TestId&gt;xUnit::EB3CFC80-2125-48D2-AA2F-548F5AA58342::net5.0::LibCpp2ILTests.Tests.Metadata24_3_32BitSupportIsPresent&lt;/TestId&gt;&#xD;
+    &lt;TestId&gt;xUnit::EB3CFC80-2125-48D2-AA2F-548F5AA58342::net5.0::LibCpp2ILTests.Tests&lt;/TestId&gt;&#xD;
   &lt;/TestAncestor&gt;&#xD;
 &lt;/SessionState&gt;</s:String>
 	<s:Boolean x:Key="/Default/UserDictionary/Words/=Ctors/@EntryIndexedValue">True</s:Boolean>

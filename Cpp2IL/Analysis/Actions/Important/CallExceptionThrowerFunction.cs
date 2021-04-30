@@ -26,14 +26,16 @@ namespace Cpp2IL.Analysis.Actions.Important
             }
 
             var body = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, addr, true);
-            List<string> strings;
+            List<string?> strings;
             if (LibCpp2IlMain.Binary.is32Bit)
             {
                 //Didn't know this, but in 32-bit assemblies, strings are immediate values? Interesting... not memory?
                 strings = body.Where(i => i.Mnemonic == Mnemonic.Push && i.Op0Kind.IsImmediate())
-                    .Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(i.GetImmediate(0))))
+                    .Select(i => LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(i.GetImmediate(0), out var raw) ? raw : long.MinValue)
+                    .Where(l => l != long.MinValue)
+                    .Select(pString => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) pString))
                     .Where(s => s != null)
-                    .ToList();
+                    .ToList()!; //Non-null asserted because we've just checked s is non-null.
             }
             else
             {
@@ -41,11 +43,15 @@ namespace Cpp2IL.Analysis.Actions.Important
                 if (leas.Count > 1)
                 {
                     //LEA to load strings in 64-bit mode
-                    strings = leas.Select(i => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress()))).ToList();
+                    strings = leas
+                        .Select(i => LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress(), out var addr) ? addr : 0)
+                        .Where(ptr => ptr != 0)
+                        .Select(p => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw((ulong) p)))
+                        .ToList();
                 }
                 else
                 {
-                    strings = new List<string>();
+                    strings = new List<string?>();
                 }
             }
 
