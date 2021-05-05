@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis;
+using Cpp2IL.Analysis.Actions.Important;
+using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -15,11 +17,12 @@ namespace Cpp2IL
         private static readonly Dictionary<long, MethodReference> _attributeCtorsByClassIndex = new Dictionary<long, MethodReference>();
         private static readonly TypeDefinition DummyTypeDefForAttributeCache = new TypeDefinition("dummy", "AttributeCache", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
+        private static readonly byte[] DefaultBlob = {01, 00, 00, 00};
 
         static AttributeRestorer()
         {
             DummyTypeDefForAttributeCache.BaseType = Utils.TryLookupTypeDefKnownNotGeneric("System.ValueType");
-            
+
             //Add count field
             DummyTypeDefForAttributeCache.Fields.Add(new FieldDefinition("count", FieldAttributes.Public, Utils.Int32Reference));
 
@@ -63,12 +66,9 @@ namespace Cpp2IL
         private static void RestoreAttributesInType(Il2CppImageDefinition imageDef, Il2CppTypeDefinition typeDef, KeyFunctionAddresses? keyFunctionAddresses)
         {
             var typeDefinition = SharedState.UnmanagedToManagedTypes[typeDef];
-            
-            if(typeDefinition.FullName == "System.Activator")
-                Console.WriteLine("Break");
 
             //Apply custom attributes to type itself
-            GetCustomAttributesByAttributeIndex(imageDef, typeDef.customAttributeIndex, typeDef.token, typeDefinition.Module, keyFunctionAddresses)
+            GetCustomAttributesByAttributeIndex(imageDef, typeDef.customAttributeIndex, typeDef.token, typeDefinition.Module, keyFunctionAddresses, typeDef.FullName)
                 .ForEach(attribute => typeDefinition.CustomAttributes.Add(attribute));
 
             //Apply custom attributes to fields
@@ -76,7 +76,7 @@ namespace Cpp2IL
             {
                 var fieldDefinition = SharedState.UnmanagedToManagedFields[fieldDef];
 
-                GetCustomAttributesByAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token, typeDefinition.Module, keyFunctionAddresses)
+                GetCustomAttributesByAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token, typeDefinition.Module, keyFunctionAddresses, fieldDef.Name)
                     .ForEach(attribute => fieldDefinition.CustomAttributes.Add(attribute));
             }
 
@@ -85,12 +85,12 @@ namespace Cpp2IL
             {
                 var methodDefinition = SharedState.UnmanagedToManagedMethods[methodDef];
 
-                GetCustomAttributesByAttributeIndex(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses)
+                GetCustomAttributesByAttributeIndex(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDef.Name)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
             }
         }
 
-        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, KeyFunctionAddresses? keyFunctionAddresses)
+        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, KeyFunctionAddresses? keyFunctionAddresses, string warningName)
         {
             var attributes = new List<CustomAttribute>();
 
@@ -110,9 +110,11 @@ namespace Cpp2IL
                 .ToList();
 
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
+            var constructorArgs = new Dictionary<MethodReference, byte[]?>();
 
             if (mustRunAnalysis)
             {
+#if ALLOW_ATTRIBUTE_ANALYSIS
                 if (LibCpp2IlMain.Binary!.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_64)
                     //Filter out constructors which take parameters, as analysis isn't yet supported for ARM.
                     attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
@@ -128,31 +130,55 @@ namespace Cpp2IL
 
                         //Run analysis on this method to get parameters for the various constructors.
                         var analyzer = new AsmAnalyzer(attributeGeneratorAddress, generatorBody, keyFunctionAddresses!);
-                        
-                        //TODO: Note to self - this will not work, will have to do some special-case stuff, because the attribute array starts at offset 0 vs 0x10 which is where managed arrays start.
                         analyzer.AddParameter(DummyTypeDefForAttributeCache, "attributeCache");
-
                         analyzer.AttributeCtorsForRestoration = attributeConstructors;
 
                         analyzer.AnalyzeMethod();
 
-                        //TODO How does this look on pre-27? 
-                        //On v27, this is: 
-                        //  Initialise metadata for type, if this has not been done (which we can skip, assuming we have Key Function Addresses, which we don't at this point currently.)
-                        //  Then a series of:
-                        //    Load of relevant attribute instance from CustomAttributeCache object (which is the generator function's only param)
-                        //    Load any System.Type instances required for ctor, using il2cpp_type_get_object (should be exported, equivalent of `typeof`)
-                        //    Load simple params for constructor (ints, bools, etc) 
-                        //    Call constructor of attribute, on instance from cache, with arguments.
-                        //  Notably, the constructors are called in the same order as the attributes are defined in the metadata.
-                    }
+                        //TODO Does this work on pre-27? 
 
-                    //TODO Remove this line once analysis in
-                    attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+                        var constructorCalls = analyzer.Analysis.Actions.Where(o => o is CallManagedFunctionAction).Cast<CallManagedFunctionAction>().ToList();
+
+                        if (constructorCalls.Count != attributeConstructors.Count || constructorCalls.Any(c => c.ManagedMethodBeingCalled == null || c.Arguments?.Count != c.ManagedMethodBeingCalled?.Parameters.Count || c.Arguments.Any(c => c is null)))
+                        {
+                            Console.WriteLine($"Warning: failed to recover all attribute constructor parameters for {warningName}: Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
+                            attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+                        }
+                        else
+                        {
+                            foreach (var attributeConstructor in attributeConstructors)
+                            {
+                                var methodCall = constructorCalls.FirstOrDefault(c => c.ManagedMethodBeingCalled == attributeConstructor);
+
+                                if (methodCall == null)
+                                {
+                                    Console.WriteLine($"Warning: Couldn't find managed ctor call for {attributeConstructor} in {warningName}. Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
+                                    attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+                                    constructorArgs.Clear();
+                                    break;
+                                }
+
+                                try
+                                {
+                                    constructorArgs[attributeConstructor] = GenerateBlobForAttribute(attributeConstructor, methodCall.Arguments!, module.Name);
+                                }
+                                catch (Exception e)
+                                {
+                                    Console.WriteLine($"Warning: Failed to generate blob for attribute {attributeConstructor} in {warningName}. Details: {e.Message}");
+                                    attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+                                    constructorArgs.Clear();
+                                    break;
+                                }
+                            }
+                        }
+                    }
                 }
+#else
+                attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+#endif
             }
-            
-            attributes.AddRange(attributeConstructors.Select(c => new CustomAttribute(module.ImportReference(c))));
+
+            attributes.AddRange(attributeConstructors.Select(c => new CustomAttribute(module.ImportReference(c), ((IDictionary<MethodReference, byte[]?>) constructorArgs).GetValueOrDefault(c, DefaultBlob))));
 
             return attributes;
         }
@@ -194,8 +220,11 @@ namespace Cpp2IL
             return _attributeCtorsByClassIndex[attributeType.data.classIndex];
         }
 
-        private static void GenerateBlobForAttribute()
+        private static byte[]? GenerateBlobForAttribute(MethodReference constructor, List<IAnalysedOperand> constructorArgs, string moduleName)
         {
+            if (constructorArgs.Count == 0)
+                return null;
+
             //By far the most annoying part of this is that managed attribute parameters are defined as blobs, not as actual data.
             //The CustomAttribute constructor takes a method ref for the attribute's constructor, and the blob. That's our only option - cecil doesn't 
             //even attempt to parse the blob, itself, at any point.
@@ -227,6 +256,87 @@ namespace Cpp2IL
             //  - This is followed by the element type, again a byte, Lib's Il2CppTypeEnum, TYPE_BOOLEAN to TYPE_STRING
             //  - Then the name of the field or property
             //  - Finally the same data format as the fixed argument above.
+
+            //Prolog
+            var ret = new List<byte> {0x01, 0x00};
+
+            if (constructor.Parameters.Count != constructorArgs.Count)
+                throw new Exception("Mismatch between constructor param count & actual args count? Probably because named args support not implemented");
+
+            var i = 0;
+            foreach (var analysedOperand in constructorArgs)
+            {
+                var actualArg = constructor.Parameters[i];
+                switch (analysedOperand)
+                {
+                    case ConstantDefinition cons:
+                    {
+                        var value = cons.Value;
+
+                        var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
+
+                        if (cons.Type.FullName != destType.FullName)
+                            value = CoerceValue(value, destType);
+
+                        ret.AddRange(value.GetBytesForAttributeBlob(moduleName));
+                        break;
+                    }
+                    case LocalDefinition local:
+                    {
+                        if (local.KnownInitialValue == null)
+                            throw new Exception($"Can't convert a local without a known initial value to a blob: {local}");
+
+                        var value = local.KnownInitialValue;
+
+                        var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
+
+                        if (local.Type.FullName != destType.FullName)
+                            value = CoerceValue(value, destType);
+
+                        ret.AddRange(value.GetBytesForAttributeBlob(moduleName));
+                        break;
+                    }
+                    default:
+                        throw new Exception($"Operand {analysedOperand} is not valid for use in a attribute ctor blob");
+                }
+
+                i++;
+            }
+
+            //Number of named pairs.
+            //TODO
+            ret.Add(0);
+            ret.Add(0);
+
+            return ret.ToArray();
+        }
+
+        private static object CoerceValue(object value, TypeReference parameterType)
+        {
+            //Definitely both primitive
+            switch (parameterType.Name)
+            {
+                case "Boolean":
+                    return Convert.ToInt32(value) == 1;
+                case "SByte":
+                    return Convert.ToSByte(value);
+                case "Byte":
+                    return Convert.ToByte(value);
+                case "Int16":
+                    return Convert.ToInt16(value);
+                case "UInt16":
+                    return Convert.ToUInt16(value);
+                case "Int32":
+                    return Convert.ToInt32(value);
+                case "UInt32":
+                    return Convert.ToUInt32(value);
+                case "Int64":
+                    return Convert.ToInt64(value);
+                case "UInt64":
+                    return Convert.ToUInt64(value);
+            }
+
+            throw new Exception($"Can't coerce {value} to {parameterType}");
         }
     }
 }

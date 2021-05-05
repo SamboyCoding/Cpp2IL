@@ -485,6 +485,8 @@ namespace Cpp2IL
         {
             var typeMetaText = new StringBuilder();
             typeMetaText.Append($"\n\tMethod: {methodDef.Name}:\n")
+                .Append($"\t\tAccessibility: {methodDef.Attributes & System.Reflection.MethodAttributes.MemberAccessMask}\n")
+                .Append($"\t\tReturn Type: {methodDef.ReturnType}\n")
                 .Append($"\t\tFile Offset 0x{methodDef.MethodOffsetInFile:X8}\n")
                 .Append($"\t\tRam Offset 0x{methodDef.MethodPointer:x8}\n")
                 .Append($"\t\tVirtual Method Slot: {methodDef.slot}\n");

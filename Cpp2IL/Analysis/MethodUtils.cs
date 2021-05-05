@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cpp2IL.Analysis.Actions.Important;
@@ -69,7 +70,7 @@ namespace Cpp2IL.Analysis
 
                 if (parameterType == null)
                     throw new ArgumentException($"Parameter \"{parameterData}\" of method {method.FullName} has a null type??");
-                
+
                 var arg = actualArgs.RemoveAndReturn(0)!;
 
                 if (parameterType is GenericParameter gp)
@@ -80,18 +81,18 @@ namespace Cpp2IL.Analysis
                     {
                         //Infer from context - we *assume* that whatever the argument is, is the type of this generic param.
                         //As we have already checked for any parameter containing the generic method.
-                        if (arg is LocalDefinition {Type: {}} l)
+                        if (arg is LocalDefinition {Type: { }} l)
                             parameterType = l.Type;
                     }
-                    
+
                     temp ??= parameterType;
                     parameterType = temp;
                 }
-                
+
                 switch (arg)
                 {
                     //We assert parameter type to be non-null in all of these cases, because we've null-checked the default value further up.
-                    
+
                     case ConstantDefinition cons when cons.Type.FullName != parameterType!.ToString(): //Constant type mismatch
                         if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
                             break; //Forgive primitive coercion.
@@ -105,9 +106,9 @@ namespace Cpp2IL.Analysis
                             break; //Forgive primitive coercion.
                         if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(Utils.ArrayReference))
                             break;
-                        if(local.Type is GenericParameter && parameterType is GenericParameter && local.Type.Name == parameterType.Name)
+                        if (local.Type is GenericParameter && parameterType is GenericParameter && local.Type.Name == parameterType.Name)
                             break;
-                        if(local.KnownInitialValue is int i && i == 0)
+                        if (local.KnownInitialValue is int i && i == 0)
                             break; //Null.
                         return false;
                 }
@@ -125,7 +126,7 @@ namespace Cpp2IL.Analysis
                     return false; //Left over args - it's probably not this one
                 }
             }
-            
+
             if (actualArgs.Count == 1 && actualArgs[0] is ConstantDefinition {Value: MethodReference _} c)
             {
                 var reg = context.GetConstantInReg("rcx") == c ? "rcx" : context.GetConstantInReg("rdx") == c ? "rdx" : context.GetConstantInReg("r8") == c ? "r8" : "r9";

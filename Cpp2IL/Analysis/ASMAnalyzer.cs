@@ -39,7 +39,7 @@ namespace Cpp2IL.Analysis
             Mnemonic.Add, Mnemonic.Sub
         };
 
-        private readonly MethodAnalysis Analysis;
+        internal readonly MethodAnalysis Analysis;
 
         internal AsmAnalyzer(ulong methodPointer, InstructionList instructions, KeyFunctionAddresses keyFunctionAddresses)
         {

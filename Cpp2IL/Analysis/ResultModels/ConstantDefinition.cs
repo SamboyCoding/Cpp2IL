@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Linq;
+using System.Text;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -24,7 +26,7 @@ namespace Cpp2IL.Analysis.ResultModels
 
                 if (intValue > 1024)
                     return $"0x{intValue:X}";
-                
+
                 return Convert.ToString(intValue)!;
             }
 
@@ -63,7 +65,7 @@ namespace Cpp2IL.Analysis.ResultModels
 
             if (Type == typeof(int))
                 return new[] {ilProcessor.Create(OpCodes.Ldc_I4, Convert.ToInt32(Value))};
-            
+
             if (Type == typeof(uint))
                 return new[]
                 {
@@ -80,12 +82,14 @@ namespace Cpp2IL.Analysis.ResultModels
 
             if (Type == typeof(MethodReference) && Value is MethodReference reference)
                 return new[] {ilProcessor.Create(OpCodes.Ldftn, reference)};
-            
+
 
             if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)
                 return new[] {ilProcessor.Create(OpCodes.Ldtoken, fieldDefinition)};
 
             throw new TaintedInstructionException($"ConstantDefinition: Don't know how to get IL to load a {Type}");
         }
+
+        
     }
 }

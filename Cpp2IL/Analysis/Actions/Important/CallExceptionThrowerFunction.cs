@@ -46,7 +46,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                     strings = leas
                         .Select(i => LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress(), out var addr) ? addr : 0)
                         .Where(ptr => ptr != 0)
-                        .Select(p => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw((ulong) p)))
+                        .Select(p => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) p))
                         .ToList();
                 }
                 else
