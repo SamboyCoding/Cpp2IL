@@ -320,37 +320,6 @@ namespace Cpp2IL
             }
         }
 
-        public static bool CheckForNullCheckAtIndex(ulong offsetInRam, PE cppAssembly, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
-        {
-            if (instructions.Count - idx < 2) return false;
-
-            var insn = instructions[idx];
-
-            //Check this is a valid TEST RCX RCX
-            if (insn.Mnemonic != ud_mnemonic_code.UD_Itest || insn.Operands.Length != 2 || insn.Operands[0].Base != insn.Operands[1].Base)
-                return false;
-
-            //Get the following instruction and verify it's a JZ
-            var jump = instructions[idx + 1];
-            if (jump.Mnemonic != ud_mnemonic_code.UD_Ijz) return false;
-
-            //Get the target of the JZ
-            var addrOfCall = GetJumpTarget(jump, offsetInRam + jump.PC);
-
-            //Disassemble 5 bytes at that destination (it should be a call)
-            var bytes = cppAssembly.ReadByteArrayAtRawAddress(cppAssembly.MapVirtualAddressToRaw(addrOfCall), 5);
-            var callInstruction = DisassembleBytes(LibCpp2IlMain.Binary!.is32Bit, bytes).First();
-
-            //Make sure it *is* a call
-            if (callInstruction.Mnemonic != ud_mnemonic_code.UD_Icall) return false;
-
-            //Get where that call points to
-            var addr = GetJumpTarget(callInstruction, addrOfCall + (ulong) bytes.Length);
-
-            //If it's the bailout then the original check was a il2cpp-generated null check
-            return addr == kfe.AddrBailOutFunction;
-        }
-
         public static int CheckForInitCallAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
         {
             //Refined Targeting Mechanism

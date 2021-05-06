@@ -142,6 +142,7 @@ namespace Cpp2IL.Analysis
                 line.Append("\t\t; DEBUG: {").Append(instruction.Op0Kind).Append('}').Append('/').Append(instruction.Op0Register).Append(' ');
                 line.Append('{').Append(instruction.Op1Kind).Append('}').Append('/').Append(instruction.Op1Register).Append(" ||| ");
                 line.Append(instruction.MemoryBase).Append(" | ").Append(instruction.MemoryDisplacement64).Append(" | ").Append(instruction.MemoryIndex);
+                line.Append(" ||| ").Append(instruction.Op0Kind.IsImmediate() ? instruction.GetImmediate(0).ToString() : "N/A").Append(" | ").Append(instruction.Op1Kind.IsImmediate() ? instruction.GetImmediate(1).ToString() : "N/A");
 #endif
 
                 //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
@@ -392,7 +393,10 @@ namespace Cpp2IL.Analysis
                 //Likewise, (pop [val]) is the same as (mov [val], esp) + (add esp, 4)
                 case Mnemonic.Pop:
                     break;
-                case Mnemonic.Jmp when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement64 == 0 && operand is ConstantDefinition callRegCons && callRegCons.Value is MethodDefinition:
+                case Mnemonic.Call when instruction.Op0Kind == OpKind.Register && operand is ConstantDefinition {Value: MethodDefinition _}:
+                    Analysis.Actions.Add(new CallManagedFunctionInRegAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Jmp when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement64 == 0 && operand is ConstantDefinition {Value: MethodDefinition _}:
                     Analysis.Actions.Add(new CallManagedFunctionInRegAction(Analysis, instruction));
                     //This is a jmp, so return
                     Analysis.Actions.Add(new ReturnFromFunctionAction(Analysis, instruction));
@@ -430,12 +434,7 @@ namespace Cpp2IL.Analysis
                 {
                     var jumpTarget = instruction.NearBranchTarget;
 
-                    if (jumpTarget == _keyFunctionAddresses.AddrBailOutFunction)
-                    {
-                        //Bailout
-                        Analysis.Actions.Add(new CallBailOutAction(Analysis, instruction));
-                    }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_method || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
+                    if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_method || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
                     {
                         //Init method
                         Analysis.Actions.Add(new CallInitMethodAction(Analysis, instruction));
@@ -460,15 +459,10 @@ namespace Cpp2IL.Analysis
                         //Allocate array
                         Analysis.Actions.Add(new AllocateArrayAction(Analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.AddrNativeLookup)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_resolve_icall || jumpTarget == _keyFunctionAddresses.InternalCalls_Resolve)
                     {
-                        //Lookup native method
-                        Analysis.Actions.Add(new LookupNativeFunctionAction(Analysis, instruction));
-                    }
-                    else if (jumpTarget == _keyFunctionAddresses.AddrNativeLookupGenMissingMethod)
-                    {
-                        //Throw exception because we failed to find a native method
-                        Analysis.Actions.Add(new CallNativeMethodFailureAction(Analysis, instruction));
+                        //Resolve ICall
+                        Analysis.Actions.Add(new LookupICallAction(Analysis, instruction));
                     }
                     else if (jumpTarget == _keyFunctionAddresses.il2cpp_value_box)
                     {
@@ -584,7 +578,7 @@ namespace Cpp2IL.Analysis
 
             var mnemonic = instruction.Mnemonic;
 
-            if (mnemonic == Mnemonic.Movzx)
+            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss)
                 mnemonic = Mnemonic.Mov;
 
             switch (mnemonic)
@@ -664,6 +658,9 @@ namespace Cpp2IL.Analysis
                         var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.GetRipBasedInstructionMemoryAddress()));
                         if (potentialLiteral != null)
                         {
+                            if(r0 != "rsp")
+                                Analysis.Actions.Add(new Il2CppStringToConstantAction(Analysis, instruction, potentialLiteral));
+                            
                             // if (r0 == "rsp")
                             //     _analysis.Actions.Add(new ConstantToStackAction(_analysis, instruction));
                             // else
@@ -822,6 +819,11 @@ namespace Cpp2IL.Analysis
                         Analysis.Actions.Add(new ClearRegAction(Analysis, instruction));
                     break;
                 }
+                case Mnemonic.Or when type0 == OpKind.Register && type1.IsImmediate() && instruction.GetImmediate(1) == 0xFFFF_FFFF_FFFF_FFFF:
+                    //OR reg, 0xFFFFFFFF
+                    //Even though this is a 32-bit immediate, Iced reports it as a 64-bit one.
+                    Analysis.Actions.Add(new OrToMinusOneAction(Analysis, instruction));
+                    break;
                 //Check if we have an Interface Offset array in the memory operand
                 case Mnemonic.Cmp when memOp is ConstantDefinition {Value: Il2CppInterfaceOffset[] _}:
                     //Format is generally something like `cmp [r9+rax*8], r10`, where r9 is the interface offset array we have here, rax is the current loop index, and r10 is the target interface

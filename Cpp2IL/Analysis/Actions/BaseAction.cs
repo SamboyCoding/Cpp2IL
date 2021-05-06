@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Text;
 using Cpp2IL.Analysis.ResultModels;
+using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -14,6 +15,8 @@ namespace Cpp2IL.Analysis.Actions
 
         private List<LocalDefinition> UsedLocals = new List<LocalDefinition>();
         private List<LocalDefinition> RegisteredLocalsWithoutSideEffects = new List<LocalDefinition>();
+
+        protected bool is32Bit => LibCpp2IlMain.Binary!.is32Bit;
         
         public BaseAction(MethodAnalysis context, Instruction instruction)
         {

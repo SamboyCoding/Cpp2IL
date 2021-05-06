@@ -9,6 +9,7 @@ namespace Cpp2IL.Analysis.Actions
     {
         private UnknownGlobalAddr _global;
         private string _destReg;
+        private ConstantDefinition? _constantMade;
 
         public UnknownGlobalToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -17,7 +18,7 @@ namespace Cpp2IL.Analysis.Actions
             
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
-            context.MakeConstant(typeof(UnknownGlobalAddr), _global, reg: _destReg);
+            _constantMade = context.MakeConstant(typeof(UnknownGlobalAddr), _global, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
@@ -32,7 +33,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Reads {_global} into register {_destReg}";
+            return $"Reads {_global} into register {_destReg} as a constant {_constantMade?.Name}";
         }
     }
 }

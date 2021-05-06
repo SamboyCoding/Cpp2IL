@@ -20,7 +20,17 @@ namespace Cpp2IL.Analysis.ResultModels
             if (Type == typeof(bool))
                 return Convert.ToString((bool) Value);
 
-            if (Type == typeof(int) || Type == typeof(ulong))
+            if (Type == typeof(int))
+            {
+                var intValue = Convert.ToInt64(Value);
+
+                if (intValue > 1024)
+                    return $"0x{intValue:X}";
+
+                return Convert.ToString(intValue)!;
+            }
+
+            if (Type == typeof(uint) || Type == typeof(ulong))
             {
                 var intValue = Convert.ToUInt64(Value);
 

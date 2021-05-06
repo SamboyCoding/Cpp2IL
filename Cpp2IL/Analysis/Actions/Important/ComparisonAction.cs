@@ -67,7 +67,13 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (opKind == OpKind.Register)
             {
                 argumentRegister = registerName;
-                return context.GetOperandInRegister(registerName);
+                var op = context.GetOperandInRegister(registerName);
+
+                if (op is ConstantDefinition {Value: MethodDefinition _} || op is ConstantDefinition { Value: UnknownGlobalAddr _})
+                    //Ignore comparisons with looked-up method defs or unknown globals.
+                    unimportant = true;
+
+                return op;
             }
 
             if (opKind.IsImmediate())

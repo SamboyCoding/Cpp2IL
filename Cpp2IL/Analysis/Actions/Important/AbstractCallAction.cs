@@ -38,6 +38,25 @@ namespace Cpp2IL.Analysis.Actions.Important
                 ret.Append(IsCallToSuperclassMethod ? "base" : "this");
             else
                 ret.Append(InstanceBeingCalledOn?.Name);
+            
+            if (ManagedMethodBeingCalled is MethodDefinition mDef)
+            {
+                if (mDef.Name.StartsWith("get_"))
+                {
+                    var unmanaged = mDef.AsUnmanaged();
+                    var prop = unmanaged.DeclaringType!.Properties!.FirstOrDefault(p => p.Getter == unmanaged);
+
+                    if (prop != null)
+                        return ret.Append('.').Append(prop.Name).ToString();
+                } else if (mDef.Name.StartsWith("set_"))
+                {
+                    var unmanaged = mDef.AsUnmanaged();
+                    var prop = unmanaged.DeclaringType!.Properties!.FirstOrDefault(p => p.Setter == unmanaged);
+
+                    if (prop != null && Arguments?.Count == 1)
+                        return ret.Append('.').Append(prop.Name).Append(" = ").Append(Arguments[0].GetPseudocodeRepresentation()).ToString();
+                }
+            }
 
             ret.Append('.').Append(ManagedMethodBeingCalled?.Name).Append('(');
 
