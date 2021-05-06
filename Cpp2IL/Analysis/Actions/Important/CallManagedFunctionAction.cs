@@ -23,7 +23,13 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             var listOfCallableMethods = LibCpp2IlMain.GetManagedMethodImplementationsAtAddress(_jumpTarget);
 
-            if (listOfCallableMethods == null) return;
+            if (listOfCallableMethods == null)
+            {
+                if(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.TryGetValue(_jumpTarget, out var concMethods))
+                    AddComment($"There are {concMethods.Count} concrete generic implementation(s) at this address");
+                
+                return;
+            }
 
             Il2CppMethodDefinition possibleTarget = null;
             if (listOfCallableMethods.Count == 1)

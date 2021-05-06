@@ -1,17 +1,18 @@
 ﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
 {
-    public class ConstantToFieldAction: BaseAction
+    public class ImmediateToFieldAction: BaseAction
     {
         private object constantValue;
         private LocalDefinition? instance;
         private FieldUtils.FieldBeingAccessedData? destinationField;
         
-        public ConstantToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ImmediateToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var rawConstant = instruction.GetImmediate(1);
 
@@ -37,7 +38,29 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new NotImplementedException();
+            if (constantValue == null || instance == null || destinationField == null)
+                throw new TaintedInstructionException();
+            
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+
+            ret.AddRange(instance.GetILToLoad(context, processor));
+
+            var f = destinationField;
+            while (f.NextChainLink != null)
+            {
+                ret.Add(processor.Create(OpCodes.Ldfld, f.ImpliedFieldLoad));
+                f = f.NextChainLink;
+            }
+
+            ret.AddRange(context.MakeConstant(constantValue.GetType(), constantValue).GetILToLoad(context, processor));
+
+            if (f.FinalLoadInChain == null)
+                throw new TaintedInstructionException("Final load in chain is null");
+            
+            ret.Add(processor.Create(OpCodes.Stfld, f.FinalLoadInChain));
+            
+            
+            return ret.ToArray();
         }
 
         public override string ToPsuedoCode()

@@ -208,7 +208,7 @@ namespace Cpp2IL.Analysis
 
                                 var stackArg = listOfStackArgs[i];
                                 if (stackArg is LocalDefinition local)
-                                    context.Actions.Add(new LocalToFieldAction(context, associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), instanceLocal!, local));
+                                    context.Actions.Add(new RegToFieldAction(context, associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), instanceLocal!, local));
                                 else
                                 {
                                     //TODO Constants

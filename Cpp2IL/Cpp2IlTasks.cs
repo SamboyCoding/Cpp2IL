@@ -294,11 +294,13 @@ namespace Cpp2IL
                             case Cpp2IlRuntimeArgs.EAnalysisLevel.PRINT_ALL:
                                 dumper.BuildMethodFunctionality();
                                 typeDump.Append(dumper.GetFullDumpNoIL());
+                                typeDump.Append(dumper.BuildILToString());
                                 break;
                             case Cpp2IlRuntimeArgs.EAnalysisLevel.SKIP_ASM:
                                 dumper.BuildMethodFunctionality();
                                 typeDump.Append(dumper.GetWordyFunctionality());
                                 typeDump.Append(dumper.GetPseudocode());
+                                typeDump.Append(dumper.BuildILToString());
                                 break;
                             case Cpp2IlRuntimeArgs.EAnalysisLevel.SKIP_ASM_AND_SYNOPSIS:
                                 typeDump.Append(dumper.GetPseudocode());

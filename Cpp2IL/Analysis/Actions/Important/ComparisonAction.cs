@@ -89,7 +89,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                         if (local.Type?.Resolve() == null) return null;
                         
                         var fields = SharedState.FieldsByType[local.Type.Resolve()];
-                        var fieldName = fields.FirstOrDefault(f => f.Offset == instruction.MemoryDisplacement).Name;
+                        var fieldName = fields.FirstOrDefault(f => f.Offset == instruction.MemoryDisplacement32).Name;
                         
                         if (string.IsNullOrEmpty(fieldName)) return null;
 
@@ -105,7 +105,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                         };
                     }
 
-                    if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement))
+                    if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
                     {
                         argumentRegister = name;
                         return new ComparisonDirectPropertyAccess
@@ -115,7 +115,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                         };
                     }
 
-                    var nameOfField = Il2CppArrayUtils.GetOffsetName(instruction.MemoryDisplacement);
+                    var nameOfField = Il2CppArrayUtils.GetOffsetName(instruction.MemoryDisplacement32);
                     argumentRegister = name;
                     return context.MakeConstant(typeof(string), $"{{il2cpp array field {local.Name}->{nameOfField}}}");
                 }
@@ -123,11 +123,11 @@ namespace Cpp2IL.Analysis.Actions.Important
                 if (!(context.GetConstantInReg(name) is { } constant)) 
                     return null; //Unknown operand - memory type, not a global, but not a constant, or local
                 
-                var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement:X}}}";
+                var defaultLabel = $"{{il2cpp field on {constant}, offset 0x{instruction.MemoryDisplacement32:X}}}";
                 if (constant.Type == typeof(TypeDefinition) || constant.Type == typeof(TypeReference))
                 {
                     unimportant = true;
-                    var offset = instruction.MemoryDisplacement;
+                    var offset = instruction.MemoryDisplacement32;
                     var label = Il2CppClassUsefulOffsets.GetOffsetName(offset);
 
                     label = label == null ? defaultLabel : $"{{il2cpp field {constant.Value}->{label}}}";

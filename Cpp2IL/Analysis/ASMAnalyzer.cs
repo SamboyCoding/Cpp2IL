@@ -675,7 +675,7 @@ namespace Cpp2IL.Analysis
 
                     return;
                 }
-                case Mnemonic.Mov when type1.IsImmediate() && offset0 == 0 && type0 == OpKind.Register:
+                case Mnemonic.Mov when type1.IsImmediate() && type0 == OpKind.Register:
                     //Constant move to reg
                     var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));
 
@@ -686,8 +686,8 @@ namespace Cpp2IL.Analysis
                     Analysis.Actions.Add(new ConstantToGlobalAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type1.IsImmediate() && offset0 != 0 && type0 != OpKind.Register && memR != "rip" && memR != "rbp":
-                    //Constant move to field
-                    Analysis.Actions.Add(new ConstantToFieldAction(Analysis, instruction));
+                    //Immediate move to field
+                    Analysis.Actions.Add(new ImmediateToFieldAction(Analysis, instruction));
                     return;
                 //Note that, according to Il2CppArray class, an Il2Cpp Array has, after the core Object fields (klass and vtable)
                 //an Il2CppArrayBounds object, which consists of a uintptr (the length) and an int (the "lower bound"), 
@@ -797,7 +797,7 @@ namespace Cpp2IL.Analysis
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition:
                     //Write non-static field
-                    Analysis.Actions.Add(new LocalToFieldAction(Analysis, instruction));
+                    Analysis.Actions.Add(new RegToFieldAction(Analysis, instruction));
                     break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic
