@@ -12,6 +12,9 @@ namespace Cpp2IL
 
         [Option("exe-name", Required = false, HelpText = "Specify an override for the unity executable name in case the auto-detection doesn't work.")]
         public string? ExeName { get; set; }
+        
+        [Option("analysis-level", Required = false, HelpText = "Specify a detail level for analysis. 0 prints everything and is the default. 1 omits the ASM, but still prints textual analysis, pseudocode, and IL. 2 omits ASM and textual analysis, but prints pseudocode and IL. 3 only prints IL. 4 only prints pseudocode.")]
+        public int AnalysisLevel { get; set; }
 
         [Option("skip-analysis", Required = false, HelpText = "Skip the analysis section and stop once DummyDLLs have been generated.")]
         public bool SkipAnalysis { get; set; }

@@ -14,6 +14,16 @@
         public bool EnableAnalysis;
         public bool EnableMetadataGeneration;
         public bool EnableRegistrationPrompts;
-        
+
+        public EAnalysisLevel AnalysisLevel;
+
+        public enum EAnalysisLevel
+        {
+            PRINT_ALL,
+            SKIP_ASM,
+            SKIP_ASM_AND_SYNOPSIS,
+            IL_ONLY,
+            PSUEDOCODE_ONLY
+        }
     }
 }

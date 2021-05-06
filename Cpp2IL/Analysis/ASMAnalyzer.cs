@@ -578,7 +578,7 @@ namespace Cpp2IL.Analysis
 
             var mnemonic = instruction.Mnemonic;
 
-            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss)
+            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd)
                 mnemonic = Mnemonic.Mov;
 
             switch (mnemonic)

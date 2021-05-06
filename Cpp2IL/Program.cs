@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using Cpp2IL.Analysis;
 using LibCpp2IL;
 using Mono.Cecil;
 using SharpDisasm;
@@ -100,14 +101,14 @@ namespace Cpp2IL
 
             if (runtimeArgs.EnableAnalysis)
             {
-                DoAssemblyCSharpAnalysis(methodOutputDir, keyFunctionAddresses!);
+                DoAssemblyCSharpAnalysis(runtimeArgs, methodOutputDir, keyFunctionAddresses!);
             }
 
             Console.WriteLine("Done.");
             return 0;
         }
 
-        private static void DoAssemblyCSharpAnalysis(string methodOutputDir, KeyFunctionAddresses keyFunctionAddresses)
+        private static void DoAssemblyCSharpAnalysis(Cpp2IlRuntimeArgs args, string methodOutputDir, KeyFunctionAddresses keyFunctionAddresses)
         {
             var assemblyCsharp = Assemblies.Find(a => a.Name.Name == "Assembly-CSharp" || a.Name.Name == "CSharp3" || a.Name.Name == "CSharp2");
 
@@ -116,7 +117,7 @@ namespace Cpp2IL
                 return;
             }
 
-            Cpp2IlTasks.AnalyseAssembly(assemblyCsharp, keyFunctionAddresses, methodOutputDir, false);
+            Cpp2IlTasks.AnalyseAssembly(args, assemblyCsharp, keyFunctionAddresses, methodOutputDir, false);
         }
     }
 }

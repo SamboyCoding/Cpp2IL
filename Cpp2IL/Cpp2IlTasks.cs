@@ -59,7 +59,7 @@ namespace Cpp2IL
                                             $"\t{result.PathToMetadata}\n");
 
                 result.UnityVersion = DetermineUnityVersion(unityPlayerPath, Path.Combine(baseGamePath, $"{exeName}_Data"));
-                
+
                 Console.WriteLine($"Determined game's unity version to be {string.Join(".", result.UnityVersion)}");
 
                 if (result.UnityVersion[0] <= 4)
@@ -79,6 +79,8 @@ namespace Cpp2IL
             result.EnableAnalysis = !options.SkipAnalysis;
             result.EnableMetadataGeneration = !options.SkipMetadataTextFiles;
             result.EnableRegistrationPrompts = !options.DisableRegistrationPrompts;
+
+            result.AnalysisLevel = (Cpp2IlRuntimeArgs.EAnalysisLevel) options.AnalysisLevel;
 
             return result;
         }
@@ -138,7 +140,7 @@ namespace Cpp2IL
         {
             Console.WriteLine("Building assemblies...This may take some time.");
             var start = DateTime.Now;
-            
+
             var resolver = new RegistryAssemblyResolver();
             var moduleParams = new ModuleParameters
             {
@@ -174,15 +176,15 @@ namespace Cpp2IL
 
                 AssemblyPopulator.PopulateStubTypesInAssembly(imageDef);
             }
-            
+
             Console.WriteLine($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
             Console.WriteLine("Fixing up explicit overrides. Any warnings you see here aren't errors - they usually indicate improperly stripped or obfuscated types, but this is not a big deal. This should only take a second...");
             start = DateTime.Now;
-            
+
             //Fixup explicit overrides.
-            foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions) 
+            foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions)
                 AssemblyPopulator.FixupExplicitOverridesInAssembly(imageDef);
-            
+
             Console.WriteLine($"Fixup complete ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
 
             return Assemblies;
@@ -192,9 +194,9 @@ namespace Cpp2IL
         {
             foreach (var mainModuleType in assemblyDefinition.MainModule.Types)
             {
-                if(mainModuleType.Namespace == AssemblyPopulator.InjectedNamespaceName)
+                if (mainModuleType.Namespace == AssemblyPopulator.InjectedNamespaceName)
                     continue;
-                
+
                 GenerateMetadataForType(mainModuleType);
             }
         }
@@ -230,7 +232,7 @@ namespace Cpp2IL
             }
         }
 
-        public static void AnalyseAssembly(AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
+        public static void AnalyseAssembly(Cpp2IlRuntimeArgs args, AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
         {
             Console.WriteLine("Dumping method bytes to " + methodOutputDir);
             Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
@@ -286,10 +288,29 @@ namespace Cpp2IL
 
                         dumper.AnalyzeMethod();
                         dumper.RunPostProcessors();
-                        dumper.BuildMethodFunctionality();
 
-                        typeDump.Append(dumper.GetFullDumpNoIL());
-                        typeDump.Append(dumper.BuildILToString());
+                        switch (args.AnalysisLevel)
+                        {
+                            case Cpp2IlRuntimeArgs.EAnalysisLevel.PRINT_ALL:
+                                dumper.BuildMethodFunctionality();
+                                typeDump.Append(dumper.GetFullDumpNoIL());
+                                break;
+                            case Cpp2IlRuntimeArgs.EAnalysisLevel.SKIP_ASM:
+                                dumper.BuildMethodFunctionality();
+                                typeDump.Append(dumper.GetWordyFunctionality());
+                                typeDump.Append(dumper.GetPseudocode());
+                                break;
+                            case Cpp2IlRuntimeArgs.EAnalysisLevel.SKIP_ASM_AND_SYNOPSIS:
+                                typeDump.Append(dumper.GetPseudocode());
+                                typeDump.Append(dumper.BuildILToString());
+                                break;
+                            case Cpp2IlRuntimeArgs.EAnalysisLevel.PSUEDOCODE_ONLY:
+                                typeDump.Append(dumper.GetPseudocode());
+                                break;
+                            case Cpp2IlRuntimeArgs.EAnalysisLevel.IL_ONLY:
+                                typeDump.Append(dumper.BuildILToString());
+                                break;
+                        }
 
                         Interlocked.Increment(ref successfullyProcessed);
                     }
@@ -310,7 +331,7 @@ namespace Cpp2IL
                 toProcess.AsParallel().ForAll(ProcessType);
             else
                 toProcess.ForEach(ProcessType);
-            
+
             var elapsed = DateTime.Now - startTime;
             Console.WriteLine($"Finished processing {successfullyProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
         }
