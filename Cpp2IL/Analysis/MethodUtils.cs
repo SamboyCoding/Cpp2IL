@@ -96,6 +96,8 @@ namespace Cpp2IL.Analysis
                     case ConstantDefinition cons when cons.Type.FullName != parameterType!.ToString(): //Constant type mismatch
                         if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
                             break; //Forgive primitive coercion.
+                        if((parameterType.FullName == "System.String" || parameterType.FullName == "System.Object") && cons.Value is string)
+                            break;
                         if (cons.Type.IsAssignableTo(typeof(MemberReference)) && parameterType.Name == "IntPtr")
                             break; //We allow this, because an IntPtr is usually a type or, more commonly, method pointer.
                         if (cons.Type.IsAssignableTo(typeof(FieldReference)) && parameterType.Name == "RuntimeFieldHandle")
