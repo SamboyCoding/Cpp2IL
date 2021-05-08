@@ -30,7 +30,7 @@ namespace Cpp2IL
             }
             catch (SoftException e)
             {
-                Console.WriteLine($"Execution Failed: {e.Message}");
+                Logger.ErrorNewline($"Execution Failed: {e.Message}");
                 return -1;
             }
         }

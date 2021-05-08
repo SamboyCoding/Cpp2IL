@@ -154,14 +154,20 @@ namespace Cpp2IL
             };
 
             //Make stub types
+            var startTwo = DateTime.Now;
+            Logger.Verbose("\tPre-generating stubs...");
             var Assemblies = StubAssemblyBuilder.BuildStubAssemblies(LibCpp2IlMain.TheMetadata!, moduleParams);
             Assemblies.ForEach(resolver.Register);
+            Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Configure utils class
             Utils.BuildPrimitiveMappings();
 
             //Set base types and interfaces
+            startTwo = DateTime.Now;
+            Logger.Verbose("\tConfiguring Hierarchy...");
             AssemblyPopulator.ConfigureHierarchy();
+            Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Create out dirs if needed
             var outputPath = Path.GetFullPath("cpp2il_out");
@@ -174,11 +180,16 @@ namespace Cpp2IL
 
             foreach (var imageDef in LibCpp2IlMain.TheMetadata!.imageDefinitions)
             {
+                var startAssem = DateTime.Now;
+                
+                Logger.Verbose($"\tPopulating {imageDef.Name}...");
                 var assemblySpecificPath = Path.Combine(methodOutputDir, imageDef.Name!.Replace(".dll", ""));
                 if (runtimeArgs.EnableMetadataGeneration && !Directory.Exists(assemblySpecificPath))
                     Directory.CreateDirectory(assemblySpecificPath);
 
                 AssemblyPopulator.PopulateStubTypesInAssembly(imageDef);
+                
+                Logger.VerboseNewline($"Done ({(DateTime.Now - startAssem).TotalMilliseconds}ms)");
             }
 
             Logger.InfoNewline($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");

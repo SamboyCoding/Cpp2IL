@@ -44,6 +44,7 @@
     <PackageReference Include="Iced" Version="1.11.1" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
     <PackageReference Include="Mono.Cecil" Version="0.11.3" />
+    <PackageReference Include="Pastel" Version="2.1.0" />
     <PackageReference Include="SharpDisasm" Version="1.1.11" />
     <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>

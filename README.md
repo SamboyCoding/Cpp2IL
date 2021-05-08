@@ -10,6 +10,16 @@ Uses LibCpp2IL for the initial parsing and loading of metadata structures. LibCp
 
 On top of that it then examines the machine code to attempt to perform static analysis and obtain some semblance of what the original code does.
 
+## Log Output
+
+Since May 2021, Cpp2IL now outputs more rigidly-structured data to the console. This includes log levels (VERB, INFO, WARN, FAIL) 
+and associated colours (Grey for VERB, Blue for INFO, Yellow for WARN, Red for FAIL).
+
+VERB messages will only be logged if Cpp2IL is launched with the `--verbose` option, and it would be helpful if you could report issues with this flag enabled.
+For normal operation, they shouldn't be needed, unless you're curious.
+
+If you do not wish for the output to be coloured, set the Environment Variable `NO_COLOR=true`.
+
 ## A note on unity 2020.2
 
 Unity 2020.2 introduced IL2PP metadata version 27. Substantial changes have been made to the formats.
