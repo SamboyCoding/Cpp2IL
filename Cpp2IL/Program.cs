@@ -18,8 +18,9 @@ namespace Cpp2IL
         public static int Main(string[] args)
         {
             Console.WriteLine("===Cpp2IL by Samboy063===");
-            Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
-            Console.WriteLine("Running on " + Environment.OSVersion.Platform);
+            Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.\n");
+            
+            Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
 
             try
             {
@@ -51,7 +52,7 @@ namespace Cpp2IL
             //We have to always run key function scan (if we can), so that attribute reconstruction can run.
             if (LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_32 || LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_64)
             {
-                Console.WriteLine("Running Scan for Known Functions...");
+                Logger.InfoNewline("Running Scan for Known Functions...");
 
                 Disassembler.Translator.IncludeAddress = true;
                 Disassembler.Translator.IncludeBinary = true;
@@ -60,19 +61,19 @@ namespace Cpp2IL
                 keyFunctionAddresses = KeyFunctionAddresses.Find();
             }
 
-            Console.WriteLine("Applying type, method, and field attributes...This may take a couple of seconds");
+            Logger.InfoNewline("Applying type, method, and field attributes...This may take a couple of seconds");
             var start = DateTime.Now;
 
             LibCpp2IlMain.TheMetadata!.imageDefinitions.ToList().ForEach(definition => AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly(definition, keyFunctionAddresses));
 
-            Console.WriteLine($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+            Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (runtimeArgs.EnableAnalysis)
             {
                 if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
                     throw new NotImplementedException("Analysis engine is only implemented for x86. Use --skip-analysis to avoid this error.");
 
-                Console.WriteLine("Populating Concrete Implementation Table...");
+                Logger.InfoNewline("Populating Concrete Implementation Table...");
 
                 foreach (var def in LibCpp2IlMain.TheMetadata.typeDefs)
                 {
@@ -96,7 +97,7 @@ namespace Cpp2IL
             var outputPath = Path.GetFullPath("cpp2il_out");
             var methodOutputDir = Path.Combine(outputPath, "types");
 
-            Console.WriteLine("Saving Header DLLs to " + outputPath + "...");
+            Logger.InfoNewline("Saving Header DLLs to " + outputPath + "...");
             Cpp2IlTasks.SaveAssemblies(outputPath, Assemblies);
 
             if (runtimeArgs.EnableAnalysis)
@@ -104,7 +105,7 @@ namespace Cpp2IL
                 DoAssemblyCSharpAnalysis(runtimeArgs, methodOutputDir, keyFunctionAddresses!);
             }
 
-            Console.WriteLine("Done.");
+            Logger.InfoNewline("Done.");
             return 0;
         }
 

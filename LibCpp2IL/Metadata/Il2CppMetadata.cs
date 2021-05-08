@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Logging;
 
 namespace LibCpp2IL.Metadata
 {
@@ -70,7 +71,7 @@ namespace LibCpp2IL.Metadata
             else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f; //2018.3 - 2018.4 => 24.1
             else actualVersion = version; //2018.1 - 2018.2 => 24
 
-            Console.WriteLine($"Using IL2CPP Metadata version {actualVersion}");
+            LibLogger.VerboseNewline($"\tDetected IL2CPP Metadata version {actualVersion}");
 
             LibCpp2IlMain.MetadataVersion = actualVersion;
 
@@ -87,129 +88,129 @@ namespace LibCpp2IL.Metadata
 
             if (metadataHeader.version < 24) throw new Exception("ERROR: Invalid metadata version, we only support v24+, this metadata is using v" + metadataHeader.version);
 
-            Console.Write("\tReading image definitions...");
+            LibLogger.Verbose("\tReading image definitions...");
             var start = DateTime.Now;
             imageDefinitions = ReadMetadataClassArray<Il2CppImageDefinition>(metadataHeader.imagesOffset, metadataHeader.imagesCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading type definitions...");
+            LibLogger.Verbose("\tReading type definitions...");
             start = DateTime.Now;
             typeDefs = ReadMetadataClassArray<Il2CppTypeDefinition>(metadataHeader.typeDefinitionsOffset, metadataHeader.typeDefinitionsCount);
-            Console.WriteLine($"{typeDefs.Length} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"{typeDefs.Length} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading interface offsets...");
+            LibLogger.Verbose("\tReading interface offsets...");
             start = DateTime.Now;
             interfaceOffsets = ReadMetadataClassArray<Il2CppInterfaceOffset>(metadataHeader.interfaceOffsetsOffset, metadataHeader.interfaceOffsetsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
-            Console.Write("\tReading vtable indices...");
+            LibLogger.Verbose("\tReading vtable indices...");
             start = DateTime.Now;
             VTableMethodIndices = ReadMetadataClassArray<uint>(metadataHeader.vtableMethodsOffset, metadataHeader.vtableMethodsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading method definitions...");
+            LibLogger.Verbose("\tReading method definitions...");
             start = DateTime.Now;
             methodDefs = ReadMetadataClassArray<Il2CppMethodDefinition>(metadataHeader.methodsOffset, metadataHeader.methodsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading method parameter definitions...");
+            LibLogger.Verbose("\tReading method parameter definitions...");
             start = DateTime.Now;
             parameterDefs = ReadMetadataClassArray<Il2CppParameterDefinition>(metadataHeader.parametersOffset, metadataHeader.parametersCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading field definitions...");
+            LibLogger.Verbose("\tReading field definitions...");
             start = DateTime.Now;
             fieldDefs = ReadMetadataClassArray<Il2CppFieldDefinition>(metadataHeader.fieldsOffset, metadataHeader.fieldsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading default field values...");
+            LibLogger.Verbose("\tReading default field values...");
             start = DateTime.Now;
             fieldDefaultValues = ReadMetadataClassArray<Il2CppFieldDefaultValue>(metadataHeader.fieldDefaultValuesOffset, metadataHeader.fieldDefaultValuesCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading default parameter values...");
+            LibLogger.Verbose("\tReading default parameter values...");
             start = DateTime.Now;
             parameterDefaultValues = ReadMetadataClassArray<Il2CppParameterDefaultValue>(metadataHeader.parameterDefaultValuesOffset, metadataHeader.parameterDefaultValuesCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading property definitions...");
+            LibLogger.Verbose("\tReading property definitions...");
             start = DateTime.Now;
             propertyDefs = ReadMetadataClassArray<Il2CppPropertyDefinition>(metadataHeader.propertiesOffset, metadataHeader.propertiesCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading interface definitions...");
+            LibLogger.Verbose("\tReading interface definitions...");
             start = DateTime.Now;
             interfaceIndices = ReadClassArrayAtRawAddr<int>(metadataHeader.interfacesOffset, metadataHeader.interfacesCount / 4);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading nested type definitions...");
+            LibLogger.Verbose("\tReading nested type definitions...");
             start = DateTime.Now;
             nestedTypeIndices = ReadClassArrayAtRawAddr<int>(metadataHeader.nestedTypesOffset, metadataHeader.nestedTypesCount / 4);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading event definitions...");
+            LibLogger.Verbose("\tReading event definitions...");
             start = DateTime.Now;
             eventDefs = ReadMetadataClassArray<Il2CppEventDefinition>(metadataHeader.eventsOffset, metadataHeader.eventsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading generic container definitions...");
+            LibLogger.Verbose("\tReading generic container definitions...");
             start = DateTime.Now;
             genericContainers = ReadMetadataClassArray<Il2CppGenericContainer>(metadataHeader.genericContainersOffset, metadataHeader.genericContainersCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.Write("\tReading generic parameter definitions...");
+            LibLogger.Verbose("\tReading generic parameter definitions...");
             start = DateTime.Now;
             genericParameters = ReadMetadataClassArray<Il2CppGenericParameter>(metadataHeader.genericParametersOffset, metadataHeader.genericParametersCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //v17+ fields
-            Console.Write("\tReading string definitions...");
+            LibLogger.Verbose("\tReading string definitions...");
             start = DateTime.Now;
             stringLiterals = ReadMetadataClassArray<Il2CppStringLiteral>(metadataHeader.stringLiteralOffset, metadataHeader.stringLiteralCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             if (LibCpp2IlMain.MetadataVersion < 24.2f)
             {
-                Console.Write("\tReading RGCTX data...");
+                LibLogger.Verbose("\tReading RGCTX data...");
                 start = DateTime.Now;
 
                 RgctxDefinitions = ReadMetadataClassArray<Il2CppRGCTXDefinition>(metadataHeader.rgctxEntriesOffset, metadataHeader.rgctxEntriesCount);
                 
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
             //Removed in v27 (2020.2)
             if (LibCpp2IlMain.MetadataVersion < 27f)
             {
-                Console.Write("\tReading usage data...");
+                LibLogger.Verbose("\tReading usage data...");
                 start = DateTime.Now;
                 metadataUsageLists = ReadMetadataClassArray<Il2CppMetadataUsageList>(metadataHeader.metadataUsageListsOffset, metadataHeader.metadataUsageListsCount);
                 metadataUsagePairs = ReadMetadataClassArray<Il2CppMetadataUsagePair>(metadataHeader.metadataUsagePairsOffset, metadataHeader.metadataUsagePairsCount);
 
                 DecipherMetadataUsage();
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
-            Console.Write("\tReading field references...");
+            LibLogger.Verbose("\tReading field references...");
             start = DateTime.Now;
             fieldRefs = ReadMetadataClassArray<Il2CppFieldRef>(metadataHeader.fieldRefsOffset, metadataHeader.fieldRefsCount);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //v21+ fields
-            Console.Write("\tReading attribute types...");
+            LibLogger.Verbose("\tReading attribute types...");
             start = DateTime.Now;
             attributeTypeRanges = ReadMetadataClassArray<Il2CppCustomAttributeTypeRange>(metadataHeader.attributesInfoOffset, metadataHeader.attributesInfoCount);
             attributeTypes = ReadClassArrayAtRawAddr<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
-            Console.Write("\tBuilding Lookup Table for field defaults...");
+            LibLogger.Verbose("\tBuilding Lookup Table for field defaults...");
             start = DateTime.Now;
             foreach (var il2CppFieldDefaultValue in fieldDefaultValues)
             {
                 _fieldDefaultValueLookup[il2CppFieldDefaultValue.fieldIndex] = il2CppFieldDefaultValue;
                 _fieldDefaultLookupNew[fieldDefs[il2CppFieldDefaultValue.fieldIndex]] = il2CppFieldDefaultValue;
             }
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
 #pragma warning restore 8618
 

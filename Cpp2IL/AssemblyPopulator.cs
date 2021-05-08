@@ -146,7 +146,7 @@ namespace Cpp2IL
                     else
                     {
                         var failedIdx = genericParams.FindIndex(g => g == null);
-                        Console.WriteLine($"\tWarning: Failed to resolve generic parameter \"{genericParamNames[failedIdx]}\" for base method override {methodDef.Name}.");
+                        Logger.WarnNewline($"\tFailed to resolve generic parameter \"{genericParamNames[failedIdx]}\" for base method override {methodDef.Name}.");
                         continue; //Move to next method.
                     }
                 }
@@ -154,7 +154,7 @@ namespace Cpp2IL
                 if (baseRef != null)
                     methodDefinition.Overrides.Add(ilTypeDefinition.Module.ImportReference(baseRef, methodDefinition));
                 else
-                    Console.WriteLine($"\tWarning: Failed to resolve base method override in type {ilTypeDefinition.FullName}: Type {baseMethodType} / Name {baseMethodName}");
+                    Logger.WarnNewline($"\tFailed to resolve base method override in type {ilTypeDefinition.FullName}: Type {baseMethodType} / Name {baseMethodName}");
             }
         }
 

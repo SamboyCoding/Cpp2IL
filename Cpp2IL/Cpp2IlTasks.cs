@@ -8,8 +8,7 @@ using System.Threading;
 using CommandLine;
 using Cpp2IL.Analysis;
 using LibCpp2IL;
-using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.Metadata;
+using LibCpp2IL.Logging;
 using Mono.Cecil;
 
 namespace Cpp2IL
@@ -21,6 +20,7 @@ namespace Cpp2IL
             "UnityCrashHandler.exe",
             "UnityCrashHandler64.exe",
             "install.exe",
+            "launch.exe",
             "MelonLoader.Installer.exe"
         };
 
@@ -60,7 +60,7 @@ namespace Cpp2IL
 
                 result.UnityVersion = DetermineUnityVersion(unityPlayerPath, Path.Combine(baseGamePath, $"{exeName}_Data"));
 
-                Console.WriteLine($"Determined game's unity version to be {string.Join(".", result.UnityVersion)}");
+                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", result.UnityVersion)}");
 
                 if (result.UnityVersion[0] <= 4)
                     throw new SoftException($"Unable to determine a valid unity version (got {result.UnityVersion.ToStringEnumerable()})");
@@ -69,7 +69,7 @@ namespace Cpp2IL
             }
             else
             {
-                Console.WriteLine("Warning: Using force options, I sure hope you know what you're doing!");
+                Logger.WarnNewline("Using force options, I sure hope you know what you're doing!");
                 result.PathToAssembly = options.ForcedBinaryPath!;
                 result.PathToMetadata = options.ForcedMetadataPath!;
                 result.UnityVersion = options.ForcedUnityVersion!.Split('.').Select(int.Parse).ToArray();
@@ -79,6 +79,7 @@ namespace Cpp2IL
             result.EnableAnalysis = !options.SkipAnalysis;
             result.EnableMetadataGeneration = !options.SkipMetadataTextFiles;
             result.EnableRegistrationPrompts = !options.DisableRegistrationPrompts;
+            result.EnableVerboseLogging = options.Verbose;
 
             result.AnalysisLevel = (Cpp2IlRuntimeArgs.EAnalysisLevel) options.AnalysisLevel;
 
@@ -123,6 +124,9 @@ namespace Cpp2IL
             //We have to have this on, despite the cost, because we need them for attribute restoration
             LibCpp2IlMain.Settings.DisableMethodPointerMapping = false;
 
+            LibLogger.Writer = new LibLogWriter();
+            LibLogger.ShowVerbose = Logger.ShowVerbose = runtimeArgs.EnableVerboseLogging;
+
             try
             {
                 if (!LibCpp2IlMain.LoadFromFile(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion))
@@ -138,7 +142,7 @@ namespace Cpp2IL
 
         public static List<AssemblyDefinition> MakeDummyDLLs(Cpp2IlRuntimeArgs runtimeArgs)
         {
-            Console.WriteLine("Building assemblies...This may take some time.");
+            Logger.InfoNewline("Building assemblies...This may take some time.");
             var start = DateTime.Now;
 
             var resolver = new RegistryAssemblyResolver();
@@ -177,15 +181,15 @@ namespace Cpp2IL
                 AssemblyPopulator.PopulateStubTypesInAssembly(imageDef);
             }
 
-            Console.WriteLine($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
-            Console.WriteLine("Fixing up explicit overrides. Any warnings you see here aren't errors - they usually indicate improperly stripped or obfuscated types, but this is not a big deal. This should only take a second...");
+            Logger.InfoNewline($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+            Logger.InfoNewline("Fixing up explicit overrides. Any warnings you see here aren't errors - they usually indicate improperly stripped or obfuscated types, but this is not a big deal. This should only take a second...");
             start = DateTime.Now;
 
             //Fixup explicit overrides.
             foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions)
                 AssemblyPopulator.FixupExplicitOverridesInAssembly(imageDef);
 
-            Console.WriteLine($"Fixup complete ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
+            Logger.InfoNewline($"Fixup complete ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
 
             return Assemblies;
         }
@@ -234,7 +238,7 @@ namespace Cpp2IL
 
         public static void AnalyseAssembly(Cpp2IlRuntimeArgs args, AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
         {
-            Console.WriteLine("Dumping method bytes to " + methodOutputDir);
+            Logger.InfoNewline("Dumping method bytes to " + methodOutputDir, "Analyze");
             Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
 
             var counter = 0;
@@ -264,7 +268,7 @@ namespace Cpp2IL
                             var elapsedSoFar = DateTime.Now - startTime;
                             var rate = counter / elapsedSoFar.TotalSeconds;
                             var remaining = toProcess.Count - counter;
-                            Console.WriteLine($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)");
+                            Logger.InfoNewline($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)", "Analyze");
                             nextThreshold = thresholds.First();
                             thresholds.RemoveAt(0);
                         }

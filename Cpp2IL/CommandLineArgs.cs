@@ -34,6 +34,9 @@ namespace Cpp2IL
         [Option("force-unity-version", Required = false, HelpText = "Override the unity version detection. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
         public string? ForcedUnityVersion { get; set; }
 
+        [Option("verbose", Required = false, HelpText = "Enable Verbose Logging.")]
+        public bool Verbose { get; set; }
+
         internal bool AreForceOptionsValid
         {
             get

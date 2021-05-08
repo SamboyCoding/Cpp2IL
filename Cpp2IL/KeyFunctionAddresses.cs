@@ -41,15 +41,6 @@ namespace Cpp2IL
             var cppAssembly = LibCpp2IlMain.Binary!;
             var ret = new KeyFunctionAddresses();
 
-            //First: The function that sets up a method, only needs to be located so we can ignore it.
-            //Many easy places to get this, but ideally we need a CLR method without any overloads so it's not ambiguous
-
-            //Chosen Target: ArgumentCache#TidyAssemblyTypeName
-            //That's in UnityEngine.CoreModule.dll but close enough
-            //I don't even know what that method does but whatever
-
-            Console.WriteLine("\t\tSearching for methods known to contain certain calls...");
-
             //Try to find System.Exception (should always be there)
             TryGetInitMetadataFromException(ret);
 
@@ -59,70 +50,67 @@ namespace Cpp2IL
             //Try use exported il2cpp_object_new
             TryUseExportedIl2CppObjectNew(ret);
 
-            Console.Write("\t\t\tLooking for Exported il2cpp_type_get_object function...");
+            Logger.Verbose("\tLooking for Exported il2cpp_type_get_object function...");
             ret.il2cpp_type_get_object = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_type_get_object");
-            Console.WriteLine($"Found at 0x{ret.il2cpp_type_get_object:X}");
+            Logger.VerboseNewline($"Found at 0x{ret.il2cpp_type_get_object:X}");
 
-            Console.Write("\t\t\tLooking for Exported il2cpp_resolve_icall function...");
+            Logger.Verbose("\tLooking for Exported il2cpp_resolve_icall function...");
             ret.il2cpp_resolve_icall = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_resolve_icall");
-            Console.WriteLine($"Found at 0x{ret.il2cpp_resolve_icall:X}");
+            Logger.VerboseNewline($"Found at 0x{ret.il2cpp_resolve_icall:X}");
 
             if (ret.il2cpp_resolve_icall != 0)
             {
-                Console.Write("\t\t\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
+                Logger.Verbose("\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
                 ret.InternalCalls_Resolve = FindFunctionThisIsAThunkOf(ret.il2cpp_resolve_icall);
-                Console.WriteLine($"Found at 0x{ret.InternalCalls_Resolve:X}");
+                Logger.VerboseNewline($"Found at 0x{ret.InternalCalls_Resolve:X}");
             }
             
-            Console.Write("\t\t\tGrabbing il2cpp_runtime_class_init from exports...");
+            Logger.Verbose("\tGrabbing il2cpp_runtime_class_init from exports...");
             ret.il2cpp_runtime_class_init_export = ((PE) cppAssembly).GetVirtualAddressOfPeExportByName("il2cpp_runtime_class_init");
-            Console.WriteLine($"Got address 0x{ret.il2cpp_runtime_class_init_export:X}");
+            Logger.VerboseNewline($"Got address 0x{ret.il2cpp_runtime_class_init_export:X}");
 
-            Console.Write("\t\t\tDisassembling to get il2cpp:vm::Runtime::ClassInit...");
+            Logger.Verbose("\tDisassembling to get il2cpp:vm::Runtime::ClassInit...");
             ret.il2cpp_runtime_class_init_actual = FindFunctionThisIsAThunkOf(ret.il2cpp_runtime_class_init_export);
-            Console.WriteLine($"Got address 0x{ret.il2cpp_runtime_class_init_actual:X}");
+            Logger.VerboseNewline($"Got address 0x{ret.il2cpp_runtime_class_init_actual:X}");
+            
+            Logger.VerboseNewline("\tGrabbing il2cpp_raise_managed_exception from exports...");
+            TryUseExportedIl2cppRaiseException(ret);
 
             //Try and find il2cpp_array_new_specific
             TryUseExportedIl2CppArrayNewSpecific(ret);
 
             //TODO: move everything else to this ^ format so we can pick-and-choose which structs we need 
 
-            Console.WriteLine("\t\t\tLooking for UnityEngine.Events.ArgumentCache$TidyAssemblyTypeName...");
+            Logger.VerboseNewline("\tLooking for UnityEngine.Events.ArgumentCache$TidyAssemblyTypeName...");
 
             List<Instruction> instructions;
             ulong addr;
 
-            Console.WriteLine("\t\t\tLooking for System.RuntimeType$GetGenericArgumentsInternal...");
+            Logger.VerboseNewline("\tLooking for System.RuntimeType$GetGenericArgumentsInternal...");
             var methods = Utils.TryLookupTypeDefKnownNotGeneric("System.RuntimeType")?.Methods;
 
             if (methods != null)
             {
                 var method = methods.FirstOrDefault(m => m.Name == "GetGenericArgumentsInternal" && m.AsUnmanaged().parameterCount == 0);
 
-                Console.WriteLine($"\t\t\t\tSearching for a call to the safe cast function near offset 0x{method.AsUnmanaged()!.MethodPointer:X}...");
+                Logger.VerboseNewline($"\t\tSearching for a call to the safe cast function near offset 0x{method.AsUnmanaged()!.MethodPointer:X}...");
 
                 instructions = Utils.DisassembleBytes(LibCpp2IlMain.Binary.is32Bit, method.AsUnmanaged().CppMethodBodyBytes.ToArray());
 
                 var calls = instructions.Where(insn => insn.Mnemonic == ud_mnemonic_code.UD_Icall).ToArray();
 
                 addr = Utils.GetJumpTarget(calls[2], method.AsUnmanaged()!.MethodPointer + calls[2].PC);
-                Console.WriteLine($"\t\t\t\tLocated il2cpp_object_is_inst function at 0x{addr:X}");
+                Logger.VerboseNewline($"\t\tLocated il2cpp_object_is_inst function at 0x{addr:X}");
                 ret.il2cpp_object_is_inst = addr;
             }
 
-            if (ret.il2cpp_raise_managed_exception == 0)
-            {
-                Console.WriteLine("\t\t\tUsing EXPORT method to find il2cpp_raise_managed_exception...");
-                TryUseExportedIl2cppRaiseException(ret);
-            }
-
-            Console.WriteLine("\t\tUsing known functions to resolve others...");
+            Logger.VerboseNewline("Using known functions to resolve others...");
 
             if (ret.il2cpp_codegen_object_new != 0)
             {
-                Console.WriteLine("\t\t\tUsing il2cpp_codegen_object_new to find il2cpp::vm::Object::New...");
+                Logger.VerboseNewline("\tUsing il2cpp_codegen_object_new to find il2cpp::vm::Object::New...");
 
-                Console.WriteLine($"\t\t\t\tDisassembling bytes at 0x{ret.il2cpp_codegen_object_new:X} and checking the first instruction is a JMP...");
+                Logger.VerboseNewline($"\t\tDisassembling bytes at 0x{ret.il2cpp_codegen_object_new:X} and checking the first instruction is a JMP...");
 
                 instructions = Utils.GetMethodBodyAtRawAddress(cppAssembly, cppAssembly.MapVirtualAddressToRaw(ret.il2cpp_codegen_object_new), true);
 
@@ -131,10 +119,10 @@ namespace Cpp2IL
                 if (shouldBeJMPToVmObjectNew.Mnemonic == ud_mnemonic_code.UD_Ijmp)
                 {
                     ret.il2cpp_vm_object_new = Utils.GetJumpTarget(shouldBeJMPToVmObjectNew, shouldBeJMPToVmObjectNew.PC + ret.il2cpp_codegen_object_new);
-                    Console.WriteLine($"\t\t\t\tSucceeded! Got address of vm::Object::New function: 0x{ret.il2cpp_vm_object_new:x}");
+                    Logger.VerboseNewline($"\t\tSucceeded! Got address of vm::Object::New function: 0x{ret.il2cpp_vm_object_new:x}");
                 }
                 else
-                    Console.WriteLine($"\t\t\t\tFailed! Expecting a JMP instruction, but it was a {shouldBeJMPToVmObjectNew.Mnemonic}. Direct vm::Object::New calls will not be accounted for!");
+                    Logger.VerboseNewline($"\t\tFailed! Expecting a JMP instruction, but it was a {shouldBeJMPToVmObjectNew.Mnemonic}. Direct vm::Object::New calls will not be accounted for!");
             }
 
             return ret;
@@ -143,16 +131,16 @@ namespace Cpp2IL
         private static void TryGetInitMetadataFromException(KeyFunctionAddresses ret)
         {
             //Exception.get_Message() - first call is either to codegen_initialize_method (< v27) or codegen_initialize_runtime_metadata
-            Console.WriteLine("\t\t\tLooking for Type System.Exception, Method get_Message...");
+            Logger.VerboseNewline("\tLooking for Type System.Exception, Method get_Message...");
 
             var type = Utils.TryLookupTypeDefKnownNotGeneric("System.Exception");
             if (type != null)
             {
-                Console.WriteLine("\t\t\t\tType Located. Ensuring method exists...");
+                Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
                 var targetMethod = type.Methods.FirstOrDefault(m => m.Name == "get_Message");
                 if (targetMethod != null) //Check struct contains valid data 
                 {
-                    Console.WriteLine("\t\t\t\tTarget Method Located. Taking first CALL as the (version-specific) metadata initialization function...");
+                    Logger.VerboseNewline("\t\tTarget Method Located. Taking first CALL as the (version-specific) metadata initialization function...");
 
                     var disasm = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, targetMethod.AsUnmanaged().CppMethodBodyBytes, targetMethod.AsUnmanaged().MethodPointer);
                     var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
@@ -160,12 +148,12 @@ namespace Cpp2IL
                     if (LibCpp2IlMain.MetadataVersion < 27)
                     {
                         ret.il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
-                        Console.WriteLine($"\t\t\t\til2cpp_codegen_initialize_method => 0x{ret.il2cpp_codegen_initialize_method:X}");
+                        Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_method => 0x{ret.il2cpp_codegen_initialize_method:X}");
                     }
                     else
                     {
                         ret.il2cpp_codegen_initialize_runtime_metadata = calls.First().NearBranchTarget;
-                        Console.WriteLine($"\t\t\t\til2cpp_codegen_initialize_runtime_metadata => 0x{ret.il2cpp_codegen_initialize_runtime_metadata:X}");
+                        Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_runtime_metadata => 0x{ret.il2cpp_codegen_initialize_runtime_metadata:X}");
                     }
                 }
             }
@@ -177,15 +165,15 @@ namespace Cpp2IL
             //    -il2cpp_codegen_initialize_method
             //    -il2cpp_codegen_object_new
             //    -il2cpp_raise_managed_exception
-            Console.WriteLine("\t\t\tLooking for Type System.Array/ArrayEnumerator, Method get_Current...");
+            Logger.VerboseNewline("\tLooking for Type System.Array/ArrayEnumerator, Method get_Current...");
             var type = Utils.TryLookupTypeDefKnownNotGeneric("System.Array/ArrayEnumerator");
             if (type != null)
             {
-                Console.WriteLine("\t\t\t\tType Located. Ensuring method exists...");
+                Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
                 var targetMethod = type.Methods.FirstOrDefault(m => m.Name == "get_Current");
                 if (targetMethod != null)
                 {
-                    Console.WriteLine("\t\t\t\tTarget Method Located. Ensuring signature matches what we're expecting...");
+                    Logger.VerboseNewline("\t\tTarget Method Located. Ensuring signature matches what we're expecting...");
                     var disasm = Utils.DisassembleBytes(LibCpp2IlMain.Binary.is32Bit, targetMethod.AsUnmanaged().CppMethodBodyBytes.ToArray());
 
                     var callInstructions = disasm.Where(i => i.Mnemonic == ud_mnemonic_code.UD_Icall).ToList();
@@ -219,7 +207,7 @@ namespace Cpp2IL
 
                     if (shouldBeO_GT?.Name == "GetType" && shouldBeT_GIP?.Name == "get_IsPointer" && shouldBeIOE_C?.Name == ".ctor")
                     {
-                        Console.WriteLine("\t\t\t\tChecks passed, pulling pointers...");
+                        Logger.VerboseNewline("\t\tChecks passed, pulling pointers...");
 
                         if (LibCpp2IlMain.MetadataVersion < 27)
                             ret.il2cpp_codegen_initialize_method = potentialCIM;
@@ -243,67 +231,67 @@ namespace Cpp2IL
                             ret.il2cpp_codegen_initialize_method = 0;
                         }
 
-                        Console.WriteLine("\t\t\t\tObtained 3 pointers, to il2cpp_codegen_initialize_method, il2cpp_codegen_object_new, and il2cpp_raise_managed_exception");
+                        Logger.VerboseNewline("\t\tObtained 3 pointers, to il2cpp_codegen_initialize_method, il2cpp_codegen_object_new, and il2cpp_raise_managed_exception");
                     }
                     else
-                        Console.WriteLine($"\t\t\t\tMethod does not match expected signature (got {shouldBeO_GT?.FullName} / {shouldBeT_GIP?.FullName} / {shouldBeIOE_C?.FullName}), not using.");
+                        Logger.VerboseNewline($"\t\tMethod does not match expected signature (got {shouldBeO_GT?.FullName} / {shouldBeT_GIP?.FullName} / {shouldBeIOE_C?.FullName}), not using.");
                 }
                 else
-                    Console.WriteLine("\t\t\t\tMethod not present, not using.");
+                    Logger.VerboseNewline("\t\tMethod not present, not using.");
             }
             else
-                Console.WriteLine("\t\t\t\tType not present, not using.");
+                Logger.VerboseNewline("\t\tType not present, not using.");
         }
 
         private static void TryUseExportedIl2CppObjectNew(KeyFunctionAddresses ret)
         {
-            Console.Write("\t\t\tLooking for exported il2cpp_object_new function...");
+            Logger.Verbose("\tLooking for exported il2cpp_object_new function...");
             var address = ((PE) LibCpp2IlMain.Binary).GetVirtualAddressOfPeExportByName("il2cpp_object_new");
-            Console.WriteLine($"Found at 0x{address:X}");
+            Logger.VerboseNewline($"Found at 0x{address:X}");
 
-            Console.Write("\t\t\t\tSearching for a CALL to vm::Object::New...");
+            Logger.Verbose("\t\tSearching for a CALL to vm::Object::New...");
             var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, address, true);
             try
             {
                 var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Call);
 
                 ret.il2cpp_vm_object_new = matchingCall.NearBranchTarget;
-                Console.WriteLine($"Located address of il2cpp::vm::Object::New: 0x{ret.il2cpp_vm_object_new:X}");
+                Logger.VerboseNewline($"Located address of il2cpp::vm::Object::New: 0x{ret.il2cpp_vm_object_new:X}");
 
-                Console.Write("\t\t\t\tLooking for a solo unconditional jump to Object::New...");
+                Logger.Verbose("\t\tLooking for a solo unconditional jump to Object::New...");
 
                 ret.il2cpp_codegen_object_new = FindThunkFunction(ret.il2cpp_vm_object_new);
-                Console.WriteLine($"Found il2cpp_codegen_object_new at 0x{ret.il2cpp_codegen_object_new:X}");
+                Logger.VerboseNewline($"Found il2cpp_codegen_object_new at 0x{ret.il2cpp_codegen_object_new:X}");
             }
             catch (Exception)
             {
-                Console.WriteLine("\t\t\t\tCould not find or disassemble call. Failed to find il2cpp_object_new.");
+                Logger.VerboseNewline("\t\tCould not find or disassemble call. Failed to find il2cpp_object_new.");
             }
         }
 
         private static void TryUseExportedIl2CppArrayNewSpecific(KeyFunctionAddresses ret)
         {
-            Console.Write("\t\t\tLooking for exported il2cpp_array_new_specific function...");
+            Logger.Verbose("\tLooking for exported il2cpp_array_new_specific function...");
             ret.il2cpp_array_new_specific = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_array_new_specific");
-            Console.WriteLine($"Found at 0x{ret.il2cpp_array_new_specific:X}");
+            Logger.VerboseNewline($"Found at 0x{ret.il2cpp_array_new_specific:X}");
 
-            Console.Write("\t\t\t\tSearching for a JMP to vm::Array::NewSpecific...");
+            Logger.Verbose("\t\tSearching for a JMP to vm::Array::NewSpecific...");
             var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, ret.il2cpp_array_new_specific, true);
             try
             {
                 var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Jmp);
 
                 ret.il2cpp_vm_array_new_specific = matchingCall.NearBranchTarget;
-                Console.WriteLine($"Located address of il2cpp::vm::Array::NewSpecific: 0x{ret.il2cpp_vm_object_new:X}");
+                Logger.VerboseNewline($"Located address of il2cpp::vm::Array::NewSpecific: 0x{ret.il2cpp_vm_object_new:X}");
 
-                Console.Write("\t\t\t\tLooking for a thunk function proxying Array::NewSpecific...");
+                Logger.Verbose("\t\tLooking for a thunk function proxying Array::NewSpecific...");
 
                 ret.SzArrayNew = FindThunkFunction(ret.il2cpp_vm_array_new_specific, 4, ret.il2cpp_array_new_specific);
-                Console.WriteLine($"Found SzArrayNew at 0x{ret.SzArrayNew:X}");
+                Logger.VerboseNewline($"Found SzArrayNew at 0x{ret.SzArrayNew:X}");
             }
             catch (Exception)
             {
-                Console.WriteLine("\t\t\t\tCould not find or disassemble call. Failed to find vm::Array::NewSpecific.");
+                Logger.VerboseNewline("\t\tCould not find or disassemble call. Failed to find vm::Array::NewSpecific.");
             }
         }
 
@@ -349,17 +337,17 @@ namespace Cpp2IL
 
         private static void TryUseExportedIl2cppRaiseException(KeyFunctionAddresses ret)
         {
-            Console.Write("\t\t\t\tLooking for exported il2cpp_raise_exception function...");
+            Logger.Verbose("\t\tLooking for exported il2cpp_raise_exception function...");
             var address = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_raise_exception");
-            Console.WriteLine($"Found at 0x{address:X}");
+            Logger.VerboseNewline($"Found at 0x{address:X}");
 
-            Console.WriteLine("\t\t\t\tSearching for a CALL to il2cpp_raise_managed_exception...");
+            Logger.VerboseNewline("\t\tSearching for a CALL to il2cpp_raise_managed_exception...");
             ret.il2cpp_raise_managed_exception = FindFunctionThisIsAThunkOf(address);
             
             if (ret.il2cpp_raise_managed_exception != 0)
-                Console.WriteLine($"\t\t\tLocated address of il2cpp_raise_managed_exception: 0x{ret.il2cpp_raise_managed_exception:X}");
+                Logger.VerboseNewline($"\tLocated address of il2cpp_raise_managed_exception: 0x{ret.il2cpp_raise_managed_exception:X}");
             else
-                Console.WriteLine("\t\t\t\tCould not find or disassemble call. Failed to find il2cpp_raise_managed_exception.");
+                Logger.VerboseNewline("\t\tCould not find or disassemble call. Failed to find il2cpp_raise_managed_exception.");
         }
 
         private static ulong FindFunctionThisIsAThunkOf(ulong thunkPtr)

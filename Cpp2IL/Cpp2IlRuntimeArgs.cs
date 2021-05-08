@@ -15,6 +15,8 @@
         public bool EnableMetadataGeneration;
         public bool EnableRegistrationPrompts;
 
+        public bool EnableVerboseLogging;
+
         public EAnalysisLevel AnalysisLevel;
 
         public enum EAnalysisLevel

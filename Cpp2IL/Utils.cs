@@ -420,7 +420,7 @@ namespace Cpp2IL
             if (primitiveTypeMappings.ContainsKey(name))
                 return new Tuple<TypeDefinition?, string[]>(primitiveTypeMappings[name], Array.Empty<string>());
 
-            var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
+            var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t?.FullName, name, StringComparison.OrdinalIgnoreCase));
 
             if (name.EndsWith("[]"))
             {

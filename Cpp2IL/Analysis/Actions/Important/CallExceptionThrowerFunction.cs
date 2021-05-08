@@ -62,7 +62,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 var type = Utils.TryLookupTypeDefKnownNotGeneric(@namespace + "." + exceptionName);
                 if (type != null)
                 {
-                    Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {type.FullName}");
+                    Logger.VerboseNewline($"Identified direct exception thrower: 0x{addr:X} throws {type.FullName}", "Analyze");
                     ExceptionThrowers[addr] = type;
                     return true;
                 }

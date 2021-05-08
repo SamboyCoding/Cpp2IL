@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Elf;
+using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -126,16 +127,16 @@ namespace LibCpp2IL
         {
             var start = DateTime.Now;
             
-            Console.WriteLine("Initializing Metadata...");
+            LibLogger.InfoNewline("Initializing Metadata...");
             
             TheMetadata = Il2CppMetadata.ReadFrom(metadataBytes, unityVersion);
             
-            Console.WriteLine($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+            LibLogger.InfoNewline($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (TheMetadata == null)
                 return false;
 
-            Console.WriteLine("Searching Binary for Required Data...");
+            LibLogger.InfoNewline("Searching Binary for Required Data...");
             start = DateTime.Now;
 
             ulong codereg, metareg;
@@ -159,25 +160,26 @@ namespace LibCpp2IL
             if (codereg == 0 || metareg == 0)
                 throw new Exception("Failed to find Binary code or metadata registration");
                 
-            Console.WriteLine($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.\nInitializing Binary...");
+            LibLogger.InfoNewline($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.");
+            LibLogger.InfoNewline("Initializing Binary...");
             start = DateTime.Now;
                 
             Binary.Init(codereg, metareg);
             
-            Console.WriteLine($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+            LibLogger.InfoNewline($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (!Settings.DisableGlobalResolving && MetadataVersion < 27)
             {
                 start = DateTime.Now;
-                Console.Write("Mapping Globals...");
+                LibLogger.Info("Mapping Globals...");
                 LibCpp2IlGlobalMapper.MapGlobalIdentifiers(TheMetadata, Binary);
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
+                LibLogger.InfoNewline($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
             }
 
             if (!Settings.DisableMethodPointerMapping)
             {
                 start = DateTime.Now;
-                Console.Write("Mapping pointers to Il2CppMethodDefinitions...");
+                LibLogger.Info("Mapping pointers to Il2CppMethodDefinitions...");
                 foreach (var (method, ptr) in TheMetadata.methodDefs.AsParallel().Select(method => (method, ptr: method.MethodPointer)))
                 {
                     if (!MethodsByPtr.ContainsKey(ptr))
@@ -186,7 +188,7 @@ namespace LibCpp2IL
                     MethodsByPtr[ptr].Add(method);
                 }
 
-                Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
+                LibLogger.InfoNewline($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
             }
 
             return true;

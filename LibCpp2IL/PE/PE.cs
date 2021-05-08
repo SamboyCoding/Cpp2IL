@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Iced.Intel;
+using LibCpp2IL.Logging;
 
 namespace LibCpp2IL.PE
 {
@@ -33,7 +34,7 @@ namespace LibCpp2IL.PE
         public PE(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
         {
             raw = input.GetBuffer();
-            Console.Write("Reading PE File Header...");
+            LibLogger.Verbose("\tReading PE File Header...");
             var start = DateTime.Now;
 
             if (ReadUInt16() != 0x5A4D) //Magic number
@@ -82,21 +83,11 @@ namespace LibCpp2IL.PE
                 };
             }
 
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            Console.WriteLine($"\tImage Base at 0x{peImageBase:X}");
-            Console.WriteLine($"\tDLL is {(is32Bit ? "32" : "64")}-bit");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"\t\tImage Base at 0x{peImageBase:X}");
+            LibLogger.VerboseNewline($"\t\tDLL is {(is32Bit ? "32" : "64")}-bit");
         }
 #pragma warning restore 8618
-
-        private bool AutoInit(ulong pCodeRegistration, ulong pMetadataRegistration)
-        {
-            Console.WriteLine($"\tCodeRegistration : 0x{pCodeRegistration:x}");
-            Console.WriteLine($"\tMetadataRegistration : 0x{pMetadataRegistration:x}");
-            if (pCodeRegistration == 0 || pMetadataRegistration == 0) return false;
-
-            Init(pCodeRegistration, pMetadataRegistration);
-            return true;
-        }
 
         public override long MapVirtualAddressToRaw(ulong uiAddr)
         {
@@ -132,23 +123,23 @@ namespace LibCpp2IL.PE
             ulong pCodeRegistration = 0;
             ulong pMetadataRegistration;
 
-            Console.WriteLine("Attempting to locate code and metadata registration functions...");
+            LibLogger.VerboseNewline("\tAttempting to locate code and metadata registration functions...");
 
             var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount);
 
-            Console.WriteLine("\t-Searching for MetadataReg...");
+            LibLogger.VerboseNewline("\t\t-Searching for MetadataReg...");
             
             pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 27f 
                 ? plusSearch.FindMetadataRegistrationPre27() 
                 : plusSearch.FindMetadataRegistrationPost27();
 
-            Console.WriteLine("\t-Searching for CodeReg...");
+            LibLogger.VerboseNewline("\t\t-Searching for CodeReg...");
 
             if (pCodeRegistration == 0)
             {
                 if (LibCpp2IlMain.MetadataVersion >= 24.2f)
                 {
-                    Console.WriteLine("\t\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
+                    LibLogger.VerboseNewline("\t\t\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
                     pCodeRegistration = plusSearch.FindCodeRegistrationPost2019();
                 }
                 else
