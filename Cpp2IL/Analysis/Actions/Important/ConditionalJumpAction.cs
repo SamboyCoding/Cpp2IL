@@ -25,7 +25,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                     context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
             }
 
-            associatedCompare = (ComparisonAction) context.Actions.LastOrDefault(a => a is ComparisonAction);
+            associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
 
             if (associatedCompare?.ArgumentOne is LocalDefinition l)
                 RegisterUsedLocal(l);
@@ -48,7 +48,10 @@ namespace Cpp2IL.Analysis.Actions.Important
                 isIfElse = true;
 
                 if (associatedCompare?.unimportantComparison == false)
+                {
+                    AddComment($"Increasing indentation - is if-else, unimportant is {associatedCompare?.unimportantComparison}");
                     context.IndentLevel += 1;
+                }
             }
             else if (associatedCompare?.IsProbablyWhileLoop() == true)
             {
@@ -56,15 +59,23 @@ namespace Cpp2IL.Analysis.Actions.Important
                 isWhile = true;
 
                 if (associatedCompare?.unimportantComparison == false)
+                {
+                    AddComment($"Increasing indentation - is while loop, unimportant is {associatedCompare?.unimportantComparison}");
                     context.IndentLevel += 1;
+                }
             }
             else if (associatedCompare?.unimportantComparison == false)
             {
                 //Just an if. No else, no while.
                 context.RegisterIfStatement(instruction.NextIP, jumpTarget, this);
 
+                isIfStatement = true;
+
                 if (associatedCompare?.unimportantComparison == false)
+                {
+                    AddComment($"Increasing indentation - is standard if, unimportant is {associatedCompare?.unimportantComparison}");
                     context.IndentLevel += 1;
+                }
             }
         }
 
