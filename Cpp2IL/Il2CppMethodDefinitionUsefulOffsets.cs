@@ -18,17 +18,14 @@ namespace Cpp2IL
             //64-bit offsets:
             new UsefulOffset("slot", X86_64_SLOT_OFFSET, typeof(ushort), false),
             new UsefulOffset("klass", 0x18, typeof(IntPtr), false),
+            
+            //TODO What *exactly* is this and when is it present? Found in Audica - TargetSpawnerLayoutUtil#UpdatePositions.
+            new UsefulOffset("methodPtr", 0x30, typeof(IntPtr), false),
         };
 
-        public static bool IsSlotOffset(uint offset)
-        {
-            return GetOffsetName(offset) == "slot";
-        }
-
-        public static bool IsKlassPtr(uint offset)
-        {
-            return GetOffsetName(offset) == "klass";
-        }
+        public static bool IsSlotOffset(uint offset) => GetOffsetName(offset) == "slot";
+        public static bool IsKlassPtr(uint offset) => GetOffsetName(offset) == "klass";
+        public static bool IsMethodPtr(uint offset) => GetOffsetName(offset) == "methodPtr";
 
         public static string? GetOffsetName(uint offset)
         {

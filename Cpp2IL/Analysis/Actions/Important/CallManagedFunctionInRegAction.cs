@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 regName = Utils.GetRegisterNameNew(instruction.Op0Register);
             
             var operand = context.GetConstantInReg(regName);
-            ManagedMethodBeingCalled = (MethodDefinition?) operand?.Value;
+            ManagedMethodBeingCalled = (MethodReference?) operand?.Value;
             
             if(ManagedMethodBeingCalled == null)
                 return;

@@ -340,7 +340,7 @@ namespace Cpp2IL
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine("Failed to dump methods for type " + type.Name + " " + e);
+                    Logger.WarnNewline("Failed to dump methods for type " + type.Name + " " + e, "Analyze");
                 }
             }
 
@@ -350,7 +350,7 @@ namespace Cpp2IL
                 toProcess.ForEach(ProcessType);
 
             var elapsed = DateTime.Now - startTime;
-            Console.WriteLine($"Finished processing {successfullyProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec");
+            Logger.InfoNewline($"Finished processing {successfullyProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec", "Analyze");
         }
     }
 }

@@ -13,7 +13,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         protected bool isIfElse;
         protected bool isWhile;
         protected ulong jumpTarget;
-        
+
         protected ConditionalJumpAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             jumpTarget = instruction.NearBranchTarget;
@@ -21,24 +21,24 @@ namespace Cpp2IL.Analysis.Actions.Important
             if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
             {
                 isIfStatement = true;
-                if(!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
+                if (!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
                     context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
             }
 
             associatedCompare = (ComparisonAction) context.Actions.LastOrDefault(a => a is ComparisonAction);
-            
-            if(associatedCompare?.ArgumentOne is LocalDefinition l)
+
+            if (associatedCompare?.ArgumentOne is LocalDefinition l)
                 RegisterUsedLocal(l);
-            else if(associatedCompare?.ArgumentOne is ComparisonDirectFieldAccess a)
+            else if (associatedCompare?.ArgumentOne is ComparisonDirectFieldAccess a)
                 RegisterUsedLocal(a.localAccessedOn);
-            else if(associatedCompare?.ArgumentOne is ComparisonDirectPropertyAccess p)
+            else if (associatedCompare?.ArgumentOne is ComparisonDirectPropertyAccess p)
                 RegisterUsedLocal(p.localAccessedOn);
-            
-            if(associatedCompare?.ArgumentTwo is LocalDefinition l2)
+
+            if (associatedCompare?.ArgumentTwo is LocalDefinition l2)
                 RegisterUsedLocal(l2);
-            else if(associatedCompare?.ArgumentTwo is ComparisonDirectFieldAccess a2)
+            else if (associatedCompare?.ArgumentTwo is ComparisonDirectFieldAccess a2)
                 RegisterUsedLocal(a2.localAccessedOn);
-            else if(associatedCompare?.ArgumentTwo is ComparisonDirectPropertyAccess p2)
+            else if (associatedCompare?.ArgumentTwo is ComparisonDirectPropertyAccess p2)
                 RegisterUsedLocal(p2.localAccessedOn);
 
             if (context.IsThereProbablyAnElseAt(jumpTarget))
@@ -46,18 +46,25 @@ namespace Cpp2IL.Analysis.Actions.Important
                 //If-Else
                 context.RegisterIfElseStatement(instruction.NextIP, jumpTarget, this);
                 isIfElse = true;
-                context.IndentLevel += 1;
-            } else if (associatedCompare?.IsProbablyWhileLoop() == true)
+
+                if (associatedCompare?.unimportantComparison == false)
+                    context.IndentLevel += 1;
+            }
+            else if (associatedCompare?.IsProbablyWhileLoop() == true)
             {
                 //While loop
                 isWhile = true;
-                context.IndentLevel += 1;
+
+                if (associatedCompare?.unimportantComparison == false)
+                    context.IndentLevel += 1;
             }
-            else if(associatedCompare?.unimportantComparison == false)
+            else if (associatedCompare?.unimportantComparison == false)
             {
                 //Just an if. No else, no while.
                 context.RegisterIfStatement(instruction.NextIP, jumpTarget, this);
-                context.IndentLevel += 1;
+
+                if (associatedCompare?.unimportantComparison == false)
+                    context.IndentLevel += 1;
             }
         }
 
@@ -79,7 +86,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             return associatedCompare?.ArgumentTwo == null ? "" : associatedCompare.ArgumentTwo.GetPseudocodeRepresentation();
         }
-        
+
         public override string? ToPsuedoCode()
         {
             return isWhile ? $"while {GetPseudocodeCondition()}" : $"if {GetPseudocodeCondition()}";
@@ -98,15 +105,15 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             if (associatedCompare?.ArgumentOne == null || associatedCompare.ArgumentTwo == null)
                 throw new TaintedInstructionException();
-            
+
             var ret = new List<Mono.Cecil.Cil.Instruction>();
             var dummyTarget = processor.Create(OpCodes.Nop);
-            
+
             ret.AddRange(associatedCompare.ArgumentOne.GetILToLoad(context, processor));
-            
-            if(!OnlyNeedToLoadOneOperand())
+
+            if (!OnlyNeedToLoadOneOperand())
                 ret.AddRange(associatedCompare.ArgumentTwo.GetILToLoad(context, processor));
-            
+
             //Will have to be swapped to correct one in post-processing.
             ret.Add(processor.Create(GetJumpOpcode(), dummyTarget));
 

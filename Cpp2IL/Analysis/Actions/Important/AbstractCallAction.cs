@@ -5,6 +5,7 @@ using System.Text;
 using Cpp2IL.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Analysis.Actions.Important
@@ -58,7 +59,12 @@ namespace Cpp2IL.Analysis.Actions.Important
                 }
             }
 
-            ret.Append('.').Append(ManagedMethodBeingCalled?.Name).Append('(');
+            ret.Append('.').Append(ManagedMethodBeingCalled?.Name);
+
+            if (ManagedMethodBeingCalled is GenericInstanceMethod gim)
+                ret.Append('<').Append(string.Join(", ", gim.GenericArguments)).Append('>');
+            
+            ret.Append('(');
 
             if (Arguments != null && Arguments.Count > 0)
                 ret.Append(string.Join(", ", GetReadableArguments()));
@@ -115,21 +121,14 @@ namespace Cpp2IL.Analysis.Actions.Important
         {
             if (ManagedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
             {
-                if (returnType is GenericParameter gp && InstanceBeingCalledOn?.Type != null)
+                if (returnType is ArrayType arr)
                 {
-                    returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, InstanceBeingCalledOn.Type, ManagedMethodBeingCalled);
+                    if (arr.ElementType != null)
+                        returnType = ResolveGenericReturnTypeIfNeeded(arr.ElementType).MakeArrayType(arr.Rank);
                 }
-
-                if (returnType is GenericInstanceType git)
+                else
                 {
-                    try
-                    {
-                        returnType = GenericInstanceUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled, InstanceBeingCalledOn?.Type, Arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? new TypeReference[0]);
-                    }
-                    catch (Exception e)
-                    {
-                        AddComment("Failed to resolve return type generic arguments.");
-                    }
+                    returnType = ResolveGenericReturnTypeIfNeeded(returnType);
                 }
 
                 var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
@@ -138,6 +137,28 @@ namespace Cpp2IL.Analysis.Actions.Important
                 //todo maybe improve?
                 RegisterUsedLocal(ReturnedLocal);
             }
+        }
+
+        private TypeReference ResolveGenericReturnTypeIfNeeded(TypeReference returnType)
+        {
+            if (returnType is GenericParameter gp)
+            {
+                returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, InstanceBeingCalledOn?.Type, ManagedMethodBeingCalled) ?? returnType;
+            }
+
+            if (returnType is GenericInstanceType git)
+            {
+                try
+                {
+                    returnType = GenericInstanceUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled!, InstanceBeingCalledOn?.Type, Arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? Array.Empty<TypeReference>());
+                }
+                catch (Exception)
+                {
+                    AddComment("Failed to resolve return type generic arguments.");
+                }
+            }
+
+            return returnType;
         }
 
         protected void RegisterLocals()
