@@ -582,6 +582,9 @@ namespace Cpp2IL.Analysis
 
             if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd)
                 mnemonic = Mnemonic.Mov;
+            
+            //Noting here, format of a memory operand is:
+            //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
 
             switch (mnemonic)
             {
@@ -710,12 +713,17 @@ namespace Cpp2IL.Analysis
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {Type: {IsArray: true}}:
                 case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {Type: {IsArray: true}}:
                     //Move reg, [reg+0x10]
-                    //Reading a field from an array at a fixed offset
+                    //Reading an element from an array at a fixed offset
                     if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new ConstantArrayOffsetToRegAction(Analysis, instruction));
                     }
 
+                    break;
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex != Register.None && instruction.MemoryDisplacement32 == Il2CppArrayUtils.FirstItemOffset && memOp is LocalDefinition {Type: {IsArray: true}}:
+                    //Mov reg, [reg + index * value + 20h]
+                    //Array read of index-th element (assuming value is equal to sizeof(elementType) )
+                    Analysis.Actions.Add(new ArrayElementReadToRegAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex != Register.None && memIdxOp is LocalDefinition {Type: {IsArray: true}}:
                     //Move reg, [reg+reg] => usually array reads.
