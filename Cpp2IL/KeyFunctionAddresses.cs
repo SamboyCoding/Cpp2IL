@@ -250,7 +250,7 @@ namespace Cpp2IL
             Logger.VerboseNewline($"Found at 0x{address:X}");
 
             Logger.Verbose("\t\tSearching for a CALL to vm::Object::New...");
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, address, true);
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(address, true);
             try
             {
                 var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Call);
@@ -276,7 +276,7 @@ namespace Cpp2IL
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_array_new_specific:X}");
 
             Logger.Verbose("\t\tSearching for a JMP to vm::Array::NewSpecific...");
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, ret.il2cpp_array_new_specific, true);
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(ret.il2cpp_array_new_specific, true);
             try
             {
                 var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Jmp);
@@ -352,7 +352,7 @@ namespace Cpp2IL
 
         private static ulong FindFunctionThisIsAThunkOf(ulong thunkPtr)
         {
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary!, thunkPtr, true);
+            var instructions = Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
 
             try
             {

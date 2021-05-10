@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
+using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -12,6 +13,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         protected bool isIfStatement;
         protected bool isIfElse;
         protected bool isWhile;
+        protected bool isImplicitNullReferenceException;
         protected ulong jumpTarget;
 
         protected ConditionalJumpAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
@@ -24,8 +26,23 @@ namespace Cpp2IL.Analysis.Actions.Important
                 if (!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
                     context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
             }
-
+            
             associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
+
+            if (jumpTarget > context.AbsoluteMethodEnd)
+            {
+                var body = Utils.GetMethodBodyAtVirtAddressNew(jumpTarget, true);
+
+                if (body.Count > 0 && body[0].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[0].NearBranchTarget))
+                {
+                    if (CallExceptionThrowerFunction.GetExceptionThrown(body[0].NearBranchTarget)?.Name == "NullReferenceException")
+                    {
+                        //Simply an NRE thrower. Important in cpp code, not in managed.
+                        isImplicitNullReferenceException = true;
+                        return; //Do not increase indent, do not register used local, do not pass go, do not collect $200.
+                    }
+                }
+            }
 
             if (associatedCompare?.ArgumentOne is LocalDefinition l)
                 RegisterUsedLocal(l);
@@ -85,7 +102,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override bool IsImportant()
         {
-            return associatedCompare?.unimportantComparison == false && (isIfElse || isWhile || isIfStatement);
+            return !isImplicitNullReferenceException && associatedCompare?.unimportantComparison == false && (isIfElse || isWhile || isIfStatement);
         }
 
         protected string GetArgumentOnePseudocodeValue()
@@ -105,6 +122,9 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string ToTextSummary()
         {
+            if (isImplicitNullReferenceException)
+                return $"Jumps to 0x{jumpTarget:X} (which throws a NRE) if {GetTextSummaryCondition()}. Implicitly present in managed code, so ignored here.";
+            
             return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {GetTextSummaryCondition()}\n";
         }
 

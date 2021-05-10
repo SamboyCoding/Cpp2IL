@@ -57,7 +57,7 @@ namespace Cpp2IL.Analysis
             _methodEnd = _instructions.LastOrDefault().NextIP;
             if (_methodEnd == 0) _methodEnd = methodPointer;
 
-            Analysis = new MethodAnalysis(methodPointer, _methodEnd, _instructions);
+            Analysis = new MethodAnalysis(methodPointer, _methodEnd, _instructions, keyFunctionAddresses);
         }
 
         internal AsmAnalyzer(MethodDefinition methodDefinition, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses)
@@ -82,7 +82,7 @@ namespace Cpp2IL.Analysis
             _methodEnd = _instructions.LastOrDefault().NextIP;
             if (_methodEnd == 0) _methodEnd = methodStart;
 
-            Analysis = new MethodAnalysis(_methodDefinition, methodStart, _methodEnd, _instructions);
+            Analysis = new MethodAnalysis(_methodDefinition, methodStart, _methodEnd, _instructions, keyFunctionAddresses);
         }
 
         internal void AddParameter(TypeDefinition type, string name)
@@ -586,6 +586,11 @@ namespace Cpp2IL.Analysis
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
 
+            if (instruction.IP == 0x180365151)
+            {
+                Console.WriteLine("a");
+            }
+
             switch (mnemonic)
             {
                 case Mnemonic.Mov when !_cppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():
@@ -717,6 +722,9 @@ namespace Cpp2IL.Analysis
                     if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new ConstantArrayOffsetToRegAction(Analysis, instruction));
+                    } else if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
+                    {
+                        Analysis.Actions.Add(new ArrayLengthPropertyToLocalAction(Analysis, instruction));
                     }
 
                     break;

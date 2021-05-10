@@ -13,6 +13,8 @@ namespace Cpp2IL.Analysis.ResultModels
 {
     public class MethodAnalysis
     {
+        public KeyFunctionAddresses KeyFunctionAddresses { get; }
+        
         public readonly List<LocalDefinition> Locals = new List<LocalDefinition>();
         public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
         public List<BaseAction> Actions = new List<BaseAction>();
@@ -45,11 +47,12 @@ namespace Cpp2IL.Analysis.ResultModels
         public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
 
         //For analysing cpp-only methods, like attribute generators
-        internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions)
+        internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions, KeyFunctionAddresses keyFunctionAddresses)
         {
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
             _allInstructions = allInstructions;
+            KeyFunctionAddresses = keyFunctionAddresses;
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
             
             //Can't handle params - we don't have any - but can populate reg list if needed.
@@ -57,12 +60,13 @@ namespace Cpp2IL.Analysis.ResultModels
                 _parameterDestRegList = new List<string> {"rcx", "rdx", "r8", "r9"};
         }
 
-        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions)
+        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions, KeyFunctionAddresses keyFunctionAddresses)
         {
             _method = method;
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
             _allInstructions = allInstructions;
+            KeyFunctionAddresses = keyFunctionAddresses;
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
 
             var args = method.Parameters.ToList();

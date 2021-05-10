@@ -16,16 +16,15 @@ namespace Cpp2IL.Analysis.Actions.Important
         private static readonly Dictionary<ulong, TypeDefinition?> ExceptionThrowers = new Dictionary<ulong, TypeDefinition>();
         private TypeDefinition? _exceptionType;
 
-        public static bool IsExceptionThrower(ulong addr, int recurseCount = 0)
+        private static void CheckForExceptionThrower(ulong addr, int recurseCount)
         {
-            if (recurseCount > 4) return false;
-
-            if (ExceptionThrowers.ContainsKey(addr))
+            if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(addr, out _))
             {
-                return ExceptionThrowers[addr] != null;
+                ExceptionThrowers[addr] = null;
+                return;
             }
 
-            var body = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, addr, true);
+            var body = Utils.GetMethodBodyAtVirtAddressNew(addr, true);
             List<string?> strings;
             if (LibCpp2IlMain.Binary.is32Bit)
             {
@@ -64,7 +63,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 {
                     Logger.VerboseNewline($"Identified direct exception thrower: 0x{addr:X} throws {type.FullName}", "Analyze");
                     ExceptionThrowers[addr] = type;
-                    return true;
+                    return;
                 }
             }
 
@@ -77,13 +76,33 @@ namespace Cpp2IL.Analysis.Actions.Important
                 {
                     ExceptionThrowers[addr] = ExceptionThrowers[secondaryAddr];
                     // Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {ExceptionThrowers[addr]?.FullName} because 0x{secondaryAddr:X} does.");
-                    return true;
+                    return;
                 }
             }
 
             //Mark not a thrower
             ExceptionThrowers[addr] = null;
-            return false;
+        }
+
+        public static bool IsExceptionThrower(ulong addr, int recurseCount = 0)
+        {
+            if (recurseCount > 4) 
+                return false;
+
+            if (!ExceptionThrowers.ContainsKey(addr)) 
+                CheckForExceptionThrower(addr, recurseCount);
+
+            return ExceptionThrowers[addr] != null;
+        }
+
+        public static TypeReference? GetExceptionThrown(ulong addr)
+        {
+            if (IsExceptionThrower(addr))
+            {
+                return ExceptionThrowers[addr];
+            }
+
+            return null;
         }
 
         public CallExceptionThrowerFunction(MethodAnalysis context, Instruction instruction) : base(context, instruction)

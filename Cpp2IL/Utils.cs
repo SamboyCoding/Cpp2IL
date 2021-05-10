@@ -735,15 +735,15 @@ namespace Cpp2IL
             return -1;
         }
 
-        public static InstructionList GetMethodBodyAtVirtAddressNew(Il2CppBinary theDll, ulong addr, bool peek)
+        public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek)
         {
             var functionStart = addr;
             var ret = new InstructionList();
             var con = true;
             var buff = new List<byte>();
-            var rawAddr = theDll.MapVirtualAddressToRaw(addr);
+            var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
 
-            if (rawAddr < 0 || rawAddr >= theDll.RawLength)
+            if (rawAddr < 0 || rawAddr >= LibCpp2IlMain.Binary.RawLength)
             {
                 Console.WriteLine($"Invalid call to GetMethodBodyAtVirtAddressNew, virt addr {addr} resolves to raw {rawAddr} which is out of bounds");
                 return ret;
@@ -751,9 +751,9 @@ namespace Cpp2IL
 
             while (con)
             {
-                buff.Add(theDll.GetByteAtRawAddress((ulong) rawAddr));
+                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong) rawAddr));
 
-                ret = LibCpp2ILUtils.DisassembleBytesNew(theDll.is32Bit, buff.ToArray(), functionStart);
+                ret = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary.is32Bit, buff.ToArray(), functionStart);
 
                 if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
                     con = false;
