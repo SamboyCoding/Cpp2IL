@@ -530,7 +530,7 @@ namespace LibCpp2IL.Elf
                 Console.WriteLine($"Got 0x{codeReg:X}");
 
                 Console.Write($"\tLooking for meta reg ({(LibCpp2IlMain.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
-                var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost27() : searcher.FindMetadataRegistrationPre27();
+                var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost24_5() : searcher.FindMetadataRegistrationPre24_5();
                 Console.WriteLine($"Got 0x{metaReg:x}");
 
                 return (codeReg, metaReg);

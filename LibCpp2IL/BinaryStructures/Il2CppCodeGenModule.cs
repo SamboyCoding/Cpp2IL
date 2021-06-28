@@ -6,8 +6,13 @@ namespace LibCpp2IL.BinaryStructures
         public long methodPointerCount; //ulong
         public ulong methodPointers; //pointer
 
-        [Version(Min = 27.1f)] public long adjustorThunkCount;
-        [Version(Min = 27.1f)] public ulong adjustorThunks; //Pointer
+        //Present in v27.1 and v24.5, but not v27.0
+        [Version(Min = 27.1f)]
+        [Version(Min = 24.5f, Max = 24.5f)] 
+        public long adjustorThunkCount;
+        [Version(Min = 27.1f)]
+        [Version(Min = 24.5f, Max = 24.5f)]
+        public ulong adjustorThunks; //Pointer
         
         public ulong invokerIndices; //ulong
         public ulong reversePInvokeWrapperCount; //ulong

@@ -50,13 +50,13 @@ namespace LibCpp2IL.Metadata
         public int imagesCount;
         public int assembliesOffset; // Il2CppAssemblyDefinition
         public int assembliesCount;
-        [Version(Max=24.4f)]
+        [Version(Max=24.5f)] //Removed in v27
         public int metadataUsageListsOffset; // Il2CppMetadataUsageList
-        [Version(Max=24.4f)]
+        [Version(Max=24.5f)] //Removed in v27
         public int metadataUsageListsCount;
-        [Version(Max=24.4f)]
+        [Version(Max=24.5f)] //Removed in v27
         public int metadataUsagePairsOffset; // Il2CppMetadataUsagePair
-        [Version(Max=24.4f)]
+        [Version(Max=24.5f)] //Removed in v27
         public int metadataUsagePairsCount;
         public int fieldRefsOffset; // Il2CppFieldRef
         public int fieldRefsCount;

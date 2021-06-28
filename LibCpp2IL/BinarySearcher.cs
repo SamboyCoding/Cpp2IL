@@ -187,7 +187,7 @@ namespace LibCpp2IL
             }
         }
 
-        public ulong FindMetadataRegistrationPre27()
+        public ulong FindMetadataRegistrationPre24_5()
         {
             //We're looking for TypeDefinitionsSizesCount, which is the 4th-to-last field
             var sizeOfMr = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
@@ -206,7 +206,7 @@ namespace LibCpp2IL
                 .FirstOrDefault();
         }
 
-        public ulong FindMetadataRegistrationPost27()
+        public ulong FindMetadataRegistrationPost24_5()
         {
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
             var sizeOfMr = (uint) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));

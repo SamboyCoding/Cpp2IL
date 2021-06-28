@@ -63,6 +63,7 @@ namespace LibCpp2IL.Metadata
             float actualVersion;
             if (unityVer[0] == 2021 || (unityVer[0] == 2020 && unityVer[1] == 2 && unityVer[2] >= 4)) actualVersion = 27.1f; //27.1 adds adjustorThunks on codegenModules and GenericMethodIndices
             else if (unityVer[0] == 2020 && unityVer[1] >= 2) actualVersion = 27; //2020.2 introduces v27
+            else if (unityVer[0] == 2019 && unityVer[1] == 4 && unityVer[2] >= 21) actualVersion = 24.5f;
             //Note should there ever be a case of weird issues here, there *is* actually a 24.4, but it's barely ever used. Only change is AssemblyNameDefinition is missing
             //the hashValueIndex field, which makes the number of assemblies mismatch the number of images.
             //But we don't use AssemblyDefinitions anyway, so... /shrug.
@@ -179,14 +180,14 @@ namespace LibCpp2IL.Metadata
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
-            //Removed in v27 (2020.2)
+            //Removed in v27 (2020.2) and also 24.5 (2019.4.21)
             if (LibCpp2IlMain.MetadataVersion < 27f)
             {
                 LibLogger.Verbose("\tReading usage data...");
                 start = DateTime.Now;
                 metadataUsageLists = ReadMetadataClassArray<Il2CppMetadataUsageList>(metadataHeader.metadataUsageListsOffset, metadataHeader.metadataUsageListsCount);
                 metadataUsagePairs = ReadMetadataClassArray<Il2CppMetadataUsagePair>(metadataHeader.metadataUsagePairsOffset, metadataHeader.metadataUsagePairsCount);
-
+                
                 DecipherMetadataUsage();
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }

@@ -10,17 +10,21 @@ namespace LibCpp2IL.Metadata
     {
         public int nameIndex;
         public int namespaceIndex;
-        [Version(Max = 24)] public int customAttributeIndex;
+        [Version(Max = 24)] 
+        public int customAttributeIndex;
         public int byvalTypeIndex;
-
-        [Version(Max = 24.4f)] public int byrefTypeIndex;
+        
+        [Version(Max = 24.5f)] //Removed in v27 
+        public int byrefTypeIndex;
 
         public int declaringTypeIndex;
         public int parentIndex;
         public int elementTypeIndex; // we can probably remove this one. Only used for enums
 
-        [Version(Max = 24.1f)] public int rgctxStartIndex;
-        [Version(Max = 24.1f)] public int rgctxCount;
+        [Version(Max = 24.1f)] 
+        public int rgctxStartIndex;
+        [Version(Max = 24.1f)]
+        public int rgctxCount;
 
         public int genericContainerIndex;
 

@@ -129,9 +129,9 @@ namespace LibCpp2IL.PE
 
             LibLogger.VerboseNewline("\t\t-Searching for MetadataReg...");
             
-            pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 27f 
-                ? plusSearch.FindMetadataRegistrationPre27() 
-                : plusSearch.FindMetadataRegistrationPost27();
+            pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 24.5f 
+                ? plusSearch.FindMetadataRegistrationPre24_5() 
+                : plusSearch.FindMetadataRegistrationPost24_5();
 
             LibLogger.VerboseNewline("\t\t-Searching for CodeReg...");
 

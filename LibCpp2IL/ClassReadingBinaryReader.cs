@@ -65,9 +65,8 @@ namespace LibCpp2IL
 
             return null;
         }
-
-        private Dictionary<FieldInfo, VersionAttribute?> _cachedVersionAttributes = new Dictionary<FieldInfo, VersionAttribute?>();
-        private Dictionary<FieldInfo, bool> _cachedNoSerialize = new Dictionary<FieldInfo, bool>();
+        
+        private Dictionary<FieldInfo, bool> _cachedNoSerialize = new();
 
         public T ReadClassAtRawAddr<T>(long offset, bool overrideArchCheck = false) where T : new()
         {
@@ -116,38 +115,25 @@ namespace LibCpp2IL
                 return (T) value!;
             }
 
-            foreach (var i in t.GetType().GetFields())
+            foreach (var field in t.GetType().GetFields())
             {
-                VersionAttribute? attr;
+                if (!_cachedNoSerialize.ContainsKey(field))
+                    _cachedNoSerialize[field] = Attribute.GetCustomAttribute(field, typeof(NonSerializedAttribute)) != null;
 
-                if (!_cachedNoSerialize.ContainsKey(i))
-                    _cachedNoSerialize[i] = Attribute.GetCustomAttribute(i, typeof(NonSerializedAttribute)) != null;
+                if (_cachedNoSerialize[field]) continue;
 
-                if (_cachedNoSerialize[i]) continue;
+                if(!LibCpp2ILUtils.ShouldReadFieldOnThisVersion(field))
+                    continue;
 
-                if (!_cachedVersionAttributes.ContainsKey(i))
+                if (field.FieldType.IsPrimitive)
                 {
-                    attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
-                    _cachedVersionAttributes[i] = attr;
-                }
-                else
-                    attr = _cachedVersionAttributes[i];
-
-                if (attr != null)
-                {
-                    if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
-                        continue;
-                }
-
-                if (i.FieldType.IsPrimitive)
-                {
-                    i.SetValue(t, ReadPrimitive(i.FieldType));
+                    field.SetValue(t, ReadPrimitive(field.FieldType));
                 }
                 else
                 {
-                    var gm = readClass.MakeGenericMethod(i.FieldType);
+                    var gm = readClass.MakeGenericMethod(field.FieldType);
                     var o = gm.Invoke(this, new object[] {overrideArchCheck});
-                    i.SetValue(t, o);
+                    field.SetValue(t, o);
                 }
             }
 

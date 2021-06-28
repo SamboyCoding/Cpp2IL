@@ -35,7 +35,7 @@ namespace LibCpp2IL
 
         public static MetadataUsage? GetAnyGlobalByAddress(ulong address)
         {
-            if (MetadataVersion >= 27)
+            if (MetadataVersion >= 27f)
                 return LibCpp2IlGlobalMapper.CheckForPost27GlobalAt(address);
 
             //Pre-27
@@ -49,7 +49,7 @@ namespace LibCpp2IL
 
         public static MetadataUsage? GetLiteralGlobalByAddress(ulong address)
         {
-            if (MetadataVersion < 27)
+            if (MetadataVersion < 27f)
                 return LibCpp2IlGlobalMapper.LiteralsByAddress.GetValueOrDefault(address);
             
             return GetAnyGlobalByAddress(address);
@@ -63,7 +63,7 @@ namespace LibCpp2IL
 
         public static MetadataUsage? GetRawTypeGlobalByAddress(ulong address)
         {
-            if (MetadataVersion < 27)
+            if (MetadataVersion < 27f)
                 return LibCpp2IlGlobalMapper.TypeRefsByAddress.GetValueOrDefault(address);
 
             return GetAnyGlobalByAddress(address);
@@ -80,7 +80,7 @@ namespace LibCpp2IL
 
         public static MetadataUsage? GetRawFieldGlobalByAddress(ulong address)
         {
-            if (MetadataVersion < 27)
+            if (MetadataVersion < 27f)
                 return LibCpp2IlGlobalMapper.FieldRefsByAddress.GetValueOrDefault(address);
             return GetAnyGlobalByAddress(address);
         }
@@ -98,7 +98,7 @@ namespace LibCpp2IL
         {
             if (TheMetadata == null) return null;
 
-            if (MetadataVersion < 27)
+            if (MetadataVersion < 27f)
                 return LibCpp2IlGlobalMapper.MethodRefsByAddress.GetValueOrDefault(address);
 
             return GetAnyGlobalByAddress(address);

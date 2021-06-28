@@ -11,14 +11,18 @@ namespace LibCpp2IL.BinaryStructures
             
             public ulong genericMethodPointersCount;
             public ulong genericMethodPointers;
-            [Version(Min = 27.1f)] public ulong genericAdjustorThunks;
+            
+            //Present in v27.1 and v24.5, but not v27.0
+            [Version(Min = 27.1f)]
+            [Version(Min = 24.5f, Max = 24.5f)]
+            public ulong genericAdjustorThunks;
             
             public ulong invokerPointersCount;
             public ulong invokerPointers;
             
-            [Version(Max = 24.4f)]
+            [Version(Max = 24.5f)] //Removed in v27
             public long customAttributeCount;
-            [Version(Max = 24.4f)]
+            [Version(Max = 24.5f)] //Removed in v27
             public ulong customAttributeGeneratorListAddress;
             
             public ulong unresolvedVirtualCallCount;

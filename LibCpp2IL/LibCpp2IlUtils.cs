@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Iced.Intel;
 using LibCpp2IL.BinaryStructures;
@@ -49,6 +50,8 @@ namespace LibCpp2IL
             {"UInt64", 8},
             {"Double", 8},
         };
+        
+        private static Dictionary<FieldInfo, VersionAttribute[]> _cachedVersionAttributes = new();
 
         public static InstructionList DisassembleBytesNew(bool is32Bit, List<byte> bytes, ulong methodBase) => DisassembleBytesNew(is32Bit, bytes.ToArray(), methodBase);
 
@@ -385,7 +388,7 @@ namespace LibCpp2IL
             throw new ArgumentException($"Unknown type {forWhat.type}");
         }
 
-        public static int VersionAwareSizeOf(Type type, bool hasNoVersionAttributes = false, bool downsize = true)
+        public static int VersionAwareSizeOf(Type type, bool dontCheckVersionAttributes = false, bool downsize = true)
         {
             if (type.IsPrimitive)
                 return (int) PrimitiveSizes[type.Name];
@@ -393,19 +396,16 @@ namespace LibCpp2IL
             var shouldDownsize = downsize && LibCpp2IlMain.Binary!.is32Bit;
 
             var size = 0;
-            foreach (var i in type.GetFields())
+            foreach (var field in type.GetFields())
             {
-                if (!hasNoVersionAttributes)
+                if (!dontCheckVersionAttributes)
                 {
-                    var attr = (VersionAttribute?) Attribute.GetCustomAttribute(i, typeof(VersionAttribute));
-                    if (attr != null)
-                    {
-                        if (LibCpp2IlMain.MetadataVersion < attr.Min || LibCpp2IlMain.MetadataVersion > attr.Max)
-                            continue;
-                    }
+                    if(!ShouldReadFieldOnThisVersion(field))
+                        //Move to next field.
+                        continue;
                 }
 
-                switch (i.FieldType.Name)
+                switch (field.FieldType.Name)
                 {
                     case "Int64":
                     case "UInt64":
@@ -427,6 +427,19 @@ namespace LibCpp2IL
             }
 
             return size;
+        }
+
+        internal static bool ShouldReadFieldOnThisVersion(FieldInfo i)
+        {
+            if (!_cachedVersionAttributes.TryGetValue(i, out var attrs))
+            {
+                //GetCustomAttributes is reasonably slow, so we cache here.
+                attrs = Attribute.GetCustomAttributes(i, typeof(VersionAttribute)).Cast<VersionAttribute>().ToArray();
+                _cachedVersionAttributes[i] = attrs;
+            }
+
+            //Either no version attribute present, or we're in one of the acceptable versions.
+            return attrs.Length == 0 || attrs.Any(attr => LibCpp2IlMain.MetadataVersion >= attr.Min && LibCpp2IlMain.MetadataVersion <= attr.Max);
         }
 
         internal static void PopulateDeclaringAssemblyCache()
