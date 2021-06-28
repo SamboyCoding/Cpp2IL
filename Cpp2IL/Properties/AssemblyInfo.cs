@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Samboy063")]
 [assembly: AssemblyProduct("Cpp2IL")]
-[assembly: AssemblyCopyright("Copyright © Samboy063 2019-2020")]
+[assembly: AssemblyCopyright("Copyright © Samboy063 2019-2021")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -31,5 +31,5 @@ using System.Runtime.InteropServices;
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
 // [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("0.5.0.0")]
-[assembly: AssemblyFileVersion("0.5.0.0")]
+[assembly: AssemblyVersion("2021.0.0")]
+[assembly: AssemblyFileVersion("2021.0.0")]

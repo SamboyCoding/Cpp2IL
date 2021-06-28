@@ -2,52 +2,98 @@
 
 WIP Tool to reverse Unity's IL2CPP build process back to the original managed DLLs.
 
-**Does not currently generate IL code, only generates pseudocode and textual analysis. Work is being done to improve this. See the roadmap below**
+**IL Generation is currently to-file only, not to-assembly. Don't expect to magically get managed DLLs out of this.**
 
-Every commit is built to a release, so just check the github releases for the latest build.
+Uses [LibCpp2IL](LibCpp2IL) for the initial parsing and loading of metadata structures. 
+LibCpp2IL is obtainable from the build artifacts if you want to do something yourself with IL2CPP metadata, 
+and is released under the MIT license.
+The link above will take you to the documentation for LibCpp2IL.
 
-Uses LibCpp2IL for the initial parsing and loading of metadata structures. LibCpp2IL is obtainable from the build artifacts if you want to do something yourself with IL2CPP metadata, and is released under the MIT license.
+## Release Structure
 
-On top of that it then examines the machine code to attempt to perform static analysis and obtain some semblance of what the original code does.
+Every single commit is built to a pre-release using Github Actions - the action file can be found in the .github folder,
+if you want to reproduce the builds yourself. Be aware these may not be the most stable - while there are tests to ensure
+compatibility with a range of games, sometimes things do break! These are versioned by the commit they were built from.
 
-## Log Output
+On top of this, I manually release "milestone" builds whenever I think a major set of improvements have been made. These
+are NOT marked as pre-releases on github, and should (at least in theory) be stable and suitable for use on a range of games.
 
-Since May 2021, Cpp2IL now outputs more rigidly-structured data to the console. This includes log levels (VERB, INFO, WARN, FAIL) 
-and associated colours (Grey for VERB, Blue for INFO, Yellow for WARN, Red for FAIL).
+## Terminal Colors and Debug Logging
 
-VERB messages will only be logged if Cpp2IL is launched with the `--verbose` option, and it would be helpful if you could report issues with this flag enabled.
-For normal operation, they shouldn't be needed, unless you're curious.
+From the first milestone build 2021.0, and onwards, Cpp2IL now outputs more rigidly-structured data to the console. 
+This includes log levels (VERB, INFO, WARN, FAIL) and associated colours (Grey for VERB, Blue for INFO, Yellow for 
+WARN, Red for FAIL).
+
+VERB messages will only be logged if Cpp2IL is launched with the `--verbose` option, and it would be helpful if you 
+could report issues with this flag enabled. For normal operation, they shouldn't be needed, unless you're curious.
 
 If you do not wish for the output to be coloured, set the Environment Variable `NO_COLOR=true`.
 
-## A note on unity 2020.2
+## What Works (Features)
 
-Unity 2020.2 introduced IL2PP metadata version 27. Substantial changes have been made to the formats.
+- [x] Loading of Metadata and Binaries using LibCpp2IL for IL2CPP versions 24 through 27.1 (unity 2018 to present-day) 
+- [x] "Dummy DLL" (Stub Assembly) generation, suitable for use with [Il2CppAssemblyUnhollower](https://github.com/knah/Il2CppAssemblyUnhollower/), for PE and ELF binaries, x86 and ARM instruction sets
+- [x] Restoration of explicit override methods in managed types. This data is not explicitly saved to the Il2Cpp metadata, but is useful for Unhollower.
+- [x] Il2CPP Api Function Detection
+- [x] Analysis of both x86_32 and x86_64 machine code for the following features:
+    - [x] Managed Function Calls (including virtual calls via vtable)
+    - [x] Managed Function Argument Resolution
+    - [x] Object Instantiation
+    - [x] String Constant Loads
+    - [x] Instance field assignments
+    - [x] Instance field reads
+    - [x] Static field assignments
+    - [x] Static field reads
+    - [x] IL2CPP "Exception Helper" function detection (shown as `throw new ExceptionType()` in pseudocode)
+    - [x] Array instantiation
+    - [x] Array assignment by index
+    - [x] Array read by index
+    - [x] Array length reads
+    - [x] If/White/Else If/Else detection
+    - [x] Mathematical subtraction
+    - [x] Mathematical addition
+    - [x] Some mathematical multiplication
+    - [x] Return statements, including returned variables
+    - [x] FPU (Floating-Point processor) support for x86_32 games.
+    - [x] RGCTX (Runtime Generic Context) Support
+- [x] IL Generation to a text file (not saved to the DLL yet)
+- [x] Significantly faster than both Il2CppDumper and Il2CppInspector (for DummyDLL Generation)
+    
 
-As of Feb 14th, 2021, LibCpp2IL now supports Metadata v27 and v27.1 (Unity 2020.2.4), and DummyDLLs can be generated from games using these versions.
+## What's work in progress (Roadmap)
 
-As of Feb 16th, 2021, most of the analysis features should also now work for executables targeting v27.
+(Subject to change)
 
-## A note on x86-32 support
-
-The new analysis engine featured on this branch includes full support for analysis of 32-bit applications which should be almost on-par with
-the 64-bit analysis of the old engine. The roadmap below has been updated accordingly.
-
-## General Roadmap
-
-Subject to change
-
-- [x] ~~Split code out into LibCpp2Il~~
-- [x] ~~Rewrite Cpp2IL's analysis to use the new Action system~~
-- [ ] Add IL Generation
-- [ ] Look into adding support for remaining Actions to improve analysis.
-- [x] ~~IL2CPP Metadata v27 Support~~
-- [x] ~~x86-32 support~~
-- [x] ~~Migrate to 0xd4d's iced decompiler?~~
-- [x] ~~Support for Loading ELF binaries (Linux x86, and ARM, for Android etc.)~~
-- [ ] ARM support (Partially present: Dummy DLLs can be generated, analysis is not implemented).
+- [ ] Save generated IL to the actual function body in the Assembly.
+- [ ] Look into adding support for remaining Actions to improve analysis. Some key areas I'm focussing on:
+    - [ ] Integer division via magic constant multiplication.
+    - [ ] Wider support for multiplication (IMUL instructions)
+- [ ] Machine code analysis for ARM instructions (long-term goal, want to do a lot more for x86 instruction set first)
 
 
-## Credit
+## Credits
 
-Built using .NET 5.0, 0xd4d's excellent Iced disassembler, and Mono's Cecil.
+This application is built using .NET 5.0.
+
+It uses the following libraries, for which I am very thankful:
+
+- [iced](https://github.com/icedland/iced) disassembler for x86
+- [SharpDisasm](https://github.com/spazzarama/SharpDisasm) disassembler for x86, but this is only used in a few places in old 
+  code. It's been mostly dropped in favour of iced.
+- [Pastel](https://github.com/silkfire/Pastel) for the console colours.
+- [CommandLineParser](https://github.com/commandlineparser/commandline) so I didn't need to write one myself.
+- [Mono.Cecil](https://github.com/jbevain/cecil/) to create and save the Dummy DLLs, and generate IL.
+- [xUnit](https://github.com/xunit/xunit) for the unit tests.
+
+It's (very loosely, at this point) based off of [Il2CppDumper](https://github.com/Perfare/Il2CppDumper), which I 
+forked in 2018 and removed a lot of code, rewrote a lot, and added a lot more. But at its core, it's still got some dumper
+left in it.
+
+It contains bits and pieces from [Il2CppInspector](https://github.com/djkaty/Il2CppInspector/), taken with permission
+from djKaty, and I'd like to express my gratitude to her here for her invaluable help.
+
+I'd like to thank the Audica Modding community and Discord for the initial inspiration for this project, lots of
+support in the early days, and feature requests these days.
+
+And finally, check out some other cool projects which link in with this one. Of course, I mentioned [Il2CppAssemblyUnhollower](https://github.com/knah/Il2CppAssemblyUnhollower/)
+further up, but also check out [MelonLoader](https://github.com/LavaGang/MelonLoader/), which uses Cpp2IL for Dummy DLL generation.

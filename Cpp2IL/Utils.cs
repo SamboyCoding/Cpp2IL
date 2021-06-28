@@ -10,7 +10,6 @@ using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.PE;
 using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
@@ -95,8 +94,8 @@ namespace Cpp2IL
         {
             if (managedType == null)
                 return false;
-            
-            if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) 
+
+            if (!cppType.isType && !cppType.isArray && !cppType.isGenericType)
                 return false;
 
             if (cppType.isType && !cppType.isGenericType)
@@ -121,7 +120,7 @@ namespace Cpp2IL
 
             return _assignableCache[key];
         }
-        
+
         public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeReference managedType)
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
@@ -320,82 +319,6 @@ namespace Cpp2IL
             }
         }
 
-        public static int CheckForInitCallAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
-        {
-            //Refined Targeting Mechanism
-            //JNZ to skip the following code if not needed
-            //Then MOV (which contains the unique ID of this function)
-            //Then a CALL to the init function
-            //Then Another MOV
-            //The next instruction is where the JNZ would go to and is where we resume.
-
-            var alternativePattern = new[]
-            {
-                ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall, ud_mnemonic_code.UD_Imov
-            };
-
-            if (instructions.Count - idx < 4) return 0;
-
-            var instructionsInRange = instructions.GetRange(idx, 4);
-            var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-
-            if (!alternativePattern.SequenceEqual(actualPattern)) return 0;
-
-            try
-            {
-                var callAddr = GetJumpTarget(instructionsInRange[2], offsetInRam + instructionsInRange[2].PC);
-                return callAddr == kfe.il2cpp_codegen_initialize_method ? 3 : 0;
-            }
-            catch (Exception)
-            {
-                return 0;
-            }
-        }
-
-        public static int CheckForStaticClassInitAtIndex(ulong offsetInRam, List<Instruction> instructions, int idx, KeyFunctionAddresses kfe)
-        {
-            var requiredPattern = new[]
-            {
-                ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Icall
-            };
-
-            var alternativePattern = new[]
-            {
-                ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Iadd, ud_mnemonic_code.UD_Ijmp
-            };
-
-            var thirdPattern = new[]
-            {
-                ud_mnemonic_code.UD_Itest, ud_mnemonic_code.UD_Ijz, ud_mnemonic_code.UD_Icmp, ud_mnemonic_code.UD_Ijnz, ud_mnemonic_code.UD_Imov, ud_mnemonic_code.UD_Icall
-            };
-
-            if (instructions.Count - idx < 5) return 0;
-
-            var instructionsInRange = instructions.GetRange(idx, 5);
-            var actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-            if (requiredPattern.SequenceEqual(actualPattern))
-            {
-                var callAddr = GetJumpTarget(instructionsInRange[4], offsetInRam + instructionsInRange[4].PC);
-
-                //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.il2cpp_runtime_class_init_actual || callAddr == kfe.il2cpp_runtime_class_init_export ? 4 : 0;
-            }
-            else
-            {
-                if (instructions.Count - idx < 7) return 0;
-
-                instructionsInRange = instructions.GetRange(idx, 6);
-                actualPattern = instructionsInRange.Select(i => i.Mnemonic).ToArray();
-
-                if (!alternativePattern.SequenceEqual(actualPattern) && !thirdPattern.SequenceEqual(actualPattern)) return 0;
-
-                var callAddr = GetJumpTarget(instructionsInRange[5], offsetInRam + instructionsInRange[5].PC);
-
-                //If this is true then we have an il2cpp-generated initialization call.
-                return callAddr == kfe.il2cpp_runtime_class_init_actual || callAddr == kfe.il2cpp_runtime_class_init_export ? 5 : 0;
-            }
-        }
-
 
         public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name) => TryLookupTypeDefByName(name).Item1;
 
@@ -471,7 +394,7 @@ namespace Cpp2IL
         private static TypeReference MakeGenericType(this TypeReference self, params TypeReference[] arguments)
         {
             var actualParams = self.GenericParameters.Where(p => p.Type == GenericParameterType.Type).ToList();
-            
+
             if (actualParams.Count != arguments.Length)
                 throw new ArgumentException($"Trying to create generic instance of type {self}, which expects {actualParams.Count} generic parameter(s) ({actualParams.ToStringEnumerable()}), but provided {arguments.Length} argument(s) ({arguments.ToStringEnumerable()})");
 
@@ -614,6 +537,7 @@ namespace Cpp2IL
                     return false;
             }
         }
+
         public static ulong GetSizeOfObject(TypeReference type)
         {
             if (type.IsValueType && !type.IsPrimitive && type.Resolve() is { } def)
@@ -622,9 +546,9 @@ namespace Cpp2IL
                 return (ulong) def.Fields
                     .Where(f => !f.IsStatic)
                     .Select(f => f.FieldType)
-                    .Select(reference => 
-                        reference == type 
-                            ? throw new Exception($"Cannot get size of a self-referencing value type: {type} has field of type {reference}") 
+                    .Select(reference =>
+                        reference == type
+                            ? throw new Exception($"Cannot get size of a self-referencing value type: {type} has field of type {reference}")
                             : GetSizeOfObject(reference))
                     .Select(u => (long) u)
                     .Sum();
@@ -684,7 +608,6 @@ namespace Cpp2IL
             }
         }
 
-        private static readonly ConcurrentDictionary<ud_type, string> CachedRegNames = new ConcurrentDictionary<ud_type, string>();
         private static readonly ConcurrentDictionary<Register, string> CachedRegNamesNew = new ConcurrentDictionary<Register, string>();
 
         public static string GetRegisterNameNew(Register register)
@@ -698,21 +621,6 @@ namespace Cpp2IL
             {
                 ret = UpscaleRegisters(register.ToString().ToLower());
                 CachedRegNamesNew[register] = ret;
-            }
-
-            return ret;
-        }
-
-        public static string GetRegisterName(Operand operand)
-        {
-            var theBase = operand.Base;
-
-            if (theBase == ud_type.UD_NONE) return "";
-
-            if (!CachedRegNames.TryGetValue(theBase, out var ret))
-            {
-                ret = UpscaleRegisters(theBase.ToString().Replace("UD_R_", "").ToLower());
-                CachedRegNames[theBase] = ret;
             }
 
             return ret;
@@ -822,72 +730,7 @@ namespace Cpp2IL
             return (byte) oprMode.GetValue(instruction);
         }
 
-        public static ulong GetImmediateValue(Instruction insn, Operand op)
-        {
-            ulong num;
-            if (op.Opcode == ud_operand_code.OP_sI && op.Size != GetOprMode(insn))
-            {
-                if (op.Size == 8)
-                {
-                    num = (ulong) op.LvalSByte;
-                }
-                else
-                {
-                    if (op.Size != 32)
-                        throw new InvalidOperationException("Operand size must be 32");
-                    num = (ulong) op.LvalSDWord;
-                }
-
-                if (GetOprMode(insn) < 64)
-                    num &= (ulong) ((1L << GetOprMode(insn)) - 1L);
-            }
-            else
-            {
-                switch (op.Size)
-                {
-                    case 8:
-                        num = op.LvalByte;
-                        break;
-                    case 16:
-                        num = op.LvalUWord;
-                        break;
-                    case 32:
-                        num = op.LvalUDWord;
-                        break;
-                    case 64:
-                        num = op.LvalUQWord;
-                        break;
-                    default:
-                        throw new InvalidOperationException($"Invalid size for operand: {op.Size}");
-                }
-            }
-
-            return num;
-        }
-
         public static FieldInfo oprMode = typeof(Instruction).GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic)!;
-
-        public static ulong GetOffsetFromMemoryAccess(Instruction insn, Operand op)
-        {
-            var num1 = (ulong) GetOperandMemoryOffset(op);
-
-            if (num1 == 0) return 0;
-
-            return num1 + insn.PC;
-        }
-
-        public static int GetOperandMemoryOffset(Operand op)
-        {
-            if (op.Type != ud_type.UD_OP_MEM) return 0;
-            var num1 = op.Offset switch
-            {
-                8 => op.LvalSByte,
-                16 => op.LvalSWord,
-                32 => op.LvalSDWord,
-                _ => 0
-            };
-            return num1;
-        }
 
         public static int GetPointerSizeBytes()
         {
