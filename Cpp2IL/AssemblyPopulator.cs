@@ -316,6 +316,7 @@ namespace Cpp2IL
                 //Handle generic parameters.
                 methodDef.GenericContainer?.GenericParameters
                     .Select(p => SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp) ? gp : new GenericParameter(p.Name, methodDefinition))
+                    .Where(gp => !methodDefinition.GenericParameters.Contains(gp))
                     .ToList()
                     .ForEach(parameter => methodDefinition.GenericParameters.Add(parameter));
 
@@ -412,6 +413,9 @@ namespace Cpp2IL
             foreach (var il2cppParam in il2CppMethodDef.Parameters!)
             {
                 var parameterTypeRef = Utils.ImportTypeInto(monoMethodDef, il2cppParam.RawType);
+
+                if (il2cppParam.RawType.byref == 1)
+                    parameterTypeRef = new ByReferenceType(parameterTypeRef);
 
                 ParameterDefinition monoParam;
                 if (parameterTypeRef is GenericParameter genericParameter)
