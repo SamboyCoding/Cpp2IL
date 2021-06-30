@@ -13,7 +13,7 @@ namespace Cpp2IL.Analysis.Actions.Important
     public abstract class AbstractCallAction : BaseAction
     {
         public MethodReference? ManagedMethodBeingCalled;
-        public List<IAnalysedOperand>? Arguments;
+        public List<IAnalysedOperand?>? Arguments;
         public LocalDefinition? ReturnedLocal;
         protected LocalDefinition? InstanceBeingCalledOn;
         protected bool IsCallToSuperclassMethod;

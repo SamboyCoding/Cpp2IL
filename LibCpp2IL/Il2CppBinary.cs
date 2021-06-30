@@ -20,7 +20,7 @@ namespace LibCpp2IL
         protected ulong[] methodPointers;
         private ulong[] genericMethodPointers;
         private ulong[] invokerPointers;
-        private ulong[] customAttributeGenerators; //Pre-27 only
+        private ulong[]? customAttributeGenerators; //Pre-27 only
         protected long[] fieldOffsets;
         protected ulong[] metadataUsages; //Pre-27 only
         protected ulong[][] codeGenModuleMethodPointers; //24.2+
@@ -381,7 +381,9 @@ namespace LibCpp2IL
             }
         }
 
-        public ulong GetCustomAttributeGenerator(int index) => customAttributeGenerators[index];
+        public ulong GetCustomAttributeGenerator(int index) => customAttributeGenerators![index];
+
+        public ulong[] AllCustomAttributeGenerators => customAttributeGenerators ?? Array.Empty<ulong>(); 
 
         public abstract byte[] GetRawBinaryContent();
     }

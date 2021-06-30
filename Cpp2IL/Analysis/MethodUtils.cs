@@ -94,6 +94,8 @@ namespace Cpp2IL.Analysis
                     //We assert parameter type to be non-null in all of these cases, because we've null-checked the default value further up.
 
                     case ConstantDefinition cons when cons.Type.FullName != parameterType!.ToString(): //Constant type mismatch
+                        if(parameterType.Resolve()?.IsEnum == true && cons.Type.IsPrimitive)
+                            break; //Forgive primitive => enum coercion.
                         if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
                             break; //Forgive primitive coercion.
                         if((parameterType.FullName == "System.String" || parameterType.FullName == "System.Object") && cons.Value is string)

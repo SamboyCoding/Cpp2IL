@@ -97,7 +97,7 @@ namespace Cpp2IL.Analysis
             foreach (var i in _instructions.Skip(1))
             {
                 idx++;
-                if (SharedState.MethodsByAddress.ContainsKey(i.IP))
+                if (SharedState.MethodsByAddress.ContainsKey(i.IP) || LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.Contains(i.IP))
                 {
                     instructionWhichOverran = i;
                     break;
@@ -485,10 +485,15 @@ namespace Cpp2IL.Analysis
                         //P/Invoke lookup
                         //TODO work out how this works
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_type_get_object)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_type_get_object || jumpTarget == _keyFunctionAddresses.il2cpp_vm_reflection_get_type_object)
                     {
                         //Equivalent to typeof(blah)
                         Analysis.Actions.Add(new TypeToObjectAction(Analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_string_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_string_new)
+                    {
+                        //Creates a mono string from a string global
+                        Analysis.Actions.Add(new GlobalStringToMonoStringAction(Analysis, instruction));
                     }
                     else if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
                     {
@@ -623,7 +628,11 @@ namespace Cpp2IL.Analysis
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memOp is LocalDefinition l && l.Type == AttributeRestorer.DummyTypeDefForAttributeList:
                     //Move of attribute list entry, used for restoration of attribute constructors
-                    Analysis.Actions.Add(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributeCtorsForRestoration));
+                    var ptrSize = LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
+                    var offsetInList = instruction.MemoryDisplacement32 / ptrSize;
+                    
+                    if(offsetInList < AttributeCtorsForRestoration!.Count)
+                        Analysis.Actions.Add(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributeCtorsForRestoration!));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
                 {
@@ -685,6 +694,10 @@ namespace Cpp2IL.Analysis
 
                     return;
                 }
+                case Mnemonic.Lea when type0 == OpKind.Register && type1 == OpKind.Memory && memOp is LocalDefinition {KnownInitialValue: 0}:
+                    //lea dest, [knownZero+amount] => load constant of [amount] into [dest]
+                    Analysis.Actions.Add(new LoadConstantUsingLeaAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Mov when type1.IsImmediate() && type0 == OpKind.Register:
                     //Constant move to reg
                     var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));

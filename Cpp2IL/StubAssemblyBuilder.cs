@@ -10,6 +10,8 @@ namespace Cpp2IL
 {
     public class StubAssemblyBuilder
     {
+        private static readonly FieldInfo _etypeField = typeof(TypeReference).GetField("etype", BindingFlags.NonPublic | BindingFlags.Instance)!;
+
         /// <summary>
         /// Creates all the Assemblies defined in the provided metadata, along with (stub) definitions of all the types contained therein.
         /// </summary>
@@ -65,9 +67,32 @@ namespace Cpp2IL
             {
                 //This is a new type (including nested type with parent not defined yet) so ensure it's registered
                 definition = new TypeDefinition(ns, name, (TypeAttributes) type.flags);
-                if (ns == "System" && name == "String")
+                if (ns == "System")
                 {
-                    typeof(TypeReference).GetField("etype", BindingFlags.NonPublic | BindingFlags.Instance)!.SetValue(definition, (byte) 0x0e); //mark as string
+                    var etype = name switch
+                    {
+                        //See ElementType in Mono.Cecil.Metadata
+                        "Void" => 1,
+                        nameof(Boolean) => 2,
+                        nameof(Char) => 3,
+                        nameof(SByte) => 4, //I1
+                        nameof(Byte) => 5, //U1
+                        nameof(Int16) => 6, //I2
+                        nameof(UInt16) => 7, //U2
+                        nameof(Int32) => 8, //I4
+                        nameof(UInt32) => 9, //U4
+                        nameof(Int64) => 0xA, //I8
+                        nameof(UInt64) => 0xB, //U8
+                        nameof(Single) => 0xC, //R4
+                        nameof(Double) => 0xD, //R8
+                        nameof(String) => 0xE,
+                        // nameof(IntPtr) => 0xF,
+                        _ => 0x0,
+                    };
+                    
+                    if(etype != 0)
+                        //Fixup internaL cecil etypes for (among other things) attribute blobs.
+                        _etypeField.SetValue(definition, (byte) etype);
                 }
 
                 mainModule.Types.Add(definition);

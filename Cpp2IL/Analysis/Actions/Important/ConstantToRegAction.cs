@@ -54,7 +54,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string ToTextSummary()
         {
-            return $"[!] Writes the constant 0x{constantValue:X} into operand {dest} in register {destReg}";
+            return $"[!] Writes the constant 0x{constantValue:X} into operand {dest} (type UInt64) in register {destReg}";
         }
 
         public override bool IsImportant()

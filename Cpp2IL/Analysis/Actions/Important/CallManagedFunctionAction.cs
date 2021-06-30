@@ -122,7 +122,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                             {
                                 possibleTarget = m;
 
-                                if (!MethodUtils.CheckParameters(instruction, m, context, true, out Arguments, InstanceBeingCalledOn))
+                                if (!MethodUtils.CheckParameters(instruction, m, context, true, out Arguments, InstanceBeingCalledOn, false))
                                     AddComment("parameters do not match, but declaring type of method matches instance.");
 
                                 break;

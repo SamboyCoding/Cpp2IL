@@ -503,7 +503,7 @@ namespace Cpp2IL
         public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
         {
             var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
-            if (char.IsLetter(c) && c < 'z') //includes uppercase
+            if (char.IsLetterOrDigit(c) || char.IsPunctuation(c) || char.IsSymbol(c))
             {
                 var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0;
                 var literal = new StringBuilder();
@@ -515,7 +515,7 @@ namespace Cpp2IL
                 }
 
 
-                if (literal.Length > 4)
+                if (literal.Length >= 4)
                 {
                     return literal.ToString();
                 }

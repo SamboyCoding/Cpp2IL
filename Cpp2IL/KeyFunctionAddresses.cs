@@ -25,10 +25,14 @@ namespace Cpp2IL
         public ulong il2cpp_vm_array_new_specific;
         public ulong SzArrayNew;
 
-        public ulong il2cpp_type_get_object;
+        public ulong il2cpp_type_get_object; //Api function (exported)
+        public ulong il2cpp_vm_reflection_get_type_object; //Thunked from above
 
         public ulong il2cpp_resolve_icall; //Api function (exported)
         public ulong InternalCalls_Resolve; //Thunked from above.
+
+        public ulong il2cpp_string_new; //Api function (exported)
+        public ulong il2cpp_vm_string_new; //Thunked from above
 
         public ulong il2cpp_value_box;
         public ulong il2cpp_object_box;
@@ -53,11 +57,18 @@ namespace Cpp2IL
             Logger.Verbose("\tLooking for Exported il2cpp_type_get_object function...");
             ret.il2cpp_type_get_object = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_type_get_object");
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_type_get_object:X}");
+            
+            if (ret.il2cpp_type_get_object != 0)
+            {
+                Logger.Verbose("\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
+                ret.il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(ret.il2cpp_type_get_object);
+                Logger.VerboseNewline($"Found at 0x{ret.il2cpp_vm_reflection_get_type_object:X}");
+            }
 
             Logger.Verbose("\tLooking for Exported il2cpp_resolve_icall function...");
             ret.il2cpp_resolve_icall = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_resolve_icall");
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_resolve_icall:X}");
-
+            
             if (ret.il2cpp_resolve_icall != 0)
             {
                 Logger.Verbose("\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
@@ -65,6 +76,17 @@ namespace Cpp2IL
                 Logger.VerboseNewline($"Found at 0x{ret.InternalCalls_Resolve:X}");
             }
             
+            Logger.Verbose("\tLooking for Exported il2cpp_string_new function...");
+            ret.il2cpp_string_new = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_string_new");
+            Logger.VerboseNewline($"Found at 0x{ret.il2cpp_string_new:X}");
+            
+            if (ret.il2cpp_resolve_icall != 0)
+            {
+                Logger.Verbose("\tMapping il2cpp_string_new to String::New...");
+                ret.il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(ret.il2cpp_string_new);
+                Logger.VerboseNewline($"Found at 0x{ret.il2cpp_vm_string_new:X}");
+            }
+
             Logger.Verbose("\tGrabbing il2cpp_runtime_class_init from exports...");
             ret.il2cpp_runtime_class_init_export = ((PE) cppAssembly).GetVirtualAddressOfPeExportByName("il2cpp_runtime_class_init");
             Logger.VerboseNewline($"Got address 0x{ret.il2cpp_runtime_class_init_export:X}");

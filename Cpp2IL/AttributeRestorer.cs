@@ -1,4 +1,7 @@
-﻿using System;
+﻿#define ALLOW_ATTRIBUTE_ANALYSIS
+#define NO_ATTRIBUTE_RESTORATION_WARNINGS
+
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis;
@@ -17,7 +20,6 @@ namespace Cpp2IL
         private static readonly Dictionary<long, MethodReference> _attributeCtorsByClassIndex = new Dictionary<long, MethodReference>();
         private static readonly TypeDefinition DummyTypeDefForAttributeCache = new TypeDefinition("dummy", "AttributeCache", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
-        private static readonly byte[] DefaultBlob = {01, 00, 00, 00};
 
         static AttributeRestorer()
         {
@@ -68,7 +70,7 @@ namespace Cpp2IL
             var typeDefinition = SharedState.UnmanagedToManagedTypes[typeDef];
 
             //Apply custom attributes to type itself
-            GetCustomAttributesByAttributeIndex(imageDef, typeDef.customAttributeIndex, typeDef.token, typeDefinition.Module, keyFunctionAddresses, typeDef.FullName)
+            GetCustomAttributesByAttributeIndex(imageDef, typeDef.customAttributeIndex, typeDef.token, typeDefinition.Module, keyFunctionAddresses, typeDef.FullName!)
                 .ForEach(attribute => typeDefinition.CustomAttributes.Add(attribute));
 
             //Apply custom attributes to fields
@@ -76,16 +78,16 @@ namespace Cpp2IL
             {
                 var fieldDefinition = SharedState.UnmanagedToManagedFields[fieldDef];
 
-                GetCustomAttributesByAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token, typeDefinition.Module, keyFunctionAddresses, fieldDef.Name)
+                GetCustomAttributesByAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token, typeDefinition.Module, keyFunctionAddresses, fieldDefinition.FullName)
                     .ForEach(attribute => fieldDefinition.CustomAttributes.Add(attribute));
             }
 
             //Apply custom attributes to methods
             foreach (var methodDef in typeDef.Methods!)
             {
-                var methodDefinition = SharedState.UnmanagedToManagedMethods[methodDef];
+                var methodDefinition = methodDef.AsManaged();
 
-                GetCustomAttributesByAttributeIndex(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDef.Name)
+                GetCustomAttributesByAttributeIndex(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDefinition.FullName)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
             }
         }
@@ -110,14 +112,15 @@ namespace Cpp2IL
                 .ToList();
 
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
-            var constructorArgs = new Dictionary<MethodReference, byte[]?>();
 
             if (mustRunAnalysis)
             {
 #if ALLOW_ATTRIBUTE_ANALYSIS
                 if (LibCpp2IlMain.Binary!.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_64)
                     //Filter out constructors which take parameters, as analysis isn't yet supported for ARM.
-                    attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+                    //Add all no-param ones only
+                    attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
+                        .Select(c => new CustomAttribute(module.ImportReference(c))));
                 else
                 {
                     //Grab generator for this context - be it field, type, method, etc.
@@ -126,7 +129,7 @@ namespace Cpp2IL
                     if (LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(attributeGeneratorAddress, out _))
                     {
                         //Check we can actually map to the binary.
-                        var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(LibCpp2IlMain.Binary, attributeGeneratorAddress, false);
+                        var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false);
 
                         //Run analysis on this method to get parameters for the various constructors.
                         var analyzer = new AsmAnalyzer(attributeGeneratorAddress, generatorBody, keyFunctionAddresses!);
@@ -135,38 +138,83 @@ namespace Cpp2IL
 
                         analyzer.AnalyzeMethod();
 
-                        //TODO Does this work on pre-27? 
+                        var allCppCalls = analyzer.Analysis.Actions.Where(o => o is CallManagedFunctionAction).Cast<CallManagedFunctionAction>().ToList();
+                        var constructorCalls = allCppCalls.Where(a => a.ManagedMethodBeingCalled?.Name == ".ctor").ToList();
 
-                        var constructorCalls = analyzer.Analysis.Actions.Where(o => o is CallManagedFunctionAction).Cast<CallManagedFunctionAction>().ToList();
+                        //TODO any calls to set_Blah need to be set as fields in the attribute.
 
-                        if (constructorCalls.Count != attributeConstructors.Count || constructorCalls.Any(c => c.ManagedMethodBeingCalled == null || c.Arguments?.Count != c.ManagedMethodBeingCalled?.Parameters.Count || c.Arguments.Any(c => c is null)))
+                        if (constructorCalls.Count > attributeConstructors.Count)
+                            //Take only the first n that we need
+                            constructorCalls = constructorCalls.Take(attributeConstructors.Count).ToList();
+
+                        if (constructorCalls.Count == 0)
                         {
-                            Console.WriteLine($"Warning: failed to recover all attribute constructor parameters for {warningName}: Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
-                            attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+                            //Some {projects/versions/compile options/not sure} don't call constructors, they just set fields. Don't know why, but I'm not dealing right now
+                            //Some others (audica) don't call ctors for no-arg attributes, only for those with parameters.
+                            //TODO implement support for this
+                            
+                            //For now, add all no-param ones only
+                            attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
+                                .Select(c => new CustomAttribute(module.ImportReference(c))));
+                        }
+                        else if (constructorCalls.Count != attributeConstructors.Count || constructorCalls.Any(c => c.ManagedMethodBeingCalled == null || c.Arguments?.Count != c.ManagedMethodBeingCalled?.Parameters.Count || c.Arguments!.Any(op => op is null)))
+                        {
+                            //Suppress warnings for DecimalConstantAttribute, it has too many params for us to analyze cleanly at this time
+                            //And it gets spammy
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                            if (!attributeConstructors.Any(c => c.DeclaringType.Name.Contains("DecimalConstantAttribute")))
+                                Console.WriteLine(
+                                    $"Warning: failed to recover all attribute constructor parameters for {warningName}: Expecting these attributes: {attributeConstructors.Select(a => a.DeclaringType).ToStringEnumerable()}.\n Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
+#endif
+
+                            //Add all no-param ones only
+                            attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
+                                .Select(c => new CustomAttribute(module.ImportReference(c))));
                         }
                         else
                         {
                             foreach (var attributeConstructor in attributeConstructors)
                             {
-                                var methodCall = constructorCalls.FirstOrDefault(c => c.ManagedMethodBeingCalled == attributeConstructor);
+                                var ctor = attributeConstructor;
+
+                                //Find method by declaring type and name.
+                                //Don't just match method directly because some ctors (Obsolete) can contain multiple constructors.
+                                var methodCall = constructorCalls.FirstOrDefault(c => c.ManagedMethodBeingCalled?.DeclaringType == attributeConstructor.DeclaringType && c.ManagedMethodBeingCalled?.Name == attributeConstructor.Name);
+
+                                if (methodCall != null && methodCall.ManagedMethodBeingCalled != attributeConstructor)
+                                    //If we found a better constructor, use it.
+                                    ctor = methodCall.ManagedMethodBeingCalled ?? ctor;
 
                                 if (methodCall == null)
                                 {
+                                    //Failed to find this constructor call at all - fall back to adding those w/out params
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                                     Console.WriteLine($"Warning: Couldn't find managed ctor call for {attributeConstructor} in {warningName}. Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
-                                    attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
-                                    constructorArgs.Clear();
+#endif
+
+                                    //Clear attributes 
+                                    attributes.Clear();
+
+                                    //Add those without params
+                                    attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
+                                        .Select(c => new CustomAttribute(module.ImportReference(c))));
                                     break;
                                 }
 
                                 try
                                 {
-                                    constructorArgs[attributeConstructor] = GenerateBlobForAttribute(attributeConstructor, methodCall.Arguments!, module.Name);
+                                    attributes.Add(GenerateCustomAttributeWithConstructorParams(ctor, methodCall.Arguments!, module));
                                 }
                                 catch (Exception e)
                                 {
-                                    Console.WriteLine($"Warning: Failed to generate blob for attribute {attributeConstructor} in {warningName}. Details: {e.Message}");
-                                    attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
-                                    constructorArgs.Clear();
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                                    Console.WriteLine($"Warning: Failed to parse args for attribute {attributeConstructor} in {warningName}. Details: {e.Message}");
+#endif
+
+                                    //Clear list and add no-param ones.
+                                    attributes.Clear();
+                                    attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
+                                        .Select(c => new CustomAttribute(module.ImportReference(c))));
                                     break;
                                 }
                             }
@@ -175,10 +223,9 @@ namespace Cpp2IL
                 }
 #else
                 attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
+                attributes.AddRange(attributeConstructors.Select(c => new CustomAttribute(module.ImportReference(c))));
 #endif
             }
-
-            attributes.AddRange(attributeConstructors.Select(c => new CustomAttribute(module.ImportReference(c), ((IDictionary<MethodReference, byte[]?>) constructorArgs).GetValueOrDefault(c, DefaultBlob))));
 
             return attributes;
         }
@@ -192,7 +239,8 @@ namespace Cpp2IL
             else
             {
                 var baseAddress = LibCpp2IlMain.Binary!.GetCodegenModuleByName(imageDef.Name!)!.customAttributeCacheGenerator;
-                var ptrToAddress = baseAddress + (ulong) rangeIndex * (LibCpp2IlMain.Binary.is32Bit ? 4ul : 8ul);
+                var relativeIndex = rangeIndex - imageDef.customAttributeStart;
+                var ptrToAddress = baseAddress + (ulong) relativeIndex * (LibCpp2IlMain.Binary.is32Bit ? 4ul : 8ul);
                 attributeGeneratorAddress = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<ulong>(ptrToAddress);
             }
 
@@ -212,7 +260,7 @@ namespace Cpp2IL
                 //First time lookup of this attribute - resolve its constructor.
                 var cppAttribType = LibCpp2IlMain.TheMetadata.typeDefs[attributeType.data.classIndex];
 
-                var cppMethodDefinition = cppAttribType.Methods!.First();
+                var cppMethodDefinition = cppAttribType.Methods!.First(c => c.Name == ".ctor");
                 var managedCtor = cppMethodDefinition.AsManaged();
                 _attributeCtorsByClassIndex[attributeType.data.classIndex] = managedCtor;
             }
@@ -220,45 +268,12 @@ namespace Cpp2IL
             return _attributeCtorsByClassIndex[attributeType.data.classIndex];
         }
 
-        private static byte[]? GenerateBlobForAttribute(MethodReference constructor, List<IAnalysedOperand> constructorArgs, string moduleName)
+        private static CustomAttribute GenerateCustomAttributeWithConstructorParams(MethodReference constructor, List<IAnalysedOperand> constructorArgs, ModuleDefinition module)
         {
+            var customAttribute = new CustomAttribute(module.ImportReference(constructor));
+
             if (constructorArgs.Count == 0)
-                return null;
-
-            //By far the most annoying part of this is that managed attribute parameters are defined as blobs, not as actual data.
-            //The CustomAttribute constructor takes a method ref for the attribute's constructor, and the blob. That's our only option - cecil doesn't 
-            //even attempt to parse the blob, itself, at any point.
-
-            //Format of the blob - from c058046_ISO_IEC_23271_2012(E) section II.23.3:
-            //It's little-endian
-            //Always a prolog of 0x0001, or LE: 01 00
-            //Then the fixed constructor params, in raw format.
-            //  - If this is an array, it's preceded by the number of elements as an unsigned int32.
-            //    - This can also be FF FF FF FF to indicate a null value.
-            //  - If this is a simple type, it's directly inline (bools are one byte, chars and shorts 2, ints 4, etc)
-            //  - If this is a string, it's a count of bytes, with FF indicating null string, and 00 indicating empty string, and then the raw chars
-            //      - Remember each char is two bytes.
-            //  - If this is a System.Type, it's stored as the canonical name of the type, optionally followed by the assembly, including its version, culture, and public-key token, if defined.
-            //      - I.e. it's a string, see above.
-            //      - If the assembly name isn't specified, it's assumed to be a) in the currently assembly, or then b) in mscorlib, if it's not found in the current assembly.
-            //          - Not specifying it otherwise is an error.
-            //  - If the constructor parameter type is defined as System.Object, the blob contains:
-            //      - Some information about the type of this data:
-            //        - If this is a boxed enum, the byte 0x55 followed by a string, as above.
-            //        - Otherwise, If this is a boxed value type, the byte 0x51, then the data as below.
-            //        - Else if this is a single-dimensional, zero-based array, the byte 1D, then the data as below
-            //        - Regardless of if either of the *two* above conditions are true, there is then a byte indicating element type (see Lib's Il2CppTypeEnum, valid values are TYPE_BOOLEAN to TYPE_STRING)
-            //      - This is then followed by the raw "unboxed" value, as one defined above (simple type or string).
-            //      - Nulls are NOT supported in this case.
-            //Then the number of named-argument pairs, which MUST be present, and is TWO bytes. If there are none, this is 00 00.
-            //Then the named arguments, if any:
-            //  - Named arguments are similar, except each is preceded by the byte 0x53, indicating a named field, or 0x54, indicating a named property.
-            //  - This is followed by the element type, again a byte, Lib's Il2CppTypeEnum, TYPE_BOOLEAN to TYPE_STRING
-            //  - Then the name of the field or property
-            //  - Finally the same data format as the fixed argument above.
-
-            //Prolog
-            var ret = new List<byte> {0x01, 0x00};
+                return customAttribute;
 
             if (constructor.Parameters.Count != constructorArgs.Count)
                 throw new Exception("Mismatch between constructor param count & actual args count? Probably because named args support not implemented");
@@ -278,7 +293,7 @@ namespace Cpp2IL
                         if (cons.Type.FullName != destType.FullName)
                             value = CoerceValue(value, destType);
 
-                        ret.AddRange(value.GetBytesForAttributeBlob(moduleName));
+                        customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
                         break;
                     }
                     case LocalDefinition local:
@@ -293,7 +308,7 @@ namespace Cpp2IL
                         if (local.Type.FullName != destType.FullName)
                             value = CoerceValue(value, destType);
 
-                        ret.AddRange(value.GetBytesForAttributeBlob(moduleName));
+                        customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
                         break;
                     }
                     default:
@@ -303,12 +318,7 @@ namespace Cpp2IL
                 i++;
             }
 
-            //Number of named pairs.
-            //TODO
-            ret.Add(0);
-            ret.Add(0);
-
-            return ret.ToArray();
+            return customAttribute;
         }
 
         private static object CoerceValue(object value, TypeReference parameterType)
