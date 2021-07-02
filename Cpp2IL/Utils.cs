@@ -514,12 +514,14 @@ namespace Cpp2IL
                     if (isUnicode) rawAddr++;
                 }
 
+                var wasNullTerminated = theDll.GetByteAtRawAddress(rawAddr) == 0;
 
-                if (literal.Length >= 4)
+                if (literal.Length >= 4 || (wasNullTerminated))
                 {
                     return literal.ToString();
                 }
-            }
+            } else if (c == '\0')
+                return string.Empty;
 
             return null;
         }

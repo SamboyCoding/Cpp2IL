@@ -21,9 +21,9 @@ namespace Cpp2IL
         public ulong il2cpp_runtime_class_init_export;
         public ulong il2cpp_runtime_class_init_actual;
 
-        public ulong il2cpp_array_new_specific;
-        public ulong il2cpp_vm_array_new_specific;
-        public ulong SzArrayNew;
+        public ulong il2cpp_array_new_specific; //Api function (exported)
+        public ulong il2cpp_vm_array_new_specific; //Thunked from above
+        public ulong SzArrayNew; //Thunked TO above.
 
         public ulong il2cpp_type_get_object; //Api function (exported)
         public ulong il2cpp_vm_reflection_get_type_object; //Thunked from above
@@ -298,16 +298,10 @@ namespace Cpp2IL
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_array_new_specific:X}");
 
             Logger.Verbose("\t\tSearching for a JMP to vm::Array::NewSpecific...");
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(ret.il2cpp_array_new_specific, true);
+            ret.il2cpp_vm_array_new_specific = FindFunctionThisIsAThunkOf(ret.il2cpp_array_new_specific);
             try
             {
-                var matchingCall = instructions.First(i => i.Mnemonic == Mnemonic.Jmp);
-
-                ret.il2cpp_vm_array_new_specific = matchingCall.NearBranchTarget;
-                Logger.VerboseNewline($"Located address of il2cpp::vm::Array::NewSpecific: 0x{ret.il2cpp_vm_object_new:X}");
-
                 Logger.Verbose("\t\tLooking for a thunk function proxying Array::NewSpecific...");
-
                 ret.SzArrayNew = FindThunkFunction(ret.il2cpp_vm_array_new_specific, 4, ret.il2cpp_array_new_specific);
                 Logger.VerboseNewline($"Found SzArrayNew at 0x{ret.SzArrayNew:X}");
             }
@@ -330,7 +324,7 @@ namespace Cpp2IL
                 if (addressesToIgnore.Contains(matchingJmp.IP)) continue;
 
                 //Find this instruction in the raw file
-                var offsetInPe = (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw((uint) matchingJmp.IP);
+                var offsetInPe = (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(matchingJmp.IP);
                 if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.Binary!.RawLength - 1))
                     continue;
 
@@ -348,6 +342,10 @@ namespace Cpp2IL
                 {
                     for (ulong backtrack = 1; backtrack < maxBytesBack && offsetInPe - backtrack > 0; backtrack++)
                     {
+                        if(addressesToIgnore.Contains(matchingJmp.IP - (backtrack - 1)))
+                            //Move to next jmp
+                            break;
+                        
                         if (LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
                             return matchingJmp.IP - (backtrack - 1);
                     }

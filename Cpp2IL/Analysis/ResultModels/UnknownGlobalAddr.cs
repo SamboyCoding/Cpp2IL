@@ -1,4 +1,8 @@
-﻿namespace Cpp2IL.Analysis.ResultModels
+﻿using System;
+using System.Linq;
+using LibCpp2IL;
+
+namespace Cpp2IL.Analysis.ResultModels
 {
     public class UnknownGlobalAddr
     {
@@ -9,9 +13,13 @@
             addr = a;
         }
 
+        internal int RawAddr => (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
+
+        internal byte[] FirstTenBytes => LibCpp2IlMain.Binary!.GetRawBinaryContent()[RawAddr..(RawAddr + 10)];
+
         public override string ToString()
         {
-            return $"{{Unknown Global at 0x{addr:X}}}";
+            return $"{{Unknown Global at 0x{addr:X}, first ten bytes are [{string.Join(" ", FirstTenBytes)}], or as chars \"{string.Join("", FirstTenBytes.Select(b => (char) b))}\"}}";
         }
     }
 }

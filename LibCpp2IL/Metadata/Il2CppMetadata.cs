@@ -59,6 +59,8 @@ namespace LibCpp2IL.Metadata
             {
                 throw new FormatException("Unexpected non-unity metadata version found! Expected 24+, got " + version);
             }
+            
+            LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
 
             float actualVersion;
             if (unityVer[0] == 2021 || (unityVer[0] == 2020 && unityVer[1] >= 3) || (unityVer[0] == 2020 && unityVer[1] == 2 && unityVer[2] >= 4)) actualVersion = 27.1f; //27.1 (2020.2.4) adds adjustorThunks on codegenModules and GenericMethodIndices
@@ -72,7 +74,7 @@ namespace LibCpp2IL.Metadata
             else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f; //2018.3 - 2018.4 => 24.1
             else actualVersion = version; //2018.1 - 2018.2 => 24
 
-            LibLogger.VerboseNewline($"\tDetected IL2CPP Metadata version {actualVersion}");
+            LibLogger.VerboseNewline($"\tUsing actual IL2CPP Metadata version {actualVersion}");
 
             LibCpp2IlMain.MetadataVersion = actualVersion;
 

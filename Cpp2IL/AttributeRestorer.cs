@@ -1,5 +1,5 @@
 ﻿#define ALLOW_ATTRIBUTE_ANALYSIS
-#define NO_ATTRIBUTE_RESTORATION_WARNINGS
+// #define NO_ATTRIBUTE_RESTORATION_WARNINGS
 
 using System;
 using System.Collections.Generic;
@@ -159,9 +159,9 @@ namespace Cpp2IL
                         }
                         else if (constructorCalls.Count != attributeConstructors.Count || constructorCalls.Any(c => c.ManagedMethodBeingCalled == null || c.Arguments?.Count != c.ManagedMethodBeingCalled?.Parameters.Count || c.Arguments!.Any(op => op is null)))
                         {
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                             //Suppress warnings for DecimalConstantAttribute, it has too many params for us to analyze cleanly at this time
                             //And it gets spammy
-#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                             if (!attributeConstructors.Any(c => c.DeclaringType.Name.Contains("DecimalConstantAttribute")))
                                 Console.WriteLine(
                                     $"Warning: failed to recover all attribute constructor parameters for {warningName}: Expecting these attributes: {attributeConstructors.Select(a => a.DeclaringType).ToStringEnumerable()}.\n Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
@@ -173,13 +173,16 @@ namespace Cpp2IL
                         }
                         else
                         {
+                            if(warningName == "UnityEngine.Playables.PlayableAsset")
+                                Console.WriteLine("hi");
+                            
                             foreach (var attributeConstructor in attributeConstructors)
                             {
                                 var ctor = attributeConstructor;
 
                                 //Find method by declaring type and name.
                                 //Don't just match method directly because some ctors (Obsolete) can contain multiple constructors.
-                                var methodCall = constructorCalls.FirstOrDefault(c => c.ManagedMethodBeingCalled?.DeclaringType == attributeConstructor.DeclaringType && c.ManagedMethodBeingCalled?.Name == attributeConstructor.Name);
+                                var methodCall = constructorCalls.FirstOrDefault(c => c.ManagedMethodBeingCalled?.DeclaringType?.FullName == attributeConstructor.DeclaringType?.FullName && c.ManagedMethodBeingCalled?.Name == attributeConstructor.Name);
 
                                 if (methodCall != null && methodCall.ManagedMethodBeingCalled != attributeConstructor)
                                     //If we found a better constructor, use it.
@@ -189,7 +192,7 @@ namespace Cpp2IL
                                 {
                                     //Failed to find this constructor call at all - fall back to adding those w/out params
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                                    Console.WriteLine($"Warning: Couldn't find managed ctor call for {attributeConstructor} in {warningName}. Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
+                                    Console.WriteLine($"Warning: Couldn't find managed ctor call for {attributeConstructor} in {warningName}. Constructor call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
 #endif
 
                                     //Clear attributes 
@@ -299,7 +302,7 @@ namespace Cpp2IL
                     case LocalDefinition local:
                     {
                         if (local.KnownInitialValue == null)
-                            throw new Exception($"Can't convert a local without a known initial value to a blob: {local}");
+                            throw new Exception($"Can't use a local without a KnownInitialValue in an attribute ctor: {local}");
 
                         var value = local.KnownInitialValue;
 
@@ -308,11 +311,14 @@ namespace Cpp2IL
                         if (local.Type.FullName != destType.FullName)
                             value = CoerceValue(value, destType);
 
+                        if (value is AllocatedArray array)
+                            value = AllocateArray(array);
+
                         customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
                         break;
                     }
                     default:
-                        throw new Exception($"Operand {analysedOperand} is not valid for use in a attribute ctor blob");
+                        throw new Exception($"Operand {analysedOperand} is not valid for use in a attribute ctor");
                 }
 
                 i++;
@@ -321,29 +327,44 @@ namespace Cpp2IL
             return customAttribute;
         }
 
-        private static object CoerceValue(object value, TypeReference parameterType)
+        private static object AllocateArray(AllocatedArray array)
         {
-            //Definitely both primitive
-            switch (parameterType.Name)
+            var arrayType = Type.GetType(array.ArrayType.ElementType.FullName) ?? throw new Exception($"Could not resolve array type {array.ArrayType.ElementType.FullName}");
+            var arr = Array.CreateInstance(arrayType, array.Size);
+
+            return (from object? o in arr select new CustomAttributeArgument(array.ArrayType.ElementType, o)).ToArray();
+        }
+
+        private static object? CoerceValue(object value, TypeReference parameterType)
+        {
+            if (!(parameterType is ArrayType))
             {
-                case "Boolean":
-                    return Convert.ToInt32(value) == 1;
-                case "SByte":
-                    return Convert.ToSByte(value);
-                case "Byte":
-                    return Convert.ToByte(value);
-                case "Int16":
-                    return Convert.ToInt16(value);
-                case "UInt16":
-                    return Convert.ToUInt16(value);
-                case "Int32":
-                    return Convert.ToInt32(value);
-                case "UInt32":
-                    return Convert.ToUInt32(value);
-                case "Int64":
-                    return Convert.ToInt64(value);
-                case "UInt64":
-                    return Convert.ToUInt64(value);
+                //Definitely both primitive
+                switch (parameterType.Name)
+                {
+                    case "Boolean":
+                        return Convert.ToInt32(value) == 1;
+                    case "SByte":
+                        return Convert.ToSByte(value);
+                    case "Byte":
+                        return Convert.ToByte(value);
+                    case "Int16":
+                        return Convert.ToInt16(value);
+                    case "UInt16":
+                        return Convert.ToUInt16(value);
+                    case "Int32":
+                        return Convert.ToInt32(value);
+                    case "UInt32":
+                        return Convert.ToUInt32(value);
+                    case "Int64":
+                        return Convert.ToInt64(value);
+                    case "UInt64":
+                        return Convert.ToUInt64(value);
+                    case "String":
+                        if (Convert.ToInt32(value) == 0)
+                            return null;
+                        break; //Fail through to failure below.
+                }
             }
 
             throw new Exception($"Can't coerce {value} to {parameterType}");

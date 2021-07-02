@@ -24,7 +24,8 @@ namespace LibCpp2IL.PE
         private uint[]? peExportedFunctionPointers;
         private uint[] peExportedFunctionNamePtrs;
         private ushort[] peExportedFunctionOrdinals;
-        
+        private InstructionList? _cachedDisassembledBytes;
+
         //Il2cpp binary fields:
         
         //Top-level structs
@@ -219,9 +220,14 @@ namespace LibCpp2IL.PE
 
         public InstructionList DisassembleTextSection()
         {
-            var textSection = peSectionHeaders.First(s => s.Name == ".text");
-            var toDisasm = raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
-            return LibCpp2ILUtils.DisassembleBytesNew(is32Bit, toDisasm, textSection.VirtualAddress + peImageBase);
+            if (_cachedDisassembledBytes == null)
+            {
+                var textSection = peSectionHeaders.First(s => s.Name == ".text");
+                var toDisasm = raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
+                _cachedDisassembledBytes = LibCpp2ILUtils.DisassembleBytesNew(is32Bit, toDisasm, textSection.VirtualAddress + peImageBase);
+            }
+
+            return _cachedDisassembledBytes;
         }
 
         public override byte GetByteAtRawAddress(ulong addr) => raw[addr];

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using LibCpp2IL.Logging;
 using LibCpp2IL.PE;
 
 namespace LibCpp2IL.Elf
@@ -26,28 +27,28 @@ namespace LibCpp2IL.Elf
         {
             _raw = input.GetBuffer();
 
-            Console.Write("\tReading Elf File Ident...");
+            LibLogger.Verbose("\tReading Elf File Ident...");
             var start = DateTime.Now;
 
             ReadAndValidateIdent();
 
             var isBigEndian = _elfFileIdent!.Endianness == 2;
 
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            Console.WriteLine($"\tBinary is {(is32Bit ? "32-bit" : "64-bit")} and {(isBigEndian ? "big-endian" : "little-endian")}.");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"\tBinary is {(is32Bit ? "32-bit" : "64-bit")} and {(isBigEndian ? "big-endian" : "little-endian")}.");
 
             if (isBigEndian)
                 SetBigEndian();
 
-            Console.Write("\tReading and validating full ELF header...");
+            LibLogger.Verbose("\tReading and validating full ELF header...");
             start = DateTime.Now;
 
             ReadHeader();
 
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            Console.WriteLine($"\tElf File contains instructions of type {InstructionSet}");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"\tElf File contains instructions of type {InstructionSet}");
 
-            Console.Write("\tReading ELF program header table...");
+            LibLogger.Verbose("\tReading ELF program header table...");
             start = DateTime.Now;
 
             ReadProgramHeaderTable();
@@ -56,9 +57,9 @@ namespace LibCpp2IL.Elf
             var execSegment = _elfProgramHeaderEntries!.First(p => (p.Flags & ElfProgramHeaderFlags.PF_X) != 0);
             _globalOffset = execSegment.VirtualAddress - execSegment.RawAddress;
 
-            Console.WriteLine($"Read {_elfProgramHeaderEntries!.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"Read {_elfProgramHeaderEntries!.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.WriteLine("\tReading ELF section header table and names...");
+            LibLogger.VerboseNewline("\tReading ELF section header table and names...");
             start = DateTime.Now;
 
             //Non-null assertion reason: The elf header has already been checked while reading the program header.
@@ -69,35 +70,35 @@ namespace LibCpp2IL.Elf
             foreach (var section in _elfSectionHeaderEntries)
             {
                 section.Name = ReadStringToNull(pSectionHeaderStringTable + section.NameOffset);
-                Console.WriteLine($"\t\t-Name for section at 0x{section.RawAddress:X} is {section.Name}");
+                LibLogger.VerboseNewline($"\t\t-Name for section at 0x{section.RawAddress:X} is {section.Name}");
             }
 
-            Console.WriteLine($"\tRead {_elfSectionHeaderEntries.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"\tRead {_elfSectionHeaderEntries.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //Get dynamic section.
             if (GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is { } dynamicSegment)
                 _dynamicSection = ReadClassArrayAtRawAddr<ElfDynamicEntry>(dynamicSegment.RawAddress, dynamicSegment.RawSize / (is32Bit ? 8ul : 16ul)).ToList();
 
-            Console.WriteLine("\tFinding Relocations...");
+            LibLogger.VerboseNewline("\tFinding Relocations...");
             start = DateTime.Now;
 
             ProcessRelocations();
 
-            Console.WriteLine($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            Console.WriteLine("\tProcessing Symbols...");
+            LibLogger.VerboseNewline("\tProcessing Symbols...");
             start = DateTime.Now;
 
             ProcessSymbols();
 
-            Console.WriteLine($"\tOK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"\tOK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
-            Console.Write("\tProcessing Initializers...");
+            LibLogger.Verbose("\tProcessing Initializers...");
             start = DateTime.Now;
 
             ProcessInitializers();
 
-            Console.WriteLine($"Got {_initializerPointers!.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"Got {_initializerPointers!.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
 
         private void ReadAndValidateIdent()
@@ -165,7 +166,7 @@ namespace LibCpp2IL.Elf
                     //Read rel table
                     var table = ReadClassArrayAtRawAddr<ElfRelEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
 
-                    Console.WriteLine($"\t\t-Got {table.Length} from REL section {section.Name}");
+                    LibLogger.VerboseNewline($"\t\t-Got {table.Length} from REL section {section.Name}");
                     
                     relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
                     relSectionStarts.Add(section.RawAddress);
@@ -183,7 +184,7 @@ namespace LibCpp2IL.Elf
                     //Read rela table
                     var table = ReadClassArrayAtRawAddr<ElfRelaEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
 
-                    Console.WriteLine($"\t\t-Got {table.Length} from RELA section {section.Name}");
+                    LibLogger.VerboseNewline($"\t\t-Got {table.Length} from RELA section {section.Name}");
                     
                     relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
 
@@ -199,7 +200,7 @@ namespace LibCpp2IL.Elf
                     var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
                     var entries = ReadClassArrayAtRawAddr<ElfRelEntry>(dtRelStartAddr, relCount);
 
-                    Console.WriteLine($"\t\t-Got {entries.Length} from dynamic REL section.");
+                    LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic REL section.");
 
                     //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_REL
                     var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
@@ -218,7 +219,7 @@ namespace LibCpp2IL.Elf
                     var startAddr = (uint) MapVirtualAddressToRaw(dt_rela.Value);
                     var entries = ReadClassArrayAtRawAddr<ElfRelaEntry>(startAddr, relCount);
 
-                    Console.WriteLine($"\t\t-Got {entries.Length} from dynamic RELA section.");
+                    LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic RELA section.");
 
                     //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_RELA
                     var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
@@ -230,7 +231,7 @@ namespace LibCpp2IL.Elf
 
                 var sizeOfRelocationStruct = (ulong) (is32Bit ? LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol32), true, false) : LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol64), true, false));
 
-                Console.Write($"\t-Now Processing {rels.Count} relocations...");
+                LibLogger.Verbose($"\t-Now Processing {rels.Count} relocations...");
 
                 foreach (var rel in rels)
                 {
@@ -290,7 +291,7 @@ namespace LibCpp2IL.Elf
             }
             catch
             {
-                Console.WriteLine("Exception during relocation mapping!");
+                LibLogger.Info("Exception during relocation mapping!");
                 throw;
             }
         }
@@ -305,14 +306,14 @@ namespace LibCpp2IL.Elf
                 //Look for .symtab
                 if (GetSingleSection(ElfSectionEntryType.SHT_SYMTAB) is { } symtab)
                 {
-                    Console.WriteLine($"\t\t-Found .symtab at 0x{symtab.RawAddress:X}");
+                    LibLogger.VerboseNewline($"\t\t-Found .symtab at 0x{symtab.RawAddress:X}");
                     symbolTables.Add((symtab.RawAddress, symtab.Size / (ulong) symtab.EntrySize, strTab.RawAddress));
                 }
 
                 //Look for .dynsym
                 if (GetSingleSection(ElfSectionEntryType.SHT_DYNSYM) is { } dynsym)
                 {
-                    Console.WriteLine($"\t\t-Found .dynsym at 0x{dynsym.RawAddress:X}");
+                    LibLogger.VerboseNewline($"\t\t-Found .dynsym at 0x{dynsym.RawAddress:X}");
                     symbolTables.Add((dynsym.RawAddress, dynsym.Size / (ulong) dynsym.EntrySize, strTab.RawAddress));
                 }
             }
@@ -327,7 +328,7 @@ namespace LibCpp2IL.Elf
 
                     var address = (ulong) MapVirtualAddressToRaw(dynamicSymTab.Value);
 
-                    Console.WriteLine($"\t\t-Found DT_SYMTAB at 0x{address:X}");
+                    LibLogger.VerboseNewline($"\t\t-Found DT_SYMTAB at 0x{address:X}");
 
                     symbolTables.Add((
                         address,
@@ -347,7 +348,7 @@ namespace LibCpp2IL.Elf
                     ? ReadClassArrayAtRawAddr<ElfDynamicSymbol32>(offset, count).Cast<IElfDynamicSymbol>().ToList()
                     : ReadClassArrayAtRawAddr<ElfDynamicSymbol64>(offset, count).Cast<IElfDynamicSymbol>().ToList();
 
-                Console.WriteLine($"\t\t-Found {symbols.Count} symbols in table at 0x{offset:X}");
+                LibLogger.VerboseNewline($"\t\t-Found {symbols.Count} symbols in table at 0x{offset:X}");
 
                 foreach (var symbol in symbols)
                 {
@@ -398,6 +399,7 @@ namespace LibCpp2IL.Elf
         {
             //Let's just try and be cheap here and find them in the symbol table.
 
+            LibLogger.Verbose("\tChecking ELF Symbol Table for code and/or meta reg...");
             ulong codeReg = 0;
             ulong metadataReg = 0;
             if (_symbolTable.FirstOrDefault(s => s.Name.Contains("g_CodeRegistration")) is { } codeRegSymbol)
@@ -407,7 +409,12 @@ namespace LibCpp2IL.Elf
                 metadataReg = metaRegSymbol.VirtualAddress;
 
             if (codeReg != 0 && metadataReg != 0)
+            {
+                LibLogger.VerboseNewline("Found them.");
                 return (codeReg, metadataReg);
+            }
+
+            LibLogger.VerboseNewline("Didn't find them, scanning binary...");
             
             //Well, that didn't work. Look for the specific initializer function which calls into Il2CppCodegenRegistration.
             return InstructionSet switch
@@ -434,6 +441,7 @@ namespace LibCpp2IL.Elf
             //So search for the bytes that *don't* specify what x is. There are three.
             var ldrSearchBytes = new byte[] {0x10, 0x9F, 0xE5};
 
+            LibLogger.VerboseNewline($"\tARM-32 MODE: Checking {_initializerPointers!.Count} initializer pointers...");
             foreach (var initializerPointer in _initializerPointers!) //Not-null asserted because it's initialized in the constructor.
             {
                 //So, read 0x18 bytes.
@@ -508,9 +516,14 @@ namespace LibCpp2IL.Elf
                     else
                         fail = true;
                 }
-                
-                if(fail)
+
+                if (fail)
+                {
+                    LibLogger.VerboseNewline($"\t\tInitializer function at 0x{initializerPointer:X} is probably NOT the il2cpp initializer.");
                     continue;
+                }
+
+                LibLogger.VerboseNewline($"\t\tFound valid sequence of bytes for il2cpp initializer function at 0x{initializerPointer:X}.");
 
                 return (pointers[0], pointers[1]);
             }
@@ -522,16 +535,16 @@ namespace LibCpp2IL.Elf
         {
             if (LibCpp2IlMain.MetadataVersion >= 24.2f)
             {
-                Console.WriteLine("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
+                LibLogger.VerboseNewline("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
                 var searcher = new BinarySearcher(this, LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length);
                 
-                Console.Write("\tLooking for code reg (this might take a while)...");
+                LibLogger.Verbose("\tLooking for code reg (this might take a while)...");
                 var codeReg = searcher.FindCodeRegistrationPost2019();
-                Console.WriteLine($"Got 0x{codeReg:X}");
+                LibLogger.VerboseNewline($"Got 0x{codeReg:X}");
 
-                Console.Write($"\tLooking for meta reg ({(LibCpp2IlMain.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
+                LibLogger.Verbose($"\tLooking for meta reg ({(LibCpp2IlMain.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
                 var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost24_5() : searcher.FindMetadataRegistrationPre24_5();
-                Console.WriteLine($"Got 0x{metaReg:x}");
+                LibLogger.VerboseNewline($"Got 0x{metaReg:x}");
 
                 return (codeReg, metaReg);
             }
