@@ -10,6 +10,8 @@ namespace Cpp2IL
         internal static readonly Color INFO = Color.LightBlue;
         internal static readonly Color WARN = Color.Yellow;
         internal static readonly Color ERROR = Color.DarkRed;
+        
+        internal static bool DisableColor { private get; set; }
 
         internal static bool ShowVerbose { private get; set; }
         
@@ -47,15 +49,23 @@ namespace Cpp2IL
         internal static void Write(string level, string source, string message, Color color)
         {
             WritePrelude(level, source, color);
-            Console.Write(message.Pastel(color));
-
+            
             LastNoNewline = !message.EndsWith('\n');
+            
+            if (!DisableColor)
+                message = message.Pastel(color);
+            
+            Console.Write(message);
         }
 
         private static void WritePrelude(string level, string source, Color color)
         {
+            var message = $"[{level}] [{source}] ";
+            if (!DisableColor)
+                message = message.Pastel(color);
+            
             if(!LastNoNewline)
-                Console.Write($"[{level}] [{source}] ".Pastel(color));
+                Console.Write(message);
         }
     }
 }

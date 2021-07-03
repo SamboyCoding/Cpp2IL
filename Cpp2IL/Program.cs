@@ -20,6 +20,16 @@ namespace Cpp2IL
             Console.WriteLine("===Cpp2IL by Samboy063===");
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.\n");
             
+            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            {
+                Logger.DisableColor = true;
+                Logger.WarnNewline("Looks like you're running on a non-windows platform. Disabling ANSI colour codes.");
+            } else if (Directory.Exists(@"Z:\usr\"))
+            {
+                Logger.DisableColor = true;
+                Logger.WarnNewline("Looks like you're running in wine or proton. Disabling ANSI colour codes.");
+            }
+            
             Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
 
             try
