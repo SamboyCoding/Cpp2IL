@@ -465,7 +465,7 @@ namespace Cpp2IL.Analysis
                         //Resolve ICall
                         Analysis.Actions.Add(new LookupICallAction(Analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_value_box)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_value_box || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_box)
                     {
                         //Box a cpp primitive to a managed type
                         Analysis.Actions.Add(new BoxValueAction(Analysis, instruction));
@@ -693,6 +693,10 @@ namespace Cpp2IL.Analysis
                     //lea dest, [knownZero+amount] => load constant of [amount] into [dest]
                     Analysis.Actions.Add(new LoadConstantUsingLeaAction(Analysis, instruction));
                     break;
+                case Mnemonic.Lea when type0 == OpKind.Register && type1 == OpKind.Memory && memR == "rsp":
+                    //LEA dest, [rsp+0xblah] => load stack pointer
+                    Analysis.Actions.Add(new StackPointerToRegisterAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Mov when type1.IsImmediate() && type0 == OpKind.Register:
                     //Constant move to reg
                     var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));
@@ -704,8 +708,20 @@ namespace Cpp2IL.Analysis
                     Analysis.Actions.Add(new ConstantToGlobalAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type1.IsImmediate() && offset0 != 0 && type0 != OpKind.Register && memR != "rip" && memR != "rbp" && memR != "rsp":
-                    //Immediate move to field
-                    Analysis.Actions.Add(new ImmediateToFieldAction(Analysis, instruction));
+                    if (memOp is LocalDefinition {KnownInitialValue: AllocatedArray _})
+                    {
+                        if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
+                        {
+                            //Array write
+                            Analysis.Actions.Add(new ImmediateToArrayAction(Analysis, instruction));
+                        }
+                    }
+                    else
+                    {
+                        //Immediate move to field
+                        Analysis.Actions.Add(new ImmediateToFieldAction(Analysis, instruction));
+                    }
+
                     return;
                 //Note that, according to Il2CppArray class, an Il2Cpp Array has, after the core Object fields (klass and vtable)
                 //an Il2CppArrayBounds object, which consists of a uintptr (the length) and an int (the "lower bound"), 

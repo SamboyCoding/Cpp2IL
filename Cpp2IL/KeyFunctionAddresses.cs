@@ -34,8 +34,9 @@ namespace Cpp2IL
         public ulong il2cpp_string_new; //Api function (exported)
         public ulong il2cpp_vm_string_new; //Thunked from above
 
-        public ulong il2cpp_value_box;
-        public ulong il2cpp_object_box;
+        public ulong il2cpp_value_box; //Api function (exported)
+        public ulong il2cpp_vm_object_box; //Thunked from above
+        
         public ulong il2cpp_object_is_inst;
         public ulong il2cpp_raise_managed_exception;
         public ulong AddrPInvokeLookup;
@@ -80,11 +81,22 @@ namespace Cpp2IL
             ret.il2cpp_string_new = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_string_new");
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_string_new:X}");
             
-            if (ret.il2cpp_resolve_icall != 0)
+            if (ret.il2cpp_string_new != 0)
             {
                 Logger.Verbose("\tMapping il2cpp_string_new to String::New...");
                 ret.il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(ret.il2cpp_string_new);
                 Logger.VerboseNewline($"Found at 0x{ret.il2cpp_vm_string_new:X}");
+            }
+            
+            Logger.Verbose("\tLooking for Exported il2cpp_value_box function...");
+            ret.il2cpp_value_box = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_value_box");
+            Logger.VerboseNewline($"Found at 0x{ret.il2cpp_string_new:X}");
+            
+            if (ret.il2cpp_value_box != 0)
+            {
+                Logger.Verbose("\tMapping il2cpp_value_box to Object::Box...");
+                ret.il2cpp_vm_object_box = FindFunctionThisIsAThunkOf(ret.il2cpp_value_box);
+                Logger.VerboseNewline($"Found at 0x{ret.il2cpp_vm_object_box:X}");
             }
 
             Logger.Verbose("\tGrabbing il2cpp_runtime_class_init from exports...");

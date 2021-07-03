@@ -424,86 +424,10 @@ namespace Cpp2IL
             return reference;
         }
 
-        public static string Repeat(string input, int count)
-        {
-            var ret = new StringBuilder();
-            for (var i = 0; i < count; i++)
-            {
-                ret.Append(input);
-            }
-
-            return ret.ToString();
-        }
-
-        public static string InvertCondition(string condition)
-        {
-            if (condition.Contains("== false"))
-                return condition.Replace(" == false", "");
-            if (condition.Contains("== true"))
-                return "!" + condition.Replace(" == true", "");
-            if (condition.Contains("is zero or null"))
-                return condition.Replace("is zero or null", "is NOT zero or null");
-            if (condition.Contains("is NOT zero or null"))
-                return condition.Replace("is NOT zero or null", "is zero or null");
-            if (condition.Contains("=="))
-                return condition.Replace("==", "!=");
-            if (condition.Contains("!="))
-                return condition.Replace("!=", "==");
-            if (condition.Contains(">="))
-                return condition.Replace(">=", "<");
-            if (condition.Contains("<="))
-                return condition.Replace("<=", ">");
-            if (condition.Contains(">"))
-                return condition.Replace(">", "<=");
-            if (condition.Contains("<"))
-                return condition.Replace("<", ">=");
-
-            return condition;
-        }
-
-        public static StringBuilder AppendGenerics(this StringBuilder builder, string[] genericParams)
-        {
-            if (genericParams.Length > 0)
-            {
-                builder.Append("<");
-
-                foreach (var genericParam in genericParams)
-                {
-                    builder.Append(genericParam);
-                    if (genericParams.Last() != genericParam)
-                        builder.Append(", ");
-                }
-
-                builder.Append(">");
-            }
-
-            return builder;
-        }
-
-        // public static bool IsAssignableFrom(this TypeReference? baseClass, TypeReference? subClass)
-        // {
-        //     if (baseClass == null || subClass == null) return false;
-        //
-        //     if (subClass is TypeDefinition otherDef)
-        //     {
-        //         if (baseClass.FullName == otherDef.FullName) return true;
-        //
-        //         if (otherDef.BaseType != null && baseClass.IsAssignableFrom(TryLookupTypeDefByName(otherDef.BaseType.FullName).Item1))
-        //             return true;
-        //
-        //         if (otherDef.Interfaces.Any(i => baseClass.IsAssignableFrom(i.InterfaceType)))
-        //             return true;
-        //
-        //         return false;
-        //     }
-        //
-        //     return baseClass.FullName == subClass.FullName; //Simple check
-        // }
-
         public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
         {
             var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
-            if (char.IsLetterOrDigit(c) || char.IsPunctuation(c) || char.IsSymbol(c))
+            if (char.IsLetterOrDigit(c) || char.IsPunctuation(c) || char.IsSymbol(c) || char.IsWhiteSpace(c))
             {
                 var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0;
                 var literal = new StringBuilder();
@@ -729,7 +653,7 @@ namespace Cpp2IL
 
         public static byte GetOprMode(Instruction instruction)
         {
-            return (byte) oprMode.GetValue(instruction);
+            return (byte) oprMode.GetValue(instruction)!;
         }
 
         public static FieldInfo oprMode = typeof(Instruction).GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic)!;
@@ -774,9 +698,9 @@ namespace Cpp2IL
             else if (typeData.isGenericType)
             {
                 //TODO TryGetValue this.
-                var baseType = SharedState.UnmanagedToManagedTypes[typeData.baseType];
+                var baseType = SharedState.UnmanagedToManagedTypes[typeData.baseType!];
 
-                var genericType = baseType.MakeGenericType(typeData.genericParams.Select(a => TryResolveTypeReflectionData(a, baseType)).ToArray());
+                var genericType = baseType.MakeGenericType(typeData.genericParams.Select(a => TryResolveTypeReflectionData(a, baseType)).ToArray()!);
 
                 theType = genericType;
             }
@@ -838,6 +762,61 @@ namespace Cpp2IL
             }
 
             return results;
+        }
+
+        public static object? CoerceValue(object value, TypeReference coerceToType)
+        {
+            if (coerceToType is ArrayType) 
+                throw new Exception($"Can't coerce {value} to an array type {coerceToType}");
+            
+            //Definitely both primitive
+            switch (coerceToType.Name)
+            {
+                case "Object":
+                    //This one's easy.
+                    return value;
+                case "Boolean":
+                    return Convert.ToInt32(value) == 1;
+                case "SByte":
+                    return Convert.ToSByte(value);
+                case "Byte":
+                    if (value is ulong uValue)
+                        return (byte) (int) uValue;
+                    
+                    return Convert.ToByte(value);
+                case "Int16":
+                    return Convert.ToInt16(value);
+                case "UInt16":
+                    return Convert.ToUInt16(value);
+                case "Int32":
+                    if (value is uint u)
+                        return (int) u;
+                    return Convert.ToInt32(value);
+                case "UInt32":
+                    return Convert.ToUInt32(value);
+                case "Int64":
+                    return Convert.ToInt64(value);
+                case "UInt64":
+                    return Convert.ToUInt64(value);
+                case "String":
+                    if (Convert.ToInt32(value) == 0)
+                        return null;
+                    break; //Fail through to failure below.
+                case "Single":
+                    if (Convert.ToInt32(value) == 0)
+                        return 0f;
+                    break; //Fail
+                case "Double":
+                    if (Convert.ToInt32(value) == 0)
+                        return 0d;
+                    break; //Fail
+                case "Type":
+                    if (Convert.ToInt32(value) == 0)
+                        return null;
+                    break; //Fail
+            }
+
+            throw new Exception($"Can't coerce {value} to {coerceToType}");
         }
     }
 }

@@ -160,11 +160,8 @@ namespace Cpp2IL
                         else if (constructorCalls.Count != attributeConstructors.Count || constructorCalls.Any(c => c.ManagedMethodBeingCalled == null || c.Arguments?.Count != c.ManagedMethodBeingCalled?.Parameters.Count || c.Arguments!.Any(op => op is null)))
                         {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                            //Suppress warnings for DecimalConstantAttribute, it has too many params for us to analyze cleanly at this time
-                            //And it gets spammy
-                            if (!attributeConstructors.Any(c => c.DeclaringType.Name.Contains("DecimalConstantAttribute")))
-                                Console.WriteLine(
-                                    $"Warning: failed to recover all attribute constructor parameters for {warningName} in {module.Name}: Expecting these attributes: {attributeConstructors.Select(a => a.DeclaringType).ToStringEnumerable()}.\n Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
+                            Console.WriteLine(
+                                $"Warning: failed to recover all attribute constructor parameters for {warningName} in {module.Name}: Expecting these attributes: {attributeConstructors.Select(a => a.DeclaringType).ToStringEnumerable()}.\n Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
 #endif
 
                             //Add all no-param ones only
@@ -306,7 +303,7 @@ namespace Cpp2IL
                         var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
 
                         if (cons.Type.FullName != destType.FullName)
-                            value = CoerceValue(value, destType);
+                            value = Utils.CoerceValue(value, destType);
 
                         customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
                         break;
@@ -317,14 +314,20 @@ namespace Cpp2IL
                             throw new Exception($"Can't use a local without a KnownInitialValue in an attribute ctor: {local}");
 
                         var value = local.KnownInitialValue;
+                        var originalValue = value;
 
                         var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
 
-                        if (local.Type.FullName != destType.FullName)
-                            value = CoerceValue(value, destType);
-
                         if (value is AllocatedArray array)
                             value = AllocateArray(array);
+                        else if (local.Type.FullName != destType.FullName)
+                            value = Utils.CoerceValue(value, destType);
+
+                        if (destType.FullName == "System.Object")
+                        {
+                            //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
+                            value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(originalValue.GetType().FullName), originalValue);
+                        }
 
                         customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
                         break;
@@ -341,64 +344,25 @@ namespace Cpp2IL
 
         private static object AllocateArray(AllocatedArray array)
         {
-            var arrayType = Type.GetType(array.ArrayType.ElementType.FullName) ?? throw new Exception($"Could not resolve array type {array.ArrayType.ElementType.FullName}");
+            var typeForArrayToCreateNow = array.ArrayType.ElementType;
+
+            if (typeForArrayToCreateNow == null)
+                throw new Exception("Array has no type");
+
+            if (typeForArrayToCreateNow.Resolve() is {IsEnum: true} enumType)
+                typeForArrayToCreateNow = enumType.GetEnumUnderlyingType() ?? typeForArrayToCreateNow;
+
+            var arrayType = Type.GetType(typeForArrayToCreateNow.FullName) ?? throw new Exception($"Could not resolve array type {array.ArrayType.ElementType.FullName}");
             var arr = Array.CreateInstance(arrayType, array.Size);
-            
+
             foreach (var (index, value) in array.KnownValuesAtOffsets)
             {
-                arr.SetValue(value, index);
+                var toSet = value == null ? null : Utils.CoerceValue(value, typeForArrayToCreateNow);
+
+                arr.SetValue(toSet, index);
             }
 
             return (from object? o in arr select new CustomAttributeArgument(array.ArrayType.ElementType, o)).ToArray();
-        }
-
-        private static object? CoerceValue(object value, TypeReference parameterType)
-        {
-            if (!(parameterType is ArrayType))
-            {
-                //Definitely both primitive
-                switch (parameterType.Name)
-                {
-                    case "Boolean":
-                        return Convert.ToInt32(value) == 1;
-                    case "SByte":
-                        return Convert.ToSByte(value);
-                    case "Byte":
-                        return Convert.ToByte(value);
-                    case "Int16":
-                        return Convert.ToInt16(value);
-                    case "UInt16":
-                        return Convert.ToUInt16(value);
-                    case "Int32":
-                        if (value is uint u)
-                            return (int) u;
-                        return Convert.ToInt32(value);
-                    case "UInt32":
-                        return Convert.ToUInt32(value);
-                    case "Int64":
-                        return Convert.ToInt64(value);
-                    case "UInt64":
-                        return Convert.ToUInt64(value);
-                    case "String":
-                        if (Convert.ToInt32(value) == 0)
-                            return null;
-                        break; //Fail through to failure below.
-                    case "Single":
-                        if (Convert.ToInt32(value) == 0)
-                            return 0f;
-                        break; //Fail
-                    case "Double":
-                        if (Convert.ToInt32(value) == 0)
-                            return 0d;
-                        break; //Fail
-                    case "Type":
-                        if (Convert.ToInt32(value) == 0)
-                            return null;
-                        break; //Fail
-                }
-            }
-
-            throw new Exception($"Can't coerce {value} to {parameterType}");
         }
     }
 }
