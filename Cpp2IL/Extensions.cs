@@ -159,5 +159,13 @@ namespace Cpp2IL
             var f = enumClass.Fields.Single(f => f.Name == "value__");
             return f.FieldType.Resolve();
         }
+
+        public static T? GetValueSafely<T>(this Collection<T> arr, int i) where T : class
+        {
+            if (i >= arr.Count)
+                return null;
+
+            return arr[i];
+        }
     }
 }

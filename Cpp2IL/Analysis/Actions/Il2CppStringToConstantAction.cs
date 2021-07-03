@@ -1,4 +1,5 @@
 ﻿using Cpp2IL.Analysis.ResultModels;
+using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -17,7 +18,7 @@ namespace Cpp2IL.Analysis.Actions
 
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
-            _constantMade = context.MakeConstant(typeof(Il2CppString), new Il2CppString(_detectedString), reg: _destReg);
+            _constantMade = context.MakeConstant(typeof(Il2CppString), new Il2CppString(_detectedString, instruction.GetRipBasedInstructionMemoryAddress()), reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

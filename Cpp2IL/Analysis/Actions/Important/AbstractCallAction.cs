@@ -131,7 +131,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                     returnType = ResolveGenericReturnTypeIfNeeded(returnType);
                 }
 
-                var destReg = Utils.ShouldBeInFloatingPointRegister(returnType) ? "xmm0" : "rax";
+                var destReg = returnType.ShouldBeInFloatingPointRegister() ? "xmm0" : "rax";
                 ReturnedLocal = context.MakeLocal(returnType, reg: destReg);
 
                 //todo maybe improve?

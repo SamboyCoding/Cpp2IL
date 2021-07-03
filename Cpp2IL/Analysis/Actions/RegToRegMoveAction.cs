@@ -29,7 +29,7 @@ namespace Cpp2IL.Analysis.Actions
 
             if (!(beingMoved is LocalDefinition localBeingMoved) || localBeingMoved.Type == null) return;
 
-            if (localBeingMoved.Type.FullName == _localBeingOverwritten?.Type?.FullName)
+            if (localBeingMoved.Type.FullName == _localBeingOverwritten?.Type?.FullName && (localBeingMoved.KnownInitialValue == _localBeingOverwritten.KnownInitialValue))
             {
                 //Variable being overwritten is the same type as this one - are we maybe just changing the value of that one (e.g. in a loop)?
                 context.SetRegContent(newReg, _localBeingOverwritten);

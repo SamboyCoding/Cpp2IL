@@ -123,7 +123,13 @@ namespace Cpp2IL.Analysis.Actions.Important
                             possibleTarget = m;
 
                             if (!MethodUtils.CheckParameters(instruction, m, context, true, out Arguments, InstanceBeingCalledOn, false))
+                            {
+                                var thisIdx = listOfCallableMethods.IndexOf(m);
+                                if(listOfCallableMethods.Skip(thisIdx - 1).Any(otherMethod => otherMethod != m && otherMethod.declaringTypeIdx == m.declaringTypeIdx))
+                                    //Other matching instance methods are present, check those.
+                                    continue;
                                 AddComment("parameters do not match, but declaring type of method matches instance.");
+                            }
 
                             break;
                         }

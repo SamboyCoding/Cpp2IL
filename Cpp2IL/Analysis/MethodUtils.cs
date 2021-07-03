@@ -41,6 +41,15 @@ namespace Cpp2IL.Analysis
             return LibCpp2IlMain.Binary!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, beingCalledOn, out arguments) : CheckParameters64(method, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
+        private static IAnalysedOperand? GetValueFromAppropriateReg(bool? isFloatingPoint, string fpReg, string normalReg, MethodAnalysis context)
+        {
+            if(isFloatingPoint == true)
+                if (context.GetOperandInRegister(fpReg) is { } fpVal)
+                    return fpVal;
+
+            return context.GetOperandInRegister(normalReg);
+        }
+
         private static bool CheckParameters64(MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference beingCalledOn, bool failOnLeftoverArgs = true)
         {
             arguments = null;
@@ -49,9 +58,9 @@ namespace Cpp2IL.Analysis
             if (!isInstance)
                 actualArgs.Add(context.GetOperandInRegister("rcx") ?? context.GetOperandInRegister("xmm0"));
 
-            actualArgs.Add(context.GetOperandInRegister("rdx") ?? context.GetOperandInRegister("xmm1"));
-            actualArgs.Add(context.GetOperandInRegister("r8") ?? context.GetOperandInRegister("xmm2"));
-            actualArgs.Add(context.GetOperandInRegister("r9") ?? context.GetOperandInRegister("xmm3"));
+            actualArgs.Add(GetValueFromAppropriateReg(method.Parameters.GetValueSafely(0)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm1", "rdx", context));
+            actualArgs.Add(GetValueFromAppropriateReg(method.Parameters.GetValueSafely(1)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm2", "r8", context));
+            actualArgs.Add(GetValueFromAppropriateReg(method.Parameters.GetValueSafely(2)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm3", "r9", context));
 
             if (actualArgs.FindLast(a => a is ConstantDefinition {Value: MethodReference _}) is ConstantDefinition {Value: MethodReference actualGenericMethod})
             {
@@ -62,16 +71,30 @@ namespace Cpp2IL.Analysis
             }
 
             var tempArgs = new List<IAnalysedOperand>();
+            var stackOffset = 0x20;
             foreach (var parameterData in method.Parameters!)
             {
-                if (actualArgs.Count(a => a != null) == 0) return false;
-
                 var parameterType = parameterData.ParameterType;
 
                 if (parameterType == null)
                     throw new ArgumentException($"Parameter \"{parameterData}\" of method {method.FullName} has a null type??");
 
-                var arg = actualArgs.RemoveAndReturn(0)!;
+                IAnalysedOperand arg;
+                if (actualArgs.Count == 0)
+                {
+                    //Read from stack
+                    if (!context.StackStoredLocals.ContainsKey(stackOffset))
+                        //No stack arg, fail
+                        return false;
+
+                    arg = context.StackStoredLocals[stackOffset];
+                    stackOffset += 8; //TODO Adjust for size of operand?
+                }
+                else if (actualArgs.All(a => a == null))
+                    //We have only null args, so we're not done through the registers, but out of actual args. Fail.
+                    return false;
+                else
+                    arg = actualArgs.RemoveAndReturn(0)!;
 
                 if (parameterType is GenericParameter gp)
                 {
@@ -94,18 +117,66 @@ namespace Cpp2IL.Analysis
                     //We assert parameter type to be non-null in all of these cases, because we've null-checked the default value further up.
 
                     case ConstantDefinition cons when cons.Type.FullName != parameterType!.ToString(): //Constant type mismatch
-                        if(parameterType.Resolve()?.IsEnum == true && cons.Type.IsPrimitive)
+                        if (parameterType.Resolve()?.IsEnum == true && cons.Type.IsPrimitive)
                             break; //Forgive primitive => enum coercion.
                         if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
                             break; //Forgive primitive coercion.
-                        if((parameterType.FullName == "System.String" || parameterType.FullName == "System.Object") && cons.Value is string)
+                        if ((parameterType.FullName == "System.String" || parameterType.FullName == "System.Object") && cons.Value is string)
                             break;
+                        if (parameterType.IsPrimitive && cons.Value is Il2CppString cppString)
+                        {
+                            var primitiveLength = Utils.GetSizeOfObject(parameterType);
+                            ulong newValue;
+                            if (primitiveLength == 8)
+                                newValue = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ulong>(cppString.Address);
+                            else if (primitiveLength == 4)
+                                newValue = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<uint>(cppString.Address);
+                            else
+                                throw new Exception($"Not implemented: Size {primitiveLength}");
+
+                            if (parameterType.Name == "Single")
+                                cons.Value = BitConverter.ToSingle(BitConverter.GetBytes((uint) newValue), 0);
+                            else if (parameterType.Name == "Double")
+                                cons.Value = BitConverter.ToDouble(BitConverter.GetBytes(newValue), 0);
+                            else
+                                cons.Value = newValue;
+
+                            cons.Type = Type.GetType(parameterType.FullName!)!;
+                            break;
+                        }
+
+                        if (parameterType.IsPrimitive && cons.Value is UnknownGlobalAddr unknownGlobalAddr)
+                        {
+                            var primitiveLength = Utils.GetSizeOfObject(parameterType);
+                            byte[] newValue;
+                            if (primitiveLength == 8)
+                                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 8);
+                            else if (primitiveLength == 4)
+                                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 4);
+                            else
+                                throw new Exception($"Not implemented: Size {primitiveLength}");
+
+                            if (parameterType.Name == "Single")
+                                cons.Value = BitConverter.ToSingle(newValue, 0);
+                            else if (parameterType.Name == "Double")
+                                cons.Value = BitConverter.ToDouble(newValue, 0);
+                            else
+                                cons.Value = newValue;
+
+                            cons.Type = Type.GetType(parameterType.FullName!)!;
+                            break;
+                        }
                         if (cons.Type.IsAssignableTo(typeof(MemberReference)) && parameterType.Name == "IntPtr")
                             break; //We allow this, because an IntPtr is usually a type or, more commonly, method pointer.
                         if (cons.Type.IsAssignableTo(typeof(FieldReference)) && parameterType.Name == "RuntimeFieldHandle")
                             break; //These are the same struct - we represent it as a FieldReference but it's actually a runtime field handle.
                         return false;
-                    case LocalDefinition local when local.Type == null || !parameterType!.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
+                    case LocalDefinition local:
+                        if (parameterType.IsArray && local.Type?.IsArray != true)
+                            return false; //Fail. Array<->non array is non-forgivable.
+                        if(local.Type != null && parameterType!.Resolve().IsAssignableFrom(local.Type))
+                            //"Success" condition, all matches
+                            break;
                         if (parameterType!.IsPrimitive && local.Type?.IsPrimitive == true)
                             break; //Forgive primitive coercion.
                         if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(Utils.ArrayReference))
@@ -318,7 +389,6 @@ namespace Cpp2IL.Analysis
             {
                 return null;
             }
-
         }
     }
 }

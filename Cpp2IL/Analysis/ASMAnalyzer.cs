@@ -585,17 +585,12 @@ namespace Cpp2IL.Analysis
 
             var mnemonic = instruction.Mnemonic;
 
-            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd)
+            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps)
                 mnemonic = Mnemonic.Mov;
             
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
-
-            if (instruction.IP == 0x180365151)
-            {
-                Console.WriteLine("a");
-            }
-
+            
             switch (mnemonic)
             {
                 case Mnemonic.Mov when !_cppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():
@@ -675,7 +670,7 @@ namespace Cpp2IL.Analysis
                     else
                     {
                         var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.GetRipBasedInstructionMemoryAddress()));
-                        if (potentialLiteral != null)
+                        if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
                         {
                             if (r0 != "rsp")
                                 Analysis.Actions.Add(new Il2CppStringToConstantAction(Analysis, instruction, potentialLiteral));
@@ -708,7 +703,7 @@ namespace Cpp2IL.Analysis
                     //Move constant to addr
                     Analysis.Actions.Add(new ConstantToGlobalAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mov when type1.IsImmediate() && offset0 != 0 && type0 != OpKind.Register && memR != "rip" && memR != "rbp":
+                case Mnemonic.Mov when type1.IsImmediate() && offset0 != 0 && type0 != OpKind.Register && memR != "rip" && memR != "rbp" && memR != "rsp":
                     //Immediate move to field
                     Analysis.Actions.Add(new ImmediateToFieldAction(Analysis, instruction));
                     return;
@@ -729,7 +724,6 @@ namespace Cpp2IL.Analysis
                     Analysis.Actions.Add(new StaticFieldOffsetToRegAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {Type: {IsArray: true}}:
-                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {Type: {IsArray: true}}:
                     //Move reg, [reg+0x10]
                     //Reading an element from an array at a fixed offset
                     if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
@@ -738,6 +732,14 @@ namespace Cpp2IL.Analysis
                     } else if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new ArrayLengthPropertyToLocalAction(Analysis, instruction));
+                    }
+
+                    break;
+                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {Type: {IsArray: true}}:
+                    //Same as above but an LEA - copying a reference to the *address* of this item to the reg.
+                    if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
+                    {
+                        Analysis.Actions.Add(new ConstantArrayOffsetPointerToRegAction(Analysis, instruction));
                     }
 
                     break;
@@ -833,6 +835,21 @@ namespace Cpp2IL.Analysis
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition:
                     //Write non-static field
                     Analysis.Actions.Add(new RegToFieldAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: Il2CppArrayOffsetPointer _}:
+                    //Write into array offset via pointer
+                    Analysis.Actions.Add(new RegisterToArrayViaPointerAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR == "rsp":
+                    //Write to stack
+                    
+                    if(op1 is LocalDefinition)
+                        Analysis.Actions.Add(new LocalToStackOffsetAction(Analysis, instruction));
+                    else if(op1 is ConstantDefinition)
+                        Analysis.Actions.Add(new ConstantToStackOffsetAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1.IsImmediate() && memR == "rsp":
+                    Analysis.Actions.Add(new ImmediateToStackOffsetAction(Analysis, instruction));
                     break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic

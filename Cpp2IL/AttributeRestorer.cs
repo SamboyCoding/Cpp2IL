@@ -1,5 +1,5 @@
 ﻿#define ALLOW_ATTRIBUTE_ANALYSIS
-// #define NO_ATTRIBUTE_RESTORATION_WARNINGS
+#define NO_ATTRIBUTE_RESTORATION_WARNINGS
 
 using System;
 using System.Collections.Generic;
@@ -152,7 +152,7 @@ namespace Cpp2IL
                             //Some {projects/versions/compile options/not sure} don't call constructors, they just set fields. Don't know why, but I'm not dealing right now
                             //Some others (audica) don't call ctors for no-arg attributes, only for those with parameters.
                             //TODO implement support for this
-                            
+
                             //For now, add all no-param ones only
                             attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
                                 .Select(c => new CustomAttribute(module.ImportReference(c))));
@@ -164,7 +164,7 @@ namespace Cpp2IL
                             //And it gets spammy
                             if (!attributeConstructors.Any(c => c.DeclaringType.Name.Contains("DecimalConstantAttribute")))
                                 Console.WriteLine(
-                                    $"Warning: failed to recover all attribute constructor parameters for {warningName}: Expecting these attributes: {attributeConstructors.Select(a => a.DeclaringType).ToStringEnumerable()}.\n Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
+                                    $"Warning: failed to recover all attribute constructor parameters for {warningName} in {module.Name}: Expecting these attributes: {attributeConstructors.Select(a => a.DeclaringType).ToStringEnumerable()}.\n Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
 #endif
 
                             //Add all no-param ones only
@@ -173,16 +173,28 @@ namespace Cpp2IL
                         }
                         else
                         {
-                            if(warningName == "UnityEngine.Playables.PlayableAsset")
-                                Console.WriteLine("hi");
-                            
+                            var seenCountMap = new Dictionary<MethodReference, int>();
+
                             foreach (var attributeConstructor in attributeConstructors)
                             {
                                 var ctor = attributeConstructor;
 
                                 //Find method by declaring type and name.
                                 //Don't just match method directly because some ctors (Obsolete) can contain multiple constructors.
-                                var methodCall = constructorCalls.FirstOrDefault(c => c.ManagedMethodBeingCalled?.DeclaringType?.FullName == attributeConstructor.DeclaringType?.FullName && c.ManagedMethodBeingCalled?.Name == attributeConstructor.Name);
+                                var matchingByName = constructorCalls.Where(c => c.ManagedMethodBeingCalled?.DeclaringType?.FullName == attributeConstructor.DeclaringType?.FullName && c.ManagedMethodBeingCalled?.Name == attributeConstructor.Name).ToList();
+
+                                CallManagedFunctionAction? methodCall;
+                                if (!seenCountMap.ContainsKey(ctor))
+                                {
+                                    seenCountMap[ctor] = 1;
+                                    methodCall = matchingByName.FirstOrDefault();
+                                }
+                                else
+                                {
+                                    var timesSeen = seenCountMap[ctor];
+                                    methodCall = matchingByName.Count > timesSeen ? matchingByName[timesSeen] : null;
+                                    seenCountMap[ctor]++;
+                                }
 
                                 if (methodCall != null && methodCall.ManagedMethodBeingCalled != attributeConstructor)
                                     //If we found a better constructor, use it.
@@ -331,6 +343,11 @@ namespace Cpp2IL
         {
             var arrayType = Type.GetType(array.ArrayType.ElementType.FullName) ?? throw new Exception($"Could not resolve array type {array.ArrayType.ElementType.FullName}");
             var arr = Array.CreateInstance(arrayType, array.Size);
+            
+            foreach (var (index, value) in array.KnownValuesAtOffsets)
+            {
+                arr.SetValue(value, index);
+            }
 
             return (from object? o in arr select new CustomAttributeArgument(array.ArrayType.ElementType, o)).ToArray();
         }
@@ -353,6 +370,8 @@ namespace Cpp2IL
                     case "UInt16":
                         return Convert.ToUInt16(value);
                     case "Int32":
+                        if (value is uint u)
+                            return (int) u;
                         return Convert.ToInt32(value);
                     case "UInt32":
                         return Convert.ToUInt32(value);
@@ -364,6 +383,18 @@ namespace Cpp2IL
                         if (Convert.ToInt32(value) == 0)
                             return null;
                         break; //Fail through to failure below.
+                    case "Single":
+                        if (Convert.ToInt32(value) == 0)
+                            return 0f;
+                        break; //Fail
+                    case "Double":
+                        if (Convert.ToInt32(value) == 0)
+                            return 0d;
+                        break; //Fail
+                    case "Type":
+                        if (Convert.ToInt32(value) == 0)
+                            return null;
+                        break; //Fail
                 }
             }
 

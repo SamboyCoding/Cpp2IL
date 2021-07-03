@@ -41,6 +41,9 @@ namespace Cpp2IL.Analysis.Actions.Important
             else if (sizeOperand is ConstantDefinition {Value: ulong sizeC})
             {
                 sizeAllocated = (int) sizeC;
+            } else if (sizeOperand is ConstantDefinition {Value: uint sizeCSmall})
+            {
+                sizeAllocated = (int) sizeCSmall;
             }
 
             if (arrayType == null) return;

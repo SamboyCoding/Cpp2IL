@@ -1,4 +1,5 @@
-﻿using Mono.Cecil;
+﻿using System.Collections.Generic;
+using Mono.Cecil;
 
 namespace Cpp2IL.Analysis.ResultModels
 {
@@ -6,6 +7,7 @@ namespace Cpp2IL.Analysis.ResultModels
     {
         public ArrayType ArrayType;
         public int Size;
+        public readonly Dictionary<int, object?> KnownValuesAtOffsets = new Dictionary<int, object?>();
 
         public AllocatedArray(int size, ArrayType arrayType)
         {

@@ -60,7 +60,7 @@ namespace Cpp2IL.Analysis
                 return fieldBeingAccessedData;
             }
 
-            if (tryFindFloatingPointValue && fieldInType.FieldType?.IsValueType == true && !Utils.ShouldBeInFloatingPointRegister(fieldInType.FieldType))
+            if (tryFindFloatingPointValue && fieldInType.FieldType?.IsValueType == true && !fieldInType.FieldType.ShouldBeInFloatingPointRegister())
             {
                 var potentialResult = GetIndirectlyPointedAtField(fields, offset, tryFindFloatingPointValue);
                 if (potentialResult != null)

@@ -507,7 +507,7 @@ namespace Cpp2IL
             {
                 var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0;
                 var literal = new StringBuilder();
-                while ((theDll.GetByteAtRawAddress(rawAddr) != 0 || isUnicode && theDll.GetByteAtRawAddress(rawAddr + 1) != 0) && literal.Length < 250)
+                while ((theDll.GetByteAtRawAddress(rawAddr) != 0 || isUnicode && theDll.GetByteAtRawAddress(rawAddr + 1) != 0) && literal.Length < 5000)
                 {
                     literal.Append(Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr)));
                     rawAddr++;
@@ -526,7 +526,7 @@ namespace Cpp2IL
             return null;
         }
 
-        public static bool ShouldBeInFloatingPointRegister(TypeReference? type)
+        public static bool ShouldBeInFloatingPointRegister(this TypeReference? type)
         {
             if (type == null) return false;
 
