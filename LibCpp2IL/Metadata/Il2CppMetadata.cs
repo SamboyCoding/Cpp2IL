@@ -32,10 +32,10 @@ namespace LibCpp2IL.Metadata
         public Il2CppRGCTXDefinition[] RgctxDefinitions; //Moved to binary in v24.2
         public int[] attributeTypes;
         public int[] interfaceIndices;
-        
+
         //Moved to binary in v27.
         public Dictionary<uint, SortedDictionary<uint, uint>> metadataUsageDic;
-        
+
         public long maxMetadataUsages;
         public int[] nestedTypeIndices;
         public Il2CppEventDefinition[] eventDefs;
@@ -59,7 +59,7 @@ namespace LibCpp2IL.Metadata
             {
                 throw new FormatException("Unexpected non-unity metadata version found! Expected 24+, got " + version);
             }
-            
+
             LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
 
             float actualVersion;
@@ -105,7 +105,7 @@ namespace LibCpp2IL.Metadata
             start = DateTime.Now;
             interfaceOffsets = ReadMetadataClassArray<Il2CppInterfaceOffset>(metadataHeader.interfaceOffsetsOffset, metadataHeader.interfaceOffsetsCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             LibLogger.Verbose("\tReading vtable indices...");
             start = DateTime.Now;
             VTableMethodIndices = ReadMetadataClassArray<uint>(metadataHeader.vtableMethodsOffset, metadataHeader.vtableMethodsCount);
@@ -178,7 +178,7 @@ namespace LibCpp2IL.Metadata
                 start = DateTime.Now;
 
                 RgctxDefinitions = ReadMetadataClassArray<Il2CppRGCTXDefinition>(metadataHeader.rgctxEntriesOffset, metadataHeader.rgctxEntriesCount);
-                
+
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
@@ -189,7 +189,7 @@ namespace LibCpp2IL.Metadata
                 start = DateTime.Now;
                 metadataUsageLists = ReadMetadataClassArray<Il2CppMetadataUsageList>(metadataHeader.metadataUsageListsOffset, metadataHeader.metadataUsageListsCount);
                 metadataUsagePairs = ReadMetadataClassArray<Il2CppMetadataUsagePair>(metadataHeader.metadataUsagePairsOffset, metadataHeader.metadataUsagePairsCount);
-                
+
                 DecipherMetadataUsage();
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
@@ -205,7 +205,7 @@ namespace LibCpp2IL.Metadata
             attributeTypeRanges = ReadMetadataClassArray<Il2CppCustomAttributeTypeRange>(metadataHeader.attributesInfoOffset, metadataHeader.attributesInfoCount);
             attributeTypes = ReadClassArrayAtRawAddr<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             LibLogger.Verbose("\tBuilding Lookup Table for field defaults...");
             start = DateTime.Now;
             foreach (var il2CppFieldDefaultValue in fieldDefaultValues)
@@ -213,6 +213,7 @@ namespace LibCpp2IL.Metadata
                 _fieldDefaultValueLookup[il2CppFieldDefaultValue.fieldIndex] = il2CppFieldDefaultValue;
                 _fieldDefaultLookupNew[fieldDefs[il2CppFieldDefaultValue.fieldIndex]] = il2CppFieldDefaultValue;
             }
+
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
 #pragma warning restore 8618
@@ -276,7 +277,7 @@ namespace LibCpp2IL.Metadata
 
                 if (fieldDefault == null)
                     return (-1, -1);
-                
+
                 return (ptr: fieldDefault.dataIndex, type: fieldDefault.typeIndex);
             }
 
@@ -297,28 +298,31 @@ namespace LibCpp2IL.Metadata
 
         public string GetStringFromIndex(int index)
         {
-            if(!_cachedStrings.ContainsKey(index))
+            if (!_cachedStrings.ContainsKey(index))
                 _cachedStrings[index] = ReadStringToNull(metadataHeader.stringOffset + index);
-            
+
             return _cachedStrings[index];
         }
 
         private Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]>();
+
         public Il2CppCustomAttributeTypeRange? GetCustomAttributeData(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token)
         {
-            if (LibCpp2IlMain.MetadataVersion <= 24f) 
+            if (LibCpp2IlMain.MetadataVersion <= 24f)
                 return attributeTypeRanges[customAttributeIndex];
-            
-            if (!_typeRangesByAssembly.ContainsKey(imageDef))
-                _typeRangesByAssembly[imageDef] = attributeTypeRanges.SubArray(imageDef.customAttributeStart, (int) imageDef.customAttributeCount);
-                
+
+            lock (_typeRangesByAssembly)
+            {
+                if (!_typeRangesByAssembly.ContainsKey(imageDef))
+                    _typeRangesByAssembly[imageDef] = attributeTypeRanges.SubArray(imageDef.customAttributeStart, (int) imageDef.customAttributeCount);
+            }
+
             foreach (var r in _typeRangesByAssembly[imageDef])
             {
                 if (r.token == token) return r;
             }
 
             return null;
-
         }
 
         public string GetStringLiteralFromIndex(uint index)

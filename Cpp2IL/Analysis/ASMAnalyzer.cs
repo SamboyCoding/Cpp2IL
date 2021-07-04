@@ -32,7 +32,7 @@ namespace Cpp2IL.Analysis
         private readonly StringBuilder _methodFunctionality = new StringBuilder();
         private readonly InstructionList _instructions;
 
-        internal List<MethodReference>? AttributeCtorsForRestoration;
+        internal List<TypeDefinition> AttributesForRestoration;
 
         private static readonly Mnemonic[] MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT =
         {
@@ -626,8 +626,8 @@ namespace Cpp2IL.Analysis
                     var ptrSize = LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
                     var offsetInList = instruction.MemoryDisplacement32 / ptrSize;
                     
-                    if(offsetInList < AttributeCtorsForRestoration!.Count)
-                        Analysis.Actions.Add(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributeCtorsForRestoration!));
+                    if(offsetInList < AttributesForRestoration!.Count)
+                        Analysis.Actions.Add(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributesForRestoration!));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
                 {

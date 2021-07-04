@@ -15,7 +15,7 @@ namespace Cpp2IL.Analysis.Actions.Important
         public MethodReference? ManagedMethodBeingCalled;
         public List<IAnalysedOperand?>? Arguments;
         public LocalDefinition? ReturnedLocal;
-        protected LocalDefinition? InstanceBeingCalledOn;
+        public LocalDefinition? InstanceBeingCalledOn;
         protected bool IsCallToSuperclassMethod;
         protected bool ShouldUseCallvirt;
 

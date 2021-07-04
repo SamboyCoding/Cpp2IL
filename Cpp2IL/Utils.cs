@@ -113,12 +113,15 @@ namespace Cpp2IL
         private static bool CheckAssignability(TypeDefinition baseType, TypeReference potentialChild)
         {
             var key = (baseType, potentialChild);
-            if (!_assignableCache.ContainsKey(key))
+            lock (_assignableCache)
             {
-                _assignableCache[key] = baseType.IsAssignableFrom(potentialChild);
-            }
+                if (!_assignableCache.ContainsKey(key))
+                {
+                    _assignableCache[key] = baseType.IsAssignableFrom(potentialChild);
+                }
 
-            return _assignableCache[key];
+                return _assignableCache[key];
+            }
         }
 
         public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeReference managedType)
@@ -799,6 +802,9 @@ namespace Cpp2IL
                 case "UInt64":
                     return Convert.ToUInt64(value);
                 case "String":
+                    if (value is string)
+                        return value;
+                    
                     if (Convert.ToInt32(value) == 0)
                         return null;
                     break; //Fail through to failure below.

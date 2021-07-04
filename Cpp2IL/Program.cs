@@ -74,7 +74,11 @@ namespace Cpp2IL
             Logger.InfoNewline("Applying type, method, and field attributes...This may take a couple of seconds");
             var start = DateTime.Now;
 
-            LibCpp2IlMain.TheMetadata!.imageDefinitions.ToList().ForEach(definition => AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly(definition, keyFunctionAddresses));
+            LibCpp2IlMain.TheMetadata!.imageDefinitions.ToList().AsParallel().Select(definition =>
+            {
+                AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly(definition, keyFunctionAddresses);
+                return true;
+            }).ToList();
 
             Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 

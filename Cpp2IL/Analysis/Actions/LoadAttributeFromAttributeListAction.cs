@@ -9,22 +9,20 @@ namespace Cpp2IL.Analysis.Actions
 {
     public class LoadAttributeFromAttributeListAction : BaseAction
     {
-        private LocalDefinition? _localMade;
+        public LocalDefinition? LocalMade;
         private string? _destReg;
-        private TypeDefinition? _attributeType;
-        private long _offsetInList;
+        public TypeDefinition? AttributeType;
+        public long OffsetInList;
 
-        public LoadAttributeFromAttributeListAction(MethodAnalysis context, Instruction instruction, List<MethodReference> ctors) : base(context, instruction)
+        public LoadAttributeFromAttributeListAction(MethodAnalysis context, Instruction instruction, List<TypeDefinition> attributes) : base(context, instruction)
         {
             var ptrSize = LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
-            _offsetInList = instruction.MemoryDisplacement32 / ptrSize;
+            OffsetInList = instruction.MemoryDisplacement32 / ptrSize;
 
-            var ctor = ctors[(int) _offsetInList];
-
-            _attributeType = ctor.DeclaringType.Resolve();
+            AttributeType = attributes[(int) OffsetInList];
 
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
-            _localMade = context.MakeLocal(_attributeType, reg: _destReg);
+            LocalMade = context.MakeLocal(AttributeType, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
@@ -39,7 +37,7 @@ namespace Cpp2IL.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"[!] Loads the attribute instance at offset {_offsetInList} which is of type {_attributeType}, and stores in new local {_localMade} in {_destReg}";
+            return $"[!] Loads the attribute instance at offset {OffsetInList} which is of type {AttributeType}, and stores in new local {LocalMade} in {_destReg}";
         }
     }
 }

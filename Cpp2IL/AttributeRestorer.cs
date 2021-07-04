@@ -1,10 +1,11 @@
-﻿#define ALLOW_ATTRIBUTE_ANALYSIS
-#define NO_ATTRIBUTE_RESTORATION_WARNINGS
+﻿// #define NO_ATTRIBUTE_RESTORATION_WARNINGS
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis;
+using Cpp2IL.Analysis.Actions;
 using Cpp2IL.Analysis.Actions.Important;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
@@ -17,7 +18,7 @@ namespace Cpp2IL
 {
     public static class AttributeRestorer
     {
-        private static readonly Dictionary<long, MethodReference> _attributeCtorsByClassIndex = new Dictionary<long, MethodReference>();
+        private static readonly ConcurrentDictionary<long, MethodReference> _attributeCtorsByClassIndex = new ConcurrentDictionary<long, MethodReference>();
         private static readonly TypeDefinition DummyTypeDefForAttributeCache = new TypeDefinition("dummy", "AttributeCache", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
 
@@ -102,144 +103,147 @@ namespace Cpp2IL
             if (attributeTypeRange == null)
                 return attributes;
 
-            //At AttributeGeneratorAddress there'll be a series of function calls, each one essentially taking the attribute type and its constructor params.
-            //Float values are obtained using BitConverter.ToSingle(byte[], 0) with the 4 bytes making up the float.
-            //FUTURE: Do we want to try to get the values for these?
+            //This exists only as a guideline for if we should run analysis or not, and a fallback in case we cannot.
+            //Maybe in future we should always run analysis? How expensive is that?
 
-            //The easiest way to do this is to grab all the constructors first, so we know what we're looking for, then run through the analysis engine if we need to.
+            var attributesExpected = GetAttributesFromRange(attributeTypeRange);
+
             var attributeConstructors = Enumerable.Range(0, attributeTypeRange.count)
                 .Select(i => ResolveConstructorForAttribute(attributeTypeRange, i))
                 .ToList();
 
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
 
-            if (mustRunAnalysis)
+            if (!mustRunAnalysis)
+                //No need to run analysis, so don't
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+
+            if (LibCpp2IlMain.Binary!.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_64)
+                //Analysis isn't yet supported for ARM.
+                //So just generate those which can be generated without params.
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+
+            //Grab generator for this context - be it field, type, method, etc.
+            var attributeGeneratorAddress = GetAddressOfAttributeGeneratorFunction(imageDef, attributeTypeRange);
+
+            //Check we can actually map to the binary.
+            if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(attributeGeneratorAddress, out _))
+                //If not, just generate those which we can (no params).
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+
+            var actions = GetActionsPerformedByGenerator(keyFunctionAddresses, attributeGeneratorAddress, attributesExpected);
+
+            //What we need to do is grab all the LoadAttributeFromAttributeListAction and resolve those locals
+            //Then check for any field writes performed on them or function calls on that instance.
+            //Also check that each index in the attribute list is present, if not, check that those which are absent have a no-arg constructor.
+
+            //Indexes shared with attributesExpected
+            var localArray = new LocalDefinition?[attributesExpected.Count];
+
+            foreach (var action in actions.Where(a => a is LoadAttributeFromAttributeListAction)
+                .Cast<LoadAttributeFromAttributeListAction>())
             {
-#if ALLOW_ATTRIBUTE_ANALYSIS
-                if (LibCpp2IlMain.Binary!.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_64)
-                    //Filter out constructors which take parameters, as analysis isn't yet supported for ARM.
-                    //Add all no-param ones only
-                    attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
-                        .Select(c => new CustomAttribute(module.ImportReference(c))));
-                else
+                localArray[action.OffsetInList] = action.LocalMade;
+            }
+
+            for (var i = 0; i < attributesExpected.Count; i++)
+            {
+                var local = localArray[i];
+                var attr = attributesExpected[i];
+                var noArgCtor = attr.GetConstructors().FirstOrDefault(c => !c.HasParameters);
+
+                if (local == null && noArgCtor != null)
                 {
-                    //Grab generator for this context - be it field, type, method, etc.
-                    var attributeGeneratorAddress = GetAddressOfAttributeGeneratorFunction(imageDef, attributeTypeRange);
-
-                    if (LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(attributeGeneratorAddress, out _))
-                    {
-                        //Check we can actually map to the binary.
-                        var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false);
-
-                        //Run analysis on this method to get parameters for the various constructors.
-                        var analyzer = new AsmAnalyzer(attributeGeneratorAddress, generatorBody, keyFunctionAddresses!);
-                        analyzer.AddParameter(DummyTypeDefForAttributeCache, "attributeCache");
-                        analyzer.AttributeCtorsForRestoration = attributeConstructors;
-
-                        analyzer.AnalyzeMethod();
-
-                        var allCppCalls = analyzer.Analysis.Actions.Where(o => o is CallManagedFunctionAction).Cast<CallManagedFunctionAction>().ToList();
-                        var constructorCalls = allCppCalls.Where(a => a.ManagedMethodBeingCalled?.Name == ".ctor").ToList();
-
-                        //TODO any calls to set_Blah need to be set as fields in the attribute.
-
-                        if (constructorCalls.Count > attributeConstructors.Count)
-                            //Take only the first n that we need
-                            constructorCalls = constructorCalls.Take(attributeConstructors.Count).ToList();
-
-                        if (constructorCalls.Count == 0)
-                        {
-                            //Some {projects/versions/compile options/not sure} don't call constructors, they just set fields. Don't know why, but I'm not dealing right now
-                            //Some others (audica) don't call ctors for no-arg attributes, only for those with parameters.
-                            //TODO implement support for this
-
-                            //For now, add all no-param ones only
-                            attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
-                                .Select(c => new CustomAttribute(module.ImportReference(c))));
-                        }
-                        else if (constructorCalls.Count != attributeConstructors.Count || constructorCalls.Any(c => c.ManagedMethodBeingCalled == null || c.Arguments?.Count != c.ManagedMethodBeingCalled?.Parameters.Count || c.Arguments!.Any(op => op is null)))
-                        {
-#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                            Console.WriteLine(
-                                $"Warning: failed to recover all attribute constructor parameters for {warningName} in {module.Name}: Expecting these attributes: {attributeConstructors.Select(a => a.DeclaringType).ToStringEnumerable()}.\n Managed function call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
-#endif
-
-                            //Add all no-param ones only
-                            attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
-                                .Select(c => new CustomAttribute(module.ImportReference(c))));
-                        }
-                        else
-                        {
-                            var seenCountMap = new Dictionary<MethodReference, int>();
-
-                            foreach (var attributeConstructor in attributeConstructors)
-                            {
-                                var ctor = attributeConstructor;
-
-                                //Find method by declaring type and name.
-                                //Don't just match method directly because some ctors (Obsolete) can contain multiple constructors.
-                                var matchingByName = constructorCalls.Where(c => c.ManagedMethodBeingCalled?.DeclaringType?.FullName == attributeConstructor.DeclaringType?.FullName && c.ManagedMethodBeingCalled?.Name == attributeConstructor.Name).ToList();
-
-                                CallManagedFunctionAction? methodCall;
-                                if (!seenCountMap.ContainsKey(ctor))
-                                {
-                                    seenCountMap[ctor] = 1;
-                                    methodCall = matchingByName.FirstOrDefault();
-                                }
-                                else
-                                {
-                                    var timesSeen = seenCountMap[ctor];
-                                    methodCall = matchingByName.Count > timesSeen ? matchingByName[timesSeen] : null;
-                                    seenCountMap[ctor]++;
-                                }
-
-                                if (methodCall != null && methodCall.ManagedMethodBeingCalled != attributeConstructor)
-                                    //If we found a better constructor, use it.
-                                    ctor = methodCall.ManagedMethodBeingCalled ?? ctor;
-
-                                if (methodCall == null)
-                                {
-                                    //Failed to find this constructor call at all - fall back to adding those w/out params
-#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                                    Console.WriteLine($"Warning: Couldn't find managed ctor call for {attributeConstructor} in {warningName}. Constructor call synopsis entries are: \n\t{string.Join("\n\t", constructorCalls.Select(c => c.GetSynopsisEntry()))}");
-#endif
-
-                                    //Clear attributes 
-                                    attributes.Clear();
-
-                                    //Add those without params
-                                    attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
-                                        .Select(c => new CustomAttribute(module.ImportReference(c))));
-                                    break;
-                                }
-
-                                try
-                                {
-                                    attributes.Add(GenerateCustomAttributeWithConstructorParams(ctor, methodCall.Arguments!, module));
-                                }
-                                catch (Exception e)
-                                {
-#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                                    Console.WriteLine($"Warning: Failed to parse args for attribute {attributeConstructor} in {warningName}. Details: {e.Message}");
-#endif
-
-                                    //Clear list and add no-param ones.
-                                    attributes.Clear();
-                                    attributes.AddRange(attributeConstructors.Where(c => !c.HasParameters)
-                                        .Select(c => new CustomAttribute(module.ImportReference(c))));
-                                    break;
-                                }
-                            }
-                        }
-                    }
+                    //No local made at all, just generate a default attribute and move on.
+                    attributes.Add(new CustomAttribute(noArgCtor));
+                    continue;
                 }
-#else
-                attributeConstructors = attributeConstructors.Where(c => !c.HasParameters).ToList();
-                attributes.AddRange(attributeConstructors.Select(c => new CustomAttribute(module.ImportReference(c))));
+
+                if (local == null)
+                {
+                    //No local made at all, BUT we expected constructor params.
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                    Logger.WarnNewline($"Attribute {attr} in {warningName} of {module.Name} has no zero-argument constructor but no local was made. Falling back to simple attribute generation.");
 #endif
+                    //Bail out to simple generation.
+                    return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                }
+                
+                //We have a local - look for constructor calls and/or field writes.
+                var allCtors = attr.GetConstructors().Select(c => c.FullName).ToList();
+                var matchingCtorCall = (CallManagedFunctionAction?) actions.FirstOrDefault(c => c is CallManagedFunctionAction {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtors.Contains(method.FullName));
+
+                if (matchingCtorCall?.ManagedMethodBeingCalled == null && noArgCtor == null)
+                {
+                    //No constructor call, BUT we expected constructor params.
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                    Logger.WarnNewline($"Attribute {attr} in {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found. Falling back to simple attribute generation.");
+#endif
+                    //Bail out to simple generation.
+                    return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                }
+
+                CustomAttribute attributeInstance;
+                if (matchingCtorCall?.ManagedMethodBeingCalled != null)
+                    try
+                    {
+                        attributeInstance = GenerateCustomAttributeWithConstructorParams(matchingCtorCall.ManagedMethodBeingCalled, matchingCtorCall.Arguments!, module);
+                    }
+                    catch (Exception e)
+                    {
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                        Logger.WarnNewline($"Attribute constructor {matchingCtorCall.ManagedMethodBeingCalled} in {warningName} of {module.Name} was resolved with an unprocessable argument. Details: {e.Message}");
+#endif
+                        //Bail out to simple generation.
+                        return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                    }
+                else
+                    attributeInstance = new CustomAttribute(noArgCtor);
+                
+                //TODO Resolve field sets
+                
+                attributes.Add(attributeInstance);
             }
 
             return attributes;
+        }
+
+        private static List<CustomAttribute> GenerateAttributesWithoutAnalysis(List<MethodReference> attributeCtors, ModuleDefinition module)
+        {
+            return attributeCtors.Where(c => !c.HasParameters)
+                .Select(c => new CustomAttribute(module.ImportReference(c)))
+                .ToList();
+        }
+
+        private static List<BaseAction> GetActionsPerformedByGenerator(KeyFunctionAddresses? keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
+        {
+            var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false);
+
+            //Run analysis on this method to get parameters for the various constructors.
+            var analyzer = new AsmAnalyzer(attributeGeneratorAddress, generatorBody, keyFunctionAddresses!);
+            analyzer.AddParameter(DummyTypeDefForAttributeCache, "attributeCache");
+            analyzer.AttributesForRestoration = attributesExpected;
+
+            analyzer.AnalyzeMethod();
+            return analyzer.Analysis.Actions;
+        }
+
+        private static List<TypeDefinition> GetAttributesFromRange(Il2CppCustomAttributeTypeRange attributeTypeRange)
+        {
+            var unmanagedAttributes = Enumerable.Range(attributeTypeRange.start, attributeTypeRange.count)
+                .Select(attrIdx => LibCpp2IlMain.TheMetadata!.attributeTypes[attrIdx])
+                .Select(typeIdx => LibCpp2IlMain.Binary!.GetType(typeIdx))
+                .ToList();
+
+            if (unmanagedAttributes.Any(a => a.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS))
+                throw new Exception("Non-class attribute? How does that work?");
+
+            var attributeTypeDefinitions = unmanagedAttributes
+                .Select(attributeType => LibCpp2IlMain.TheMetadata!.typeDefs[attributeType.data.classIndex])
+                .Select(typeDef => SharedState.UnmanagedToManagedTypes[typeDef])
+                .ToList();
+
+            return attributeTypeDefinitions;
         }
 
         private static ulong GetAddressOfAttributeGeneratorFunction(Il2CppImageDefinition imageDef, Il2CppCustomAttributeTypeRange attributeTypeRange)
@@ -267,17 +271,22 @@ namespace Cpp2IL
             if (attributeType.type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS)
                 throw new Exception("Non-class attribute? How does that work?");
 
-            if (!_attributeCtorsByClassIndex.ContainsKey(attributeType.data.classIndex))
+            lock (_attributeCtorsByClassIndex)
             {
-                //First time lookup of this attribute - resolve its constructor.
-                var cppAttribType = LibCpp2IlMain.TheMetadata.typeDefs[attributeType.data.classIndex];
+                if (!_attributeCtorsByClassIndex.TryGetValue(attributeType.data.classIndex, out var ret))
+                {
+                    //First time lookup of this attribute - resolve its constructor.
+                    var cppAttribType = LibCpp2IlMain.TheMetadata.typeDefs[attributeType.data.classIndex];
 
-                var cppMethodDefinition = cppAttribType.Methods!.First(c => c.Name == ".ctor");
-                var managedCtor = cppMethodDefinition.AsManaged();
-                _attributeCtorsByClassIndex[attributeType.data.classIndex] = managedCtor;
+                    var cppMethodDefinition = cppAttribType.Methods!.First(c => c.Name == ".ctor");
+                    var managedCtor = cppMethodDefinition.AsManaged();
+                    _attributeCtorsByClassIndex.TryAdd(attributeType.data.classIndex, managedCtor);
+                    
+                    return managedCtor;
+                }
+
+                return ret;
             }
-
-            return _attributeCtorsByClassIndex[attributeType.data.classIndex];
         }
 
         private static CustomAttribute GenerateCustomAttributeWithConstructorParams(MethodReference constructor, List<IAnalysedOperand> constructorArgs, ModuleDefinition module)
@@ -321,7 +330,14 @@ namespace Cpp2IL
                         if (value is AllocatedArray array)
                             value = AllocateArray(array);
                         else if (local.Type.FullName != destType.FullName)
-                            value = Utils.CoerceValue(value, destType);
+                            try
+                            {
+                                value = Utils.CoerceValue(value, destType);
+                            }
+                            catch (Exception e)
+                            {
+                                throw new Exception($"Failed to coerce local's known initial value \"{value}\" to type {destType}", e);
+                            }
 
                         if (destType.FullName == "System.Object")
                         {
@@ -357,9 +373,16 @@ namespace Cpp2IL
 
             foreach (var (index, value) in array.KnownValuesAtOffsets)
             {
-                var toSet = value == null ? null : Utils.CoerceValue(value, typeForArrayToCreateNow);
+                try
+                {
+                    var toSet = value == null ? null : Utils.CoerceValue(value, typeForArrayToCreateNow);
 
-                arr.SetValue(toSet, index);
+                    arr.SetValue(toSet, index);
+                }
+                catch (Exception e)
+                {
+                    throw new Exception($"Failed to coerce value \"{value}\" at index {index} to type {typeForArrayToCreateNow} for array", e);
+                }
             }
 
             return (from object? o in arr select new CustomAttributeArgument(array.ArrayType.ElementType, o)).ToArray();
