@@ -105,9 +105,9 @@ namespace Cpp2IL
         private static void FixupExplicitOverridesInType(TypeDefinition ilTypeDefinition)
         {
             //Fixup explicit Override (e.g. System.Collections.Generic.Dictionary`2's IDictionary.Add method) methods.
-            foreach (var methodDefinition in ilTypeDefinition.Methods)
+            foreach (var currentlyFixingUp in ilTypeDefinition.Methods)
             {
-                var methodDef = SharedState.ManagedToUnmanagedMethods[methodDefinition];
+                var methodDef = currentlyFixingUp.AsUnmanaged();
                 
                 //The two StartsWith calls are for a) .ctor / .cctor and b) compiler-generated enumerator methods for these two methods.
                 if (!methodDef.Name!.Contains(".") || methodDef.Name.StartsWith(".") || methodDef.Name.StartsWith("<")) continue;
@@ -122,13 +122,23 @@ namespace Cpp2IL
                 if (baseType == null) 
                     continue;
 
-                var targetParameters = methodDefinition.Parameters.Select(p => p.ParameterType.FullName).ToArray();
+                var targetParameters = currentlyFixingUp.Parameters.Select(p => p.ParameterType.FullName).ToArray();
                 MethodReference? baseRef;
                 if (genericParamNames.Length == 0)
-                    baseRef = baseType.Methods.SingleOrDefault(m => m.Name == baseMethodName && m.Parameters.Count == methodDefinition.Parameters.Count && m.ReturnType.FullName == methodDefinition.ReturnType.FullName && m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(targetParameters));
+                    baseRef = baseType.Methods.SingleOrDefault(m => m.Name == baseMethodName && m.Parameters.Count == currentlyFixingUp.Parameters.Count && m.ReturnType.FullName == currentlyFixingUp.ReturnType.FullName && m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(targetParameters));
                 else
                 {
-                    var nonGenericRef = baseType.Methods.Single(m => m.Name == baseMethodName && m.Parameters.Count == methodDefinition.Parameters.Count);
+                    MethodDefinition nonGenericRef;
+                    try
+                    {
+                        nonGenericRef = baseType.Methods.Single(m => m.Name == baseMethodName && m.Parameters.Count == currentlyFixingUp.Parameters.Count);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        //More than one match - log a warning and skip
+                        Logger.WarnNewline($"\tMore than one potential base method for base type \"{baseType.FullName}\", method name \"{baseMethodName}\", parameter count {currentlyFixingUp.Parameters.Count}, while considering explicit override {currentlyFixingUp.FullName}");
+                        continue;
+                    }
 
                     var genericParams = genericParamNames
                         .Select(g =>
@@ -140,7 +150,7 @@ namespace Cpp2IL
                     if (genericParams.All(gp => gp != null))
                     {
                         //Non-null assertion because we've null-checked the params above.
-                        genericParams = genericParams.Select(p => p is GenericParameter ? p : ilTypeDefinition.Module.ImportReference(p, methodDefinition)).ToList()!;
+                        genericParams = genericParams.Select(p => p is GenericParameter ? p : ilTypeDefinition.Module.ImportReference(p, currentlyFixingUp)).ToList()!;
                         baseRef = nonGenericRef.MakeGeneric(genericParams.ToArray()!);
                     }
                     else
@@ -152,7 +162,7 @@ namespace Cpp2IL
                 }
 
                 if (baseRef != null)
-                    methodDefinition.Overrides.Add(ilTypeDefinition.Module.ImportReference(baseRef, methodDefinition));
+                    currentlyFixingUp.Overrides.Add(ilTypeDefinition.Module.ImportReference(baseRef, currentlyFixingUp));
                 else
                     Logger.WarnNewline($"\tFailed to resolve base method override in type {ilTypeDefinition.FullName}: Type {baseMethodType} / Name {baseMethodName}");
             }
