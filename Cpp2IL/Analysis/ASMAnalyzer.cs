@@ -24,6 +24,9 @@ namespace Cpp2IL.Analysis
 {
     internal class AsmAnalyzer
     {
+        public static int SUCCESSFUL_METHODS = 0;
+        public static int FAILED_METHODS = 0;
+
         private readonly MethodDefinition? _methodDefinition;
         private readonly ulong _methodEnd;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
@@ -38,6 +41,8 @@ namespace Cpp2IL.Analysis
         {
             Mnemonic.Add, Mnemonic.Sub
         };
+
+        private bool isGenuineMethod;
 
         internal readonly MethodAnalysis Analysis;
 
@@ -81,6 +86,8 @@ namespace Cpp2IL.Analysis
 
             _methodEnd = _instructions.LastOrDefault().NextIP;
             if (_methodEnd == 0) _methodEnd = methodStart;
+
+            isGenuineMethod = true;
 
             Analysis = new MethodAnalysis(_methodDefinition, methodStart, _methodEnd, _instructions, keyFunctionAddresses);
         }
@@ -212,6 +219,7 @@ namespace Cpp2IL.Analysis
                 body.Variables.Add(localDefinition.Variable);
             }
 
+            var success = true;
             foreach (var action in Analysis.Actions.Where(i => i.IsImportant()))
             {
                 try
@@ -223,20 +231,31 @@ namespace Cpp2IL.Analysis
                 catch (NotImplementedException)
                 {
                     builder.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
+                    success = false;
                     break;
                 }
                 catch (TaintedInstructionException e)
                 {
                     var message = e.ActualMessage ?? "No further info";
                     builder.Append($"Action of type {action.GetType()} is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
+                    success = false;
                     break;
                 }
                 catch (Exception e)
                 {
                     builder.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
-                    Console.WriteLine($"Exception generating IL for {_methodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
+                    Logger.WarnNewline($"Exception generating IL for {_methodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
+                    success = false;
                     break;
                 }
+            }
+
+            if (isGenuineMethod)
+            {
+                if (success)
+                    SUCCESSFUL_METHODS++;
+                else
+                    FAILED_METHODS++;
             }
 
             builder.Append("\n\n");
@@ -312,7 +331,7 @@ namespace Cpp2IL.Analysis
                 }
                 catch (Exception e)
                 {
-                    Console.WriteLine($"Failed to generate synopsis for method {_methodDefinition?.FullName}, instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
+                    Logger.WarnNewline($"Failed to generate synopsis for method {_methodDefinition?.FullName}, instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
                     throw new AnalysisExceptionRaisedException("Exception generating synopsis entry", e);
                 }
 
@@ -587,10 +606,10 @@ namespace Cpp2IL.Analysis
 
             if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps)
                 mnemonic = Mnemonic.Mov;
-            
+
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
-            
+
             switch (mnemonic)
             {
                 case Mnemonic.Mov when !_cppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():
@@ -625,8 +644,8 @@ namespace Cpp2IL.Analysis
                     //Move of attribute list entry, used for restoration of attribute constructors
                     var ptrSize = LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
                     var offsetInList = instruction.MemoryDisplacement32 / ptrSize;
-                    
-                    if(offsetInList < AttributesForRestoration!.Count)
+
+                    if (offsetInList < AttributesForRestoration!.Count)
                         Analysis.Actions.Add(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributesForRestoration!));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
@@ -745,7 +764,8 @@ namespace Cpp2IL.Analysis
                     if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new ConstantArrayOffsetToRegAction(Analysis, instruction));
-                    } else if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
+                    }
+                    else if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
                     {
                         Analysis.Actions.Add(new ArrayLengthPropertyToLocalAction(Analysis, instruction));
                     }
@@ -858,10 +878,10 @@ namespace Cpp2IL.Analysis
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR == "rsp":
                     //Write to stack
-                    
-                    if(op1 is LocalDefinition)
+
+                    if (op1 is LocalDefinition)
                         Analysis.Actions.Add(new LocalToStackOffsetAction(Analysis, instruction));
-                    else if(op1 is ConstantDefinition)
+                    else if (op1 is ConstantDefinition)
                         Analysis.Actions.Add(new ConstantToStackOffsetAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1.IsImmediate() && memR == "rsp":

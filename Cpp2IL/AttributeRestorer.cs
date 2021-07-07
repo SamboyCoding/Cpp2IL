@@ -1,4 +1,4 @@
-﻿// #define NO_ATTRIBUTE_RESTORATION_WARNINGS
+﻿#define NO_ATTRIBUTE_RESTORATION_WARNINGS
 
 using System;
 using System.Collections.Concurrent;
@@ -155,7 +155,7 @@ namespace Cpp2IL
                 if (local == null && noArgCtor != null)
                 {
                     //No local made at all, just generate a default attribute and move on.
-                    attributes.Add(new CustomAttribute(noArgCtor));
+                    attributes.Add(new CustomAttribute(module.ImportReference(noArgCtor)));
                     continue;
                 }
 
@@ -187,7 +187,7 @@ namespace Cpp2IL
                 if (matchingCtorCall?.ManagedMethodBeingCalled != null)
                     try
                     {
-                        attributeInstance = GenerateCustomAttributeWithConstructorParams(matchingCtorCall.ManagedMethodBeingCalled, matchingCtorCall.Arguments!, module);
+                        attributeInstance = GenerateCustomAttributeWithConstructorParams(module.ImportReference(matchingCtorCall.ManagedMethodBeingCalled), matchingCtorCall.Arguments!, module);
                     }
                     catch (Exception e)
                     {
@@ -198,9 +198,16 @@ namespace Cpp2IL
                         return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
                     }
                 else
-                    attributeInstance = new CustomAttribute(noArgCtor);
+                    attributeInstance = new CustomAttribute(module.ImportReference(noArgCtor));
                 
                 //TODO Resolve field sets
+                var fieldSets = actions.Where(c => c is ImmediateToFieldAction ifa && ifa.InstanceBeingSetOn == local || c is RegToFieldAction rfa && rfa.InstanceWrittenOn == local).ToList();
+                if (fieldSets.Count > 0)
+                {
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                    Logger.WarnNewline($"Attribute {attr} in {warningName} of {module.Name} has at least one field set action associated with it.");
+#endif
+                }
                 
                 attributes.Add(attributeInstance);
             }

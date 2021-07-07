@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using Cpp2IL.Analysis;
 using LibCpp2IL;
 using Mono.Cecil;
 using SharpDisasm;

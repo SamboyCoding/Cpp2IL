@@ -779,7 +779,7 @@ namespace Cpp2IL
                     //This one's easy.
                     return value;
                 case "Boolean":
-                    return Convert.ToInt32(value) == 1;
+                    return Convert.ToInt32(value) != 0;
                 case "SByte":
                     return Convert.ToSByte(value);
                 case "Byte":

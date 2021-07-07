@@ -9,7 +9,7 @@ namespace Cpp2IL.Analysis.Actions.Important
     public class AllocateArrayAction : BaseAction
     {
         private readonly int sizeAllocated;
-        private readonly TypeReference? arrayType;
+        private readonly TypeReference? typeOfArray;
         private readonly LocalDefinition? _localWritten;
 
         public AllocateArrayAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
@@ -30,7 +30,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             if (typeConstant.Value is TypeReference reference)
             {
-                arrayType = reference;
+                typeOfArray = reference;
             }
 
             if (sizeOperand is LocalDefinition {KnownInitialValue: ulong sizeL} local)
@@ -46,37 +46,40 @@ namespace Cpp2IL.Analysis.Actions.Important
                 sizeAllocated = (int) sizeCSmall;
             }
 
-            if (arrayType == null) return;
+            if (!(typeOfArray is ArrayType arrayType)) return;
 
-            _localWritten = context.MakeLocal(arrayType, reg: "rax", knownInitialValue: new AllocatedArray(sizeAllocated, (ArrayType) arrayType));
+            _localWritten = context.MakeLocal(arrayType, reg: "rax", knownInitialValue: new AllocatedArray(sizeAllocated, arrayType));
             RegisterUsedLocal(_localWritten); //Used implicitly until I can find out what's causing these issues
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            if (_localWritten == null || arrayType == null)
+            if (_localWritten == null || typeOfArray == null)
                 throw new TaintedInstructionException("Missing created local or type of array");
 
-            if (!(arrayType is ArrayType actualArrayType))
+            if (!(typeOfArray is ArrayType arrayType))
                 throw new TaintedInstructionException("Array type isn't an array");
 
             return new []
             {
                 processor.Create(OpCodes.Ldc_I4, sizeAllocated),
-                processor.Create(OpCodes.Newarr, actualArrayType.ElementType),
+                processor.Create(OpCodes.Newarr, arrayType.ElementType),
                 processor.Create(OpCodes.Stloc, _localWritten.Variable)
             };
         }
 
         public override string? ToPsuedoCode()
         {
-            var aType = arrayType as ArrayType;
-            return $"{arrayType?.FullName} {_localWritten?.Name} = new {aType?.ElementType}[{sizeAllocated}]";
+            var aType = typeOfArray as ArrayType;
+            return $"{typeOfArray?.FullName} {_localWritten?.Name} = new {aType?.ElementType}[{sizeAllocated}]";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Allocates an array of type {arrayType?.FullName} of size {sizeAllocated} and stores the result as {_localWritten?.Name} in register rax\n";
+            if (!(typeOfArray is ArrayType))
+                return $"[!!] Allocates an array of a type which isn't an array (got {typeOfArray}), of size {sizeAllocated}, and stores the result as {_localWritten?.Name}. This is a problem - we couldn't resolve the array type";
+            
+            return $"[!] Allocates an array of type {typeOfArray?.FullName} of size {sizeAllocated} and stores the result as {_localWritten?.Name} in register rax\n";
         }
 
         public override bool IsImportant()

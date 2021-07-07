@@ -249,6 +249,9 @@ namespace Cpp2IL
 
         public static void AnalyseAssembly(Cpp2IlRuntimeArgs args, AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
         {
+            AsmAnalyzer.FAILED_METHODS = 0;
+            AsmAnalyzer.SUCCESSFUL_METHODS = 0;
+            
             Logger.InfoNewline("Dumping method bytes to " + methodOutputDir, "Analyze");
             Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name));
 
@@ -259,7 +262,7 @@ namespace Cpp2IL
             var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
             var nextThreshold = thresholds.First();
 
-            var successfullyProcessed = 0;
+            var numProcessed = 0;
 
             var startTime = DateTime.Now;
 
@@ -329,7 +332,7 @@ namespace Cpp2IL
                                 break;
                         }
 
-                        Interlocked.Increment(ref successfullyProcessed);
+                        Interlocked.Increment(ref numProcessed);
                     }
 
                     lock (type) File.WriteAllText(filename, typeDump.ToString());
@@ -350,7 +353,12 @@ namespace Cpp2IL
                 toProcess.ForEach(ProcessType);
 
             var elapsed = DateTime.Now - startTime;
-            Logger.InfoNewline($"Finished processing {successfullyProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec", "Analyze");
+            Logger.InfoNewline($"Finished processing {numProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec", "Analyze");
+
+            var total = AsmAnalyzer.SUCCESSFUL_METHODS + AsmAnalyzer.FAILED_METHODS;
+            var successPercent = AsmAnalyzer.SUCCESSFUL_METHODS * 100 / total;
+            
+            Logger.InfoNewline($"Overall analysis success rate: {successPercent}% of {total} methods.");
         }
     }
 }

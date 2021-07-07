@@ -35,11 +35,7 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             _elementType = _arrayLocal.Type is ArrayType at ? at.ElementType : _arrayLocal.Type.Resolve();
 
-            _destConstant = context.MakeConstant(typeof(Il2CppArrayOffsetPointer), new Il2CppArrayOffsetPointer
-            {
-                Array = _arrayLocal,
-                Offset = _index
-            }, reg: _destinationReg);
+            _destConstant = context.MakeConstant(typeof(Il2CppArrayOffsetPointer), new Il2CppArrayOffsetPointer(_arrayLocal, _index), reg: _destinationReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

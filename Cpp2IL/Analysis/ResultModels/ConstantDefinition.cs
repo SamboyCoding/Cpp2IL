@@ -18,7 +18,7 @@ namespace Cpp2IL.Analysis.ResultModels
                 return $"\"{Value}\"";
 
             if (Type == typeof(bool))
-                return Convert.ToString((bool) Value);
+                return (Convert.ToInt64(Value) != 0).ToString();
 
             if (Type == typeof(int))
             {
@@ -71,7 +71,7 @@ namespace Cpp2IL.Analysis.ResultModels
                 return new[] {ilProcessor.Create(OpCodes.Ldstr, $"{Value}")};
 
             if (Type == typeof(bool))
-                return new[] {ilProcessor.Create((bool) Value ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)};
+                return new[] {ilProcessor.Create(Convert.ToInt64(Value) != 0 ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)};
 
             if (Type == typeof(int))
                 return new[] {ilProcessor.Create(OpCodes.Ldc_I4, Convert.ToInt32(Value))};

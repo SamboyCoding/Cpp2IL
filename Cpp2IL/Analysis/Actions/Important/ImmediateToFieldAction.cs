@@ -9,7 +9,7 @@ namespace Cpp2IL.Analysis.Actions.Important
     public class ImmediateToFieldAction: BaseAction
     {
         private object constantValue;
-        private LocalDefinition? instance;
+        public LocalDefinition? InstanceBeingSetOn;
         private FieldUtils.FieldBeingAccessedData? destinationField;
         
         public ImmediateToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
@@ -21,13 +21,13 @@ namespace Cpp2IL.Analysis.Actions.Important
             var destRegName = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
 
-            instance = context.GetLocalInReg(destRegName);
+            InstanceBeingSetOn = context.GetLocalInReg(destRegName);
             
-            if(instance?.Type?.Resolve() == null) return;
+            if(InstanceBeingSetOn?.Type?.Resolve() == null) return;
 
-            RegisterUsedLocal(instance);
+            RegisterUsedLocal(InstanceBeingSetOn);
 
-            destinationField = FieldUtils.GetFieldBeingAccessed(instance.Type, destFieldOffset, false);
+            destinationField = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
 
             var destTypeName = destinationField?.GetFinalType()?.FullName;
             if (destTypeName == "System.Single")
@@ -38,12 +38,12 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            if (constantValue == null || instance == null || destinationField == null)
+            if (constantValue == null || InstanceBeingSetOn == null || destinationField == null)
                 throw new TaintedInstructionException();
             
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 
-            ret.AddRange(instance.GetILToLoad(context, processor));
+            ret.AddRange(InstanceBeingSetOn.GetILToLoad(context, processor));
 
             var f = destinationField;
             while (f.NextChainLink != null)
@@ -65,12 +65,12 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string ToPsuedoCode()
         {
-            return $"{instance?.GetPseudocodeRepresentation()}.{destinationField} = {constantValue}";
+            return $"{InstanceBeingSetOn?.GetPseudocodeRepresentation()}.{destinationField} = {constantValue}";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Writes the constant {constantValue} into the field {destinationField} of {instance}";
+            return $"[!] Writes the constant {constantValue} into the field {destinationField} of {InstanceBeingSetOn}";
         }
 
         public override bool IsImportant()

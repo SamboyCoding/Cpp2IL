@@ -131,8 +131,10 @@ namespace Cpp2IL.Analysis
                                 newValue = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ulong>(cppString.Address);
                             else if (primitiveLength == 4)
                                 newValue = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<uint>(cppString.Address);
+                            else if (primitiveLength == 1)
+                                newValue = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<byte>(cppString.Address);
                             else
-                                throw new Exception($"Not implemented: Size {primitiveLength}");
+                                throw new Exception($"'string' -> primitive: Not implemented: Size {primitiveLength}, type {parameterType}");
 
                             if (parameterType.Name == "Single")
                                 cons.Value = BitConverter.ToSingle(BitConverter.GetBytes((uint) newValue), 0);
@@ -154,7 +156,7 @@ namespace Cpp2IL.Analysis
                             else if (primitiveLength == 4)
                                 newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 4);
                             else
-                                throw new Exception($"Not implemented: Size {primitiveLength}");
+                                throw new Exception($"unknown global -> primitive: Not implemented: Size {primitiveLength}, type {parameterType}");
 
                             if (parameterType.Name == "Single")
                                 cons.Value = BitConverter.ToSingle(newValue, 0);

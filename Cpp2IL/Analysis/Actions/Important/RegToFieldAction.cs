@@ -10,7 +10,7 @@ namespace Cpp2IL.Analysis.Actions.Important
     {
         public readonly IAnalysedOperand? ValueRead;
         public readonly FieldUtils.FieldBeingAccessedData? FieldWritten;
-        private readonly LocalDefinition? _writtenOn;
+        public readonly LocalDefinition? InstanceWrittenOn;
 
         //TODO: Fix string literal to field - it's a constant in a field.
         public RegToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
@@ -19,38 +19,38 @@ namespace Cpp2IL.Analysis.Actions.Important
             var destFieldOffset = instruction.MemoryDisplacement32;
             ValueRead = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.Op1Register));
 
-            _writtenOn = context.GetLocalInReg(destRegName);
+            InstanceWrittenOn = context.GetLocalInReg(destRegName);
             
-            if(_writtenOn?.Type?.Resolve() == null) return;
+            if(InstanceWrittenOn?.Type?.Resolve() == null) return;
             
             if(ValueRead is LocalDefinition loc)
                 RegisterUsedLocal(loc);
             
-            RegisterUsedLocal(_writtenOn);
+            RegisterUsedLocal(InstanceWrittenOn);
 
-            FieldWritten = FieldUtils.GetFieldBeingAccessed(_writtenOn.Type, destFieldOffset, false);
+            FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceWrittenOn.Type, destFieldOffset, false);
         }
 
-        internal RegToFieldAction(MethodAnalysis context, Instruction instruction, FieldUtils.FieldBeingAccessedData fieldWritten, LocalDefinition writtenOn, LocalDefinition readFrom) : base(context, instruction)
+        internal RegToFieldAction(MethodAnalysis context, Instruction instruction, FieldUtils.FieldBeingAccessedData fieldWritten, LocalDefinition instanceWrittenOn, LocalDefinition readFrom) : base(context, instruction)
         {
-            Debug.Assert(writtenOn.Type!.IsValueType);
+            Debug.Assert(instanceWrittenOn.Type!.IsValueType);
             
             FieldWritten = fieldWritten;
-            _writtenOn = writtenOn;
+            InstanceWrittenOn = instanceWrittenOn;
             ValueRead = readFrom;
             
-            RegisterUsedLocal(_writtenOn);
+            RegisterUsedLocal(InstanceWrittenOn);
             RegisterUsedLocal(readFrom);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            if (ValueRead == null || _writtenOn == null || FieldWritten == null)
+            if (ValueRead == null || InstanceWrittenOn == null || FieldWritten == null)
                 throw new TaintedInstructionException();
             
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 
-            ret.AddRange(_writtenOn.GetILToLoad(context, processor));
+            ret.AddRange(InstanceWrittenOn.GetILToLoad(context, processor));
 
             var f = FieldWritten;
             while (f.NextChainLink != null)
@@ -72,12 +72,12 @@ namespace Cpp2IL.Analysis.Actions.Important
 
         public override string ToPsuedoCode()
         {
-            return $"{_writtenOn?.Name}.{FieldWritten} = {ValueRead?.GetPseudocodeRepresentation()}";
+            return $"{InstanceWrittenOn?.Name}.{FieldWritten} = {ValueRead?.GetPseudocodeRepresentation()}";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Sets the field {FieldWritten} (Type {FieldWritten?.GetFinalType()}) on local {_writtenOn} to the value stored in {ValueRead}";
+            return $"[!] Sets the field {FieldWritten} (Type {FieldWritten?.GetFinalType()}) on local {InstanceWrittenOn} to the value stored in {ValueRead}";
         }
 
         public override bool IsImportant()
