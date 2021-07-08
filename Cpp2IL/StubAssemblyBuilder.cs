@@ -50,9 +50,6 @@ namespace Cpp2IL
 
         private static void HandleTypeInAssembly(Il2CppTypeDefinition type, ModuleDefinition mainModule)
         {
-            if(type.Name!.Contains("SharedBetweenAnimatorsAttribute"))
-                Console.WriteLine("b");
-            
             //Get the metadata type info, its namespace, and name.
             var ns = type.Namespace!;
             var name = type.Name!;
