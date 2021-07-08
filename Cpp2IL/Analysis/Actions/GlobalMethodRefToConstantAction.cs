@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using Iced.Intel;
@@ -26,14 +27,22 @@ namespace Cpp2IL.Analysis.Actions
 
             if(usage == null)
                 return;
-            
-            _genericMethodRef = usage.AsGenericMethodRef();
+
+            try
+            {
+                _genericMethodRef = usage.AsGenericMethodRef();
+            }
+            catch (Exception)
+            {
+                Logger.WarnNewline($"Metadata usage at 0x{usage.Offset:X} of type generic method ref has invalid index {usage.RawValue} (0x{usage.RawValue:X})", "Analysis");
+                return;
+            }
 
             _declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.declaringType];
             _method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.baseMethod];
 
-            _genericTypeParams = _genericMethodRef.typeGenericParams.Select(Utils.TryResolveTypeReflectionData).ToList();
-            _genericMethodParams = _genericMethodRef.methodGenericParams.Select(Utils.TryResolveTypeReflectionData).ToList();
+            _genericTypeParams = _genericMethodRef.typeGenericParams.Select(data => Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
+            _genericMethodParams = _genericMethodRef.methodGenericParams.Select(data => Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
 
             if (_genericTypeParams.Count > 0)
             {

@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System;
+using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using Iced.Intel;
 using Mono.Cecil.Cil;
@@ -15,7 +16,16 @@ namespace Cpp2IL.Analysis.Actions
         public GlobalStringRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
-            ResolvedString = LibCpp2IlMain.GetLiteralByAddress(globalAddress);
+
+            try
+            {
+                ResolvedString = LibCpp2IlMain.GetLiteralByAddress(globalAddress);
+            }
+            catch (Exception)
+            {
+                var rawValue = LibCpp2IlMain.GetLiteralGlobalByAddress(globalAddress)!.RawValue;
+                Logger.WarnNewline($"Metadata usage at 0x{globalAddress:X} of type string has invalid index {rawValue} (0x{rawValue:X})", "Analysis");
+            }
 
             if (ResolvedString == null) return;
             

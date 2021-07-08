@@ -170,7 +170,8 @@ namespace Cpp2IL
             var theDll = LibCpp2IlMain.Binary!;
             var metadata = LibCpp2IlMain.TheMetadata!;
 
-            var moduleDefinition = importInto.Module;
+            var moduleDefinition = importInto.Module ?? importInto.DeclaringType?.Module;
+            
             switch (toImport.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
@@ -490,7 +491,7 @@ namespace Cpp2IL
 
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
 
-        private static readonly Dictionary<string, string> _cachedUpscaledRegisters = new Dictionary<string, string>();
+        private static readonly ConcurrentDictionary<string, string> _cachedUpscaledRegisters = new ConcurrentDictionary<string, string>();
 
         public static string UpscaleRegisters(string replaceIn)
         {
@@ -515,9 +516,10 @@ namespace Cpp2IL
             if (replaceIn[0] == 'r' && replaceIn[^1] == 'd')
                 return replaceIn.Substring(0, replaceIn.Length - 1);
 
-            _cachedUpscaledRegisters[replaceIn] = UpscaleRegex.Replace(replaceIn, "$1r$2");
+            var ret = UpscaleRegex.Replace(replaceIn, "$1r$2");
+            _cachedUpscaledRegisters.TryAdd(replaceIn, ret);
 
-            return _cachedUpscaledRegisters[replaceIn];
+            return ret;
         }
 
         public static string GetFloatingRegister(string original)
@@ -718,6 +720,9 @@ namespace Cpp2IL
             }
             else
             {
+                if (owner == null)
+                    throw new ArgumentException($"Owner is null but reflection data {typeData} is a generic parameter, so needs an owner context.", nameof(owner));
+                
                 //Generic parameter
                 theType = new GenericParameter(typeData.variableGenericParamName, owner);
             }

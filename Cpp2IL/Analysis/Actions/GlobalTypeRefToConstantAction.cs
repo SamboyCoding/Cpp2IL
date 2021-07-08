@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using System;
+using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Iced.Intel;
@@ -20,7 +21,14 @@ namespace Cpp2IL.Analysis.Actions
 
             if (typeData == null) return;
 
-            ResolvedType = Utils.TryResolveTypeReflectionData(typeData);
+            try
+            {
+                ResolvedType = Utils.TryResolveTypeReflectionData(typeData);
+            }
+            catch (ArgumentException)
+            {
+                Logger.WarnNewline($"Metadata usage at 0x{globalAddress:X} of type TypeDef specifies generic parameter {typeData}, which is invalid.", "Analysis");
+            }
 
             if (ResolvedType == null) return;
 

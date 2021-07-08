@@ -50,12 +50,16 @@ namespace Cpp2IL
 
         private static void HandleTypeInAssembly(Il2CppTypeDefinition type, ModuleDefinition mainModule)
         {
+            if(type.Name!.Contains("SharedBetweenAnimatorsAttribute"))
+                Console.WriteLine("b");
+            
             //Get the metadata type info, its namespace, and name.
             var ns = type.Namespace!;
             var name = type.Name!;
 
             TypeDefinition? definition = null;
-            if (type.declaringTypeIndex != -1)
+            var isNestedType = type.declaringTypeIndex != -1; 
+            if (isNestedType)
             {
                 //This is a type declared within another (inner class/type)
 
@@ -95,7 +99,9 @@ namespace Cpp2IL
                         _etypeField.SetValue(definition, (byte) etype);
                 }
 
-                mainModule.Types.Add(definition);
+                if(!isNestedType)
+                    mainModule.Types.Add(definition);
+                
                 SharedState.AllTypeDefinitions.Add(definition);
                 SharedState.TypeDefsByIndex[type.TypeIndex] = definition;
                 SharedState.UnmanagedToManagedTypes[type] = definition;

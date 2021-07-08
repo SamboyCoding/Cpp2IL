@@ -31,6 +31,8 @@ namespace LibCpp2IL
             Offset = offset;
         }
 
+        public uint RawValue => _value;
+
         public object Value
         {
             get

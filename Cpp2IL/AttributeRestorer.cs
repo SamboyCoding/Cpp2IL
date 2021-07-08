@@ -1,4 +1,5 @@
 ﻿#define NO_ATTRIBUTE_RESTORATION_WARNINGS
+// #define NO_ATTRIBUTE_ANALYSIS
 
 using System;
 using System.Collections.Concurrent;
@@ -112,6 +113,10 @@ namespace Cpp2IL
                 .Select(i => ResolveConstructorForAttribute(attributeTypeRange, i))
                 .ToList();
 
+#if NO_ATTRIBUTE_ANALYSIS
+            return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+#else
+
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
 
             if (!mustRunAnalysis)
@@ -168,7 +173,7 @@ namespace Cpp2IL
                     //Bail out to simple generation.
                     return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
                 }
-                
+
                 //We have a local - look for constructor calls and/or field writes.
                 var allCtors = attr.GetConstructors().Select(c => c.FullName).ToList();
                 var matchingCtorCall = (CallManagedFunctionAction?) actions.FirstOrDefault(c => c is CallManagedFunctionAction {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtors.Contains(method.FullName));
@@ -199,7 +204,7 @@ namespace Cpp2IL
                     }
                 else
                     attributeInstance = new CustomAttribute(module.ImportReference(noArgCtor));
-                
+
                 //TODO Resolve field sets
                 var fieldSets = actions.Where(c => c is ImmediateToFieldAction ifa && ifa.InstanceBeingSetOn == local || c is RegToFieldAction rfa && rfa.InstanceWrittenOn == local).ToList();
                 if (fieldSets.Count > 0)
@@ -208,11 +213,12 @@ namespace Cpp2IL
                     Logger.WarnNewline($"Attribute {attr} in {warningName} of {module.Name} has at least one field set action associated with it.");
 #endif
                 }
-                
+
                 attributes.Add(attributeInstance);
             }
 
             return attributes;
+#endif
         }
 
         private static List<CustomAttribute> GenerateAttributesWithoutAnalysis(List<MethodReference> attributeCtors, ModuleDefinition module)
@@ -288,7 +294,7 @@ namespace Cpp2IL
                     var cppMethodDefinition = cppAttribType.Methods!.First(c => c.Name == ".ctor");
                     var managedCtor = cppMethodDefinition.AsManaged();
                     _attributeCtorsByClassIndex.TryAdd(attributeType.data.classIndex, managedCtor);
-                    
+
                     return managedCtor;
                 }
 
