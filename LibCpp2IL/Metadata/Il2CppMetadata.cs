@@ -304,20 +304,28 @@ namespace LibCpp2IL.Metadata
             return _cachedStrings[index];
         }
 
-        private Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new Dictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]>();
+        private ConcurrentDictionary<Il2CppImageDefinition, Il2CppCustomAttributeTypeRange[]> _typeRangesByAssembly = new ();
 
         public Il2CppCustomAttributeTypeRange? GetCustomAttributeData(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token)
         {
             if (LibCpp2IlMain.MetadataVersion <= 24f)
                 return attributeTypeRanges[customAttributeIndex];
 
+            Il2CppCustomAttributeTypeRange[] range;
             lock (_typeRangesByAssembly)
             {
                 if (!_typeRangesByAssembly.ContainsKey(imageDef))
-                    _typeRangesByAssembly[imageDef] = attributeTypeRanges.SubArray(imageDef.customAttributeStart, (int) imageDef.customAttributeCount);
+                {
+                    range = attributeTypeRanges.SubArray(imageDef.customAttributeStart, (int) imageDef.customAttributeCount);
+                    _typeRangesByAssembly.TryAdd(imageDef, range);
+                }
+                else
+                {
+                    range = _typeRangesByAssembly[imageDef];
+                }
             }
 
-            foreach (var r in _typeRangesByAssembly[imageDef])
+            foreach (var r in range)
             {
                 if (r.token == token) return r;
             }
