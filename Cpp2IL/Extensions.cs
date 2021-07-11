@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text;
 using Iced.Intel;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using Mono.Collections.Generic;
 
@@ -111,53 +112,6 @@ namespace Cpp2IL
                 return null;
 
             return SharedState.ManagedToUnmanagedMethods[managed];
-        }
-        
-        public static byte[] GetBytesForAttributeBlob(this object val, string moduleName)
-        {
-            var type = val.GetType();
-
-            if (val is TypeReference reference)
-            {
-                string canonicalName;
-                if (reference.Module.Name == moduleName || reference.Module.Name == "mscorlib.dll")
-                    canonicalName = reference.FullName;
-                else
-                    canonicalName = reference.FullName + ", " + reference.Module.Assembly.FullName;
-                
-                //Length-prefixed string
-                return new[] {(byte) canonicalName.Length}.Concat(Encoding.ASCII.GetBytes(canonicalName)).ToArray();
-            }
-            
-            if (type == typeof(string))
-                //Length-prefixed string
-                return new[] {(byte) ((string) val).Length}.Concat(Encoding.ASCII.GetBytes((string) val)).ToArray();
-
-            if (type == typeof(char))
-                return BitConverter.GetBytes((char) val);
-
-            if (type == typeof(bool))
-                return new[] {(byte) ((bool) val ? 1 : 0)};
-
-            if (type == typeof(int))
-                return BitConverter.GetBytes((int) val);
-
-            if (type == typeof(uint))
-                return BitConverter.GetBytes((uint) val);
-
-            if (type == typeof(long))
-                return BitConverter.GetBytes((long) val);
-
-            if (type == typeof(ulong))
-                return BitConverter.GetBytes((ulong) val);
-
-            throw new Exception($"Don't know how to convert {type} to an attribute blob");
-        }
-
-        public static TypeDefinition ResolveEnumType(this TypeDefinition enumClass)
-        {
-            var f = enumClass.Fields.Single(f => f.Name == "value__");
-            return f.FieldType.Resolve();
         }
 
         public static T? GetValueSafely<T>(this Collection<T> arr, int i) where T : class

@@ -21,7 +21,7 @@ namespace Cpp2IL
         internal static List<AssemblyDefinition> BuildStubAssemblies(Il2CppMetadata metadata, ModuleParameters moduleParams)
         {
             return metadata.imageDefinitions
-                .AsParallel()
+                // .AsParallel()
                 .Select(assemblyDefinition => BuildStubAssembly(moduleParams, assemblyDefinition))
                 .ToList();
         }
@@ -95,6 +95,23 @@ namespace Cpp2IL
                         //Fixup internaL cecil etypes for (among other things) attribute blobs.
                         _etypeField.SetValue(definition, (byte) etype);
                 }
+                
+                if (type.GenericContainer != null)
+                {
+                    //Type generic params.
+                    foreach (var param in type.GenericContainer.GenericParameters)
+                    {
+                        if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
+                        {
+                            p = new GenericParameter(param.Name, definition);
+                            SharedState.GenericParamsByIndex[param.Index] = p;
+                        }
+
+                        if (!definition.GenericParameters.Contains(p))
+                            definition.GenericParameters.Add(p);
+                    }
+                }
+                
 
                 if(!isNestedType)
                     mainModule.Types.Add(definition);

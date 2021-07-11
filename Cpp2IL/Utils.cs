@@ -171,6 +171,9 @@ namespace Cpp2IL
             var metadata = LibCpp2IlMain.TheMetadata!;
 
             var moduleDefinition = importInto.Module ?? importInto.DeclaringType?.Module;
+
+            if (moduleDefinition == null)
+                throw new Exception($"Couldn't get a module for {importInto}. Its module is {importInto.Module}, its declaring type is {importInto.DeclaringType}, and its declaring type's module is {importInto.DeclaringType?.Module}");
             
             switch (toImport.type)
             {
@@ -690,7 +693,7 @@ namespace Cpp2IL
 
         public static TypeReference? TryResolveTypeReflectionData(Il2CppTypeReflectionData? typeData) => TryResolveTypeReflectionData(typeData, null);
 
-        public static TypeReference? TryResolveTypeReflectionData(Il2CppTypeReflectionData? typeData, IGenericParameterProvider? owner)
+        public static TypeReference? TryResolveTypeReflectionData(Il2CppTypeReflectionData? typeData, IGenericParameterProvider? owner, params IGenericParameterProvider?[] extra)
         {
             if (typeData == null)
                 return null;
@@ -705,7 +708,7 @@ namespace Cpp2IL
                 //TODO TryGetValue this.
                 var baseType = SharedState.UnmanagedToManagedTypes[typeData.baseType!];
 
-                var genericType = baseType.MakeGenericType(typeData.genericParams.Select(a => TryResolveTypeReflectionData(a, baseType)).ToArray()!);
+                var genericType = baseType.MakeGenericType(typeData.genericParams.Select(a => TryResolveTypeReflectionData(a, baseType, extra.Append(owner).ToArray())).ToArray()!);
 
                 theType = genericType;
             }
@@ -722,7 +725,16 @@ namespace Cpp2IL
             {
                 if (owner == null)
                     throw new ArgumentException($"Owner is null but reflection data {typeData} is a generic parameter, so needs an owner context.", nameof(owner));
+
+                if (owner.GenericParameters.FirstOrDefault(a => a.Name == typeData.variableGenericParamName) is { } gp)
+                    return gp;
                 
+                foreach (var extraProvider in extra)
+                {
+                    if (extraProvider?.GenericParameters.FirstOrDefault(a => a.Name == typeData.variableGenericParamName) is { } gp2)
+                        return gp2;
+                }
+
                 //Generic parameter
                 theType = new GenericParameter(typeData.variableGenericParamName, owner);
             }

@@ -89,7 +89,15 @@ namespace Cpp2IL
             foreach (var il2CppTypeDefinition in imageDef.Types!)
             {
                 var managedType = SharedState.UnmanagedToManagedTypes[il2CppTypeDefinition];
-                CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+
+                try
+                {
+                    CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+                }
+                catch (Exception e)
+                {
+                    throw new Exception($"Failed to process type {managedType.FullName} (module {managedType.Module.Name}, declaring type {managedType.DeclaringType?.FullName}) in {imageDef.Name}", e);
+                }
             }
         }
 
@@ -178,22 +186,6 @@ namespace Cpp2IL
             var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
             customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
             ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
-
-            if (cppTypeDefinition.GenericContainer != null)
-            {
-                //Type generic params.
-                foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
-                {
-                    if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
-                    {
-                        p = new GenericParameter(param.Name, ilTypeDefinition);
-                        SharedState.GenericParamsByIndex[param.Index] = p;
-                    }
-
-                    if (!ilTypeDefinition.GenericParameters.Contains(p))
-                        ilTypeDefinition.GenericParameters.Add(p);
-                }
-            }
 
             //Fields
             ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
@@ -342,7 +334,9 @@ namespace Cpp2IL
                 var getter = propertyDef.Getter?.AsManaged();
                 var setter = propertyDef.Setter?.AsManaged();
 
-                var propertyDefinition = new PropertyDefinition(propertyDef.Name, (PropertyAttributes) propertyDef.attrs, getter?.ReturnType ?? setter?.ReturnType)
+                var propertyType = getter?.ReturnType ?? setter?.Parameters[0]?.ParameterType;
+                
+                var propertyDefinition = new PropertyDefinition(propertyDef.Name, (PropertyAttributes) propertyDef.attrs, ilTypeDefinition.Module.ImportReference(propertyType))
                 {
                     GetMethod = getter,
                     SetMethod = setter
