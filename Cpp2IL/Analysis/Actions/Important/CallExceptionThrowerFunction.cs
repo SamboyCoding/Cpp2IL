@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
@@ -13,14 +14,14 @@ namespace Cpp2IL.Analysis.Actions.Important
 {
     public class CallExceptionThrowerFunction : BaseAction
     {
-        private static readonly Dictionary<ulong, TypeDefinition?> ExceptionThrowers = new Dictionary<ulong, TypeDefinition>();
+        private static readonly ConcurrentDictionary<ulong, TypeDefinition?> ExceptionThrowers = new ConcurrentDictionary<ulong, TypeDefinition?>();
         private TypeDefinition? _exceptionType;
 
         private static void CheckForExceptionThrower(ulong addr, int recurseCount)
         {
             if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(addr, out _))
             {
-                ExceptionThrowers[addr] = null;
+                ExceptionThrowers.TryAdd(addr, null);
                 return;
             }
 
@@ -62,7 +63,7 @@ namespace Cpp2IL.Analysis.Actions.Important
                 if (type != null)
                 {
                     Logger.VerboseNewline($"Identified direct exception thrower: 0x{addr:X} throws {type.FullName}", "Analyze");
-                    ExceptionThrowers[addr] = type;
+                    ExceptionThrowers.TryAdd(addr, type);
                     return;
                 }
             }
@@ -74,14 +75,14 @@ namespace Cpp2IL.Analysis.Actions.Important
                 var secondaryAddr = instruction.NearBranchTarget; //Can be zero if it's a jump into an imported function
                 if (secondaryAddr != 0 && IsExceptionThrower(secondaryAddr, recurseCount + 1))
                 {
-                    ExceptionThrowers[addr] = ExceptionThrowers[secondaryAddr];
+                    ExceptionThrowers.TryAdd(addr, ExceptionThrowers[secondaryAddr]);
                     // Console.WriteLine($"Identified direct exception thrower: 0x{addr:X} throws {ExceptionThrowers[addr]?.FullName} because 0x{secondaryAddr:X} does.");
                     return;
                 }
             }
 
             //Mark not a thrower
-            ExceptionThrowers[addr] = null;
+            ExceptionThrowers.TryAdd(addr, null);
         }
 
         public static bool IsExceptionThrower(ulong addr, int recurseCount = 0)
