@@ -15,5 +15,6 @@
         public byte Info => _internalInfo;
         public byte Other => _internalOther;
         public ushort Shndx => _internalShndx;
+        public ElfDynamicSymbolType Type  => (ElfDynamicSymbolType) (Info & 0xF);
     }
 }

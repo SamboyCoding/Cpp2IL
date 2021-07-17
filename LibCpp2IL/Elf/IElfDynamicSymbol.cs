@@ -9,6 +9,6 @@
         public byte Other { get; }
         public ushort Shndx { get; }
 
-        public ElfDynamicSymbolType Type => (ElfDynamicSymbolType) (Info & 0xF);
+        public ElfDynamicSymbolType Type { get; }
     }
 }
