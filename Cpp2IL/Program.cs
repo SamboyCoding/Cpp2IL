@@ -5,7 +5,6 @@ using System.IO;
 using System.Linq;
 using LibCpp2IL;
 using Mono.Cecil;
-using SharpDisasm;
 
 namespace Cpp2IL
 {
@@ -62,9 +61,6 @@ namespace Cpp2IL
             if (LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_32 || LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_64)
             {
                 Logger.InfoNewline("Running Scan for Known Functions...");
-
-                Disassembler.Translator.IncludeAddress = true;
-                Disassembler.Translator.IncludeBinary = true;
 
                 //This part involves decompiling known functions to search for other function calls
                 keyFunctionAddresses = KeyFunctionAddresses.Find();

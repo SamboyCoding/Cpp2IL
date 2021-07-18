@@ -50,7 +50,7 @@ namespace Cpp2IL
         {
             WritePrelude(level, source, color);
             
-            LastNoNewline = !message.EndsWith('\n');
+            LastNoNewline = !message.EndsWith("\n");
             
             if (!DisableColor)
                 message = message.Pastel(color);

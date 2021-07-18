@@ -3,7 +3,6 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using Cpp2IL.Analysis.ResultModels;
@@ -13,9 +12,6 @@ using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
-using SharpDisasm;
-using SharpDisasm.Udis86;
-using Instruction = SharpDisasm.Instruction;
 
 namespace Cpp2IL
 {
@@ -612,60 +608,6 @@ namespace Cpp2IL
             return ret;
         }
 
-        public static List<Instruction> GetMethodBodyAtRawAddress(Il2CppBinary theDll, long addr, bool peek)
-        {
-            var ret = new List<Instruction>();
-            var con = true;
-            var buff = new List<byte>();
-            while (con)
-            {
-                buff.Add(theDll.GetByteAtRawAddress((ulong) addr));
-
-                ret = DisassembleBytes(theDll.is32Bit, buff.ToArray());
-
-                if (ret.All(i => !i.Error) && ret.Any(i => i.Mnemonic == ud_mnemonic_code.UD_Iint3))
-                    con = false;
-
-                if (peek && buff.Count > 50)
-                    con = false;
-                else if (buff.Count > 1000)
-                    con = false; //Sanity breakout.
-
-                addr++;
-            }
-
-            return ret /*.Where(i => !i.Error).ToList()*/;
-        }
-
-        public static List<Instruction> DisassembleBytes(bool is32Bit, byte[] bytes)
-        {
-            return new List<Instruction>(new Disassembler(bytes, is32Bit ? ArchitectureMode.x86_32 : ArchitectureMode.x86_64, 0, true).Disassemble());
-        }
-
-        public static ulong GetJumpTarget(Instruction insn, ulong start)
-        {
-            var opr = insn.Operands[0];
-
-            var mode = GetOprMode(insn);
-
-            var num = UInt64.MaxValue >> 64 - mode;
-            return opr.Size switch
-            {
-                8 => (start + (ulong) opr.LvalSByte & num),
-                16 => (start + (ulong) opr.LvalSWord & num),
-                32 => (start + (ulong) opr.LvalSDWord & num),
-                64 => (start + (ulong) opr.LvalSQWord & num),
-                _ => throw new InvalidOperationException($"invalid relative offset size {opr.Size}.")
-            };
-        }
-
-        public static byte GetOprMode(Instruction instruction)
-        {
-            return (byte) oprMode.GetValue(instruction)!;
-        }
-
-        public static FieldInfo oprMode = typeof(Instruction).GetField("opr_mode", BindingFlags.Instance | BindingFlags.NonPublic)!;
-
         public static int GetPointerSizeBytes()
         {
             return LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
@@ -677,16 +619,16 @@ namespace Cpp2IL
             var bytes = LibCpp2IlMain.Binary.ReadByteArrayAtRawAddress(rawAddr, (int) GetSizeOfObject(type));
 
             if (type == Int32Reference)
-                return BitConverter.ToInt32(bytes);
+                return BitConverter.ToInt32(bytes, 0);
 
             if (type == Int64Reference)
-                return BitConverter.ToInt64(bytes);
+                return BitConverter.ToInt64(bytes, 0);
 
             if (type == SingleReference)
-                return BitConverter.ToSingle(bytes);
+                return BitConverter.ToSingle(bytes, 0);
 
             if (type == DoubleReference)
-                return BitConverter.ToDouble(bytes);
+                return BitConverter.ToDouble(bytes, 0);
 
             throw new ArgumentException("Do not know how to get a numeric constant of type " + type);
         }

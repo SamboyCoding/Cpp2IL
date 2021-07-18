@@ -168,9 +168,9 @@ namespace Cpp2IL.Analysis
                             cons.Type = Type.GetType(parameterType.FullName!)!;
                             break;
                         }
-                        if (cons.Type.IsAssignableTo(typeof(MemberReference)) && parameterType.Name == "IntPtr")
+                        if (typeof(MemberReference).IsAssignableFrom(cons.Type) && parameterType.Name == "IntPtr")
                             break; //We allow this, because an IntPtr is usually a type or, more commonly, method pointer.
-                        if (cons.Type.IsAssignableTo(typeof(FieldReference)) && parameterType.Name == "RuntimeFieldHandle")
+                        if (typeof(FieldReference).IsAssignableFrom(cons.Type) && parameterType.Name == "RuntimeFieldHandle")
                             break; //These are the same struct - we represent it as a FieldReference but it's actually a runtime field handle.
                         return false;
                     case LocalDefinition local:

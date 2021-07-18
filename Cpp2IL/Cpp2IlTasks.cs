@@ -110,7 +110,7 @@ namespace Cpp2IL
 
                 var unityVer = verString.ToString();
                 unityVer = unityVer.Substring(0, unityVer.IndexOf("f", StringComparison.Ordinal));
-                version = unityVer.Split(".").Select(int.Parse).ToArray();
+                version = unityVer.Split('.').Select(int.Parse).ToArray();
             }
 
             return version;

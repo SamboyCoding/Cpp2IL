@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Cpp2IL.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -11,45 +12,45 @@ namespace Cpp2IL.Analysis.Actions
     {
         private string? fullMethodSignature;
         private MethodDefinition? resolvedMethod;
-        
+
         public LookupICallAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var constant = is32Bit ? context.Stack.Peek() as ConstantDefinition : context.GetConstantInReg("rcx");
-            
-            if(constant == null)
+
+            if (constant == null)
                 return;
 
             if (is32Bit)
                 context.Stack.Pop(); //Remove top value from stack
-            
-            if(!(constant.Value is Il2CppString str))
+
+            if (!(constant.Value is Il2CppString str))
                 return;
 
             fullMethodSignature = str.ContainedString;
 
-            var split = fullMethodSignature.Split("::");
-            
-            if(split.Length < 2)
+            var split = fullMethodSignature.Split(new[] {"::"}, StringSplitOptions.None);
+
+            if (split.Length < 2)
                 return;
 
             var typeName = split[0];
             var methodSignature = split[1];
 
             var type = Utils.TryLookupTypeDefKnownNotGeneric(typeName);
-            
-            if(type == null)
+
+            if (type == null)
                 return;
 
             //TODO Check args
             resolvedMethod = type.Methods.FirstOrDefault(m => methodSignature.StartsWith(m.Name));
-            
-            if(resolvedMethod == null)
+
+            if (resolvedMethod == null)
                 return;
 
             var existingConstant = context.GetConstantInReg("rax");
-            
+
             //Should be an unknown global
-            if(!(existingConstant?.Value is UnknownGlobalAddr))
+            if (!(existingConstant?.Value is UnknownGlobalAddr))
                 return;
 
             //Redefine as a method def.

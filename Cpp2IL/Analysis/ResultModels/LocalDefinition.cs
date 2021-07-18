@@ -56,9 +56,21 @@ namespace Cpp2IL.Analysis.ResultModels
             return Name == other.Name && Equals(Type, other.Type) && Equals(KnownInitialValue, other.KnownInitialValue) && IsMethodInfoParam == other.IsMethodInfoParam;
         }
 
+        // public override int GetHashCode()
+        // {
+        //     return HashCode.Combine(Name, Type, KnownInitialValue, IsMethodInfoParam);
+        // }
+
         public override int GetHashCode()
         {
-            return HashCode.Combine(Name, Type, KnownInitialValue, IsMethodInfoParam);
+            unchecked
+            {
+                var hashCode = Name.GetHashCode();
+                hashCode = (hashCode * 397) ^ (Type != null ? Type.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ (KnownInitialValue != null ? KnownInitialValue.GetHashCode() : 0);
+                hashCode = (hashCode * 397) ^ IsMethodInfoParam.GetHashCode();
+                return hashCode;
+            }
         }
 
         public static bool operator ==(LocalDefinition? left, LocalDefinition? right)

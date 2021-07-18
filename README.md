@@ -81,8 +81,6 @@ This application is built using .NET 5.0.
 It uses the following libraries, for which I am very thankful:
 
 - [iced](https://github.com/icedland/iced) disassembler for x86
-- [SharpDisasm](https://github.com/spazzarama/SharpDisasm) disassembler for x86, but this is only used in a few places in old 
-  code. It's been mostly dropped in favour of iced.
 - [Pastel](https://github.com/silkfire/Pastel) for the console colours.
 - [CommandLineParser](https://github.com/commandlineparser/commandline) so I didn't need to write one myself.
 - [Mono.Cecil](https://github.com/jbevain/cecil/) to create and save the Dummy DLLs, and generate IL.

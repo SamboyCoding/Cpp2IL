@@ -31,9 +31,9 @@ namespace Cpp2IL.Analysis.Actions.Important
 
             var destTypeName = destinationField?.GetFinalType()?.FullName;
             if (destTypeName == "System.Single")
-                constantValue = BitConverter.ToSingle(BitConverter.GetBytes(rawConstant));
+                constantValue = BitConverter.ToSingle(BitConverter.GetBytes(rawConstant), 0);
             else if(destTypeName == "System.Double")
-                constantValue = BitConverter.ToDouble(BitConverter.GetBytes(rawConstant));
+                constantValue = BitConverter.ToDouble(BitConverter.GetBytes(rawConstant), 0);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

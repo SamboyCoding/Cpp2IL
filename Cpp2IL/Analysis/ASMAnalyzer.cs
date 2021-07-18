@@ -469,7 +469,7 @@ namespace Cpp2IL.Analysis
                         //Runtime class init
                         Analysis.Actions.Add(new CallInitClassAction(Analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_new)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_object_new)
                     {
                         //Allocate object
                         Analysis.Actions.Add(new AllocateInstanceAction(Analysis, instruction));
@@ -494,7 +494,7 @@ namespace Cpp2IL.Analysis
                         //Safe cast an object to a type
                         Analysis.Actions.Add(new SafeCastAction(Analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_raise_managed_exception)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_raise_managed_exception || jumpTarget == _keyFunctionAddresses.il2cpp_raise_exception)
                     {
                         //Equivalent of a throw statement
                         Analysis.Actions.Add(new ThrowAction(Analysis, instruction));

@@ -22,13 +22,13 @@ jobs:
       working-directory: ./LibCpp2IL/
     - name: Build - Windows x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release --no-restore -r win-x64
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r win-x64
     - name: Build - Ubuntu x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release --no-restore -r ubuntu-x64
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r ubuntu-x64
     - name: Build - OSX x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release --no-restore -r osx-x64
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r osx-x64
     - name: Run Tests
       run: |
         dotnet build

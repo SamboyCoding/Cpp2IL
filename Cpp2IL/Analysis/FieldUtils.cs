@@ -185,13 +185,24 @@ namespace Cpp2IL.Analysis
             {
                 if (ReferenceEquals(null, obj)) return false;
                 if (ReferenceEquals(this, obj)) return true;
-                if (obj.GetType() != GetType()) return false;
+                if (obj.GetType() != this.GetType()) return false;
                 return Equals((FieldBeingAccessedData) obj);
             }
 
+            // public override int GetHashCode()
+            // {
+            //     return HashCode.Combine(ImpliedFieldLoad, FinalLoadInChain, NextChainLink);
+            // }
+
             public override int GetHashCode()
             {
-                return HashCode.Combine(ImpliedFieldLoad, FinalLoadInChain, NextChainLink);
+                unchecked
+                {
+                    var hashCode = (ImpliedFieldLoad != null ? ImpliedFieldLoad.GetHashCode() : 0);
+                    hashCode = (hashCode * 397) ^ (FinalLoadInChain != null ? FinalLoadInChain.GetHashCode() : 0);
+                    hashCode = (hashCode * 397) ^ (NextChainLink != null ? NextChainLink.GetHashCode() : 0);
+                    return hashCode;
+                }
             }
 
             public static bool operator ==(FieldBeingAccessedData? left, FieldBeingAccessedData? right)
