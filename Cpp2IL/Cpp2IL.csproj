@@ -4,8 +4,8 @@
     <Nullable>enable</Nullable>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64</RuntimeIdentifiers>
-    <TargetFrameworks>net472;net5.0;netcoreapp3.1</TargetFrameworks>
     <OutputType>Exe</OutputType>
+    <TargetFramework>net5.0</TargetFramework>
   </PropertyGroup>
 
   <PropertyGroup Condition="'$(Configuration)'=='Release'">
@@ -41,19 +41,10 @@
   
   <ItemGroup>
     <PackageReference Include="CommandLineParser" Version="2.8.0" />
-    <PackageReference Include="Iced" Version="1.11.1" />
-    <PackageReference Include="IndexRange" Version="1.0.0" />
     <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Mono.Cecil" Version="0.11.3" />
-    <PackageReference Include="Nullable" Version="1.3.0">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Pastel" Version="2.1.0" />
-    <PackageReference Include="System.ValueTuple" Version="4.5.0" />
   </ItemGroup>
   
   <ItemGroup>
-    <ProjectReference Include="..\LibCpp2IL\LibCpp2IL.csproj" />
+    <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
   </ItemGroup>
 </Project>

@@ -1,40 +1,114 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using CommandLine;
+using Cpp2IL.Core;
+using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
-using Mono.Cecil;
 
 namespace Cpp2IL
 {
     [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
     internal class Program
     {
-        private static List<AssemblyDefinition> Assemblies = new List<AssemblyDefinition>();
+        private static readonly string[] BlacklistedExecutableFilenames =
+        {
+            "UnityCrashHandler.exe",
+            "UnityCrashHandler64.exe",
+            "install.exe",
+            "launch.exe",
+            "MelonLoader.Installer.exe"
+        };
+
+        public static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)
+        {
+            var parserResult = Parser.Default.ParseArguments<CommandLineArgs>(commandLine);
+
+            if (!(parserResult is Parsed<CommandLineArgs> {Value: { } options}))
+                throw new SoftException("Failed to parse command line arguments");
+
+            if (!options.AreForceOptionsValid)
+                throw new SoftException("Invalid force option configuration");
+
+            var result = new Cpp2IlRuntimeArgs();
+
+            if (options.ForcedBinaryPath == null)
+            {
+                var baseGamePath = options.GamePath;
+
+                if (!Directory.Exists(baseGamePath))
+                    throw new SoftException($"Specified game-path does not exist: {baseGamePath}");
+
+                result.PathToAssembly = Path.Combine(baseGamePath, "GameAssembly.dll");
+                var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
+                    .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
+
+                exeName = options.ExeName ?? exeName;
+
+                var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
+                result.PathToMetadata = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
+
+                if (!File.Exists(result.PathToAssembly) || !File.Exists(unityPlayerPath) || !File.Exists(result.PathToMetadata))
+                    throw new SoftException("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
+                                            $"\t{result.PathToAssembly}\n" +
+                                            $"\t{unityPlayerPath}\n" +
+                                            $"\t{result.PathToMetadata}\n");
+
+                result.UnityVersion = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, Path.Combine(baseGamePath, $"{exeName}_Data"));
+
+                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", result.UnityVersion)}");
+
+                if (result.UnityVersion[0] <= 4)
+                    throw new SoftException($"Unable to determine a valid unity version (got {result.UnityVersion.ToStringEnumerable()})");
+
+                result.Valid = true;
+            }
+            else
+            {
+                Logger.WarnNewline("Using force options, I sure hope you know what you're doing!");
+                result.PathToAssembly = options.ForcedBinaryPath!;
+                result.PathToMetadata = options.ForcedMetadataPath!;
+                result.UnityVersion = options.ForcedUnityVersion!.Split('.').Select(int.Parse).ToArray();
+                result.Valid = true;
+            }
+
+            result.EnableAnalysis = !options.SkipAnalysis;
+            result.EnableMetadataGeneration = !options.SkipMetadataTextFiles;
+            result.EnableRegistrationPrompts = !options.DisableRegistrationPrompts;
+            result.EnableVerboseLogging = options.Verbose;
+
+            result.AnalysisLevel = (AnalysisLevel) options.AnalysisLevel;
+            
+            result.OutputRootDirectory = Path.GetFullPath("cpp2il_out");
+
+            return result;
+        }
 
         public static int Main(string[] args)
         {
             Console.WriteLine("===Cpp2IL by Samboy063===");
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.\n");
-            
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-            {
-                Logger.DisableColor = true;
-                Logger.WarnNewline("Looks like you're running on a non-windows platform. Disabling ANSI colour codes.");
-            } else if (Directory.Exists(@"Z:\usr\"))
-            {
-                Logger.DisableColor = true;
-                Logger.WarnNewline("Looks like you're running in wine or proton. Disabling ANSI colour codes.");
-            }
+
+            Logger.CheckColorSupport();
             
             Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
 
             try
             {
-                var runtimeArgs = Cpp2IlTasks.GetRuntimeOptionsFromCommandLine(args);
+                var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
 
                 return MainWithArgs(runtimeArgs);
+            }
+            catch (DllSaveException e)
+            {
+                Logger.ErrorNewline(e.ToString());
+                Console.WriteLine();
+                Console.WriteLine();
+                Logger.ErrorNewline("Waiting for you to press enter - feel free to copy the error...");
+                Console.ReadLine();
+
+                return -1;
             }
             catch (SoftException e)
             {
@@ -48,12 +122,12 @@ namespace Cpp2IL
             if (!runtimeArgs.Valid)
                 throw new SoftException("Arguments have Valid = false");
 
-            Cpp2IlTasks.InitializeLibCpp2Il(runtimeArgs);
+            Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableVerboseLogging, runtimeArgs.EnableRegistrationPrompts);
 
-            Assemblies = Cpp2IlTasks.MakeDummyDLLs(runtimeArgs);
+            Cpp2IlApi.MakeDummyDLLs();
 
             if (runtimeArgs.EnableMetadataGeneration)
-                Assemblies.ForEach(Cpp2IlTasks.GenerateMetadataForAssembly);
+                Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
             KeyFunctionAddresses? keyFunctionAddresses = null;
 
@@ -63,71 +137,36 @@ namespace Cpp2IL
                 Logger.InfoNewline("Running Scan for Known Functions...");
 
                 //This part involves decompiling known functions to search for other function calls
-                keyFunctionAddresses = KeyFunctionAddresses.Find();
+                keyFunctionAddresses = Cpp2IlApi.ScanForKeyFunctionAddresses();
             }
 
             Logger.InfoNewline("Applying type, method, and field attributes...This may take a couple of seconds");
             var start = DateTime.Now;
 
-            LibCpp2IlMain.TheMetadata!.imageDefinitions.ToList().AsParallel().Select(definition =>
-            {
-                AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly(definition, keyFunctionAddresses);
-                return true;
-            }).ToList();
+            Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses);
 
             Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
-            if (runtimeArgs.EnableAnalysis)
-            {
-                if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
-                    throw new NotImplementedException("Analysis engine is only implemented for x86. Use --skip-analysis to avoid this error.");
+            if (runtimeArgs.EnableAnalysis) 
+                Cpp2IlApi.PopulateConcreteImplementations();
 
-                Logger.InfoNewline("Populating Concrete Implementation Table...");
+            Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory, Cpp2IlApi.GeneratedAssemblies);
 
-                foreach (var def in LibCpp2IlMain.TheMetadata.typeDefs)
-                {
-                    if (def.IsAbstract)
-                        continue;
-
-                    var baseTypeReflectionData = def.BaseType;
-                    while (baseTypeReflectionData != null)
-                    {
-                        if (baseTypeReflectionData.baseType == null)
-                            break;
-
-                        if (baseTypeReflectionData.isType && baseTypeReflectionData.baseType.IsAbstract && !SharedState.ConcreteImplementations.ContainsKey(baseTypeReflectionData.baseType))
-                            SharedState.ConcreteImplementations[baseTypeReflectionData.baseType] = def;
-
-                        baseTypeReflectionData = baseTypeReflectionData.baseType.BaseType;
-                    }
-                }
-            }
-
-            var outputPath = Path.GetFullPath("cpp2il_out");
-            var methodOutputDir = Path.Combine(outputPath, "types");
-
-            Logger.InfoNewline("Saving Header DLLs to " + outputPath + "...");
-            Cpp2IlTasks.SaveAssemblies(outputPath, Assemblies);
-
-            if (runtimeArgs.EnableAnalysis)
-            {
-                DoAssemblyCSharpAnalysis(runtimeArgs, methodOutputDir, keyFunctionAddresses!);
-            }
+            if (runtimeArgs.EnableAnalysis) 
+                DoAssemblyCSharpAnalysis(runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!);
 
             Logger.InfoNewline("Done.");
             return 0;
         }
 
-        private static void DoAssemblyCSharpAnalysis(Cpp2IlRuntimeArgs args, string methodOutputDir, KeyFunctionAddresses keyFunctionAddresses)
+        private static void DoAssemblyCSharpAnalysis(AnalysisLevel analysisLevel, string rootDir, KeyFunctionAddresses keyFunctionAddresses)
         {
-            var assemblyCsharp = Assemblies.Find(a => a.Name.Name == "Assembly-CSharp" || a.Name.Name == "CSharp3" || a.Name.Name == "CSharp2");
+            var assemblyCsharp = Cpp2IlApi.GetAssemblyByName("Assembly-CSharp");
 
             if (assemblyCsharp == null)
-            {
                 return;
-            }
 
-            Cpp2IlTasks.AnalyseAssembly(args, assemblyCsharp, keyFunctionAddresses, methodOutputDir, false);
+            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), false);
         }
     }
 }

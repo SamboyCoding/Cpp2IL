@@ -236,7 +236,7 @@ namespace LibCpp2IL
             }
         }
 
-        internal static Il2CppTypeReflectionData WrapType(Il2CppTypeDefinition what)
+        public static Il2CppTypeReflectionData WrapType(Il2CppTypeDefinition what)
         {
             return new Il2CppTypeReflectionData
             {

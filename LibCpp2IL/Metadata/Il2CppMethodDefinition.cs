@@ -33,7 +33,7 @@ namespace LibCpp2IL.Metadata
 
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
-        internal string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
+        public string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
         public Il2CppType? RawReturnType => LibCpp2IlMain.Binary?.GetType(returnTypeIdx);
         
