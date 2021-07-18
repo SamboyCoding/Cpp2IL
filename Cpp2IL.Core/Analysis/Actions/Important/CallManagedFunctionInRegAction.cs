@@ -1,9 +1,9 @@
-﻿using Cpp2IL.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil;
 using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Analysis.Actions.Important
+namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class CallManagedFunctionInRegAction : AbstractCallAction
     {

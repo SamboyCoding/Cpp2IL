@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Cpp2IL.Analysis
+namespace Cpp2IL.Core.Analysis
 {
     public class AnalysisExceptionRaisedException : Exception
     {

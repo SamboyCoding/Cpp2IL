@@ -1,11 +1,11 @@
 ﻿using System.Linq;
-using Cpp2IL.Analysis.ResultModels;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Analysis.Actions.Important
+namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class CallManagedFunctionAction : AbstractCallAction
     {

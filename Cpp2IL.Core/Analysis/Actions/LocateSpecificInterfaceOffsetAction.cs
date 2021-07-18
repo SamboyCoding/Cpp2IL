@@ -1,11 +1,11 @@
 ﻿using System.Linq;
-using Cpp2IL.Analysis.ResultModels;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Analysis.Actions
+namespace Cpp2IL.Core.Analysis.Actions
 {
     public class LocateSpecificInterfaceOffsetAction : BaseAction
     {

@@ -1,12 +1,12 @@
 ﻿using System.Diagnostics;
 using System.Linq;
-using Cpp2IL.Analysis.ResultModels;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Analysis.Actions.Important
+namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class AllocateInstanceAction : BaseAction
     {
