@@ -51,9 +51,9 @@ namespace Cpp2IL.Core
             return version;
         }
 
-        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
+        private static void ConfigureLib(bool verbose, bool allowUserToInputAddresses)
         {
-            //Set this flag from command line options
+            //Set this flag from the options
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = allowUserToInputAddresses;
 
             //We have to have this on, despite the cost, because we need them for attribute restoration
@@ -61,10 +61,32 @@ namespace Cpp2IL.Core
 
             LibLogger.Writer = new LibLogWriter();
             LibLogger.ShowVerbose = Logger.ShowVerbose = verbose;
+        }
 
+        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
+        {
+            ConfigureLib(verbose, allowUserToInputAddresses);
+            
             try
             {
                 if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVersion))
+                    throw new Exception("Initialization with LibCpp2Il failed");
+            }
+            catch (Exception e)
+            {
+                Console.Error.WriteLine($"\n\nFatal Exception initializing LibCpp2IL!\n{e}\n\nWaiting for you to press enter - feel free to copy the error...");
+                Console.ReadLine();
+                Environment.Exit(-1);
+            }
+        }
+        
+        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
+        {
+            ConfigureLib(verbose, allowUserToInputAddresses);
+            
+            try
+            {
+                if (!LibCpp2IlMain.Initialize(assemblyData, metadataData, unityVersion))
                     throw new Exception("Initialization with LibCpp2Il failed");
             }
             catch (Exception e)

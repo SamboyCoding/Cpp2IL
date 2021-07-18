@@ -13,6 +13,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.github\FUNDING.yml = .github\FUNDING.yml
 		.github\workflows\dotnet-core.yml = .github\workflows\dotnet-core.yml
 		.github\workflows\dotnet-core-pull.yml = .github\workflows\dotnet-core-pull.yml
+		Cpp2IL.Core\README_CORE.md = Cpp2IL.Core\README_CORE.md
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "LibCpp2ILTests", "LibCpp2ILTests\LibCpp2ILTests.csproj", "{EB3CFC80-2125-48D2-AA2F-548F5AA58342}"

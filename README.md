@@ -2,6 +2,9 @@
 
 WIP Tool to reverse Unity's IL2CPP build process back to the original managed DLLs.
 
+The information below almost entirely applies to the CLI application available on github releases. For documentation on 
+using the "core" module - which the CLI is just a wrapper around - in your own projects, see [README_CORE.md](Cpp2IL.Core/README_CORE.md)
+
 **IL Generation is currently to-file only, not to-assembly. Don't expect to magically get managed DLLs out of this.**
 
 Uses [LibCpp2IL](LibCpp2IL) for the initial parsing and loading of metadata structures. 
