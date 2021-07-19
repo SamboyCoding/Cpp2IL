@@ -186,6 +186,21 @@ namespace Cpp2IL.Core
             AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly(assembly, keyFunctionAddresses);
         }
 
+        public static void RemoveInjectedAttributesForAllAssemblies()
+        {
+            CheckLibInitialized();
+
+            foreach (var assembly in SharedState.AssemblyList)
+                AssemblyUnpopulator.UnpopulateStubTypesInAssembly(assembly);
+        }
+
+        public static void RemoveInjectedAttributesForAssembly(AssemblyDefinition assembly)
+        {
+            CheckLibInitialized();
+
+            AssemblyUnpopulator.UnpopulateStubTypesInAssembly(assembly);
+        }
+
         public static void GenerateMetadataForAllAssemblies(string rootFolder)
         {
             CheckLibInitialized();
@@ -219,7 +234,13 @@ namespace Cpp2IL.Core
         public static void SaveAssemblies(string toWhere, List<AssemblyDefinition> assemblies)
         {
             Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
-            
+
+            if (!Directory.Exists(toWhere))
+            {
+                Logger.VerboseNewline($"\tSave directory does not exist. Creating...");
+                Directory.CreateDirectory(toWhere);
+            }
+
             foreach (var assembly in assemblies)
             {
                 var dllPath = Path.Combine(toWhere, assembly.MainModule.Name);

@@ -17,3 +17,5 @@ LibCpp2ILTests/obj/
 Cpp2IL.Core/obj/
 
 Cpp2IL.Core/bin/
+
+.vs
