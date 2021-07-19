@@ -3,7 +3,7 @@ using System;
 
 namespace Cpp2IL.Core
 {
-	internal static class AssemblyUnpopulator
+    internal static class AssemblyUnpopulator
     {
         internal const string InjectedNamespaceName = "Cpp2IlInjected";
 
