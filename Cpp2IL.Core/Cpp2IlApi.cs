@@ -220,6 +220,12 @@ namespace Cpp2IL.Core
         {
             Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
             
+            if (!Directory.Exists(toWhere))
+            {
+                Logger.VerboseNewline($"\tSave directory does not exist. Creating...");
+                Directory.CreateDirectory(toWhere);
+            }
+            
             foreach (var assembly in assemblies)
             {
                 var dllPath = Path.Combine(toWhere, assembly.MainModule.Name);
