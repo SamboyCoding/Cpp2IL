@@ -79,12 +79,13 @@ namespace Cpp2IL.Core
             InjectAttribute("TokenAttribute", stringTypeReference, attributeTypeReference, imageDef, "Token");
         }
 
-        public static void PopulateStubTypesInAssembly(Il2CppImageDefinition imageDef)
+        public static void PopulateStubTypesInAssembly(Il2CppImageDefinition imageDef, bool suppressAttributes)
         {
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
 
-            InjectCustomAttributes(currentAssembly);
+            if(!suppressAttributes)
+                InjectCustomAttributes(currentAssembly);
 
             foreach (var il2CppTypeDefinition in imageDef.Types!)
             {
@@ -92,7 +93,7 @@ namespace Cpp2IL.Core
 
                 try
                 {
-                    CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+                    CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType, suppressAttributes);
                 }
                 catch (Exception e)
                 {
@@ -176,16 +177,21 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static void CopyIl2CppDataToManagedType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+        private static void CopyIl2CppDataToManagedType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, bool suppressAttributes)
         {
-            var (addressAttribute, fieldOffsetAttribute, tokenAttribute) = GetInjectedAttributes(ilTypeDefinition);
+            MethodDefinition? addressAttribute = null, fieldOffsetAttribute = null, tokenAttribute = null;
+            if(!suppressAttributes)
+                (addressAttribute, fieldOffsetAttribute, tokenAttribute) = GetInjectedAttributes(ilTypeDefinition);
 
             var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
 
-            //Token attribute
-            var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-            customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
-            ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
+            if (!suppressAttributes)
+            {
+                //Token attribute
+                var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
+                ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
+            }
 
             //Fields
             ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
@@ -221,7 +227,7 @@ namespace Cpp2IL.Core
             return (addressAttribute, fieldOffsetAttribute, tokenAttribute);
         }
 
-        private static void ProcessFieldsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, TypeReference stringType, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute)
+        private static void ProcessFieldsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, TypeReference stringType, MethodDefinition? fieldOffsetAttribute, MethodDefinition? tokenAttribute)
         {
             var fields = new List<FieldInType>();
 
@@ -253,7 +259,7 @@ namespace Cpp2IL.Core
                 var thisFieldOffset = LibCpp2IlMain.Binary!.GetFieldOffsetFromIndex(cppTypeDefinition.TypeIndex, counter, fieldDef.FieldIndex, ilTypeDefinition.IsValueType, fieldDefinition.IsStatic);
                 fields.Add(GetFieldInType(fieldTypeRef, thisFieldOffset, fieldDef.Name!, fieldDefinition));
 
-                if (!fieldDefinition.IsStatic)
+                if (!fieldDefinition.IsStatic && fieldOffsetAttribute != null)
                 {
                     //Add [FieldOffset(Offset = "0xDEADBEEF")]
                     var fieldOffsetAttributeInst = new CustomAttribute(ilTypeDefinition.Module.ImportReference(fieldOffsetAttribute));
@@ -261,16 +267,19 @@ namespace Cpp2IL.Core
                     fieldDefinition.CustomAttributes.Add(fieldOffsetAttributeInst);
                 }
 
-                var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{fieldDef.token:X}")));
-                fieldDefinition.CustomAttributes.Add(customTokenAttribute);
+                if (tokenAttribute != null)
+                {
+                    var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                    customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{fieldDef.token:X}")));
+                    fieldDefinition.CustomAttributes.Add(customTokenAttribute);
+                }
             }
 
             fields.Sort(); //By offset
             SharedState.FieldsByType[ilTypeDefinition] = fields;
         }
 
-        private static void ProcessMethodsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition tokenAttribute, MethodDefinition addressAttribute, TypeReference stringType)
+        private static void ProcessMethodsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition? tokenAttribute, MethodDefinition? addressAttribute, TypeReference stringType)
         {
             foreach (var methodDef in cppTypeDefinition.Methods!)
             {
@@ -285,9 +294,12 @@ namespace Cpp2IL.Core
                 ilTypeDefinition.Methods.Add(methodDefinition);
                 methodDefinition.ReturnType = Utils.ImportTypeInto(methodDefinition, methodReturnType);
 
-                CustomAttribute customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{methodDef.token:X}")));
-                methodDefinition.CustomAttributes.Add(customTokenAttribute);
+                if (tokenAttribute != null)
+                {
+                    CustomAttribute customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                    customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{methodDef.token:X}")));
+                    methodDefinition.CustomAttributes.Add(customTokenAttribute);
+                }
 
                 if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate")
                     FillMethodBodyWithStub(methodDefinition);
@@ -301,7 +313,7 @@ namespace Cpp2IL.Core
                 var methodPointer = methodDef.MethodPointer;
 
                 //Address attribute
-                if (methodPointer > 0)
+                if (methodPointer > 0 && addressAttribute != null)
                 {
                     var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));
                     customAttribute.Fields.Add(new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.GetRVA(methodPointer):X}")));
@@ -327,7 +339,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static void ProcessPropertiesInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition tokenAttribute, TypeReference stringType)
+        private static void ProcessPropertiesInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition? tokenAttribute, TypeReference stringType)
         {
             foreach (var propertyDef in cppTypeDefinition.Properties!)
             {
@@ -342,15 +354,18 @@ namespace Cpp2IL.Core
                     SetMethod = setter
                 };
 
-                var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{propertyDef.token:X}")));
-                propertyDefinition.CustomAttributes.Add(customTokenAttribute);
+                if (tokenAttribute != null)
+                {
+                    var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                    customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{propertyDef.token:X}")));
+                    propertyDefinition.CustomAttributes.Add(customTokenAttribute);
+                }
 
                 ilTypeDefinition.Properties.Add(propertyDefinition);
             }
         }
 
-        private static void ProcessEventsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition tokenAttribute, TypeReference stringType)
+        private static void ProcessEventsInType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, MethodDefinition? tokenAttribute, TypeReference stringType)
         {
             foreach (var il2cppEventDef in cppTypeDefinition.Events!)
             {
@@ -361,9 +376,12 @@ namespace Cpp2IL.Core
                     InvokeMethod = il2cppEventDef.Invoker?.AsManaged()
                 };
 
-                var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
-                customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{il2cppEventDef.token:X}")));
-                monoDef.CustomAttributes.Add(customTokenAttribute);
+                if (tokenAttribute != null)
+                {
+                    var customTokenAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(tokenAttribute));
+                    customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{il2cppEventDef.token:X}")));
+                    monoDef.CustomAttributes.Add(customTokenAttribute);
+                }
 
                 ilTypeDefinition.Events.Add(monoDef);
             }

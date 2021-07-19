@@ -97,7 +97,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static List<AssemblyDefinition> MakeDummyDLLs()
+        public static List<AssemblyDefinition> MakeDummyDLLs(bool suppressAttributes = false)
         {
             CheckLibInitialized();
 
@@ -134,7 +134,7 @@ namespace Cpp2IL.Core
 
                 Logger.Verbose($"\tPopulating {imageDef.Name}...");
 
-                AssemblyPopulator.PopulateStubTypesInAssembly(imageDef);
+                AssemblyPopulator.PopulateStubTypesInAssembly(imageDef, suppressAttributes);
 
                 Logger.VerboseNewline($"Done ({(DateTime.Now - startAssem).TotalMilliseconds}ms)");
             }
