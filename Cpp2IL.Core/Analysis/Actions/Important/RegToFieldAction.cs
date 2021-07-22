@@ -21,11 +21,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             InstanceWrittenOn = context.GetLocalInReg(destRegName);
             
-            if(InstanceWrittenOn?.Type?.Resolve() == null) return;
-            
             if(ValueRead is LocalDefinition loc)
                 RegisterUsedLocal(loc);
-            
+
+            if (InstanceWrittenOn?.Type?.Resolve() == null)
+            {
+                if (context.GetConstantInReg(destRegName) is {Value: FieldPointer p})
+                {
+                    InstanceWrittenOn = p.OnWhat;
+                    RegisterUsedLocal(InstanceWrittenOn);
+                    FieldWritten = p.Field;
+                }
+                
+                return;
+            }
+
             RegisterUsedLocal(InstanceWrittenOn);
 
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceWrittenOn.Type, destFieldOffset, false);

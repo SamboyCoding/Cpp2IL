@@ -861,6 +861,10 @@ namespace Cpp2IL.Core.Analysis
                     //Move generic memory to register - field read.
                     Analysis.Actions.Add(new FieldToLocalAction(Analysis, instruction));
                     break;
+                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
+                    //LEA generic memory to register - field pointer load.
+                    Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: StaticFieldsPtr _}:
                     //Write static field
                     Analysis.Actions.Add(new RegToStaticFieldAction(Analysis, instruction));
@@ -869,6 +873,7 @@ namespace Cpp2IL.Core.Analysis
                     Analysis.Actions.Add(new RegToConstantArrayOffsetAction(Analysis, instruction));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition:
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: FieldPointer _}:
                     //Write non-static field
                     Analysis.Actions.Add(new RegToFieldAction(Analysis, instruction));
                     break;

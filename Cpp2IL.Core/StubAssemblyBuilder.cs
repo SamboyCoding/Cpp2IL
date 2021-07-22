@@ -99,27 +99,10 @@ namespace Cpp2IL.Core
                         //Fixup internaL cecil etypes for (among other things) attribute blobs.
                         _etypeField.SetValue(definition, (byte) etype);
                 }
-                
-                if (type.GenericContainer != null)
-                {
-                    //Type generic params.
-                    foreach (var param in type.GenericContainer.GenericParameters)
-                    {
-                        if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
-                        {
-                            p = new GenericParameter(param.Name, definition);
-                            SharedState.GenericParamsByIndex[param.Index] = p;
-                        }
-
-                        if (!definition.GenericParameters.Contains(p))
-                            definition.GenericParameters.Add(p);
-                    }
-                }
-                
 
                 if(!isNestedType)
                     mainModule.Types.Add(definition);
-                
+
                 SharedState.AllTypeDefinitions.Add(definition);
                 SharedState.TypeDefsByIndex[type.TypeIndex] = definition;
                 SharedState.UnmanagedToManagedTypes[type] = definition;

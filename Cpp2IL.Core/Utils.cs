@@ -279,18 +279,32 @@ namespace Cpp2IL.Core
                     var genericName = metadata.GetStringFromIndex(param.nameIndex);
                     if (importInto is MethodDefinition methodDefinition)
                     {
-                        genericParameter = new GenericParameter(genericName, methodDefinition.DeclaringType);
+                        genericParameter = new GenericParameter(genericName, methodDefinition.DeclaringType).WithFlags(param.flags);
+                        
+                        SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
+                        
+                        param.ConstraintTypes!
+                            .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
+                            .ToList()
+                            .ForEach(genericParameter.Constraints.Add);
+                        
                         methodDefinition.GenericParameters.Add(genericParameter);
                         methodDefinition.DeclaringType.GenericParameters.Add(genericParameter);
-                        SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
                         return genericParameter;
                     }
 
                     var typeDefinition = (TypeDefinition) importInto;
 
-                    genericParameter = new GenericParameter(genericName, typeDefinition);
-                    typeDefinition.GenericParameters.Add(genericParameter);
+                    genericParameter = new GenericParameter(genericName, typeDefinition).WithFlags(param.flags);
+                    
                     SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
+                    
+                    param.ConstraintTypes!
+                        .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
+                        .ToList()
+                        .ForEach(genericParameter.Constraints.Add);
+                    
+                    typeDefinition.GenericParameters.Add(genericParameter);
                     return genericParameter;
                 }
 
@@ -305,9 +319,16 @@ namespace Cpp2IL.Core
                     var methodDefinition = (MethodDefinition) importInto;
                     var param = metadata.genericParameters[toImport.data.genericParameterIndex];
                     var genericName = metadata.GetStringFromIndex(param.nameIndex);
-                    genericParameter = new GenericParameter(genericName, methodDefinition);
-                    methodDefinition.GenericParameters.Add(genericParameter);
+                    genericParameter = new GenericParameter(genericName, methodDefinition).WithFlags(param.flags);
+                    
                     SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
+                    
+                    param.ConstraintTypes!
+                        .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
+                        .ToList()
+                        .ForEach(genericParameter.Constraints.Add);
+                    
+                    methodDefinition.GenericParameters.Add(genericParameter);
                     return genericParameter;
                 }
 

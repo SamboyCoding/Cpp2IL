@@ -192,6 +192,27 @@ namespace Cpp2IL.Core
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
                 ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
             }
+            
+            if (cppTypeDefinition.GenericContainer != null)
+            {
+                //Type generic params.
+                foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
+                {
+                    if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
+                    {
+                        p = new GenericParameter(param.Name, ilTypeDefinition);
+                        SharedState.GenericParamsByIndex[param.Index] = p;
+                            
+                        param.ConstraintTypes!
+                            .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(ilTypeDefinition, c)))
+                            .ToList()
+                            .ForEach(p.Constraints.Add);
+                    }
+
+                    if (!ilTypeDefinition.GenericParameters.Contains(p))
+                        ilTypeDefinition.GenericParameters.Add(p);
+                }
+            }
 
             //Fields
             ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
@@ -329,7 +350,7 @@ namespace Cpp2IL.Core
 
                 //Handle generic parameters.
                 methodDef.GenericContainer?.GenericParameters
-                    .Select(p => SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp) ? gp : new GenericParameter(p.Name, methodDefinition))
+                    .Select(p => SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp) ? gp : new GenericParameter(p.Name, methodDefinition).WithFlags(p.flags))
                     .Where(gp => !methodDefinition.GenericParameters.Contains(gp))
                     .ToList()
                     .ForEach(parameter => methodDefinition.GenericParameters.Add(parameter));
@@ -439,11 +460,7 @@ namespace Cpp2IL.Core
                 if (il2cppParam.RawType.byref == 1)
                     parameterTypeRef = new ByReferenceType(parameterTypeRef);
 
-                ParameterDefinition monoParam;
-                if (parameterTypeRef is GenericParameter genericParameter)
-                    monoParam = new ParameterDefinition(genericParameter);
-                else
-                    monoParam = new ParameterDefinition(il2cppParam.ParameterName, (ParameterAttributes) il2cppParam.ParameterAttributes, parameterTypeRef);
+                ParameterDefinition monoParam = new ParameterDefinition(il2cppParam.ParameterName, (ParameterAttributes) il2cppParam.ParameterAttributes, parameterTypeRef);
 
                 if (il2cppParam.DefaultValue != null)
                     monoParam.Constant = il2cppParam.DefaultValue;

@@ -23,6 +23,8 @@ namespace Cpp2IL.Core
         private static readonly TypeDefinition DummyTypeDefForAttributeCache = new TypeDefinition("dummy", "AttributeCache", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
 
+        private static readonly ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?> FieldToParameterMappings = new ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?>();
+
         static AttributeRestorer()
         {
             DummyTypeDefForAttributeCache.BaseType = Utils.TryLookupTypeDefKnownNotGeneric("System.ValueType");
@@ -61,7 +63,7 @@ namespace Cpp2IL.Core
         internal static void ApplyCustomAttributesToAllTypesInAssembly(AssemblyDefinition assemblyDefinition, KeyFunctionAddresses? keyFunctionAddresses)
         {
             var imageDef = SharedState.ManagedToUnmanagedAssemblies[assemblyDefinition];
-            
+
             foreach (var typeDef in assemblyDefinition.MainModule.Types.Where(t => t.Namespace != AssemblyPopulator.InjectedNamespaceName))
                 RestoreAttributesInType(imageDef, typeDef, keyFunctionAddresses);
         }
@@ -167,49 +169,59 @@ namespace Cpp2IL.Core
                 {
                     //No local made at all, BUT we expected constructor params.
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                    Logger.WarnNewline($"Attribute {attr} in {warningName} of {module.Name} has no zero-argument constructor but no local was made. Falling back to simple attribute generation.");
+                    Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no local was made. Falling back to simple attribute generation.");
 #endif
                     //Bail out to simple generation.
                     return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
                 }
 
                 //We have a local - look for constructor calls and/or field writes.
-                var allCtors = attr.GetConstructors().Select(c => c.FullName).ToList();
-                var matchingCtorCall = (CallManagedFunctionAction?) actions.FirstOrDefault(c => c is CallManagedFunctionAction {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtors.Contains(method.FullName));
+                var allCtorNames = attr.GetConstructors().Select(c => c.FullName).ToList();
+                var matchingCtorCall = (CallManagedFunctionAction?) actions.FirstOrDefault(c => c is CallManagedFunctionAction {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
 
+                (MethodDefinition potentialCtor, List<object> parameterList)? hardWayResult = null;
                 if (matchingCtorCall?.ManagedMethodBeingCalled == null && noArgCtor == null)
                 {
                     //No constructor call, BUT we expected constructor params.
+
+                    //May have been super-optimized.
+                    hardWayResult = TryResolveAttributeConstructorParamsTheHardWay(keyFunctionAddresses, attr, actions, local);
+
+                    if (hardWayResult == null)
+                    {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                    Logger.WarnNewline($"Attribute {attr} in {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found. Falling back to simple attribute generation.");
+                        Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found, and 'hard way' reconstruction failed. Falling back to simple attribute generation.");
+#endif
+                        //Bail out to simple generation.
+                        return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                    }
+                }
+
+                CustomAttribute attributeInstance;
+                try
+                {
+                    if (matchingCtorCall?.ManagedMethodBeingCalled != null)
+                        attributeInstance = GenerateCustomAttributeWithConstructorParams(module.ImportReference(matchingCtorCall.ManagedMethodBeingCalled), matchingCtorCall.Arguments!, module);
+                    else if (hardWayResult != null)
+                        attributeInstance = GenerateCustomAttributeFromHardWayResult(hardWayResult.Value.potentialCtor, hardWayResult.Value.parameterList, module);
+                    else
+                        attributeInstance = new CustomAttribute(module.ImportReference(noArgCtor));
+                }
+                catch (Exception e)
+                {
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                    Logger.WarnNewline($"Attribute constructor {matchingCtorCall?.ManagedMethodBeingCalled ?? hardWayResult?.potentialCtor} applied to {warningName} of {module.Name} was resolved with an unprocessable argument. Details: {e.Message}");
 #endif
                     //Bail out to simple generation.
                     return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
                 }
 
-                CustomAttribute attributeInstance;
-                if (matchingCtorCall?.ManagedMethodBeingCalled != null)
-                    try
-                    {
-                        attributeInstance = GenerateCustomAttributeWithConstructorParams(module.ImportReference(matchingCtorCall.ManagedMethodBeingCalled), matchingCtorCall.Arguments!, module);
-                    }
-                    catch (Exception e)
-                    {
-#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                        Logger.WarnNewline($"Attribute constructor {matchingCtorCall.ManagedMethodBeingCalled} in {warningName} of {module.Name} was resolved with an unprocessable argument. Details: {e.Message}");
-#endif
-                        //Bail out to simple generation.
-                        return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
-                    }
-                else
-                    attributeInstance = new CustomAttribute(module.ImportReference(noArgCtor));
-
-                //TODO Resolve field sets
+                //TODO Resolve field sets, including processing out hard way result params etc.
                 var fieldSets = actions.Where(c => c is ImmediateToFieldAction ifa && ifa.InstanceBeingSetOn == local || c is RegToFieldAction rfa && rfa.InstanceWrittenOn == local).ToList();
-                if (fieldSets.Count > 0)
+                if (fieldSets.Count > 0 && !hardWayResult.HasValue)
                 {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                    Logger.WarnNewline($"Attribute {attr} in {warningName} of {module.Name} has at least one field set action associated with it.");
+                    Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has at least one field set action associated with it.");
 #endif
                 }
 
@@ -398,6 +410,169 @@ namespace Cpp2IL.Core
             }
 
             return (from object? o in arr select new CustomAttributeArgument(array.ArrayType.ElementType, o)).ToArray();
+        }
+
+        private static FieldToParameterMapping[]? TryAnalyzeAttributeConstructorToResolveFieldWrites(MethodDefinition constructor, KeyFunctionAddresses keyFunctionAddresses)
+        {
+            //Some games have optimization dialed up to 11 - this results in attribute generator functions not actually calling constructors.
+            //Instead, the constructor is inlined, and the field writes are copied directly into the generator.
+            //So we can run analysis on the constructor, resolve field writes, and see if that matches with what we have in the attribute generator.
+            //Then we get a mapping from field to constructor, parameter, so we can map the field writes in the generator function back to constructor params.
+
+            lock (FieldToParameterMappings)
+            {
+                if (FieldToParameterMappings.TryGetValue(constructor, out var ret))
+                    return ret;
+
+                Logger.VerboseNewline($"Attempting to run attribute constructor reconstruction for {constructor.FullName}", "AttributeRestore");
+                var methodPointer = constructor.AsUnmanaged().MethodPointer;
+                var analyzer = new AsmAnalyzer(constructor, methodPointer, keyFunctionAddresses);
+
+                analyzer.AnalyzeMethod();
+
+                //Grab field writes specifically from registers.
+                var fieldWrites = analyzer.Analysis.Actions.Where(f => f is RegToFieldAction).Cast<RegToFieldAction>().ToList();
+
+                var fail = false;
+                if (!fieldWrites.All(f => f.ValueRead is LocalDefinition {ParameterDefinition: {}}))
+                {
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                    Logger.VerboseNewline($"\t{constructor.FullName} has a local => field where the local isn't a parameter.");
+#endif
+                    fail = true;
+                }
+
+                if (fieldWrites.Any(f => f.FieldWritten?.FinalLoadInChain == null))
+                {
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                    Logger.VerboseNewline($"\t{constructor.FullName} has a local => field where the field is non-simple.");
+#endif
+                    fail = true;
+                }
+
+                if (fail)
+                {
+                    FieldToParameterMappings.TryAdd(constructor, null);
+                    return null;
+                }
+
+                ret = fieldWrites.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition) f.ValueRead!).ParameterDefinition!)).ToArray();
+
+                FieldToParameterMappings.TryAdd(constructor, ret);
+                return ret;
+            }
+        }
+
+        private static (MethodDefinition potentialCtor, List<object> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction> actions, LocalDefinition? local)
+        {
+            //Try and get mappings for all constructors.
+            var allPotentialCtors = attr.GetConstructors()
+                .Where(f => !f.IsStatic)
+                .Select(c => (c!, TryAnalyzeAttributeConstructorToResolveFieldWrites(c, keyFunctionAddresses)));
+
+            //And get all field writes on this attribute
+            var allWritesInGeneratorOnThisAttribute = actions
+                .Where(a => a is ImmediateToFieldAction itfa && itfa.InstanceBeingSetOn == local)
+                .Cast<ImmediateToFieldAction>()
+                .ToList();
+
+            if (allWritesInGeneratorOnThisAttribute.Any(w => w.FieldWritten?.FinalLoadInChain == null))
+            {
+                //complex field writes (that is to say, writes on a field of a field) are not yet implemented (do I ever want to?)
+                //so this is a failure condition
+                return null;
+            }
+
+            //Check that mappings and field writes line up
+            foreach (var (potentialCtor, mappings) in allPotentialCtors)
+            {
+                if (mappings == null)
+                    continue;
+
+                if (mappings.Length != allWritesInGeneratorOnThisAttribute.Count)
+                    continue;
+
+                //Going to assume that the order is preserved, because it bloody well should be.
+                var matchSoFar = true;
+                for (var writeIdx = 0; writeIdx < mappings.Length && matchSoFar; writeIdx++)
+                {
+                    if (mappings[writeIdx].Field != allWritesInGeneratorOnThisAttribute[writeIdx].FieldWritten!.FinalLoadInChain)
+                        matchSoFar = false;
+                }
+
+                if (!matchSoFar)
+                    continue; //Move to next potential ctor
+
+                //This constructor matches, insofar as there are the same number of field writes, and each field written in the ctor is also written, in the same order, in the generator.
+                //So we need to extract the parameters.
+
+                var parameterList = new List<object>();
+                foreach (var parameter in potentialCtor.Parameters)
+                {
+                    var mapping = mappings.FirstOrDefault(m => m.Parameter == parameter);
+
+                    if (mapping.Parameter == null!)
+                        return null;
+
+                    var fieldWrite = allWritesInGeneratorOnThisAttribute.FirstOrDefault(w => w.FieldWritten!.FinalLoadInChain == mapping.Field);
+
+                    if (fieldWrite == null)
+                        return null;
+
+                    parameterList.Add(fieldWrite.ConstantValue);
+                }
+
+                return (potentialCtor, parameterList);
+            }
+
+            return null;
+        }
+
+        private static CustomAttribute GenerateCustomAttributeFromHardWayResult(MethodDefinition constructor, List<object> constructorArgs, ModuleDefinition module)
+        {
+            var customAttribute = new CustomAttribute(module.ImportReference(constructor));
+
+            if (constructorArgs.Count == 0)
+                return customAttribute;
+
+            if (constructor.Parameters.Count != constructorArgs.Count)
+                throw new Exception("Mismatch between constructor param count & actual args count? Probably because named args support not implemented");
+
+            var i = 0;
+            foreach (var arg in constructorArgs)
+            {
+                var value = arg;
+                var actualArg = constructor.Parameters[i];
+
+                var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
+
+                if (value.GetType().FullName != destType.FullName)
+                    value = Utils.CoerceValue(value, destType);
+
+                if (destType.FullName == "System.Object")
+                {
+                    //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
+                    value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(arg.GetType().FullName), arg);
+                }
+
+                customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
+
+                i++;
+            }
+
+            return customAttribute;
+        }
+
+        private struct FieldToParameterMapping
+        {
+            public FieldDefinition Field;
+            public ParameterDefinition Parameter;
+
+            public FieldToParameterMapping(FieldDefinition field, ParameterDefinition parameter)
+            {
+                Field = field;
+                Parameter = parameter;
+            }
         }
     }
 }

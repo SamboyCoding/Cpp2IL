@@ -8,15 +8,15 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ImmediateToFieldAction: BaseAction
     {
-        private object constantValue;
+        public object ConstantValue;
         public LocalDefinition? InstanceBeingSetOn;
-        private FieldUtils.FieldBeingAccessedData? destinationField;
+        public FieldUtils.FieldBeingAccessedData? FieldWritten;
         
         public ImmediateToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var rawConstant = instruction.GetImmediate(1);
 
-            constantValue = rawConstant;
+            ConstantValue = rawConstant;
             
             var destRegName = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
@@ -27,32 +27,32 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             RegisterUsedLocal(InstanceBeingSetOn);
 
-            destinationField = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
+            FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
 
-            var destTypeName = destinationField?.GetFinalType()?.FullName;
+            var destTypeName = FieldWritten?.GetFinalType()?.FullName;
             if (destTypeName == "System.Single")
-                constantValue = BitConverter.ToSingle(BitConverter.GetBytes(rawConstant), 0);
+                ConstantValue = BitConverter.ToSingle(BitConverter.GetBytes(rawConstant), 0);
             else if(destTypeName == "System.Double")
-                constantValue = BitConverter.ToDouble(BitConverter.GetBytes(rawConstant), 0);
+                ConstantValue = BitConverter.ToDouble(BitConverter.GetBytes(rawConstant), 0);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            if (constantValue == null || InstanceBeingSetOn == null || destinationField == null)
+            if (ConstantValue == null || InstanceBeingSetOn == null || FieldWritten == null)
                 throw new TaintedInstructionException();
             
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 
             ret.AddRange(InstanceBeingSetOn.GetILToLoad(context, processor));
 
-            var f = destinationField;
+            var f = FieldWritten;
             while (f.NextChainLink != null)
             {
                 ret.Add(processor.Create(OpCodes.Ldfld, f.ImpliedFieldLoad));
                 f = f.NextChainLink;
             }
 
-            ret.AddRange(context.MakeConstant(constantValue.GetType(), constantValue).GetILToLoad(context, processor));
+            ret.AddRange(context.MakeConstant(ConstantValue.GetType(), ConstantValue).GetILToLoad(context, processor));
 
             if (f.FinalLoadInChain == null)
                 throw new TaintedInstructionException("Final load in chain is null");
@@ -65,12 +65,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override string ToPsuedoCode()
         {
-            return $"{InstanceBeingSetOn?.GetPseudocodeRepresentation()}.{destinationField} = {constantValue}";
+            return $"{InstanceBeingSetOn?.GetPseudocodeRepresentation()}.{FieldWritten} = {ConstantValue}";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Writes the constant {constantValue} into the field {destinationField} of {InstanceBeingSetOn}";
+            return $"[!] Writes the constant {ConstantValue} (0x{ConstantValue:X}) into the field {FieldWritten} of {InstanceBeingSetOn}";
         }
 
         public override bool IsImportant()

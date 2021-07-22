@@ -136,5 +136,11 @@ namespace Cpp2IL.Core
             result = stack.Pop();
             return true;
         }
+
+        public static GenericParameter WithFlags(this GenericParameter genericParameter, int flags)
+        {
+            genericParameter.Attributes = (GenericParameterAttributes) flags;
+            return genericParameter;
+        }
     }
 }
