@@ -1,4 +1,4 @@
-﻿#define NO_ATTRIBUTE_RESTORATION_WARNINGS
+﻿// #define NO_ATTRIBUTE_RESTORATION_WARNINGS
 // #define NO_ATTRIBUTE_ANALYSIS
 
 using System;
@@ -151,6 +151,11 @@ namespace Cpp2IL.Core
             {
                 localArray[action.OffsetInList] = action.LocalMade;
             }
+            
+            if(warningName.StartsWith("System.Collections.Generic.List"))
+                Console.WriteLine("b");
+            
+            attributes.AddRange(GenerateAttributesWithoutAnalysis(attributeConstructors, module));
 
             for (var i = 0; i < attributesExpected.Count; i++)
             {
@@ -161,7 +166,7 @@ namespace Cpp2IL.Core
                 if (local == null && noArgCtor != null)
                 {
                     //No local made at all, just generate a default attribute and move on.
-                    attributes.Add(new CustomAttribute(module.ImportReference(noArgCtor)));
+                    // attributes.Add(new CustomAttribute(module.ImportReference(noArgCtor)));
                     continue;
                 }
 
@@ -169,10 +174,10 @@ namespace Cpp2IL.Core
                 {
                     //No local made at all, BUT we expected constructor params.
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                    Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no local was made. Falling back to simple attribute generation.");
+                    Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no local was made.  Attribute will not be added.");
 #endif
-                    //Bail out to simple generation.
-                    return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                    //Give up on this attribute and move to the next one.
+                    continue;
                 }
 
                 //We have a local - look for constructor calls and/or field writes.
@@ -185,35 +190,44 @@ namespace Cpp2IL.Core
                     //No constructor call, BUT we expected constructor params.
 
                     //May have been super-optimized.
-                    hardWayResult = TryResolveAttributeConstructorParamsTheHardWay(keyFunctionAddresses, attr, actions, local);
+                    try
+                    {
+                        hardWayResult = TryResolveAttributeConstructorParamsTheHardWay(keyFunctionAddresses, attr, actions, local);
+                    }
+                    catch (Exception)
+                    {
+                        //Suppress and just bail out below
+                    }
 
                     if (hardWayResult == null)
                     {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                        Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found, and 'hard way' reconstruction failed. Falling back to simple attribute generation.");
+                        Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found, and 'hard way' reconstruction failed. Attribute will not be added.");
 #endif
-                        //Bail out to simple generation.
-                        return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                        //Give up on this attribute and move to the next one.
+                        continue;
                     }
                 }
 
                 CustomAttribute attributeInstance;
                 try
                 {
-                    if (matchingCtorCall?.ManagedMethodBeingCalled != null)
+                    if (matchingCtorCall?.ManagedMethodBeingCalled != null && matchingCtorCall.Arguments!.Count > 0)
                         attributeInstance = GenerateCustomAttributeWithConstructorParams(module.ImportReference(matchingCtorCall.ManagedMethodBeingCalled), matchingCtorCall.Arguments!, module);
                     else if (hardWayResult != null)
                         attributeInstance = GenerateCustomAttributeFromHardWayResult(hardWayResult.Value.potentialCtor, hardWayResult.Value.parameterList, module);
                     else
-                        attributeInstance = new CustomAttribute(module.ImportReference(noArgCtor));
+                        //Skip simple (no argument) attributes, they've already been generated
+                        //Future: need to check field sets here.
+                        continue;
                 }
                 catch (Exception e)
                 {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                     Logger.WarnNewline($"Attribute constructor {matchingCtorCall?.ManagedMethodBeingCalled ?? hardWayResult?.potentialCtor} applied to {warningName} of {module.Name} was resolved with an unprocessable argument. Details: {e.Message}");
 #endif
-                    //Bail out to simple generation.
-                    return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                    //Give up on this attribute and move to the next one.
+                    continue;
                 }
 
                 //TODO Resolve field sets, including processing out hard way result params etc.
