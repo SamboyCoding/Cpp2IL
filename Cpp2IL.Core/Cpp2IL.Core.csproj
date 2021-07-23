@@ -4,11 +4,17 @@
         <TargetFramework>netstandard2.0</TargetFramework>
         <LangVersion>8</LangVersion>
         <Nullable>enable</Nullable>
+        <PackageId>Samboy063.Cpp2IL.Core</PackageId>
         <Company>Samboy063</Company>
         <FileVersion>2021.2.0</FileVersion>
         <Version>2021.2.0</Version>
         <InformationalVersion>2021.2.0</InformationalVersion>
         <Copyright>Copyright © Samboy063 2019-2021</Copyright>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Reverses Unity's IL2CPP Build Process</Description>
     </PropertyGroup>
 
