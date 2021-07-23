@@ -71,12 +71,12 @@ namespace Cpp2IL.Core
 
         public static void CheckColorSupport()
         {
-            if (Environment.OSVersion.Platform != PlatformID.Win32NT)
-            {
-                DisableColor = true;
-                WarnNewline("Looks like you're running on a non-windows platform. Disabling ANSI color codes.");
-            }
-            else if (Directory.Exists(@"Z:\usr\"))
+            // if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            // {
+            //     DisableColor = true;
+            //     WarnNewline("Looks like you're running on a non-windows platform. Disabling ANSI color codes.");
+            // }
+            /*else*/ if (Directory.Exists(@"Z:\usr\"))
             {
                 DisableColor = true;
                 WarnNewline("Looks like you're running in wine or proton. Disabling ANSI color codes.");
