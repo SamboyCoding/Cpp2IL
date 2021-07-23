@@ -1,5 +1,7 @@
 # LibCpp2IL
 
+[![NuGet](https://img.shields.io/nuget/v/Samboy063.LibCpp2IL)](https://www.nuget.org/packages/Samboy063.LibCpp2IL/)
+
 Provides an API for working with IL2CPP-generated metadata and game assemblies.
 
 ## Downloading
