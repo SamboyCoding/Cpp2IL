@@ -44,6 +44,20 @@ namespace Cpp2IL.Core
                 }
 
                 var unityVer = verString.ToString();
+
+                if (!unityVer.Contains("f"))
+                {
+                    idx = 0x30;
+                    verString = new StringBuilder();
+                    while (ggmBytes[idx] != 0)
+                    {
+                        verString.Append(Convert.ToChar(ggmBytes[idx]));
+                        idx++;
+                    }
+
+                    unityVer = verString.ToString();
+                }
+                
                 unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
                 version = unityVer.Split('.').Select(int.Parse).ToArray();
             }
