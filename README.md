@@ -29,8 +29,8 @@ From the first milestone build 2021.0, and onwards, Cpp2IL now outputs more rigi
 This includes log levels (VERB, INFO, WARN, FAIL) and associated colours (Grey for VERB, Blue for INFO, Yellow for 
 WARN, Red for FAIL).
 
-As of milestone 2021.1, if Cpp2IL is able to detect that you're running in Wine/Proton, or natively on a non-windows OS as
-reported by .NET, these ANSI colour codes are disabled, as they are not supported on these platforms.
+As of milestone 2021.1, if Cpp2IL is able to detect that you're running in Wine/Proton, these ANSI colour codes are disabled,
+as they are not supported by wine and look awful.
 
 VERB messages will only be logged if Cpp2IL is launched with the `--verbose` option, and it would be helpful if you 
 could report issues with this flag enabled. For normal operation, they shouldn't be needed, unless you're curious.

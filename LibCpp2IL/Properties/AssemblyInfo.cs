@@ -1,5 +1,4 @@
 ﻿using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
 // General Information about an assembly is controlled through the following 
@@ -9,8 +8,8 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyCopyright("Copyright © Samboy063 2019-2020")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
-[assembly: AssemblyVersion("1.1.0.0")]
-[assembly: AssemblyFileVersion("1.1.0.0")]
+[assembly: AssemblyVersion("2021.2.1")]
+[assembly: AssemblyFileVersion("2021.2.1")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
@@ -19,4 +18,3 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("7C9601B4-B53B-48CD-866F-DB908B3BF54D")]
-[assembly: InternalsVisibleTo("Cpp2IL")]
