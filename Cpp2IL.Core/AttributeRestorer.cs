@@ -93,6 +93,12 @@ namespace Cpp2IL.Core
                 GetCustomAttributesByAttributeIndex(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDefinition.FullName)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
             }
+            
+            //Nested Types
+            foreach (var nestedType in typeDefinition.NestedTypes)
+            {
+                RestoreAttributesInType(imageDef, nestedType, keyFunctionAddresses);
+            }
         }
 
         public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, KeyFunctionAddresses? keyFunctionAddresses, string warningName)
@@ -151,10 +157,7 @@ namespace Cpp2IL.Core
             {
                 localArray[action.OffsetInList] = action.LocalMade;
             }
-            
-            if(warningName.StartsWith("System.Collections.Generic.List"))
-                Console.WriteLine("b");
-            
+
             attributes.AddRange(GenerateAttributesWithoutAnalysis(attributeConstructors, module));
 
             for (var i = 0; i < attributesExpected.Count; i++)

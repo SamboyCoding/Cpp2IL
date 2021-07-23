@@ -6,9 +6,9 @@
         <Nullable>enable</Nullable>
         <PackageId>Samboy063.Cpp2IL.Core</PackageId>
         <Company>Samboy063</Company>
-        <FileVersion>2021.2.1.2</FileVersion>
-        <Version>2021.2.1.2</Version>
-        <InformationalVersion>2021.2.1.2</InformationalVersion>
+        <FileVersion>2021.2.2</FileVersion>
+        <Version>2021.2.2</Version>
+        <InformationalVersion>2021.2.2</InformationalVersion>
         <Copyright>Copyright © Samboy063 2019-2021</Copyright>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
@@ -21,7 +21,7 @@
     <ItemGroup>
         <PackageReference Include="Iced" Version="1.11.1" />
         <PackageReference Include="IndexRange" Version="1.0.0" />
-        <PackageReference Include="Mono.Cecil" Version="0.11.3" />
+        <PackageReference Include="Mono.Cecil" Version="0.11.4" />
         <PackageReference Include="Nullable" Version="1.3.0">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

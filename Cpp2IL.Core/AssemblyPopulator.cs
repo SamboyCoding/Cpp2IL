@@ -200,7 +200,7 @@ namespace Cpp2IL.Core
                 {
                     if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
                     {
-                        p = new GenericParameter(param.Name, ilTypeDefinition);
+                        p = new GenericParameter(param.Name, ilTypeDefinition).WithFlags(param.flags);
                         SharedState.GenericParamsByIndex[param.Index] = p;
                             
                         param.ConstraintTypes!
@@ -350,7 +350,20 @@ namespace Cpp2IL.Core
 
                 //Handle generic parameters.
                 methodDef.GenericContainer?.GenericParameters
-                    .Select(p => SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp) ? gp : new GenericParameter(p.Name, methodDefinition).WithFlags(p.flags))
+                    .Select(p =>
+                    {
+                        if (SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp))
+                            return gp;
+                        
+                        gp = new GenericParameter(p.Name, methodDefinition).WithFlags(p.flags);
+                        
+                        p.ConstraintTypes!
+                            .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(methodDefinition, c)))
+                            .ToList()
+                            .ForEach(gp.Constraints.Add);
+
+                        return gp;
+                    })
                     .Where(gp => !methodDefinition.GenericParameters.Contains(gp))
                     .ToList()
                     .ForEach(parameter => methodDefinition.GenericParameters.Add(parameter));
