@@ -150,7 +150,7 @@ namespace Cpp2IL
             if (runtimeArgs.EnableAnalysis) 
                 Cpp2IlApi.PopulateConcreteImplementations();
 
-            Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory, Cpp2IlApi.GeneratedAssemblies);
+            Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
             if (runtimeArgs.EnableAnalysis) 
                 DoAssemblyCSharpAnalysis(runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!);
