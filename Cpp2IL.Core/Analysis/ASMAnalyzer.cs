@@ -894,6 +894,11 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic
+                case Mnemonic.Add when type0 == OpKind.Register && type1.IsImmediate() && r0 != "rsp" && op0 is LocalDefinition l && !Utils.IsNumericType(l.Type):
+                    //Add reg, val
+                    //But value in reg is non-numeric
+                    Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Add when type0 == OpKind.Register && type1.IsImmediate() && r0 != "rsp":
                     //Add reg, val
                     Analysis.Actions.Add(new AddConstantToRegAction(Analysis, instruction));

@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using System;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -33,10 +34,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 typeOfArray = reference;
             }
 
-            if (sizeOperand is LocalDefinition {KnownInitialValue: ulong sizeL} local)
+            if (sizeOperand is LocalDefinition local && (local.KnownInitialValue is ulong || local.KnownInitialValue is uint))
             {
                 RegisterUsedLocal(local);
-                sizeAllocated = (int) sizeL;
+                sizeAllocated = Convert.ToInt32(local.KnownInitialValue);
             }
             else if (sizeOperand is ConstantDefinition {Value: ulong sizeC})
             {

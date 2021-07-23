@@ -1,4 +1,5 @@
 ﻿using Cpp2IL.Core.Analysis.ResultModels;
+using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -12,13 +13,27 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public FieldPointerToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var memoryBase = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            if (instruction.MemoryBase != Register.None)
+            {
+                var memoryBase = Utils.GetRegisterNameNew(instruction.MemoryBase);
 
-            _accessedOn = context.GetLocalInReg(memoryBase);
-            if(_accessedOn?.Type == null)
-                return;
+                _accessedOn = context.GetLocalInReg(memoryBase);
+                if (_accessedOn?.Type == null)
+                    return;
 
-            _fieldBeingRead = FieldUtils.GetFieldBeingAccessed(_accessedOn.Type, instruction.MemoryDisplacement64, false);
+                _fieldBeingRead = FieldUtils.GetFieldBeingAccessed(_accessedOn.Type, instruction.MemoryDisplacement64, false);
+            }
+            else
+            {
+                //Add?
+                var amountBeingAdded = instruction.GetImmediate(1);
+                _accessedOn = context.GetLocalInReg(Utils.GetRegisterNameNew(instruction.Op0Register));
+                
+                if (_accessedOn?.Type == null)
+                    return;
+                
+                _fieldBeingRead = FieldUtils.GetFieldBeingAccessed(_accessedOn.Type, amountBeingAdded, false);
+            }
 
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             

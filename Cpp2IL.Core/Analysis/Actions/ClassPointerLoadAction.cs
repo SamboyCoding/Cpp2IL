@@ -28,7 +28,9 @@ namespace Cpp2IL.Core.Analysis.Actions
             var localType = localCopiedFrom.Type?.Resolve();
             localType ??= Utils.ObjectReference;
 
-            var cppTypeDef = SharedState.ManagedToUnmanagedTypes[localType];
+            if (!SharedState.ManagedToUnmanagedTypes.TryGetValue(localType, out var cppTypeDef))
+                return;
+            
             destinationConstant = context.MakeConstant(typeof(Il2CppClassIdentifier), new Il2CppClassIdentifier
             {
                 backingType = cppTypeDef,

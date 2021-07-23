@@ -179,7 +179,7 @@ namespace Cpp2IL.Core
                 var allCtorNames = attr.GetConstructors().Select(c => c.FullName).ToList();
                 var matchingCtorCall = (CallManagedFunctionAction?) actions.FirstOrDefault(c => c is CallManagedFunctionAction {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
 
-                (MethodDefinition potentialCtor, List<object> parameterList)? hardWayResult = null;
+                (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? hardWayResult = null;
                 if (matchingCtorCall?.ManagedMethodBeingCalled == null && noArgCtor == null)
                 {
                     //No constructor call, BUT we expected constructor params.
@@ -217,11 +217,11 @@ namespace Cpp2IL.Core
                 }
 
                 //TODO Resolve field sets, including processing out hard way result params etc.
-                var fieldSets = actions.Where(c => c is ImmediateToFieldAction ifa && ifa.InstanceBeingSetOn == local || c is RegToFieldAction rfa && rfa.InstanceWrittenOn == local).ToList();
+                var fieldSets = actions.Where(c => c is ImmediateToFieldAction ifa && ifa.InstanceBeingSetOn == local || c is RegToFieldAction rfa && rfa.InstanceBeingSetOn == local).ToList();
                 if (fieldSets.Count > 0 && !hardWayResult.HasValue)
                 {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                    Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has at least one field set action associated with it.");
+                    // Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has at least one field set action associated with it.");
 #endif
                 }
 
@@ -327,59 +327,63 @@ namespace Cpp2IL.Core
             foreach (var analysedOperand in constructorArgs)
             {
                 var actualArg = constructor.Parameters[i];
-                switch (analysedOperand)
-                {
-                    case ConstantDefinition cons:
-                    {
-                        var value = cons.Value;
-
-                        var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
-
-                        if (cons.Type.FullName != destType.FullName)
-                            value = Utils.CoerceValue(value, destType);
-
-                        customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
-                        break;
-                    }
-                    case LocalDefinition local:
-                    {
-                        if (local.KnownInitialValue == null)
-                            throw new Exception($"Can't use a local without a KnownInitialValue in an attribute ctor: {local}");
-
-                        var value = local.KnownInitialValue;
-                        var originalValue = value;
-
-                        var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
-
-                        if (value is AllocatedArray array)
-                            value = AllocateArray(array);
-                        else if (local.Type.FullName != destType.FullName)
-                            try
-                            {
-                                value = Utils.CoerceValue(value, destType);
-                            }
-                            catch (Exception e)
-                            {
-                                throw new Exception($"Failed to coerce local's known initial value \"{value}\" to type {destType}", e);
-                            }
-
-                        if (destType.FullName == "System.Object")
-                        {
-                            //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
-                            value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(originalValue.GetType().FullName), originalValue);
-                        }
-
-                        customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
-                        break;
-                    }
-                    default:
-                        throw new Exception($"Operand {analysedOperand} is not valid for use in a attribute ctor");
-                }
+                
+                customAttribute.ConstructorArguments.Add(CoerceAnalyzedOpToParameter(analysedOperand, actualArg));
 
                 i++;
             }
 
             return customAttribute;
+        }
+
+        private static CustomAttributeArgument CoerceAnalyzedOpToParameter(IAnalysedOperand analysedOperand, ParameterDefinition actualArg)
+        {
+            switch (analysedOperand)
+            {
+                case ConstantDefinition cons:
+                {
+                    var value = cons.Value;
+
+                    var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
+
+                    if (cons.Type.FullName != destType.FullName)
+                        value = Utils.CoerceValue(value, destType);
+
+                    return new CustomAttributeArgument(destType, value);
+                }
+                case LocalDefinition local:
+                {
+                    if (local.KnownInitialValue == null)
+                        throw new Exception($"Can't use a local without a KnownInitialValue in an attribute ctor: {local}");
+
+                    var value = local.KnownInitialValue;
+                    var originalValue = value;
+
+                    var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
+
+                    if (value is AllocatedArray array)
+                        value = AllocateArray(array);
+                    else if (local.Type.FullName != destType.FullName)
+                        try
+                        {
+                            value = Utils.CoerceValue(value, destType);
+                        }
+                        catch (Exception e)
+                        {
+                            throw new Exception($"Failed to coerce local's known initial value \"{value}\" to type {destType}", e);
+                        }
+
+                    if (destType.FullName == "System.Object")
+                    {
+                        //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
+                        value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(originalValue.GetType().FullName), originalValue);
+                    }
+
+                    return new CustomAttributeArgument(destType, value);
+                }
+                default:
+                    throw new Exception($"Operand {analysedOperand} is not valid for use in a attribute ctor");
+            }
         }
 
         private static object AllocateArray(AllocatedArray array)
@@ -405,7 +409,7 @@ namespace Cpp2IL.Core
                 }
                 catch (Exception e)
                 {
-                    throw new Exception($"Failed to coerce value \"{value}\" at index {index} to type {typeForArrayToCreateNow} for array", e);
+                    throw new Exception($"Failed to coerce value \"{value}\" (type {value?.GetType().FullName}) at index {index} to type {typeForArrayToCreateNow} for array of length {array.Size}", e);
                 }
             }
 
@@ -463,17 +467,19 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static (MethodDefinition potentialCtor, List<object> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction> actions, LocalDefinition? local)
+        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction> actions, LocalDefinition? local)
         {
             //Try and get mappings for all constructors.
             var allPotentialCtors = attr.GetConstructors()
                 .Where(f => !f.IsStatic)
-                .Select(c => (c!, TryAnalyzeAttributeConstructorToResolveFieldWrites(c, keyFunctionAddresses)));
+                .Select(c => (c!, TryAnalyzeAttributeConstructorToResolveFieldWrites(c, keyFunctionAddresses)))
+                .Where(pair => pair.Item2 != null)
+                .ToList();
 
             //And get all field writes on this attribute
             var allWritesInGeneratorOnThisAttribute = actions
-                .Where(a => a is ImmediateToFieldAction itfa && itfa.InstanceBeingSetOn == local)
-                .Cast<ImmediateToFieldAction>()
+                .Where(a => (a is AbstractFieldWriteAction afwa && afwa.InstanceBeingSetOn == local))
+                .Cast<AbstractFieldWriteAction>()
                 .ToList();
 
             if (allWritesInGeneratorOnThisAttribute.Any(w => w.FieldWritten?.FinalLoadInChain == null))
@@ -483,30 +489,31 @@ namespace Cpp2IL.Core
                 return null;
             }
 
+            //Sort by number of mappings, descending, so we get most relevant first.
+            allPotentialCtors.SortByExtractedKey(pair => pair.Item2!.Length);
+            allPotentialCtors.Reverse();
+
             //Check that mappings and field writes line up
             foreach (var (potentialCtor, mappings) in allPotentialCtors)
             {
                 if (mappings == null)
                     continue;
 
-                if (mappings.Length != allWritesInGeneratorOnThisAttribute.Count)
-                    continue;
-
                 //Going to assume that the order is preserved, because it bloody well should be.
-                var matchSoFar = true;
-                for (var writeIdx = 0; writeIdx < mappings.Length && matchSoFar; writeIdx++)
-                {
-                    if (mappings[writeIdx].Field != allWritesInGeneratorOnThisAttribute[writeIdx].FieldWritten!.FinalLoadInChain)
-                        matchSoFar = false;
-                }
+                //Check that the first n field writes in the generator (where n is number of mappings for the ctor)
+                //match, in order, all n fields being written in the constructor.
+                var matches = allWritesInGeneratorOnThisAttribute
+                    .Take(mappings.Length)
+                    .Select(w => w.FieldWritten!.FinalLoadInChain!)
+                    .SequenceEqual(mappings.Select(m => m.Field));
 
-                if (!matchSoFar)
+                if (!matches)
                     continue; //Move to next potential ctor
 
                 //This constructor matches, insofar as there are the same number of field writes, and each field written in the ctor is also written, in the same order, in the generator.
                 //So we need to extract the parameters.
 
-                var parameterList = new List<object>();
+                var parameterList = new List<CustomAttributeArgument>();
                 foreach (var parameter in potentialCtor.Parameters)
                 {
                     var mapping = mappings.FirstOrDefault(m => m.Parameter == parameter);
@@ -519,7 +526,26 @@ namespace Cpp2IL.Core
                     if (fieldWrite == null)
                         return null;
 
-                    parameterList.Add(fieldWrite.ConstantValue);
+                    if (fieldWrite is ImmediateToFieldAction i)
+                    {
+                        var destType = parameter.ParameterType.Resolve()?.IsEnum == true ? parameter.ParameterType.Resolve().GetEnumUnderlyingType() : parameter.ParameterType;
+                        var value = i.ConstantValue;
+
+                        if (value.GetType().FullName != destType.FullName)
+                            value = Utils.CoerceValue(value, destType);
+
+                        if (destType.FullName == "System.Object")
+                        {
+                            //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
+                            value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(i.ConstantValue.GetType().FullName), i.ConstantValue);
+                        }
+                        
+                        parameterList.Add(new CustomAttributeArgument(destType, value));
+                    }
+                    else if (fieldWrite is RegToFieldAction {ValueRead: { }} r)
+                        parameterList.Add(CoerceAnalyzedOpToParameter(r.ValueRead!, parameter));
+                    else
+                        return null;
                 }
 
                 return (potentialCtor, parameterList);
@@ -528,7 +554,7 @@ namespace Cpp2IL.Core
             return null;
         }
 
-        private static CustomAttribute GenerateCustomAttributeFromHardWayResult(MethodDefinition constructor, List<object> constructorArgs, ModuleDefinition module)
+        private static CustomAttribute GenerateCustomAttributeFromHardWayResult(MethodDefinition constructor, List<CustomAttributeArgument> constructorArgs, ModuleDefinition module)
         {
             var customAttribute = new CustomAttribute(module.ImportReference(constructor));
 
@@ -538,27 +564,8 @@ namespace Cpp2IL.Core
             if (constructor.Parameters.Count != constructorArgs.Count)
                 throw new Exception("Mismatch between constructor param count & actual args count? Probably because named args support not implemented");
 
-            var i = 0;
-            foreach (var arg in constructorArgs)
-            {
-                var value = arg;
-                var actualArg = constructor.Parameters[i];
-
-                var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
-
-                if (value.GetType().FullName != destType.FullName)
-                    value = Utils.CoerceValue(value, destType);
-
-                if (destType.FullName == "System.Object")
-                {
-                    //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
-                    value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(arg.GetType().FullName), arg);
-                }
-
-                customAttribute.ConstructorArguments.Add(new CustomAttributeArgument(destType, value));
-
-                i++;
-            }
+            foreach (var arg in constructorArgs) 
+                customAttribute.ConstructorArguments.Add(arg);
 
             return customAttribute;
         }

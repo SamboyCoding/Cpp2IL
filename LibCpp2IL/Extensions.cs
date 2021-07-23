@@ -75,5 +75,16 @@ namespace LibCpp2IL
 
             return true;
         }
+
+        public static void SortByExtractedKey<T, K>(this List<T> list, Func<T, K> keyObtainer) where K : IComparable<K>
+        {
+            list.Sort((a, b) =>
+            {
+                var aKey = keyObtainer(a);
+                var bKey = keyObtainer(b);
+
+                return aKey.CompareTo(bKey);
+            });
+        }
     }
 }

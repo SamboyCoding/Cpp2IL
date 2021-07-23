@@ -6,11 +6,9 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class ImmediateToFieldAction: BaseAction
+    public class ImmediateToFieldAction: AbstractFieldWriteAction
     {
         public object ConstantValue;
-        public LocalDefinition? InstanceBeingSetOn;
-        public FieldUtils.FieldBeingAccessedData? FieldWritten;
         
         public ImmediateToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {

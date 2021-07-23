@@ -46,6 +46,13 @@ namespace Cpp2IL.Core.Analysis
 
             var fields = SharedState.FieldsByType[typeDef];
 
+            var thisType = typeDef;
+            while (thisType.BaseType != null)
+            {
+                thisType = thisType.BaseType.Resolve();
+                fields.AddRange(SharedState.FieldsByType[thisType]);
+            }
+
             // if (onWhat is TypeDefinition {HasGenericParameters: true})
             //     onWhat = onWhat.MakeGenericInstanceType(Utils.ObjectReference.Repeat(onWhat.GenericParameters.Count).Cast<TypeReference>().ToArray());
 
@@ -70,7 +77,7 @@ namespace Cpp2IL.Core.Analysis
 
             if (fieldInType.Offset != offset) return null; //The "default" part of "FirstOrDefault"
 
-            var field = typeDef.Fields.FirstOrDefault(f => f.Name == fieldInType.Name);
+            var field = fieldInType.DeclaringType.Fields.FirstOrDefault(f => f.Name == fieldInType.Name);
 
             if (field == null) return null;
 

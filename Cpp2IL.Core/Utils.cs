@@ -153,9 +153,9 @@ namespace Cpp2IL.Core
             return false;
         }
 
-        public static bool IsNumericType(TypeReference reference)
+        public static bool IsNumericType(TypeReference? reference)
         {
-            var def = reference.Resolve();
+            var def = reference?.Resolve();
             if (def == null) return false;
 
             return def == Int32Reference || def == Int64Reference || def == SingleReference || def == DoubleReference || def == UInt32Reference;
@@ -774,6 +774,8 @@ namespace Cpp2IL.Core
                 case "Int32":
                     if (value is uint u)
                         return (int) u;
+                    if (value is ulong ul && ul <= uint.MaxValue)
+                        return BitConverter.ToInt32(BitConverter.GetBytes((uint) ul), 0);
                     return Convert.ToInt32(value);
                 case "UInt32":
                     return Convert.ToUInt32(value);
