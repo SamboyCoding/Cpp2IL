@@ -230,6 +230,7 @@ namespace Cpp2IL.Core
             );
         }
 
+        public static void SaveAssemblies(string toWhere) => SaveAssemblies(toWhere, GeneratedAssemblies);
         public static void SaveAssemblies(string toWhere, List<AssemblyDefinition> assemblies)
         {
             Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
