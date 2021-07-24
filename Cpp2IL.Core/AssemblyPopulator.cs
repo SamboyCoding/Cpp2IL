@@ -351,25 +351,28 @@ namespace Cpp2IL.Core
                 }
 
                 //Handle generic parameters.
-                methodDef.GenericContainer?.GenericParameters
-                    .Select(p =>
+                methodDef.GenericContainer?.GenericParameters.ToList()
+                    .ForEach(p =>
                     {
                         if (SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp))
-                            return gp;
+                        {
+                            if (!methodDefinition.GenericParameters.Contains(gp))
+                                methodDefinition.GenericParameters.Add(gp);
+
+                            return;
+                        }
 
                         gp = new GenericParameter(p.Name, methodDefinition).WithFlags(p.flags);
+
+                        if (!methodDefinition.GenericParameters.Contains(gp))
+                            methodDefinition.GenericParameters.Add(gp);
 
                         p.ConstraintTypes!
                             .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(methodDefinition, c)))
                             .ToList()
                             .ForEach(gp.Constraints.Add);
-
-                        return gp;
-                    })
-                    .Where(gp => !methodDefinition.GenericParameters.Contains(gp))
-                    .ToList()
-                    .ForEach(parameter => methodDefinition.GenericParameters.Add(parameter));
-
+                    });
+                
                 if (methodDef.slot < ushort.MaxValue)
                     SharedState.VirtualMethodsBySlot[methodDef.slot] = methodDefinition;
             }

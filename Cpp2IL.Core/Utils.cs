@@ -299,12 +299,13 @@ namespace Cpp2IL.Core
                     
                     SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
                     
+                    typeDefinition.GenericParameters.Add(genericParameter);
+                    
                     param.ConstraintTypes!
                         .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
                         .ToList()
                         .ForEach(genericParameter.Constraints.Add);
                     
-                    typeDefinition.GenericParameters.Add(genericParameter);
                     return genericParameter;
                 }
 
@@ -322,13 +323,14 @@ namespace Cpp2IL.Core
                     genericParameter = new GenericParameter(genericName, methodDefinition).WithFlags(param.flags);
                     
                     SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
+
+                    methodDefinition.GenericParameters.Add(genericParameter);
                     
                     param.ConstraintTypes!
                         .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
                         .ToList()
                         .ForEach(genericParameter.Constraints.Add);
-                    
-                    methodDefinition.GenericParameters.Add(genericParameter);
+
                     return genericParameter;
                 }
 
