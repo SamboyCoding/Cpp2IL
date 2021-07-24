@@ -84,7 +84,7 @@ namespace Cpp2IL.Core
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
 
-            if(!suppressAttributes)
+            if (!suppressAttributes)
                 InjectCustomAttributes(currentAssembly);
 
             foreach (var il2CppTypeDefinition in imageDef.Types!)
@@ -117,7 +117,7 @@ namespace Cpp2IL.Core
             foreach (var currentlyFixingUp in ilTypeDefinition.Methods)
             {
                 var methodDef = currentlyFixingUp.AsUnmanaged();
-                
+
                 //The two StartsWith calls are for a) .ctor / .cctor and b) compiler-generated enumerator methods for these two methods.
                 if (!methodDef.Name!.Contains(".") || methodDef.Name.StartsWith(".") || methodDef.Name.StartsWith("<")) continue;
 
@@ -128,13 +128,14 @@ namespace Cpp2IL.Core
                 //Unfortunately, the only way we can get these types is by name - there is no metadata reference.
                 var (baseType, genericParamNames) = Utils.TryLookupTypeDefByName(baseMethodType);
 
-                if (baseType == null) 
+                if (baseType == null)
                     continue;
 
                 var targetParameters = currentlyFixingUp.Parameters.Select(p => p.ParameterType.FullName).ToArray();
                 MethodReference? baseRef;
                 if (genericParamNames.Length == 0)
-                    baseRef = baseType.Methods.SingleOrDefault(m => m.Name == baseMethodName && m.Parameters.Count == currentlyFixingUp.Parameters.Count && m.ReturnType.FullName == currentlyFixingUp.ReturnType.FullName && m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(targetParameters));
+                    baseRef = baseType.Methods.SingleOrDefault(m =>
+                        m.Name == baseMethodName && m.Parameters.Count == currentlyFixingUp.Parameters.Count && m.ReturnType.FullName == currentlyFixingUp.ReturnType.FullName && m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(targetParameters));
                 else
                 {
                     MethodDefinition nonGenericRef;
@@ -180,7 +181,7 @@ namespace Cpp2IL.Core
         private static void CopyIl2CppDataToManagedType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition, bool suppressAttributes)
         {
             MethodDefinition? addressAttribute = null, fieldOffsetAttribute = null, tokenAttribute = null;
-            if(!suppressAttributes)
+            if (!suppressAttributes)
                 (addressAttribute, fieldOffsetAttribute, tokenAttribute) = GetInjectedAttributes(ilTypeDefinition);
 
             var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
@@ -192,7 +193,7 @@ namespace Cpp2IL.Core
                 customTokenAttribute.Fields.Add(new CustomAttributeNamedArgument("Token", new CustomAttributeArgument(stringType, $"0x{cppTypeDefinition.token:X}")));
                 ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
             }
-            
+
             if (cppTypeDefinition.GenericContainer != null)
             {
                 //Type generic params.
@@ -202,14 +203,15 @@ namespace Cpp2IL.Core
                     {
                         p = new GenericParameter(param.Name, ilTypeDefinition).WithFlags(param.flags);
                         SharedState.GenericParamsByIndex[param.Index] = p;
-                            
+
+                        ilTypeDefinition.GenericParameters.Add(p);
+
                         param.ConstraintTypes!
                             .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(ilTypeDefinition, c)))
                             .ToList()
                             .ForEach(p.Constraints.Add);
                     }
-
-                    if (!ilTypeDefinition.GenericParameters.Contains(p))
+                    else if (!ilTypeDefinition.GenericParameters.Contains(p))
                         ilTypeDefinition.GenericParameters.Add(p);
                 }
             }
@@ -354,9 +356,9 @@ namespace Cpp2IL.Core
                     {
                         if (SharedState.GenericParamsByIndex.TryGetValue(p.Index, out var gp))
                             return gp;
-                        
+
                         gp = new GenericParameter(p.Name, methodDefinition).WithFlags(p.flags);
-                        
+
                         p.ConstraintTypes!
                             .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(methodDefinition, c)))
                             .ToList()
@@ -381,7 +383,7 @@ namespace Cpp2IL.Core
                 var setter = propertyDef.Setter?.AsManaged();
 
                 var propertyType = getter?.ReturnType ?? setter?.Parameters[0]?.ParameterType;
-                
+
                 var propertyDefinition = new PropertyDefinition(propertyDef.Name, (PropertyAttributes) propertyDef.attrs, ilTypeDefinition.Module.ImportReference(propertyType))
                 {
                     GetMethod = getter,

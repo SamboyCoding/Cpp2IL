@@ -18,7 +18,7 @@ namespace Cpp2IL.Core
     {
         public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
 
-        public static AssemblyDefinition? GetAssemblyByName(string name) => 
+        public static AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name.Name == name);
 
         public static int[] DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
@@ -57,7 +57,7 @@ namespace Cpp2IL.Core
 
                     unityVer = verString.ToString();
                 }
-                
+
                 unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
                 version = unityVer.Split('.').Select(int.Parse).ToArray();
             }
@@ -80,7 +80,7 @@ namespace Cpp2IL.Core
         public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
         {
             ConfigureLib(verbose, allowUserToInputAddresses);
-            
+
             try
             {
                 if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVersion))
@@ -93,11 +93,11 @@ namespace Cpp2IL.Core
                 Environment.Exit(-1);
             }
         }
-        
+
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
         {
             ConfigureLib(verbose, allowUserToInputAddresses);
-            
+
             try
             {
                 if (!LibCpp2IlMain.Initialize(assemblyData, metadataData, unityVersion))
@@ -204,7 +204,7 @@ namespace Cpp2IL.Core
         {
             CheckLibInitialized();
 
-            foreach (var assemblyDefinition in SharedState.AssemblyList) 
+            foreach (var assemblyDefinition in SharedState.AssemblyList)
                 GenerateMetadataForAssembly(rootFolder, assemblyDefinition);
         }
 
@@ -231,16 +231,17 @@ namespace Cpp2IL.Core
         }
 
         public static void SaveAssemblies(string toWhere) => SaveAssemblies(toWhere, GeneratedAssemblies);
+
         public static void SaveAssemblies(string toWhere, List<AssemblyDefinition> assemblies)
         {
             Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
-            
+
             if (!Directory.Exists(toWhere))
             {
                 Logger.VerboseNewline($"\tSave directory does not exist. Creating...");
                 Directory.CreateDirectory(toWhere);
             }
-            
+
             foreach (var assembly in assemblies)
             {
                 var dllPath = Path.Combine(toWhere, assembly.MainModule.Name);
@@ -264,16 +265,16 @@ namespace Cpp2IL.Core
         public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
         {
             CheckLibInitialized();
-            
+
             if (assembly == null)
                 throw new ArgumentNullException(nameof(assembly));
-            
+
             if (keyFunctionAddresses == null)
                 throw new ArgumentNullException(nameof(keyFunctionAddresses));
 
             if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
                 throw new UnsupportedInstructionSetException();
-            
+
             AsmAnalyzer.FAILED_METHODS = 0;
             AsmAnalyzer.SUCCESSFUL_METHODS = 0;
 
@@ -314,12 +315,12 @@ namespace Cpp2IL.Core
                     }
                 }
 
-                try
-                {
-                    var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
-                    var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
+                var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
+                var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
 
-                    foreach (var methodDefinition in type.Methods)
+                foreach (var methodDefinition in type.Methods)
+                {
+                    try
                     {
                         var methodStart = methodDefinition.AsUnmanaged().MethodPointer;
 
@@ -359,17 +360,17 @@ namespace Cpp2IL.Core
 
                         Interlocked.Increment(ref numProcessed);
                     }
+                    catch (AnalysisExceptionRaisedException)
+                    {
+                        //Ignore, logged already.
+                    }
+                    catch (Exception e)
+                    {
+                        Logger.WarnNewline("Failed to dump methods for type " + type.Name + " " + e, "Analyze");
+                    }
+                }
 
-                    lock (type) File.WriteAllText(filename, typeDump.ToString());
-                }
-                catch (AnalysisExceptionRaisedException)
-                {
-                    //Ignore, logged already.
-                }
-                catch (Exception e)
-                {
-                    Logger.WarnNewline("Failed to dump methods for type " + type.Name + " " + e, "Analyze");
-                }
+                lock (type) File.WriteAllText(filename, typeDump.ToString());
             }
 
             if (parallel)
@@ -389,7 +390,7 @@ namespace Cpp2IL.Core
         public static void PopulateConcreteImplementations()
         {
             CheckLibInitialized();
-            
+
             Logger.InfoNewline("Populating Concrete Implementation Table...");
 
             foreach (var def in LibCpp2IlMain.TheMetadata!.typeDefs)

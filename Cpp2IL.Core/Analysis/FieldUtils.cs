@@ -44,7 +44,7 @@ namespace Cpp2IL.Core.Analysis
 
             if (typeDef == null) return null;
 
-            var fields = SharedState.FieldsByType[typeDef];
+            var fields = SharedState.FieldsByType[typeDef].ToList();
 
             var thisType = typeDef;
             while (thisType.BaseType != null)
@@ -75,7 +75,7 @@ namespace Cpp2IL.Core.Analysis
                     return potentialResult;
             }
 
-            if (fieldInType.Offset != offset) return null; //The "default" part of "FirstOrDefault"
+            if (fieldInType.Name == null!) return null; //The "default" part of "FirstOrDefault"
 
             var field = fieldInType.DeclaringType.Fields.FirstOrDefault(f => f.Name == fieldInType.Name);
 

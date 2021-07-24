@@ -331,7 +331,7 @@ namespace Cpp2IL.Core.Analysis
                 }
                 catch (Exception e)
                 {
-                    Logger.WarnNewline($"Failed to generate synopsis for method {_methodDefinition?.FullName}, instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
+                    Logger.WarnNewline($"Failed to generate synopsis for method {_methodDefinition?.FullName}, action of type {action.GetType().Name} for instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.IP:X} - got exception {e}");
                     throw new AnalysisExceptionRaisedException("Exception generating synopsis entry", e);
                 }
 

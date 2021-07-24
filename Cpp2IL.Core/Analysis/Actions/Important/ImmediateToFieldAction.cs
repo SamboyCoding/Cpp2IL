@@ -68,6 +68,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override string ToTextSummary()
         {
+            if(ConstantValue is float || ConstantValue is double)
+                return $"[!] Writes the floating-point constant {ConstantValue} into the field {FieldWritten} of {InstanceBeingSetOn}";
+            
             return $"[!] Writes the constant {ConstantValue} (0x{ConstantValue:X}) into the field {FieldWritten} of {InstanceBeingSetOn}";
         }
 
