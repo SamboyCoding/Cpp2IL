@@ -24,7 +24,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             if (type == null)
             {
-                Console.WriteLine("Failed to lookup managed type for declaring type of " + MethodData.GlobalKey + ", which is " + MethodData.DeclaringType.FullName);
+                Logger.WarnNewline("Failed to lookup managed type for declaring type of " + MethodData.GlobalKey + ", which is " + MethodData.DeclaringType.FullName);
                 return;
             }
             

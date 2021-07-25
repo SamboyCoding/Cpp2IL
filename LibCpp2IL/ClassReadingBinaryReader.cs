@@ -265,7 +265,7 @@ namespace LibCpp2IL
                 }
                 catch
                 {
-                    Console.WriteLine("WriteWord: Unexpected exception!");
+                    Logging.LibLogger.ErrorNewline("WriteWord: Unexpected exception!");
                     throw;
                 }
             }

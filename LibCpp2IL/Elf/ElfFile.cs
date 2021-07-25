@@ -243,7 +243,7 @@ namespace LibCpp2IL.Elf
                     }
                     catch
                     {
-                        Console.WriteLine($"Exception reading dynamic symbol for rel of type {rel.Type} at pointer 0x{pointer:X} (length of file is 0x{RawLength:X}, pointer - length is 0x{pointer - (ulong) RawLength:X})");
+                        LibLogger.ErrorNewline($"Exception reading dynamic symbol for rel of type {rel.Type} at pointer 0x{pointer:X} (length of file is 0x{RawLength:X}, pointer - length is 0x{pointer - (ulong) RawLength:X})");
                         throw;
                     }
 

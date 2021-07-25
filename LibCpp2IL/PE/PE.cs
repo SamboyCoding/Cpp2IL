@@ -149,14 +149,14 @@ namespace LibCpp2IL.PE
 
             if (pCodeRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
             {
-                Console.Write("Couldn't identify a CodeRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
+                LibLogger.Info("Couldn't identify a CodeRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
                 var crInput = Console.ReadLine();
                 ulong.TryParse(crInput, NumberStyles.HexNumber, null, out pCodeRegistration);
             }
 
             if (pMetadataRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
             {
-                Console.Write("Couldn't identify a MetadataRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
+                LibLogger.Info("Couldn't identify a MetadataRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
                 var mrInput = Console.ReadLine();
                 ulong.TryParse(mrInput, NumberStyles.HexNumber, null, out pMetadataRegistration);
             }
