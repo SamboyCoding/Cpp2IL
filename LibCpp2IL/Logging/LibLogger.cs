@@ -1,4 +1,6 @@
-﻿namespace LibCpp2IL.Logging
+﻿using System;
+
+namespace LibCpp2IL.Logging
 {
     public static class LibLogger
     {
@@ -8,7 +10,7 @@
 
         internal static void InfoNewline(string message)
         {
-            Info($"{message}\n");
+            Info($"{message}{Environment.NewLine}");
         }
 
         internal static void Info(string message)
@@ -16,9 +18,29 @@
             Writer.Info(message);
         }
 
+        internal static void WarnNewline(string message)
+        {
+            Warn($"{message}{Environment.NewLine}");
+        }
+
+        internal static void Warn(string message)
+        {
+            Writer.Warn(message);
+        }
+
+        internal static void ErrorNewline(string message)
+        {
+            Error($"{message}{Environment.NewLine}");
+        }
+
+        internal static void Error(string message)
+        {
+            Writer.Error(message);
+        }
+
         internal static void VerboseNewline(string message)
         {
-            Verbose($"{message}\n");
+            Verbose($"{message}{Environment.NewLine}");
         }
 
         internal static void Verbose(string message)

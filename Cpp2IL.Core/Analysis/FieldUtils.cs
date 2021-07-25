@@ -239,7 +239,7 @@ namespace Cpp2IL.Core.Analysis
             catch (InvalidOperationException)
             {
                 var matchingFields = theFields.Where(f => f.Static && f.Constant == null && f.Offset == fieldOffset).ToList();
-                Console.WriteLine($"FieldUtils#GetStaticFieldByOffset: More than one static field at offset 0x{fieldOffset:X} in type {type}! Matches: " + matchingFields.Select(f => f.Name).ToStringEnumerable());
+                Logger.ErrorNewline($"FieldUtils#GetStaticFieldByOffset: More than one static field at offset 0x{fieldOffset:X} in type {type}! Matches: " + matchingFields.Select(f => f.Name).ToStringEnumerable());
                 return null;
             }
 

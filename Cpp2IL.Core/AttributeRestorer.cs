@@ -157,7 +157,6 @@ namespace Cpp2IL.Core
             {
                 localArray[action.OffsetInList] = action.LocalMade;
             }
-
             attributes.AddRange(GenerateAttributesWithoutAnalysis(attributeConstructors, module));
 
             for (var i = 0; i < attributesExpected.Count; i++)

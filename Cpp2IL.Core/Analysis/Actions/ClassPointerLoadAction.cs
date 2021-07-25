@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         {
             destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             if(instruction.Op0Register == Register.RSP)
-                Console.WriteLine("WARNING: CLASS POINTER LOAD DEST IS STACK.");
+                Logger.WarnNewline("WARNING: CLASS POINTER LOAD DEST IS STACK.");
             
             var sourceReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(sourceReg);

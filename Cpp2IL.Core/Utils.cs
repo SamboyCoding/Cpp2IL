@@ -606,7 +606,7 @@ namespace Cpp2IL.Core
 
             if (rawAddr < 0 || rawAddr >= LibCpp2IlMain.Binary.RawLength)
             {
-                Console.WriteLine($"Invalid call to GetMethodBodyAtVirtAddressNew, virt addr {addr} resolves to raw {rawAddr} which is out of bounds");
+                Logger.ErrorNewline($"Invalid call to GetMethodBodyAtVirtAddressNew, virt addr {addr} resolves to raw {rawAddr} which is out of bounds");
                 return ret;
             }
 
