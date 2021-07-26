@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis
     {
         private static int GetIndexOfGenericParameterWithName(GenericInstanceType git, string name)
         {
-            var res = git.ElementType.GenericParameters.ToList().FindIndex(g => g.Name == name);
+            var res = git.ElementType.Resolve().GenericParameters.ToList().FindIndex(g => g.Name == name);
             if (res >= 0)
                 return res;
 
@@ -28,6 +28,7 @@ namespace Cpp2IL.Core.Analysis
         internal static TypeReference? ResolveGenericParameterType(GenericParameter gp, TypeReference? instance, MethodReference? method = null)
         {
             var git = instance as GenericInstanceType ?? method?.DeclaringType as GenericInstanceType;
+
             if (git != null && GetGenericArgumentByNameFromGenericInstanceType(git, gp) is { } t)
                 return t;
 
@@ -45,6 +46,9 @@ namespace Cpp2IL.Core.Analysis
 
             if (instance?.GenericParameters.FirstOrDefault(gp2 => gp2.Name == gp.Name) is { } matchingGpInInstance && matchingGpInInstance != gp)
                 return matchingGpInInstance;
+
+            if (instance?.Resolve()?.BaseType is { } bt)
+                return ResolveGenericParameterType(gp, bt, method);
 
             return null;
         }

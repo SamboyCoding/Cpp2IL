@@ -26,21 +26,19 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 if (!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
                     context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
             }
-            
+
             associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
+            
+            //Check for implicit NRE
+            var body = Utils.GetMethodBodyAtVirtAddressNew(jumpTarget, true);
 
-            if (jumpTarget > context.AbsoluteMethodEnd)
+            if (body.Count > 0 && body[0].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[0].NearBranchTarget))
             {
-                var body = Utils.GetMethodBodyAtVirtAddressNew(jumpTarget, true);
-
-                if (body.Count > 0 && body[0].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[0].NearBranchTarget))
+                if (CallExceptionThrowerFunction.GetExceptionThrown(body[0].NearBranchTarget)?.Name == "NullReferenceException")
                 {
-                    if (CallExceptionThrowerFunction.GetExceptionThrown(body[0].NearBranchTarget)?.Name == "NullReferenceException")
-                    {
-                        //Simply an NRE thrower. Important in cpp code, not in managed.
-                        isImplicitNullReferenceException = true;
-                        return; //Do not increase indent, do not register used local, do not pass go, do not collect $200.
-                    }
+                    //Simply an NRE thrower. Important in cpp code, not in managed.
+                    isImplicitNullReferenceException = true;
+                    return; //Do not increase indent, do not register used local, do not pass go, do not collect $200.
                 }
             }
 
@@ -124,7 +122,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         {
             if (isImplicitNullReferenceException)
                 return $"Jumps to 0x{jumpTarget:X} (which throws a NRE) if {GetTextSummaryCondition()}. Implicitly present in managed code, so ignored here.";
-            
+
             return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {GetTextSummaryCondition()}\n";
         }
 

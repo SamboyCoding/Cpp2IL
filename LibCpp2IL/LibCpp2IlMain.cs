@@ -180,7 +180,7 @@ namespace LibCpp2IL
             {
                 start = DateTime.Now;
                 LibLogger.Info("Mapping pointers to Il2CppMethodDefinitions...");
-                foreach (var (method, ptr) in TheMetadata.methodDefs.AsParallel().Select(method => (method, ptr: method.MethodPointer)))
+                foreach (var (method, ptr) in TheMetadata.methodDefs.Select(method => (method, ptr: method.MethodPointer)))
                 {
                     if (!MethodsByPtr.ContainsKey(ptr))
                         MethodsByPtr[ptr] = new List<Il2CppMethodDefinition>();

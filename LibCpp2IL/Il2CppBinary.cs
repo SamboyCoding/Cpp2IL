@@ -31,7 +31,7 @@ namespace LibCpp2IL
         protected Il2CppCodeGenModule[] codeGenModules; //24.2+
         protected Il2CppTokenRangePair[][] codegenModuleRgctxRanges;
         protected Il2CppRGCTXDefinition[][] codegenModuleRgctxs;
-        protected Dictionary<int, ulong> genericMethodDictionary;
+        protected ConcurrentDictionary<int, ulong> genericMethodDictionary;
         protected readonly ConcurrentDictionary<ulong, Il2CppType> typesDict = new();
         public readonly Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new();
         public readonly Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new();
@@ -184,7 +184,7 @@ namespace LibCpp2IL
 
             LibLogger.Verbose("\tReading generic methods...");
             start = DateTime.Now;
-            genericMethodDictionary = new Dictionary<int, ulong>(genericMethodTables.Length);
+            genericMethodDictionary = new ConcurrentDictionary<int, ulong>();
             foreach (var table in genericMethodTables)
             {
                 var genericMethodIndex = table.genericMethodIndex;
@@ -194,7 +194,7 @@ namespace LibCpp2IL
 
                 if (!genericMethodDictionary.ContainsKey(methodDefIndex))
                 {
-                    genericMethodDictionary.Add(methodDefIndex, genericMethodPointers[genericMethodPointerIndex]);
+                    genericMethodDictionary.TryAdd(methodDefIndex, genericMethodPointers[genericMethodPointerIndex]);
                 }
             }
 

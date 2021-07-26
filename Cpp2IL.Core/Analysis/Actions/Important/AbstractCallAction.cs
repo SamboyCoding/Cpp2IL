@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.ResultModels;
@@ -19,6 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         public LocalDefinition? InstanceBeingCalledOn;
         protected bool IsCallToSuperclassMethod;
         protected bool ShouldUseCallvirt;
+        protected TypeReference? StaticMethodGenericTypeOverride;
 
         public AbstractCallAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -35,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 ret.Append(ReturnedLocal?.Type?.FullName).Append(' ').Append(ReturnedLocal?.Name).Append(" = ");
 
             if (!ManagedMethodBeingCalled.HasThis)
-                ret.Append(ManagedMethodBeingCalled.DeclaringType.FullName);
+                ret.Append((StaticMethodGenericTypeOverride ?? ManagedMethodBeingCalled.DeclaringType).FullName);
             else if (InstanceBeingCalledOn?.Name == "this")
                 ret.Append(IsCallToSuperclassMethod ? "base" : "this");
             else
@@ -68,9 +70,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             ret.Append('(');
 
             if (Arguments != null && Arguments.Count > 0)
+            {
                 ret.Append(string.Join(", ", GetReadableArguments()));
+                ret.Append(')');
 
-            ret.Append(')');
+                if (ManagedMethodBeingCalled != null)
+                {
+                    ret.Append(" //(");
+                    ret.Append(string.Join(", ", ManagedMethodBeingCalled!.Parameters.Select(p => $"{p.ParameterType.Name} {p.Name}")));
+                    ret.Append(')');
+                }
+            }
+            else
+            {
+                ret.Append(')');
+            }
 
             return ret.ToString();
         }
@@ -125,11 +139,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 if (returnType is ArrayType arr)
                 {
                     if (arr.ElementType != null)
-                        returnType = ResolveGenericReturnTypeIfNeeded(arr.ElementType).MakeArrayType(arr.Rank);
+                        returnType = ResolveGenericReturnTypeIfNeeded(arr.ElementType, context).MakeArrayType(arr.Rank);
                 }
                 else
                 {
-                    returnType = ResolveGenericReturnTypeIfNeeded(returnType);
+                    returnType = ResolveGenericReturnTypeIfNeeded(returnType, context);
                 }
 
                 var destReg = returnType.ShouldBeInFloatingPointRegister() ? "xmm0" : "rax";
@@ -140,11 +154,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             }
         }
 
-        private TypeReference ResolveGenericReturnTypeIfNeeded(TypeReference returnType)
+        private TypeReference ResolveGenericReturnTypeIfNeeded(TypeReference returnType, MethodAnalysis context)
         {
             if (returnType is GenericParameter gp)
             {
-                returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, InstanceBeingCalledOn?.Type, ManagedMethodBeingCalled) ?? returnType;
+                var methodInfo = MethodUtils.GetMethodInfoArg(ManagedMethodBeingCalled, context);
+
+                if (methodInfo is ConstantDefinition {Value: GenericMethodReference gmr})
+                {
+                    returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, gmr.Type, gmr.Method) ?? returnType;
+                    StaticMethodGenericTypeOverride = gmr.Type;
+                }
+                else
+                {
+                    returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, InstanceBeingCalledOn?.Type, ManagedMethodBeingCalled) ?? returnType;
+                }
             }
 
             if (returnType is GenericInstanceType git)

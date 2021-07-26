@@ -4,6 +4,7 @@
 
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.Actions;
@@ -383,6 +384,9 @@ namespace Cpp2IL.Core.Analysis
 
         private void CheckForSingleOpInstruction(Instruction instruction)
         {
+            if(instruction.IP == 0x1804ae0ac)
+                Debugger.Break();
+            
             var reg = Utils.GetRegisterNameNew(instruction.Op0Register == Register.None ? instruction.MemoryBase : instruction.Op0Register);
             var operand = Analysis.GetOperandInRegister(reg);
 
@@ -430,6 +434,12 @@ namespace Cpp2IL.Core.Analysis
                         Analysis.Actions.Add(new CallManagedFunctionAction(Analysis, instruction));
                         Analysis.Actions.Add(new ReturnFromFunctionAction(Analysis, instruction)); //JMP is an implicit return
                     }
+                    else if (LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.ContainsKey(jumpTarget))
+                    {
+                        //Call concrete generic function
+                        Analysis.Actions.Add(new CallManagedFunctionAction(Analysis, instruction));
+                        Analysis.Actions.Add(new ReturnFromFunctionAction(Analysis, instruction)); //Implcit return
+                    }
                     else if (jumpTarget > instruction.IP && jumpTarget < Analysis.AbsoluteMethodEnd)
                     {
                         Analysis.Actions.Add(new JumpAlwaysAction(Analysis, instruction));
@@ -454,7 +464,12 @@ namespace Cpp2IL.Core.Analysis
                 {
                     var jumpTarget = instruction.NearBranchTarget;
 
-                    if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_method || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
+                    if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
+                    {
+                        //Call a managed function
+                        Analysis.Actions.Add(new CallManagedFunctionAction(Analysis, instruction));
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_codegen_initialize_method || jumpTarget == _keyFunctionAddresses.il2cpp_vm_metadatacache_initializemethodmetadata)
                     {
                         //Init method
                         Analysis.Actions.Add(new CallInitMethodAction(Analysis, instruction));
@@ -513,11 +528,6 @@ namespace Cpp2IL.Core.Analysis
                     {
                         //Creates a mono string from a string global
                         Analysis.Actions.Add(new GlobalStringToMonoStringAction(Analysis, instruction));
-                    }
-                    else if (SharedState.MethodsByAddress.ContainsKey(jumpTarget))
-                    {
-                        //Call a managed function
-                        Analysis.Actions.Add(new CallManagedFunctionAction(Analysis, instruction));
                     }
                     else if (CallExceptionThrowerFunction.IsExceptionThrower(jumpTarget))
                     {

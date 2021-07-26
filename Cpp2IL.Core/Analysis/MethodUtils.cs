@@ -17,6 +17,8 @@ namespace Cpp2IL.Core.Analysis
 {
     public class MethodUtils
     {
+        private static readonly string[] NON_FP_REGISTERS_BY_IDX = {"rcx", "rfx", "r8", "r9"};
+        
         public static bool CheckParameters(Instruction associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, LocalDefinition? objectMethodBeingCalledOn, bool failOnLeftoverArgs = true)
         {
             MethodReference managedMethod = SharedState.UnmanagedToManagedMethods[method];
@@ -390,6 +392,20 @@ namespace Cpp2IL.Core.Analysis
             {
                 return null;
             }
+        }
+
+        public static IAnalysedOperand? GetMethodInfoArg(MethodReference managedMethodBeingCalled, MethodAnalysis context)
+        {
+            var paramIdx = managedMethodBeingCalled.Parameters.Count;
+
+            if (paramIdx < 4)
+                return context.GetOperandInRegister(NON_FP_REGISTERS_BY_IDX[paramIdx]);
+
+            var stackOffset = 0x20 + Utils.GetPointerSizeBytes() * (paramIdx - 4);
+
+            context.StackStoredLocals.TryGetValue(stackOffset, out var ret);
+
+            return ret;
         }
     }
 }

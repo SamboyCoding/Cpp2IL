@@ -327,8 +327,8 @@ namespace Cpp2IL.Core
                 if (methodDefinition.HasBody && ilTypeDefinition.BaseType?.FullName != "System.MulticastDelegate")
                     FillMethodBodyWithStub(methodDefinition);
 
-                SharedState.MethodsByIndex[methodDef.MethodIndex] = methodDefinition;
-                SharedState.MethodsByAddress[methodDef.MethodPointer] = methodDefinition;
+                SharedState.MethodsByIndex.TryAdd(methodDef.MethodIndex, methodDefinition);
+                SharedState.MethodsByAddress.TryAdd(methodDef.MethodPointer, methodDefinition);
 
                 //Method Params
                 HandleMethodParameters(methodDef, methodDefinition);

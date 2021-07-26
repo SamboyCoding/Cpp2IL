@@ -1,7 +1,10 @@
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Logging;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata
@@ -49,7 +52,10 @@ namespace LibCpp2IL.Metadata
                 if (!_methodPointer.HasValue)
                 {
                     if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
+                    {
+                        LibLogger.WarnNewline($"Couldn't get method pointer for {Name}. Binary is {LibCpp2IlMain.Binary}, Meta is {LibCpp2IlMain.TheMetadata}, DeclaringType is {DeclaringType}");
                         return 0;
+                    }
 
                     var asmIdx = 0; //Not needed pre-24.2
                     if (LibCpp2IlMain.MetadataVersion >= 27)

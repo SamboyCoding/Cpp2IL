@@ -29,7 +29,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public override string ToString()
         {
-            return $"{{'{Name}' (type {Type?.FullName})}}";
+            return $"{{'{Name}' ({(ParameterDefinition != null ? "function parameter, " : "")}type {Type?.FullName})}}";
         }
 
         public string GetPseudocodeRepresentation()

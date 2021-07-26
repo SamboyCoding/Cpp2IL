@@ -59,7 +59,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             var name = _method.Name;
             
-            ConstantWritten = context.MakeConstant(typeof(MethodReference), _method, name, destReg);
+            ConstantWritten = context.MakeConstant(typeof(GenericMethodReference), new GenericMethodReference(_declaringType, _method), name, destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
