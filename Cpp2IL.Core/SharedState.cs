@@ -33,6 +33,9 @@ namespace Cpp2IL.Core
         internal static readonly ConcurrentDictionary<FieldDefinition, Il2CppFieldDefinition> ManagedToUnmanagedFields = new ConcurrentDictionary<FieldDefinition, Il2CppFieldDefinition>();
         internal static readonly ConcurrentDictionary<TypeDefinition, List<FieldInType>> FieldsByType = new ConcurrentDictionary<TypeDefinition, List<FieldInType>>();
         
+        //Properties
+        internal static readonly ConcurrentDictionary<Il2CppPropertyDefinition, PropertyDefinition> UnmanagedToManagedProperties = new ConcurrentDictionary<Il2CppPropertyDefinition, PropertyDefinition>();
+        
         //Assemblies
         internal static readonly List<AssemblyDefinition> AssemblyList = new List<AssemblyDefinition>();
         internal static readonly Dictionary<AssemblyDefinition, Il2CppImageDefinition> ManagedToUnmanagedAssemblies = new Dictionary<AssemblyDefinition, Il2CppImageDefinition>();
