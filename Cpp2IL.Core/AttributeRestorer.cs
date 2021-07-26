@@ -94,6 +94,15 @@ namespace Cpp2IL.Core
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
             }
             
+            //Apply custom attributes to properties
+            foreach (var propertyDef in typeDef.Properties!)
+            {
+                var propertyDefinition = SharedState.UnmanagedToManagedProperties[propertyDef];
+
+                GetCustomAttributesByAttributeIndex(imageDef, propertyDef.customAttributeIndex, propertyDef.token, typeDefinition.Module, keyFunctionAddresses, propertyDefinition.FullName)
+                    .ForEach(attribute => propertyDefinition.CustomAttributes.Add(attribute));
+            }
+            
             //Nested Types
             foreach (var nestedType in typeDefinition.NestedTypes)
             {

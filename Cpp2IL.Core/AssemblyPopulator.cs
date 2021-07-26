@@ -401,6 +401,8 @@ namespace Cpp2IL.Core
                 }
 
                 ilTypeDefinition.Properties.Add(propertyDefinition);
+
+                SharedState.UnmanagedToManagedProperties[propertyDef] = propertyDefinition;
             }
         }
 
