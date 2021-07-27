@@ -744,6 +744,7 @@ namespace Cpp2IL.Core
                     8 => metadata.ReadClassAtRawAddr<long>(pointer)!,
                     _ => results[i]
                 });
+                pointer += (int)elementSize;
             }
 
             return results;
