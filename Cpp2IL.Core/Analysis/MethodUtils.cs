@@ -179,6 +179,8 @@ namespace Cpp2IL.Core.Analysis
                             break; //We allow this, because an IntPtr is usually a type or, more commonly, method pointer.
                         if (typeof(FieldReference).IsAssignableFrom(cons.Type) && parameterType.Name == "RuntimeFieldHandle")
                             break; //These are the same struct - we represent it as a FieldReference but it's actually a runtime field handle.
+                        if (typeof(TypeReference).IsAssignableFrom(cons.Type) && parameterType.Name == "RuntimeTypeHandle")
+                            break; //These are the same struct - we represent it as a TypeReference but it's actually a runtime type handle.
                         return false;
                     case LocalDefinition local:
                         if (parameterType.IsArray && local.Type?.IsArray != true)
