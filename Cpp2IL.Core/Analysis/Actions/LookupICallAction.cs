@@ -48,8 +48,8 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             var existingConstant = context.GetConstantInReg("rax");
 
-            //Should be an unknown global
-            if (!(existingConstant?.Value is UnknownGlobalAddr))
+            //Should be an unknown global or il2cppstring
+            if (!(existingConstant is {Value: UnknownGlobalAddr _} || existingConstant is {Value: Il2CppString _}))
                 return;
 
             //Redefine as a method def.

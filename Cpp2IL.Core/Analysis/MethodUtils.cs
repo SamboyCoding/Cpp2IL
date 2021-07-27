@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis
 {
     public class MethodUtils
     {
-        private static readonly string[] NON_FP_REGISTERS_BY_IDX = {"rcx", "rfx", "r8", "r9"};
+        private static readonly string[] NON_FP_REGISTERS_BY_IDX = {"rcx", "rdx", "r8", "r9"};
         
         public static bool CheckParameters(Instruction associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, LocalDefinition? objectMethodBeingCalledOn, bool failOnLeftoverArgs = true)
         {
@@ -111,6 +111,12 @@ namespace Cpp2IL.Core.Analysis
 
                     temp ??= parameterType;
                     parameterType = temp;
+                }
+
+                if (arg is ConstantDefinition {Value: StackPointer p})
+                {
+                    if(context.StackStoredLocals.TryGetValue((int) p.offset, out var loc))
+                        arg = loc;
                 }
 
                 switch (arg)
@@ -397,6 +403,9 @@ namespace Cpp2IL.Core.Analysis
         public static IAnalysedOperand? GetMethodInfoArg(MethodReference managedMethodBeingCalled, MethodAnalysis context)
         {
             var paramIdx = managedMethodBeingCalled.Parameters.Count;
+
+            if (managedMethodBeingCalled.HasThis)
+                paramIdx++;
 
             if (paramIdx < 4)
                 return context.GetOperandInRegister(NON_FP_REGISTERS_BY_IDX[paramIdx]);

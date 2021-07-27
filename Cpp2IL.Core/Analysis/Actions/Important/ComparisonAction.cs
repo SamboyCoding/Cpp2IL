@@ -69,7 +69,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 argumentRegister = registerName;
                 var op = context.GetOperandInRegister(registerName);
 
-                if (op is ConstantDefinition {Value: MethodDefinition _} || op is ConstantDefinition { Value: UnknownGlobalAddr _})
+                if (op is ConstantDefinition {Value: MethodDefinition _} || op is ConstantDefinition { Value: UnknownGlobalAddr _} || op is ConstantDefinition {Value: Il2CppString _})
                     //Ignore comparisons with looked-up method defs or unknown globals.
                     unimportant = true;
 

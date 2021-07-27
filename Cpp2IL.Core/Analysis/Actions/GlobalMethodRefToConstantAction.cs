@@ -19,6 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         private List<TypeReference>? _genericTypeParams;
         private List<TypeReference>? _genericMethodParams;
         public ConstantDefinition? ConstantWritten;
+        private string? _destReg;
 
         public GlobalMethodRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -56,10 +57,10 @@ namespace Cpp2IL.Core.Analysis.Actions
                 _method = gMethod;
             }
 
-            var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             var name = _method.Name;
             
-            ConstantWritten = context.MakeConstant(typeof(GenericMethodReference), new GenericMethodReference(_declaringType, _method), name, destReg);
+            ConstantWritten = context.MakeConstant(typeof(GenericMethodReference), new GenericMethodReference(_declaringType, _method), name, _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
@@ -74,7 +75,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Loads the global generic method reference for method {_method} on type {_declaringType} and stores the result in constant {ConstantWritten}";
+            return $"Loads the global generic method reference for method {_method} on type {_declaringType} and stores the result in constant {ConstantWritten} in {_destReg}";
         }
     }
 }

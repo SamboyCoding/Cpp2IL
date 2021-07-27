@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public override string ToTextSummary()
         {
-            return $"Moves {_sourceConstant?.GetPseudocodeRepresentation()} (type {_sourceConstant?.Type}) from register {_sourceReg} to the stack at offset {_stackOffset} as a new local {_newLocal?.Name}";
+            return $"Moves {_sourceConstant?.GetPseudocodeRepresentation()} (type {_sourceConstant?.Type}) from register {_sourceReg} to the stack at offset {_stackOffset} (0x{_stackOffset:X}) as a new local {_newLocal?.Name}";
         }
     }
 }
