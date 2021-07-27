@@ -266,7 +266,7 @@ namespace Cpp2IL.Core.Analysis
 
         internal void RunPostProcessors()
         {
-            // new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
+            new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
             new RenameLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
         }
 

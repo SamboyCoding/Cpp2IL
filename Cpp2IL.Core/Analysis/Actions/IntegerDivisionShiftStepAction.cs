@@ -46,6 +46,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
 
             _localMade = context.MakeLocal(Utils.UInt64Reference, reg: _regBeingShifted);
+            RegisterUsedLocal(_localMade);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
