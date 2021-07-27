@@ -180,15 +180,17 @@ namespace LibCpp2IL
             {
                 start = DateTime.Now;
                 LibLogger.Info("Mapping pointers to Il2CppMethodDefinitions...");
+                var i = 0;
                 foreach (var (method, ptr) in TheMetadata.methodDefs.Select(method => (method, ptr: method.MethodPointer)))
                 {
                     if (!MethodsByPtr.ContainsKey(ptr))
                         MethodsByPtr[ptr] = new List<Il2CppMethodDefinition>();
 
                     MethodsByPtr[ptr].Add(method);
+                    i++;
                 }
 
-                LibLogger.InfoNewline($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
+                LibLogger.InfoNewline($"Processed {i} OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
             }
 
             return true;

@@ -267,6 +267,7 @@ namespace Cpp2IL.Core.Analysis
         internal void RunPostProcessors()
         {
             new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
+            new RenameLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
         }
 
         internal void BuildMethodFunctionality()
@@ -418,6 +419,8 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 case Mnemonic.Call when instruction.Op0Kind == OpKind.Register && operand is ConstantDefinition {Value: MethodReference _}:
                 case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && memOp is ConstantDefinition {Value: MethodReference _}:
+                case Mnemonic.Call when instruction.Op0Kind == OpKind.Register && operand is ConstantDefinition {Value: GenericMethodReference _}:
+                case Mnemonic.Call when instruction.Op0Kind == OpKind.Memory && memOp is ConstantDefinition {Value: GenericMethodReference _}:
                     Analysis.Actions.Add(new CallManagedFunctionInRegAction(Analysis, instruction));
                     break;
                 case Mnemonic.Jmp when instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement64 == 0 && operand is ConstantDefinition {Value: MethodReference _}:
@@ -614,7 +617,7 @@ namespace Cpp2IL.Core.Analysis
 
             var mnemonic = instruction.Mnemonic;
 
-            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps)
+            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps || mnemonic == Mnemonic.Movups)
                 mnemonic = Mnemonic.Mov;
 
             //Noting here, format of a memory operand is:
@@ -837,6 +840,7 @@ namespace Cpp2IL.Core.Analysis
 
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: MethodReference _}:
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: GenericMethodReference _}:
                     //Read offset on method global
                     if (Il2CppMethodDefinitionUsefulOffsets.IsSlotOffset(instruction.MemoryDisplacement32))
                     {
@@ -867,7 +871,7 @@ namespace Cpp2IL.Core.Analysis
                     }
 
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition:
                     //Move generic memory to register - field read.
                     Analysis.Actions.Add(new FieldToLocalAction(Analysis, instruction));
                     break;

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -178,10 +179,15 @@ namespace Cpp2IL.Core.Analysis
 
             public TypeReference? GetFinalType()
             {
-                if (NextChainLink != null)
-                    return NextChainLink.GetFinalType();
+                return GetLast().FinalLoadInChain!.FieldType;
+            }
 
-                return FinalLoadInChain?.FieldType;
+            public FieldBeingAccessedData GetLast()
+            {
+                if (NextChainLink != null)
+                    return NextChainLink.GetLast();
+
+                return this;
             }
 
             protected bool Equals(FieldBeingAccessedData other)

@@ -15,7 +15,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 regName = Utils.GetRegisterNameNew(instruction.Op0Register);
             
             var operand = context.GetConstantInReg(regName);
-            ManagedMethodBeingCalled = (MethodReference?) operand?.Value;
+            
+            if(operand?.Value is MethodReference reference)
+                ManagedMethodBeingCalled = reference;
+            else if (operand?.Value is GenericMethodReference gmr)
+            {
+                ManagedMethodBeingCalled = gmr.Method;
+                StaticMethodGenericTypeOverride = gmr.Type;
+            }
             
             if(ManagedMethodBeingCalled == null)
                 return;

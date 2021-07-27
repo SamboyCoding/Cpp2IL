@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private readonly LocalDefinition? _offsetLocal;
         private readonly ArrayType? _arrType;
         private readonly string? _destReg;
-        private readonly LocalDefinition? _localMade;
+        public readonly LocalDefinition? LocalMade;
 
         public ArrayElementReadToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
-            _localMade = context.MakeLocal(_arrType.ElementType, reg: _destReg);
+            LocalMade = context.MakeLocal(_arrType.ElementType, reg: _destReg);
             
             RegisterUsedLocal(_arrayLocal);
             
@@ -45,12 +45,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override string ToPsuedoCode()
         {
-            return $"{_arrType?.ElementType} {_localMade?.GetPseudocodeRepresentation()} = {_arrayLocal?.GetPseudocodeRepresentation()}[{_offsetLocal?.GetPseudocodeRepresentation()}]";
+            return $"{_arrType?.ElementType} {LocalMade?.GetPseudocodeRepresentation()} = {_arrayLocal?.GetPseudocodeRepresentation()}[{_offsetLocal?.GetPseudocodeRepresentation()}]";
         }
 
         public override string ToTextSummary()
         {
-            return $"Copies the element in the array {_arrayLocal} (stored in register {_arrayReg}) at the index specified by {_offsetLocal} (stored in register {_offsetReg}) into new local {_localMade} in register {_destReg}";
+            return $"Copies the element in the array {_arrayLocal} (stored in register {_arrayReg}) at the index specified by {_offsetLocal} (stored in register {_offsetReg}) into new local {LocalMade} in register {_destReg}";
         }
 
         public override bool IsImportant()

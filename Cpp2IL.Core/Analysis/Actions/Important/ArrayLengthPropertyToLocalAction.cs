@@ -6,20 +6,20 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ArrayLengthPropertyToLocalAction : BaseAction
     {
-        private LocalDefinition? _localMade;
+        public LocalDefinition? LocalMade;
+        public LocalDefinition? TheArray;
         private string? _destReg;
-        private LocalDefinition? _memOp;
 
         public ArrayLengthPropertyToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
-            _memOp = context.GetLocalInReg(memReg);
+            TheArray = context.GetLocalInReg(memReg);
 
-            if (_memOp?.Type?.IsArray != true)
+            if (TheArray?.Type?.IsArray != true)
                 return;
 
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
-            _localMade = context.MakeLocal(Utils.Int32Reference, reg: _destReg);
+            LocalMade = context.MakeLocal(Utils.Int32Reference, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
@@ -29,12 +29,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override string ToPsuedoCode()
         {
-            return $"System.Int32 {_localMade?.GetPseudocodeRepresentation()} = {_memOp?.GetPseudocodeRepresentation()}.Length";
+            return $"System.Int32 {LocalMade?.GetPseudocodeRepresentation()} = {TheArray?.GetPseudocodeRepresentation()}.Length";
         }
 
         public override string ToTextSummary()
         {
-            return $"Reads the length of the array \"{_memOp}\" and stores it in new local {_localMade} in register {_destReg}";
+            return $"Reads the length of the array \"{TheArray}\" and stores it in new local {LocalMade} in register {_destReg}";
         }
 
         public override bool IsImportant() => true;

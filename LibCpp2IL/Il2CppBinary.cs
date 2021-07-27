@@ -168,7 +168,7 @@ namespace LibCpp2IL
                 LibLogger.Verbose("\tReading method pointers...");
                 start = DateTime.Now;
                 methodPointers = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.methodPointers, (long) codeRegistration.methodPointersCount);
-                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+                LibLogger.VerboseNewline($"Read {methodPointers.Length} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
 

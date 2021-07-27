@@ -16,9 +16,16 @@ namespace Cpp2IL.Core.Analysis.Actions
             var constantBeingRead = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (constantBeingRead?.Type != typeof(MethodReference))
-                return;
-            
-            _methodBeingRead = constantBeingRead.Value as MethodReference;
+            {
+                if (constantBeingRead?.Value is GenericMethodReference gmr)
+                    _methodBeingRead = gmr.Method;
+                else
+                    return;
+            }
+            else
+            {
+                _methodBeingRead = constantBeingRead.Value as MethodReference;
+            }
             
             if(_methodBeingRead == null)
                 return;

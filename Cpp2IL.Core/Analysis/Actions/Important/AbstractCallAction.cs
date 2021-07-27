@@ -164,6 +164,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 {
                     returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, gmr.Type, gmr.Method) ?? returnType;
                     StaticMethodGenericTypeOverride = gmr.Type;
+                    
+                    if(ManagedMethodBeingCalled.Resolve() == gmr.Method.Resolve())
+                        ManagedMethodBeingCalled = gmr.Method;
                 }
                 else
                 {

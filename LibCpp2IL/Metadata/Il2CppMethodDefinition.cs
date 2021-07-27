@@ -66,7 +66,7 @@ namespace LibCpp2IL.Metadata
                     {
                         asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
                     }
-
+                    
                     _methodPointer = LibCpp2IlMain.Binary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
                 }
 
