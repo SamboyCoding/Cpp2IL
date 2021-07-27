@@ -266,7 +266,7 @@ namespace Cpp2IL.Core.Analysis
 
         internal void RunPostProcessors()
         {
-            new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
+            // new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
             new RenameLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
         }
 
@@ -594,6 +594,10 @@ namespace Cpp2IL.Core.Analysis
                 case Mnemonic.Fstp when memR == "rbp":
                     //Store the top of the floating point stack to an rbp-based [addr]
                     Analysis.Actions.Add(new FpuStackLocalToRbpOffsetAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Imul when instruction.Op0Kind == OpKind.Register:
+                    //IMUL reg
+                    Analysis.Actions.Add(new SingleOperandImulAction(Analysis, instruction));
                     break;
             }
         }
@@ -950,6 +954,12 @@ namespace Cpp2IL.Core.Analysis
                 case Mnemonic.Cmp:
                     //Condition
                     Analysis.Actions.Add(new ComparisonAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Sar when op0 is ConstantDefinition {Value: IntegerDivisionInProgress _}:
+                    //SAR reg, i
+                    //But value in reg is the first step of an integer division
+                    //So this is step 2
+                    Analysis.Actions.Add(new IntegerDivisionShiftStepAction(Analysis, instruction));
                     break;
             }
         }

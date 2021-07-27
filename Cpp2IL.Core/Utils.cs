@@ -750,6 +750,20 @@ namespace Cpp2IL.Core
             return results;
         }
 
+        public static bool TryCoerceToUlong(object value, out ulong ret)
+        {
+            ret = 0;
+            try
+            {
+                ret = (ulong) CoerceValue(value, UInt64Reference)!;
+                return true;
+            }
+            catch (Exception)
+            {
+                return false;
+            }
+        }
+
         public static object? CoerceValue(object value, TypeReference coerceToType)
         {
             if (coerceToType is ArrayType) 
