@@ -90,7 +90,9 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             if (Type == typeof(MethodReference) && Value is MethodReference reference)
                 return new[] {ilProcessor.Create(OpCodes.Ldftn, reference)};
-
+            
+            if (Type == typeof(TypeReference) && Value is TypeReference typeReference)
+                return new[] {ilProcessor.Create(OpCodes.Ldtoken, typeReference)};
 
             if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)
                 return new[] {ilProcessor.Create(OpCodes.Ldtoken, fieldDefinition)};
