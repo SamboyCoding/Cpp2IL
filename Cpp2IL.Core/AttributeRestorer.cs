@@ -1,9 +1,10 @@
-﻿#define NO_ATTRIBUTE_RESTORATION_WARNINGS
+﻿// #define NO_ATTRIBUTE_RESTORATION_WARNINGS
 // #define NO_ATTRIBUTE_ANALYSIS
 
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions;

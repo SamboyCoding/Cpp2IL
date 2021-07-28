@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         
         public bool IsMethodInfoParam { get; private set; }
 
-        internal LocalDefinition WithParameter(ParameterDefinition parameterDefinition)
+        internal LocalDefinition WithParameter(ParameterDefinition? parameterDefinition)
         {
             ParameterDefinition = parameterDefinition;
             return this;

@@ -13,6 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         public readonly Il2CppFieldDefinition? FieldData;
         private readonly FieldDefinition? ResolvedField;
         private ConstantDefinition? ConstantWritten;
+        private string _destReg;
 
         public GlobalFieldDefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -20,10 +21,19 @@ namespace Cpp2IL.Core.Analysis.Actions
             FieldData = LibCpp2IlMain.GetFieldGlobalByAddress(globalAddress);
             ResolvedField = SharedState.UnmanagedToManagedFields[FieldData];
 
-            var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            if (instruction.Mnemonic != Mnemonic.Push)
+            {
+                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            }
+
             var name = ResolvedField.Name;
             
-            ConstantWritten = context.MakeConstant(typeof(FieldDefinition), ResolvedField, name, destReg);
+            ConstantWritten = context.MakeConstant(typeof(FieldDefinition), ResolvedField, name, _destReg);
+
+            if (instruction.Mnemonic == Mnemonic.Push)
+            {
+                context.Stack.Push(ConstantWritten);
+            }
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

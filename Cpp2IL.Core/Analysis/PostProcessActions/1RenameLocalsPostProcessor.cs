@@ -21,8 +21,16 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                     if (nameBase.Length < 4)
                         nameBase = field.FieldType.Name;
 
-                    //lower first character
                     localDefinition = ftla.LocalWritten;
+                }
+                else if (action is StaticFieldToRegAction {FieldRead: {}, LocalWritten: {}} sftra)
+                {
+                    var field = sftra.FieldRead;
+                    nameBase = field.Name;
+                    if (nameBase.Length < 4)
+                        nameBase = field.FieldType.Name;
+
+                    localDefinition = sftra.LocalWritten;
                 }
                 else if (action is AbstractCallAction {ReturnedLocal: { }, ManagedMethodBeingCalled: {}} aca)
                 {
@@ -49,6 +57,7 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 else
                     continue;
                 
+                //lower first character
                 nameBase = $"{char.ToLower(nameBase[0])}{nameBase[1..]}";
 
                 if (!countDict.ContainsKey(nameBase))

@@ -57,10 +57,19 @@ namespace Cpp2IL.Core.Analysis.Actions
                 _method = gMethod;
             }
 
-            _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            if (instruction.Mnemonic != Mnemonic.Push)
+            {
+                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            }
+
             var name = _method.Name;
             
             ConstantWritten = context.MakeConstant(typeof(GenericMethodReference), new GenericMethodReference(_declaringType, _method), name, _destReg);
+            
+            if (instruction.Mnemonic == Mnemonic.Push)
+            {
+                context.Stack.Push(ConstantWritten);
+            }
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

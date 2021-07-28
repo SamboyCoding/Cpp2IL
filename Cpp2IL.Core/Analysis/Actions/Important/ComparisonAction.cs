@@ -18,7 +18,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public readonly bool unimportantComparison;
 
-        private readonly ulong endOfLoopAddr;
+        public readonly ulong EndOfLoopAddr;
 
         public ComparisonAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             if (context.GetEndOfLoopWhichPossiblyStartsHere(instruction.IP) is {} endOfLoop && endOfLoop != 0)
             {
-                endOfLoopAddr = endOfLoop;
+                EndOfLoopAddr = endOfLoop;
                 context.RegisterLastInstructionOfLoopAt(this, endOfLoop);
             }
 
@@ -55,7 +55,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             return ArgumentOneRegister == regName ? ArgumentOne : ArgumentTwoRegister == regName ? ArgumentTwo : null;
         }
 
-        internal bool IsProbablyWhileLoop() => endOfLoopAddr != 0;
+        internal bool IsProbablyWhileLoop() => EndOfLoopAddr != 0;
 
         private static IComparisonArgument? ExtractArgument(MethodAnalysis context, Instruction instruction, string registerName, int operandIdx, OpKind opKind, out bool unimportant, out string? argumentRegister)
         {

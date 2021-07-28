@@ -13,6 +13,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 {
     public class MethodAnalysis
     {
+        public delegate void PtrConsumer(ulong ptr);
+        
         public KeyFunctionAddresses KeyFunctionAddresses { get; }
         
         public readonly List<LocalDefinition> Locals = new List<LocalDefinition>();
@@ -20,6 +22,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public List<BaseAction> Actions = new List<BaseAction>();
         public readonly List<ulong> IdentifiedJumpDestinationAddresses = new List<ulong>();
         public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
+
+        public event PtrConsumer OnExpansionRequested;
 
         private ConstantDefinition EmptyRegConstant;
         private List<string> _parameterDestRegList = new List<string>();
@@ -35,7 +39,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         private readonly List<IfElseData> IfElseBlockData = new List<IfElseData>();
         private readonly List<LoopData> LoopBlockData = new List<LoopData>();
 
-        private readonly Dictionary<ulong, ulong> GotoDestinationsToStartDict = new Dictionary<ulong, ulong>();
+        public readonly Dictionary<ulong, ulong> GotoDestinationsToStartDict = new Dictionary<ulong, ulong>();
 
         public int IndentLevel;
 
@@ -142,6 +146,18 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             }
             
             numParamsAdded++;
+        }
+
+        public void ExpandAnalysisToIncludeBlockStartingAt(ulong ptr)
+        {
+            if(_allInstructions.All(i => i.IP < ptr))
+                OnExpansionRequested(ptr);
+        }
+
+        internal void AddInstructions(InstructionList newInstructions, ulong newEnd)
+        {
+            _allInstructions.AddRange(newInstructions);
+            AbsoluteMethodEnd = newEnd;
         }
 
         public bool IsVoid() => _method?.ReturnType?.FullName == "System.Void";
@@ -254,7 +270,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public bool IsJumpDestinationInThisFunction(ulong jumpTarget)
         {
-            return jumpTarget >= MethodStart && jumpTarget <= AbsoluteMethodEnd;
+            return jumpTarget >= MethodStart && jumpTarget < AbsoluteMethodEnd;
         }
 
         public bool IsThereProbablyAnElseAt(ulong conditionalJumpTarget)
@@ -430,6 +446,13 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             var matchingBlock = LoopBlockData.FirstOrDefault(d => d.ipFirstInstructionNotInLoop == ip);
 
             return matchingBlock != null;
+        }
+        
+        public ComparisonAction? GetLoopWhichJustEnded(ulong ip)
+        {
+            var matchingBlock = LoopBlockData.FirstOrDefault(d => d.ipFirstInstructionNotInLoop == ip);
+
+            return matchingBlock?.loopCondition;
         }
 
         public void RestorePreLoopState(ulong ipFirstInstructionNotInLoop)

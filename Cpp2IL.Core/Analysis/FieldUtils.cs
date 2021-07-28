@@ -107,9 +107,11 @@ namespace Cpp2IL.Core.Analysis
                 //This was gonna break anyway, give some context
                 throw new Exception($"GetFieldInType: Encountered a field with a null def? {structFIT.Name} of type {structFIT.FieldType} in {structFIT.DeclaringType} has null FieldDef.");
 
-            var data = FieldBeingAccessedData.FromImpliedLoad(structFIT.ResolveToFieldDef(), GetFieldBeingAccessed(structType, offset, tryFindFloatingPointValue));
+            var nextLink = GetFieldBeingAccessed(structType, offset, tryFindFloatingPointValue);
+            if(nextLink != null)
+                return FieldBeingAccessedData.FromImpliedLoad(structFIT.ResolveToFieldDef(), nextLink);
 
-            return data;
+            return null;
         }
 
         /// <summary>

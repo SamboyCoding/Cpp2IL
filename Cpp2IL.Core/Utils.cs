@@ -621,7 +621,7 @@ namespace Cpp2IL.Core
 
                 if (peek && buff.Count > 50)
                     con = false;
-                else if (buff.Count > 1000)
+                else if (buff.Count > 5000)
                     con = false; //Sanity breakout.
 
                 addr++;

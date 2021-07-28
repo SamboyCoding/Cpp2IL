@@ -29,7 +29,7 @@ namespace Cpp2IL.Core.Analysis
         public static int FAILED_METHODS = 0;
 
         private readonly MethodDefinition? _methodDefinition;
-        private readonly ulong _methodEnd;
+        private ulong _methodEnd;
         private readonly KeyFunctionAddresses _keyFunctionAddresses;
         private readonly Il2CppBinary _cppAssembly;
 
@@ -64,6 +64,7 @@ namespace Cpp2IL.Core.Analysis
             if (_methodEnd == 0) _methodEnd = methodPointer;
 
             Analysis = new MethodAnalysis(methodPointer, _methodEnd, _instructions, keyFunctionAddresses);
+            Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 
         internal AsmAnalyzer(MethodDefinition methodDefinition, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses)
@@ -91,11 +92,28 @@ namespace Cpp2IL.Core.Analysis
             isGenuineMethod = true;
 
             Analysis = new MethodAnalysis(_methodDefinition, methodStart, _methodEnd, _instructions, keyFunctionAddresses);
+            Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 
         internal void AddParameter(TypeDefinition type, string name)
         {
             Analysis.AddParameter(new ParameterDefinition(name, ParameterAttributes.None, type));
+        }
+
+        private void AnalysisRequestedExpansion(ulong ptr)
+        {
+            var newInstructions = Utils.GetMethodBodyAtVirtAddressNew(ptr, false);
+
+            // var instructionWhichOverran = FindInstructionWhichOverran(out var idx);
+            //
+            // if (instructionWhichOverran != default)
+            // {
+            //     newInstructions = new InstructionList(newInstructions.Take(idx).ToList());
+            // }
+
+            _methodEnd = newInstructions.LastOrDefault().NextIP;
+            _instructions.AddRange(newInstructions);
+            Analysis.AbsoluteMethodEnd = _methodEnd;
         }
 
         private Instruction FindInstructionWhichOverran(out int idx)
@@ -359,8 +377,9 @@ namespace Cpp2IL.Core.Analysis
             //Register eax/rax/whatever you want to call it is the return value (both of any functions called in this one and this function itself)
 
             //Main instruction loop
-            foreach (var instruction in _instructions)
+            for (var index = 0; index < _instructions.Count; index++)
             {
+                var instruction = _instructions[index];
                 try
                 {
                     PerformInstructionChecks(instruction);
@@ -385,9 +404,9 @@ namespace Cpp2IL.Core.Analysis
 
         private void CheckForSingleOpInstruction(Instruction instruction)
         {
-            if(instruction.IP == 0x1804ae0ac)
+            if (instruction.IP == 0x1804ae0ac)
                 Debugger.Break();
-            
+
             var reg = Utils.GetRegisterNameNew(instruction.Op0Register == Register.None ? instruction.MemoryBase : instruction.Op0Register);
             var operand = Analysis.GetOperandInRegister(reg);
 
@@ -406,6 +425,57 @@ namespace Cpp2IL.Core.Analysis
                     //Push [reg]
                     Analysis.Actions.Add(new PushRegisterAction(Analysis, instruction));
                     break;
+                case Mnemonic.Push when _cppAssembly.is32Bit && instruction.Op0Kind == OpKind.Memory && instruction.MemoryDisplacement64 != 0 && instruction.MemoryBase == Register.None:
+                {
+                    //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
+                    var globalAddress = instruction.MemoryDisplacement64;
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global)
+                    {
+                        //Have a global here.
+                        switch (global.Type)
+                        {
+                            case MetadataUsageType.Type:
+                            case MetadataUsageType.TypeInfo:
+                                Analysis.Actions.Add(new GlobalTypeRefToConstantAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.MethodDef:
+                                Analysis.Actions.Add(new GlobalMethodDefToConstantAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.MethodRef:
+                                Analysis.Actions.Add(new GlobalMethodRefToConstantAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.FieldInfo:
+                                Analysis.Actions.Add(new GlobalFieldDefToConstantAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.StringLiteral:
+                                Analysis.Actions.Add(new GlobalStringRefToConstantAction(Analysis, instruction));
+                                break;
+                        }
+                    }
+
+                    break;
+                }
+                case Mnemonic.Push when _cppAssembly.is32Bit && instruction.Op0Kind.IsImmediate() && LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(instruction.Immediate32, out _):
+                {
+                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.Immediate32));
+                    if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
+                    {
+                        // if (reg != "rsp")
+                        Analysis.Actions.Add(new Il2CppStringToConstantAction(Analysis, instruction, potentialLiteral));
+
+                        // if (r0 == "rsp")
+                        //     _analysis.Actions.Add(new ConstantToStackAction(_analysis, instruction));
+                        // else
+                        //     _analysis.Actions.Add(new ConstantToRegAction(_analysis, instruction));
+                    }
+                    else
+                    {
+                        //Unknown global
+                        Analysis.Actions.Add(new UnknownGlobalToConstantAction(Analysis, instruction));
+                    }
+
+                    break;
+                }
                 case Mnemonic.Push when instruction.Op0Kind.IsImmediate():
                     //Push constant
                     Analysis.Actions.Add(new PushConstantAction(Analysis, instruction));
@@ -1015,8 +1085,18 @@ namespace Cpp2IL.Core.Analysis
             }
             else if (hasEndedLoop)
             {
+                var loopWhichJustEnded = Analysis.GetLoopWhichJustEnded(instruction.IP);
+
                 Analysis.IndentLevel -= 1;
                 Analysis.Actions.Add(new EndWhileMarkerAction(Analysis, instruction));
+
+                var ipOfCompare = loopWhichJustEnded!.AssociatedInstruction.IP;
+
+                if (Analysis.Actions.FirstOrDefault(a => a.AssociatedInstruction.IP > ipOfCompare && a is ConditionalJumpAction) is ConditionalJumpAction jump && jump.JumpTarget != instruction.IP)
+                {
+                    //Once the loop is complete we have to jump to somewhere which is not here.
+                    Analysis.Actions.Add(new GoToMarkerAction(Analysis, instruction, jump.JumpTarget));
+                }
             }
             else if (associatedIf != 0)
             {
@@ -1024,6 +1104,10 @@ namespace Cpp2IL.Core.Analysis
 
                 Analysis.IndentLevel -= 1;
                 Analysis.Actions.Add(new EndIfMarkerAction(Analysis, instruction, false));
+            }
+            else if (Analysis.GotoDestinationsToStartDict.ContainsKey(instruction.IP))
+            {
+                Analysis.Actions.Add(new GoToDestinationMarker(Analysis, instruction));
             }
 
             var operandCount = instruction.OpCount;

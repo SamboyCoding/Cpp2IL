@@ -101,6 +101,15 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             else
             {
                 //Find the correct method.
+                //Have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
+                LocalDefinition toPushBackIfNeeded = null;
+                if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
+                {
+                    InstanceBeingCalledOn = local;
+                    context.Stack.Pop(); //Pop this for now
+                    toPushBackIfNeeded = local;
+                }
+
                 if (InstanceBeingCalledOn?.Type != null)
                 {
                     //Direct instance methods take priority
@@ -108,15 +117,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     foreach (var m in listOfCallableMethods)
                     {
                         if (m.IsStatic) continue; //Only checking instance methods here.
-
-                        //Have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
-                        LocalDefinition toPushBackIfNeeded = null;
-                        if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
-                        {
-                            InstanceBeingCalledOn = local;
-                            toPushBackIfNeeded = local;
-                        }
-
+                        
                         //Check defining type matches instance, and check params.
                         if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), InstanceBeingCalledOn.Type))
                         {
@@ -133,24 +134,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
                             break;
                         }
-
-                        if (toPushBackIfNeeded != null)
-                        {
-                            //Mismatch - re-push the instance
-                            context.Stack.Push(toPushBackIfNeeded);
-                        }
                     }
 
                     //Check for base class instance methods
                     if (possibleTarget == null)
                     {
-                        LocalDefinition toPushBackIfNeeded = null;
-                        if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
-                        {
-                            InstanceBeingCalledOn = local;
-                            toPushBackIfNeeded = local;
-                        }
-
                         //Methods which are non-static and for which the declaring type is some form of supertype of the object we're calling on.
                         var baseClassMethods = listOfCallableMethods.Where(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), InstanceBeingCalledOn.Type)).ToList();
 
@@ -202,14 +190,17 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                             }
                         }
                     }
+                    
+                    if (toPushBackIfNeeded != null && possibleTarget == null)
+                    {
+                        //Mismatch - re-push the instance
+                        context.Stack.Push(toPushBackIfNeeded);
+                    }
                 }
 
                 if (possibleTarget == null)
                     //Check static methods. No need for a complicated foreach here, we don't have to worry about an instance.
                     possibleTarget = listOfCallableMethods.FirstOrDefault(m => m.IsStatic && MethodUtils.CheckParameters(instruction, m, context, false, out Arguments, InstanceBeingCalledOn));
-                else if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
-                    //Instance method
-                    InstanceBeingCalledOn = local; //32-bit and we have an instance
             }
 
             //Resolve unmanaged => managed method.

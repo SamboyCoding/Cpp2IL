@@ -10,16 +10,16 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public abstract class ConditionalJumpAction : BaseAction
     {
         protected ComparisonAction? associatedCompare;
+        public ulong JumpTarget;
         protected bool isIfStatement;
         protected bool isIfElse;
         protected bool isWhile;
         protected bool isImplicitNullReferenceException;
-        protected ulong jumpTarget;
         protected bool IsGoto;
 
         protected ConditionalJumpAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            jumpTarget = instruction.NearBranchTarget;
+            JumpTarget = instruction.NearBranchTarget;
 
             // if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
             // {
@@ -31,7 +31,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
 
             //Check for implicit NRE
-            var body = Utils.GetMethodBodyAtVirtAddressNew(jumpTarget, true);
+            var body = Utils.GetMethodBodyAtVirtAddressNew(JumpTarget, true);
 
             if (body.Count > 0 && body[0].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[0].NearBranchTarget))
             {
@@ -59,23 +59,31 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             var (currBlockStart, currBlockEnd) = context.GetMostRecentBlock(AssociatedInstruction.IP);
 
-            if (currBlockEnd != 0 && currBlockEnd < jumpTarget && currBlockStart != associatedCompare?.AssociatedInstruction.IP)
+            if (currBlockEnd != 0 && currBlockEnd < JumpTarget && currBlockStart != associatedCompare?.AssociatedInstruction.IP)
             {
                 //Jumping OUT of the current block - need a goto
                 IsGoto = true;
-                AddComment($"This is probably a goto, jumping to 0x{jumpTarget:X} which is after end of current block @ 0x{currBlockEnd:X} (started at 0x{currBlockStart:X})");
-                context.RegisterGotoDestination(AssociatedInstruction.IP, jumpTarget);
+                AddComment($"This is probably a goto, jumping to 0x{JumpTarget:X} which is after end of current block @ 0x{currBlockEnd:X} (started at 0x{currBlockStart:X})");
+
+                if (associatedCompare?.unimportantComparison == false)
+                {
+                    context.RegisterGotoDestination(AssociatedInstruction.IP, JumpTarget);
+                    
+                    if(!context.IsJumpDestinationInThisFunction(JumpTarget) && (JumpTarget - context.AbsoluteMethodEnd) < 50)
+                        context.ExpandAnalysisToIncludeBlockStartingAt(JumpTarget);
+                }
+
                 return;
             }
 
-            if (context.IsThereProbablyAnElseAt(jumpTarget))
+            if (context.IsThereProbablyAnElseAt(JumpTarget))
             {
                 //If-Else
                 isIfElse = true;
 
                 if (associatedCompare?.unimportantComparison == false)
                 {
-                    context.RegisterIfElseStatement(instruction.NextIP, jumpTarget, this);
+                    context.RegisterIfElseStatement(instruction.NextIP, JumpTarget, this);
                     AddComment($"Increasing indentation - is if-else, unimportant is {associatedCompare?.unimportantComparison}");
                     context.IndentLevel += 1;
                 }
@@ -90,11 +98,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     AddComment($"Increasing indentation - is while loop, unimportant is {associatedCompare?.unimportantComparison}");
                     context.IndentLevel += 1;
                 }
+                
+                if(!context.IsJumpDestinationInThisFunction(JumpTarget) && (JumpTarget - context.AbsoluteMethodEnd) < 50)
+                    context.ExpandAnalysisToIncludeBlockStartingAt(JumpTarget);
             }
             else if (associatedCompare?.unimportantComparison == false)
             {
                 //Just an if. No else, no while.
-                context.RegisterIfStatement(instruction.NextIP, jumpTarget, this);
+                context.RegisterIfStatement(instruction.NextIP, JumpTarget, this);
 
                 isIfStatement = true;
                 AddComment($"Increasing indentation - is standard if, unimportant is {associatedCompare?.unimportantComparison}");
@@ -128,7 +139,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (IsGoto)
             {
                 return $"if {GetInvertedPseudocodeConditionForGotos()}\n" +
-                       $"    goto INSN_{jumpTarget:X}\n" +
+                       $"    goto INSN_{JumpTarget:X}\n" +
                        $"endif";
             }
             
@@ -138,9 +149,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         public override string ToTextSummary()
         {
             if (isImplicitNullReferenceException)
-                return $"Jumps to 0x{jumpTarget:X} (which throws a NRE) if {GetTextSummaryCondition()}. Implicitly present in managed code, so ignored here.";
+                return $"Jumps to 0x{JumpTarget:X} (which throws a NRE) if {GetTextSummaryCondition()}. Implicitly present in managed code, so ignored here.";
 
-            return $"Jumps to 0x{jumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {GetTextSummaryCondition()}\n";
+            return $"Jumps to 0x{JumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {GetTextSummaryCondition()}\n";
         }
 
         protected virtual bool OnlyNeedToLoadOneOperand() => false;

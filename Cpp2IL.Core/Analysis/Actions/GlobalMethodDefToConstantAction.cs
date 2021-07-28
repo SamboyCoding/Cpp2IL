@@ -15,7 +15,8 @@ namespace Cpp2IL.Core.Analysis.Actions
         public Il2CppMethodDefinition? MethodData;
         public MethodDefinition? ResolvedMethod;
         public ConstantDefinition? ConstantWritten;
-        
+        private string? _destReg;
+
         public GlobalMethodDefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
@@ -31,11 +32,20 @@ namespace Cpp2IL.Core.Analysis.Actions
             ResolvedMethod = type.Methods.FirstOrDefault(m => m.Name == MethodData.Name);
 
             if (ResolvedMethod == null) return;
-            
-            var destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+
+            if (instruction.Mnemonic != Mnemonic.Push)
+            {
+                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            }
+
             var name = ResolvedMethod.Name;
             
-            ConstantWritten = context.MakeConstant(typeof(MethodReference), ResolvedMethod, name, destReg);
+            ConstantWritten = context.MakeConstant(typeof(MethodReference), ResolvedMethod, name, _destReg);
+            
+            if (instruction.Mnemonic == Mnemonic.Push)
+            {
+                context.Stack.Push(ConstantWritten);
+            }
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)

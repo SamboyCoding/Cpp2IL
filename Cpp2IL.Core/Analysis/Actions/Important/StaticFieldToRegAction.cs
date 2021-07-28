@@ -8,9 +8,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class StaticFieldToRegAction : BaseAction
     {
-        private readonly FieldDefinition? _theField;
+        public readonly FieldDefinition? FieldRead;
+        public readonly LocalDefinition? LocalWritten;
         private readonly string _destReg;
-        private readonly LocalDefinition? _localMade;
 
         public StaticFieldToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -21,37 +21,37 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             var fieldsPtr = (StaticFieldsPtr) fieldsPtrConst.Value;
 
-            _theField = FieldUtils.GetStaticFieldByOffset(fieldsPtr, instruction.MemoryDisplacement);
+            FieldRead = FieldUtils.GetStaticFieldByOffset(fieldsPtr, instruction.MemoryDisplacement);
             
-            if (_theField == null) return;
+            if (FieldRead == null) return;
 
-            _localMade = context.MakeLocal(_theField.FieldType, reg: _destReg);
+            LocalWritten = context.MakeLocal(FieldRead.FieldType, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            if (_theField == null || _localMade == null)
+            if (FieldRead == null || LocalWritten == null)
                 throw new TaintedInstructionException("Couldn't identify the field being read (or its type).");
 
-            if (_localMade.Variable == null)
+            if (LocalWritten.Variable == null)
                 //Stripped out - no use found for the dest local.
                 return Array.Empty<Mono.Cecil.Cil.Instruction>();
             
             return new[]
             {
-                processor.Create(OpCodes.Ldsfld, _theField),
-                processor.Create(OpCodes.Stloc, _localMade.Variable)
+                processor.Create(OpCodes.Ldsfld, FieldRead),
+                processor.Create(OpCodes.Stloc, LocalWritten.Variable)
             };
         }
 
         public override string? ToPsuedoCode()
         {
-            return $"{_localMade?.Type?.FullName} {_localMade?.Name} = {_theField?.DeclaringType?.FullName}.{_theField?.Name}";
+            return $"{LocalWritten?.Type?.FullName} {LocalWritten?.Name} = {FieldRead?.DeclaringType?.FullName}.{FieldRead?.Name}";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Reads the static field {_theField?.FullName} into new local {_localMade?.Name} in register {_destReg}";
+            return $"[!] Reads the static field {FieldRead?.FullName} into new local {LocalWritten?.Name} in register {_destReg}";
         }
 
         public override bool IsImportant()

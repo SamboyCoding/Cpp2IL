@@ -28,10 +28,18 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
 
             if (ResolvedString == null) return;
-            
-            _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
-            
+
+            if (instruction.Mnemonic != Mnemonic.Push)
+            {
+                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            }
+
             ConstantWritten = context.MakeConstant(typeof(string), ResolvedString, null, _destReg);
+            
+            if (instruction.Mnemonic == Mnemonic.Push)
+            {
+                context.Stack.Push(ConstantWritten);
+            }
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
