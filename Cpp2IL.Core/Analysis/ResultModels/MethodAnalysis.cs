@@ -35,6 +35,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         private readonly List<IfElseData> IfElseBlockData = new List<IfElseData>();
         private readonly List<LoopData> LoopBlockData = new List<LoopData>();
 
+        private readonly Dictionary<ulong, ulong> GotoDestinationsToStartDict = new Dictionary<ulong, ulong>();
+
         public int IndentLevel;
 
         //This data is essentially our transient state - it must be stashed and unstashed when we jump into ifs etc.
@@ -411,6 +413,11 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             LoopBlockData.Add(data);           
         }
 
+        public void RegisterGotoDestination(ulong source, ulong dest)
+        {
+            GotoDestinationsToStartDict[dest] = source;
+        }
+
         public bool IsIpInOneOrMoreLoops(ulong ip) => GetLoopConditionsInNestedOrder(ip).Length > 0;
 
         public ComparisonAction[] GetLoopConditionsInNestedOrder(ulong ip) =>
@@ -432,6 +439,34 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             if (matchingBlock == null) return;
             
             LoadAnalysisState(matchingBlock);
+        }
+
+        public (ulong startAddr, ulong endAddr) GetMostRecentBlock(ulong currAddr)
+        {
+            var starts =
+                IfOnlyBlockData.Select(i => i.IfStatementStart)
+                    .Concat(IfElseBlockData.Select(i => i.ElseStatementStart < currAddr ? i.ElseStatementStart : i.IfStatementStart))
+                    .Concat(LoopBlockData.Select(l => l.ipFirstInstruction))
+                    .ToList();
+
+            if (!starts.Any())
+                return (0, 0);
+            
+            var latestStart = starts.Max();
+
+            if (IfOnlyBlockData.FirstOrDefault(i => i.IfStatementStart == latestStart) is { } data1)
+                return (startAddr: data1.IfStatementStart, endAddr: data1.IfStatementEnd);
+
+            if (IfElseBlockData.FirstOrDefault(i => i.IfStatementStart == latestStart) is { } data2)
+                return (startAddr: data2.IfStatementStart, endAddr: data2.ElseStatementStart);
+            
+            if (IfElseBlockData.FirstOrDefault(i => i.ElseStatementStart == latestStart) is { } data3)
+                return (startAddr: data3.ElseStatementStart, endAddr: data3.ElseStatementEnd);
+            
+            if (LoopBlockData.FirstOrDefault(i => i.ipFirstInstruction == latestStart) is { } data4)
+                return (startAddr: data4.ipFirstInstruction, endAddr: data4.ipFirstInstructionNotInLoop);
+
+            return (0, 0);
         }
 
         public Instruction GetILToLoad(LocalDefinition localDefinition, ILProcessor processor)

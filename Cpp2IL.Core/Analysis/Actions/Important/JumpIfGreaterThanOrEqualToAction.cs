@@ -16,6 +16,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             //Invert condition, so less than, not >=
             return $"({GetArgumentOnePseudocodeValue()} < {GetArgumentTwoPseudocodeValue()})";
         }
+        
+        protected override string GetInvertedPseudocodeConditionForGotos()
+        {
+            return $"({GetArgumentOnePseudocodeValue()} >= {GetArgumentTwoPseudocodeValue()})";
+        }
 
         protected override string GetTextSummaryCondition()
         {

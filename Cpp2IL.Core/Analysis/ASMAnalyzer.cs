@@ -193,7 +193,7 @@ namespace Cpp2IL.Core.Analysis
             //Actions
             Analysis.Actions
                 .Where(action => action.IsImportant()) //Action requires pseudocode generation
-                .Select(action => $"{(action.PseudocodeNeedsLinebreakBefore() ? "\n" : "")}\t\t{"    ".Repeat(action.IndentLevel)}{action.ToPsuedoCode()}") //Generate it 
+                .Select(action => $"{(action.PseudocodeNeedsLinebreakBefore() ? "\n" : "")}\t\t{"    ".Repeat(action.IndentLevel)}{action.ToPsuedoCode()?.Replace("\n", "\n" + "    ".Repeat(action.IndentLevel + 2))}") //Generate it 
                 .Where(code => !string.IsNullOrWhiteSpace(code)) //Check it's valid
                 .ToList()
                 .ForEach(code => builder.Append(code).Append('\n')); //Append
@@ -272,7 +272,7 @@ namespace Cpp2IL.Core.Analysis
 
         internal void BuildMethodFunctionality()
         {
-            _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n");
+            _methodFunctionality.Append($"\t\tEnd of function at 0x{_methodEnd:X}\n\t\tAbsolute End is at 0x{Analysis.AbsoluteMethodEnd:X}\n");
 
             _methodFunctionality.Append("\t\tIdentified Jump Destination addresses:\n").Append(string.Join("\n", Analysis.IdentifiedJumpDestinationAddresses.Select(s => $"\t\t\t0x{s:X}"))).Append('\n');
             var lastIfAddress = 0UL;

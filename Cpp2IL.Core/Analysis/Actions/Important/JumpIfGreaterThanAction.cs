@@ -17,6 +17,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             return $"({GetArgumentOnePseudocodeValue()} <= {GetArgumentTwoPseudocodeValue()})";
         }
 
+        protected override string GetInvertedPseudocodeConditionForGotos()
+        {
+            return $"({GetArgumentOnePseudocodeValue()} > {GetArgumentTwoPseudocodeValue()})";
+        }
+
         protected override OpCode GetJumpOpcode()
         {
             return OpCodes.Bgt;

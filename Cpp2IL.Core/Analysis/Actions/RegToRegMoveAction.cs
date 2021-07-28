@@ -79,7 +79,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public override bool IsImportant()
         {
-            return copyingValueNotLocal;
+            return copyingValueNotLocal && (_localBeingOverwritten != (LocalDefinition?) beingMoved);
         }
     }
 }

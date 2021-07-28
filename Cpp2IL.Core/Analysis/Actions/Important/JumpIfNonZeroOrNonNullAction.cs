@@ -29,7 +29,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (associatedCompare != null)
                 return $"({GetArgumentOnePseudocodeValue()} == {GetArgumentTwoPseudocodeValue()})";
 
-            return "(<missing compare>";
+            return "(<missing compare>)";
+        }
+        
+        protected override string GetInvertedPseudocodeConditionForGotos()
+        {
+            if (booleanMode)
+                return $"({GetArgumentOnePseudocodeValue()})";
+
+            if (nullMode)
+                return $"({GetArgumentOnePseudocodeValue()} != null)";
+
+            if (associatedCompare != null)
+                return $"({GetArgumentOnePseudocodeValue()} != {GetArgumentTwoPseudocodeValue()})";
+
+            return "(<missing compare>)";
         }
 
         protected override bool OnlyNeedToLoadOneOperand() => nullMode || booleanMode;

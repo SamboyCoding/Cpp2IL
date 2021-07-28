@@ -15,20 +15,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         protected bool isWhile;
         protected bool isImplicitNullReferenceException;
         protected ulong jumpTarget;
+        protected bool IsGoto;
 
         protected ConditionalJumpAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             jumpTarget = instruction.NearBranchTarget;
 
-            if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
-            {
-                isIfStatement = true;
-                if (!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
-                    context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
-            }
+            // if (jumpTarget > instruction.NextIP && jumpTarget < context.AbsoluteMethodEnd)
+            // {
+            //     isIfStatement = true;
+            //     if (!context.IdentifiedJumpDestinationAddresses.Contains(jumpTarget))
+            //         context.IdentifiedJumpDestinationAddresses.Add(jumpTarget);
+            // }
 
             associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
-            
+
             //Check for implicit NRE
             var body = Utils.GetMethodBodyAtVirtAddressNew(jumpTarget, true);
 
@@ -56,14 +57,25 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             else if (associatedCompare?.ArgumentTwo is ComparisonDirectPropertyAccess p2)
                 RegisterUsedLocal(p2.localAccessedOn);
 
+            var (currBlockStart, currBlockEnd) = context.GetMostRecentBlock(AssociatedInstruction.IP);
+
+            if (currBlockEnd != 0 && currBlockEnd < jumpTarget && currBlockStart != associatedCompare?.AssociatedInstruction.IP)
+            {
+                //Jumping OUT of the current block - need a goto
+                IsGoto = true;
+                AddComment($"This is probably a goto, jumping to 0x{jumpTarget:X} which is after end of current block @ 0x{currBlockEnd:X} (started at 0x{currBlockStart:X})");
+                context.RegisterGotoDestination(AssociatedInstruction.IP, jumpTarget);
+                return;
+            }
+
             if (context.IsThereProbablyAnElseAt(jumpTarget))
             {
                 //If-Else
-                context.RegisterIfElseStatement(instruction.NextIP, jumpTarget, this);
                 isIfElse = true;
 
                 if (associatedCompare?.unimportantComparison == false)
                 {
+                    context.RegisterIfElseStatement(instruction.NextIP, jumpTarget, this);
                     AddComment($"Increasing indentation - is if-else, unimportant is {associatedCompare?.unimportantComparison}");
                     context.IndentLevel += 1;
                 }
@@ -85,22 +97,20 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 context.RegisterIfStatement(instruction.NextIP, jumpTarget, this);
 
                 isIfStatement = true;
-
-                if (associatedCompare?.unimportantComparison == false)
-                {
-                    AddComment($"Increasing indentation - is standard if, unimportant is {associatedCompare?.unimportantComparison}");
-                    context.IndentLevel += 1;
-                }
+                AddComment($"Increasing indentation - is standard if, unimportant is {associatedCompare?.unimportantComparison}");
+                context.IndentLevel += 1;
             }
         }
 
         protected abstract string GetPseudocodeCondition();
 
+        protected abstract string GetInvertedPseudocodeConditionForGotos();
+
         protected abstract string GetTextSummaryCondition();
 
         public override bool IsImportant()
         {
-            return !isImplicitNullReferenceException && associatedCompare?.unimportantComparison == false && (isIfElse || isWhile || isIfStatement);
+            return !isImplicitNullReferenceException && associatedCompare?.unimportantComparison == false && (isIfElse || isWhile || isIfStatement || IsGoto);
         }
 
         protected string GetArgumentOnePseudocodeValue()
@@ -115,6 +125,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override string? ToPsuedoCode()
         {
+            if (IsGoto)
+            {
+                return $"if {GetInvertedPseudocodeConditionForGotos()}\n" +
+                       $"    goto INSN_{jumpTarget:X}\n" +
+                       $"endif";
+            }
+            
             return isWhile ? $"while {GetPseudocodeCondition()}" : $"if {GetPseudocodeCondition()}";
         }
 
