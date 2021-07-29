@@ -88,9 +88,7 @@ namespace Cpp2IL.Core
             }
             catch (Exception e)
             {
-                Logger.ErrorNewline($"\n\nFatal Exception initializing LibCpp2IL!\n{e}\n\nWaiting for you to press enter - feel free to copy the error...");
-                Console.ReadLine();
-                Environment.Exit(-1);
+                throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
             }
         }
 
@@ -106,9 +104,7 @@ namespace Cpp2IL.Core
             }
             catch (Exception e)
             {
-                Logger.ErrorNewline($"\n\nFatal Exception initializing LibCpp2IL!\n{e}\n\nWaiting for you to press enter - feel free to copy the error...");
-                Console.ReadLine();
-                Environment.Exit(-1);
+                throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
             }
         }
 

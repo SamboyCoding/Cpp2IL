@@ -111,6 +111,12 @@ namespace Cpp2IL
 
                 return -1;
             }
+            catch (LibCpp2ILInitializationException e)
+            {
+                Logger.ErrorNewline($"\n\n{e}\n\nWaiting for you to press enter - feel free to copy the error...");
+                Console.ReadLine();
+                return -1;
+            }
             catch (SoftException e)
             {
                 Logger.ErrorNewline($"Execution Failed: {e.Message}");
