@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.BinaryStructures;
@@ -192,7 +193,7 @@ namespace LibCpp2IL
 
                 var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex, out _);
 
-                if (!genericMethodDictionary.ContainsKey(methodDefIndex))
+                if (!genericMethodDictionary.ContainsKey(methodDefIndex) && genericMethodPointerIndex < genericMethodPointers.Length)
                 {
                     genericMethodDictionary.TryAdd(methodDefIndex, genericMethodPointers[genericMethodPointerIndex]);
                 }
@@ -216,7 +217,10 @@ namespace LibCpp2IL
 
                 ulong concreteMethodPtr = 0;
                 if (genericMethodPointerIndex >= 0)
-                    concreteMethodPtr = genericMethodPointers[genericMethodPointerIndex];
+                {
+                    if(genericMethodPointerIndex < genericMethodPointers.Length)
+                        concreteMethodPtr = genericMethodPointers[genericMethodPointerIndex];
+                }
 
                 var baseMethod = LibCpp2IlMain.TheMetadata!.methodDefs[methodDefIndex];
 

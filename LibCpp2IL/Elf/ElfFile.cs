@@ -65,12 +65,15 @@ namespace LibCpp2IL.Elf
             //Non-null assertion reason: The elf header has already been checked while reading the program header.
             _elfSectionHeaderEntries = ReadClassArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader!.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
 
-            var pSectionHeaderStringTable = _elfSectionHeaderEntries[_elfHeader.SectionNameSectionOffset].RawAddress;
-
-            foreach (var section in _elfSectionHeaderEntries)
+            if (_elfHeader.SectionNameSectionOffset >= 0 && _elfHeader.SectionNameSectionOffset < _elfSectionHeaderEntries.Count)
             {
-                section.Name = ReadStringToNull(pSectionHeaderStringTable + section.NameOffset);
-                LibLogger.VerboseNewline($"\t\t-Name for section at 0x{section.RawAddress:X} is {section.Name}");
+                var pSectionHeaderStringTable = _elfSectionHeaderEntries[_elfHeader.SectionNameSectionOffset].RawAddress;
+
+                foreach (var section in _elfSectionHeaderEntries)
+                {
+                    section.Name = ReadStringToNull(pSectionHeaderStringTable + section.NameOffset);
+                    LibLogger.VerboseNewline($"\t\t-Name for section at 0x{section.RawAddress:X} is {section.Name}");
+                }
             }
 
             LibLogger.VerboseNewline($"\tRead {_elfSectionHeaderEntries.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");

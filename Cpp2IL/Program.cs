@@ -6,6 +6,7 @@ using CommandLine;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
+using LibCpp2IL.PE;
 
 namespace Cpp2IL
 {
@@ -132,7 +133,7 @@ namespace Cpp2IL
             KeyFunctionAddresses? keyFunctionAddresses = null;
 
             //We have to always run key function scan (if we can), so that attribute reconstruction can run.
-            if (LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_32 || LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_64)
+            if (LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_32 || LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_64 && LibCpp2IlMain.Binary is PE)
             {
                 Logger.InfoNewline("Running Scan for Known Functions...");
 
