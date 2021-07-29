@@ -96,6 +96,7 @@ namespace Cpp2IL.Core
 
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
         {
+            ResetInternalState();
             ConfigureLib(verbose, allowUserToInputAddresses);
 
             try
@@ -109,6 +110,34 @@ namespace Cpp2IL.Core
                 Console.ReadLine();
                 Environment.Exit(-1);
             }
+        }
+
+        private static void ResetInternalState()
+        {
+            SharedState.VirtualMethodsBySlot.Clear();
+            
+            SharedState.MethodsByAddress.Clear();
+            SharedState.MethodsByIndex.Clear();
+            SharedState.UnmanagedToManagedMethods.Clear();
+            SharedState.ManagedToUnmanagedMethods.Clear();
+            
+            SharedState.GenericParamsByIndex.Clear();
+            
+            SharedState.TypeDefsByIndex.Clear();
+            SharedState.AllTypeDefinitions.Clear();
+            SharedState.ManagedToUnmanagedTypes.Clear();
+            SharedState.UnmanagedToManagedTypes.Clear();
+            
+            SharedState.ConcreteImplementations.Clear();
+            
+            SharedState.UnmanagedToManagedFields.Clear();
+            SharedState.ManagedToUnmanagedFields.Clear();
+            SharedState.FieldsByType.Clear();
+            
+            SharedState.UnmanagedToManagedProperties.Clear();
+            
+            SharedState.AssemblyList.Clear();
+            SharedState.ManagedToUnmanagedAssemblies.Clear();
         }
 
         public static List<AssemblyDefinition> MakeDummyDLLs(bool suppressAttributes = false)
@@ -163,7 +192,6 @@ namespace Cpp2IL.Core
 
             Logger.InfoNewline($"Fixup complete ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
 
-            SharedState.AssemblyList.Clear();
             SharedState.AssemblyList.AddRange(Assemblies);
 
             return Assemblies;
