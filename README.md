@@ -61,6 +61,7 @@ If you do not wish for the output to be coloured, set the Environment Variable `
     - [x] Mathematical subtraction
     - [x] Mathematical addition
     - [x] Some mathematical multiplication
+    - [x] Integer division via magic constant multiplication.
     - [x] Return statements, including returned variables
     - [x] FPU (Floating-Point processor) support for x86_32 games.
     - [x] RGCTX (Runtime Generic Context) Support
@@ -74,8 +75,8 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 
 - [ ] Save generated IL to the actual function body in the Assembly.
 - [ ] Look into adding support for remaining Actions to improve analysis. Some key areas I'm focussing on:
-    - [ ] Integer division via magic constant multiplication.
-    - [ ] Wider support for multiplication (IMUL instructions)
+    - [ ] Wider support for multiplication (IMUL instructions) as well as mathematical operations in general.
+    - [ ] Floating-point-related instructions.
 - [ ] Machine code analysis for ARM instructions (long-term goal, want to do a lot more for x86 instruction set first)
 
 
