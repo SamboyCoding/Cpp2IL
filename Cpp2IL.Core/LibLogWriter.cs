@@ -6,22 +6,22 @@ namespace Cpp2IL.Core
     {
         public override void Info(string message)
         {
-            Logger.Write("Info", "Library", $"{message}", Logger.INFO);
+            Logger.Info($"{message}", "Library");
         }
 
         public override void Warn(string message)
         {
-            Logger.Write("Warn", "Library", $"{message}", Logger.WARN);
+            Logger.Warn($"{message}", "Library");
         }
 
         public override void Error(string message)
         {
-            Logger.Write("Error", "Library", $"{message}", Logger.ERROR);
+            Logger.Error($"{message}", "Library");
         }
 
         public override void Verbose(string message)
         {
-            Logger.Write("Verb", "Library", $"{message}", Logger.VERB);
+            Logger.Verbose($"{message}", "Library");
         }
     }
 }
