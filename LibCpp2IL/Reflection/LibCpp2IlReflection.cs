@@ -8,10 +8,21 @@ namespace LibCpp2IL
     {
         private static readonly Dictionary<(string, string?), Il2CppTypeDefinition> _cachedTypes = new();
         private static readonly Dictionary<string, Il2CppTypeDefinition> _cachedTypesByFullName = new();
-        private static readonly Dictionary<Il2CppTypeDefinition, int> _typeIndices = new();
         
+        private static readonly Dictionary<Il2CppTypeDefinition, int> _typeIndices = new();
         private static readonly Dictionary<Il2CppMethodDefinition, int> _methodIndices = new();
         private static readonly Dictionary<Il2CppFieldDefinition, int> _fieldIndices = new();
+
+        internal static void ResetCaches()
+        {
+            _cachedTypes.Clear();
+            _cachedTypesByFullName.Clear();
+            
+            _typeIndices.Clear();
+            _methodIndices.Clear();
+            _fieldIndices.Clear();
+        }
+
         public static Il2CppTypeDefinition? GetType(string name, string? @namespace = null)
         {
             if (LibCpp2IlMain.TheMetadata == null) return null;
@@ -28,7 +39,7 @@ namespace LibCpp2IL
 
             return _cachedTypes[key];
         }
-        
+
         public static Il2CppTypeDefinition? GetTypeByFullName(string fullName)
         {
             if (LibCpp2IlMain.TheMetadata == null) return null;
@@ -43,7 +54,7 @@ namespace LibCpp2IL
 
             return _cachedTypesByFullName[fullName];
         }
-        
+
 
         public static Il2CppTypeDefinition? GetTypeDefinitionByTypeIndex(int index)
         {
@@ -52,7 +63,7 @@ namespace LibCpp2IL
             if (index >= LibCpp2IlMain.Binary.NumTypes || index < 0) return null;
 
             var type = LibCpp2IlMain.Binary.GetType(index);
-            
+
             return LibCpp2IlMain.TheMetadata.typeDefs[type.data.classIndex];
         }
 
@@ -76,12 +87,12 @@ namespace LibCpp2IL
                 return _typeIndices.GetValueOrDefault(typeDefinition, -1);
             }
         }
-        
+
         // ReSharper disable InconsistentlySynchronizedField
         public static int GetMethodIndexFromMethod(Il2CppMethodDefinition methodDefinition)
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
-            
+
             if (_methodIndices.Count == 0)
             {
                 lock (_methodIndices)
@@ -100,7 +111,7 @@ namespace LibCpp2IL
 
             return _methodIndices.GetValueOrDefault(methodDefinition, -1);
         }
-        
+
         // ReSharper disable InconsistentlySynchronizedField
         public static int GetFieldIndexFromField(Il2CppFieldDefinition fieldDefinition)
         {

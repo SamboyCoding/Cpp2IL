@@ -21,7 +21,7 @@ namespace Cpp2IL.Core
     public static class AttributeRestorer
     {
         private static readonly ConcurrentDictionary<long, MethodDefinition> _attributeCtorsByClassIndex = new ConcurrentDictionary<long, MethodDefinition>();
-        private static readonly TypeDefinition DummyTypeDefForAttributeCache = new TypeDefinition("dummy", "AttributeCache", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
+        internal static readonly TypeDefinition DummyTypeDefForAttributeCache = new TypeDefinition("dummy", "AttributeCache", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
 
         private static readonly ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?> FieldToParameterMappings = new ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?>();
@@ -153,7 +153,19 @@ namespace Cpp2IL.Core
                 //If not, just generate those which we can (no params).
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
 
-            var actions = GetActionsPerformedByGenerator(keyFunctionAddresses, attributeGeneratorAddress, attributesExpected);
+            List<BaseAction> actions;
+            try
+            {
+                actions = GetActionsPerformedByGenerator(keyFunctionAddresses, attributeGeneratorAddress, attributesExpected);
+            }
+            catch (AnalysisExceptionRaisedException e)
+            {
+                //Ignore, fall back
+#if !NO_ATTRIBUTE_RESTORATION_WARNINGS
+                    Logger.WarnNewline($"Attribute generator for {warningName} of {module.Name} threw exception during analysis: {e.Message}. Falling back to simple generation.");
+#endif
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+            }
 
             //What we need to do is grab all the LoadAttributeFromAttributeListAction and resolve those locals
             //Then check for any field writes performed on them or function calls on that instance.
@@ -609,3 +621,4 @@ namespace Cpp2IL.Core
         }
     }
 }
+

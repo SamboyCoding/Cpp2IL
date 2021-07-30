@@ -94,7 +94,6 @@ namespace Cpp2IL.Core
 
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
         {
-            ResetInternalState();
             ConfigureLib(verbose, allowUserToInputAddresses);
 
             try
@@ -134,11 +133,16 @@ namespace Cpp2IL.Core
             
             SharedState.AssemblyList.Clear();
             SharedState.ManagedToUnmanagedAssemblies.Clear();
+            
+            Utils._assignableCache.Clear();
+            Utils._cachedTypeDefsByName.Clear();
+            Utils.primitiveTypeMappings.Clear();
         }
 
         public static List<AssemblyDefinition> MakeDummyDLLs(bool suppressAttributes = false)
         {
             CheckLibInitialized();
+            ResetInternalState();
 
             Logger.InfoNewline("Building assemblies...This may take some time.");
             var start = DateTime.Now;

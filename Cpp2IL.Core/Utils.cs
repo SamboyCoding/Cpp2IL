@@ -36,9 +36,9 @@ namespace Cpp2IL.Core
 #pragma warning restore 8618
         // ReSharper restore NotNullMemberIsNotInitialized
 
-        private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
-        private static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition?, string[]>>();
-        private static readonly Dictionary<(TypeDefinition, TypeReference), bool> _assignableCache = new Dictionary<(TypeDefinition, TypeReference), bool>();
+        internal static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
+        internal static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition?, string[]>>();
+        internal static readonly Dictionary<(TypeDefinition, TypeReference), bool> _assignableCache = new Dictionary<(TypeDefinition, TypeReference), bool>();
 
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
         {

@@ -945,8 +945,14 @@ namespace Cpp2IL.Core.Analysis
                     }
 
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition:
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition loc:
                     //Move generic memory to register - field read.
+                    if (loc.Type == AttributeRestorer.DummyTypeDefForAttributeList || loc.Type == AttributeRestorer.DummyTypeDefForAttributeCache)
+                    {
+                        //Ignore these two - they aren't real, and there was an analysis failure further up.
+                        break;
+                    }
+
                     Analysis.Actions.Add(new FieldToLocalAction(Analysis, instruction));
                     break;
                 case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:

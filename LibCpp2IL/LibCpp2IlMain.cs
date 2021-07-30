@@ -125,6 +125,8 @@ namespace LibCpp2IL
         /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
         public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, int[] unityVersion)
         {
+            LibCpp2IlReflection.ResetCaches();
+            
             var start = DateTime.Now;
             
             LibLogger.InfoNewline("Initializing Metadata...");
