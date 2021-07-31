@@ -412,7 +412,7 @@ namespace Cpp2IL.Core
             var total = AsmAnalyzer.SUCCESSFUL_METHODS + AsmAnalyzer.FAILED_METHODS;
             var successPercent = AsmAnalyzer.SUCCESSFUL_METHODS * 100 / total;
 
-            Logger.InfoNewline($"Overall analysis success rate: {successPercent}% of {total} methods.");
+            Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzer.SUCCESSFUL_METHODS}) of {total} methods.");
         }
 
         public static void PopulateConcreteImplementations()

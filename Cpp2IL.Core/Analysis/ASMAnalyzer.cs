@@ -998,10 +998,20 @@ namespace Cpp2IL.Core.Analysis
                     Analysis.Actions.Add(new AddConstantToRegAction(Analysis, instruction));
                     break;
                 case Mnemonic.Add when type0 == OpKind.Register && type1 == OpKind.Register && r0 != "rsp":
+                    //Add reg, reg
                     Analysis.Actions.Add(new AddRegToRegAction(Analysis, instruction));
                     break;
                 case Mnemonic.Sub when type0 == OpKind.Register && type1 == OpKind.Register && r0 != "rsp":
+                    //Sub reg, reg
                     Analysis.Actions.Add(new SubtractRegFromRegAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Mulss when type0 == OpKind.Register && type1 == OpKind.Memory && memR == "rip":
+                    //mulss reg, [rip+0xblah]
+                    Analysis.Actions.Add(new MultiplyRegByGlobalAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Divss when type0 == OpKind.Register && type1 == OpKind.Memory && memR == "rip":
+                    //divss reg, [rip+0xblah]
+                    Analysis.Actions.Add(new DivideRegByGlobalAction(Analysis, instruction));
                     break;
                 case Mnemonic.Xor:
                 case Mnemonic.Xorps:

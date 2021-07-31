@@ -132,6 +132,9 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             {
                 var dest = _parameterDestRegList.RemoveAndReturn(0);
 
+                if (arg.ParameterType.ShouldBeInFloatingPointRegister())
+                    dest = Utils.GetFloatingRegister(dest);
+
                 var name = arg.Name;
                 if (string.IsNullOrWhiteSpace(name))
                     name = arg.Name = $"cpp2il__autoParamName__idx_{numParamsAdded}";
