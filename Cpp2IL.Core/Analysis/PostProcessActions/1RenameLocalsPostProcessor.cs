@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
@@ -6,6 +7,7 @@ using Mono.Cecil;
 namespace Cpp2IL.Core.Analysis.PostProcessActions
 {
     public class RenameLocalsPostProcessor : PostProcessor {
+
         public override void PostProcess(MethodAnalysis analysis, MethodDefinition definition)
         {
             var countDict = new Dictionary<string, int>();
@@ -53,12 +55,22 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 {
                     nameBase = aertpa.LocalMade.Type!.Name;
                     localDefinition = aertpa.LocalMade;
+                } else if (action is AllocateInstanceAction {LocalReturned: { }, TypeCreated: { }} aia)
+                {
+                    nameBase = aia.TypeCreated.Name;
+                    localDefinition = aia.LocalReturned;
                 }
                 else
                     continue;
                 
                 //lower first character
                 nameBase = $"{char.ToLower(nameBase[0])}{nameBase[1..]}";
+
+                if (nameBase.Contains("`"))
+                    nameBase = nameBase[..nameBase.IndexOf("`", StringComparison.Ordinal)];
+
+                if (nameBase.EndsWith("[]"))
+                    nameBase = nameBase[..^2] + "Array";
 
                 if (!countDict.ContainsKey(nameBase))
                 {

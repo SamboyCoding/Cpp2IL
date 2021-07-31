@@ -45,21 +45,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (LocalReturned == null || TypeCreated == null)
                 throw new TaintedInstructionException("Local being returned, or type being allocated, couldn't be determined.");
             
-            var managedConstructorCall = (CallManagedFunctionAction?) context.Actions.Skip(context.Actions.IndexOf(this)).FirstOrDefault(i => i is CallManagedFunctionAction);
+            var managedConstructorCall = (AbstractCallAction?) context.Actions.Skip(context.Actions.IndexOf(this)).FirstOrDefault(i => i is AbstractCallAction);
 
             if (managedConstructorCall == null)
                 throw new TaintedInstructionException($"Cannot find the call to the constructor for instance allocation, of type {TypeCreated} (Is Value: {TypeCreated?.IsValueType})");
 
             //Next call should be to a constructor.
             if (managedConstructorCall.ManagedMethodBeingCalled?.Name != ".ctor")
-                throw new TaintedInstructionException();
+                throw new TaintedInstructionException($"Managed method being called is {managedConstructorCall.ManagedMethodBeingCalled?.Name}, not a ctor.");
 
             var result = managedConstructorCall.GetILToLoadParams(context, processor, false);
 
             var ctorToCall = managedConstructorCall.ManagedMethodBeingCalled!;
             
             if (ctorToCall.DeclaringType != TypeCreated)
-                ctorToCall = TypeCreated?.Resolve()?.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == ctorToCall.Parameters.Count) ?? throw new TaintedInstructionException();
+                ctorToCall = TypeCreated?.Resolve()?.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == ctorToCall.Parameters.Count) ?? throw new TaintedInstructionException($"Could not resolve a constructor with {ctorToCall.Parameters.Count} parameters.");
 
             if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
                 ctorToCall = ctorToCall.MakeGeneric(git.GenericArguments.ToArray());

@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using System;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -20,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            return Array.Empty<Mono.Cecil.Cil.Instruction>();
         }
 
         public override string ToPsuedoCode()
