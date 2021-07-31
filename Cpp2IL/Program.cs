@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
@@ -7,6 +8,7 @@ using Cpp2IL.Core;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
 using LibCpp2IL.PE;
+using Mono.Cecil;
 
 namespace Cpp2IL
 {
@@ -180,7 +182,10 @@ namespace Cpp2IL
             if (assemblyCsharp == null)
                 return;
 
-            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), false, doIlToAsm, rootDir);
+            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), false);
+            
+            if(doIlToAsm)
+                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {assemblyCsharp});
         }
     }
 }
