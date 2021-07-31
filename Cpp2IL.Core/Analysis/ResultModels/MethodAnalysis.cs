@@ -51,6 +51,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public Stack<IAnalysedOperand> FloatingPointStack = new Stack<IAnalysedOperand>();
 
         public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
+        public TypeReference ReturnType => _method?.ReturnType ?? Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
 
         //For analysing cpp-only methods, like attribute generators
         internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions, KeyFunctionAddresses keyFunctionAddresses)
