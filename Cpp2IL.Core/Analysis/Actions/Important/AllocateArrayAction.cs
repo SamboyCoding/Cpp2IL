@@ -64,7 +64,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             return new []
             {
                 processor.Create(OpCodes.Ldc_I4, sizeAllocated),
-                processor.Create(OpCodes.Newarr, arrayType.ElementType),
+                processor.Create(OpCodes.Newarr, processor.ImportReference(arrayType.ElementType)),
                 processor.Create(OpCodes.Stloc, _localWritten.Variable)
             };
         }

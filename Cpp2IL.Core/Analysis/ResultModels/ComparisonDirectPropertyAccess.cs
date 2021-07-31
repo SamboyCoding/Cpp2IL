@@ -24,7 +24,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             var ret = new List<Instruction>();
             
             ret.AddRange(localAccessedOn.GetILToLoad(context, processor));
-            ret.Add(processor.Create(OpCodes.Call, propertyAccessed.GetMethod));
+            ret.Add(processor.Create(OpCodes.Call, processor.ImportReference(propertyAccessed.GetMethod)));
 
             return ret.ToArray();
         }

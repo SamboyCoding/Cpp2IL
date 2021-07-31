@@ -39,7 +39,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             
             return new[]
             {
-                processor.Create(OpCodes.Ldsfld, FieldRead),
+                processor.Create(OpCodes.Ldsfld, processor.ImportReference(FieldRead)),
                 processor.Create(OpCodes.Stloc, LocalWritten.Variable)
             };
         }

@@ -103,7 +103,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             
             var result = GetILToLoadParams(context, processor);
 
-            result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, ManagedMethodBeingCalled));
+            result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, processor.ImportReference(ManagedMethodBeingCalled.Resolve())));
 
             if (ManagedMethodBeingCalled.ReturnType.FullName == "System.Void")
                 return result.ToArray();

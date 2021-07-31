@@ -53,7 +53,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             ret.AddRange(_opRead.GetILToLoad(context, processor));
             
             //Store in array
-            ret.Add(processor.Create(OpCodes.Stelem_Any, _elementType));
+            ret.Add(processor.Create(OpCodes.Stelem_Any, processor.ImportReference(_elementType!)));
 
             return ret.ToArray();
         }

@@ -22,6 +22,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public List<BaseAction> Actions = new List<BaseAction>();
         public readonly List<ulong> IdentifiedJumpDestinationAddresses = new List<ulong>();
         public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
+        public readonly Dictionary<BaseAction, List<Instruction>> JumpTargetsToFixByAction = new Dictionary<BaseAction, List<Instruction>>();
 
         public event PtrConsumer OnExpansionRequested;
 
@@ -52,6 +53,16 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
         public TypeReference ReturnType => _method?.ReturnType ?? Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
+
+        private readonly List<Type> ActionsWhichGenerateNoIL = new List<Type>
+        {
+            typeof(GoToMarkerAction),
+            typeof(GoToDestinationMarker),
+            typeof(EndIfMarkerAction),
+            typeof(ElseMarkerAction),
+            typeof(EndWhileMarkerAction),
+            typeof(ConstantToRegAction)
+        };
 
         //For analysing cpp-only methods, like attribute generators
         internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions, KeyFunctionAddresses keyFunctionAddresses)
@@ -510,6 +521,21 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 throw new TaintedInstructionException($"Local {localDefinition.Name} is a variable but it has been stripped out. Are you missing a call to RegisterUsedLocal?");
 
             return processor.Create(OpCodes.Ldloc, localDefinition.Variable);
+        }
+
+        public void RegisterInstructionTargetToSwapOut(Instruction jumpInstruction, ulong jumpTarget)
+        {
+            var target = Actions
+                .Where(a => !ActionsWhichGenerateNoIL.Contains(a.GetType()))
+                .FirstOrDefault(a => a.AssociatedInstruction.IP >= jumpTarget);
+            
+            if(target == null)
+                return;
+
+            if (!JumpTargetsToFixByAction.ContainsKey(target))
+                JumpTargetsToFixByAction[target] = new List<Instruction>();
+            
+            JumpTargetsToFixByAction[target].Add(jumpInstruction);
         }
     }
 }

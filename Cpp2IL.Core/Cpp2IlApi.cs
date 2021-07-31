@@ -290,7 +290,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
+        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel, bool doIlToAsm = false, string? pathToSaveAsmTo = null)
         {
             CheckLibInitialized();
 
@@ -413,6 +413,9 @@ namespace Cpp2IL.Core
             var successPercent = AsmAnalyzer.SUCCESSFUL_METHODS * 100 / total;
 
             Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzer.SUCCESSFUL_METHODS}) of {total} methods.");
+            
+            if(doIlToAsm && pathToSaveAsmTo != null)
+                SaveAssemblies(pathToSaveAsmTo, new List<AssemblyDefinition> {assembly});
         }
 
         public static void PopulateConcreteImplementations()

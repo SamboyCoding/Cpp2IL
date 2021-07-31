@@ -64,7 +64,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
                 ctorToCall = ctorToCall.MakeGeneric(git.GenericArguments.ToArray());
 
-            result.Add(processor.Create(OpCodes.Newobj, ctorToCall));
+            result.Add(processor.Create(OpCodes.Newobj, processor.ImportReference(ctorToCall)));
             
             result.Add(processor.Create(OpCodes.Stloc, LocalReturned.Variable));
 

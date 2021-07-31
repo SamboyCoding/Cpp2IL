@@ -225,43 +225,85 @@ namespace Cpp2IL.Core.Analysis
             var body = _methodDefinition!.Body;
             var processor = body.GetILProcessor();
 
+            var originalBody = body.Instructions.ToList();
+            
+            processor.Clear();
+
             builder.Append("Generated IL:\n\t");
 
-            foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null))
+            var success = true;
+
+            try
             {
-                localDefinition.Variable = new VariableDefinition(localDefinition.Type);
-                body.Variables.Add(localDefinition.Variable);
+                foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null && localDefinition.Type != null))
+                {
+                    localDefinition.Variable = new VariableDefinition(processor.ImportReference(localDefinition.Type!, _methodDefinition));
+                    body.Variables.Add(localDefinition.Variable);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                Logger.WarnNewline($"Skipping IL Generation for {_methodDefinition}, as one of its locals is invalid", "Analysis");
+                success = false;
             }
 
-            var success = true;
-            foreach (var action in Analysis.Actions.Where(i => i.IsImportant()))
+            if (success)
             {
-                try
+                foreach (var action in Analysis.Actions.Where(i => i.IsImportant()))
                 {
-                    var il = action.ToILInstructions(Analysis, processor);
-                    builder.Append(string.Join("\n\t", il.AsEnumerable()))
-                        .Append("\n\t");
+                    try
+                    {
+                        var il = action.ToILInstructions(Analysis, processor);
+
+                        if (Analysis.JumpTargetsToFixByAction.ContainsKey(action))
+                        {
+                            var first = il.First();
+                            foreach (var instruction in Analysis.JumpTargetsToFixByAction[action])
+                            {
+                                instruction.Operand = first;
+                            }
+                        }
+
+                        foreach (var instruction in il)
+                        {
+                            processor.Append(instruction);
+                        }
+
+                        builder.Append(string.Join("\n\t", il.AsEnumerable()))
+                            .Append("\n\t");
+                    }
+                    catch (NotImplementedException)
+                    {
+                        builder.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
+                        success = false;
+                        break;
+                    }
+                    catch (TaintedInstructionException e)
+                    {
+                        var message = e.ActualMessage ?? "No further info";
+                        builder.Append($"Action of type {action.GetType()} is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
+                        success = false;
+                        break;
+                    }
+                    catch (Exception e)
+                    {
+                        builder.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
+                        Logger.WarnNewline($"Exception generating IL for {_methodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
+                        success = false;
+                        break;
+                    }
                 }
-                catch (NotImplementedException)
-                {
-                    builder.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
-                    success = false;
-                    break;
-                }
-                catch (TaintedInstructionException e)
-                {
-                    var message = e.ActualMessage ?? "No further info";
-                    builder.Append($"Action of type {action.GetType()} is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
-                    success = false;
-                    break;
-                }
-                catch (Exception e)
-                {
-                    builder.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
-                    Logger.WarnNewline($"Exception generating IL for {_methodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
-                    success = false;
-                    break;
-                }
+            }
+
+            if (body.Variables.Any(l => l.VariableType is GenericParameter {Position: -1}))
+                //don't save to body if any locals are screwed.
+                success = false;
+
+            if (!success)
+            {
+                body.Variables.Clear();
+                processor.Clear();
+                originalBody.ForEach(processor.Append);
             }
 
             if (isGenuineMethod)

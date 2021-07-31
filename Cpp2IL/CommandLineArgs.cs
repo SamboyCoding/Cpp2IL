@@ -36,6 +36,12 @@ namespace Cpp2IL
 
         [Option("verbose", Required = false, HelpText = "Enable Verbose Logging.")]
         public bool Verbose { get; set; }
+        
+        [Option("experimental-enable-il-to-assembly-please")]
+        public bool EnableIlToAsm { get; set; }
+        
+        [Option("suppress-attributes")]
+        public bool SuppressAttributes { get; set; }
 
         internal bool AreForceOptionsValid
         {

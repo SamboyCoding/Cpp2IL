@@ -65,7 +65,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             ret.AddRange(_offsetLocal.GetILToLoad(context, processor));
 
             //Pop offset and array, push element
-            ret.Add(processor.Create(OpCodes.Ldelem_Any, _elemType));
+            ret.Add(processor.Create(OpCodes.Ldelem_Any, processor.ImportReference(_elemType!)));
             
             //Store item in local
             ret.Add(processor.Create(OpCodes.Stloc, LocalMade.Variable));

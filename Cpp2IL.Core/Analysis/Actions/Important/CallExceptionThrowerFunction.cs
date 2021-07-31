@@ -127,14 +127,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 return new[]
                 {
                     processor.Create(OpCodes.Ldstr, $"Exception of type {_exceptionType.FullName}, but couldn't find a no-arg ctor"),
-                    processor.Create(OpCodes.Newobj, exceptionCtor),
+                    processor.Create(OpCodes.Newobj, processor.ImportReference(exceptionCtor)),
                     processor.Create(OpCodes.Throw)
                 };
             }
 
             return new[]
             {
-                processor.Create(OpCodes.Newobj, ctor),
+                processor.Create(OpCodes.Newobj, processor.ImportReference(ctor)),
                 processor.Create(OpCodes.Throw)
             };
         }

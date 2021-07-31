@@ -18,7 +18,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             var ret = new List<Instruction>();
             
             ret.AddRange(localAccessedOn.GetILToLoad(context, processor));
-            ret.Add(processor.Create(OpCodes.Ldfld, fieldAccessed));
+            ret.Add(processor.Create(OpCodes.Ldfld, processor.ImportReference(fieldAccessed)));
 
             return ret.ToArray();
         }

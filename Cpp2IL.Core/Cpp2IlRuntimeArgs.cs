@@ -14,6 +14,8 @@
         public bool EnableAnalysis;
         public bool EnableMetadataGeneration;
         public bool EnableRegistrationPrompts;
+        public bool EnableIlToAsm;
+        public bool SuppressAttributes;
 
         public bool EnableVerboseLogging;
 

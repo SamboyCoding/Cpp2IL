@@ -38,7 +38,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             else
                 ret.Add(context.GetILToLoad((LocalDefinition) _sourceOperand, processor));
             
-            ret.Add(processor.Create(OpCodes.Stsfld, _theField));
+            ret.Add(processor.Create(OpCodes.Stsfld, processor.ImportReference(_theField)));
 
             return ret.ToArray();
         }

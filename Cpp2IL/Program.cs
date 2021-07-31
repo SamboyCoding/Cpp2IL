@@ -78,6 +78,13 @@ namespace Cpp2IL
             result.EnableMetadataGeneration = !options.SkipMetadataTextFiles;
             result.EnableRegistrationPrompts = !options.DisableRegistrationPrompts;
             result.EnableVerboseLogging = options.Verbose;
+            result.EnableIlToAsm = options.EnableIlToAsm;
+            result.SuppressAttributes = options.SuppressAttributes;
+
+            if (result.EnableIlToAsm)
+            {
+                Logger.WarnNewline("!!!!!!!!!!You have enabled IL-To-ASM. If this breaks, it breaks.!!!!!!!!!!");
+            }
 
             result.AnalysisLevel = (AnalysisLevel) options.AnalysisLevel;
             
@@ -131,7 +138,7 @@ namespace Cpp2IL
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableVerboseLogging, runtimeArgs.EnableRegistrationPrompts);
 
-            Cpp2IlApi.MakeDummyDLLs();
+            Cpp2IlApi.MakeDummyDLLs(runtimeArgs.SuppressAttributes);
 
             if (runtimeArgs.EnableMetadataGeneration)
                 Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
@@ -160,20 +167,20 @@ namespace Cpp2IL
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
             if (runtimeArgs.EnableAnalysis) 
-                DoAssemblyCSharpAnalysis(runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!);
+                DoAssemblyCSharpAnalysis(runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm);
 
             Logger.InfoNewline("Done.");
             return 0;
         }
 
-        private static void DoAssemblyCSharpAnalysis(AnalysisLevel analysisLevel, string rootDir, KeyFunctionAddresses keyFunctionAddresses)
+        private static void DoAssemblyCSharpAnalysis(AnalysisLevel analysisLevel, string rootDir, KeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm)
         {
             var assemblyCsharp = Cpp2IlApi.GetAssemblyByName("Assembly-CSharp");
 
             if (assemblyCsharp == null)
                 return;
 
-            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), false);
+            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), false, doIlToAsm, rootDir);
         }
     }
 }

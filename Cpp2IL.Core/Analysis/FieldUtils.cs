@@ -163,7 +163,7 @@ namespace Cpp2IL.Core.Analysis
                 {
                     var ret = new List<Instruction>
                     {
-                        processor.Create(OpCodes.Ldfld, ImpliedFieldLoad)
+                        processor.Create(OpCodes.Ldfld, processor.ImportReference(ImpliedFieldLoad!))
                     };
                     
                     ret.AddRange(NextChainLink.GetILToLoad(processor));
@@ -175,7 +175,7 @@ namespace Cpp2IL.Core.Analysis
 
                 return new List<Instruction>
                 {
-                    processor.Create(OpCodes.Ldfld, FinalLoadInChain)
+                    processor.Create(OpCodes.Ldfld, processor.ImportReference(FinalLoadInChain))
                 };
             }
 

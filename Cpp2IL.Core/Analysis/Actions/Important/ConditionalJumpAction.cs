@@ -172,7 +172,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 ret.AddRange(associatedCompare.ArgumentTwo.GetILToLoad(context, processor));
 
             //Will have to be swapped to correct one in post-processing.
-            ret.Add(processor.Create(GetJumpOpcode(), dummyTarget));
+            var jumpInstruction = processor.Create(GetJumpOpcode(), dummyTarget);
+            ret.Add(jumpInstruction);
+
+            context.RegisterInstructionTargetToSwapOut(jumpInstruction, JumpTarget);
 
             return ret.ToArray();
         }

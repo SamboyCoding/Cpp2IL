@@ -42,7 +42,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             ret.AddRange(TheArray.GetILToLoad(context, processor));
 
             //Call get_Length
-            ret.Add(processor.Create(OpCodes.Call, GetLengthDef));
+            ret.Add(processor.Create(OpCodes.Call, processor.ImportReference(GetLengthDef)));
             
             //Store length in local
             ret.Add(processor.Create(OpCodes.Stloc, LocalMade.Variable));

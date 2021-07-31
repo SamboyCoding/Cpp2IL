@@ -6,6 +6,7 @@ using System.Text;
 using Iced.Intel;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
 using Mono.Collections.Generic;
 
 namespace Cpp2IL.Core
@@ -142,5 +143,11 @@ namespace Cpp2IL.Core
             genericParameter.Attributes = (GenericParameterAttributes) flags;
             return genericParameter;
         }
+
+        public static TypeReference ImportReference(this ILProcessor processor, TypeReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference, context);
+        
+        public static MethodReference ImportReference(this ILProcessor processor, MethodReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);
+        
+        public static FieldReference ImportReference(this ILProcessor processor, FieldReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);
     }
 }

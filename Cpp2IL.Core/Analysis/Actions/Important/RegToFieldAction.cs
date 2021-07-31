@@ -63,7 +63,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             var f = FieldWritten;
             while (f.NextChainLink != null)
             {
-                ret.Add(processor.Create(OpCodes.Ldfld, f.ImpliedFieldLoad));
+                ret.Add(processor.Create(OpCodes.Ldfld, processor.ImportReference(f.ImpliedFieldLoad!)));
                 f = f.NextChainLink;
             }
             
@@ -72,7 +72,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (f.FinalLoadInChain == null)
                 throw new TaintedInstructionException("Final load in chain is null");
             
-            ret.Add(processor.Create(OpCodes.Stfld, f.FinalLoadInChain));
+            ret.Add(processor.Create(OpCodes.Stfld, processor.ImportReference(f.FinalLoadInChain)));
             
             
             return ret.ToArray();

@@ -89,13 +89,13 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 };
 
             if (Type == typeof(MethodReference) && Value is MethodReference reference)
-                return new[] {ilProcessor.Create(OpCodes.Ldftn, reference)};
+                return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportReference(reference))};
             
             if (Type == typeof(TypeReference) && Value is TypeReference typeReference)
-                return new[] {ilProcessor.Create(OpCodes.Ldtoken, typeReference)};
+                return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportReference(typeReference))};
 
             if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)
-                return new[] {ilProcessor.Create(OpCodes.Ldtoken, fieldDefinition)};
+                return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportReference(fieldDefinition))};
 
             throw new TaintedInstructionException($"ConstantDefinition: Don't know how to get IL to load a {Type}");
         }
