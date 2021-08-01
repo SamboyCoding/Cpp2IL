@@ -9,6 +9,8 @@
         public int[] UnityVersion;
         public string PathToAssembly;
         public string PathToMetadata;
+
+        public string AssemblyToRunAnalysisFor;
         
         //Feature flags
         public bool EnableAnalysis;
@@ -16,6 +18,7 @@
         public bool EnableRegistrationPrompts;
         public bool EnableIlToAsm;
         public bool SuppressAttributes;
+        public bool Parallel;
 
         public bool EnableVerboseLogging;
 

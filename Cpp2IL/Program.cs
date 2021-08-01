@@ -82,6 +82,8 @@ namespace Cpp2IL
             result.EnableVerboseLogging = options.Verbose;
             result.EnableIlToAsm = options.EnableIlToAsm;
             result.SuppressAttributes = options.SuppressAttributes;
+            result.Parallel = options.Parallel;
+            result.AssemblyToRunAnalysisFor = options.RunAnalysisForAssembly;
 
             if (result.EnableIlToAsm)
             {
@@ -169,20 +171,20 @@ namespace Cpp2IL
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
             if (runtimeArgs.EnableAnalysis) 
-                DoAssemblyCSharpAnalysis(runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm);
+                DoAssemblyCSharpAnalysis(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel);
 
             Logger.InfoNewline("Done.");
             return 0;
         }
 
-        private static void DoAssemblyCSharpAnalysis(AnalysisLevel analysisLevel, string rootDir, KeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm)
+        private static void DoAssemblyCSharpAnalysis(string assemblyName, AnalysisLevel analysisLevel, string rootDir, KeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel)
         {
-            var assemblyCsharp = Cpp2IlApi.GetAssemblyByName("Assembly-CSharp");
+            var assemblyCsharp = Cpp2IlApi.GetAssemblyByName(assemblyName);
 
             if (assemblyCsharp == null)
                 return;
 
-            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), false);
+            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), parallel);
             
             if(doIlToAsm)
                 Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {assemblyCsharp});

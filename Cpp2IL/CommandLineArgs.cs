@@ -40,8 +40,14 @@ namespace Cpp2IL
         [Option("experimental-enable-il-to-assembly-please")]
         public bool EnableIlToAsm { get; set; }
         
-        [Option("suppress-attributes")]
+        [Option("suppress-attributes", HelpText = "Suppress generation of Cpp2ILInjected attributes.")]
         public bool SuppressAttributes { get; set; }
+
+        [Option("run-analysis-for-assembly", HelpText = "Specify the name of the assembly (without .dll) to run analysis for.")]
+        public string RunAnalysisForAssembly { get; set; } = "Assembly-CSharp";
+
+        [Option("parallel", HelpText = "Run analysis in parallel. Might break things.")]
+        public bool Parallel { get; set; }
 
         internal bool AreForceOptionsValid
         {
