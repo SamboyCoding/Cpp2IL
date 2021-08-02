@@ -509,12 +509,13 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public Instruction GetILToLoad(LocalDefinition localDefinition, ILProcessor processor)
         {
+            if(localDefinition.ParameterDefinition != null)
+                return processor.Create(OpCodes.Ldarg, localDefinition.ParameterDefinition);
+            
             if (FunctionArgumentLocals.Contains(localDefinition))
             {
                 if (localDefinition.ParameterDefinition == null)
                     throw new TaintedInstructionException($"Local {localDefinition.Name} is a function parameter but is missing its parameter definition");
-                
-                return processor.Create(OpCodes.Ldarg, localDefinition.ParameterDefinition);
             }
 
             if (localDefinition.Variable == null)

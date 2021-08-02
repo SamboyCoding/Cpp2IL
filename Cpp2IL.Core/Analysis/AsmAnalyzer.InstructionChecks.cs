@@ -364,13 +364,13 @@ namespace Cpp2IL.Core.Analysis
                         Analysis.Actions.Add(new ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     return;
                 }
-                case Mnemonic.Lea when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
-                case Mnemonic.Lea when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0:
-                case Mnemonic.Mov when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP:
-                case Mnemonic.Mov when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryDisplacement64 != 0 && instruction.MemoryBase == Register.None:
+                case Mnemonic.Lea when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Mov when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Lea when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0 && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Mov when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0 && instruction.MemoryIndex == Register.None:
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
-                    var globalAddress = _cppAssembly.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+                    var globalAddress = instruction.MemoryDisplacement64;
                     if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global)
                     {
                         //Have a global here.

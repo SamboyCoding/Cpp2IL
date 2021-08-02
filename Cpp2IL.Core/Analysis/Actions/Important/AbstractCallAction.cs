@@ -103,7 +103,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             
             var result = GetILToLoadParams(context, processor);
 
-            result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, processor.ImportReference(ManagedMethodBeingCalled.Resolve())));
+            var toCall = ManagedMethodBeingCalled;
+            if (ManagedMethodBeingCalled.HasGenericParameters && !ManagedMethodBeingCalled.IsGenericInstance)
+                toCall = ManagedMethodBeingCalled.Resolve();
+            if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter))
+                toCall = ManagedMethodBeingCalled.Resolve();
+
+            result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, processor.ImportReference(toCall)));
 
             if (ManagedMethodBeingCalled.ReturnType.FullName == "System.Void")
                 return result.ToArray();
@@ -191,7 +197,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         protected void RegisterLocals()
         {
-            Arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o));
+            Arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o!));
             if (InstanceBeingCalledOn != null)
                 RegisterUsedLocal(InstanceBeingCalledOn);
         }

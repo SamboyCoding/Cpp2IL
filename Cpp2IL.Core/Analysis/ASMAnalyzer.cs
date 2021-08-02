@@ -226,6 +226,7 @@ namespace Cpp2IL.Core.Analysis
             var processor = body.GetILProcessor();
 
             var originalBody = body.Instructions.ToList();
+            var originalVariables = body.Variables.ToList();
             
             processor.Clear();
 
@@ -233,18 +234,20 @@ namespace Cpp2IL.Core.Analysis
 
             var success = true;
 
-            try
+            foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null && localDefinition.Type != null))
             {
-                foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null && localDefinition.Type != null))
+                try
                 {
                     localDefinition.Variable = new VariableDefinition(processor.ImportReference(localDefinition.Type!, _methodDefinition));
                     body.Variables.Add(localDefinition.Variable);
                 }
-            }
-            catch (InvalidOperationException)
-            {
-                Logger.WarnNewline($"Skipping IL Generation for {_methodDefinition}, as one of its locals is invalid", "Analysis");
-                success = false;
+                catch (InvalidOperationException)
+                {
+                    Logger.WarnNewline($"Skipping IL Generation for {_methodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {localDefinition.Type}, which is invalid for use in a variable.", "Analysis");
+                    builder.Append($"IL Generation Skipped due to invalid local {localDefinition.Name} of type {localDefinition.Type}\n\t");
+                    success = false;
+                    break;
+                }
             }
 
             if (success)
@@ -303,6 +306,7 @@ namespace Cpp2IL.Core.Analysis
             {
                 body.Variables.Clear();
                 processor.Clear();
+                originalVariables.ForEach(body.Variables.Add);
                 originalBody.ForEach(processor.Append);
             }
 

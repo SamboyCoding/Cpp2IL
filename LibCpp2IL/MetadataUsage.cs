@@ -189,6 +189,23 @@ namespace LibCpp2IL
             return $"Metadata Usage {{type={Type}, Value={Value}}}";
         }
 
+        public bool IsValid
+        {
+            get
+            {
+                try
+                {
+                    var _ = Value;
+                    return true;
+                }
+                catch (Exception)
+                {
+                    return false;
+                }
+            }
+        }
+        
+
         public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address)
         {
             var encodedType = encoded & 0xE000_0000;

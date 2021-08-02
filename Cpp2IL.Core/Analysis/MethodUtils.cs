@@ -404,6 +404,15 @@ namespace Cpp2IL.Core.Analysis
 
         public static IAnalysedOperand? GetMethodInfoArg(MethodReference managedMethodBeingCalled, MethodAnalysis context)
         {
+            if (LibCpp2IlMain.Binary!.is32Bit)
+            {
+                //Already should have popped off all the arguments, just peek-and-pop one more
+                if (context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _})
+                    return context.Stack.Pop();
+
+                return null;
+            }
+            
             var paramIdx = managedMethodBeingCalled.Parameters.Count;
 
             if (managedMethodBeingCalled.HasThis)

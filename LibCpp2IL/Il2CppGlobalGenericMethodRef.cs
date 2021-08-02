@@ -27,7 +27,7 @@ namespace LibCpp2IL
             sb.Append(".").Append(baseMethod?.Name);
             
             if(methodGenericParams.Length > 0)
-                sb.Append("<").Append(string.Join(", ", methodGenericParams.GetEnumerator())).Append(">");
+                sb.Append("<").Append(string.Join(", ", methodGenericParams.AsEnumerable())).Append(">");
 
             return sb.ToString();
         }

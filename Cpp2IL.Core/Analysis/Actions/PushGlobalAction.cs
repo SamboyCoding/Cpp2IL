@@ -1,4 +1,6 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using System;
+using System.Linq;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -37,6 +39,42 @@ namespace Cpp2IL.Core.Analysis.Actions
                 case MetadataUsageType.MethodDef:
                     var methodDefinition = SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
                     context.Stack.Push(context.MakeConstant(typeof(MethodDefinition), methodDefinition));
+                    break;
+                case MetadataUsageType.MethodRef:
+                    var unmanagedReference = usage.AsGenericMethodRef();
+                    
+                    var managedMethodRef = unmanagedReference.baseMethod.AsManaged() as MethodReference;
+
+                    if (unmanagedReference.methodGenericParams.Length > 0)
+                    {
+                        var methodGParams = unmanagedReference.methodGenericParams
+                            .Select(data => Utils.TryResolveTypeReflectionData(data, managedMethodRef))
+                            .ToList();
+
+                        if (methodGParams.Any(g => g == null))
+                            break;
+
+                        var gim = new GenericInstanceMethod(managedMethodRef);
+                        methodGParams.ForEach(gim.GenericArguments.Add);
+                        managedMethodRef = gim;
+                    }
+
+                    var managedTypeRef = SharedState.UnmanagedToManagedTypes[unmanagedReference.declaringType] as TypeReference;
+                    if (unmanagedReference.typeGenericParams.Length > 0)
+                    {
+                        var typeGParams = unmanagedReference.typeGenericParams
+                            .Select(data => Utils.TryResolveTypeReflectionData(data, managedTypeRef))
+                            .ToList();
+
+                        if (typeGParams.Any(g => g == null))
+                            break;
+
+                        var git = new GenericInstanceType(managedTypeRef);
+                        typeGParams.ForEach(git.GenericArguments.Add);
+                        managedTypeRef = git;
+                    }
+                    
+                    context.Stack.Push(context.MakeConstant(typeof(GenericMethodReference), new GenericMethodReference(managedTypeRef, managedMethodRef)));
                     break;
                 case MetadataUsageType.FieldInfo:
                     var fieldDefinition = SharedState.UnmanagedToManagedFields[usage.AsField()];
