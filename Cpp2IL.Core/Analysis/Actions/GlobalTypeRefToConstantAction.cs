@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public GlobalTypeRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var globalAddress = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var globalAddress = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             var typeData = LibCpp2IlMain.GetTypeGlobalByAddress(globalAddress);
 
             if (typeData == null) return;

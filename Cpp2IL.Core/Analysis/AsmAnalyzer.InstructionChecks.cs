@@ -47,38 +47,17 @@ namespace Cpp2IL.Core.Analysis
                     Analysis.Actions.Add(new PushRegisterAction(Analysis, instruction));
                     break;
                 case Mnemonic.Push when _cppAssembly.is32Bit && instruction.Op0Kind == OpKind.Memory && memOffset != 0 && instruction.MemoryBase == Register.None:
-                {
-                    //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
-                    var globalAddress = memOffset;
-                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global)
-                    {
-                        //Have a global here.
-                        switch (global.Type)
-                        {
-                            case MetadataUsageType.Type:
-                            case MetadataUsageType.TypeInfo:
-                                Analysis.Actions.Add(new GlobalTypeRefToConstantAction(Analysis, instruction));
-                                break;
-                            case MetadataUsageType.MethodDef:
-                                Analysis.Actions.Add(new GlobalMethodDefToConstantAction(Analysis, instruction));
-                                break;
-                            case MetadataUsageType.MethodRef:
-                                Analysis.Actions.Add(new GlobalMethodRefToConstantAction(Analysis, instruction));
-                                break;
-                            case MetadataUsageType.FieldInfo:
-                                Analysis.Actions.Add(new GlobalFieldDefToConstantAction(Analysis, instruction));
-                                break;
-                            case MetadataUsageType.StringLiteral:
-                                Analysis.Actions.Add(new GlobalStringRefToConstantAction(Analysis, instruction));
-                                break;
-                        }
-                    }
-
-                    break;
-                }
                 case Mnemonic.Push when _cppAssembly.is32Bit && instruction.Op0Kind.IsImmediate() && LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(instruction.Immediate32, out _):
                 {
-                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.Immediate32));
+                    //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
+                    var globalAddress = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : memOffset;
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global)
+                    {
+                        Analysis.Actions.Add(new PushGlobalAction(Analysis, instruction));
+                        break;
+                    }
+
+                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
                     if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
                     {
                         // if (reg != "rsp")

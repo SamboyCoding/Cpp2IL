@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public PushGlobalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
-            var offset = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var offset = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             MetadataUsage? usage;
             if (LibCpp2IlMain.GetAnyGlobalByAddress(offset) is { } globalIdentifier)
             {
