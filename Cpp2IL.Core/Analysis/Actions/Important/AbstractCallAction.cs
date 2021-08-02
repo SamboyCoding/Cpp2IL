@@ -108,6 +108,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 toCall = ManagedMethodBeingCalled.Resolve();
             if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter))
                 toCall = ManagedMethodBeingCalled.Resolve();
+            
+            if(ManagedMethodBeingCalled is GenericInstanceMethod gim2)
+                gim2.GenericArguments.ToList().ForEach(arg => processor.ImportReference(arg));
 
             result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, processor.ImportReference(toCall)));
 
