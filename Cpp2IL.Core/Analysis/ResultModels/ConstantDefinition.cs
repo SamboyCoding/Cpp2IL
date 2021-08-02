@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -37,6 +38,11 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
                 return Convert.ToString(intValue)!;
             }
+
+            if (Type == typeof(float))
+                return Convert.ToString((float) Value, CultureInfo.InvariantCulture);
+            if (Type == typeof(double))
+                return Convert.ToString((double) Value, CultureInfo.InvariantCulture);
 
             if (Type == typeof(UnknownGlobalAddr))
                 return Value.ToString()!;

@@ -409,10 +409,13 @@ namespace Cpp2IL.Core
             var elapsed = DateTime.Now - startTime;
             Logger.InfoNewline($"Finished processing {numProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec", "Analyze");
 
-            var total = AsmAnalyzer.SUCCESSFUL_METHODS + AsmAnalyzer.FAILED_METHODS;
-            var successPercent = AsmAnalyzer.SUCCESSFUL_METHODS * 100 / total;
+            if (analysisLevel != AnalysisLevel.PSUEDOCODE_ONLY)
+            {
+                var total = AsmAnalyzer.SUCCESSFUL_METHODS + AsmAnalyzer.FAILED_METHODS;
+                var successPercent = AsmAnalyzer.SUCCESSFUL_METHODS * 100 / total;
 
-            Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzer.SUCCESSFUL_METHODS}) of {total} methods.");
+                Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzer.SUCCESSFUL_METHODS}) of {total} methods.");
+            }
         }
 
         public static void PopulateConcreteImplementations()

@@ -106,6 +106,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             var toCall = ManagedMethodBeingCalled;
             if (ManagedMethodBeingCalled.HasGenericParameters && !ManagedMethodBeingCalled.IsGenericInstance)
                 toCall = ManagedMethodBeingCalled.Resolve();
+            if (ManagedMethodBeingCalled.DeclaringType is GenericInstanceType git && git.GenericArguments.Any(g => g is GenericParameter))
+                toCall = ManagedMethodBeingCalled.Resolve();
             if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter))
                 toCall = ManagedMethodBeingCalled.Resolve();
             
