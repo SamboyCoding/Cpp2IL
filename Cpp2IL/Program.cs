@@ -28,6 +28,10 @@ namespace Cpp2IL
         {
             var parserResult = Parser.Default.ParseArguments<CommandLineArgs>(commandLine);
 
+            if(parserResult is NotParsed<CommandLineArgs> notParsed && notParsed.Errors.Count() == 1 && notParsed.Errors.All(e => e.Tag == ErrorType.VersionRequestedError || e.Tag == ErrorType.HelpRequestedError))
+                //Version or help requested
+                Environment.Exit(0);
+            
             if (!(parserResult is Parsed<CommandLineArgs> {Value: { } options}))
                 throw new SoftException("Failed to parse command line arguments");
 
