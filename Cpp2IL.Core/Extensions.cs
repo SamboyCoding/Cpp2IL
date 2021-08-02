@@ -144,6 +144,45 @@ namespace Cpp2IL.Core
             return genericParameter;
         }
 
+        public static bool HasAnyGenericParams(this GenericInstanceType git)
+        {
+            if (git.GenericArguments.Any(g => g is GenericParameter))
+                return true;
+
+            if (git.GenericArguments.Any(g => g is GenericInstanceType git2 && git2.HasAnyGenericParams()))
+                return true;
+
+            return false;
+        }
+
+        public static TypeReference ImportRecursive(this ILProcessor processor, GenericInstanceType git, IGenericParameterProvider? context = null)
+        {
+            var newGit = new GenericInstanceType(processor.ImportReference(git.ElementType, context));
+            
+            git.GenericArguments.Select(ga =>
+            {
+                if (ga is GenericInstanceType git2)
+                    return processor.ImportRecursive(git2, context);
+                return processor.ImportReference(ga, context);
+            }).ToList().ForEach(newGit.GenericArguments.Add);
+
+            return newGit;
+        }
+
+        public static MethodReference ImportRecursive(this ILProcessor processor, GenericInstanceMethod gim, IGenericParameterProvider? context = null)
+        {
+            var newGim = new GenericInstanceMethod(processor.ImportReference(gim.ElementMethod, context));
+            
+            gim.GenericArguments.Select(ga =>
+            {
+                if (ga is GenericInstanceType git)
+                    return processor.ImportRecursive(git, context);
+                return processor.ImportReference(ga, context);
+            }).ToList().ForEach(newGim.GenericArguments.Add);
+
+            return newGim;
+        }
+
         public static TypeReference ImportReference(this ILProcessor processor, TypeReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference, context);
         
         public static MethodReference ImportReference(this ILProcessor processor, MethodReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);

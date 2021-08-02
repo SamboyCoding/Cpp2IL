@@ -238,7 +238,12 @@ namespace Cpp2IL.Core.Analysis
             {
                 try
                 {
-                    localDefinition.Variable = new VariableDefinition(processor.ImportReference(localDefinition.Type!, _methodDefinition));
+                    var varType = localDefinition.Type!;
+
+                    if (varType is GenericInstanceType git)
+                        varType = processor.ImportRecursive(git, _methodDefinition);
+                    
+                    localDefinition.Variable = new VariableDefinition(processor.ImportReference(varType, _methodDefinition));
                     body.Variables.Add(localDefinition.Variable);
                 }
                 catch (InvalidOperationException)

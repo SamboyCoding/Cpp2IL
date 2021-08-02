@@ -106,13 +106,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             var toCall = ManagedMethodBeingCalled;
             if (ManagedMethodBeingCalled.HasGenericParameters && !ManagedMethodBeingCalled.IsGenericInstance)
                 toCall = ManagedMethodBeingCalled.Resolve();
-            if (ManagedMethodBeingCalled.DeclaringType is GenericInstanceType git && git.GenericArguments.Any(g => g is GenericParameter))
+            if (ManagedMethodBeingCalled.DeclaringType is GenericInstanceType git && git.HasAnyGenericParams())
                 toCall = ManagedMethodBeingCalled.Resolve();
-            if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter))
+            if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter || g is GenericInstanceType git2 && git2.HasAnyGenericParams()))
                 toCall = ManagedMethodBeingCalled.Resolve();
             
-            if(ManagedMethodBeingCalled is GenericInstanceMethod gim2)
-                gim2.GenericArguments.ToList().ForEach(arg => processor.ImportReference(arg));
+            if(toCall is GenericInstanceMethod gim2)
+                toCall = processor.ImportRecursive(gim2);
 
             result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, processor.ImportReference(toCall)));
 

@@ -54,6 +54,8 @@ namespace Cpp2IL.Core.Analysis
                 fields.AddRange(SharedState.FieldsByType[thisType]);
             }
 
+            fields = fields.Where(f => !f.Static && f.Constant == null).ToList();
+
             // if (onWhat is TypeDefinition {HasGenericParameters: true})
             //     onWhat = onWhat.MakeGenericInstanceType(Utils.ObjectReference.Repeat(onWhat.GenericParameters.Count).Cast<TypeReference>().ToArray());
 
