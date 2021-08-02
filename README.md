@@ -7,12 +7,33 @@ WIP Tool to reverse Unity's IL2CPP build process back to the original managed DL
 The information below almost entirely applies to the CLI application available on github releases. For documentation on 
 using the "core" module - which the CLI is just a wrapper around - in your own projects, see [README_CORE.md](Cpp2IL.Core/README_CORE.md)
 
-**IL Generation is currently to-file only, not to-assembly. Don't expect to magically get managed DLLs out of this.**
-
 Uses [LibCpp2IL](LibCpp2IL) for the initial parsing and loading of metadata structures. 
 LibCpp2IL is obtainable from the build artifacts if you want to do something yourself with IL2CPP metadata, 
 and is released under the MIT license.
 The link above will take you to the documentation for LibCpp2IL.
+
+## Command Line Options
+
+### Basic Usage
+
+The simplest usage of this application is for a windows x86 or x64 unity game. In that case you can just run `Cpp2IL-Win.exe --game-path=C:\Path\To\Your\Game`
+and Cpp2IL will detect your unity version, locate the files it needs, and dump the output into a cpp2il_out folder wherever you ran the command from.
+
+### Supported Command Line Option Listing
+
+| Option | Argument Example | Description |
+| :-----: | :--------------: | :----------: |
+| --game-path | C:\Path\To\Game | Specify the path to the game folder. Required. |
+| --exe-name | TestGame | Specify the name of the game's exe file in case auto detection fails (because there are other exe files in the game directory) |
+| --analysis-level | 0 = Everything<br>1 = Skip Instruction Dump<br>2 = Skip Instruction Dump and Synopsis<br>3 = Print Only Generated IL<br>4 = Print Only Pseudocode | Specify what is saved to the `cpp2il_out/types/[Assembly]/typename_methods.txt` file. |
+| --skip-analysis | &lt;None> | Flag to skip analysis entirely, only generating Dummy DLLs and optionally metadata dumps |
+| --skip-metadata-txts | &lt;None> | Flag to skip metadata dumps (`cpp2il_out/types/[Assembly]/typename_metadata.txt`) | 
+| --disable-registration-prompts | &lt;None> | Flag to prevent asking for the user to input addresses in STDIN if they can't be detected |
+| --verbose | &lt;None> | Log more information about what we are doing |
+| --experimental-enable-il-to-assembly-please | &lt;None> | Attempt to save generated IL to the DLL file where possible. MAY BREAK THINGS. |
+| --suppress-attributes | &lt;None> | Prevents generated DLLs from containing attributes providing il2cpp-specific metadata, such as function pointers, etc. |
+| --parallel | &lt;None> | Run analysis in parallel. Usually much faster, but may be unstable. Also puts your CPU under a lot of strain (100% usage is targeted). |
+| --run-analysis-for-assembly | mscorlib | Run analysis for the specified assembly. Do not specify the `.dll` extension. |
 
 ## Release Structure
 
