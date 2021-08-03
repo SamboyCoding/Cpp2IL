@@ -110,6 +110,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 isIfStatement = true;
                 AddComment($"Increasing indentation - is standard if, unimportant is {associatedCompare?.unimportantComparison}");
                 context.IndentLevel += 1;
+                
+                if(!context.IsJumpDestinationInThisFunction(JumpTarget) && (JumpTarget - context.AbsoluteMethodEnd) < 50)
+                    context.ExpandAnalysisToIncludeBlockStartingAt(JumpTarget);
             }
         }
 

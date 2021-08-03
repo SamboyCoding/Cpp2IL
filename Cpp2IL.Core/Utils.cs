@@ -823,5 +823,28 @@ namespace Cpp2IL.Core
 
             throw new Exception($"Can't coerce {value} to {coerceToType}");
         }
+
+        public static void CoerceUnknownGlobalValue(TypeReference targetType, UnknownGlobalAddr unknownGlobalAddr, ConstantDefinition destinationConstant, bool allowByteArray = true)
+        {
+            var primitiveLength = Utils.GetSizeOfObject(targetType);
+            byte[] newValue;
+            if (primitiveLength == 8)
+                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 8);
+            else if (primitiveLength == 4)
+                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 4);
+            else
+                throw new Exception($"unknown global -> primitive: Not implemented: Size {primitiveLength}, type {targetType}");
+
+            if (targetType.Name == "Single")
+                destinationConstant.Value = BitConverter.ToSingle(newValue, 0);
+            else if (targetType.Name == "Double")
+                destinationConstant.Value = BitConverter.ToDouble(newValue, 0);
+            else if(allowByteArray)
+                destinationConstant.Value = newValue;
+            else
+                return;
+
+            destinationConstant.Type = Type.GetType(targetType.FullName!)!;
+        }
     }
 }

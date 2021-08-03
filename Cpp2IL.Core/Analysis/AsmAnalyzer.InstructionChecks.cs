@@ -294,6 +294,9 @@ namespace Cpp2IL.Core.Analysis
             if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps || mnemonic == Mnemonic.Movups || mnemonic == Mnemonic.Movdqa)
                 mnemonic = Mnemonic.Mov;
 
+            if (mnemonic == Mnemonic.Comiss)
+                mnemonic = Mnemonic.Cmp;
+
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
 

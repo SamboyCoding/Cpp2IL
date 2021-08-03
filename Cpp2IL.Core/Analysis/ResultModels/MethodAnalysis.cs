@@ -54,7 +54,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
         public TypeReference ReturnType => _method?.ReturnType ?? Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
 
-        private readonly List<Type> ActionsWhichGenerateNoIL = new List<Type>
+        public static readonly List<Type> ActionsWhichGenerateNoIL = new List<Type>
         {
             typeof(GoToMarkerAction),
             typeof(GoToDestinationMarker),

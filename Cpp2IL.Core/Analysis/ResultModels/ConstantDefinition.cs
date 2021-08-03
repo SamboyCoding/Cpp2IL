@@ -94,6 +94,18 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                     ilProcessor.Create(OpCodes.Conv_U8) //Convert to ulong
                 };
 
+            if (Type == typeof(float))
+                return new[]
+                {
+                    ilProcessor.Create(OpCodes.Ldc_R4, (float) Value),
+                };
+            
+            if (Type == typeof(double))
+                return new[]
+                {
+                    ilProcessor.Create(OpCodes.Ldc_R8, (double) Value),
+                };
+
             if (Type == typeof(MethodReference) && Value is MethodReference reference)
                 return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportReference(reference))};
             

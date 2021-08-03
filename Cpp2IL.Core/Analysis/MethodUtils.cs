@@ -156,23 +156,7 @@ namespace Cpp2IL.Core.Analysis
 
                         if (parameterType.IsPrimitive && cons.Value is UnknownGlobalAddr unknownGlobalAddr)
                         {
-                            var primitiveLength = Utils.GetSizeOfObject(parameterType);
-                            byte[] newValue;
-                            if (primitiveLength == 8)
-                                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 8);
-                            else if (primitiveLength == 4)
-                                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 4);
-                            else
-                                throw new Exception($"unknown global -> primitive: Not implemented: Size {primitiveLength}, type {parameterType}");
-
-                            if (parameterType.Name == "Single")
-                                cons.Value = BitConverter.ToSingle(newValue, 0);
-                            else if (parameterType.Name == "Double")
-                                cons.Value = BitConverter.ToDouble(newValue, 0);
-                            else
-                                cons.Value = newValue;
-
-                            cons.Type = Type.GetType(parameterType.FullName!)!;
+                            Utils.CoerceUnknownGlobalValue(parameterType, unknownGlobalAddr, cons);
                             break;
                         }
                         if (typeof(MemberReference).IsAssignableFrom(cons.Type) && parameterType.Name == "IntPtr")

@@ -12,6 +12,7 @@ using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Code = Iced.Intel.Code;
 using Instruction = Iced.Intel.Instruction;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
@@ -263,22 +264,24 @@ namespace Cpp2IL.Core.Analysis
                     {
                         var il = action.ToILInstructions(Analysis, processor);
 
-                        if (Analysis.JumpTargetsToFixByAction.ContainsKey(action))
-                        {
-                            var first = il.First();
-                            foreach (var instruction in Analysis.JumpTargetsToFixByAction[action])
-                            {
-                                instruction.Operand = first;
-                            }
-                        }
-
                         foreach (var instruction in il)
                         {
                             processor.Append(instruction);
                         }
+                        
+                        if(MethodAnalysis.ActionsWhichGenerateNoIL.Contains(action.GetType()))
+                            continue;
 
-                        builder.Append(string.Join("\n\t", il.AsEnumerable()))
-                            .Append("\n\t");
+                        var jumpsToHere = Analysis.JumpTargetsToFixByAction.Keys.Where(jt => jt.AssociatedInstruction.IP <= action.AssociatedInstruction.IP).ToList();
+                        if (jumpsToHere.Count > 0)
+                        {
+                            var first = il.First();
+                            foreach (var instruction in jumpsToHere.SelectMany(jumpDestAction => Analysis.JumpTargetsToFixByAction[jumpDestAction]))
+                            {
+                                instruction.Operand = first;
+                            }
+                        }
+                        jumpsToHere.ForEach(key => Analysis.JumpTargetsToFixByAction.Remove(key));
                     }
                     catch (NotImplementedException)
                     {
@@ -313,6 +316,13 @@ namespace Cpp2IL.Core.Analysis
                 processor.Clear();
                 originalVariables.ForEach(body.Variables.Add);
                 originalBody.ForEach(processor.Append);
+            }
+            else
+            {
+                body.Optimize();
+                
+                builder.Append(string.Join("\n\t", body.Instructions))
+                    .Append("\n\t");
             }
 
             if (isGenuineMethod)

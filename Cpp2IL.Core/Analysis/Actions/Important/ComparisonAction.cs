@@ -33,6 +33,18 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (r1 != "rsp")
                 ArgumentTwo = ExtractArgument(context, instruction, r1, 1, instruction.Op1Kind, out unimportant2, out ArgumentTwoRegister);
 
+            if (ArgumentOne is ConstantDefinition {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition {Type: { }} loc2)
+            {
+                Utils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
+                unimportant1 = false;
+            }
+
+            if (ArgumentTwo is ConstantDefinition {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition {Type: { }} loc1)
+            {
+                Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
+                unimportant2 = false;
+            }
+
             unimportantComparison = unimportant1 || unimportant2;
 
             if (context.GetEndOfLoopWhichPossiblyStartsHere(instruction.IP) is {} endOfLoop && endOfLoop != 0)
