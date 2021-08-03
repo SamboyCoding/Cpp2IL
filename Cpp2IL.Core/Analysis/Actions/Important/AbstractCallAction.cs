@@ -52,7 +52,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
                     if (prop != null)
                         return ret.Append('.').Append(prop.Name).ToString();
-                } else if (mDef.Name.StartsWith("set_"))
+                } else if (mDef.Name.StartsWith("set_") && Arguments?.Count > 0)
                 {
                     var unmanaged = mDef.AsUnmanaged();
                     var prop = unmanaged.DeclaringType!.Properties!.FirstOrDefault(p => p.Setter == unmanaged);

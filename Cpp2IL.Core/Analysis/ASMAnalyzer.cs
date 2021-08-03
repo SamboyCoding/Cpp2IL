@@ -228,7 +228,7 @@ namespace Cpp2IL.Core.Analysis
 
             var originalBody = body.Instructions.ToList();
             var originalVariables = body.Variables.ToList();
-            
+
             processor.Clear();
 
             builder.Append("Generated IL:\n\t");
@@ -237,10 +237,12 @@ namespace Cpp2IL.Core.Analysis
 
             foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null && localDefinition.Type != null))
             {
+                var varType = localDefinition.Type!;
+
                 try
                 {
-                    var varType = localDefinition.Type!;
-
+                    if (varType is GenericInstanceType git2 && git2.HasAnyGenericParams())
+                        varType = git2.Resolve();
                     if (varType is GenericInstanceType git)
                         varType = processor.ImportRecursive(git, _methodDefinition);
                     
@@ -249,7 +251,7 @@ namespace Cpp2IL.Core.Analysis
                 }
                 catch (InvalidOperationException)
                 {
-                    Logger.WarnNewline($"Skipping IL Generation for {_methodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {localDefinition.Type}, which is invalid for use in a variable.", "Analysis");
+                    Logger.WarnNewline($"Skipping IL Generation for {_methodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {varType}, which is invalid for use in a variable.", "Analysis");
                     builder.Append($"IL Generation Skipped due to invalid local {localDefinition.Name} of type {localDefinition.Type}\n\t");
                     success = false;
                     break;
@@ -268,8 +270,8 @@ namespace Cpp2IL.Core.Analysis
                         {
                             processor.Append(instruction);
                         }
-                        
-                        if(MethodAnalysis.ActionsWhichGenerateNoIL.Contains(action.GetType()))
+
+                        if (MethodAnalysis.ActionsWhichGenerateNoIL.Contains(action.GetType()) || il.Length == 0)
                             continue;
 
                         var jumpsToHere = Analysis.JumpTargetsToFixByAction.Keys.Where(jt => jt.AssociatedInstruction.IP <= action.AssociatedInstruction.IP).ToList();
@@ -281,6 +283,7 @@ namespace Cpp2IL.Core.Analysis
                                 instruction.Operand = first;
                             }
                         }
+
                         jumpsToHere.ForEach(key => Analysis.JumpTargetsToFixByAction.Remove(key));
                     }
                     catch (NotImplementedException)
@@ -320,7 +323,7 @@ namespace Cpp2IL.Core.Analysis
             else
             {
                 body.Optimize();
-                
+
                 builder.Append(string.Join("\n\t", body.Instructions))
                     .Append("\n\t");
             }

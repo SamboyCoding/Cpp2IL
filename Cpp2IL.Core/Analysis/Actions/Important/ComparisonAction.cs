@@ -35,14 +35,28 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             if (ArgumentOne is ConstantDefinition {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition {Type: { }} loc2)
             {
-                Utils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
-                unimportant1 = false;
+                try
+                {
+                    Utils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
+                    unimportant1 = false;
+                }
+                catch
+                {
+                    // ignored
+                }
             }
 
             if (ArgumentTwo is ConstantDefinition {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition {Type: { }} loc1)
             {
-                Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
-                unimportant2 = false;
+                try
+                {
+                    Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
+                    unimportant2 = false;
+                }
+                catch
+                {
+                    // ignored
+                }
             }
 
             unimportantComparison = unimportant1 || unimportant2;
