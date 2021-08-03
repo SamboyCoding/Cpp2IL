@@ -344,7 +344,14 @@ namespace Cpp2IL.Core
                     }
                 }
 
-                var filename = Path.Combine(methodOutputDir, assembly.Name.Name, type.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_methods.txt");
+                var fileSafeTypeName = type.Name;
+
+                if (type.DeclaringType != null)
+                    fileSafeTypeName = $"{type.DeclaringType.Name}__NestedType__{fileSafeTypeName}";
+                
+                fileSafeTypeName = fileSafeTypeName.Replace("<", "_").Replace(">", "_").Replace("|", "_");
+
+                var filename = Path.Combine(methodOutputDir, assembly.Name.Name, $"{fileSafeTypeName}_methods.txt");
                 var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
 
                 foreach (var methodDefinition in type.Methods)
