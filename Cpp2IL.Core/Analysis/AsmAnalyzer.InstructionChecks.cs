@@ -182,7 +182,7 @@ namespace Cpp2IL.Core.Analysis
                         //Safe cast an object to a type
                         Analysis.Actions.Add(new SafeCastAction(Analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_raise_managed_exception || jumpTarget == _keyFunctionAddresses.il2cpp_raise_exception)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_vm_exception_raise || jumpTarget == _keyFunctionAddresses.il2cpp_raise_exception || jumpTarget == _keyFunctionAddresses.il2cpp_codegen_raise_exception)
                     {
                         //Equivalent of a throw statement
                         Analysis.Actions.Add(new ThrowAction(Analysis, instruction));

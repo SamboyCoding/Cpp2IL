@@ -19,7 +19,7 @@ namespace Cpp2IL.Core
         public ulong il2cpp_object_new; //Api Function (exported)
         public ulong il2cpp_vm_object_new; //Thunked from above
         public ulong il2cpp_codegen_object_new; //Thunked TO above
-        
+
         public ulong il2cpp_array_new_specific; //Api function (exported)
         public ulong il2cpp_vm_array_new_specific; //Thunked from above
         public ulong SzArrayNew; //Thunked TO above.
@@ -37,10 +37,11 @@ namespace Cpp2IL.Core
         public ulong il2cpp_vm_object_box; //Thunked from above
 
         public ulong il2cpp_raise_exception; //Api function (exported)
-        public ulong il2cpp_raise_managed_exception; //Thunked from above
-        
+        public ulong il2cpp_vm_exception_raise; //Thunked from above
+        public ulong il2cpp_codegen_raise_exception; //Thunked TO above. don't know real name.
+
         public ulong il2cpp_object_is_inst; //TODO Re-find this and fix name
-        
+
         public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
 
         public static KeyFunctionAddresses Find()
@@ -77,7 +78,7 @@ namespace Cpp2IL.Core
             Logger.Verbose("\tLooking for Exported il2cpp_type_get_object function...");
             ret.il2cpp_type_get_object = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_type_get_object");
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_type_get_object:X}");
-            
+
             if (ret.il2cpp_type_get_object != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
@@ -89,38 +90,38 @@ namespace Cpp2IL.Core
             Logger.Verbose("\tLooking for Exported il2cpp_resolve_icall function...");
             ret.il2cpp_resolve_icall = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_resolve_icall");
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_resolve_icall:X}");
-            
+
             if (ret.il2cpp_resolve_icall != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
                 ret.InternalCalls_Resolve = FindFunctionThisIsAThunkOf(ret.il2cpp_resolve_icall);
                 Logger.VerboseNewline($"Found at 0x{ret.InternalCalls_Resolve:X}");
             }
-            
+
             //New String
             Logger.Verbose("\tLooking for Exported il2cpp_string_new function...");
             ret.il2cpp_string_new = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_string_new");
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_string_new:X}");
-            
+
             if (ret.il2cpp_string_new != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_string_new to String::New...");
                 ret.il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(ret.il2cpp_string_new);
                 Logger.VerboseNewline($"Found at 0x{ret.il2cpp_vm_string_new:X}");
             }
-            
+
             //Box Value
             Logger.Verbose("\tLooking for Exported il2cpp_value_box function...");
             ret.il2cpp_value_box = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_value_box");
             Logger.VerboseNewline($"Found at 0x{ret.il2cpp_string_new:X}");
-            
+
             if (ret.il2cpp_value_box != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_value_box to Object::Box...");
                 ret.il2cpp_vm_object_box = FindFunctionThisIsAThunkOf(ret.il2cpp_value_box);
                 Logger.VerboseNewline($"Found at 0x{ret.il2cpp_vm_object_box:X}");
             }
-            
+
             //Raise Exception
             Logger.Verbose("\tLooking for exported il2cpp_raise_exception function...");
             ret.il2cpp_raise_exception = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_raise_exception");
@@ -128,9 +129,16 @@ namespace Cpp2IL.Core
 
             if (ret.il2cpp_raise_exception != 0)
             {
-                Logger.Verbose("\t\tMapping il2cpp_raise_exception to il2cpp_raise_managed_exception...");
-                ret.il2cpp_raise_managed_exception = FindFunctionThisIsAThunkOf(ret.il2cpp_raise_exception, true);
-                Logger.VerboseNewline($"Found at 0x{ret.il2cpp_raise_managed_exception:X}");
+                Logger.Verbose("\t\tMapping il2cpp_raise_exception to il2cpp::vm::Exception::Raise...");
+                ret.il2cpp_vm_exception_raise = FindFunctionThisIsAThunkOf(ret.il2cpp_raise_exception, true);
+                Logger.VerboseNewline($"Found at 0x{ret.il2cpp_vm_exception_raise:X}");
+            }
+
+            if (ret.il2cpp_vm_exception_raise != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp::vm::Exception::Raise to il2cpp_codegen_raise_exception...");
+                ret.il2cpp_codegen_raise_exception = FindThunkFunction(ret.il2cpp_vm_exception_raise, 4, ret.il2cpp_raise_exception);
+                Logger.VerboseNewline($"Found at 0x{ret.il2cpp_codegen_raise_exception:X}");
             }
 
             //Class Init
@@ -144,7 +152,7 @@ namespace Cpp2IL.Core
                 ret.il2cpp_runtime_class_init_actual = FindFunctionThisIsAThunkOf(ret.il2cpp_runtime_class_init_export);
                 Logger.VerboseNewline($"Found at 0x{ret.il2cpp_runtime_class_init_actual:X}");
             }
-            
+
             //New array of fixed size
             Logger.Verbose("\tLooking for exported il2cpp_array_new_specific function...");
             ret.il2cpp_array_new_specific = ((PE) LibCpp2IlMain.Binary!).GetVirtualAddressOfPeExportByName("il2cpp_array_new_specific");
@@ -204,7 +212,7 @@ namespace Cpp2IL.Core
             var allInstructions = ((PE) LibCpp2IlMain.Binary!).DisassembleTextSection();
 
             //Find all jumps to the target address
-            var matchingJmps = allInstructions.Where(i => i.Mnemonic == Mnemonic.Jmp && i.NearBranchTarget == addr).ToList();
+            var matchingJmps = allInstructions.Where(i => i.Mnemonic == Mnemonic.Jmp || i.Mnemonic == Mnemonic.Call && i.NearBranchTarget == addr).ToList();
 
             foreach (var matchingJmp in matchingJmps)
             {
@@ -229,10 +237,10 @@ namespace Cpp2IL.Core
                 {
                     for (ulong backtrack = 1; backtrack < maxBytesBack && offsetInPe - backtrack > 0; backtrack++)
                     {
-                        if(addressesToIgnore.Contains(matchingJmp.IP - (backtrack - 1)))
+                        if (addressesToIgnore.Contains(matchingJmp.IP - (backtrack - 1)))
                             //Move to next jmp
                             break;
-                        
+
                         if (LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
                             return matchingJmp.IP - (backtrack - 1);
                     }
@@ -242,14 +250,20 @@ namespace Cpp2IL.Core
             return 0;
         }
 
-        private static ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool useCall = false)
+        private static ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
         {
             var instructions = Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
 
             try
             {
-                var target = useCall ? Mnemonic.Call : Mnemonic.Jmp;
-                var matchingCall = instructions.First(i => i.Mnemonic == target);
+                var target = prioritiseCall ? Mnemonic.Call : Mnemonic.Jmp;
+                var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
+
+                if (matchingCall.Mnemonic == Mnemonic.INVALID)
+                {
+                    target = target == Mnemonic.Call ? Mnemonic.Jmp : Mnemonic.Call;
+                    matchingCall = instructions.First(i => i.Mnemonic == target);
+                }
 
                 return matchingCall.NearBranchTarget;
             }

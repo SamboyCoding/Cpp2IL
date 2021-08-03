@@ -61,7 +61,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             typeof(EndIfMarkerAction),
             typeof(ElseMarkerAction),
             typeof(EndWhileMarkerAction),
-            typeof(ConstantToRegAction)
+            typeof(ConstantToRegAction),
+            typeof(LoadConstantUsingLeaAction)
         };
 
         //For analysing cpp-only methods, like attribute generators
