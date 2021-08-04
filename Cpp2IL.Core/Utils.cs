@@ -59,7 +59,7 @@ namespace Cpp2IL.Core
         };
         
         internal static void Reset()
-		{
+        {
             primitiveTypeMappings.Clear();
             _cachedTypeDefsByName.Clear();
             _assignableCache.Clear();

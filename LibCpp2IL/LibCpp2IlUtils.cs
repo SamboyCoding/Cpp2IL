@@ -54,7 +54,7 @@ namespace LibCpp2IL
         private static Dictionary<FieldInfo, VersionAttribute[]> _cachedVersionAttributes = new();
 
         internal static void Reset()
-		{
+        {
             _cachedVersionAttributes.Clear();
         }
 

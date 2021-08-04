@@ -67,15 +67,15 @@ namespace Cpp2IL.Core
         /// Must be called after SharedState.Clear
         /// </summary>
         internal static void Reset()
-		{
-			lock (_attributeCtorsByClassIndex)
-			{
+        {
+            lock (_attributeCtorsByClassIndex)
+            {
                 _attributeCtorsByClassIndex.Clear();
-			}
-			lock (FieldToParameterMappings)
-			{
+            }
+            lock (FieldToParameterMappings)
+            {
                 FieldToParameterMappings.Clear();
-			}
+            }
             Initialize();
         }
 

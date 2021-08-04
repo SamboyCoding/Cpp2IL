@@ -27,7 +27,7 @@ namespace LibCpp2IL
         private static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new();
 
         public static void Reset()
-		{
+        {
             LibCpp2IlGlobalMapper.Reset();
             LibCpp2ILUtils.Reset();
             MethodsByPtr.Clear();

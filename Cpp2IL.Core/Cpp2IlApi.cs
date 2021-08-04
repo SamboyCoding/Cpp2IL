@@ -438,7 +438,7 @@ namespace Cpp2IL.Core
         }
 
         private static bool IsLibInitialized()
-		{
+        {
             return LibCpp2IlMain.Binary != null && LibCpp2IlMain.TheMetadata != null;
         }
 

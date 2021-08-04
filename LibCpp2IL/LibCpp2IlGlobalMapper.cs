@@ -17,7 +17,7 @@ namespace LibCpp2IL
         internal static Dictionary<ulong, MetadataUsage> LiteralsByAddress = new();
 
         internal static void Reset()
-		{
+        {
             TypeRefs.Clear();
             MethodRefs.Clear();
             FieldRefs.Clear();

@@ -41,7 +41,7 @@ namespace Cpp2IL.Core
         internal static readonly Dictionary<AssemblyDefinition, Il2CppImageDefinition> ManagedToUnmanagedAssemblies = new Dictionary<AssemblyDefinition, Il2CppImageDefinition>();
 
         internal static void Clear()
-		{
+        {
             VirtualMethodsBySlot.Clear();
 
             MethodsByAddress.Clear();
