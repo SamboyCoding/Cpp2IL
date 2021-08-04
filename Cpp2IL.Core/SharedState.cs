@@ -39,5 +39,33 @@ namespace Cpp2IL.Core
         //Assemblies
         internal static readonly List<AssemblyDefinition> AssemblyList = new List<AssemblyDefinition>();
         internal static readonly Dictionary<AssemblyDefinition, Il2CppImageDefinition> ManagedToUnmanagedAssemblies = new Dictionary<AssemblyDefinition, Il2CppImageDefinition>();
+
+        internal static void Clear()
+		{
+            VirtualMethodsBySlot.Clear();
+
+            MethodsByAddress.Clear();
+            MethodsByIndex.Clear();
+            UnmanagedToManagedMethods.Clear();
+            ManagedToUnmanagedMethods.Clear();
+
+            GenericParamsByIndex.Clear();
+
+            TypeDefsByIndex.Clear();
+            AllTypeDefinitions.Clear();
+            ManagedToUnmanagedTypes.Clear();
+            UnmanagedToManagedTypes.Clear();
+
+            ConcreteImplementations.Clear();
+
+            UnmanagedToManagedFields.Clear();
+            ManagedToUnmanagedFields.Clear();
+            FieldsByType.Clear();
+
+            UnmanagedToManagedProperties.Clear();
+
+            AssemblyList.Clear();
+            ManagedToUnmanagedAssemblies.Clear();
+        }
     }
 }

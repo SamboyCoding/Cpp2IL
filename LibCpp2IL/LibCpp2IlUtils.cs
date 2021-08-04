@@ -53,6 +53,11 @@ namespace LibCpp2IL
         
         private static Dictionary<FieldInfo, VersionAttribute[]> _cachedVersionAttributes = new();
 
+        internal static void Reset()
+		{
+            _cachedVersionAttributes.Clear();
+        }
+
         public static InstructionList DisassembleBytesNew(bool is32Bit, List<byte> bytes, ulong methodBase) => DisassembleBytesNew(is32Bit, bytes.ToArray(), methodBase);
 
         public static InstructionList DisassembleBytesNew(bool is32Bit, byte[] bytes, ulong methodBase)

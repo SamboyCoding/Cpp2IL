@@ -16,6 +16,18 @@ namespace LibCpp2IL
         internal static Dictionary<ulong, MetadataUsage> FieldRefsByAddress = new();
         internal static Dictionary<ulong, MetadataUsage> LiteralsByAddress = new();
 
+        internal static void Reset()
+		{
+            TypeRefs.Clear();
+            MethodRefs.Clear();
+            FieldRefs.Clear();
+            Literals.Clear();
+            TypeRefsByAddress.Clear();
+            MethodRefsByAddress.Clear();
+            FieldRefsByAddress.Clear();
+            LiteralsByAddress.Clear();
+        }
+
         internal static void MapGlobalIdentifiers(Il2CppMetadata metadata, Il2CppBinary cppAssembly)
         {
             if(LibCpp2IlMain.MetadataVersion < 27f)

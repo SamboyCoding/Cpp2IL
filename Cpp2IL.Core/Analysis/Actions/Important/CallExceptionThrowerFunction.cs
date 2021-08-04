@@ -16,6 +16,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private static readonly ConcurrentDictionary<ulong, TypeDefinition?> ExceptionThrowers = new ConcurrentDictionary<ulong, TypeDefinition?>();
         private TypeDefinition? _exceptionType;
 
+        internal static void Reset() => ExceptionThrowers.Clear();
+
         private static void CheckForExceptionThrower(ulong addr, int recurseCount)
         {
             if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(addr, out _))
