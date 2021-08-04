@@ -26,7 +26,9 @@ namespace Cpp2IL.Core
 
         private static readonly ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?> FieldToParameterMappings = new ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?>();
 
-        static AttributeRestorer()
+        static AttributeRestorer() => Initialize();
+
+        private static void Initialize()
         {
             DummyTypeDefForAttributeCache.BaseType = Utils.TryLookupTypeDefKnownNotGeneric("System.ValueType");
 
@@ -59,6 +61,22 @@ namespace Cpp2IL.Core
             };
 
             SharedState.FieldsByType[DummyTypeDefForAttributeList] = new List<FieldInType>();
+        }
+
+        /// <summary>
+        /// Must be called after SharedState.Clear
+        /// </summary>
+        internal static void Reset()
+        {
+            lock (_attributeCtorsByClassIndex)
+            {
+                _attributeCtorsByClassIndex.Clear();
+            }
+            lock (FieldToParameterMappings)
+            {
+                FieldToParameterMappings.Clear();
+            }
+            Initialize();
         }
 
         internal static void ApplyCustomAttributesToAllTypesInAssembly(AssemblyDefinition assemblyDefinition, KeyFunctionAddresses? keyFunctionAddresses)

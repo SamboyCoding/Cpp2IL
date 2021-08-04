@@ -23,6 +23,8 @@ namespace Cpp2IL.Core
         internal const string InjectedNamespaceName = "Cpp2IlInjected";
         private static readonly Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)> _attributesByModule = new Dictionary<ModuleDefinition, (MethodDefinition, MethodDefinition, MethodDefinition)>();
 
+        internal static void Reset() => _attributesByModule.Clear();
+
         public static void ConfigureHierarchy()
         {
             foreach (var typeDefinition in SharedState.AllTypeDefinitions)

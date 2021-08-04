@@ -79,6 +79,8 @@ namespace Cpp2IL.Core
 
         public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
         {
+            if (IsLibInitialized())
+                ResetInternalState();
             ConfigureLib(verbose, allowUserToInputAddresses);
 
             try
@@ -94,6 +96,8 @@ namespace Cpp2IL.Core
 
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
         {
+            if (IsLibInitialized())
+                ResetInternalState();
             ConfigureLib(verbose, allowUserToInputAddresses);
 
             try
@@ -109,40 +113,22 @@ namespace Cpp2IL.Core
 
         private static void ResetInternalState()
         {
-            SharedState.VirtualMethodsBySlot.Clear();
-            
-            SharedState.MethodsByAddress.Clear();
-            SharedState.MethodsByIndex.Clear();
-            SharedState.UnmanagedToManagedMethods.Clear();
-            SharedState.ManagedToUnmanagedMethods.Clear();
-            
-            SharedState.GenericParamsByIndex.Clear();
-            
-            SharedState.TypeDefsByIndex.Clear();
-            SharedState.AllTypeDefinitions.Clear();
-            SharedState.ManagedToUnmanagedTypes.Clear();
-            SharedState.UnmanagedToManagedTypes.Clear();
-            
-            SharedState.ConcreteImplementations.Clear();
-            
-            SharedState.UnmanagedToManagedFields.Clear();
-            SharedState.ManagedToUnmanagedFields.Clear();
-            SharedState.FieldsByType.Clear();
-            
-            SharedState.UnmanagedToManagedProperties.Clear();
-            
-            SharedState.AssemblyList.Clear();
-            SharedState.ManagedToUnmanagedAssemblies.Clear();
-            
-            Utils._assignableCache.Clear();
-            Utils._cachedTypeDefsByName.Clear();
-            Utils.primitiveTypeMappings.Clear();
+            SharedState.Clear();
+
+            Utils.Reset();
+
+            AttributeRestorer.Reset();
+
+            AssemblyPopulator.Reset();
+
+            Analysis.Actions.Important.CallExceptionThrowerFunction.Reset();
+
+            LibCpp2IlMain.Reset();
         }
 
         public static List<AssemblyDefinition> MakeDummyDLLs(bool suppressAttributes = false)
         {
             CheckLibInitialized();
-            ResetInternalState();
 
             Logger.InfoNewline("Building assemblies...This may take some time.");
             var start = DateTime.Now;
@@ -451,9 +437,14 @@ namespace Cpp2IL.Core
             }
         }
 
+        private static bool IsLibInitialized()
+        {
+            return LibCpp2IlMain.Binary != null && LibCpp2IlMain.TheMetadata != null;
+        }
+
         private static void CheckLibInitialized()
         {
-            if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null)
+            if (!IsLibInitialized())
                 throw new LibraryNotInitializedException();
         }
     }
