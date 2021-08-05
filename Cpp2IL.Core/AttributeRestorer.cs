@@ -254,7 +254,7 @@ namespace Cpp2IL.Core
                 CustomAttribute attributeInstance;
                 try
                 {
-                    if (matchingCtorCall?.ManagedMethodBeingCalled != null && matchingCtorCall.Arguments!.Count > 0)
+                    if (matchingCtorCall?.ManagedMethodBeingCalled != null && matchingCtorCall.Arguments?.Count > 0)
                         attributeInstance = GenerateCustomAttributeWithConstructorParams(module.ImportReference(matchingCtorCall.ManagedMethodBeingCalled), matchingCtorCall.Arguments!, module);
                     else if (hardWayResult != null)
                         attributeInstance = GenerateCustomAttributeFromHardWayResult(hardWayResult.Value.potentialCtor, hardWayResult.Value.parameterList, module);

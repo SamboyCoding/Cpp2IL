@@ -550,7 +550,7 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition loc:
                     //Move generic memory to register - field read.
-                    if (loc.Type == AttributeRestorer.DummyTypeDefForAttributeList || loc.Type == AttributeRestorer.DummyTypeDefForAttributeCache)
+                    if (loc.Type == AttributeRestorer.DummyTypeDefForAttributeList)
                     {
                         //Ignore these two - they aren't real, and there was an analysis failure further up.
                         break;

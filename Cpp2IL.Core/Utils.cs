@@ -775,6 +775,9 @@ namespace Cpp2IL.Core
         {
             if (coerceToType is ArrayType) 
                 throw new Exception($"Can't coerce {value} to an array type {coerceToType}");
+
+            if (coerceToType.Resolve() is { IsEnum: true } enumType)
+                coerceToType = enumType.GetEnumUnderlyingType();
             
             //Definitely both primitive
             switch (coerceToType.Name)
