@@ -271,7 +271,7 @@ namespace LibCpp2IL
             try
             {
                 result = MapVirtualAddressToRaw(virtAddr);
-                return true;
+                return result != 0;
             }
             catch (Exception)
             {

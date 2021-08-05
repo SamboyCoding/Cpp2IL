@@ -226,7 +226,7 @@ namespace LibCpp2IL
                     if (i % 2 == 0)
                     {
                         //Count
-                        ok = mrWords[i] < 0xA_0000;
+                        ok = mrWords[i] < 0xA_0000 && mrWords[i] >= 0;
 
                         if (!ok && mrWords[i] < 0xF_FFFF) 
                             LibLogger.InfoNewline($"\tWARNING: Metadata Usage count field skipped as unreasonable because it is 0x{mrWords[i]:X} which is above sanity limit of 0xA0000. If metadata registration detection fails, need to bump up the limit.");
