@@ -33,7 +33,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (r1 != "rsp")
                 ArgumentTwo = ExtractArgument(context, instruction, r1, 1, instruction.Op1Kind, out unimportant2, out ArgumentTwoRegister);
 
-            if (ArgumentOne is ConstantDefinition {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition {Type: { }} loc2)
+            if (ArgumentOne is ConstantDefinition {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition {Type: { }, KnownInitialValue: null} loc2)
             {
                 try
                 {
@@ -46,7 +46,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 }
             }
 
-            if (ArgumentTwo is ConstantDefinition {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition {Type: { }} loc1)
+            if (ArgumentTwo is ConstantDefinition {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition {Type: { }, KnownInitialValue: null} loc1)
             {
                 try
                 {

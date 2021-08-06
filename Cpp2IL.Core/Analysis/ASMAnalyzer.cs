@@ -295,7 +295,7 @@ namespace Cpp2IL.Core.Analysis
                     catch (TaintedInstructionException e)
                     {
                         var message = e.ActualMessage ?? "No further info";
-                        builder.Append($"Action of type {action.GetType()} is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
+                        builder.Append($"Action of type {action.GetType()} at (0x{action.AssociatedInstruction.IP:X}) is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
                         success = false;
                         break;
                     }

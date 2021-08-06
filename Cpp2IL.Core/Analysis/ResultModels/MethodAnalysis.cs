@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public event PtrConsumer OnExpansionRequested;
 
-        private ConstantDefinition EmptyRegConstant;
+        internal ConstantDefinition EmptyRegConstant;
         private List<string> _parameterDestRegList = new List<string>();
         private int numParamsAdded = 0;
 
