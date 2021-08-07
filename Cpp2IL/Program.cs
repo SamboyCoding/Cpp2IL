@@ -106,7 +106,7 @@ namespace Cpp2IL
             Console.WriteLine("===Cpp2IL by Samboy063===");
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.\n");
 
-            Logger.CheckColorSupport();
+            ConsoleLogger.Initialize();
             
             Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
 
@@ -144,7 +144,9 @@ namespace Cpp2IL
             if (!runtimeArgs.Valid)
                 throw new SoftException("Arguments have Valid = false");
 
-            Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableVerboseLogging, runtimeArgs.EnableRegistrationPrompts);
+            ConsoleLogger.ShowVerbose = runtimeArgs.EnableVerboseLogging;
+
+            Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
 
             Cpp2IlApi.MakeDummyDLLs(runtimeArgs.SuppressAttributes);
 
