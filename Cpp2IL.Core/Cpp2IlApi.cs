@@ -76,6 +76,10 @@ namespace Cpp2IL.Core
             LibLogger.Writer = new LibLogWriter();
         }
 
+        [Obsolete("Use InitializeLibCpp2Il(string, string, int[], bool) instead as verbose is deprecated", true)]
+        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
+	        => InitializeLibCpp2Il(assemblyPath, metadataPath, unityVersion, allowUserToInputAddresses);
+
         public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
@@ -92,6 +96,10 @@ namespace Cpp2IL.Core
                 throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
             }
         }
+
+        [Obsolete("Use InitializeLibCpp2Il(byte[], string, int[], bool) instead as verbose is deprecated", true)]
+        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
+	        => InitializeLibCpp2Il(assemblyData, metadataData, unityVersion, allowUserToInputAddresses);
 
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
