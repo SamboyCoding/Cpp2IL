@@ -65,7 +65,7 @@ namespace Cpp2IL.Core
             return version;
         }
 
-        private static void ConfigureLib(bool verbose, bool allowUserToInputAddresses)
+        private static void ConfigureLib(bool allowUserToInputAddresses)
         {
             //Set this flag from the options
             LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = allowUserToInputAddresses;
@@ -74,14 +74,13 @@ namespace Cpp2IL.Core
             LibCpp2IlMain.Settings.DisableMethodPointerMapping = false;
 
             LibLogger.Writer = new LibLogWriter();
-            LibLogger.ShowVerbose = Logger.ShowVerbose = verbose;
         }
 
-        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
+        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
                 ResetInternalState();
-            ConfigureLib(verbose, allowUserToInputAddresses);
+            ConfigureLib(allowUserToInputAddresses);
 
             try
             {
@@ -94,11 +93,11 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
+        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
                 ResetInternalState();
-            ConfigureLib(verbose, allowUserToInputAddresses);
+            ConfigureLib(allowUserToInputAddresses);
 
             try
             {
