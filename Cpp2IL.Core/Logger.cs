@@ -4,10 +4,10 @@ namespace Cpp2IL.Core
 {
     public static class Logger
     {
-	    public delegate void LogEvent(string message, string source);
+        public delegate void LogEvent(string message, string source);
 
-	    public static event LogEvent VerboseLog = (_, _) => {};
-	    public static event LogEvent InfoLog = (_, _) => { };
+        public static event LogEvent VerboseLog = (_, _) => {};
+        public static event LogEvent InfoLog = (_, _) => { };
         public static event LogEvent WarningLog = (_, _) => { };
         public static event LogEvent ErrorLog = (_, _) => { };
 
@@ -29,7 +29,7 @@ namespace Cpp2IL.Core
 
         public static void Warn(string message, string source = "Program")
         {
-	        WarningLog(message, source);
+            WarningLog(message, source);
         }
         
         public static void ErrorNewline(string message, string source = "Program") => Error($"{message}{Environment.NewLine}", source);
