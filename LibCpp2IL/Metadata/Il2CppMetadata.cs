@@ -75,7 +75,7 @@ namespace LibCpp2IL.Metadata
             else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f; //2018.3 - 2018.4 => 24.1
             else actualVersion = version; //2018.1 - 2018.2 => 24
 
-            LibLogger.VerboseNewline($"\tUsing actual IL2CPP Metadata version {actualVersion}");
+            LibLogger.InfoNewline($"\tUsing actual IL2CPP Metadata version {actualVersion}");
 
             LibCpp2IlMain.MetadataVersion = actualVersion;
 

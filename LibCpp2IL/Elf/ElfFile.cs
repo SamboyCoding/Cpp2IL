@@ -422,7 +422,7 @@ namespace LibCpp2IL.Elf
             //Well, that didn't work. Look for the specific initializer function which calls into Il2CppCodegenRegistration.
             return InstructionSet switch
             {
-                //TODO Other architectures.
+                //TODO Other architectures, critically arm64: https://github.com/djkaty/Il2CppInspector/blob/master/Il2CppInspector.Common/Architectures/Il2CppBinaryARM64.cs#L144
                 InstructionSet.ARM32 => FindCodeAndMetadataRegArm32(),
                 _ => FindCodeAndMetadataRegDefaultBehavior(),
             };

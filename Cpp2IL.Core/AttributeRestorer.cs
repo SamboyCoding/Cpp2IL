@@ -153,23 +153,23 @@ namespace Cpp2IL.Core
 #else
 
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
+            
+            //Grab generator for this context - be it field, type, method, etc.
+            var attributeGeneratorAddress = GetAddressOfAttributeGeneratorFunction(imageDef, attributeTypeRange);
 
             if (!mustRunAnalysis)
                 //No need to run analysis, so don't
-                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, false);
 
             if (keyFunctionAddresses == null)
                 //Analysis isn't yet supported for ARM.
                 //So just generate those which can be generated without params.
-                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
-
-            //Grab generator for this context - be it field, type, method, etc.
-            var attributeGeneratorAddress = GetAddressOfAttributeGeneratorFunction(imageDef, attributeTypeRange);
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, true);
 
             //Check we can actually map to the binary.
             if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(attributeGeneratorAddress, out _))
                 //If not, just generate those which we can (no params).
-                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module, 0, true);
 
             List<BaseAction> actions;
             try
@@ -182,7 +182,7 @@ namespace Cpp2IL.Core
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                     Logger.WarnNewline($"Attribute generator for {warningName} of {module.Name} threw exception during analysis: {e.Message}. Falling back to simple generation.");
 #endif
-                return GenerateAttributesWithoutAnalysis(attributeConstructors, module);
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, true);
             }
 
             //What we need to do is grab all the LoadAttributeFromAttributeListAction and resolve those locals
@@ -197,7 +197,7 @@ namespace Cpp2IL.Core
             {
                 localArray[action.OffsetInList] = action.LocalMade;
             }
-            attributes.AddRange(GenerateAttributesWithoutAnalysis(attributeConstructors, module));
+            attributes.AddRange(GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, false));
 
             for (var i = 0; i < attributesExpected.Count; i++)
             {
@@ -207,8 +207,7 @@ namespace Cpp2IL.Core
 
                 if (local == null && noArgCtor != null)
                 {
-                    //No local made at all, just generate a default attribute and move on.
-                    // attributes.Add(new CustomAttribute(module.ImportReference(noArgCtor)));
+                    //Handled by the manual emission of all simple attributes above
                     continue;
                 }
 
@@ -216,9 +215,10 @@ namespace Cpp2IL.Core
                 {
                     //No local made at all, BUT we expected constructor params.
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                    Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no local was made.  Attribute will not be added.");
+                    Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no local was made. Only a fallback Attribute will be added.");
 #endif
                     //Give up on this attribute and move to the next one.
+                    attributes.Add(GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress));
                     continue;
                 }
 
@@ -244,9 +244,11 @@ namespace Cpp2IL.Core
                     if (hardWayResult == null)
                     {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
-                        Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found, and 'hard way' reconstruction failed. Attribute will not be added.");
+                        Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found, and 'hard way' reconstruction failed. Only a fallback Attribute will be added.");
 #endif
                         //Give up on this attribute and move to the next one.
+                        
+                        attributes.Add(GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress));
                         continue;
                     }
                 }
@@ -269,6 +271,7 @@ namespace Cpp2IL.Core
                     Logger.WarnNewline($"Attribute constructor {matchingCtorCall?.ManagedMethodBeingCalled ?? hardWayResult?.potentialCtor} applied to {warningName} of {module.Name} was resolved with an unprocessable argument. Details: {e.Message}");
 #endif
                     //Give up on this attribute and move to the next one.
+                    attributes.Add(GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress));
                     continue;
                 }
 
@@ -288,11 +291,28 @@ namespace Cpp2IL.Core
 #endif
         }
 
-        private static List<CustomAttribute> GenerateAttributesWithoutAnalysis(List<MethodReference> attributeCtors, ModuleDefinition module)
+        private static List<CustomAttribute> GenerateAttributesWithoutAnalysis(List<MethodReference> attributeCtors, ModuleDefinition module, ulong generatorPtr, bool generateFallback)
         {
-            return attributeCtors.Where(c => !c.HasParameters)
-                .Select(c => new CustomAttribute(module.ImportReference(c)))
+            return attributeCtors
+                .Where(c => !c.HasParameters || generateFallback)
+                .Select(c => c.HasParameters ? GenerateFallbackAttribute(c, module, generatorPtr) : new(module.ImportReference(c)))
                 .ToList();
+        }
+
+        private static CustomAttribute GenerateFallbackAttribute(MethodReference constructor, ModuleDefinition module, ulong generatorPtr)
+        {
+            var attributeType = module.Types.Single(t => t.Namespace == AssemblyPopulator.InjectedNamespaceName && t.Name == "AttributeAttribute");
+            var attributeCtor = attributeType.GetConstructors().First();
+            
+            var ca = new CustomAttribute(attributeCtor);
+            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(Utils.StringReference), constructor.DeclaringType.Name));
+            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(Utils.StringReference), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
+            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.StringReference), $"0x{LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(generatorPtr):X}"));
+            
+            ca.Fields.Add(name);
+            ca.Fields.Add(rva);
+            ca.Fields.Add(offset);
+            return ca;
         }
 
         private static List<BaseAction> GetActionsPerformedByGenerator(KeyFunctionAddresses? keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)

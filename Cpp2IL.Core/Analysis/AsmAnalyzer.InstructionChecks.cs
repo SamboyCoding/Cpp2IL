@@ -353,7 +353,7 @@ namespace Cpp2IL.Core.Analysis
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
                     var globalAddress = instruction.MemoryDisplacement64;
-                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { } global)
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { IsValid: true } global)
                     {
                         //Have a global here.
                         switch (global.Type)
