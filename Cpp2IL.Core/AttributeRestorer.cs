@@ -4,7 +4,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions;
@@ -218,7 +217,9 @@ namespace Cpp2IL.Core
                     Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no local was made. Only a fallback Attribute will be added.");
 #endif
                     //Give up on this attribute and move to the next one.
-                    attributes.Add(GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress));
+                    var fallback = GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress);
+                    if(fallback != null)
+                        attributes.Add(fallback);
                     continue;
                 }
 
@@ -248,7 +249,9 @@ namespace Cpp2IL.Core
 #endif
                         //Give up on this attribute and move to the next one.
                         
-                        attributes.Add(GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress));
+                        var fallback = GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress);
+                        if(fallback != null)
+                            attributes.Add(fallback);
                         continue;
                     }
                 }
@@ -271,7 +274,9 @@ namespace Cpp2IL.Core
                     Logger.WarnNewline($"Attribute constructor {matchingCtorCall?.ManagedMethodBeingCalled ?? hardWayResult?.potentialCtor} applied to {warningName} of {module.Name} was resolved with an unprocessable argument. Details: {e.Message}");
 #endif
                     //Give up on this attribute and move to the next one.
-                    attributes.Add(GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress));
+                    var fallback = GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress);
+                    if(fallback != null)
+                        attributes.Add(fallback);
                     continue;
                 }
 
@@ -296,18 +301,23 @@ namespace Cpp2IL.Core
             return attributeCtors
                 .Where(c => !c.HasParameters || generateFallback)
                 .Select(c => c.HasParameters ? GenerateFallbackAttribute(c, module, generatorPtr) : new(module.ImportReference(c)))
-                .ToList();
+                .Where(c => c != null)
+                .ToList()!;
         }
 
-        private static CustomAttribute GenerateFallbackAttribute(MethodReference constructor, ModuleDefinition module, ulong generatorPtr)
+        private static CustomAttribute? GenerateFallbackAttribute(MethodReference constructor, ModuleDefinition module, ulong generatorPtr)
         {
-            var attributeType = module.Types.Single(t => t.Namespace == AssemblyPopulator.InjectedNamespaceName && t.Name == "AttributeAttribute");
+            var attributeType = module.Types.SingleOrDefault(t => t.Namespace == AssemblyPopulator.InjectedNamespaceName && t.Name == "AttributeAttribute");
+
+            if (attributeType == null)
+                return null;
+            
             var attributeCtor = attributeType.GetConstructors().First();
             
             var ca = new CustomAttribute(attributeCtor);
             var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(Utils.StringReference), constructor.DeclaringType.Name));
             var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(Utils.StringReference), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
-            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.StringReference), $"0x{LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(generatorPtr):X}"));
+            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.StringReference), $"0x{LibCpp2IlMain.Binary.MapVirtualAddressToRaw(generatorPtr):X}"));
             
             ca.Fields.Add(name);
             ca.Fields.Add(rva);
