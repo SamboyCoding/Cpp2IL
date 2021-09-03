@@ -6,7 +6,7 @@
         <LangVersion>9</LangVersion>
         <TargetFramework>netstandard2.0</TargetFramework>
         <PackageId>Samboy063.LibCpp2IL</PackageId>
-        <Version>2021.3.5</Version>
+        <Version>2021.3.7</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
@@ -21,6 +21,7 @@
 
     <ItemGroup>
       <PackageReference Include="Iced" Version="1.11.1" />
+      <PackageReference Include="IndexRange" Version="1.0.0" />
     </ItemGroup>
 
 </Project>

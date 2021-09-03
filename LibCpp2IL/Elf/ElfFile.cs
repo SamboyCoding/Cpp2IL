@@ -422,8 +422,8 @@ namespace LibCpp2IL.Elf
             //Well, that didn't work. Look for the specific initializer function which calls into Il2CppCodegenRegistration.
             return InstructionSet switch
             {
-                //TODO Other architectures, critically arm64: https://github.com/djkaty/Il2CppInspector/blob/master/Il2CppInspector.Common/Architectures/Il2CppBinaryARM64.cs#L144
                 InstructionSet.ARM32 => FindCodeAndMetadataRegArm32(),
+                InstructionSet.ARM64 => FindCodeAndMetadataRegArm64(),
                 _ => FindCodeAndMetadataRegDefaultBehavior(),
             };
         }
@@ -529,6 +529,51 @@ namespace LibCpp2IL.Elf
                 LibLogger.VerboseNewline($"\t\tFound valid sequence of bytes for il2cpp initializer function at 0x{initializerPointer:X}.");
 
                 return (pointers[0], pointers[1]);
+            }
+
+            return (0, 0);
+        }
+
+        private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm64()
+        {
+            LibLogger.VerboseNewline($"\tARM-64 MODE: Checking {_initializerPointers!.Count} initializer pointers...");
+            foreach (var initializerPointer in _initializerPointers)
+            {
+                //In most cases we don't need more than the first 7 instructions
+                var func = Arm64Utils.ReadFunctionAtRawAddress(this, (uint)initializerPointer, 7);
+
+                //Don't accept anything longer than 7 instructions
+                //I.e. if it doesn't end with a jump we don't want it 
+                if (!Arm64Utils.IsB(func[^1]))
+                    continue;
+
+                var registers = Arm64Utils.GetAddressesLoadedIntoRegisters(func, _globalOffset + (ulong)initializerPointer, this);
+                
+                //Did we find the initializer defined in Il2CppCodeRegistration.cpp?
+                //It will have only x0 and x1 set.
+                if (registers.Count == 2 && registers.ContainsKey(0) && registers.TryGetValue(1, out var x1))
+                {
+                    //Load the function whose address is in X1
+                    var secondFunc = Arm64Utils.ReadFunctionAtRawAddress(this, (uint)MapVirtualAddressToRaw(x1), 7);
+                    
+                    if(!Arm64Utils.IsB(secondFunc[^1]))
+                        continue;
+
+                    registers = Arm64Utils.GetAddressesLoadedIntoRegisters(secondFunc, x1, this);
+                }
+                
+                //Do we have Il2CppCodegenRegistration?
+                //In v21 and later - which is the only range we support - we have X0 through X2 and only those.
+                //We want what's in x0 and x1. x2 is irrelevant.
+                if (registers.Count == 3 && registers.TryGetValue(0, out var x0) && registers.TryGetValue(1, out x1) && registers.ContainsKey(2))
+                {
+                    LibLogger.VerboseNewline($"\t\tFound valid sequence of bytes for il2cpp initializer function at 0x{initializerPointer:X}.");
+                    return (x0, x1);
+                }
+
+                //Fail, move on.
+                
+                LibLogger.VerboseNewline($"\t\tInitializer function at 0x{initializerPointer:X} is probably NOT the il2cpp initializer.");
             }
 
             return (0, 0);
