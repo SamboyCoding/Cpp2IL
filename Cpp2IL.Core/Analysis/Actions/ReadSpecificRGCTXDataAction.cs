@@ -1,4 +1,5 @@
 ﻿using System;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL.BinaryStructures;
 using Mono.Cecil;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class ReadSpecificRGCTXDataAction : BaseAction
+    public class ReadSpecificRGCTXDataAction : BaseAction<Instruction>
     {
         private Il2CppRGCTXArray? _rgctxArray;
         private uint _offset;

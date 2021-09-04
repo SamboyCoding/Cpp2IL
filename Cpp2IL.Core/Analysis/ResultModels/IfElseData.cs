@@ -1,4 +1,4 @@
-﻿using Cpp2IL.Core.Analysis.Actions;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
@@ -7,6 +7,6 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public ulong IfStatementStart;
         public ulong ElseStatementStart;
         public ulong ElseStatementEnd;
-        public BaseAction ConditionalJumpStatement;
+        public BaseAction<Iced.Intel.Instruction> ConditionalJumpStatement;
     }
 }

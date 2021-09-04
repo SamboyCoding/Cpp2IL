@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -8,7 +9,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class GlobalFieldDefToConstantAction : BaseAction
+    public class GlobalFieldDefToConstantAction : BaseAction<Instruction>
     {
         public readonly Il2CppFieldDefinition? FieldData;
         private readonly FieldDefinition? ResolvedField;

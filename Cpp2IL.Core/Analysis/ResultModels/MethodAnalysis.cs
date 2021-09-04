@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Cpp2IL.Core.Analysis.Actions;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.Important;
 using Iced.Intel;
 using LibCpp2IL;
@@ -19,10 +19,10 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         
         public readonly List<LocalDefinition> Locals = new List<LocalDefinition>();
         public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
-        public List<BaseAction> Actions = new List<BaseAction>();
+        public List<BaseAction<Iced.Intel.Instruction>> Actions = new();
         public readonly List<ulong> IdentifiedJumpDestinationAddresses = new List<ulong>();
         public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
-        public readonly Dictionary<BaseAction, List<Instruction>> JumpTargetsToFixByAction = new Dictionary<BaseAction, List<Instruction>>();
+        public readonly Dictionary<BaseAction<Iced.Intel.Instruction>, List<Instruction>> JumpTargetsToFixByAction = new Dictionary<BaseAction<Iced.Intel.Instruction>, List<Instruction>>();
 
         public event PtrConsumer OnExpansionRequested;
 
@@ -347,7 +347,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             FloatingPointStack = state.FloatingPointStack;
         }
 
-        public void RegisterIfElseStatement(ulong startOfIf, ulong startOfElse, BaseAction conditionalJump)
+        public void RegisterIfElseStatement(ulong startOfIf, ulong startOfElse, BaseAction<Iced.Intel.Instruction> conditionalJump)
         {
             IfElseBlockData.Add(SaveAnalysisState(
                 new IfElseData
@@ -361,7 +361,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             ));
         }
         
-        public void RegisterIfStatement(ulong startOfIf, ulong endOfIf, BaseAction conditionalJump)
+        public void RegisterIfStatement(ulong startOfIf, ulong endOfIf, BaseAction<Iced.Intel.Instruction> conditionalJump)
         {
             IfOnlyBlockData.Add(SaveAnalysisState(
                 new IfData

@@ -1,4 +1,5 @@
 ﻿using System;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -8,7 +9,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class GlobalTypeRefToConstantAction : BaseAction
+    public class GlobalTypeRefToConstantAction : BaseAction<Instruction>
     {
         public readonly TypeReference? ResolvedType;
         public readonly ConstantDefinition? ConstantWritten;

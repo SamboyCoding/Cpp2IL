@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class MoveMethodInfoPtrToRegAction : BaseAction
+    public class MoveMethodInfoPtrToRegAction : BaseAction<Instruction>
     {
         private readonly MethodReference? _methodBeingRead;
         private readonly string? _destReg;

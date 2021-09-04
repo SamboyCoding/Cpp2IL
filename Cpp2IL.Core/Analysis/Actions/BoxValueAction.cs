@@ -1,4 +1,5 @@
 ﻿using System;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class BoxValueAction : BaseAction
+    public class BoxValueAction : BaseAction<Instruction>
     {
         private TypeReference? destinationType;
         private IAnalysedOperand? primitiveObject;

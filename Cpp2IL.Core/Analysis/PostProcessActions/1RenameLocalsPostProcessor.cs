@@ -1,7 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.Important;
+using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Iced.Intel;
 using Mono.Cecil;
 
 namespace Cpp2IL.Core.Analysis.PostProcessActions
@@ -34,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
 
                     localDefinition = sftra.LocalWritten;
                 }
-                else if (action is AbstractCallAction {ReturnedLocal: { }, ManagedMethodBeingCalled: {}} aca)
+                else if (action is BaseX86CallAction {ReturnedLocal: { }, ManagedMethodBeingCalled: {}} aca)
                 {
                     if (aca.ManagedMethodBeingCalled.Name.StartsWith("get_"))
                         nameBase = aca.ManagedMethodBeingCalled.Name[4..];

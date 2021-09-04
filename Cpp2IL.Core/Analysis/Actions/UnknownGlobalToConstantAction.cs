@@ -1,12 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
-using Iced.Intel;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class UnknownGlobalToConstantAction : BaseAction
+    public class UnknownGlobalToConstantAction : BaseAction<Instruction>
     {
         private UnknownGlobalAddr _global;
         private string _destReg;

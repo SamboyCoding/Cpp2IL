@@ -1,10 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class CallNativeMethodFailureAction : BaseAction
+    public class CallNativeMethodFailureAction : BaseAction<Instruction>
     {
         public CallNativeMethodFailureAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {

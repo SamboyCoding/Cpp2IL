@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class LoadInterfaceMethodDataAction : BaseAction
+    public class LoadInterfaceMethodDataAction : BaseAction<Instruction>
     {
         private LocalDefinition _invokedOn;
         private TypeDefinition _interfaceType;

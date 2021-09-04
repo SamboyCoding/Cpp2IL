@@ -1,4 +1,4 @@
-﻿using System;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil.Cil;
@@ -6,7 +6,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class ClassPointerLoadAction : BaseAction
+    public class ClassPointerLoadAction : BaseAction<Instruction>
     {
         private readonly LocalDefinition? localCopiedFrom;
         private readonly ConstantDefinition? destinationConstant;

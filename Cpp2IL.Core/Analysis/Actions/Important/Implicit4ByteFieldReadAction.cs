@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -6,7 +7,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class Implicit4ByteFieldReadAction : BaseAction
+    public class Implicit4ByteFieldReadAction : BaseAction<Instruction>
     {
         private FieldUtils.FieldBeingAccessedData? _read;
         private LocalDefinition? _readOn;

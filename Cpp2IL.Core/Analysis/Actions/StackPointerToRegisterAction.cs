@@ -1,10 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class StackPointerToRegisterAction : BaseAction
+    public class StackPointerToRegisterAction : BaseAction<Instruction>
     {
         private string _destReg;
         private uint _stackOffset;

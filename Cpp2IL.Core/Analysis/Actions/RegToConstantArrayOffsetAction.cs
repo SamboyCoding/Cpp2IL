@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -6,7 +7,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class RegToConstantArrayOffsetAction : BaseAction
+    public class RegToConstantArrayOffsetAction : BaseAction<Instruction>
     {
         private long _offsetIdx;
         private LocalDefinition? _arrayInMem;

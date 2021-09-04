@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class LoadAttributeFromAttributeListAction : BaseAction
+    public class LoadAttributeFromAttributeListAction : BaseAction<Instruction>
     {
         public LocalDefinition? LocalMade;
         private string? _destReg;

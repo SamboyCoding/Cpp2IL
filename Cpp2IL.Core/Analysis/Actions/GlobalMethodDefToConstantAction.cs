@@ -1,5 +1,5 @@
-﻿using System;
-using System.Linq;
+﻿using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -10,7 +10,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class GlobalMethodDefToConstantAction : BaseAction
+    public class GlobalMethodDefToConstantAction : BaseAction<Instruction>
     {
         public Il2CppMethodDefinition? MethodData;
         public MethodDefinition? ResolvedMethod;

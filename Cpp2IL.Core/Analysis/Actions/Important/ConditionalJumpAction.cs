@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil.Cil;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public abstract class ConditionalJumpAction : BaseAction
+    public abstract class ConditionalJumpAction : BaseAction<Instruction>
     {
         protected ComparisonAction? associatedCompare;
         public ulong JumpTarget;

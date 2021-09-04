@@ -1,5 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -8,7 +10,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class AllocateInstanceAction : BaseAction
+    public class AllocateInstanceAction : BaseAction<Instruction>
     {
         public TypeReference? TypeCreated;
         public LocalDefinition? LocalReturned;
@@ -45,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (LocalReturned == null || TypeCreated == null)
                 throw new TaintedInstructionException("Local being returned, or type being allocated, couldn't be determined.");
             
-            var managedConstructorCall = (AbstractCallAction?) context.Actions.Skip(context.Actions.IndexOf(this)).FirstOrDefault(i => i is AbstractCallAction);
+            var managedConstructorCall = (BaseX86CallAction) context.Actions.Skip(context.Actions.IndexOf(this)).FirstOrDefault(i => i is BaseX86CallAction);
 
             if (managedConstructorCall == null)
                 throw new TaintedInstructionException($"Cannot find the call to the constructor for instance allocation, of type {TypeCreated} (Is Value: {TypeCreated?.IsValueType})");

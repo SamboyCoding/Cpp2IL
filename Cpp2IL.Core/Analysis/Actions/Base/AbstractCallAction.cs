@@ -1,6 +1,5 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.ResultModels;
@@ -8,11 +7,10 @@ using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
-using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Core.Analysis.Actions.Important
+namespace Cpp2IL.Core.Analysis.Actions.Base
 {
-    public abstract class AbstractCallAction : BaseAction
+    public abstract class AbstractCallAction<T> : BaseAction<T>
     {
         public MethodReference? ManagedMethodBeingCalled;
         public List<IAnalysedOperand?>? Arguments;
@@ -22,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         protected bool ShouldUseCallvirt;
         protected TypeReference? StaticMethodGenericTypeOverride;
 
-        public AbstractCallAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        protected AbstractCallAction(MethodAnalysis context, T instruction) : base(context, instruction)
         {
         }
 

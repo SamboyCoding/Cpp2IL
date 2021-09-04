@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class ConstantToGlobalAction : BaseAction
+    public class ConstantToGlobalAction : BaseAction<Instruction>
     {
         private object constantValue;
         private object _theGlobal;

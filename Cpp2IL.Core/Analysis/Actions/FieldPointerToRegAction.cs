@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class FieldPointerToRegAction : BaseAction
+    public class FieldPointerToRegAction : BaseAction<Instruction>
     {
         private FieldUtils.FieldBeingAccessedData? _fieldBeingRead;
         private string? _destReg;

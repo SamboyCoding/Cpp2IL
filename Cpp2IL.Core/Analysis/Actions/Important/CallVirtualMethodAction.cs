@@ -1,9 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.Actions.x86;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class CallVirtualMethodAction : AbstractCallAction
+    public class CallVirtualMethodAction : BaseX86CallAction
     {
         public CallVirtualMethodAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {

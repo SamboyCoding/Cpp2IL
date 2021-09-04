@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -8,7 +9,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class ComparisonAction : BaseAction
+    public class ComparisonAction : BaseAction<Instruction>
     {
         public readonly IComparisonArgument? ArgumentOne;
         public readonly IComparisonArgument? ArgumentTwo;

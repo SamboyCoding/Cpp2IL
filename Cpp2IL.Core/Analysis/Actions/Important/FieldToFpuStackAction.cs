@@ -1,10 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class FieldToFpuStackAction : BaseAction
+    public class FieldToFpuStackAction : BaseAction<Instruction>
     {
         private readonly LocalDefinition? _localBeingReadFrom;
         private readonly uint _offsetBeingRead;

@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class ConstantToRegAction : BaseAction
+    public class ConstantToRegAction : BaseAction<Instruction>
     {
         private readonly bool _mayNotBeAConstant;
         private ulong constantValue;

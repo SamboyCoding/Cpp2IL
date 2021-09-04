@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -6,7 +7,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class CallInitClassAction : BaseAction
+    public class CallInitClassAction : BaseAction<Instruction>
     {
         public TypeReference theType;
         public CallInitClassAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)

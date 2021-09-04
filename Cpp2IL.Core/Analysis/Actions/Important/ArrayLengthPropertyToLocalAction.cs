@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -8,7 +9,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class ArrayLengthPropertyToLocalAction : BaseAction
+    public class ArrayLengthPropertyToLocalAction : BaseAction<Instruction>
     {
         private static readonly MethodDefinition GetLengthDef = Utils.TryLookupTypeDefKnownNotGeneric("System.Array")!.Methods.Single(m => m.Name == "get_Length");
         public LocalDefinition? LocalMade;

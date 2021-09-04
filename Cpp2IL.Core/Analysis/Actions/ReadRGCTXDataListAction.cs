@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL.BinaryStructures;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class ReadRGCTXDataListAction : BaseAction
+    public class ReadRGCTXDataListAction : BaseAction<Instruction>
     {
         private Il2CppClassIdentifier? _klass;
         private Il2CppRGCTXDefinition[]? _rgctxs;

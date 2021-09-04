@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.x86;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class CallManagedFunctionInRegAction : AbstractCallAction
+    public class CallManagedFunctionInRegAction : BaseX86CallAction
     {
         public CallManagedFunctionInRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {

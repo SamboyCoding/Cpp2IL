@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -11,7 +12,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class CallExceptionThrowerFunction : BaseAction
+    public class CallExceptionThrowerFunction : BaseAction<Instruction>
     {
         private static readonly ConcurrentDictionary<ulong, TypeDefinition?> ExceptionThrowers = new ConcurrentDictionary<ulong, TypeDefinition?>();
         private TypeDefinition? _exceptionType;

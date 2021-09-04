@@ -1,10 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class EndIfMarkerAction : BaseAction
+    public class EndIfMarkerAction : BaseAction<Instruction>
     {
         private readonly bool _hasElse;
         private ulong _elsePtr;

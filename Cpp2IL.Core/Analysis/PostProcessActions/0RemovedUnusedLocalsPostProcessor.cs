@@ -1,6 +1,5 @@
 ﻿// #define PRINT_UNUSED_LOCAL_DATA
 
-using System.Diagnostics;
 using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;

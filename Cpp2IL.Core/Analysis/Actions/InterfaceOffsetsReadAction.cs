@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL.Metadata;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class InterfaceOffsetsReadAction : BaseAction
+    public class InterfaceOffsetsReadAction : BaseAction<Instruction>
     {
         internal Il2CppInterfaceOffset[] InterfaceOffsets;
         public Il2CppClassIdentifier loadedFor;

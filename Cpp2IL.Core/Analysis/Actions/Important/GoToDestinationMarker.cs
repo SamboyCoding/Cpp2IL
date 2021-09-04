@@ -1,10 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class GoToDestinationMarker : BaseAction
+    public class GoToDestinationMarker : BaseAction<Instruction>
     {
         public GoToDestinationMarker(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {

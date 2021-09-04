@@ -1,9 +1,10 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public abstract class AbstractFieldWriteAction : BaseAction
+    public abstract class AbstractFieldWriteAction : BaseAction<Instruction>
     {
         public LocalDefinition? InstanceBeingSetOn;
         public FieldUtils.FieldBeingAccessedData? FieldWritten;

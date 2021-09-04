@@ -1,10 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class RegOffsetArrayValueReadRegToRegAction : BaseAction
+    public class RegOffsetArrayValueReadRegToRegAction : BaseAction<Instruction>
     {
         private LocalDefinition? _arrayLocal;
         private LocalDefinition? _indexLocal;

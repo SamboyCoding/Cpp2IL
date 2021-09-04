@@ -1,11 +1,12 @@
 ﻿using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL.BinaryStructures;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class CallMethodSpecAction : AbstractCallAction
+    public class CallMethodSpecAction : BaseX86CallAction
     {
         public CallMethodSpecAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {

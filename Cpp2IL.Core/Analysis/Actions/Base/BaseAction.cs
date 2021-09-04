@@ -2,16 +2,15 @@
 using System.Text;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
-using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Core.Analysis.Actions
+namespace Cpp2IL.Core.Analysis.Actions.Base
 {
-    public abstract class BaseAction
+    public abstract class BaseAction<T>
     {
+        public T AssociatedInstruction;
         private StringBuilder _lineComments = new StringBuilder();
-        public Instruction AssociatedInstruction;
+        
         public int IndentLevel;
 
         private List<LocalDefinition> UsedLocals = new List<LocalDefinition>();
@@ -19,13 +18,13 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         protected bool is32Bit => LibCpp2IlMain.Binary!.is32Bit;
         
-        public BaseAction(MethodAnalysis context, Instruction instruction)
+        public BaseAction(MethodAnalysis context, T associatedInstruction)
         {
-            AssociatedInstruction = instruction;
             IndentLevel = context.IndentLevel;
+            AssociatedInstruction = associatedInstruction;
         }
 
-        public abstract Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor);
+        public abstract Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor);
 
         public abstract string? ToPsuedoCode();
 

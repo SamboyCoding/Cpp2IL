@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class ThreeOperandImulAction : BaseAction
+    public class ThreeOperandImulAction : BaseAction<Instruction>
     {
         private IAnalysedOperand? _argOne;
         private IAnalysedOperand? _argTwo;

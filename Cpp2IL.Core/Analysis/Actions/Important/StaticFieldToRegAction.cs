@@ -1,4 +1,5 @@
 ﻿using System;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -6,7 +7,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class StaticFieldToRegAction : BaseAction
+    public class StaticFieldToRegAction : BaseAction<Instruction>
     {
         public readonly FieldDefinition? FieldRead;
         public readonly LocalDefinition? LocalWritten;

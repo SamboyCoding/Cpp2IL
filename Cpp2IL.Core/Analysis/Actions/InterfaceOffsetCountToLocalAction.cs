@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL.Metadata;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class InterfaceOffsetCountToLocalAction : BaseAction
+    public class InterfaceOffsetCountToLocalAction : BaseAction<Instruction>
     {
         private ushort offsetCount;
         private LocalDefinition? _localMade;

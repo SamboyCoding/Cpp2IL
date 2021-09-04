@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -9,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     /// <summary>
     /// Action for a simple reg->reg move
     /// </summary>
-    public class RegToRegMoveAction : BaseAction
+    public class RegToRegMoveAction : BaseAction<Instruction>
     {
         private readonly IAnalysedOperand? beingMoved;
         private readonly string originalReg;

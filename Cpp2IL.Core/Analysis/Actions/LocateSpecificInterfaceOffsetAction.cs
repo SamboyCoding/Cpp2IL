@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions
 {
-    public class LocateSpecificInterfaceOffsetAction : BaseAction
+    public class LocateSpecificInterfaceOffsetAction : BaseAction<Instruction>
     {
         private TypeDefinition _interfaceType;
         private InterfaceOffsetsReadAction offsetReads;

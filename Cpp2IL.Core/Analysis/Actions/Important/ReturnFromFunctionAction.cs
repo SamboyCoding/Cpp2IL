@@ -1,11 +1,12 @@
 ﻿using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class ReturnFromFunctionAction : BaseAction
+    public class ReturnFromFunctionAction : BaseAction<Instruction>
     {
         private IAnalysedOperand? returnValue;
         private bool _isVoid;

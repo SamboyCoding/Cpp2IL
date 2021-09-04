@@ -7,8 +7,10 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -170,7 +172,7 @@ namespace Cpp2IL.Core
                 //If not, just generate those which we can (no params).
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, 0, true);
 
-            List<BaseAction> actions;
+            List<BaseAction<Instruction>> actions;
             try
             {
                 actions = GetActionsPerformedByGenerator(keyFunctionAddresses, attributeGeneratorAddress, attributesExpected);
@@ -325,7 +327,7 @@ namespace Cpp2IL.Core
             return ca;
         }
 
-        private static List<BaseAction> GetActionsPerformedByGenerator(KeyFunctionAddresses? keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
+        private static List<BaseAction<Instruction>> GetActionsPerformedByGenerator(KeyFunctionAddresses? keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
         {
             var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false);
 
@@ -335,7 +337,7 @@ namespace Cpp2IL.Core
             analyzer.AttributesForRestoration = attributesExpected;
 
             analyzer.AnalyzeMethod();
-            return analyzer.Analysis.Actions;
+            return analyzer.Analysis.Actions.ToList();
         }
 
         private static List<TypeDefinition> GetAttributesFromRange(Il2CppCustomAttributeTypeRange attributeTypeRange)
@@ -553,7 +555,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction> actions, LocalDefinition? local)
+        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<Instruction>> actions, LocalDefinition? local)
         {
             //Try and get mappings for all constructors.
             var allPotentialCtors = attr.GetConstructors()

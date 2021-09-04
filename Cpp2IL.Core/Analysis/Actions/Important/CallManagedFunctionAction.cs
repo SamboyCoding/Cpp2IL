@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -7,7 +8,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class CallManagedFunctionAction : AbstractCallAction
+    public class CallManagedFunctionAction : BaseX86CallAction
     {
         private readonly ulong _jumpTarget;
 

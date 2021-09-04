@@ -1,11 +1,12 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class GlobalStringToMonoStringAction : BaseAction
+    public class GlobalStringToMonoStringAction : BaseAction<Instruction>
     {
         private string? _stringValue;
         private LocalDefinition? _localMade;
