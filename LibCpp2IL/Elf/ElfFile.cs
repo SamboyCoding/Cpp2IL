@@ -423,7 +423,7 @@ namespace LibCpp2IL.Elf
             return InstructionSet switch
             {
                 InstructionSet.ARM32 => FindCodeAndMetadataRegArm32(),
-                InstructionSet.ARM64 => FindCodeAndMetadataRegArm64(),
+                InstructionSet.ARM64 when LibCpp2IlMain.MetadataVersion < 24.2f => FindCodeAndMetadataRegArm64(),
                 _ => FindCodeAndMetadataRegDefaultBehavior(),
             };
         }
