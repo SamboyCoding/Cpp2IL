@@ -1,24 +1,15 @@
-﻿using System.Collections.Generic;
-using System.Linq;
+﻿using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
-using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Core.Analysis.Actions.Important
+namespace Cpp2IL.Core.Analysis.Actions.x86
 {
-    public abstract class ConditionalJumpAction : BaseAction<Instruction>
+    public abstract class BaseX86ConditionalJumpAction : AbstractConditionalJumpAction<Instruction>
     {
-        protected ComparisonAction? associatedCompare;
-        public ulong JumpTarget;
-        protected bool isIfStatement;
-        protected bool isIfElse;
-        protected bool isWhile;
-        protected bool isImplicitNullReferenceException;
-        protected bool IsGoto;
-
-        protected ConditionalJumpAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        protected BaseX86ConditionalJumpAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
             JumpTarget = instruction.NearBranchTarget;
 
@@ -39,11 +30,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 if (CallExceptionThrowerFunction.GetExceptionThrown(body[0].NearBranchTarget)?.Name == "NullReferenceException")
                 {
                     //Simply an NRE thrower. Important in cpp code, not in managed.
-                    isImplicitNullReferenceException = true;
+                    IsImplicitNullReferenceException = true;
                     return; //Do not increase indent, do not register used local, do not pass go, do not collect $200.
                 }
             }
 
+            //TODO try and move this lot into the parent class.
             if (associatedCompare?.ArgumentOne is LocalDefinition l)
                 RegisterUsedLocal(l);
             else if (associatedCompare?.ArgumentOne is ComparisonDirectFieldAccess a)
@@ -80,7 +72,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (context.IsThereProbablyAnElseAt(JumpTarget))
             {
                 //If-Else
-                isIfElse = true;
+                IsIfElse = true;
 
                 if (associatedCompare?.unimportantComparison == false)
                 {
@@ -92,7 +84,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             else if (associatedCompare?.IsProbablyWhileLoop() == true)
             {
                 //While loop
-                isWhile = true;
+                IsWhile = true;
 
                 if (associatedCompare?.unimportantComparison == false)
                 {
@@ -108,7 +100,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 //Just an if. No else, no while.
                 context.RegisterIfStatement(instruction.NextIP, JumpTarget, this);
 
-                isIfStatement = true;
+                IsIfStatement = true;
                 AddComment($"Increasing indentation - is standard if, unimportant is {associatedCompare?.unimportantComparison}");
                 context.IndentLevel += 1;
                 
@@ -117,76 +109,6 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             }
         }
 
-        protected abstract string GetPseudocodeCondition();
-
-        protected abstract string GetInvertedPseudocodeConditionForGotos();
-
-        protected abstract string GetTextSummaryCondition();
-
-        public override bool IsImportant()
-        {
-            return !isImplicitNullReferenceException && associatedCompare?.unimportantComparison == false && (isIfElse || isWhile || isIfStatement || IsGoto);
-        }
-
-        protected string GetArgumentOnePseudocodeValue()
-        {
-            return associatedCompare?.ArgumentOne == null ? "" : associatedCompare.ArgumentOne.GetPseudocodeRepresentation();
-        }
-
-        protected string GetArgumentTwoPseudocodeValue()
-        {
-            return associatedCompare?.ArgumentTwo == null ? "" : associatedCompare.ArgumentTwo.GetPseudocodeRepresentation();
-        }
-
-        public override string? ToPsuedoCode()
-        {
-            if (IsGoto)
-            {
-                return $"if {GetInvertedPseudocodeConditionForGotos()}\n" +
-                       $"    goto INSN_{JumpTarget:X}\n" +
-                       $"endif";
-            }
-            
-            return isWhile ? $"while {GetPseudocodeCondition()}" : $"if {GetPseudocodeCondition()}";
-        }
-
-        public override string ToTextSummary()
-        {
-            if (isImplicitNullReferenceException)
-                return $"Jumps to 0x{JumpTarget:X} (which throws a NRE) if {GetTextSummaryCondition()}. Implicitly present in managed code, so ignored here.";
-
-            return $"Jumps to 0x{JumpTarget:X}{(isIfStatement ? " (which is an if statement's body)" : "")} if {GetTextSummaryCondition()}\n";
-        }
-
-        protected virtual bool OnlyNeedToLoadOneOperand() => false;
-
-        protected abstract OpCode GetJumpOpcode();
-
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
-        {
-            if (associatedCompare?.ArgumentOne == null || associatedCompare.ArgumentTwo == null)
-                throw new TaintedInstructionException();
-
-            var ret = new List<Mono.Cecil.Cil.Instruction>();
-            var dummyTarget = processor.Create(OpCodes.Nop);
-
-            ret.AddRange(associatedCompare.ArgumentOne.GetILToLoad(context, processor));
-
-            if (!OnlyNeedToLoadOneOperand())
-                ret.AddRange(associatedCompare.ArgumentTwo.GetILToLoad(context, processor));
-
-            //Will have to be swapped to correct one in post-processing.
-            var jumpInstruction = processor.Create(GetJumpOpcode(), dummyTarget);
-            ret.Add(jumpInstruction);
-
-            context.RegisterInstructionTargetToSwapOut(jumpInstruction, JumpTarget);
-
-            return ret.ToArray();
-        }
-
-        public override bool PseudocodeNeedsLinebreakBefore()
-        {
-            return true;
-        }
+        
     }
 }

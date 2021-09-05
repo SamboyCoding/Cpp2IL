@@ -1,10 +1,11 @@
-﻿using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.Actions.x86;
+using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class JumpIfLessThanOrEqualToAction : ConditionalJumpAction
+    public class JumpIfLessThanOrEqualToAction : BaseX86ConditionalJumpAction
     {
         public JumpIfLessThanOrEqualToAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {

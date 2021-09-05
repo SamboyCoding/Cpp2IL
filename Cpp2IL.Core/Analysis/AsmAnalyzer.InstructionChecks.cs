@@ -2,6 +2,7 @@
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions;
 using Cpp2IL.Core.Analysis.Actions.Important;
+using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -711,7 +712,7 @@ namespace Cpp2IL.Core.Analysis
 
                 var ipOfCompare = loopWhichJustEnded!.AssociatedInstruction.IP;
 
-                if (Analysis.Actions.FirstOrDefault(a => a.AssociatedInstruction.IP > ipOfCompare && a is ConditionalJumpAction) is ConditionalJumpAction jump && jump.JumpTarget != instruction.IP)
+                if (Analysis.Actions.FirstOrDefault(a => a.AssociatedInstruction.IP > ipOfCompare && a is BaseX86ConditionalJumpAction) is BaseX86ConditionalJumpAction jump && jump.JumpTarget != instruction.IP)
                 {
                     //Once the loop is complete we have to jump to somewhere which is not here.
                     Analysis.Actions.Add(new GoToMarkerAction(Analysis, instruction, jump.JumpTarget));
