@@ -14,9 +14,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         protected abstract string? GetValueSummary();
         protected abstract string? GetValuePseudocode();
-        protected abstract Mono.Cecil.Cil.Instruction[] GetIlToLoadValue(MethodAnalysis context, ILProcessor processor);
+        protected abstract Instruction[] GetIlToLoadValue(MethodAnalysis context, ILProcessor processor);
         
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
         {
             if (InstanceBeingSetOn == null || FieldWritten == null)
                 throw new TaintedInstructionException("Instance or field is null");

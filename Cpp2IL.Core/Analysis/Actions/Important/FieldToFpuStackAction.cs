@@ -1,11 +1,10 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
-using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class FieldToFpuStackAction : BaseAction<Instruction>
+    public class FieldToFpuStackAction : AbstractFieldReadAction<Instruction>
     {
         private readonly LocalDefinition? _localBeingReadFrom;
         private readonly uint _offsetBeingRead;
@@ -30,24 +29,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             context.FloatingPointStack.Push(_localMade);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public override string? ToPsuedoCode()
-        {
-            return $"{_localMade?.Type} {_localMade?.Name} = {_localBeingReadFrom?.Name}.{_fieldRead}";
-        }
-
         public override string ToTextSummary()
         {
             return $"[!] Reads field {_fieldRead} from {_localBeingReadFrom} and pushes the result to the FPU stack as {_localMade}";
-        }
-
-        public override bool IsImportant()
-        {
-            return true;
         }
     }
 }

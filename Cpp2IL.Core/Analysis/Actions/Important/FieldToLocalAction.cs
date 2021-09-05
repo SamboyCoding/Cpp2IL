@@ -1,18 +1,13 @@
-﻿using System.Collections.Generic;
-using Cpp2IL.Core.Analysis.Actions.Base;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
-using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class FieldToLocalAction : BaseAction<Instruction>
+    public class FieldToLocalAction : AbstractFieldReadAction<Instruction>
     {
-        public FieldUtils.FieldBeingAccessedData? FieldRead;
-        public LocalDefinition? LocalWritten;
         private string _destRegName;
-        private LocalDefinition? _readFrom;
 
         public FieldToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
         {
@@ -46,40 +41,6 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             LocalWritten = context.MakeLocal(FieldRead.GetFinalType(), reg: _destRegName);
             RegisterDefinedLocalWithoutSideEffects(LocalWritten);
-        }
-
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
-        {
-            if (LocalWritten == null || _readFrom == null || FieldRead == null)
-                throw new TaintedInstructionException();
-            
-            var ret = new List<Mono.Cecil.Cil.Instruction>();
-
-            //Load object
-            ret.AddRange(_readFrom.GetILToLoad(context, processor));
-
-            //Access field
-            ret.AddRange(FieldRead.GetILToLoad(processor));
-
-            //Store to local
-            ret.Add(processor.Create(OpCodes.Stloc, LocalWritten.Variable));
-            
-            return ret.ToArray();
-        }
-
-        public override string ToPsuedoCode()
-        {
-            return $"{LocalWritten?.Type?.FullName} {LocalWritten?.Name} = {_readFrom?.Name}.{FieldRead}";
-        }
-
-        public override string ToTextSummary()
-        {
-            return $"[!] Reads field {FieldRead} from {_readFrom} and stores in a new local {LocalWritten} in {_destRegName}\n";
-        }
-        
-        public override bool IsImportant()
-        {
-            return true;
         }
     }
 }
