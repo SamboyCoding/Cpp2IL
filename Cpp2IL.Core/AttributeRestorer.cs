@@ -566,8 +566,8 @@ namespace Cpp2IL.Core
 
             //And get all field writes on this attribute
             var allWritesInGeneratorOnThisAttribute = actions
-                .Where(a => (a is AbstractFieldWriteAction afwa && afwa.InstanceBeingSetOn == local))
-                .Cast<AbstractFieldWriteAction>()
+                .Where(a => (a is AbstractFieldWriteAction<Instruction> afwa && afwa.InstanceBeingSetOn == local))
+                .Cast<AbstractFieldWriteAction<Instruction>>()
                 .ToList();
 
             if (allWritesInGeneratorOnThisAttribute.Any(w => w.FieldWritten?.FinalLoadInChain == null))
