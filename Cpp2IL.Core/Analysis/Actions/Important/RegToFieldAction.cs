@@ -1,12 +1,13 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class RegToFieldAction : AbstractFieldWriteAction
+    public class RegToFieldAction : AbstractFieldWriteAction<Instruction>
     {
         public readonly IAnalysedOperand? ValueRead;
 
@@ -60,46 +61,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             RegisterUsedLocal(readFrom);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
-        {
-            if (ValueRead == null || InstanceBeingSetOn == null || FieldWritten == null)
-                throw new TaintedInstructionException();
-            
-            var ret = new List<Mono.Cecil.Cil.Instruction>();
+        protected override string? GetValuePseudocode() => ValueRead?.GetPseudocodeRepresentation();
 
-            ret.AddRange(InstanceBeingSetOn.GetILToLoad(context, processor));
+        protected override string? GetValueSummary() => ValueRead?.ToString();
 
-            var f = FieldWritten;
-            while (f.NextChainLink != null)
-            {
-                ret.Add(processor.Create(OpCodes.Ldfld, processor.ImportReference(f.ImpliedFieldLoad!)));
-                f = f.NextChainLink;
-            }
-            
-            ret.AddRange(ValueRead.GetILToLoad(context, processor));
-
-            if (f.FinalLoadInChain == null)
-                throw new TaintedInstructionException("Final load in chain is null");
-            
-            ret.Add(processor.Create(OpCodes.Stfld, processor.ImportReference(f.FinalLoadInChain)));
-            
-            
-            return ret.ToArray();
-        }
-
-        public override string ToPsuedoCode()
-        {
-            return $"{InstanceBeingSetOn?.Name}.{FieldWritten} = {ValueRead?.GetPseudocodeRepresentation()}";
-        }
-
-        public override string ToTextSummary()
-        {
-            return $"[!] Sets the field {FieldWritten} (Type {FieldWritten?.GetFinalType()}) on local {InstanceBeingSetOn} to the value stored in {ValueRead}";
-        }
-
-        public override bool IsImportant()
-        {
-            return true;
-        }
+        protected override Mono.Cecil.Cil.Instruction[] GetIlToLoadValue(MethodAnalysis context, ILProcessor processor) => ValueRead?.GetILToLoad(context, processor) ?? throw new TaintedInstructionException("Value read is null");
     }
 }
