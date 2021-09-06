@@ -10,12 +10,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class TypeToObjectAction : BaseAction<Instruction>
     {
         private readonly TypeReference? _type;
-        private readonly ConstantDefinition? _constant;
-        private LocalDefinition? _localMade;
+        private readonly ConstantDefinition<Instruction>? _constant;
+        private LocalDefinition<Instruction>? _localMade;
 
-        public TypeToObjectAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public TypeToObjectAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _constant = LibCpp2IlMain.Binary!.is32Bit ? context.Stack.Peek() as ConstantDefinition : context.GetConstantInReg("rcx");
+            _constant = LibCpp2IlMain.Binary!.is32Bit ? context.Stack.Peek() as ConstantDefinition<Instruction> : context.GetConstantInReg("rcx");
 
             if (!(_constant?.Value is TypeReference type))
                 return;
@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _localMade = context.MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Type")!, reg: "rax", knownInitialValue: type);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

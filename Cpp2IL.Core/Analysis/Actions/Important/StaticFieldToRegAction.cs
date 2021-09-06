@@ -10,10 +10,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class StaticFieldToRegAction : BaseAction<Instruction>
     {
         public readonly FieldDefinition? FieldRead;
-        public readonly LocalDefinition? LocalWritten;
+        public readonly LocalDefinition<Instruction>? LocalWritten;
         private readonly string _destReg;
 
-        public StaticFieldToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public StaticFieldToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var fieldsPtrConst = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
@@ -29,7 +29,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             LocalWritten = context.MakeLocal(FieldRead.FieldType, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (FieldRead == null || LocalWritten == null)
                 throw new TaintedInstructionException("Couldn't identify the field being read (or its type).");

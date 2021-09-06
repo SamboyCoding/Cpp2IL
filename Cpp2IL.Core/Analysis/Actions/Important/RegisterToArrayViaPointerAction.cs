@@ -8,15 +8,15 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegisterToArrayViaPointerAction : BaseAction<Instruction>
     {
-        private Il2CppArrayOffsetPointer? _arrayPointer;
-        private IAnalysedOperand? _sourceOp;
+        private Il2CppArrayOffsetPointer<Instruction>? _arrayPointer;
+        private IAnalysedOperand<Instruction>? _sourceOp;
 
-        public RegisterToArrayViaPointerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegisterToArrayViaPointerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var arrayPointerCons = context.GetConstantInReg(memReg);
             
-            _arrayPointer = arrayPointerCons?.Value as Il2CppArrayOffsetPointer;
+            _arrayPointer = arrayPointerCons?.Value as Il2CppArrayOffsetPointer<Instruction>;
             
             if(_arrayPointer == null)
                 return;
@@ -29,13 +29,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             array.KnownValuesAtOffsets[_arrayPointer.Offset] = _sourceOp switch
             {
-                LocalDefinition loc => loc.KnownInitialValue,
-                ConstantDefinition cons => cons.Value,
+                LocalDefinition<Instruction> loc => loc.KnownInitialValue,
+                ConstantDefinition<Instruction> cons => cons.Value,
                 _ => null
             };
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 

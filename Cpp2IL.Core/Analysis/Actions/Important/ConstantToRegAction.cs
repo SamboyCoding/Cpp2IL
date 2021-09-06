@@ -11,9 +11,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private readonly bool _mayNotBeAConstant;
         private ulong constantValue;
         private string destReg;
-        private IAnalysedOperand dest;
+        private IAnalysedOperand<Instruction> dest;
 
-        public ConstantToRegAction(MethodAnalysis context, Instruction instruction, bool mayNotBeAConstant) : base(context, instruction)
+        public ConstantToRegAction(MethodAnalysis<Instruction> context, Instruction instruction, bool mayNotBeAConstant) : base(context, instruction)
         {
             _mayNotBeAConstant = mayNotBeAConstant;
             constantValue = instruction.GetImmediate(1);
@@ -31,7 +31,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     dest = context.MakeLocal(Utils.UInt32Reference, reg: destReg, knownInitialValue: (uint) constantValue);
                 else
                     dest = context.MakeLocal(Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
-                RegisterDefinedLocalWithoutSideEffects((LocalDefinition) dest);
+                RegisterDefinedLocalWithoutSideEffects((LocalDefinition<Instruction>) dest);
             }
             else
             {
@@ -42,7 +42,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             //TODO we'll need a load of some sort.
             return new Mono.Cecil.Cil.Instruction[0];
@@ -50,7 +50,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override string? ToPsuedoCode()
         {
-            return $"{Utils.Int64Reference} {(dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition) dest).Name)} = {(constantValue > 1024 ? $"0x{constantValue:X}" : $"{constantValue}")}";
+            return $"{Utils.Int64Reference} {(dest is ConstantDefinition<Instruction> constant ? constant.Name : ((LocalDefinition<Instruction>) dest).Name)} = {(constantValue > 1024 ? $"0x{constantValue:X}" : $"{constantValue}")}";
         }
 
         public override string ToTextSummary()
@@ -60,7 +60,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override bool IsImportant()
         {
-            if (dest is ConstantDefinition constantDefinition && !constantDefinition.GetPseudocodeRepresentation().StartsWith("{"))
+            if (dest is ConstantDefinition<Instruction> constantDefinition && !constantDefinition.GetPseudocodeRepresentation().StartsWith("{"))
                 return false;
 
             return true;

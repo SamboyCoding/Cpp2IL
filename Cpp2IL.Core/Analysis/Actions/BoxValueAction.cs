@@ -11,10 +11,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class BoxValueAction : BaseAction<Instruction>
     {
         private TypeReference? destinationType;
-        private IAnalysedOperand? primitiveObject;
-        private LocalDefinition? _localMade;
+        private IAnalysedOperand<Instruction>? primitiveObject;
+        private LocalDefinition<Instruction>? _localMade;
 
-        public BoxValueAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public BoxValueAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //TODO 32-bit, stack is different, need to pop instead of rdx, etc.
             primitiveObject = context.GetLocalInReg("rdx");
@@ -32,8 +32,8 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             var value = primitiveObject switch
             {
-                LocalDefinition loc => loc.KnownInitialValue,
-                ConstantDefinition con => con.Value,
+                LocalDefinition<Instruction> loc => loc.KnownInitialValue,
+                ConstantDefinition<Instruction> con => con.Value,
                 _ => null
             };
             
@@ -52,7 +52,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _localMade = context.MakeLocal(destinationType, reg: "rax", knownInitialValue: value);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

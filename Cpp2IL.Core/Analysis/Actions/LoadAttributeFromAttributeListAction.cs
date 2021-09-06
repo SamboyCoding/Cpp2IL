@@ -10,12 +10,12 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class LoadAttributeFromAttributeListAction : BaseAction<Instruction>
     {
-        public LocalDefinition? LocalMade;
+        public LocalDefinition<Instruction>? LocalMade;
         private string? _destReg;
         public TypeDefinition? AttributeType;
         public long OffsetInList;
 
-        public LoadAttributeFromAttributeListAction(MethodAnalysis context, Instruction instruction, List<TypeDefinition> attributes) : base(context, instruction)
+        public LoadAttributeFromAttributeListAction(MethodAnalysis<Instruction> context, Instruction instruction, List<TypeDefinition> attributes) : base(context, instruction)
         {
             var ptrSize = LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
             OffsetInList = instruction.MemoryDisplacement32 / ptrSize;
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             LocalMade = context.MakeLocal(AttributeType, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

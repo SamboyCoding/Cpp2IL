@@ -10,10 +10,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         internal Il2CppInterfaceOffset[] InterfaceOffsets;
         public Il2CppClassIdentifier loadedFor;
-        private ConstantDefinition _destinationConst;
+        private ConstantDefinition<Instruction> _destinationConst;
         private string _destReg;
 
-        public InterfaceOffsetsReadAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public InterfaceOffsetsReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var regName = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var regConstant = context.GetConstantInReg(regName);
@@ -25,7 +25,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _destinationConst = context.MakeConstant(typeof(Il2CppInterfaceOffset[]), InterfaceOffsets, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

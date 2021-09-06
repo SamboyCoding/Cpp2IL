@@ -10,12 +10,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private bool nullMode;
         private bool booleanMode;
 
-        public JumpIfNonZeroOrNonNullAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public JumpIfNonZeroOrNonNullAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             if (associatedCompare == null) return;
             
             nullMode = associatedCompare.ArgumentOne == associatedCompare.ArgumentTwo;
-            booleanMode = nullMode && associatedCompare.ArgumentOne is LocalDefinition local && local.Type?.FullName == "System.Boolean";
+            booleanMode = nullMode && associatedCompare.ArgumentOne is LocalDefinition<Instruction> local && local.Type?.FullName == "System.Boolean";
         }
 
         protected override string GetPseudocodeCondition()

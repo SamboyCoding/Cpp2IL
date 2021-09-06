@@ -2,10 +2,10 @@
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class IfData : AnalysisState
+    public class IfData<T> : AnalysisState<T>
     {
         public ulong IfStatementStart;
         public ulong IfStatementEnd;
-        public BaseAction<Iced.Intel.Instruction> ConditionalJumpStatement;
+        public BaseAction<T> ConditionalJumpStatement;
     }
 }

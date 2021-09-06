@@ -9,14 +9,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private ulong jumpTarget;
 
-        public JumpBackAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public JumpBackAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             jumpTarget = instruction.NearBranchTarget;
             
             context.ProbableLoopStarts.Add(jumpTarget);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

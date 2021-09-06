@@ -7,7 +7,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class JumpIfGreaterThanOrEqualToAction : BaseX86ConditionalJumpAction
     {
-        public JumpIfGreaterThanOrEqualToAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public JumpIfGreaterThanOrEqualToAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //All handled by base class
         }

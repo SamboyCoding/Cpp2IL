@@ -9,11 +9,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class EbpOffsetToLocalAction : BaseAction<Instruction>
     {
-        private LocalDefinition? localBeingRead;
+        private LocalDefinition<Instruction>? localBeingRead;
         private string _destReg;
-        private LocalDefinition? _localMade;
+        private LocalDefinition<Instruction>? _localMade;
 
-        public EbpOffsetToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public EbpOffsetToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             localBeingRead = StackPointerUtils.GetLocalReferencedByEBPRead(context, instruction);
 
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             // context.SetRegContent(_destReg, localBeingRead);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (localBeingRead == null || _localMade == null)
                 throw new TaintedInstructionException("Couldn't resolve parameter or local being read");

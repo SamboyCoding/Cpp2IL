@@ -9,19 +9,12 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class ComparisonAction : BaseAction<Instruction>
+    public class ComparisonAction : AbstractComparisonAction<Instruction>
     {
-        public readonly IComparisonArgument? ArgumentOne;
-        public readonly IComparisonArgument? ArgumentTwo;
-
         private readonly string? ArgumentOneRegister;
         private readonly string? ArgumentTwoRegister;
 
-        public readonly bool unimportantComparison;
-
-        public readonly ulong EndOfLoopAddr;
-
-        public ComparisonAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ComparisonAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
             var r1 = Utils.GetRegisterNameNew(instruction.Op1Register);
@@ -34,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (r1 != "rsp")
                 ArgumentTwo = ExtractArgument(context, instruction, r1, 1, instruction.Op1Kind, out unimportant2, out ArgumentTwoRegister);
 
-            if (ArgumentOne is ConstantDefinition {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition {Type: { }, KnownInitialValue: null} loc2)
+            if (ArgumentOne is ConstantDefinition<Instruction> {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition<Instruction> {Type: { }, KnownInitialValue: null} loc2)
             {
                 try
                 {
@@ -47,7 +40,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 }
             }
 
-            if (ArgumentTwo is ConstantDefinition {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition {Type: { }, KnownInitialValue: null} loc1)
+            if (ArgumentTwo is ConstantDefinition<Instruction> {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition<Instruction> {Type: { }, KnownInitialValue: null} loc1)
             {
                 try
                 {
@@ -60,7 +53,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 }
             }
 
-            unimportantComparison = unimportant1 || unimportant2;
+            UnimportantComparison = unimportant1 || unimportant2;
 
             if (context.GetEndOfLoopWhichPossiblyStartsHere(instruction.IP) is {} endOfLoop && endOfLoop != 0)
             {
@@ -68,23 +61,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 context.RegisterLastInstructionOfLoopAt(this, endOfLoop);
             }
 
-            if (ArgumentOne is LocalDefinition l1)
+            if (ArgumentOne is LocalDefinition<Instruction> l1)
                 RegisterUsedLocal(l1);
             
-            if (ArgumentTwo is LocalDefinition l2)
+            if (ArgumentTwo is LocalDefinition<Instruction> l2)
                 RegisterUsedLocal(l2);
         }
 
-        public bool IsEitherArgument(IComparisonArgument c) => c == ArgumentOne || c == ArgumentTwo;
+        public bool IsEitherArgument(IComparisonArgument<Instruction> c) => c == ArgumentOne || c == ArgumentTwo;
         
-        public IComparisonArgument? GetArgumentAssociatedWithRegister(string regName)
+        public IComparisonArgument<Instruction>? GetArgumentAssociatedWithRegister(string regName)
         {
             return ArgumentOneRegister == regName ? ArgumentOne : ArgumentTwoRegister == regName ? ArgumentTwo : null;
         }
 
-        internal bool IsProbablyWhileLoop() => EndOfLoopAddr != 0;
-
-        private static IComparisonArgument? ExtractArgument(MethodAnalysis context, Instruction instruction, string registerName, int operandIdx, OpKind opKind, out bool unimportant, out string? argumentRegister)
+        private static IComparisonArgument<Instruction>? ExtractArgument(MethodAnalysis<Instruction> context, Instruction instruction, string registerName, int operandIdx, OpKind opKind, out bool unimportant, out string? argumentRegister)
         {
             var globalMemoryOffset = LibCpp2IlMain.Binary!.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             
@@ -96,7 +87,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 argumentRegister = registerName;
                 var op = context.GetOperandInRegister(registerName);
 
-                if (op is ConstantDefinition {Value: MethodDefinition _} || op is ConstantDefinition { Value: UnknownGlobalAddr _} || op is ConstantDefinition {Value: Il2CppString _})
+                if (op is ConstantDefinition<Instruction> {Value: MethodDefinition _} || op is ConstantDefinition<Instruction> { Value: UnknownGlobalAddr _} || op is ConstantDefinition<Instruction> {Value: Il2CppString _})
                     //Ignore comparisons with looked-up method defs or unknown globals.
                     unimportant = true;
 
@@ -125,7 +116,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                         if (field == null) return null;
 
                         argumentRegister = name;
-                        return new ComparisonDirectFieldAccess
+                        return new ComparisonDirectFieldAccess<Instruction>
                         {
                             fieldAccessed = field,
                             localAccessedOn = local
@@ -135,7 +126,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
                     {
                         argumentRegister = name;
-                        return new ComparisonDirectPropertyAccess
+                        return new ComparisonDirectPropertyAccess<Instruction>
                         {
                             localAccessedOn = local,
                             propertyAccessed = Il2CppArrayUtils.GetLengthProperty()
@@ -173,23 +164,6 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             return context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(globalMemoryOffset));
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public override string ToPsuedoCode()
-        {
-            throw new System.NotImplementedException();
-        }
-
-        public override string ToTextSummary()
-        {
-            var display1 = ArgumentOne?.ToString();
-            var display2 = ArgumentTwo?.ToString();
-
-            //Only show the important [!] if this is an important comparison (i.e. not an il2cpp one)
-            return unimportantComparison ? $"Compares {display1} and {display2}" : $"[!] Compares {display1} and {display2}";
-        }
+        
     }
 }

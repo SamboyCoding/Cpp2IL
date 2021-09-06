@@ -9,13 +9,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private readonly ulong _dest;
 
-        public GoToMarkerAction(MethodAnalysis context, Instruction instruction, ulong dest) : base(context, instruction)
+        public GoToMarkerAction(MethodAnalysis<Instruction> context, Instruction instruction, ulong dest) : base(context, instruction)
         {
             _dest = dest;
             context.RegisterGotoDestination(instruction.IP, _dest);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             return new Mono.Cecil.Cil.Instruction[0];
         }

@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         private InterfaceOffsetsReadAction offsetReads;
         public Il2CppInterfaceOffset? _matchingInterfaceOffset;
 
-        public LocateSpecificInterfaceOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LocateSpecificInterfaceOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var secondOpName = Utils.GetRegisterNameNew(instruction.Op1Register);
             var secondOp = context.GetConstantInReg(secondOpName);
@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions
                 AddComment($"Warning: Could not find an interface offset for class {offsetReads.loadedFor.backingType.FullName}, where it implements interface {_interfaceType.FullName}.");
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

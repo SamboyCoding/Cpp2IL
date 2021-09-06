@@ -2,7 +2,7 @@
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class LoopData : AnalysisState
+    public class LoopData<T> : AnalysisState<T>
     {
         public ulong ipFirstInstruction;
         public ulong ipFirstInstructionNotInLoop;

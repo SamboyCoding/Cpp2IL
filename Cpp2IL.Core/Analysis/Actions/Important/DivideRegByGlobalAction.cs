@@ -9,13 +9,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class DivideRegByGlobalAction : BaseAction<Instruction>
     {
-        private LocalDefinition? _op1;
+        private LocalDefinition<Instruction>? _op1;
         private string? _regName;
         private float _globalValue;
-        private LocalDefinition? _localMade;
+        private LocalDefinition<Instruction>? _localMade;
         private ulong _globalAddr;
 
-        public DivideRegByGlobalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public DivideRegByGlobalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _globalAddr = instruction.MemoryDisplacement64;
             
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _localMade = context.MakeLocal(Utils.SingleReference, reg: _regName);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

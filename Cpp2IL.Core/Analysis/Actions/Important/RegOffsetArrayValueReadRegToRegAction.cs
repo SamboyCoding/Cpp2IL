@@ -7,11 +7,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegOffsetArrayValueReadRegToRegAction : BaseAction<Instruction>
     {
-        private LocalDefinition? _arrayLocal;
-        private LocalDefinition? _indexLocal;
-        private LocalDefinition? _destLocal;
+        private LocalDefinition<Instruction>? _arrayLocal;
+        private LocalDefinition<Instruction>? _indexLocal;
+        private LocalDefinition<Instruction>? _destLocal;
 
-        public RegOffsetArrayValueReadRegToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegOffsetArrayValueReadRegToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //God knows why the memory *index* contains the array, and the base contains the index, but it does.
             var arrayContainingReg = Utils.GetRegisterNameNew(instruction.MemoryIndex);
@@ -34,7 +34,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _destLocal = context.MakeLocal(_arrayLocal.Type.Resolve(), reg: destinationReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

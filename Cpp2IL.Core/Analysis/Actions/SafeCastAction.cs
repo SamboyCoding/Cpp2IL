@@ -8,28 +8,28 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class SafeCastAction : BaseAction<Instruction>
     {
-        private LocalDefinition? castSource;
+        private LocalDefinition<Instruction>? castSource;
         private TypeReference? destinationType;
-        private ConstantDefinition? _castResult;
+        private ConstantDefinition<Instruction>? _castResult;
 
-        public SafeCastAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public SafeCastAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var inReg = context.GetOperandInRegister("rcx");
-            castSource = inReg is LocalDefinition local ? local : inReg is ConstantDefinition cons && cons.Value is NewSafeCastResult result ? result.original : null;
+            castSource = inReg is LocalDefinition<Instruction> local ? local : inReg is ConstantDefinition<Instruction> cons && cons.Value is NewSafeCastResult<Instruction> result ? result.original : null;
             var destOp = context.GetOperandInRegister("rdx");
-            if (destOp is ConstantDefinition cons2 && cons2.Type == typeof(TypeReference))
+            if (destOp is ConstantDefinition<Instruction> cons2 && cons2.Type == typeof(TypeReference))
                 destinationType = (TypeReference) cons2.Value;
 
             if (destinationType == null || castSource == null) return;
 
-            _castResult = context.MakeConstant(typeof(NewSafeCastResult), new NewSafeCastResult
+            _castResult = context.MakeConstant(typeof(NewSafeCastResult<Instruction>), new NewSafeCastResult<Instruction>
             {
                 castTo = destinationType,
                 original = castSource
             }, reg: "rax");
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

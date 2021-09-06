@@ -10,9 +10,9 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private StaticFieldsPtr? _staticFieldPtrObject;
         private string? _destReg;
-        private ConstantDefinition? _constantMade;
+        private ConstantDefinition<Instruction>? _constantMade;
 
-        public StaticFieldOffsetToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public StaticFieldOffsetToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //Get the type we're moving from
             var theConstant = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _constantMade = context.MakeConstant(typeof(StaticFieldsPtr), _staticFieldPtrObject, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

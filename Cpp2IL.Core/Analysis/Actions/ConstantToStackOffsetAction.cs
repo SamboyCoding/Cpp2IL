@@ -8,11 +8,11 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class ConstantToStackOffsetAction : BaseAction<Instruction>
     {
         private readonly uint _stackOffset;
-        private readonly ConstantDefinition? _sourceConstant;
+        private readonly ConstantDefinition<Instruction>? _sourceConstant;
         private readonly string? _sourceReg;
-        private readonly LocalDefinition? _newLocal;
+        private readonly LocalDefinition<Instruction>? _newLocal;
 
-        public ConstantToStackOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ConstantToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _stackOffset = instruction.MemoryDisplacement32;
             _sourceReg = Utils.GetRegisterNameNew(instruction.Op1Register);
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             RegisterUsedLocal(_newLocal);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

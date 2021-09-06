@@ -8,20 +8,20 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ReturnFromFunctionAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand? returnValue;
+        private IAnalysedOperand<Instruction>? returnValue;
         private bool _isVoid;
 
-        public ReturnFromFunctionAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ReturnFromFunctionAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _isVoid = context.IsVoid();
             var returnType = context.ReturnType;
             returnValue = returnType.ShouldBeInFloatingPointRegister() ? context.GetOperandInRegister("xmm0") : context.GetOperandInRegister("rax");
 
-            if (returnValue is LocalDefinition l)
+            if (returnValue is LocalDefinition<Instruction> l)
                 RegisterUsedLocal(l);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 

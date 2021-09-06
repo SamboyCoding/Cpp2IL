@@ -11,15 +11,15 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private string? _regBeingShifted;
         private bool _isUpperHalf;
-        private ConstantDefinition? _constantInReg;
-        private IntegerDivisionInProgress? _intDivision;
+        private ConstantDefinition<Instruction>? _constantInReg;
+        private IntegerDivisionInProgress<Instruction>? _intDivision;
         private int _fullShiftValue;
         private long _divisor;
         private bool _potentiallyWrong;
-        private LocalDefinition? _localMade;
+        private LocalDefinition<Instruction>? _localMade;
 
         //The right-shift after what looks like the start of an integer division setup (i.e. IMUL reg when reg has an int, and rax contains a large constant)
-        public IntegerDivisionShiftStepAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public IntegerDivisionShiftStepAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //This may need expanding on / improving
             _isUpperHalf = instruction.Op0Register.IsGPR32() && instruction.Op0Register == Register.EDX;
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _regBeingShifted = Utils.GetRegisterNameNew(instruction.Op0Register);
             _constantInReg = context.GetConstantInReg(_regBeingShifted);
 
-            _intDivision = _constantInReg?.Value as IntegerDivisionInProgress;
+            _intDivision = _constantInReg?.Value as IntegerDivisionInProgress<Instruction>;
             
             if(_intDivision == null)
                 return;
@@ -50,7 +50,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             RegisterUsedLocal(_localMade);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

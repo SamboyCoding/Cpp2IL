@@ -13,12 +13,12 @@ namespace Cpp2IL.Core.Analysis.Actions
         private Il2CppRGCTXArray? _rgctxArray;
         private uint _offset;
         private Il2CppRGCTXDefinition? _actualRgctx;
-        private ConstantDefinition? _constant;
+        private ConstantDefinition<Instruction>? _constant;
         private string? _destReg;
-        private ConstantDefinition? _constantMade;
+        private ConstantDefinition<Instruction>? _constantMade;
         private object? _dataValue;
 
-        public ReadSpecificRGCTXDataAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ReadSpecificRGCTXDataAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             _constant = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
@@ -67,7 +67,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _constantMade = context.MakeConstant(typeof(Il2CppRGCTXDefinition), _actualRgctx, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

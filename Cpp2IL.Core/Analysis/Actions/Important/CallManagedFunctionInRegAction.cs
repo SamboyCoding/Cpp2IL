@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class CallManagedFunctionInRegAction : BaseX86CallAction
     {
-        public CallManagedFunctionInRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public CallManagedFunctionInRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var regName = Utils.GetRegisterNameNew(instruction.MemoryBase);
 
@@ -34,7 +34,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 if (InstanceBeingCalledOn == null)
                 {
                     var cons = context.GetConstantInReg("rcx");
-                    if (cons?.Value is NewSafeCastResult castResult)
+                    if (cons?.Value is NewSafeCastResult<Instruction> castResult)
                         InstanceBeingCalledOn = castResult.original;
                 }
             }

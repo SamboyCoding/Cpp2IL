@@ -7,11 +7,11 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class LocalToRbpOffsetAction : BaseAction<Instruction>
     {
-        private readonly LocalDefinition? _localBeingRead;
+        private readonly LocalDefinition<Instruction>? _localBeingRead;
         private readonly string _regBeingRead;
         private readonly int _slotNum;
 
-        public LocalToRbpOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LocalToRbpOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _regBeingRead = Utils.GetRegisterNameNew(instruction.Op1Register);
             _localBeingRead = context.GetLocalInReg(_regBeingRead);
@@ -21,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _slotNum = StackPointerUtils.SaveLocalToStack(context, instruction, _localBeingRead);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

@@ -12,9 +12,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class AllocateInstanceAction : AbstractNewObjAction<Instruction>
     {
-        public AllocateInstanceAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public AllocateInstanceAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var constant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
+            var constant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition<Instruction>;
             if (constant == null || !typeof(TypeReference).IsAssignableFrom(constant.Type)) return;
 
             TypeCreated = (TypeReference) constant.Value;
@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 context.Stack.Pop(); //Pop off the type created
         }
 
-        internal AllocateInstanceAction(MethodAnalysis context, Instruction instruction, TypeDefinition typeCreated) : base(context, instruction)
+        internal AllocateInstanceAction(MethodAnalysis<Instruction> context, Instruction instruction, TypeDefinition typeCreated) : base(context, instruction)
         {
             //For use with struct creation only
             Debug.Assert(typeCreated.IsValueType);

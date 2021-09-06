@@ -10,13 +10,13 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class LoadInterfaceMethodDataAction : BaseAction<Instruction>
     {
-        private LocalDefinition _invokedOn;
+        private LocalDefinition<Instruction> _invokedOn;
         private TypeDefinition _interfaceType;
         private uint _slotNumber;
         private MethodDefinition? resolvedMethod;
-        private ConstantDefinition? _resultConstant;
+        private ConstantDefinition<Instruction>? _resultConstant;
 
-        public LoadInterfaceMethodDataAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LoadInterfaceMethodDataAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             if (context.GetLocalInReg("rcx") is { } invokedOn
                 && context.GetConstantInReg("rdx") is {Value: TypeDefinition interfaceType}
@@ -47,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

@@ -10,11 +10,11 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class RegToConstantArrayOffsetAction : BaseAction<Instruction>
     {
         private long _offsetIdx;
-        private LocalDefinition? _arrayInMem;
-        private IAnalysedOperand? _opRead;
+        private LocalDefinition<Instruction>? _arrayInMem;
+        private IAnalysedOperand<Instruction>? _opRead;
         private TypeReference? _elementType;
 
-        public RegToConstantArrayOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegToConstantArrayOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var relativeOffset = instruction.MemoryDisplacement - Il2CppArrayUtils.FirstItemOffset;
@@ -33,11 +33,11 @@ namespace Cpp2IL.Core.Analysis.Actions
             if(_arrayInMem != null)
                 RegisterUsedLocal(_arrayInMem);
             
-            if(_opRead is LocalDefinition l)
+            if(_opRead is LocalDefinition<Instruction> l)
                 RegisterUsedLocal(l);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_offsetIdx < 0 || _arrayInMem == null || _opRead == null)
                 throw new TaintedInstructionException();

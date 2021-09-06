@@ -8,18 +8,18 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class OrToMinusOneAction : BaseAction<Instruction>
     {
         private string _reg;
-        private ConstantDefinition _constantMade;
+        private ConstantDefinition<Instruction> _constantMade;
 
         //OR reg, 0xFFFFFFFF
         //i.e. set reg to -1
-        public OrToMinusOneAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public OrToMinusOneAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _reg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
             _constantMade = context.MakeConstant(typeof(int), -1, reg: _reg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

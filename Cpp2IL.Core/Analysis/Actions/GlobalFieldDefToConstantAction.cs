@@ -13,10 +13,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         public readonly Il2CppFieldDefinition? FieldData;
         private readonly FieldDefinition? ResolvedField;
-        private ConstantDefinition? ConstantWritten;
+        private ConstantDefinition<Instruction>? ConstantWritten;
         private string _destReg;
 
-        public GlobalFieldDefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public GlobalFieldDefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             FieldData = LibCpp2IlMain.GetFieldGlobalByAddress(globalAddress);
@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

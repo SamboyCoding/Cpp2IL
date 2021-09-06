@@ -1,11 +1,11 @@
 ﻿namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class FieldPointer
+    public class FieldPointer<T>
     {
         public FieldUtils.FieldBeingAccessedData Field;
-        public LocalDefinition OnWhat;
+        public LocalDefinition<T> OnWhat;
 
-        public FieldPointer(FieldUtils.FieldBeingAccessedData field, LocalDefinition onWhat)
+        public FieldPointer(FieldUtils.FieldBeingAccessedData field, LocalDefinition<T> onWhat)
         {
             Field = field;
             OnWhat = onWhat;

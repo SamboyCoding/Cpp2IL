@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         private readonly string? _destReg;
         private string? _sourceReg;
 
-        public MoveMethodInfoPtrToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public MoveMethodInfoPtrToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _sourceReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var constantBeingRead = context.GetConstantInReg(_sourceReg);
@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             context.SetRegContent(_destReg, constantBeingRead);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

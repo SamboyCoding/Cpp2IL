@@ -4,16 +4,16 @@ using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class ComparisonDirectFieldAccess : IComparisonArgument
+    public class ComparisonDirectFieldAccess<T> : IComparisonArgument<T>
     {
-        public LocalDefinition localAccessedOn;
+        public LocalDefinition<T> localAccessedOn;
         public FieldDefinition fieldAccessed;
         public string GetPseudocodeRepresentation()
         {
             return $"{localAccessedOn.Name}.{fieldAccessed.Name}";
         }
         
-        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor processor)
+        public Instruction[] GetILToLoad(MethodAnalysis<T> context, ILProcessor processor)
         {
             var ret = new List<Instruction>();
             

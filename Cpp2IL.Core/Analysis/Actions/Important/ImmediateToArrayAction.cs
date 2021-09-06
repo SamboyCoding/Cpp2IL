@@ -11,9 +11,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private AllocatedArray? _array;
         private int _offset;
         private ulong _immediateValue;
-        private LocalDefinition? _arrayLocal;
+        private LocalDefinition<Instruction>? _arrayLocal;
 
-        public ImmediateToArrayAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ImmediateToArrayAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             _arrayLocal = context.GetLocalInReg(memReg);
@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _array.KnownValuesAtOffsets[_offset] = _immediateValue;
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 

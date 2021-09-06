@@ -10,10 +10,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class Implicit4ByteFieldReadAction : BaseAction<Instruction>
     {
         private FieldUtils.FieldBeingAccessedData? _read;
-        private LocalDefinition? _readOn;
-        private LocalDefinition? _localMade;
+        private LocalDefinition<Instruction>? _readOn;
+        private LocalDefinition<Instruction>? _localMade;
 
-        public Implicit4ByteFieldReadAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public Implicit4ByteFieldReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _readOn = context.GetLocalInReg(Utils.GetRegisterNameNew(instruction.Op1Register));
             
@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _localMade = context.MakeLocal(type, reg: Utils.GetRegisterNameNew(instruction.Op0Register));
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_localMade == null || _readOn == null || _read == null)
                 throw new TaintedInstructionException("Missing the object being read from, or the field being read.");

@@ -10,14 +10,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private readonly bool _hasElse;
         private ulong _elsePtr;
 
-        public EndIfMarkerAction(MethodAnalysis context, Instruction instruction, bool hasElse) : base(context, instruction)
+        public EndIfMarkerAction(MethodAnalysis<Instruction> context, Instruction instruction, bool hasElse) : base(context, instruction)
         {
             _hasElse = hasElse;
             if(hasElse)
                 _elsePtr = context.GetAddressOfElseThisIsTheEndOf(instruction.IP);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             return new Mono.Cecil.Cil.Instruction[0];
         }

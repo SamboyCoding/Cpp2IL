@@ -7,11 +7,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class GoToDestinationMarker : BaseAction<Instruction>
     {
-        public GoToDestinationMarker(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public GoToDestinationMarker(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             return new Mono.Cecil.Cil.Instruction[0];
         }

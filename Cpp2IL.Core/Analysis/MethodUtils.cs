@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
@@ -19,7 +20,7 @@ namespace Cpp2IL.Core.Analysis
     {
         private static readonly string[] NON_FP_REGISTERS_BY_IDX = {"rcx", "rdx", "r8", "r9"};
         
-        public static bool CheckParameters(Instruction associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, LocalDefinition? objectMethodBeingCalledOn, bool failOnLeftoverArgs = true)
+        public static bool CheckParameters<T>(T associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis<T> context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand<T>>? arguments, LocalDefinition<T>? objectMethodBeingCalledOn, bool failOnLeftoverArgs = true)
         {
             MethodReference managedMethod = SharedState.UnmanagedToManagedMethods[method];
 
@@ -34,7 +35,7 @@ namespace Cpp2IL.Core.Analysis
             return CheckParameters(associatedInstruction, managedMethod, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
-        public static bool CheckParameters(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference? beingCalledOn = null, bool failOnLeftoverArgs = true)
+        public static bool CheckParameters<T>(T associatedInstruction, MethodReference method, MethodAnalysis<T> context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand<T>>? arguments, TypeReference? beingCalledOn = null, bool failOnLeftoverArgs = true)
         {
             if (beingCalledOn == null)
                 beingCalledOn = method.DeclaringType;
@@ -42,7 +43,7 @@ namespace Cpp2IL.Core.Analysis
             return LibCpp2IlMain.Binary!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, beingCalledOn, out arguments) : CheckParameters64(method, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
-        private static IAnalysedOperand? GetValueFromAppropriateReg(bool? isFloatingPoint, string fpReg, string normalReg, MethodAnalysis context)
+        private static IAnalysedOperand<T>? GetValueFromAppropriateReg<T>(bool? isFloatingPoint, string fpReg, string normalReg, MethodAnalysis<T> context)
         {
             if(isFloatingPoint == true)
                 if (context.GetOperandInRegister(fpReg) is { } fpVal)
@@ -51,11 +52,11 @@ namespace Cpp2IL.Core.Analysis
             return context.GetOperandInRegister(normalReg);
         }
 
-        private static bool CheckParameters64(MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference beingCalledOn, bool failOnLeftoverArgs = true)
+        private static bool CheckParameters64<T>(MethodReference method, MethodAnalysis<T> context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand<T>>? arguments, TypeReference beingCalledOn, bool failOnLeftoverArgs = true)
         {
             arguments = null;
 
-            var actualArgs = new List<IAnalysedOperand?>();
+            var actualArgs = new List<IAnalysedOperand<T>?>();
             if (!isInstance)
                 actualArgs.Add(context.GetOperandInRegister("rcx") ?? context.GetOperandInRegister("xmm0"));
 
@@ -63,7 +64,7 @@ namespace Cpp2IL.Core.Analysis
             actualArgs.Add(GetValueFromAppropriateReg(method.Parameters.GetValueSafely(1)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm2", "r8", context));
             actualArgs.Add(GetValueFromAppropriateReg(method.Parameters.GetValueSafely(2)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm3", "r9", context));
 
-            if (actualArgs.FindLast(a => a is ConstantDefinition {Value: MethodReference _}) is ConstantDefinition {Value: MethodReference actualGenericMethod})
+            if (actualArgs.FindLast(a => a is ConstantDefinition<T> {Value: MethodReference _}) is ConstantDefinition<T> {Value: MethodReference actualGenericMethod})
             {
                 if (actualGenericMethod.Name == method.Name && actualGenericMethod.DeclaringType == method.DeclaringType)
                     method = actualGenericMethod;
@@ -71,7 +72,7 @@ namespace Cpp2IL.Core.Analysis
                     return false; //We have a method which isn't this one.
             }
 
-            var tempArgs = new List<IAnalysedOperand>();
+            var tempArgs = new List<IAnalysedOperand<T>>();
             var stackOffset = 0x20;
             foreach (var parameterData in method.Parameters!)
             {
@@ -80,7 +81,7 @@ namespace Cpp2IL.Core.Analysis
                 if (parameterType == null)
                     throw new ArgumentException($"Parameter \"{parameterData}\" of method {method.FullName} has a null type??");
 
-                IAnalysedOperand arg;
+                IAnalysedOperand<T> arg;
                 if (actualArgs.Count == 0)
                 {
                     //Read from stack
@@ -105,7 +106,7 @@ namespace Cpp2IL.Core.Analysis
                     {
                         //Infer from context - we *assume* that whatever the argument is, is the type of this generic param.
                         //As we have already checked for any parameter containing the generic method.
-                        if (arg is LocalDefinition {Type: { }} l)
+                        if (arg is LocalDefinition<T> {Type: { }} l)
                             parameterType = l.Type;
                     }
 
@@ -113,7 +114,7 @@ namespace Cpp2IL.Core.Analysis
                     parameterType = temp;
                 }
 
-                if (arg is ConstantDefinition {Value: StackPointer p})
+                if (arg is ConstantDefinition<T> {Value: StackPointer p})
                 {
                     if(context.StackStoredLocals.TryGetValue((int) p.offset, out var loc))
                         arg = loc;
@@ -123,7 +124,7 @@ namespace Cpp2IL.Core.Analysis
                 {
                     //We assert parameter type to be non-null in all of these cases, because we've null-checked the default value further up.
 
-                    case ConstantDefinition cons when cons.Type.FullName != parameterType!.ToString(): //Constant type mismatch
+                    case ConstantDefinition<T> cons when cons.Type.FullName != parameterType!.ToString(): //Constant type mismatch
                         if (parameterType.Resolve()?.IsEnum == true && cons.Type.IsPrimitive)
                             break; //Forgive primitive => enum coercion.
                         if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
@@ -166,7 +167,7 @@ namespace Cpp2IL.Core.Analysis
                         if (typeof(TypeReference).IsAssignableFrom(cons.Type) && parameterType.Name == "RuntimeTypeHandle")
                             break; //These are the same struct - we represent it as a TypeReference but it's actually a runtime type handle.
                         return false;
-                    case LocalDefinition local:
+                    case LocalDefinition<T> local:
                         if (parameterType.IsArray && local.Type?.IsArray != true)
                             return false; //Fail. Array<->non array is non-forgivable.
                         if(local.Type != null && parameterType!.Resolve().IsAssignableFrom(local.Type))
@@ -188,16 +189,16 @@ namespace Cpp2IL.Core.Analysis
                 tempArgs.Add(arg);
             }
 
-            actualArgs = actualArgs.Where(a => a != null && !context.IsEmptyRegArg(a) && !(a is LocalDefinition {KnownInitialValue: 0})).ToList();
+            actualArgs = actualArgs.Where(a => a != null && !context.IsEmptyRegArg(a) && !(a is LocalDefinition<T> {KnownInitialValue: 0})).ToList();
             if (failOnLeftoverArgs && actualArgs.Count > 0)
             {
-                if (actualArgs.Count != 1 || !(actualArgs[0] is ConstantDefinition {Value: MethodReference reference}) || reference != method)
+                if (actualArgs.Count != 1 || !(actualArgs[0] is ConstantDefinition<T> {Value: MethodReference reference}) || reference != method)
                 {
                     return false; //Left over args - it's probably not this one
                 }
             }
 
-            if (actualArgs.Count == 1 && actualArgs[0] is ConstantDefinition {Value: MethodReference _} c)
+            if (actualArgs.Count == 1 && actualArgs[0] is ConstantDefinition<T> {Value: MethodReference _} c)
             {
                 var reg = context.GetConstantInReg("rcx") == c ? "rcx" : context.GetConstantInReg("rdx") == c ? "rdx" : context.GetConstantInReg("r8") == c ? "r8" : "r9";
                 context.ZeroRegister(reg);
@@ -207,11 +208,11 @@ namespace Cpp2IL.Core.Analysis
             return true;
         }
 
-        private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
+        private static bool CheckParameters32<T>(T associatedInstruction, MethodReference method, MethodAnalysis<T> context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand<T>>? arguments)
         {
-            arguments = new List<IAnalysedOperand>();
+            arguments = new();
 
-            var listToRePush = new List<IAnalysedOperand>();
+            var listToRePush = new List<IAnalysedOperand<T>>();
 
             //Arguments pushed to stack
             foreach (var parameterData in method.Parameters)
@@ -242,7 +243,7 @@ namespace Cpp2IL.Core.Analysis
                     if (structTypeDef != null && context.Stack.Count >= fieldsToCheck.Count)
                     {
                         //We have enough stack entries to fill the fields.
-                        var listOfStackArgs = new List<IAnalysedOperand>();
+                        var listOfStackArgs = new List<IAnalysedOperand<T>>();
                         for (var i = 0; i < fieldsToCheck.Count; i++)
                         {
                             listOfStackArgs.Add(context.Stack.Pop());
@@ -264,7 +265,7 @@ namespace Cpp2IL.Core.Analysis
                             //as its used as the arguments
 
                             //Allocate an instance of the struct
-                            var allocateInstanceAction = new AllocateInstanceAction(context, associatedInstruction, structTypeDef);
+                            var allocateInstanceAction = AbstractNewObjAction<T>.Make<T>(context, associatedInstruction, structTypeDef);
                             context.Actions.Add(allocateInstanceAction);
 
                             var instanceLocal = allocateInstanceAction.LocalReturned;
@@ -275,8 +276,9 @@ namespace Cpp2IL.Core.Analysis
                                 var associatedField = fieldsToCheck[i];
 
                                 var stackArg = listOfStackArgs[i];
-                                if (stackArg is LocalDefinition local)
-                                    context.Actions.Add(new RegToFieldAction(context, associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), instanceLocal!, local));
+                                if (stackArg is LocalDefinition<T> local)
+                                    //I'm sorry for what the next line contains.
+                                    context.Actions.Add((BaseAction<T>)(object) new RegToFieldAction((MethodAnalysis<Instruction>)(object) context, (Instruction) (object) associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), (LocalDefinition<Instruction>)(object) instanceLocal!, (LocalDefinition<Instruction>)(object) local));
                                 else
                                 {
                                     //TODO Constants
@@ -308,11 +310,11 @@ namespace Cpp2IL.Core.Analysis
             return true;
         }
 
-        private static bool CheckSingleParameter(IAnalysedOperand analyzedOperand, TypeReference expectedType)
+        private static bool CheckSingleParameter<T>(IAnalysedOperand<T> analyzedOperand, TypeReference expectedType)
         {
             switch (analyzedOperand)
             {
-                case ConstantDefinition cons when cons.Type.FullName != expectedType.ToString(): //Constant type mismatch
+                case ConstantDefinition<T> cons when cons.Type.FullName != expectedType.ToString(): //Constant type mismatch
                     //In the case of a constant, check if we can re-interpret.
 
                     if (expectedType.ToString() == "System.Boolean" && cons.Value is ulong constantNumber)
@@ -324,14 +326,14 @@ namespace Cpp2IL.Core.Analysis
                     }
 
                     return false;
-                case LocalDefinition local when local.Type == null || !expectedType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
+                case LocalDefinition<T> local when local.Type == null || !expectedType.Resolve().IsAssignableFrom(local.Type): //Local type mismatch
                     return false;
             }
 
             return true;
         }
 
-        private static void RePushStack(List<IAnalysedOperand> toRepush, MethodAnalysis context)
+        private static void RePushStack<T>(List<IAnalysedOperand<T>> toRepush, MethodAnalysis<T> context)
         {
             toRepush.Reverse();
             foreach (var analysedOperand in toRepush)
@@ -386,12 +388,12 @@ namespace Cpp2IL.Core.Analysis
             }
         }
 
-        public static IAnalysedOperand? GetMethodInfoArg(MethodReference managedMethodBeingCalled, MethodAnalysis context)
+        public static IAnalysedOperand<T>? GetMethodInfoArg<T>(MethodReference managedMethodBeingCalled, MethodAnalysis<T> context)
         {
             if (LibCpp2IlMain.Binary!.is32Bit)
             {
                 //Already should have popped off all the arguments, just peek-and-pop one more
-                if (context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _})
+                if (context.Stack.Peek() is ConstantDefinition<T> {Value: GenericMethodReference _})
                     return context.Stack.Pop();
 
                 return null;

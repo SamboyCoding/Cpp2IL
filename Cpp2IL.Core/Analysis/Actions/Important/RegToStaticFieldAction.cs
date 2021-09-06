@@ -9,10 +9,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegToStaticFieldAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand? _sourceOperand;
+        private IAnalysedOperand<Instruction>? _sourceOperand;
         private FieldDefinition? _theField;
 
-        public RegToStaticFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegToStaticFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _sourceOperand = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.Op1Register));
             var destStaticFieldsPtr = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
@@ -21,23 +21,23 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (!(destStaticFieldsPtr?.Value is StaticFieldsPtr staticFieldsPtr)) 
                 return;
 
-            if (_sourceOperand is LocalDefinition l)
+            if (_sourceOperand is LocalDefinition<Instruction> l)
                 RegisterUsedLocal(l);
 
             _theField = FieldUtils.GetStaticFieldByOffset(staticFieldsPtr, staticFieldOffset);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_theField == null || _sourceOperand == null)
                 throw new TaintedInstructionException();
 
             var ret = new List<Mono.Cecil.Cil.Instruction>();
             
-            if(_sourceOperand is ConstantDefinition c)
+            if(_sourceOperand is ConstantDefinition<Instruction> c)
                 ret.AddRange(c.GetILToLoad(context, processor));
             else
-                ret.Add(context.GetILToLoad((LocalDefinition) _sourceOperand, processor));
+                ret.Add(context.GetILToLoad((LocalDefinition<Instruction>) _sourceOperand, processor));
             
             ret.Add(processor.Create(OpCodes.Stsfld, processor.ImportReference(_theField)));
 

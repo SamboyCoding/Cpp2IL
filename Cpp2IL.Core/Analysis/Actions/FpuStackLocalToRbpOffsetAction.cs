@@ -8,11 +8,11 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class FpuStackLocalToRbpOffsetAction : BaseAction<Instruction>
     {
         private readonly int _slotNum;
-        private readonly LocalDefinition? _localBeingPopped;
+        private readonly LocalDefinition<Instruction>? _localBeingPopped;
 
-        public FpuStackLocalToRbpOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public FpuStackLocalToRbpOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            if (!context.FloatingPointStack.TryPeek(out var stackContent) || !(stackContent is LocalDefinition local))
+            if (!context.FloatingPointStack.TryPeek(out var stackContent) || !(stackContent is LocalDefinition<Instruction> local))
                 return;
 
             _localBeingPopped = local;
@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             context.FloatingPointStack.Pop();
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

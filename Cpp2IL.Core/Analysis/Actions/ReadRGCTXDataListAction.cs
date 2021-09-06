@@ -11,9 +11,9 @@ namespace Cpp2IL.Core.Analysis.Actions
         private Il2CppClassIdentifier? _klass;
         private Il2CppRGCTXDefinition[]? _rgctxs;
         private string? _destReg;
-        private ConstantDefinition? _constantMade;
+        private ConstantDefinition<Instruction>? _constantMade;
 
-        public ReadRGCTXDataListAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ReadRGCTXDataListAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var klassConst = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
             _klass = klassConst?.Value as Il2CppClassIdentifier;
@@ -33,7 +33,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

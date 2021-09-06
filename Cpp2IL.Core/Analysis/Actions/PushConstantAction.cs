@@ -9,13 +9,13 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private ulong _constant;
 
-        public PushConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public PushConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _constant = instruction.GetImmediate(0);
             context.Stack.Push(context.MakeConstant(typeof(ulong), _constant));
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private ulong jumpTarget;
         private bool isIfStatement;
         
-        public JumpAlwaysAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public JumpAlwaysAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             jumpTarget = instruction.NearBranchTarget;
             
@@ -22,7 +22,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

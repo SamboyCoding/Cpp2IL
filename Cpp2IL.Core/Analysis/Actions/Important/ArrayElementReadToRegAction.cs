@@ -12,14 +12,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private readonly string? _arrayReg;
         private readonly string? _offsetReg;
-        private readonly LocalDefinition? _arrayLocal;
-        private readonly LocalDefinition? _offsetLocal;
+        private readonly LocalDefinition<Instruction>? _arrayLocal;
+        private readonly LocalDefinition<Instruction>? _offsetLocal;
         private readonly ArrayType? _arrType;
         private readonly string? _destReg;
-        public readonly LocalDefinition? LocalMade;
+        public readonly LocalDefinition<Instruction>? LocalMade;
         private TypeReference? _elemType;
 
-        public ArrayElementReadToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ArrayElementReadToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _arrayReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             _offsetReg = Utils.GetRegisterNameNew(instruction.MemoryIndex);
@@ -47,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 RegisterUsedLocal(_offsetLocal);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (LocalMade == null || _arrayLocal == null || _offsetLocal == null)
                 throw new TaintedInstructionException("Array, offset, or destination is null");

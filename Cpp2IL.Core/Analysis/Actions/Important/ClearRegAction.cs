@@ -8,9 +8,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class ClearRegAction : BaseAction<Instruction>
     {
         private string regCleared;
-        private LocalDefinition _localMade;
+        private LocalDefinition<Instruction> _localMade;
 
-        public ClearRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ClearRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             regCleared = Utils.GetRegisterNameNew(instruction.Op0Register);
             // context.ZeroRegister(regCleared);
@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             RegisterDefinedLocalWithoutSideEffects(_localMade);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             return new[]
             {

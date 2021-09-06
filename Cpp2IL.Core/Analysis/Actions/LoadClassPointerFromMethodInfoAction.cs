@@ -10,9 +10,9 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private Il2CppTypeDefinition? _type;
         private string? _destReg;
-        private ConstantDefinition? _constantMade;
+        private ConstantDefinition<Instruction>? _constantMade;
 
-        public LoadClassPointerFromMethodInfoAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LoadClassPointerFromMethodInfoAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //Already verified the source type and offset, only need to handle destination
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

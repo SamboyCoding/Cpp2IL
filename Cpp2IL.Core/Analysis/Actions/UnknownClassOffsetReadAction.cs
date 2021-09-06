@@ -9,12 +9,12 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private uint _offset;
 
-        public UnknownClassOffsetReadAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public UnknownClassOffsetReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _offset = instruction.MemoryDisplacement;
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new TaintedInstructionException("Unknown class offset read");
         }

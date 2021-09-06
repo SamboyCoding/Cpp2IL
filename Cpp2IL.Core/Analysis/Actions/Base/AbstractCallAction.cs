@@ -7,20 +7,21 @@ using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
 {
     public abstract class AbstractCallAction<T> : BaseAction<T>
     {
         public MethodReference? ManagedMethodBeingCalled;
-        public List<IAnalysedOperand?>? Arguments;
-        public LocalDefinition? ReturnedLocal;
-        public LocalDefinition? InstanceBeingCalledOn;
+        public List<IAnalysedOperand<T>?>? Arguments;
+        public LocalDefinition<T>? ReturnedLocal;
+        public LocalDefinition<T>? InstanceBeingCalledOn;
         protected bool IsCallToSuperclassMethod;
         protected bool ShouldUseCallvirt;
         protected TypeReference? StaticMethodGenericTypeOverride;
 
-        protected AbstractCallAction(MethodAnalysis context, T instruction) : base(context, instruction)
+        protected AbstractCallAction(MethodAnalysis<T> context, T instruction) : base(context, instruction)
         {
         }
 
@@ -87,7 +88,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             return ret.ToString();
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
             if (ManagedMethodBeingCalled == null)
                 throw new TaintedInstructionException("Don't know what method is being called");
@@ -141,7 +142,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             return result + "\n";
         }
 
-        protected void CreateLocalForReturnType(MethodAnalysis context)
+        protected void CreateLocalForReturnType(MethodAnalysis<T> context)
         {
             if (ManagedMethodBeingCalled?.ReturnType is { } returnType && returnType.FullName != "System.Void")
             {
@@ -163,13 +164,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             }
         }
 
-        private TypeReference ResolveGenericReturnTypeIfNeeded(TypeReference returnType, MethodAnalysis context)
+        private TypeReference ResolveGenericReturnTypeIfNeeded(TypeReference returnType, MethodAnalysis<T> context)
         {
             if (returnType is GenericParameter gp)
             {
                 var methodInfo = MethodUtils.GetMethodInfoArg(ManagedMethodBeingCalled, context);
 
-                if (methodInfo is ConstantDefinition {Value: GenericMethodReference gmr})
+                if (methodInfo is ConstantDefinition<T> {Value: GenericMethodReference gmr})
                 {
                     returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, gmr.Type, gmr.Method) ?? returnType;
                     StaticMethodGenericTypeOverride = gmr.Type;
@@ -187,7 +188,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             {
                 try
                 {
-                    returnType = GenericInstanceUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled!, InstanceBeingCalledOn?.Type, Arguments?.Select(a => a is LocalDefinition l ? l.Type : null).ToArray() ?? Array.Empty<TypeReference>());
+                    returnType = GenericInstanceUtils.ResolveMethodGIT(git, ManagedMethodBeingCalled!, InstanceBeingCalledOn?.Type, Arguments?.Select(a => a is LocalDefinition<T> l ? l.Type : null).ToArray() ?? Array.Empty<TypeReference>());
                 }
                 catch (Exception)
                 {
@@ -200,12 +201,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         protected void RegisterLocals()
         {
-            Arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o!));
+            Arguments?.Where(o => o is LocalDefinition<T>).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition<T>) o!));
             if (InstanceBeingCalledOn != null)
                 RegisterUsedLocal(InstanceBeingCalledOn);
         }
 
-        public List<Mono.Cecil.Cil.Instruction> GetILToLoadParams(MethodAnalysis context, ILProcessor processor, bool includeThis = true)
+        public List<Mono.Cecil.Cil.Instruction> GetILToLoadParams(MethodAnalysis<T> context, ILProcessor processor, bool includeThis = true)
         {
             if (Arguments == null || Arguments.Count != ManagedMethodBeingCalled!.Parameters.Count)
                 throw new TaintedInstructionException($"Couldn't get arguments, or actual count ({Arguments?.Count ?? -1}) is not equal to expected count ({ManagedMethodBeingCalled!.Parameters.Count})");
@@ -220,9 +221,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 if (operand == null)
                     throw new TaintedInstructionException($"Found null operand in Arguments: {Arguments.ToStringEnumerable()}");
                 
-                if (operand is LocalDefinition l)
+                if (operand is LocalDefinition<T> l)
                     result.Add(context.GetILToLoad(l, processor));
-                else if (operand is ConstantDefinition c)
+                else if (operand is ConstantDefinition<T> c)
                     result.AddRange(c.GetILToLoad(context, processor));
                 else
                     throw new TaintedInstructionException($"Don't know how to generate IL to load parameter of type {operand.GetType()}");
@@ -235,10 +236,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         {
             foreach (var arg in Arguments)
             {
-                if (arg is ConstantDefinition constantDefinition)
+                if (arg is ConstantDefinition<T> constantDefinition)
                     yield return constantDefinition.ToString();
                 else
-                    yield return (arg as LocalDefinition)?.Name ?? "null";
+                    yield return (arg as LocalDefinition<T>)?.Name ?? "null";
             }
         }
 

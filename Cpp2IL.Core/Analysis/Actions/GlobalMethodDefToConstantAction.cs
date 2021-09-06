@@ -14,10 +14,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         public Il2CppMethodDefinition? MethodData;
         public MethodDefinition? ResolvedMethod;
-        public ConstantDefinition? ConstantWritten;
+        public ConstantDefinition<Instruction>? ConstantWritten;
         private string? _destReg;
 
-        public GlobalMethodDefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public GlobalMethodDefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             MethodData = LibCpp2IlMain.GetMethodDefinitionByGlobalAddress(globalAddress);
@@ -48,7 +48,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

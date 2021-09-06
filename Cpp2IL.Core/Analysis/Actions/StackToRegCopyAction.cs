@@ -7,15 +7,15 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class StackToRegCopyAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand beingMoved;
+        private IAnalysedOperand<Instruction> beingMoved;
         private ulong stackOffset;
         private string destReg;
         
-        public StackToRegCopyAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public StackToRegCopyAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             //No-op
             return new Mono.Cecil.Cil.Instruction[0];

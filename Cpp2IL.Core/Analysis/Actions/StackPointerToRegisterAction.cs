@@ -9,9 +9,9 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private string _destReg;
         private uint _stackOffset;
-        private ConstantDefinition? _constantMade;
+        private ConstantDefinition<Instruction>? _constantMade;
 
-        public StackPointerToRegisterAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public StackPointerToRegisterAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             _stackOffset = instruction.MemoryDisplacement32;
@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _constantMade = context.MakeConstant(typeof(StackPointer), new StackPointer(_stackOffset), reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

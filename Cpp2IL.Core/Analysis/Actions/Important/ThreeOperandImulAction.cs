@@ -10,12 +10,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ThreeOperandImulAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand? _argOne;
-        private IAnalysedOperand? _argTwo;
-        private LocalDefinition _resultLocal;
+        private IAnalysedOperand<Instruction>? _argOne;
+        private IAnalysedOperand<Instruction>? _argTwo;
+        private LocalDefinition<Instruction> _resultLocal;
         private string _destReg;
 
-        public ThreeOperandImulAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ThreeOperandImulAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             var argOneReg = Utils.GetRegisterNameNew(instruction.Op1Register);
@@ -42,15 +42,15 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     _argTwo = context.MakeConstant(typeof(ulong), instruction.GetImmediate(2));
             }
             
-            if(_argOne is LocalDefinition l1)
+            if(_argOne is LocalDefinition<Instruction> l1)
                 RegisterUsedLocal(l1);
-            if(_argTwo is LocalDefinition l2)
+            if(_argTwo is LocalDefinition<Instruction> l2)
                 RegisterUsedLocal(l2);
 
             _resultLocal = context.MakeLocal(Utils.Int64Reference, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_argOne == null || _argTwo == null)
                 throw new TaintedInstructionException("Missing an argument");

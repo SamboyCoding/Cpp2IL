@@ -7,11 +7,11 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class CallBailOutAction : BaseAction<Instruction>
     {
-        public CallBailOutAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public CallBailOutAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

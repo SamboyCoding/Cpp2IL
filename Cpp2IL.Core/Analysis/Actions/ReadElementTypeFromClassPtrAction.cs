@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         private Il2CppClassIdentifier? _classPtr;
         private string? _destReg;
 
-        public ReadElementTypeFromClassPtrAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ReadElementTypeFromClassPtrAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             //TODO: Then load the array element type here.
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

@@ -13,9 +13,9 @@ namespace Cpp2IL.Core.Analysis.Actions
         private string? fullMethodSignature;
         private MethodDefinition? resolvedMethod;
 
-        public LookupICallAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LookupICallAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var constant = is32Bit ? context.Stack.Peek() as ConstantDefinition : context.GetConstantInReg("rcx");
+            var constant = is32Bit ? context.Stack.Peek() as ConstantDefinition<Instruction> : context.GetConstantInReg("rcx");
 
             if (constant == null)
                 return;
@@ -58,7 +58,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             existingConstant.Value = resolvedMethod;
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

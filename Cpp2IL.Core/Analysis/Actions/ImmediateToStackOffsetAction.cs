@@ -9,9 +9,9 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private readonly uint _stackOffset;
         private readonly ulong _sourceImmediate;
-        private readonly LocalDefinition? _newLocal;
+        private readonly LocalDefinition<Instruction>? _newLocal;
 
-        public ImmediateToStackOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ImmediateToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _stackOffset = instruction.MemoryDisplacement32;
             _sourceImmediate = instruction.GetImmediate(1);
@@ -21,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             RegisterUsedLocal(_newLocal);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

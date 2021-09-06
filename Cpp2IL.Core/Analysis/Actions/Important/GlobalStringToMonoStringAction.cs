@@ -9,11 +9,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class GlobalStringToMonoStringAction : BaseAction<Instruction>
     {
         private string? _stringValue;
-        private LocalDefinition? _localMade;
+        private LocalDefinition<Instruction>? _localMade;
 
-        public GlobalStringToMonoStringAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public GlobalStringToMonoStringAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var stringConstant = LibCpp2IlMain.Binary!.is32Bit ? context.Stack.Peek() as ConstantDefinition : context.GetConstantInReg("rcx");
+            var stringConstant = LibCpp2IlMain.Binary!.is32Bit ? context.Stack.Peek() as ConstantDefinition<Instruction> : context.GetConstantInReg("rcx");
 
             if (LibCpp2IlMain.Binary!.is32Bit && stringConstant != null)
                 context.Stack.Pop();
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _localMade = context.MakeLocal(Utils.StringReference, reg: "rax", knownInitialValue: _stringValue);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

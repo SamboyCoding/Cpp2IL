@@ -12,14 +12,14 @@ namespace Cpp2IL.Core.Analysis.Actions
     /// </summary>
     public class RegToRegMoveAction : BaseAction<Instruction>
     {
-        private readonly IAnalysedOperand? beingMoved;
+        private readonly IAnalysedOperand<Instruction>? beingMoved;
         private readonly string originalReg;
         private readonly string newReg;
-        private LocalDefinition? _localBeingOverwritten;
+        private LocalDefinition<Instruction>? _localBeingOverwritten;
 
         private readonly bool copyingValueNotLocal;
 
-        public RegToRegMoveAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegToRegMoveAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             originalReg = Utils.GetRegisterNameNew(instruction.Op1Register);
             newReg = Utils.GetRegisterNameNew(instruction.Op0Register);
@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             context.SetRegContent(newReg, beingMoved);
 
-            if (!(beingMoved is LocalDefinition localBeingMoved) || localBeingMoved.Type == null) return;
+            if (!(beingMoved is LocalDefinition<Instruction> localBeingMoved) || localBeingMoved.Type == null) return;
 
             if (localBeingMoved.Type.FullName == _localBeingOverwritten?.Type?.FullName && (localBeingMoved.KnownInitialValue == _localBeingOverwritten.KnownInitialValue))
             {
@@ -40,7 +40,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             if (!context.IsIpInOneOrMoreLoops(instruction.IP)) return;
             
             var loopConditions = context.GetLoopConditionsInNestedOrder(instruction.IP);
-            if (!(loopConditions.Last().GetArgumentAssociatedWithRegister(newReg) is { } argument) || !(argument is LocalDefinition argumentBeingOverwritten))
+            if (!(loopConditions.Last().GetArgumentAssociatedWithRegister(newReg) is { } argument) || !(argument is LocalDefinition<Instruction> argumentBeingOverwritten))
                 return;
 
             if (localBeingMoved.Type != argumentBeingOverwritten.Type)
@@ -51,7 +51,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             copyingValueNotLocal = true;
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             //No-op
             if(!copyingValueNotLocal)
@@ -62,7 +62,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             return new[]
             {
-                context.GetILToLoad((LocalDefinition) beingMoved!, processor),
+                context.GetILToLoad((LocalDefinition<Instruction>) beingMoved!, processor),
                 processor.Create(OpCodes.Stloc, _localBeingOverwritten!.Variable)
             };
         }
@@ -80,7 +80,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public override bool IsImportant()
         {
-            return copyingValueNotLocal && (_localBeingOverwritten != (LocalDefinition?) beingMoved);
+            return copyingValueNotLocal && (_localBeingOverwritten != (LocalDefinition<Instruction>?) beingMoved);
         }
     }
 }

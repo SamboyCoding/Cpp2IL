@@ -10,12 +10,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ConstantArrayOffsetToRegAction : BaseAction<Instruction>
     {
-        private readonly LocalDefinition? _arrayLocal;
+        private readonly LocalDefinition<Instruction>? _arrayLocal;
         private readonly int _index;
-        private readonly LocalDefinition? _destLocal;
+        private readonly LocalDefinition<Instruction>? _destLocal;
         private TypeReference? _elementType;
 
-        public ConstantArrayOffsetToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ConstantArrayOffsetToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //God knows why the memory *index* contains the array, and the base contains the index, but it does.
             var arrayContainingReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
@@ -38,7 +38,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _destLocal = context.MakeLocal(_elementType, reg: destinationReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_destLocal == null || _arrayLocal == null || _index < 0)
                 throw new TaintedInstructionException();

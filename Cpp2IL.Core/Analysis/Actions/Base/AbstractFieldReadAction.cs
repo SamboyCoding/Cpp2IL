@@ -7,10 +7,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
     public abstract class AbstractFieldReadAction<T> : BaseAction<T>
     {
         public FieldUtils.FieldBeingAccessedData? FieldRead;
-        public LocalDefinition? LocalWritten;
-        protected LocalDefinition? _readFrom;
+        public LocalDefinition<T>? LocalWritten;
+        protected LocalDefinition<T>? _readFrom;
         
-        protected AbstractFieldReadAction(MethodAnalysis context, T associatedInstruction) : base(context, associatedInstruction)
+        protected AbstractFieldReadAction(MethodAnalysis<T> context, T associatedInstruction) : base(context, associatedInstruction)
         {
         }
         
@@ -24,7 +24,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             return $"[!] Reads field {FieldRead} from {_readFrom} and stores in a new local {LocalWritten}\n";
         }
         
-        public override Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
             if (LocalWritten == null || _readFrom == null || FieldRead == null)
                 throw new TaintedInstructionException();

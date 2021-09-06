@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private object constantValue;
         private object _theGlobal;
-        public ConstantToGlobalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ConstantToGlobalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var offset = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             if (LibCpp2IlMain.GetAnyGlobalByAddress(offset) is { } globalIdentifier && globalIdentifier.Offset == offset)
@@ -25,7 +25,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             constantValue = instruction.GetImmediate(1);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

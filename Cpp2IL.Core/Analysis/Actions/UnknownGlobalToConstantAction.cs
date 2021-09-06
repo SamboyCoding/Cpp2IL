@@ -10,9 +10,9 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private UnknownGlobalAddr _global;
         private string _destReg;
-        private ConstantDefinition? _constantMade;
+        private ConstantDefinition<Instruction>? _constantMade;
 
-        public UnknownGlobalToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public UnknownGlobalToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var offset = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             _global = new UnknownGlobalAddr(offset);
@@ -22,7 +22,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             _constantMade = context.MakeConstant(typeof(UnknownGlobalAddr), _global, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

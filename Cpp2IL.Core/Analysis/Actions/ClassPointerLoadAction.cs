@@ -8,11 +8,11 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class ClassPointerLoadAction : BaseAction<Instruction>
     {
-        private readonly LocalDefinition? localCopiedFrom;
-        private readonly ConstantDefinition? destinationConstant;
+        private readonly LocalDefinition<Instruction>? localCopiedFrom;
+        private readonly ConstantDefinition<Instruction>? destinationConstant;
         private readonly string destReg;
 
-        public ClassPointerLoadAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ClassPointerLoadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             if(instruction.Op0Register == Register.RSP)
@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             
             var sourceReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(sourceReg);
-            localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition {Value: NewSafeCastResult result} ? result.original : null;
+            localCopiedFrom = inReg is LocalDefinition<Instruction> local ? local : inReg is ConstantDefinition<Instruction> {Value: NewSafeCastResult<Instruction> result} ? result.original : null;
 
             if(localCopiedFrom == null)
                 return;
@@ -38,7 +38,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }, reg: destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

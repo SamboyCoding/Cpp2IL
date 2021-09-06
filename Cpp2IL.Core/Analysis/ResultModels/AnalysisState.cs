@@ -2,12 +2,12 @@
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public abstract class AnalysisState
+    public abstract class AnalysisState<T>
     {
-        public List<LocalDefinition> FunctionArgumentLocals = new List<LocalDefinition>();
-        public Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
-        public Dictionary<int, LocalDefinition> StackStoredLocals = new Dictionary<int, LocalDefinition>();
-        public Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
-        public Stack<IAnalysedOperand> FloatingPointStack = new Stack<IAnalysedOperand>();
+        public List<LocalDefinition<T>> FunctionArgumentLocals = new();
+        public Dictionary<string, IAnalysedOperand<T>> RegisterData = new();
+        public Dictionary<int, LocalDefinition<T>> StackStoredLocals = new();
+        public Stack<IAnalysedOperand<T>> Stack = new();
+        public Stack<IAnalysedOperand<T>> FloatingPointStack = new();
     }
 }

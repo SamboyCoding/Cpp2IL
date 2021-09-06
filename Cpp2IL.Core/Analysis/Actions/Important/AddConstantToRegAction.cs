@@ -9,10 +9,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class AddConstantToRegAction : BaseAction<Instruction>
     {
         private string _regBeingAddedTo;
-        private LocalDefinition? _valueInReg;
+        private LocalDefinition<Instruction>? _valueInReg;
         private ulong _constantBeingAdded;
 
-        public AddConstantToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public AddConstantToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _regBeingAddedTo = Utils.GetRegisterNameNew(instruction.Op0Register);
             _valueInReg = context.GetLocalInReg(_regBeingAddedTo);
@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

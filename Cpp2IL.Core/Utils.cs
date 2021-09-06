@@ -834,7 +834,7 @@ namespace Cpp2IL.Core
             throw new Exception($"Can't coerce {value} to {coerceToType}");
         }
 
-        public static void CoerceUnknownGlobalValue(TypeReference targetType, UnknownGlobalAddr unknownGlobalAddr, ConstantDefinition destinationConstant, bool allowByteArray = true)
+        public static void CoerceUnknownGlobalValue<T>(TypeReference targetType, UnknownGlobalAddr unknownGlobalAddr, ConstantDefinition<T> destinationConstant, bool allowByteArray = true)
         {
             var primitiveLength = Utils.GetSizeOfObject(targetType);
             byte[] newValue;

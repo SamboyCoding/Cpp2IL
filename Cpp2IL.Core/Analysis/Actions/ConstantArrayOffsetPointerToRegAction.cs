@@ -9,13 +9,13 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class ConstantArrayOffsetPointerToRegAction : BaseAction<Instruction>
     {
-        private readonly LocalDefinition? _arrayLocal;
+        private readonly LocalDefinition<Instruction>? _arrayLocal;
         private readonly int _index;
-        private readonly ConstantDefinition? _destConstant;
+        private readonly ConstantDefinition<Instruction>? _destConstant;
         private TypeReference? _elementType;
         private string? _destinationReg;
 
-        public ConstantArrayOffsetPointerToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ConstantArrayOffsetPointerToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //God knows why the memory *index* contains the array, and the base contains the index, but it does.
             var arrayContainingReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
@@ -35,10 +35,10 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             _elementType = _arrayLocal.Type is ArrayType at ? at.ElementType : _arrayLocal.Type.Resolve();
 
-            _destConstant = context.MakeConstant(typeof(Il2CppArrayOffsetPointer), new Il2CppArrayOffsetPointer(_arrayLocal, _index), reg: _destinationReg);
+            _destConstant = context.MakeConstant(typeof(Il2CppArrayOffsetPointer<Instruction>), new Il2CppArrayOffsetPointer<Instruction>(_arrayLocal, _index), reg: _destinationReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new NotImplementedException();
         }

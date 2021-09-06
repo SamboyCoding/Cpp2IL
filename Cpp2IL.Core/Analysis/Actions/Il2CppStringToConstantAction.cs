@@ -11,10 +11,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private readonly string _detectedString;
         private string? _destReg;
-        private ConstantDefinition? _constantMade;
+        private ConstantDefinition<Instruction>? _constantMade;
 
         //This is specifically for UNMANAGED strings (i.e. those not specified in the metadata, such as names for ICall lookups, etc)
-        public Il2CppStringToConstantAction(MethodAnalysis context, Instruction instruction, string detectedString) : base(context, instruction)
+        public Il2CppStringToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction, string detectedString) : base(context, instruction)
         {
             _detectedString = detectedString;
 
@@ -31,7 +31,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

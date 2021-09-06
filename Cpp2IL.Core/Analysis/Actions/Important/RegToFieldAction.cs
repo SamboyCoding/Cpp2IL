@@ -9,10 +9,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegToFieldAction : AbstractFieldWriteAction<Instruction>
     {
-        public readonly IAnalysedOperand? ValueRead;
+        public readonly IAnalysedOperand<Instruction>? ValueRead;
 
         //TODO: Fix string literal to field - it's a constant in a field.
-        public RegToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var destRegName = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
@@ -20,10 +20,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);
             
-            if(ValueRead is LocalDefinition loc)
+            if(ValueRead is LocalDefinition<Instruction> loc)
                 RegisterUsedLocal(loc);
 
-            if (ValueRead is ConstantDefinition { Value: StackPointer s })
+            if (ValueRead is ConstantDefinition<Instruction> { Value: StackPointer s })
             {
                 var offset = s.offset;
                 if (context.StackStoredLocals.TryGetValue((int)offset, out var tempLocal))
@@ -34,7 +34,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             if (InstanceBeingSetOn?.Type?.Resolve() == null)
             {
-                if (context.GetConstantInReg(destRegName) is {Value: FieldPointer p})
+                if (context.GetConstantInReg(destRegName) is {Value: FieldPointer<Instruction> p})
                 {
                     InstanceBeingSetOn = p.OnWhat;
                     RegisterUsedLocal(InstanceBeingSetOn);
@@ -49,7 +49,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
         }
 
-        internal RegToFieldAction(MethodAnalysis context, Instruction instruction, FieldUtils.FieldBeingAccessedData fieldWritten, LocalDefinition instanceWrittenOn, LocalDefinition readFrom) : base(context, instruction)
+        internal RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction, FieldUtils.FieldBeingAccessedData fieldWritten, LocalDefinition<Instruction> instanceWrittenOn, LocalDefinition<Instruction> readFrom) : base(context, instruction)
         {
             Debug.Assert(instanceWrittenOn.Type!.IsValueType);
             
@@ -65,6 +65,6 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         protected override string? GetValueSummary() => ValueRead?.ToString();
 
-        protected override Mono.Cecil.Cil.Instruction[] GetIlToLoadValue(MethodAnalysis context, ILProcessor processor) => ValueRead?.GetILToLoad(context, processor) ?? throw new TaintedInstructionException("Value read is null");
+        protected override Mono.Cecil.Cil.Instruction[] GetIlToLoadValue(MethodAnalysis<Instruction> context, ILProcessor processor) => ValueRead?.GetILToLoad(context, processor) ?? throw new TaintedInstructionException("Value read is null");
     }
 }

@@ -12,10 +12,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class GlobalTypeRefToConstantAction : BaseAction<Instruction>
     {
         public readonly TypeReference? ResolvedType;
-        public readonly ConstantDefinition? ConstantWritten;
+        public readonly ConstantDefinition<Instruction>? ConstantWritten;
         private readonly string? _destReg;
 
-        public GlobalTypeRefToConstantAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public GlobalTypeRefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var globalAddress = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             var typeData = LibCpp2IlMain.GetTypeGlobalByAddress(globalAddress);
@@ -47,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

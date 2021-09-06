@@ -10,9 +10,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private readonly uint _amount;
         private readonly string? _destReg;
-        private readonly ConstantDefinition _constantMade;
+        private readonly ConstantDefinition<Instruction> _constantMade;
 
-        public LoadConstantUsingLeaAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LoadConstantUsingLeaAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _amount = instruction.MemoryDisplacement32;
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _constantMade = context.MakeConstant(typeof(int), (int) _amount, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             return Array.Empty<Mono.Cecil.Cil.Instruction>();
         }

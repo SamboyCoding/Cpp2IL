@@ -7,12 +7,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class SingleOperandImulAction : BaseAction<Instruction>
     {
-        private LocalDefinition? _returnedLocal;
-        private ConstantDefinition? _intDivisionConstant;
-        private IAnalysedOperand? _secondOperand;
-        private IAnalysedOperand? _firstOperand;
+        private LocalDefinition<Instruction>? _returnedLocal;
+        private ConstantDefinition<Instruction>? _intDivisionConstant;
+        private IAnalysedOperand<Instruction>? _secondOperand;
+        private IAnalysedOperand<Instruction>? _firstOperand;
 
-        public SingleOperandImulAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public SingleOperandImulAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //IMUL reg
             // = multiply rax by reg and store in rax
@@ -23,14 +23,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             //If this is an integer division, rax usually has the constant.
             ulong firstOpConstant = 0;
-            if (_firstOperand is ConstantDefinition {Value: { } val} && Utils.TryCoerceToUlong(val, out var constUlong))
+            if (_firstOperand is ConstantDefinition<Instruction> {Value: { } val} && Utils.TryCoerceToUlong(val, out var constUlong))
                 firstOpConstant = constUlong;
-            else if (_firstOperand is LocalDefinition {KnownInitialValue: { } val2} && Utils.TryCoerceToUlong(val2, out var localUlong))
+            else if (_firstOperand is LocalDefinition<Instruction> {KnownInitialValue: { } val2} && Utils.TryCoerceToUlong(val2, out var localUlong))
                 firstOpConstant = localUlong;
 
             if (firstOpConstant != 0 && _secondOperand != null)
             {
-                _intDivisionConstant = context.MakeConstant(typeof(IntegerDivisionInProgress), new IntegerDivisionInProgress(_secondOperand, firstOpConstant), reg: "rax");
+                _intDivisionConstant = context.MakeConstant(typeof(IntegerDivisionInProgress<Instruction>), new IntegerDivisionInProgress<Instruction>(_secondOperand, firstOpConstant), reg: "rax");
                 context.SetRegContent("rdx", _intDivisionConstant);
                 return;
             }
@@ -39,7 +39,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             _returnedLocal = context.MakeLocal(Utils.UInt64Reference, reg: "rax");
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }
@@ -62,7 +62,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override bool IsImportant()
         {
-            return (_intDivisionConstant?.Value as IntegerDivisionInProgress)?.IsComplete != true;
+            return (_intDivisionConstant?.Value as IntegerDivisionInProgress<Instruction>)?.IsComplete != true;
         }
     }
 }

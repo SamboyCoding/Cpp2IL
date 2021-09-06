@@ -9,15 +9,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
     {
         public ulong JumpTarget;
         
-        //TODO Make base class.
-        protected ComparisonAction? associatedCompare;
+        protected AbstractComparisonAction<T>? associatedCompare;
         protected bool IsIfStatement;
         protected bool IsIfElse;
         protected bool IsWhile;
         protected bool IsImplicitNullReferenceException;
         protected bool IsGoto;
         
-        protected AbstractConditionalJumpAction(MethodAnalysis context, T associatedInstruction) : base(context, associatedInstruction)
+        protected AbstractConditionalJumpAction(MethodAnalysis<T> context, T associatedInstruction) : base(context, associatedInstruction)
         {
         }
         
@@ -29,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         public override bool IsImportant()
         {
-            return !IsImplicitNullReferenceException && associatedCompare?.unimportantComparison == false && (IsIfElse || IsWhile || IsIfStatement || IsGoto);
+            return !IsImplicitNullReferenceException && associatedCompare?.UnimportantComparison == false && (IsIfElse || IsWhile || IsIfStatement || IsGoto);
         }
 
         protected string GetArgumentOnePseudocodeValue()
@@ -66,7 +65,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         protected abstract OpCode GetJumpOpcode();
 
-        public override Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
             if (associatedCompare?.ArgumentOne == null || associatedCompare.ArgumentTwo == null)
                 throw new TaintedInstructionException("One of the arguments is null");

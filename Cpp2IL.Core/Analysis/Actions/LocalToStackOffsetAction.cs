@@ -8,10 +8,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class LocalToStackOffsetAction : BaseAction<Instruction>
     {
         private uint _stackOffset;
-        private LocalDefinition? _sourceLocal;
+        private LocalDefinition<Instruction>? _sourceLocal;
         private string? _sourceReg;
 
-        public LocalToStackOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public LocalToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _stackOffset = instruction.MemoryDisplacement32;
             _sourceReg = Utils.GetRegisterNameNew(instruction.Op1Register);
@@ -24,7 +24,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             RegisterUsedLocal(_sourceLocal);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

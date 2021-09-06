@@ -9,10 +9,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class InterfaceOffsetCountToLocalAction : BaseAction<Instruction>
     {
         private ushort offsetCount;
-        private LocalDefinition? _localMade;
+        private LocalDefinition<Instruction>? _localMade;
         private Il2CppTypeDefinition? _typeCountReadFrom;
 
-        public InterfaceOffsetCountToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public InterfaceOffsetCountToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var constantBeingRead = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
 
@@ -32,7 +32,7 @@ namespace Cpp2IL.Core.Analysis.Actions
                 _localMade = context.MakeLocal(Utils.UInt32Reference, reg: Utils.GetRegisterNameNew(instruction.Op0Register));
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

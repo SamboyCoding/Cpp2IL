@@ -12,11 +12,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class ArrayLengthPropertyToLocalAction : BaseAction<Instruction>
     {
         private static readonly MethodDefinition GetLengthDef = Utils.TryLookupTypeDefKnownNotGeneric("System.Array")!.Methods.Single(m => m.Name == "get_Length");
-        public LocalDefinition? LocalMade;
-        public LocalDefinition? TheArray;
+        public LocalDefinition<Instruction>? LocalMade;
+        public LocalDefinition<Instruction>? TheArray;
         private string? _destReg;
 
-        public ArrayLengthPropertyToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ArrayLengthPropertyToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
             TheArray = context.GetLocalInReg(memReg);
@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             LocalMade = context.MakeLocal(Utils.Int32Reference, reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (LocalMade == null || TheArray == null)
                 throw new TaintedInstructionException("Array or destination is null");

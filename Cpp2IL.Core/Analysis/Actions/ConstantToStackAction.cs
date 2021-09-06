@@ -10,11 +10,11 @@ namespace Cpp2IL.Core.Analysis.Actions
         private object constantValue;
         private ulong stackOffset;
         
-        public ConstantToStackAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ConstantToStackAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             //TODO we'll need a load of some sort.
             return new Mono.Cecil.Cil.Instruction[0];

@@ -11,12 +11,12 @@ namespace Cpp2IL.Core.Analysis.Actions
         private UnknownGlobalAddr? _globalAddr;
         private int functionId;
 
-        public CallInitMethodAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public CallInitMethodAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            ConstantDefinition? consDef;
+            ConstantDefinition<Instruction>? consDef;
             if (LibCpp2IlMain.Binary!.is32Bit)
             {
-                consDef = context.Stack.Count > 0 ? context.Stack.Peek() as ConstantDefinition : null;
+                consDef = context.Stack.Count > 0 ? context.Stack.Peek() as ConstantDefinition<Instruction> : null;
                 if (consDef != null)
                     context.Stack.Pop();
             }
@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

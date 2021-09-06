@@ -108,7 +108,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             return null;
         }
 
-        public CallExceptionThrowerFunction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public CallExceptionThrowerFunction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var calledAddr = instruction.NearBranchTarget;
             _exceptionType = ExceptionThrowers[calledAddr];
@@ -117,7 +117,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 context.MakeLocal(_exceptionType, reg: "rax");
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_exceptionType == null)
                 throw new TaintedInstructionException();

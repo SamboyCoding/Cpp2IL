@@ -10,9 +10,9 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private FieldUtils.FieldBeingAccessedData? _fieldBeingRead;
         private string? _destReg;
-        private LocalDefinition? _accessedOn;
+        private LocalDefinition<Instruction>? _accessedOn;
 
-        public FieldPointerToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public FieldPointerToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             if (instruction.MemoryBase != Register.None)
             {
@@ -41,10 +41,10 @@ namespace Cpp2IL.Core.Analysis.Actions
             if(_fieldBeingRead == null)
                 return;
 
-            context.MakeConstant(typeof(FieldPointer), new FieldPointer(_fieldBeingRead, _accessedOn), reg: _destReg);
+            context.MakeConstant(typeof(FieldPointer<Instruction>), new FieldPointer<Instruction>(_fieldBeingRead, _accessedOn), reg: _destReg);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

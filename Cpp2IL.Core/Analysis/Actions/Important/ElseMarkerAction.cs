@@ -9,13 +9,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private ulong _ifPtr;
 
-        public ElseMarkerAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ElseMarkerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _ifPtr = context.GetAddressOfAssociatedIfForThisElse(instruction.IP);
             context.IndentLevel += 1; //For else block
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             return new Mono.Cecil.Cil.Instruction[0];
         }

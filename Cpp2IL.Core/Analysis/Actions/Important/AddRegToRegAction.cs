@@ -8,10 +8,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class AddRegToRegAction : BaseAction<Instruction>
     {
-        private LocalDefinition? _firstOp;
-        private IAnalysedOperand? _secondOp;
+        private LocalDefinition<Instruction>? _firstOp;
+        private IAnalysedOperand<Instruction>? _secondOp;
 
-        public AddRegToRegAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public AddRegToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var firstReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             var secondReg = Utils.GetRegisterNameNew(instruction.Op1Register);
@@ -22,11 +22,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if(_firstOp != null)
                 RegisterUsedLocal(_firstOp);
             
-            if(_secondOp is LocalDefinition l)
+            if(_secondOp is LocalDefinition<Instruction> l)
                 RegisterUsedLocal(l);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_firstOp == null || _secondOp == null)
                 throw new TaintedInstructionException("Missing an argument");

@@ -2,10 +2,10 @@
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public interface IComparisonArgument
+    public interface IComparisonArgument<T>
     {
         public string GetPseudocodeRepresentation();
 
-        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor processor);
+        public Instruction[] GetILToLoad(MethodAnalysis<T> context, ILProcessor processor);
     }
 }

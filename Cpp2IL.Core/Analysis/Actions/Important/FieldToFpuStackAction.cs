@@ -6,12 +6,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class FieldToFpuStackAction : AbstractFieldReadAction<Instruction>
     {
-        private readonly LocalDefinition? _localBeingReadFrom;
+        private readonly LocalDefinition<Instruction>? _localBeingReadFrom;
         private readonly uint _offsetBeingRead;
         private readonly FieldUtils.FieldBeingAccessedData? _fieldRead;
-        private readonly LocalDefinition? _localMade;
+        private readonly LocalDefinition<Instruction>? _localMade;
 
-        public FieldToFpuStackAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public FieldToFpuStackAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _localBeingReadFrom = context.GetLocalInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
 

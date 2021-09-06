@@ -9,10 +9,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class MethodSlotToLocalAction : BaseAction<Instruction>
     {
         private ushort _slot;
-        private LocalDefinition? _localMade;
+        private LocalDefinition<Instruction>? _localMade;
         private MethodReference? _methodBeingRead;
 
-        public MethodSlotToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public MethodSlotToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var constantBeingRead = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
 
@@ -40,7 +40,7 @@ namespace Cpp2IL.Core.Analysis.Actions
                 _localMade = context.MakeLocal(Utils.UInt32Reference, reg: Utils.GetRegisterNameNew(instruction.Op0Register));
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

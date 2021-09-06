@@ -7,17 +7,17 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ThrowAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand? exceptionToThrow;
+        private IAnalysedOperand<Instruction>? exceptionToThrow;
         
-        public ThrowAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ThrowAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             exceptionToThrow = context.GetOperandInRegister("rcx");
             
-            if(exceptionToThrow is LocalDefinition l)
+            if(exceptionToThrow is LocalDefinition<Instruction> l)
                 RegisterUsedLocal(l);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

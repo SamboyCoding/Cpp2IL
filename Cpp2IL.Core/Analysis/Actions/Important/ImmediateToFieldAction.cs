@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         public object ConstantValue;
         
-        public ImmediateToFieldAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ImmediateToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var rawConstant = instruction.GetImmediate(1);
 
@@ -39,6 +39,6 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         protected override string? GetValuePseudocode() => ConstantValue?.ToString();
 
-        protected override Mono.Cecil.Cil.Instruction[] GetIlToLoadValue(MethodAnalysis context, ILProcessor processor) => context.MakeConstant(ConstantValue.GetType(), ConstantValue).GetILToLoad(context, processor);
+        protected override Mono.Cecil.Cil.Instruction[] GetIlToLoadValue(MethodAnalysis<Instruction> context, ILProcessor processor) => context.MakeConstant(ConstantValue.GetType(), ConstantValue).GetILToLoad(context, processor);
     }
 }

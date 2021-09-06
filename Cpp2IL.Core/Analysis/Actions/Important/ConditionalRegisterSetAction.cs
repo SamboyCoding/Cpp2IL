@@ -11,9 +11,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         protected readonly ComparisonAction? _associatedCompare;
         protected readonly string? _regToSet;
-        private readonly LocalDefinition _localMade;
+        private readonly LocalDefinition<Instruction> _localMade;
 
-        public ConditionalRegisterSetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public ConditionalRegisterSetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _regToSet = Utils.GetRegisterNameNew(instruction.Op0Register);
             _associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
@@ -25,9 +25,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         
         protected abstract string GetPseudocodeCondition();
 
-        protected abstract Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis context, ILProcessor processor);
+        protected abstract Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis<Instruction> context, ILProcessor processor);
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 

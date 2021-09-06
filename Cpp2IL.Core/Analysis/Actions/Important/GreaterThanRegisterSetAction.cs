@@ -6,7 +6,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class GreaterThanRegisterSetAction : ConditionalRegisterSetAction
     {
-        public GreaterThanRegisterSetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public GreaterThanRegisterSetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
         }
 
@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             return $"{_associatedCompare?.ArgumentOne?.GetPseudocodeRepresentation()} > {_associatedCompare?.ArgumentTwo?.GetPseudocodeRepresentation()}";
         }
 
-        protected override Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis context, ILProcessor processor)
+        protected override Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             return processor.Create(OpCodes.Cgt);
         }

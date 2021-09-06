@@ -7,11 +7,11 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class CallNativeMethodFailureAction : BaseAction<Instruction>
     {
-        public CallNativeMethodFailureAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public CallNativeMethodFailureAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

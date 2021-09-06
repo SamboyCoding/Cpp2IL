@@ -7,10 +7,10 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class PushRegisterAction : BaseAction<Instruction>
     {
-        public IAnalysedOperand? whatIsPushed;
+        public IAnalysedOperand<Instruction>? whatIsPushed;
         public string regPushedFrom;
         
-        public PushRegisterAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public PushRegisterAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             regPushedFrom = Utils.GetRegisterNameNew(instruction.Op0Register);
             whatIsPushed = context.GetOperandInRegister(regPushedFrom);
@@ -20,11 +20,11 @@ namespace Cpp2IL.Core.Analysis.Actions
             else
                 context.PushEmptyStackFrames(1);
 
-            if (whatIsPushed is LocalDefinition l)
+            if (whatIsPushed is LocalDefinition<Instruction> l)
                 RegisterUsedLocal(l);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

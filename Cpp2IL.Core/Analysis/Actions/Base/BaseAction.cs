@@ -13,39 +13,39 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         
         public int IndentLevel;
 
-        private List<LocalDefinition> UsedLocals = new List<LocalDefinition>();
-        private List<LocalDefinition> RegisteredLocalsWithoutSideEffects = new List<LocalDefinition>();
+        private List<LocalDefinition<T>> UsedLocals = new();
+        private List<LocalDefinition<T>> RegisteredLocalsWithoutSideEffects = new();
 
         protected bool is32Bit => LibCpp2IlMain.Binary!.is32Bit;
         
-        public BaseAction(MethodAnalysis context, T associatedInstruction)
+        public BaseAction(MethodAnalysis<T> context, T associatedInstruction)
         {
             IndentLevel = context.IndentLevel;
             AssociatedInstruction = associatedInstruction;
         }
 
-        public abstract Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor);
+        public abstract Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor);
 
         public abstract string? ToPsuedoCode();
 
         public abstract string ToTextSummary();
 
-        public List<LocalDefinition> GetUsedLocals()
+        public List<LocalDefinition<T>> GetUsedLocals()
         {
             return UsedLocals;
         }
 
-        protected void RegisterUsedLocal(LocalDefinition l)
+        protected void RegisterUsedLocal(LocalDefinition<T> l)
         {
             UsedLocals.Add(l);
         }
         
-        public List<LocalDefinition> GetRegisteredLocalsWithoutSideEffects()
+        public List<LocalDefinition<T>> GetRegisteredLocalsWithoutSideEffects()
         {
             return RegisteredLocalsWithoutSideEffects;
         }
 
-        protected void RegisterDefinedLocalWithoutSideEffects(LocalDefinition l)
+        protected void RegisterDefinedLocalWithoutSideEffects(LocalDefinition<T> l)
         {
             RegisteredLocalsWithoutSideEffects.Add(l);
         }

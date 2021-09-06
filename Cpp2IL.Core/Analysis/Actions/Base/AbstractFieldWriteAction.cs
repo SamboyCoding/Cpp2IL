@@ -6,17 +6,17 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 {
     public abstract class AbstractFieldWriteAction<T> : BaseAction<T>
     {
-        public LocalDefinition? InstanceBeingSetOn;
+        public LocalDefinition<T>? InstanceBeingSetOn;
         public FieldUtils.FieldBeingAccessedData? FieldWritten;
-        protected AbstractFieldWriteAction(MethodAnalysis context, T instruction) : base(context, instruction)
+        protected AbstractFieldWriteAction(MethodAnalysis<T> context, T instruction) : base(context, instruction)
         {
         }
 
         protected abstract string? GetValueSummary();
         protected abstract string? GetValuePseudocode();
-        protected abstract Instruction[] GetIlToLoadValue(MethodAnalysis context, ILProcessor processor);
+        protected abstract Instruction[] GetIlToLoadValue(MethodAnalysis<T> context, ILProcessor processor);
         
-        public override Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
             if (InstanceBeingSetOn == null || FieldWritten == null)
                 throw new TaintedInstructionException("Instance or field is null");

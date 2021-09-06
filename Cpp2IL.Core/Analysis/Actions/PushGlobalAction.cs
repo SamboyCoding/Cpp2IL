@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private object _theUsage;
 
-        public PushGlobalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public PushGlobalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var offset = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             MetadataUsage? usage;
@@ -86,7 +86,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

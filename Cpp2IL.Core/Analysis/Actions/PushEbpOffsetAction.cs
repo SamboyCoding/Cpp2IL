@@ -7,8 +7,8 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class PushEbpOffsetAction : BaseAction<Instruction>
     {
-        private LocalDefinition localBeingPushed;
-        public PushEbpOffsetAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        private LocalDefinition<Instruction> localBeingPushed;
+        public PushEbpOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             localBeingPushed = StackPointerUtils.GetLocalReferencedByEBPRead(context, instruction);
             
@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions
                 context.Stack.Push(localBeingPushed);
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

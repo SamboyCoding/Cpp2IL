@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private string _destRegName;
 
-        public FieldToLocalAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public FieldToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var sourceRegName = Utils.GetRegisterNameNew(instruction.MemoryBase);
             _destRegName = Utils.GetRegisterNameNew(instruction.Op0Register);
@@ -18,13 +18,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             var readFrom = context.GetOperandInRegister(sourceRegName);
 
             TypeReference readFromType;
-            if (readFrom is ConstantDefinition {Value: NewSafeCastResult result})
+            if (readFrom is ConstantDefinition<Instruction> {Value: NewSafeCastResult<Instruction> result})
             {
                 readFromType = result.castTo;
                 _readFrom = result.original;
                 RegisterUsedLocal(_readFrom);
             }
-            else if(readFrom is LocalDefinition {IsMethodInfoParam: false} l && l.Type?.Resolve() != null)
+            else if(readFrom is LocalDefinition<Instruction> {IsMethodInfoParam: false} l && l.Type?.Resolve() != null)
             {
                 _readFrom = l;
                 readFromType = _readFrom!.Type!;

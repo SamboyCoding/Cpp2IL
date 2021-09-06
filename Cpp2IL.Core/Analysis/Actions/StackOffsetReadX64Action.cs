@@ -9,10 +9,10 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private readonly string _destReg;
         private readonly uint _stackOffset;
-        private ConstantDefinition? _constantMade;
-        private LocalDefinition localResolved;
+        private ConstantDefinition<Instruction>? _constantMade;
+        private LocalDefinition<Instruction> localResolved;
 
-        public StackOffsetReadX64Action(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public StackOffsetReadX64Action(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             _stackOffset = instruction.MemoryDisplacement32;
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             }
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }

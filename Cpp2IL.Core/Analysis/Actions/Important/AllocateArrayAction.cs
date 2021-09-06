@@ -12,11 +12,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private readonly int sizeAllocated;
         private readonly TypeReference? typeOfArray;
-        private readonly LocalDefinition? _localWritten;
+        private readonly LocalDefinition<Instruction>? _localWritten;
 
-        public AllocateArrayAction(MethodAnalysis context, Instruction instruction) : base(context, instruction)
+        public AllocateArrayAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var typeConstant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
+            var typeConstant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition<Instruction>;
 
             if (typeConstant != null && LibCpp2IlMain.Binary.is32Bit)
                 context.Stack.Pop(); //Pop off array type
@@ -35,15 +35,15 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 typeOfArray = reference;
             }
 
-            if (sizeOperand is LocalDefinition local && (local.KnownInitialValue is ulong || local.KnownInitialValue is uint))
+            if (sizeOperand is LocalDefinition<Instruction> local && (local.KnownInitialValue is ulong || local.KnownInitialValue is uint))
             {
                 RegisterUsedLocal(local);
                 sizeAllocated = Convert.ToInt32(local.KnownInitialValue);
             }
-            else if (sizeOperand is ConstantDefinition {Value: ulong sizeC})
+            else if (sizeOperand is ConstantDefinition<Instruction> {Value: ulong sizeC})
             {
                 sizeAllocated = (int) sizeC;
-            } else if (sizeOperand is ConstantDefinition {Value: uint sizeCSmall})
+            } else if (sizeOperand is ConstantDefinition<Instruction> {Value: uint sizeCSmall})
             {
                 sizeAllocated = (int) sizeCSmall;
             }
@@ -54,7 +54,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             RegisterUsedLocal(_localWritten); //Used implicitly until I can find out what's causing these issues
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
             if (_localWritten == null || typeOfArray == null)
                 throw new TaintedInstructionException("Missing created local or type of array");

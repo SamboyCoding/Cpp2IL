@@ -9,15 +9,15 @@ using Mono.Cecil;
 
 namespace Cpp2IL.Core.Analysis.PostProcessActions
 {
-    public class RenameLocalsPostProcessor : PostProcessor {
+    public class RenameLocalsPostProcessor : PostProcessor<Instruction> {
 
-        public override void PostProcess(MethodAnalysis analysis, MethodDefinition definition)
+        public override void PostProcess(MethodAnalysis<Instruction> analysis, MethodDefinition definition)
         {
             var countDict = new Dictionary<string, int>();
             
             foreach (var action in analysis.Actions)
             {
-                LocalDefinition localDefinition;
+                LocalDefinition<Instruction> localDefinition;
                 string nameBase;
                 if (action is FieldToLocalAction {FieldRead: {}, LocalWritten: {}} ftla)
                 {

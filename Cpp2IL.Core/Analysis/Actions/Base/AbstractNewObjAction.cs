@@ -1,31 +1,29 @@
-﻿using System.Linq;
-using Cpp2IL.Core.Analysis.Actions.x86;
+﻿using System;
+using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
 {
     public abstract class AbstractNewObjAction<T> : BaseAction<T>
     {
         public TypeReference? TypeCreated;
-        public LocalDefinition? LocalReturned;
+        public LocalDefinition<T>? LocalReturned;
         
-        protected AbstractNewObjAction(MethodAnalysis context, T associatedInstruction) : base(context, associatedInstruction)
+        protected AbstractNewObjAction(MethodAnalysis<T> context, T associatedInstruction) : base(context, associatedInstruction)
         {
         }
         
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis context, ILProcessor processor)
+        public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
             if (LocalReturned == null || TypeCreated == null)
                 throw new TaintedInstructionException("Local being returned, or type being allocated, couldn't be determined.");
             
-            //TODO Once we abstract out MethodAnalysis somehow, fix this.
-            //This is super ugly until that point.
-            var thisAsX86Action = (BaseAction<Instruction>)(object)this;
+            var thisAsX86Action = this;
             
-            var managedConstructorCall = (BaseX86CallAction?) context.Actions.Skip(context.Actions.IndexOf(thisAsX86Action)).FirstOrDefault(i => i is BaseX86CallAction);
+            var managedConstructorCall = (AbstractCallAction<T>?) context.Actions.Skip(context.Actions.IndexOf(thisAsX86Action)).FirstOrDefault(i => i is AbstractCallAction<T>);
 
             if (managedConstructorCall == null)
                 throw new TaintedInstructionException($"Cannot find the call to the constructor for instance allocation, of type {TypeCreated} (Is Value: {TypeCreated?.IsValueType})");
@@ -64,6 +62,19 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         public override bool IsImportant()
         {
             return true;
+        }
+
+        internal static AbstractNewObjAction<TDesired> Make<TDesired>(MethodAnalysis<TDesired> context, TDesired instruction, TypeDefinition objectType)
+        {
+            //This is an ugly as hell method
+            object ret;
+
+            if (instruction is Iced.Intel.Instruction x86Inst)
+                ret = new AllocateInstanceAction((MethodAnalysis<Iced.Intel.Instruction>)(object)context, x86Inst, objectType);
+            else
+                throw new ArgumentException("Instruction type is not associated with a newobj action", nameof(instruction));
+
+            return (AbstractNewObjAction<TDesired>)ret;
         }
     }
 }
