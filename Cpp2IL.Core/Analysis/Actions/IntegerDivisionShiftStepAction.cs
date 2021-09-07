@@ -11,12 +11,12 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private string? _regBeingShifted;
         private bool _isUpperHalf;
-        private ConstantDefinition<Instruction>? _constantInReg;
+        private ConstantDefinition? _constantInReg;
         private IntegerDivisionInProgress<Instruction>? _intDivision;
         private int _fullShiftValue;
         private long _divisor;
         private bool _potentiallyWrong;
-        private LocalDefinition<Instruction>? _localMade;
+        private LocalDefinition? _localMade;
 
         //The right-shift after what looks like the start of an integer division setup (i.e. IMUL reg when reg has an int, and rax contains a large constant)
         public IntegerDivisionShiftStepAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

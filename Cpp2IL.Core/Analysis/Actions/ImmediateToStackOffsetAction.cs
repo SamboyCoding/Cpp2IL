@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private readonly uint _stackOffset;
         private readonly ulong _sourceImmediate;
-        private readonly LocalDefinition<Instruction>? _newLocal;
+        private readonly LocalDefinition? _newLocal;
 
         public ImmediateToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

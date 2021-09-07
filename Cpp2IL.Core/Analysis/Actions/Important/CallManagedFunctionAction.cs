@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             {
                 var genericMethodConstants = context.Constants.Where(c => c.Value is MethodReference).ToList();
 
-                ConstantDefinition<Instruction>? matchingConstant = null;
+                ConstantDefinition? matchingConstant = null;
                 foreach (var m in concMethods)
                 {
                     var managedBaseMethod = m.BaseMethod.AsManaged();
@@ -44,7 +44,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
                     AddComment("Method resolved from concrete implementations at this address, with the help of a constant value to identify which concrete implementation.");
 
-                    if (locatedMethod.HasThis && LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition<Instruction> local)
+                    if (locatedMethod.HasThis && LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                     {
                         InstanceBeingCalledOn = local; //32-bit and we have an instance
                         context.Stack.Pop(); //remove instance from stack
@@ -82,7 +82,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             {
                 possibleTarget = listOfCallableMethods.First();
 
-                if (!possibleTarget.IsStatic && LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition<Instruction> local)
+                if (!possibleTarget.IsStatic && LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                 {
                     InstanceBeingCalledOn = local; //32-bit and we have an instance
                     context.Stack.Pop(); //remove instance from stack
@@ -103,8 +103,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             {
                 //Find the correct method.
                 //Have to pop out the instance arg here so we can check the rest of the params, but save it in case we need to push it back.
-                LocalDefinition<Instruction> toPushBackIfNeeded = null;
-                if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition<Instruction> local)
+                LocalDefinition toPushBackIfNeeded = null;
+                if (LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                 {
                     InstanceBeingCalledOn = local;
                     context.Stack.Pop(); //Pop this for now
@@ -221,7 +221,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             if (ManagedMethodBeingCalled?.FullName == "System.Void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(System.Array,System.RuntimeFieldHandle)")
             {
-                if (Arguments?.Count > 1 && Arguments[1] is ConstantDefinition<Instruction> {Value: FieldDefinition fieldDefinition} && Arguments[0] is LocalDefinition<Instruction> {KnownInitialValue: AllocatedArray arr})
+                if (Arguments?.Count > 1 && Arguments[1] is ConstantDefinition {Value: FieldDefinition fieldDefinition} && Arguments[0] is LocalDefinition {KnownInitialValue: AllocatedArray arr})
                 {
                     instantiatedArrayValues = Utils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
                     wasArrayInstantiation = true;
@@ -234,7 +234,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         {
             if (wasArrayInstantiation)
             {
-                var arrayType = ((ArrayType) ((LocalDefinition<Instruction>) Arguments![0]!).Type!).ElementType;
+                var arrayType = ((ArrayType) ((LocalDefinition) Arguments![0]!).Type!).ElementType;
                 return $"{Arguments![0]!.GetPseudocodeRepresentation()} = new {arrayType}[] {{{string.Join(", ", instantiatedArrayValues!)}}}";
             }
 

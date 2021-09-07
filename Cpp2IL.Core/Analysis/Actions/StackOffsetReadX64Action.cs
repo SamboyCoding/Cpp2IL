@@ -9,8 +9,8 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private readonly string _destReg;
         private readonly uint _stackOffset;
-        private ConstantDefinition<Instruction>? _constantMade;
-        private LocalDefinition<Instruction> localResolved;
+        private ConstantDefinition? _constantMade;
+        private LocalDefinition localResolved;
 
         public StackOffsetReadX64Action(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

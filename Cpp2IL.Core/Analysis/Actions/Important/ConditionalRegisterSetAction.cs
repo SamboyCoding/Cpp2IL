@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         protected readonly ComparisonAction? _associatedCompare;
         protected readonly string? _regToSet;
-        private readonly LocalDefinition<Instruction> _localMade;
+        private readonly LocalDefinition _localMade;
 
         public ConditionalRegisterSetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

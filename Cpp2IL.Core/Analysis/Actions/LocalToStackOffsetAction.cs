@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class LocalToStackOffsetAction : BaseAction<Instruction>
     {
         private uint _stackOffset;
-        private LocalDefinition<Instruction>? _sourceLocal;
+        private LocalDefinition? _sourceLocal;
         private string? _sourceReg;
 
         public LocalToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

@@ -10,9 +10,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ConstantArrayOffsetToRegAction : BaseAction<Instruction>
     {
-        private readonly LocalDefinition<Instruction>? _arrayLocal;
+        private readonly LocalDefinition? _arrayLocal;
         private readonly int _index;
-        private readonly LocalDefinition<Instruction>? _destLocal;
+        private readonly LocalDefinition? _destLocal;
         private TypeReference? _elementType;
 
         public ConstantArrayOffsetToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

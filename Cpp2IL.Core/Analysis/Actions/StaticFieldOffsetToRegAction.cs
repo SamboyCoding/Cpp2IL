@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private StaticFieldsPtr? _staticFieldPtrObject;
         private string? _destReg;
-        private ConstantDefinition<Instruction>? _constantMade;
+        private ConstantDefinition? _constantMade;
 
         public StaticFieldOffsetToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

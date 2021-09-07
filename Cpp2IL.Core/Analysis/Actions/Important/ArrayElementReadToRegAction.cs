@@ -12,11 +12,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private readonly string? _arrayReg;
         private readonly string? _offsetReg;
-        private readonly LocalDefinition<Instruction>? _arrayLocal;
-        private readonly LocalDefinition<Instruction>? _offsetLocal;
+        private readonly LocalDefinition? _arrayLocal;
+        private readonly LocalDefinition? _offsetLocal;
         private readonly ArrayType? _arrType;
         private readonly string? _destReg;
-        public readonly LocalDefinition<Instruction>? LocalMade;
+        public readonly LocalDefinition? LocalMade;
         private TypeReference? _elemType;
 
         public ArrayElementReadToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

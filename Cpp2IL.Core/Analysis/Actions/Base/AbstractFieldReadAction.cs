@@ -7,8 +7,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
     public abstract class AbstractFieldReadAction<T> : BaseAction<T>
     {
         public FieldUtils.FieldBeingAccessedData? FieldRead;
-        public LocalDefinition<T>? LocalWritten;
-        protected LocalDefinition<T>? _readFrom;
+        public LocalDefinition? LocalWritten;
+        protected LocalDefinition? _readFrom;
         
         protected AbstractFieldReadAction(MethodAnalysis<T> context, T associatedInstruction) : base(context, associatedInstruction)
         {

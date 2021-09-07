@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class GlobalTypeRefToConstantAction : BaseAction<Instruction>
     {
         public readonly TypeReference? ResolvedType;
-        public readonly ConstantDefinition<Instruction>? ConstantWritten;
+        public readonly ConstantDefinition? ConstantWritten;
         private readonly string? _destReg;
 
         public GlobalTypeRefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

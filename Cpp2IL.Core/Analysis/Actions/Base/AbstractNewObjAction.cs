@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
     public abstract class AbstractNewObjAction<T> : BaseAction<T>
     {
         public TypeReference? TypeCreated;
-        public LocalDefinition<T>? LocalReturned;
+        public LocalDefinition? LocalReturned;
         
         protected AbstractNewObjAction(MethodAnalysis<T> context, T associatedInstruction) : base(context, associatedInstruction)
         {

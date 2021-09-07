@@ -8,9 +8,9 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class ConstantToStackOffsetAction : BaseAction<Instruction>
     {
         private readonly uint _stackOffset;
-        private readonly ConstantDefinition<Instruction>? _sourceConstant;
+        private readonly ConstantDefinition? _sourceConstant;
         private readonly string? _sourceReg;
-        private readonly LocalDefinition<Instruction>? _newLocal;
+        private readonly LocalDefinition? _newLocal;
 
         public ConstantToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

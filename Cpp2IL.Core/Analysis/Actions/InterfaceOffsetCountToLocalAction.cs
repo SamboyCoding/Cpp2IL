@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class InterfaceOffsetCountToLocalAction : BaseAction<Instruction>
     {
         private ushort offsetCount;
-        private LocalDefinition<Instruction>? _localMade;
+        private LocalDefinition? _localMade;
         private Il2CppTypeDefinition? _typeCountReadFrom;
 
         public InterfaceOffsetCountToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

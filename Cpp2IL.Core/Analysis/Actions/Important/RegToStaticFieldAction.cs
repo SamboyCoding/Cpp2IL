@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegToStaticFieldAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand<Instruction>? _sourceOperand;
+        private IAnalysedOperand? _sourceOperand;
         private FieldDefinition? _theField;
 
         public RegToStaticFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
@@ -21,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (!(destStaticFieldsPtr?.Value is StaticFieldsPtr staticFieldsPtr)) 
                 return;
 
-            if (_sourceOperand is LocalDefinition<Instruction> l)
+            if (_sourceOperand is LocalDefinition l)
                 RegisterUsedLocal(l);
 
             _theField = FieldUtils.GetStaticFieldByOffset(staticFieldsPtr, staticFieldOffset);
@@ -34,10 +34,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             var ret = new List<Mono.Cecil.Cil.Instruction>();
             
-            if(_sourceOperand is ConstantDefinition<Instruction> c)
+            if(_sourceOperand is ConstantDefinition c)
                 ret.AddRange(c.GetILToLoad(context, processor));
             else
-                ret.Add(context.GetILToLoad((LocalDefinition<Instruction>) _sourceOperand, processor));
+                ret.Add(context.GetILToLoad((LocalDefinition) _sourceOperand, processor));
             
             ret.Add(processor.Create(OpCodes.Stsfld, processor.ImportReference(_theField)));
 

@@ -9,10 +9,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class MultiplyRegByGlobalAction : BaseAction<Instruction>
     {
-        private LocalDefinition<Instruction>? _op1;
+        private LocalDefinition? _op1;
         private string? _regName;
         private float _globalValue;
-        private LocalDefinition<Instruction>? _localMade;
+        private LocalDefinition? _localMade;
         private ulong _globalAddr;
 
         public MultiplyRegByGlobalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

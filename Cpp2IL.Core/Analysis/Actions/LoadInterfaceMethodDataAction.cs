@@ -10,11 +10,11 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class LoadInterfaceMethodDataAction : BaseAction<Instruction>
     {
-        private LocalDefinition<Instruction> _invokedOn;
+        private LocalDefinition _invokedOn;
         private TypeDefinition _interfaceType;
         private uint _slotNumber;
         private MethodDefinition? resolvedMethod;
-        private ConstantDefinition<Instruction>? _resultConstant;
+        private ConstantDefinition? _resultConstant;
 
         public LoadInterfaceMethodDataAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

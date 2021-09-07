@@ -13,9 +13,9 @@ namespace Cpp2IL.Core.Analysis.Actions
         private Il2CppRGCTXArray? _rgctxArray;
         private uint _offset;
         private Il2CppRGCTXDefinition? _actualRgctx;
-        private ConstantDefinition<Instruction>? _constant;
+        private ConstantDefinition? _constant;
         private string? _destReg;
-        private ConstantDefinition<Instruction>? _constantMade;
+        private ConstantDefinition? _constantMade;
         private object? _dataValue;
 
         public ReadSpecificRGCTXDataAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

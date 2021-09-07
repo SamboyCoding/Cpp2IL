@@ -12,10 +12,10 @@ namespace Cpp2IL.Core.Analysis.Actions
         public TypeReference theType;
         public CallInitClassAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            ConstantDefinition<Instruction>? consDef;
+            ConstantDefinition? consDef;
             if (LibCpp2IlMain.Binary!.is32Bit)
             {
-                consDef = context.Stack.Count > 0 ? context.Stack.Peek() as ConstantDefinition<Instruction> : null;
+                consDef = context.Stack.Count > 0 ? context.Stack.Peek() as ConstantDefinition : null;
                 if (consDef != null)
                     context.Stack.Pop();
             }

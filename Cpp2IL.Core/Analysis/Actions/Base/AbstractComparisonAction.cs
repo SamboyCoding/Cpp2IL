@@ -5,8 +5,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 {
     public abstract class AbstractComparisonAction<T> : BaseAction<T>
     {
-        public IComparisonArgument<T>? ArgumentOne;
-        public IComparisonArgument<T>? ArgumentTwo;
+        public IComparisonArgument? ArgumentOne;
+        public IComparisonArgument? ArgumentTwo;
         
         public bool UnimportantComparison;
         public ulong EndOfLoopAddr;

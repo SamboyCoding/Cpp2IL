@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private readonly bool _mayNotBeAConstant;
         private ulong constantValue;
         private string destReg;
-        private IAnalysedOperand<Instruction> dest;
+        private IAnalysedOperand dest;
 
         public ConstantToRegAction(MethodAnalysis<Instruction> context, Instruction instruction, bool mayNotBeAConstant) : base(context, instruction)
         {
@@ -31,7 +31,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     dest = context.MakeLocal(Utils.UInt32Reference, reg: destReg, knownInitialValue: (uint) constantValue);
                 else
                     dest = context.MakeLocal(Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
-                RegisterDefinedLocalWithoutSideEffects((LocalDefinition<Instruction>) dest);
+                RegisterDefinedLocalWithoutSideEffects((LocalDefinition) dest);
             }
             else
             {
@@ -50,7 +50,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override string? ToPsuedoCode()
         {
-            return $"{Utils.Int64Reference} {(dest is ConstantDefinition<Instruction> constant ? constant.Name : ((LocalDefinition<Instruction>) dest).Name)} = {(constantValue > 1024 ? $"0x{constantValue:X}" : $"{constantValue}")}";
+            return $"{Utils.Int64Reference} {(dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition) dest).Name)} = {(constantValue > 1024 ? $"0x{constantValue:X}" : $"{constantValue}")}";
         }
 
         public override string ToTextSummary()
@@ -60,7 +60,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
         public override bool IsImportant()
         {
-            if (dest is ConstantDefinition<Instruction> constantDefinition && !constantDefinition.GetPseudocodeRepresentation().StartsWith("{"))
+            if (dest is ConstantDefinition constantDefinition && !constantDefinition.GetPseudocodeRepresentation().StartsWith("{"))
                 return false;
 
             return true;

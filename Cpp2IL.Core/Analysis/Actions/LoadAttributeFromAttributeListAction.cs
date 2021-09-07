@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class LoadAttributeFromAttributeListAction : BaseAction<Instruction>
     {
-        public LocalDefinition<Instruction>? LocalMade;
+        public LocalDefinition? LocalMade;
         private string? _destReg;
         public TypeDefinition? AttributeType;
         public long OffsetInList;

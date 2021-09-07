@@ -8,8 +8,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class SubtractRegFromRegAction : BaseAction<Instruction>
     {
-        private LocalDefinition<Instruction>? _firstOp;
-        private IAnalysedOperand<Instruction>? _secondOp;
+        private LocalDefinition? _firstOp;
+        private IAnalysedOperand? _secondOp;
         
         public SubtractRegFromRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
@@ -22,7 +22,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if(_firstOp != null)
                 RegisterUsedLocal(_firstOp);
             
-            if(_secondOp is LocalDefinition<Instruction> l)
+            if(_secondOp is LocalDefinition l)
                 RegisterUsedLocal(l);
         }
 

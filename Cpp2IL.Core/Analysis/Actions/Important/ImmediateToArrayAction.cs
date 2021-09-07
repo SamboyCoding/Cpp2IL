@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
         private AllocatedArray? _array;
         private int _offset;
         private ulong _immediateValue;
-        private LocalDefinition<Instruction>? _arrayLocal;
+        private LocalDefinition? _arrayLocal;
 
         public ImmediateToArrayAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

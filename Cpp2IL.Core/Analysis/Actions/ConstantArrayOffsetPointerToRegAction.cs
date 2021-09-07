@@ -9,9 +9,9 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class ConstantArrayOffsetPointerToRegAction : BaseAction<Instruction>
     {
-        private readonly LocalDefinition<Instruction>? _arrayLocal;
+        private readonly LocalDefinition? _arrayLocal;
         private readonly int _index;
-        private readonly ConstantDefinition<Instruction>? _destConstant;
+        private readonly ConstantDefinition? _destConstant;
         private TypeReference? _elementType;
         private string? _destinationReg;
 

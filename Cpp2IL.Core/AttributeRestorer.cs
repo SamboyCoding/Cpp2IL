@@ -191,7 +191,7 @@ namespace Cpp2IL.Core
             //Also check that each index in the attribute list is present, if not, check that those which are absent have a no-arg constructor.
 
             //Indexes shared with attributesExpected
-            var localArray = new LocalDefinition<Instruction>?[attributesExpected.Count];
+            var localArray = new LocalDefinition?[attributesExpected.Count];
 
             foreach (var action in actions.Where(a => a is LoadAttributeFromAttributeListAction)
                 .Cast<LoadAttributeFromAttributeListAction>())
@@ -401,7 +401,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static CustomAttribute GenerateCustomAttributeWithConstructorParams(MethodReference constructor, List<IAnalysedOperand<Instruction>> constructorArgs, ModuleDefinition module)
+        private static CustomAttribute GenerateCustomAttributeWithConstructorParams(MethodReference constructor, List<IAnalysedOperand> constructorArgs, ModuleDefinition module)
         {
             var customAttribute = new CustomAttribute(module.ImportReference(constructor));
 
@@ -424,11 +424,11 @@ namespace Cpp2IL.Core
             return customAttribute;
         }
 
-        private static CustomAttributeArgument CoerceAnalyzedOpToParameter(IAnalysedOperand<Instruction> analysedOperand, ParameterDefinition actualArg)
+        private static CustomAttributeArgument CoerceAnalyzedOpToParameter(IAnalysedOperand analysedOperand, ParameterDefinition actualArg)
         {
             switch (analysedOperand)
             {
-                case ConstantDefinition<Instruction> cons:
+                case ConstantDefinition cons:
                 {
                     var value = cons.Value;
 
@@ -439,7 +439,7 @@ namespace Cpp2IL.Core
 
                     return new CustomAttributeArgument(destType, value);
                 }
-                case LocalDefinition<Instruction> local:
+                case LocalDefinition local:
                 {
                     if (local.KnownInitialValue == null)
                         throw new Exception($"Can't use a local without a KnownInitialValue in an attribute ctor: {local}");
@@ -526,7 +526,7 @@ namespace Cpp2IL.Core
                 var fieldWrites = analyzer.Analysis.Actions.Where(f => f is RegToFieldAction).Cast<RegToFieldAction>().ToList();
 
                 var fail = false;
-                if (!fieldWrites.All(f => f.ValueRead is LocalDefinition<Instruction> {ParameterDefinition: {}}))
+                if (!fieldWrites.All(f => f.ValueRead is LocalDefinition {ParameterDefinition: {}}))
                 {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                     Logger.VerboseNewline($"\t{constructor.FullName} has a local => field where the local isn't a parameter.");
@@ -548,14 +548,14 @@ namespace Cpp2IL.Core
                     return null;
                 }
 
-                ret = fieldWrites.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition<Instruction>) f.ValueRead!).ParameterDefinition!)).ToArray();
+                ret = fieldWrites.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition) f.ValueRead!).ParameterDefinition!)).ToArray();
 
                 FieldToParameterMappings.TryAdd(constructor, ret);
                 return ret;
             }
         }
 
-        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<Instruction>> actions, LocalDefinition<Instruction>? local)
+        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<Instruction>> actions, LocalDefinition? local)
         {
             //Try and get mappings for all constructors.
             var allPotentialCtors = attr.GetConstructors()

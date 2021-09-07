@@ -13,14 +13,14 @@ namespace Cpp2IL.Core.Analysis.Actions
         private string regReadFrom;
         private Il2CppTypeDefinition classReadFrom;
         private MethodDefinition? methodPointerRead;
-        private ConstantDefinition<Instruction>? destinationConstant;
+        private ConstantDefinition? destinationConstant;
 
         public LoadVirtualFunctionPointerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             regReadFrom = Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(regReadFrom);
 
-            if (!(inReg is ConstantDefinition<Instruction> {Value: Il2CppClassIdentifier klass})) return;
+            if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
 
             classReadFrom = klass.backingType;
             var slotNum = Utils.GetSlotNum((int) instruction.MemoryDisplacement);

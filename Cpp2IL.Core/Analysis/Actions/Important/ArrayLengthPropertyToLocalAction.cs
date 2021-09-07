@@ -12,8 +12,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class ArrayLengthPropertyToLocalAction : BaseAction<Instruction>
     {
         private static readonly MethodDefinition GetLengthDef = Utils.TryLookupTypeDefKnownNotGeneric("System.Array")!.Methods.Single(m => m.Name == "get_Length");
-        public LocalDefinition<Instruction>? LocalMade;
-        public LocalDefinition<Instruction>? TheArray;
+        public LocalDefinition? LocalMade;
+        public LocalDefinition? TheArray;
         private string? _destReg;
 
         public ArrayLengthPropertyToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

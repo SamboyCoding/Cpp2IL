@@ -10,8 +10,8 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class RegToConstantArrayOffsetAction : BaseAction<Instruction>
     {
         private long _offsetIdx;
-        private LocalDefinition<Instruction>? _arrayInMem;
-        private IAnalysedOperand<Instruction>? _opRead;
+        private LocalDefinition? _arrayInMem;
+        private IAnalysedOperand? _opRead;
         private TypeReference? _elementType;
 
         public RegToConstantArrayOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
@@ -33,7 +33,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             if(_arrayInMem != null)
                 RegisterUsedLocal(_arrayInMem);
             
-            if(_opRead is LocalDefinition<Instruction> l)
+            if(_opRead is LocalDefinition l)
                 RegisterUsedLocal(l);
         }
 

@@ -6,7 +6,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 {
     public abstract class AbstractFieldWriteAction<T> : BaseAction<T>
     {
-        public LocalDefinition<T>? InstanceBeingSetOn;
+        public LocalDefinition? InstanceBeingSetOn;
         public FieldUtils.FieldBeingAccessedData? FieldWritten;
         protected AbstractFieldWriteAction(MethodAnalysis<T> context, T instruction) : base(context, instruction)
         {

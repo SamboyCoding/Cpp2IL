@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         private Il2CppClassIdentifier? _klass;
         private Il2CppRGCTXDefinition[]? _rgctxs;
         private string? _destReg;
-        private ConstantDefinition<Instruction>? _constantMade;
+        private ConstantDefinition? _constantMade;
 
         public ReadRGCTXDataListAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

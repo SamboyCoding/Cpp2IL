@@ -7,7 +7,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class LocalToRbpOffsetAction : BaseAction<Instruction>
     {
-        private readonly LocalDefinition<Instruction>? _localBeingRead;
+        private readonly LocalDefinition? _localBeingRead;
         private readonly string _regBeingRead;
         private readonly int _slotNum;
 

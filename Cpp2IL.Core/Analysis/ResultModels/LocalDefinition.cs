@@ -3,7 +3,7 @@ using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class LocalDefinition<T> : IAnalysedOperand<T>
+    public class LocalDefinition : IAnalysedOperand
     {
         public string Name;
         public TypeReference? Type;
@@ -15,13 +15,13 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         
         public bool IsMethodInfoParam { get; private set; }
 
-        internal LocalDefinition<T> WithParameter(ParameterDefinition? parameterDefinition)
+        internal LocalDefinition WithParameter(ParameterDefinition? parameterDefinition)
         {
             ParameterDefinition = parameterDefinition;
             return this;
         }
 
-        internal LocalDefinition<T> MarkAsIl2CppMethodInfo()
+        internal LocalDefinition MarkAsIl2CppMethodInfo()
         {
             IsMethodInfoParam = true;
             return this;
@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return Name;
         }
 
-        public Instruction[] GetILToLoad(MethodAnalysis<T> context, ILProcessor processor)
+        public Instruction[] GetILToLoad<TAnalysis>(MethodAnalysis<TAnalysis> context, ILProcessor processor)
         {
             return new[] {context.GetILToLoad(this, processor)};
         }
@@ -47,10 +47,10 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
             if (obj.GetType() != this.GetType()) return false;
-            return Equals((LocalDefinition<T>) obj);
+            return Equals((LocalDefinition) obj);
         }
 
-        protected bool Equals(LocalDefinition<T> other)
+        protected bool Equals(LocalDefinition other)
         {
             return Name == other.Name && Equals(Type, other.Type) && Equals(KnownInitialValue, other.KnownInitialValue) && IsMethodInfoParam == other.IsMethodInfoParam;
         }
@@ -72,12 +72,12 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             }
         }
 
-        public static bool operator ==(LocalDefinition<T>? left, LocalDefinition<T>? right)
+        public static bool operator ==(LocalDefinition? left, LocalDefinition? right)
         {
             return Equals(left, right);
         }
 
-        public static bool operator !=(LocalDefinition<T>? left, LocalDefinition<T>? right)
+        public static bool operator !=(LocalDefinition? left, LocalDefinition? right)
         {
             return !Equals(left, right);
         }

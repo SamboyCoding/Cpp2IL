@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             
             var inReg = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryBase));
 
-            if (!(inReg is ConstantDefinition<Instruction> {Value: Il2CppClassIdentifier klass})) return;
+            if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
             
             var classReadFrom = klass.backingType;
             var slotNum = Utils.GetSlotNum((int) instruction.MemoryDisplacement);

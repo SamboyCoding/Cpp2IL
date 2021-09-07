@@ -13,8 +13,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         
         public int IndentLevel;
 
-        private List<LocalDefinition<T>> UsedLocals = new();
-        private List<LocalDefinition<T>> RegisteredLocalsWithoutSideEffects = new();
+        private List<LocalDefinition> UsedLocals = new();
+        private List<LocalDefinition> RegisteredLocalsWithoutSideEffects = new();
 
         protected bool is32Bit => LibCpp2IlMain.Binary!.is32Bit;
         
@@ -30,22 +30,22 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         public abstract string ToTextSummary();
 
-        public List<LocalDefinition<T>> GetUsedLocals()
+        public List<LocalDefinition> GetUsedLocals()
         {
             return UsedLocals;
         }
 
-        protected void RegisterUsedLocal(LocalDefinition<T> l)
+        protected void RegisterUsedLocal(LocalDefinition l)
         {
             UsedLocals.Add(l);
         }
         
-        public List<LocalDefinition<T>> GetRegisteredLocalsWithoutSideEffects()
+        public List<LocalDefinition> GetRegisteredLocalsWithoutSideEffects()
         {
             return RegisteredLocalsWithoutSideEffects;
         }
 
-        protected void RegisterDefinedLocalWithoutSideEffects(LocalDefinition<T> l)
+        protected void RegisterDefinedLocalWithoutSideEffects(LocalDefinition l)
         {
             RegisteredLocalsWithoutSideEffects.Add(l);
         }

@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (r1 != "rsp")
                 ArgumentTwo = ExtractArgument(context, instruction, r1, 1, instruction.Op1Kind, out unimportant2, out ArgumentTwoRegister);
 
-            if (ArgumentOne is ConstantDefinition<Instruction> {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition<Instruction> {Type: { }, KnownInitialValue: null} loc2)
+            if (ArgumentOne is ConstantDefinition {Value: UnknownGlobalAddr globalAddr} cons && ArgumentTwo is LocalDefinition {Type: { }, KnownInitialValue: null} loc2)
             {
                 try
                 {
@@ -40,7 +40,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 }
             }
 
-            if (ArgumentTwo is ConstantDefinition<Instruction> {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition<Instruction> {Type: { }, KnownInitialValue: null} loc1)
+            if (ArgumentTwo is ConstantDefinition {Value: UnknownGlobalAddr globalAddr2} cons2 && ArgumentOne is LocalDefinition {Type: { }, KnownInitialValue: null} loc1)
             {
                 try
                 {
@@ -61,21 +61,21 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 context.RegisterLastInstructionOfLoopAt(this, endOfLoop);
             }
 
-            if (ArgumentOne is LocalDefinition<Instruction> l1)
+            if (ArgumentOne is LocalDefinition l1)
                 RegisterUsedLocal(l1);
             
-            if (ArgumentTwo is LocalDefinition<Instruction> l2)
+            if (ArgumentTwo is LocalDefinition l2)
                 RegisterUsedLocal(l2);
         }
 
-        public bool IsEitherArgument(IComparisonArgument<Instruction> c) => c == ArgumentOne || c == ArgumentTwo;
+        public bool IsEitherArgument(IComparisonArgument c) => c == ArgumentOne || c == ArgumentTwo;
         
-        public IComparisonArgument<Instruction>? GetArgumentAssociatedWithRegister(string regName)
+        public IComparisonArgument? GetArgumentAssociatedWithRegister(string regName)
         {
             return ArgumentOneRegister == regName ? ArgumentOne : ArgumentTwoRegister == regName ? ArgumentTwo : null;
         }
 
-        private static IComparisonArgument<Instruction>? ExtractArgument(MethodAnalysis<Instruction> context, Instruction instruction, string registerName, int operandIdx, OpKind opKind, out bool unimportant, out string? argumentRegister)
+        private static IComparisonArgument? ExtractArgument(MethodAnalysis<Instruction> context, Instruction instruction, string registerName, int operandIdx, OpKind opKind, out bool unimportant, out string? argumentRegister)
         {
             var globalMemoryOffset = LibCpp2IlMain.Binary!.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
             
@@ -87,7 +87,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 argumentRegister = registerName;
                 var op = context.GetOperandInRegister(registerName);
 
-                if (op is ConstantDefinition<Instruction> {Value: MethodDefinition _} || op is ConstantDefinition<Instruction> { Value: UnknownGlobalAddr _} || op is ConstantDefinition<Instruction> {Value: Il2CppString _})
+                if (op is ConstantDefinition {Value: MethodDefinition _} || op is ConstantDefinition { Value: UnknownGlobalAddr _} || op is ConstantDefinition {Value: Il2CppString _})
                     //Ignore comparisons with looked-up method defs or unknown globals.
                     unimportant = true;
 
@@ -116,7 +116,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                         if (field == null) return null;
 
                         argumentRegister = name;
-                        return new ComparisonDirectFieldAccess<Instruction>
+                        return new ComparisonDirectFieldAccess
                         {
                             fieldAccessed = field,
                             localAccessedOn = local
@@ -126,7 +126,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
                     {
                         argumentRegister = name;
-                        return new ComparisonDirectPropertyAccess<Instruction>
+                        return new ComparisonDirectPropertyAccess
                         {
                             localAccessedOn = local,
                             propertyAccessed = Il2CppArrayUtils.GetLengthProperty()

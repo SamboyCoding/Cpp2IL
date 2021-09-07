@@ -2,7 +2,7 @@
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class IfElseData<T> : AnalysisState<T>
+    public class IfElseData<T> : AnalysisState
     {
         public ulong IfStatementStart;
         public ulong ElseStatementStart;

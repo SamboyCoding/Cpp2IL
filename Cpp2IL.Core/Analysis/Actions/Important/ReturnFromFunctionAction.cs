@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ReturnFromFunctionAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand<Instruction>? returnValue;
+        private IAnalysedOperand? returnValue;
         private bool _isVoid;
 
         public ReturnFromFunctionAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             var returnType = context.ReturnType;
             returnValue = returnType.ShouldBeInFloatingPointRegister() ? context.GetOperandInRegister("xmm0") : context.GetOperandInRegister("rax");
 
-            if (returnValue is LocalDefinition<Instruction> l)
+            if (returnValue is LocalDefinition l)
                 RegisterUsedLocal(l);
         }
 

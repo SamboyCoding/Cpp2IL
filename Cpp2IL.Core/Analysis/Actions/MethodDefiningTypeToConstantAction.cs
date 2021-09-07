@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private MethodReference? _methodBeingRead;
         private TypeReference? _declaringType;
-        private ConstantDefinition<Instruction>? _constantMade;
+        private ConstantDefinition? _constantMade;
 
         public MethodDefiningTypeToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

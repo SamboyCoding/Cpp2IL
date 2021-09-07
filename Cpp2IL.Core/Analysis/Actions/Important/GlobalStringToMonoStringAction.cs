@@ -9,11 +9,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class GlobalStringToMonoStringAction : BaseAction<Instruction>
     {
         private string? _stringValue;
-        private LocalDefinition<Instruction>? _localMade;
+        private LocalDefinition? _localMade;
 
         public GlobalStringToMonoStringAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var stringConstant = LibCpp2IlMain.Binary!.is32Bit ? context.Stack.Peek() as ConstantDefinition<Instruction> : context.GetConstantInReg("rcx");
+            var stringConstant = LibCpp2IlMain.Binary!.is32Bit ? context.Stack.Peek() as ConstantDefinition : context.GetConstantInReg("rcx");
 
             if (LibCpp2IlMain.Binary!.is32Bit && stringConstant != null)
                 context.Stack.Pop();

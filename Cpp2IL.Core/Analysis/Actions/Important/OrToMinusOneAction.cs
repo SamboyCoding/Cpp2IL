@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class OrToMinusOneAction : BaseAction<Instruction>
     {
         private string _reg;
-        private ConstantDefinition<Instruction> _constantMade;
+        private ConstantDefinition _constantMade;
 
         //OR reg, 0xFFFFFFFF
         //i.e. set reg to -1

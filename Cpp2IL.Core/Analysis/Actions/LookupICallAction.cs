@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
         public LookupICallAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var constant = is32Bit ? context.Stack.Peek() as ConstantDefinition<Instruction> : context.GetConstantInReg("rcx");
+            var constant = is32Bit ? context.Stack.Peek() as ConstantDefinition : context.GetConstantInReg("rcx");
 
             if (constant == null)
                 return;

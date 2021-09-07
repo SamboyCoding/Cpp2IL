@@ -7,9 +7,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegOffsetArrayValueReadRegToRegAction : BaseAction<Instruction>
     {
-        private LocalDefinition<Instruction>? _arrayLocal;
-        private LocalDefinition<Instruction>? _indexLocal;
-        private LocalDefinition<Instruction>? _destLocal;
+        private LocalDefinition? _arrayLocal;
+        private LocalDefinition? _indexLocal;
+        private LocalDefinition? _destLocal;
 
         public RegOffsetArrayValueReadRegToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

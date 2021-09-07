@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class RegisterToArrayViaPointerAction : BaseAction<Instruction>
     {
         private Il2CppArrayOffsetPointer<Instruction>? _arrayPointer;
-        private IAnalysedOperand<Instruction>? _sourceOp;
+        private IAnalysedOperand? _sourceOp;
 
         public RegisterToArrayViaPointerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
@@ -29,8 +29,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             array.KnownValuesAtOffsets[_arrayPointer.Offset] = _sourceOp switch
             {
-                LocalDefinition<Instruction> loc => loc.KnownInitialValue,
-                ConstantDefinition<Instruction> cons => cons.Value,
+                LocalDefinition loc => loc.KnownInitialValue,
+                ConstantDefinition cons => cons.Value,
                 _ => null
             };
         }

@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if (associatedCompare == null) return;
             
             nullMode = associatedCompare.ArgumentOne == associatedCompare.ArgumentTwo;
-            booleanMode = nullMode && associatedCompare.ArgumentOne is LocalDefinition<Instruction> local && local.Type?.FullName == "System.Boolean";
+            booleanMode = nullMode && associatedCompare.ArgumentOne is LocalDefinition local && local.Type?.FullName == "System.Boolean";
         }
 
         protected override string GetPseudocodeCondition()

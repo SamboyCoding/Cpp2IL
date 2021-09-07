@@ -5,7 +5,7 @@ using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class ConstantDefinition<T> : IAnalysedOperand<T>
+    public class ConstantDefinition : IAnalysedOperand
     {
         public string Name;
         public object Value;
@@ -69,7 +69,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return str;
         }
 
-        public Instruction[] GetILToLoad(MethodAnalysis<T> context, ILProcessor ilProcessor)
+        public Instruction[] GetILToLoad<TAnalysis>(MethodAnalysis<TAnalysis> context, ILProcessor ilProcessor)
         {
             if (Type == typeof(string))
                 return new[] {ilProcessor.Create(OpCodes.Ldstr, $"{Value}")};

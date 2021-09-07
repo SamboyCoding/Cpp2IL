@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private readonly string _detectedString;
         private string? _destReg;
-        private ConstantDefinition<Instruction>? _constantMade;
+        private ConstantDefinition? _constantMade;
 
         //This is specifically for UNMANAGED strings (i.e. those not specified in the metadata, such as names for ICall lookups, etc)
         public Il2CppStringToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction, string detectedString) : base(context, instruction)

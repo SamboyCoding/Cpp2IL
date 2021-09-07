@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         public AllocateInstanceAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var constant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition<Instruction>;
+            var constant = !LibCpp2IlMain.Binary!.is32Bit ? context.GetConstantInReg("rcx") : context.Stack.Peek() as ConstantDefinition;
             if (constant == null || !typeof(TypeReference).IsAssignableFrom(constant.Type)) return;
 
             TypeCreated = (TypeReference) constant.Value;

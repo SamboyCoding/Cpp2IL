@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         public Il2CppMethodDefinition? MethodData;
         public MethodDefinition? ResolvedMethod;
-        public ConstantDefinition<Instruction>? ConstantWritten;
+        public ConstantDefinition? ConstantWritten;
         private string? _destReg;
 
         public GlobalMethodDefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

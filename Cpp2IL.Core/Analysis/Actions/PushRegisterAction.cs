@@ -7,7 +7,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class PushRegisterAction : BaseAction<Instruction>
     {
-        public IAnalysedOperand<Instruction>? whatIsPushed;
+        public IAnalysedOperand? whatIsPushed;
         public string regPushedFrom;
         
         public PushRegisterAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions
             else
                 context.PushEmptyStackFrames(1);
 
-            if (whatIsPushed is LocalDefinition<Instruction> l)
+            if (whatIsPushed is LocalDefinition l)
                 RegisterUsedLocal(l);
         }
 

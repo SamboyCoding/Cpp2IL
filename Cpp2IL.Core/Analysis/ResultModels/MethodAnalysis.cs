@@ -17,8 +17,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public KeyFunctionAddresses KeyFunctionAddresses { get; }
 
-        public readonly List<LocalDefinition<TInstruction>> Locals = new();
-        public readonly List<ConstantDefinition<TInstruction>> Constants = new();
+        public readonly List<LocalDefinition> Locals = new();
+        public readonly List<ConstantDefinition> Constants = new();
         public List<BaseAction<TInstruction>> Actions = new();
         public readonly List<ulong> IdentifiedJumpDestinationAddresses = new();
         public readonly List<ulong> ProbableLoopStarts = new();
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public event PtrConsumer OnExpansionRequested;
 
-        internal ConstantDefinition<TInstruction> EmptyRegConstant;
+        internal ConstantDefinition EmptyRegConstant;
         private List<string> _parameterDestRegList = new();
         private int numParamsAdded = 0;
 
@@ -45,11 +45,11 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public int IndentLevel;
 
         //This data is essentially our transient state - it must be stashed and unstashed when we jump into ifs etc.
-        public List<LocalDefinition<TInstruction>> FunctionArgumentLocals = new();
-        private Dictionary<string, IAnalysedOperand<TInstruction>> RegisterData = new();
-        public Dictionary<int, LocalDefinition<TInstruction>> StackStoredLocals = new();
-        public Stack<IAnalysedOperand<TInstruction>> Stack = new();
-        public Stack<IAnalysedOperand<TInstruction>> FloatingPointStack = new();
+        public List<LocalDefinition> FunctionArgumentLocals = new();
+        private Dictionary<string, IAnalysedOperand> RegisterData = new();
+        public Dictionary<int, LocalDefinition> StackStoredLocals = new();
+        public Stack<IAnalysedOperand> Stack = new();
+        public Stack<IAnalysedOperand> FloatingPointStack = new();
 
         public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
         public TypeReference ReturnType => _method?.ReturnType ?? Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
@@ -190,12 +190,12 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return $"Method Analysis for {_method?.FullName ?? "A cpp method"}";
         }
 
-        public LocalDefinition<TInstruction> MakeLocal(TypeReference type, string? name = null, string? reg = null, object? knownInitialValue = null)
+        public LocalDefinition MakeLocal(TypeReference type, string? name = null, string? reg = null, object? knownInitialValue = null)
         {
             // if (type == null)
             //     throw new Exception($"Tried to create a local (in reg {reg}, with name {name}), with a null type");
 
-            var local = new LocalDefinition<TInstruction>
+            var local = new LocalDefinition
             {
                 Name = name ?? $"local{Locals.Count}",
                 Type = type,
@@ -210,9 +210,9 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return local;
         }
 
-        public ConstantDefinition<TInstruction> MakeConstant(Type type, object value, string? name = null, string? reg = null)
+        public ConstantDefinition MakeConstant(Type type, object value, string? name = null, string? reg = null)
         {
-            var constant = new ConstantDefinition<TInstruction>
+            var constant = new ConstantDefinition
             {
                 Name = name ?? $"constant{Constants.Count}",
                 Type = type,
@@ -241,7 +241,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 Stack.TryPop(out _);
         }
 
-        public void SetRegContent(string reg, IAnalysedOperand<TInstruction> content)
+        public void SetRegContent(string reg, IAnalysedOperand content)
         {
             RegisterData[reg] = content;
         }
@@ -251,7 +251,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             SetRegContent(reg, EmptyRegConstant);
         }
 
-        public IAnalysedOperand<TInstruction>? GetOperandInRegister(string reg)
+        public IAnalysedOperand? GetOperandInRegister(string reg)
         {
             if (!RegisterData.TryGetValue(reg, out var result))
                 return null;
@@ -259,27 +259,27 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return result;
         }
 
-        public LocalDefinition<TInstruction>? GetLocalInReg(string reg)
+        public LocalDefinition? GetLocalInReg(string reg)
         {
             if (!RegisterData.TryGetValue(reg, out var result))
                 return null;
 
-            if (!(result is LocalDefinition<TInstruction> local)) return null;
+            if (!(result is LocalDefinition local)) return null;
 
             return local;
         }
 
-        public ConstantDefinition<TInstruction>? GetConstantInReg(string reg)
+        public ConstantDefinition? GetConstantInReg(string reg)
         {
             if (!RegisterData.TryGetValue(reg, out var result))
                 return null;
 
-            if (!(result is ConstantDefinition<TInstruction> constant)) return null;
+            if (!(result is ConstantDefinition constant)) return null;
 
             return constant;
         }
 
-        public bool IsEmptyRegArg(IAnalysedOperand<TInstruction> analysedOperand)
+        public bool IsEmptyRegArg(IAnalysedOperand analysedOperand)
         {
             return analysedOperand == EmptyRegConstant;
         }
@@ -329,7 +329,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return 0;
         }
 
-        private T SaveAnalysisState<T>(T state) where T : AnalysisState<TInstruction>
+        private T SaveAnalysisState<T>(T state) where T : AnalysisState
         {
             state.FunctionArgumentLocals = FunctionArgumentLocals.Clone();
             state.StackStoredLocals = StackStoredLocals.Clone();
@@ -338,7 +338,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return state;
         }
 
-        private void LoadAnalysisState(AnalysisState<TInstruction> state)
+        private void LoadAnalysisState(AnalysisState state)
         {
             Stack = state.Stack;
             FunctionArgumentLocals = state.FunctionArgumentLocals;
@@ -511,7 +511,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return (0, 0);
         }
 
-        public Instruction GetILToLoad(LocalDefinition<TInstruction> localDefinition, ILProcessor processor)
+        public Instruction GetILToLoad(LocalDefinition localDefinition, ILProcessor processor)
         {
             if (localDefinition.ParameterDefinition != null)
                 return processor.Create(OpCodes.Ldarg, localDefinition.ParameterDefinition);

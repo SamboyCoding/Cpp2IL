@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class StaticFieldToRegAction : BaseAction<Instruction>
     {
         public readonly FieldDefinition? FieldRead;
-        public readonly LocalDefinition<Instruction>? LocalWritten;
+        public readonly LocalDefinition? LocalWritten;
         private readonly string _destReg;
 
         public StaticFieldToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

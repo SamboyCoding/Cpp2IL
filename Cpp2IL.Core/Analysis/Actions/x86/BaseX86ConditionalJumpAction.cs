@@ -36,18 +36,18 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             }
 
             //TODO try and move this lot into the parent class.
-            if (associatedCompare?.ArgumentOne is LocalDefinition<Instruction> l)
+            if (associatedCompare?.ArgumentOne is LocalDefinition l)
                 RegisterUsedLocal(l);
-            else if (associatedCompare?.ArgumentOne is ComparisonDirectFieldAccess<Instruction> a)
+            else if (associatedCompare?.ArgumentOne is ComparisonDirectFieldAccess a)
                 RegisterUsedLocal(a.localAccessedOn);
-            else if (associatedCompare?.ArgumentOne is ComparisonDirectPropertyAccess<Instruction> p)
+            else if (associatedCompare?.ArgumentOne is ComparisonDirectPropertyAccess p)
                 RegisterUsedLocal(p.localAccessedOn);
 
-            if (associatedCompare?.ArgumentTwo is LocalDefinition<Instruction> l2)
+            if (associatedCompare?.ArgumentTwo is LocalDefinition l2)
                 RegisterUsedLocal(l2);
-            else if (associatedCompare?.ArgumentTwo is ComparisonDirectFieldAccess<Instruction> a2)
+            else if (associatedCompare?.ArgumentTwo is ComparisonDirectFieldAccess a2)
                 RegisterUsedLocal(a2.localAccessedOn);
-            else if (associatedCompare?.ArgumentTwo is ComparisonDirectPropertyAccess<Instruction> p2)
+            else if (associatedCompare?.ArgumentTwo is ComparisonDirectPropertyAccess p2)
                 RegisterUsedLocal(p2.localAccessedOn);
 
             var (currBlockStart, currBlockEnd) = context.GetMostRecentBlock(AssociatedInstruction.IP);

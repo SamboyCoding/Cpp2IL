@@ -4,7 +4,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 {
     public class NewSafeCastResult<T>
     {
-        public LocalDefinition<T> original;
+        public LocalDefinition original;
         public TypeReference castTo;
 
         public override string ToString()

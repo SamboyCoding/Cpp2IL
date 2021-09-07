@@ -9,9 +9,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class EbpOffsetToLocalAction : BaseAction<Instruction>
     {
-        private LocalDefinition<Instruction>? localBeingRead;
+        private LocalDefinition? localBeingRead;
         private string _destReg;
-        private LocalDefinition<Instruction>? _localMade;
+        private LocalDefinition? _localMade;
 
         public EbpOffsetToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

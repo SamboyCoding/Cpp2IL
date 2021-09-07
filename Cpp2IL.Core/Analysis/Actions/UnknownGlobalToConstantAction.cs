@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private UnknownGlobalAddr _global;
         private string _destReg;
-        private ConstantDefinition<Instruction>? _constantMade;
+        private ConstantDefinition? _constantMade;
 
         public UnknownGlobalToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

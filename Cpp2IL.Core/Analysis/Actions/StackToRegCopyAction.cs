@@ -7,7 +7,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class StackToRegCopyAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand<Instruction> beingMoved;
+        private IAnalysedOperand beingMoved;
         private ulong stackOffset;
         private string destReg;
         

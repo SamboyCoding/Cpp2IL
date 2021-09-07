@@ -2,10 +2,10 @@
 {
     public class Il2CppArrayOffsetPointer<T>
     {
-        public LocalDefinition<T> Array;
+        public LocalDefinition Array;
         public int Offset;
 
-        public Il2CppArrayOffsetPointer(LocalDefinition<T> array, int offset)
+        public Il2CppArrayOffsetPointer(LocalDefinition array, int offset)
         {
             Array = array;
             Offset = offset;

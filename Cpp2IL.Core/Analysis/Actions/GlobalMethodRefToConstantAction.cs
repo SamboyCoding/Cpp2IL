@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         private MethodReference? _method;
         private List<TypeReference>? _genericTypeParams;
         private List<TypeReference>? _genericMethodParams;
-        public ConstantDefinition<Instruction>? ConstantWritten;
+        public ConstantDefinition? ConstantWritten;
         private string? _destReg;
 
         public GlobalMethodRefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

@@ -7,10 +7,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class SingleOperandImulAction : BaseAction<Instruction>
     {
-        private LocalDefinition<Instruction>? _returnedLocal;
-        private ConstantDefinition<Instruction>? _intDivisionConstant;
-        private IAnalysedOperand<Instruction>? _secondOperand;
-        private IAnalysedOperand<Instruction>? _firstOperand;
+        private LocalDefinition? _returnedLocal;
+        private ConstantDefinition? _intDivisionConstant;
+        private IAnalysedOperand? _secondOperand;
+        private IAnalysedOperand? _firstOperand;
 
         public SingleOperandImulAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
@@ -23,9 +23,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             //If this is an integer division, rax usually has the constant.
             ulong firstOpConstant = 0;
-            if (_firstOperand is ConstantDefinition<Instruction> {Value: { } val} && Utils.TryCoerceToUlong(val, out var constUlong))
+            if (_firstOperand is ConstantDefinition {Value: { } val} && Utils.TryCoerceToUlong(val, out var constUlong))
                 firstOpConstant = constUlong;
-            else if (_firstOperand is LocalDefinition<Instruction> {KnownInitialValue: { } val2} && Utils.TryCoerceToUlong(val2, out var localUlong))
+            else if (_firstOperand is LocalDefinition {KnownInitialValue: { } val2} && Utils.TryCoerceToUlong(val2, out var localUlong))
                 firstOpConstant = localUlong;
 
             if (firstOpConstant != 0 && _secondOperand != null)

@@ -11,8 +11,8 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class BoxValueAction : BaseAction<Instruction>
     {
         private TypeReference? destinationType;
-        private IAnalysedOperand<Instruction>? primitiveObject;
-        private LocalDefinition<Instruction>? _localMade;
+        private IAnalysedOperand? primitiveObject;
+        private LocalDefinition? _localMade;
 
         public BoxValueAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
@@ -32,8 +32,8 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             var value = primitiveObject switch
             {
-                LocalDefinition<Instruction> loc => loc.KnownInitialValue,
-                ConstantDefinition<Instruction> con => con.Value,
+                LocalDefinition loc => loc.KnownInitialValue,
+                ConstantDefinition con => con.Value,
                 _ => null
             };
             

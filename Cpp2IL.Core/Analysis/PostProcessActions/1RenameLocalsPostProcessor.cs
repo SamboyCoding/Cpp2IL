@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
             
             foreach (var action in analysis.Actions)
             {
-                LocalDefinition<Instruction> localDefinition;
+                LocalDefinition localDefinition;
                 string nameBase;
                 if (action is FieldToLocalAction {FieldRead: {}, LocalWritten: {}} ftla)
                 {

@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegToFieldAction : AbstractFieldWriteAction<Instruction>
     {
-        public readonly IAnalysedOperand<Instruction>? ValueRead;
+        public readonly IAnalysedOperand? ValueRead;
 
         //TODO: Fix string literal to field - it's a constant in a field.
         public RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
@@ -20,10 +20,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);
             
-            if(ValueRead is LocalDefinition<Instruction> loc)
+            if(ValueRead is LocalDefinition loc)
                 RegisterUsedLocal(loc);
 
-            if (ValueRead is ConstantDefinition<Instruction> { Value: StackPointer s })
+            if (ValueRead is ConstantDefinition { Value: StackPointer s })
             {
                 var offset = s.offset;
                 if (context.StackStoredLocals.TryGetValue((int)offset, out var tempLocal))
@@ -34,7 +34,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 
             if (InstanceBeingSetOn?.Type?.Resolve() == null)
             {
-                if (context.GetConstantInReg(destRegName) is {Value: FieldPointer<Instruction> p})
+                if (context.GetConstantInReg(destRegName) is {Value: FieldPointer p})
                 {
                     InstanceBeingSetOn = p.OnWhat;
                     RegisterUsedLocal(InstanceBeingSetOn);
@@ -49,7 +49,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
         }
 
-        internal RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction, FieldUtils.FieldBeingAccessedData fieldWritten, LocalDefinition<Instruction> instanceWrittenOn, LocalDefinition<Instruction> readFrom) : base(context, instruction)
+        internal RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction, FieldUtils.FieldBeingAccessedData fieldWritten, LocalDefinition instanceWrittenOn, LocalDefinition readFrom) : base(context, instruction)
         {
             Debug.Assert(instanceWrittenOn.Type!.IsValueType);
             

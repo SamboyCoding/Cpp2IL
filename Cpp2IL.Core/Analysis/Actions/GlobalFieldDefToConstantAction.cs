@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         public readonly Il2CppFieldDefinition? FieldData;
         private readonly FieldDefinition? ResolvedField;
-        private ConstantDefinition<Instruction>? ConstantWritten;
+        private ConstantDefinition? ConstantWritten;
         private string _destReg;
 
         public GlobalFieldDefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

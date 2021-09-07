@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         private string _destReg;
         private uint _stackOffset;
-        private ConstantDefinition<Instruction>? _constantMade;
+        private ConstantDefinition? _constantMade;
 
         public StackPointerToRegisterAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

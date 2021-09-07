@@ -7,7 +7,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 {
     public class PushEbpOffsetAction : BaseAction<Instruction>
     {
-        private LocalDefinition<Instruction> localBeingPushed;
+        private LocalDefinition localBeingPushed;
         public PushEbpOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             localBeingPushed = StackPointerUtils.GetLocalReferencedByEBPRead(context, instruction);

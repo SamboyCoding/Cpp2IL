@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     public class MethodSlotToLocalAction : BaseAction<Instruction>
     {
         private ushort _slot;
-        private LocalDefinition<Instruction>? _localMade;
+        private LocalDefinition? _localMade;
         private MethodReference? _methodBeingRead;
 
         public MethodSlotToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class ClearRegAction : BaseAction<Instruction>
     {
         private string regCleared;
-        private LocalDefinition<Instruction> _localMade;
+        private LocalDefinition _localMade;
 
         public ClearRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

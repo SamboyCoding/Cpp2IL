@@ -7,13 +7,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ThrowAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand<Instruction>? exceptionToThrow;
+        private IAnalysedOperand? exceptionToThrow;
         
         public ThrowAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             exceptionToThrow = context.GetOperandInRegister("rcx");
             
-            if(exceptionToThrow is LocalDefinition<Instruction> l)
+            if(exceptionToThrow is LocalDefinition l)
                 RegisterUsedLocal(l);
         }
 

@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class AddConstantToRegAction : BaseAction<Instruction>
     {
         private string _regBeingAddedTo;
-        private LocalDefinition<Instruction>? _valueInReg;
+        private LocalDefinition? _valueInReg;
         private ulong _constantBeingAdded;
 
         public AddConstantToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

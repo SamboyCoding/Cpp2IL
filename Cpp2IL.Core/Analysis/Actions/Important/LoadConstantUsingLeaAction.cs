@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     {
         private readonly uint _amount;
         private readonly string? _destReg;
-        private readonly ConstantDefinition<Instruction> _constantMade;
+        private readonly ConstantDefinition _constantMade;
 
         public LoadConstantUsingLeaAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

@@ -10,8 +10,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
     public class Implicit4ByteFieldReadAction : BaseAction<Instruction>
     {
         private FieldUtils.FieldBeingAccessedData? _read;
-        private LocalDefinition<Instruction>? _readOn;
-        private LocalDefinition<Instruction>? _localMade;
+        private LocalDefinition? _readOn;
+        private LocalDefinition? _localMade;
 
         public Implicit4ByteFieldReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

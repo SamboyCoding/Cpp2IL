@@ -10,9 +10,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class ThreeOperandImulAction : BaseAction<Instruction>
     {
-        private IAnalysedOperand<Instruction>? _argOne;
-        private IAnalysedOperand<Instruction>? _argTwo;
-        private LocalDefinition<Instruction> _resultLocal;
+        private IAnalysedOperand? _argOne;
+        private IAnalysedOperand? _argTwo;
+        private LocalDefinition _resultLocal;
         private string _destReg;
 
         public ThreeOperandImulAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
@@ -42,9 +42,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                     _argTwo = context.MakeConstant(typeof(ulong), instruction.GetImmediate(2));
             }
             
-            if(_argOne is LocalDefinition<Instruction> l1)
+            if(_argOne is LocalDefinition l1)
                 RegisterUsedLocal(l1);
-            if(_argTwo is LocalDefinition<Instruction> l2)
+            if(_argTwo is LocalDefinition l2)
                 RegisterUsedLocal(l2);
 
             _resultLocal = context.MakeLocal(Utils.Int64Reference, reg: _destReg);

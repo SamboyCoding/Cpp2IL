@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions
     {
         internal Il2CppInterfaceOffset[] InterfaceOffsets;
         public Il2CppClassIdentifier loadedFor;
-        private ConstantDefinition<Instruction> _destinationConst;
+        private ConstantDefinition _destinationConst;
         private string _destReg;
 
         public InterfaceOffsetsReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
