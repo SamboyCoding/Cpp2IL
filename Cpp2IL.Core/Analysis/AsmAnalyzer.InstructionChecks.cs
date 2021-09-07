@@ -379,7 +379,7 @@ namespace Cpp2IL.Core.Analysis
                     }
                     else
                     {
-                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.GetRipBasedInstructionMemoryAddress()));
+                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.MemoryDisplacement64));
                         if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
                         {
                             if (r0 != "rsp")

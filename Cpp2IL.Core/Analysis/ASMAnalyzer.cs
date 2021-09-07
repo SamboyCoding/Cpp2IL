@@ -59,7 +59,7 @@ namespace Cpp2IL.Core.Analysis
             _methodEnd = _instructions.LastOrDefault().NextIP;
             if (_methodEnd == 0) _methodEnd = methodPointer;
 
-            Analysis = new(methodPointer, _methodEnd, _instructions, keyFunctionAddresses);
+            Analysis = new(methodPointer, _methodEnd, _instructions);
             Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 
@@ -87,7 +87,7 @@ namespace Cpp2IL.Core.Analysis
 
             isGenuineMethod = true;
 
-            Analysis = new(_methodDefinition, methodStart, _methodEnd, _instructions, keyFunctionAddresses);
+            Analysis = new(_methodDefinition, methodStart, _methodEnd, _instructions);
             Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 

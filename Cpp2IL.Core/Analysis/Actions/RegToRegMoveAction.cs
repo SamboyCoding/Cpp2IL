@@ -62,7 +62,7 @@ namespace Cpp2IL.Core.Analysis.Actions
 
             return new[]
             {
-                context.GetILToLoad((LocalDefinition) beingMoved!, processor),
+                context.GetIlToLoad((LocalDefinition) beingMoved!, processor),
                 processor.Create(OpCodes.Stloc, _localBeingOverwritten!.Variable)
             };
         }

@@ -46,7 +46,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
                 {
                     //LEA to load strings in 64-bit mode
                     strings = leas
-                        .Select(i => LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(i.GetRipBasedInstructionMemoryAddress(), out var addr) ? addr : 0)
+                        .Select(i => LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(i.MemoryDisplacement64, out var addr) ? addr : 0)
                         .Where(ptr => ptr != 0)
                         .Select(p => Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) p))
                         .ToList();

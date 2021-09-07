@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             if(_sourceOperand is ConstantDefinition c)
                 ret.AddRange(c.GetILToLoad(context, processor));
             else
-                ret.Add(context.GetILToLoad((LocalDefinition) _sourceOperand, processor));
+                ret.Add(context.GetIlToLoad((LocalDefinition) _sourceOperand, processor));
             
             ret.Add(processor.Create(OpCodes.Stsfld, processor.ImportReference(_theField)));
 

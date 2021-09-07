@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions
         private object _theGlobal;
         public ConstantToGlobalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var offset = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.GetRipBasedInstructionMemoryAddress();
+            var offset = LibCpp2IlMain.Binary.is32Bit ? instruction.MemoryDisplacement64 : instruction.MemoryDisplacement64;
             if (LibCpp2IlMain.GetAnyGlobalByAddress(offset) is { } globalIdentifier && globalIdentifier.Offset == offset)
             {
                 _theGlobal = globalIdentifier;

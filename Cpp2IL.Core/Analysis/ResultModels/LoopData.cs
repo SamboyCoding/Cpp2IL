@@ -1,4 +1,4 @@
-﻿using Cpp2IL.Core.Analysis.Actions.Important;
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
@@ -6,6 +6,6 @@ namespace Cpp2IL.Core.Analysis.ResultModels
     {
         public ulong ipFirstInstruction;
         public ulong ipFirstInstructionNotInLoop;
-        public ComparisonAction loopCondition;
+        public AbstractComparisonAction<T> loopCondition;
     }
 }

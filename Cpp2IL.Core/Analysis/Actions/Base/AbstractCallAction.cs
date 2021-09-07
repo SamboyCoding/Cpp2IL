@@ -214,7 +214,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             var result = new List<Mono.Cecil.Cil.Instruction>();
 
             if (ManagedMethodBeingCalled.HasThis && includeThis)
-                result.Add(context.GetILToLoad(InstanceBeingCalledOn ?? throw new TaintedInstructionException(), processor));
+                result.Add(context.GetIlToLoad(InstanceBeingCalledOn ?? throw new TaintedInstructionException(), processor));
 
             foreach (var operand in Arguments)
             {
@@ -222,7 +222,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     throw new TaintedInstructionException($"Found null operand in Arguments: {Arguments.ToStringEnumerable()}");
                 
                 if (operand is LocalDefinition l)
-                    result.Add(context.GetILToLoad(l, processor));
+                    result.Add(context.GetIlToLoad(l, processor));
                 else if (operand is ConstantDefinition c)
                     result.AddRange(c.GetILToLoad(context, processor));
                 else
