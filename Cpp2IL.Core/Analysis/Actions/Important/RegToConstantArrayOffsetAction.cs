@@ -5,7 +5,7 @@ using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Core.Analysis.Actions
+namespace Cpp2IL.Core.Analysis.Actions.Important
 {
     public class RegToConstantArrayOffsetAction : BaseAction<Instruction>
     {
