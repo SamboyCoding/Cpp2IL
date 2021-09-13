@@ -3,7 +3,6 @@ using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
-using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important

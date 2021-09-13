@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         {
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
+        public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
             if (LocalWritten == null || TypeOfArray == null)
                 throw new TaintedInstructionException("Missing created local or type of array");
