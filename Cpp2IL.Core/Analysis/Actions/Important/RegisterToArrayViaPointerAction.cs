@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
@@ -6,7 +7,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.Important
 {
-    public class RegisterToArrayViaPointerAction : BaseAction<Instruction>
+    public class RegisterToArrayViaPointerAction : AbstractArrayOffsetWriteAction<Instruction>
     {
         private Il2CppArrayOffsetPointer<Instruction>? _arrayPointer;
         private IAnalysedOperand? _sourceOp;
@@ -20,11 +21,13 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             
             if(_arrayPointer == null)
                 return;
+            
+            TheArray = _arrayPointer.Array;
 
             var sourceReg = Utils.GetRegisterNameNew(instruction.Op1Register);
             _sourceOp = context.GetOperandInRegister(sourceReg);
             
-            if(!(_arrayPointer.Array.KnownInitialValue is AllocatedArray array))
+            if(_arrayPointer.Array.KnownInitialValue is not AllocatedArray array)
                 return;
 
             array.KnownValuesAtOffsets[_arrayPointer.Offset] = _sourceOp switch
@@ -35,43 +38,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Important
             };
         }
 
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
-        {
-            var ret = new List<Mono.Cecil.Cil.Instruction>();
+        protected override int GetOffsetWritten() => _arrayPointer!.Offset;
 
-            if (_arrayPointer == null)
-                throw new TaintedInstructionException("Array couldn't be resolved");
+        protected override string? GetPseudocodeValue() => _sourceOp?.GetPseudocodeRepresentation();
 
-            //stelem.ref: Load array, load index, load value, pop all 3
-            
-            //Load array
-            ret.AddRange(_arrayPointer.Array.GetILToLoad(context, processor));
-            
-            //Load index
-            ret.Add(processor.Create(OpCodes.Ldc_I4, _arrayPointer.Offset));
-            
-            //Load value
-            ret.Add(processor.Create(OpCodes.Ldc_I4, _sourceOp?.GetILToLoad(context, processor)));
-            
-            //Pop all 3
-            ret.Add(processor.Create(OpCodes.Stelem_Ref));
+        protected override string? GetSummaryValue() => _sourceOp?.ToString();
 
-            return ret.ToArray();
-        }
-
-        public override string ToPsuedoCode()
-        {
-            return $"{_arrayPointer?.Array.GetPseudocodeRepresentation()}[{_arrayPointer?.Offset}] = {_sourceOp?.GetPseudocodeRepresentation()}";
-        }
-
-        public override string ToTextSummary()
-        {
-            return $"[!] Writes {_sourceOp?.GetPseudocodeRepresentation()} into the array {_arrayPointer?.Array?.GetPseudocodeRepresentation()} at index {_arrayPointer?.Offset} via a pointer.\n";
-        }
-
-        public override bool IsImportant()
-        {
-            return true;
-        }
+        protected override Mono.Cecil.Cil.Instruction[] GetInstructionsToLoadValue(MethodAnalysis<Instruction> context, ILProcessor processor) => _sourceOp?.GetILToLoad(context, processor) ?? Array.Empty<Mono.Cecil.Cil.Instruction>();
     }
 }
