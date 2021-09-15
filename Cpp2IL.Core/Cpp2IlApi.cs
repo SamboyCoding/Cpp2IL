@@ -297,8 +297,8 @@ namespace Cpp2IL.Core
             if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
                 throw new UnsupportedInstructionSetException();
 
-            AsmAnalyzer.FAILED_METHODS = 0;
-            AsmAnalyzer.SUCCESSFUL_METHODS = 0;
+            AsmAnalyzerX86.FAILED_METHODS = 0;
+            AsmAnalyzerX86.SUCCESSFUL_METHODS = 0;
 
             Logger.InfoNewline("Dumping method bytes to " + methodOutputDir, "Analyze");
             Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps"));
@@ -368,7 +368,7 @@ namespace Cpp2IL.Core
                             //No body
                             continue;
 
-                        var dumper = new AsmAnalyzer(methodDefinition, methodStart, keyFunctionAddresses!);
+                        var dumper = new AsmAnalyzerX86(methodDefinition, methodStart, keyFunctionAddresses!);
 
                         dumper.AnalyzeMethod();
                         dumper.RunPostProcessors();
@@ -423,10 +423,10 @@ namespace Cpp2IL.Core
 
             if (analysisLevel != AnalysisLevel.PSUEDOCODE_ONLY)
             {
-                var total = AsmAnalyzer.SUCCESSFUL_METHODS + AsmAnalyzer.FAILED_METHODS;
-                var successPercent = AsmAnalyzer.SUCCESSFUL_METHODS * 100 / total;
+                var total = AsmAnalyzerX86.SUCCESSFUL_METHODS + AsmAnalyzerX86.FAILED_METHODS;
+                var successPercent = AsmAnalyzerX86.SUCCESSFUL_METHODS * 100 / total;
 
-                Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzer.SUCCESSFUL_METHODS}) of {total} methods.");
+                Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzerX86.SUCCESSFUL_METHODS}) of {total} methods.");
             }
         }
 

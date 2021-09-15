@@ -439,7 +439,29 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         private ulong GetEndOfLoopWhichPossiblyStartsHereX86Version(ulong instructionIp)
         {
             //Look for a jump which is pointing at this instruction ip, and is after it.
-            var matchingJump = _allInstructions.Cast<Iced.Intel.Instruction>().FirstOrDefault(i => i.GetInstructionAddress() > instructionIp && i.NearBranchTarget == instructionIp);
+
+            Iced.Intel.Instruction matchingJump = default;
+            //This is a for-loop specifically because it's quite commonly called, and making it a foreach makes it take four times longer.
+            // ReSharper disable once ForCanBeConvertedToForeach
+            for (var index = 0; index < _allInstructions.Count; index++)
+            {
+                var instruction = (Iced.Intel.Instruction)(object)_allInstructions[index]!;
+
+                if (instruction.IP <= instructionIp)
+                    continue;
+                if (!instruction.Mnemonic.IsJump())
+                    continue;
+
+                if (instruction.NearBranchTarget == instructionIp)
+                {
+                    matchingJump = instruction;
+                    break;
+                }
+            }
+
+            // var matchingJump = _allInstructions.Cast<Iced.Intel.Instruction>()
+            //     .Where(i => i.Mnemonic.IsJump())
+            //     .FirstOrDefault(i => i.GetInstructionAddress() > instructionIp && i.NearBranchTarget == instructionIp);
 
             return matchingJump.Mnemonic.IsJump() ? matchingJump.GetInstructionAddress() : 0UL;
         }

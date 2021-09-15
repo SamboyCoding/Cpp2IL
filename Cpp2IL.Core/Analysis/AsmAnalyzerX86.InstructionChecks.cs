@@ -11,7 +11,7 @@ using Mono.Cecil;
 
 namespace Cpp2IL.Core.Analysis
 {
-    internal partial class AsmAnalyzer
+    internal partial class AsmAnalyzerX86
     {
         private void CheckForZeroOpInstruction(Instruction instruction)
         {
@@ -46,8 +46,8 @@ namespace Cpp2IL.Core.Analysis
                     //Push [reg]
                     Analysis.Actions.Add(new PushRegisterAction(Analysis, instruction));
                     break;
-                case Mnemonic.Push when _cppAssembly.is32Bit && instruction.Op0Kind == OpKind.Memory && memOffset != 0 && instruction.MemoryBase == Register.None:
-                case Mnemonic.Push when _cppAssembly.is32Bit && instruction.Op0Kind.IsImmediate() && LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(instruction.Immediate32, out _):
+                case Mnemonic.Push when CppAssembly.is32Bit && instruction.Op0Kind == OpKind.Memory && memOffset != 0 && instruction.MemoryBase == Register.None:
+                case Mnemonic.Push when CppAssembly.is32Bit && instruction.Op0Kind.IsImmediate() && LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(instruction.Immediate32, out _):
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
                     var globalAddress = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : memOffset;
@@ -302,7 +302,7 @@ namespace Cpp2IL.Core.Analysis
 
             switch (mnemonic)
             {
-                case Mnemonic.Mov when !_cppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():
+                case Mnemonic.Mov when !CppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():
                     //Move of a 32-bit register when we are 64-bit - check for structs
                     if (op1 is LocalDefinition {Type: {IsValueType: true, IsPrimitive: false} t})
                     {
@@ -346,10 +346,10 @@ namespace Cpp2IL.Core.Analysis
                         Analysis.Actions.Add(new ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     return;
                 }
-                case Mnemonic.Lea when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP && instruction.MemoryIndex == Register.None:
-                case Mnemonic.Mov when !_cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP && instruction.MemoryIndex == Register.None:
-                case Mnemonic.Lea when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0 && instruction.MemoryIndex == Register.None:
-                case Mnemonic.Mov when _cppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0 && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Lea when !CppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Mov when !CppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Lea when CppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0 && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Mov when CppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.None && instruction.MemoryDisplacement64 != 0 && instruction.MemoryIndex == Register.None:
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
                     var globalAddress = instruction.MemoryDisplacement64;
@@ -682,7 +682,7 @@ namespace Cpp2IL.Core.Analysis
             }
         }
 
-        private void PerformInstructionChecks(Instruction instruction)
+        protected override void PerformInstructionChecks(Instruction instruction)
         {
             var associatedIfFromIfElse = Analysis.GetAddressOfAssociatedIfForThisElse(instruction.IP);
             var associatedElse = Analysis.GetAddressOfElseThisIsTheEndOf(instruction.IP);

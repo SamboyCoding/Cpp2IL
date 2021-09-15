@@ -55,7 +55,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     var unmanaged = mDef.AsUnmanaged();
                     var prop = unmanaged.DeclaringType!.Properties!.FirstOrDefault(p => p.Setter == unmanaged);
 
-                    if (prop != null && Arguments?.Count == 1)
+                    if (prop != null && Arguments?.Count(a => a != null) == 1)
                         return ret.Append('.').Append(prop.Name).Append(" = ").Append(Arguments[0].GetPseudocodeRepresentation()).ToString();
                 }
             }

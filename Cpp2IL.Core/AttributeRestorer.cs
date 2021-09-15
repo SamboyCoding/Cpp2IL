@@ -332,7 +332,7 @@ namespace Cpp2IL.Core
             var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false);
 
             //Run analysis on this method to get parameters for the various constructors.
-            var analyzer = new AsmAnalyzer(attributeGeneratorAddress, generatorBody, keyFunctionAddresses!);
+            var analyzer = new AsmAnalyzerX86(attributeGeneratorAddress, generatorBody, keyFunctionAddresses!);
             analyzer.AddParameter(DummyTypeDefForAttributeCache, "attributeCache");
             analyzer.AttributesForRestoration = attributesExpected;
 
@@ -518,7 +518,7 @@ namespace Cpp2IL.Core
 
                 Logger.VerboseNewline($"Attempting to run attribute constructor reconstruction for {constructor.FullName}", "AttributeRestore");
                 var methodPointer = constructor.AsUnmanaged().MethodPointer;
-                var analyzer = new AsmAnalyzer(constructor, methodPointer, keyFunctionAddresses);
+                var analyzer = new AsmAnalyzerX86(constructor, methodPointer, keyFunctionAddresses);
 
                 analyzer.AnalyzeMethod();
 

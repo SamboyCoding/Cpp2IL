@@ -20,7 +20,7 @@ namespace Cpp2IL.Core
         
         public static ulong GetNextInstructionAddress(this object? instruction) => instruction == null ? 0 : Utils.GetAddressOfNextInstruction(instruction);
         
-        public static bool IsJump(this Mnemonic mnemonic) => mnemonic == Mnemonic.Call || mnemonic >= Mnemonic.Ja && mnemonic <= Mnemonic.Js;
+        public static bool IsJump(this Mnemonic mnemonic) => mnemonic is Mnemonic.Call or >= Mnemonic.Ja and <= Mnemonic.Js;
         public static bool IsConditionalJump(this Mnemonic mnemonic) => mnemonic.IsJump() && mnemonic != Mnemonic.Jmp && mnemonic != Mnemonic.Call;
         public static Stack<T> Clone<T>(this Stack<T> original)
         {
