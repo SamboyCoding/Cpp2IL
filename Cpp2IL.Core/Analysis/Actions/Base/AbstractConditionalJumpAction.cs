@@ -1,5 +1,4 @@
 ﻿using System.Collections.Generic;
-using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
 

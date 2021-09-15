@@ -1,5 +1,4 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
-using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 

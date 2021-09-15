@@ -4,7 +4,6 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Iced.Intel;
-using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
