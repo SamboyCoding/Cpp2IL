@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
         }
 
-        protected override bool IsMemoryReferenceAnAbsolutePointer(Instruction instruction) => instruction.Op0Kind == OpKind.Memory && (instruction.Op0Register == Register.None || instruction.Op0Register.GetFullRegister() == Register.RIP);
+        protected override bool IsMemoryReferenceAnAbsolutePointer(Instruction instruction) => instruction.Op0Kind == OpKind.Memory && (instruction.MemoryBase == Register.None || instruction.MemoryBase.GetFullRegister() == Register.RIP);
 
         protected override string GetRegisterName(Instruction instruction, int opIdx) => Utils.GetRegisterNameNew(instruction.GetOpRegister(opIdx));
 

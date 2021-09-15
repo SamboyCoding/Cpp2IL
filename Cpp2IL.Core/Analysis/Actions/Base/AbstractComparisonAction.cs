@@ -64,7 +64,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 RegisterUsedLocal(l2);
         }
         
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
+        public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
             throw new System.NotImplementedException();
         }
