@@ -41,7 +41,7 @@ namespace Cpp2IL.Core.Analysis
 
         private bool isGenuineMethod;
 
-        internal readonly MethodAnalysis Analysis;
+        internal readonly MethodAnalysis<Instruction> Analysis;
 
         internal AsmAnalyzer(ulong methodPointer, InstructionList instructions, KeyFunctionAddresses keyFunctionAddresses)
         {
@@ -59,7 +59,7 @@ namespace Cpp2IL.Core.Analysis
             _methodEnd = _instructions.LastOrDefault().NextIP;
             if (_methodEnd == 0) _methodEnd = methodPointer;
 
-            Analysis = new MethodAnalysis(methodPointer, _methodEnd, _instructions, keyFunctionAddresses);
+            Analysis = new(methodPointer, _methodEnd, _instructions);
             Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 
@@ -87,7 +87,7 @@ namespace Cpp2IL.Core.Analysis
 
             isGenuineMethod = true;
 
-            Analysis = new MethodAnalysis(_methodDefinition, methodStart, _methodEnd, _instructions, keyFunctionAddresses);
+            Analysis = new(_methodDefinition, methodStart, _methodEnd, _instructions);
             Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 
@@ -271,7 +271,7 @@ namespace Cpp2IL.Core.Analysis
                             processor.Append(instruction);
                         }
 
-                        if (MethodAnalysis.ActionsWhichGenerateNoIL.Contains(action.GetType()) || il.Length == 0)
+                        if (MethodAnalysis<Instruction>.ActionsWhichGenerateNoIL.Contains(action.GetType()) || il.Length == 0)
                             continue;
 
                         var jumpsToHere = Analysis.JumpTargetsToFixByAction.Keys.Where(jt => jt.AssociatedInstruction.IP <= action.AssociatedInstruction.IP).ToList();
@@ -343,7 +343,7 @@ namespace Cpp2IL.Core.Analysis
 
         internal void RunPostProcessors()
         {
-            new RemovedUnusedLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
+            new RemovedUnusedLocalsPostProcessor<Instruction>().PostProcess(Analysis, _methodDefinition!);
             new RenameLocalsPostProcessor().PostProcess(Analysis, _methodDefinition!);
         }
 

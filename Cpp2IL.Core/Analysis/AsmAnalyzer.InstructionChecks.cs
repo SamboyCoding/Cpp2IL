@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using System.Linq;
-using Cpp2IL.Core.Analysis.Actions;
-using Cpp2IL.Core.Analysis.Actions.Important;
+using Cpp2IL.Core.Analysis.Actions.x86;
+using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -378,7 +378,7 @@ namespace Cpp2IL.Core.Analysis
                     }
                     else
                     {
-                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.GetRipBasedInstructionMemoryAddress()));
+                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.MemoryDisplacement64));
                         if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
                         {
                             if (r0 != "rsp")
@@ -574,7 +574,7 @@ namespace Cpp2IL.Core.Analysis
                     //Write non-static field
                     Analysis.Actions.Add(new RegToFieldAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: Il2CppArrayOffsetPointer _}:
+                case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: Il2CppArrayOffsetPointer<Instruction> _}:
                     //Write into array offset via pointer
                     Analysis.Actions.Add(new RegisterToArrayViaPointerAction(Analysis, instruction));
                     break;
@@ -644,7 +644,7 @@ namespace Cpp2IL.Core.Analysis
                     //Condition
                     Analysis.Actions.Add(new ComparisonAction(Analysis, instruction));
                     break;
-                case Mnemonic.Sar when op0 is ConstantDefinition {Value: IntegerDivisionInProgress _}:
+                case Mnemonic.Sar when op0 is ConstantDefinition {Value: IntegerDivisionInProgress<Instruction> _}:
                     //SAR reg, i
                     //But value in reg is the first step of an integer division
                     //So this is step 2
@@ -711,7 +711,7 @@ namespace Cpp2IL.Core.Analysis
 
                 var ipOfCompare = loopWhichJustEnded!.AssociatedInstruction.IP;
 
-                if (Analysis.Actions.FirstOrDefault(a => a.AssociatedInstruction.IP > ipOfCompare && a is ConditionalJumpAction) is ConditionalJumpAction jump && jump.JumpTarget != instruction.IP)
+                if (Analysis.Actions.FirstOrDefault(a => a.AssociatedInstruction.IP > ipOfCompare && a is BaseX86ConditionalJumpAction) is BaseX86ConditionalJumpAction jump && jump.JumpTarget != instruction.IP)
                 {
                     //Once the loop is complete we have to jump to somewhere which is not here.
                     Analysis.Actions.Add(new GoToMarkerAction(Analysis, instruction, jump.JumpTarget));

@@ -7,6 +7,7 @@ using System.Linq;
 using System.Text;
 using System.Threading;
 using Cpp2IL.Core.Analysis;
+using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
@@ -128,7 +129,7 @@ namespace Cpp2IL.Core
 
             AssemblyPopulator.Reset();
 
-            Analysis.Actions.Important.CallExceptionThrowerFunction.Reset();
+            CallExceptionThrowerFunction.Reset();
 
             LibCpp2IlMain.Reset();
         }

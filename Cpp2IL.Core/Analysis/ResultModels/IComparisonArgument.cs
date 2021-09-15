@@ -6,6 +6,6 @@ namespace Cpp2IL.Core.Analysis.ResultModels
     {
         public string GetPseudocodeRepresentation();
 
-        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor processor);
+        public Instruction[] GetILToLoad<TAnalysis>(MethodAnalysis<TAnalysis> context, ILProcessor processor);
     }
 }

@@ -2,7 +2,8 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using Cpp2IL.Core.Analysis.Actions.Important;
+using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using LibCpp2IL;
@@ -19,7 +20,7 @@ namespace Cpp2IL.Core.Analysis
     {
         private static readonly string[] NON_FP_REGISTERS_BY_IDX = {"rcx", "rdx", "r8", "r9"};
         
-        public static bool CheckParameters(Instruction associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, LocalDefinition? objectMethodBeingCalledOn, bool failOnLeftoverArgs = true)
+        public static bool CheckParameters<T>(T associatedInstruction, Il2CppMethodDefinition method, MethodAnalysis<T> context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, LocalDefinition? objectMethodBeingCalledOn, bool failOnLeftoverArgs = true)
         {
             MethodReference managedMethod = SharedState.UnmanagedToManagedMethods[method];
 
@@ -34,7 +35,7 @@ namespace Cpp2IL.Core.Analysis
             return CheckParameters(associatedInstruction, managedMethod, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
-        public static bool CheckParameters(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference? beingCalledOn = null, bool failOnLeftoverArgs = true)
+        public static bool CheckParameters<T>(T associatedInstruction, MethodReference method, MethodAnalysis<T> context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference? beingCalledOn = null, bool failOnLeftoverArgs = true)
         {
             if (beingCalledOn == null)
                 beingCalledOn = method.DeclaringType;
@@ -42,7 +43,7 @@ namespace Cpp2IL.Core.Analysis
             return LibCpp2IlMain.Binary!.is32Bit ? CheckParameters32(associatedInstruction, method, context, isInstance, beingCalledOn, out arguments) : CheckParameters64(method, context, isInstance, out arguments, beingCalledOn, failOnLeftoverArgs);
         }
 
-        private static IAnalysedOperand? GetValueFromAppropriateReg(bool? isFloatingPoint, string fpReg, string normalReg, MethodAnalysis context)
+        private static IAnalysedOperand? GetValueFromAppropriateReg<T>(bool? isFloatingPoint, string fpReg, string normalReg, MethodAnalysis<T> context)
         {
             if(isFloatingPoint == true)
                 if (context.GetOperandInRegister(fpReg) is { } fpVal)
@@ -51,7 +52,7 @@ namespace Cpp2IL.Core.Analysis
             return context.GetOperandInRegister(normalReg);
         }
 
-        private static bool CheckParameters64(MethodReference method, MethodAnalysis context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference beingCalledOn, bool failOnLeftoverArgs = true)
+        private static bool CheckParameters64<T>(MethodReference method, MethodAnalysis<T> context, bool isInstance, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments, TypeReference beingCalledOn, bool failOnLeftoverArgs = true)
         {
             arguments = null;
 
@@ -207,9 +208,9 @@ namespace Cpp2IL.Core.Analysis
             return true;
         }
 
-        private static bool CheckParameters32(Instruction associatedInstruction, MethodReference method, MethodAnalysis context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
+        private static bool CheckParameters32<T>(T associatedInstruction, MethodReference method, MethodAnalysis<T> context, bool isInstance, TypeReference beingCalledOn, [NotNullWhen(true)] out List<IAnalysedOperand>? arguments)
         {
-            arguments = new List<IAnalysedOperand>();
+            arguments = new();
 
             var listToRePush = new List<IAnalysedOperand>();
 
@@ -264,7 +265,7 @@ namespace Cpp2IL.Core.Analysis
                             //as its used as the arguments
 
                             //Allocate an instance of the struct
-                            var allocateInstanceAction = new AllocateInstanceAction(context, associatedInstruction, structTypeDef);
+                            var allocateInstanceAction = AbstractNewObjAction<T>.Make<T>(context, associatedInstruction, structTypeDef);
                             context.Actions.Add(allocateInstanceAction);
 
                             var instanceLocal = allocateInstanceAction.LocalReturned;
@@ -276,7 +277,8 @@ namespace Cpp2IL.Core.Analysis
 
                                 var stackArg = listOfStackArgs[i];
                                 if (stackArg is LocalDefinition local)
-                                    context.Actions.Add(new RegToFieldAction(context, associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), instanceLocal!, local));
+                                    //I'm sorry for what the next line contains.
+                                    context.Actions.Add((BaseAction<T>)(object) new RegToFieldAction((MethodAnalysis<Instruction>)(object) context, (Instruction) (object) associatedInstruction, FieldUtils.FieldBeingAccessedData.FromDirectField(associatedField), (LocalDefinition)(object) instanceLocal!, (LocalDefinition)(object) local));
                                 else
                                 {
                                     //TODO Constants
@@ -331,7 +333,7 @@ namespace Cpp2IL.Core.Analysis
             return true;
         }
 
-        private static void RePushStack(List<IAnalysedOperand> toRepush, MethodAnalysis context)
+        private static void RePushStack<T>(List<IAnalysedOperand> toRepush, MethodAnalysis<T> context)
         {
             toRepush.Reverse();
             foreach (var analysedOperand in toRepush)
@@ -386,7 +388,7 @@ namespace Cpp2IL.Core.Analysis
             }
         }
 
-        public static IAnalysedOperand? GetMethodInfoArg(MethodReference managedMethodBeingCalled, MethodAnalysis context)
+        public static IAnalysedOperand? GetMethodInfoArg<T>(MethodReference managedMethodBeingCalled, MethodAnalysis<T> context)
         {
             if (LibCpp2IlMain.Binary!.is32Bit)
             {

@@ -37,9 +37,9 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return Name;
         }
 
-        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor processor)
+        public Instruction[] GetILToLoad<TAnalysis>(MethodAnalysis<TAnalysis> context, ILProcessor processor)
         {
-            return new[] {context.GetILToLoad(this, processor)};
+            return new[] {context.GetIlToLoad(this, processor)};
         }
 
         public override bool Equals(object? obj)

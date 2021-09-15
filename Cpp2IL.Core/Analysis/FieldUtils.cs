@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Cpp2IL.Core.Analysis.Actions.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;

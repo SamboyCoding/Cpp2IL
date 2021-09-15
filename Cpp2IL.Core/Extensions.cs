@@ -8,11 +8,18 @@ using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Collections.Generic;
+using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core
 {
     public static class Extensions
     {
+        public static ulong GetImmediateSafe(this Instruction instruction, int op) => instruction.GetOpKind(op).IsImmediate() ? instruction.GetImmediate(op) : 0;
+
+        public static ulong GetInstructionAddress(this object? instruction) => instruction == null ? 0 : Utils.GetAddressOfInstruction(instruction);
+        
+        public static ulong GetNextInstructionAddress(this object? instruction) => instruction == null ? 0 : Utils.GetAddressOfNextInstruction(instruction);
+        
         public static bool IsJump(this Mnemonic mnemonic) => mnemonic == Mnemonic.Call || mnemonic >= Mnemonic.Ja && mnemonic <= Mnemonic.Js;
         public static bool IsConditionalJump(this Mnemonic mnemonic) => mnemonic.IsJump() && mnemonic != Mnemonic.Jmp && mnemonic != Mnemonic.Call;
         public static Stack<T> Clone<T>(this Stack<T> original)
@@ -188,5 +195,6 @@ namespace Cpp2IL.Core
         public static MethodReference ImportReference(this ILProcessor processor, MethodReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);
         
         public static FieldReference ImportReference(this ILProcessor processor, FieldReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);
+        public static bool IsImmediate(this OpKind opKind) => opKind is >= OpKind.Immediate8 and <= OpKind.Immediate32to64;
     }
 }

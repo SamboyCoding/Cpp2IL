@@ -856,5 +856,29 @@ namespace Cpp2IL.Core
 
             destinationConstant.Type = Type.GetType(targetType.FullName!)!;
         }
+
+        public static ulong GetAddressOfInstruction<T>(T t)
+        {
+            if (t == null) 
+                throw new ArgumentNullException(nameof(t));
+            
+            return t switch
+            {
+                Iced.Intel.Instruction x86 => x86.IP,
+                _ => throw new($"Unsupported instruction type {t.GetType()}"),
+            };
+        }
+
+        public static ulong GetAddressOfNextInstruction<T>(T t)
+        {
+            if (t == null) 
+                throw new ArgumentNullException(nameof(t));
+            
+            return t switch
+            {
+                Iced.Intel.Instruction x86 => x86.NextIP,
+                _ => throw new($"Unsupported instruction type {t.GetType()}"),
+            };
+        }
     }
 }

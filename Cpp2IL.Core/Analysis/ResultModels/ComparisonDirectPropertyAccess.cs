@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return $"{localAccessedOn.Name}.{propertyAccessed.Name}";
         }
 
-        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor processor)
+        public Instruction[] GetILToLoad<TAnalysis>(MethodAnalysis<TAnalysis> context, ILProcessor processor)
         {
             var ret = new List<Instruction>();
             

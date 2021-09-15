@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Cpp2IL.Core.Analysis.Actions;
-using Cpp2IL.Core.Analysis.Actions.Important;
+using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -11,50 +11,48 @@ using Instruction = Mono.Cecil.Cil.Instruction;
 
 namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class MethodAnalysis
+    public class MethodAnalysis<TInstruction>
     {
         public delegate void PtrConsumer(ulong ptr);
-        
-        public KeyFunctionAddresses KeyFunctionAddresses { get; }
-        
-        public readonly List<LocalDefinition> Locals = new List<LocalDefinition>();
-        public readonly List<ConstantDefinition> Constants = new List<ConstantDefinition>();
-        public List<BaseAction> Actions = new List<BaseAction>();
-        public readonly List<ulong> IdentifiedJumpDestinationAddresses = new List<ulong>();
-        public readonly List<ulong> ProbableLoopStarts = new List<ulong>();
-        public readonly Dictionary<BaseAction, List<Instruction>> JumpTargetsToFixByAction = new Dictionary<BaseAction, List<Instruction>>();
 
-        public event PtrConsumer OnExpansionRequested;
+        public readonly List<LocalDefinition> Locals = new();
+        public readonly List<ConstantDefinition> Constants = new();
+        public List<BaseAction<TInstruction>> Actions = new();
+        public readonly List<ulong> IdentifiedJumpDestinationAddresses = new();
+        public readonly List<ulong> ProbableLoopStarts = new();
+        public readonly Dictionary<BaseAction<TInstruction>, List<Instruction>> JumpTargetsToFixByAction = new();
+
+        public event PtrConsumer OnExpansionRequested = _ => { };
 
         internal ConstantDefinition EmptyRegConstant;
-        private List<string> _parameterDestRegList = new List<string>();
-        private int numParamsAdded = 0;
+        private List<string> _parameterDestRegList = new();
+        private int _numParamsAdded;
 
         internal ulong MethodStart;
         internal ulong AbsoluteMethodEnd;
-        private readonly InstructionList _allInstructions;
+        private readonly List<TInstruction> _allInstructions;
 
         private MethodDefinition? _method;
-        
-        private readonly List<IfData> IfOnlyBlockData = new List<IfData>();
-        private readonly List<IfElseData> IfElseBlockData = new List<IfElseData>();
-        private readonly List<LoopData> LoopBlockData = new List<LoopData>();
 
-        public readonly Dictionary<ulong, ulong> GotoDestinationsToStartDict = new Dictionary<ulong, ulong>();
+        private readonly List<IfData<TInstruction>> IfOnlyBlockData = new();
+        private readonly List<IfElseData<TInstruction>> IfElseBlockData = new();
+        private readonly List<LoopData<TInstruction>> LoopBlockData = new();
+
+        public readonly Dictionary<ulong, ulong> GotoDestinationsToStartDict = new();
 
         public int IndentLevel;
 
         //This data is essentially our transient state - it must be stashed and unstashed when we jump into ifs etc.
-        public List<LocalDefinition> FunctionArgumentLocals = new List<LocalDefinition>();
-        private Dictionary<string, IAnalysedOperand> RegisterData = new Dictionary<string, IAnalysedOperand>();
-        public Dictionary<int, LocalDefinition> StackStoredLocals = new Dictionary<int, LocalDefinition>();
-        public Stack<IAnalysedOperand> Stack = new Stack<IAnalysedOperand>();
-        public Stack<IAnalysedOperand> FloatingPointStack = new Stack<IAnalysedOperand>();
+        public List<LocalDefinition> FunctionArgumentLocals = new();
+        private Dictionary<string, IAnalysedOperand> RegisterData = new();
+        public Dictionary<int, LocalDefinition> StackStoredLocals = new();
+        public Stack<IAnalysedOperand> Stack = new();
+        public Stack<IAnalysedOperand> FloatingPointStack = new();
 
         public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
         public TypeReference ReturnType => _method?.ReturnType ?? Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
 
-        public static readonly List<Type> ActionsWhichGenerateNoIL = new List<Type>
+        public static readonly List<Type> ActionsWhichGenerateNoIL = new()
         {
             typeof(GoToMarkerAction),
             typeof(GoToDestinationMarker),
@@ -66,26 +64,24 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         };
 
         //For analysing cpp-only methods, like attribute generators
-        internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions, KeyFunctionAddresses keyFunctionAddresses)
+        internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, IList<TInstruction> allInstructions)
         {
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
-            _allInstructions = allInstructions;
-            KeyFunctionAddresses = keyFunctionAddresses;
+            _allInstructions = new(allInstructions);
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
-            
+
             //Can't handle params - we don't have any - but can populate reg list if needed.
-            if (!LibCpp2IlMain.Binary!.is32Bit) 
-                _parameterDestRegList = new List<string> {"rcx", "rdx", "r8", "r9"};
+            if (!LibCpp2IlMain.Binary!.is32Bit)
+                _parameterDestRegList = new List<string> { "rcx", "rdx", "r8", "r9" };
         }
 
-        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, InstructionList allInstructions, KeyFunctionAddresses keyFunctionAddresses)
+        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, IList<TInstruction> allInstructions)
         {
             _method = method;
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
-            _allInstructions = allInstructions;
-            KeyFunctionAddresses = keyFunctionAddresses;
+            _allInstructions = new(allInstructions);
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
 
             var args = method.Parameters.ToList();
@@ -93,7 +89,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             //Set up parameters in registers & as locals.
             if (!LibCpp2IlMain.Binary!.is32Bit)
             {
-                _parameterDestRegList = new List<string> {"rcx", "rdx", "r8", "r9"};
+                _parameterDestRegList = new List<string> { "rcx", "rdx", "r8", "r9" };
 
                 if (!method.IsStatic)
                 {
@@ -149,8 +145,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
                 var name = arg.Name;
                 if (string.IsNullOrWhiteSpace(name))
-                    name = arg.Name = $"cpp2il__autoParamName__idx_{numParamsAdded}";
-                
+                    name = arg.Name = $"cpp2il__autoParamName__idx_{_numParamsAdded}";
+
                 FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType, name, dest).WithParameter(arg));
             }
             else
@@ -160,17 +156,17 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 Stack.Push(localDefinition);
                 FunctionArgumentLocals.Add(localDefinition);
             }
-            
-            numParamsAdded++;
+
+            _numParamsAdded++;
         }
 
         public void ExpandAnalysisToIncludeBlockStartingAt(ulong ptr)
         {
-            if(_allInstructions.All(i => i.IP < ptr))
+            if (_allInstructions.All(i => i.GetInstructionAddress() < ptr))
                 OnExpansionRequested(ptr);
         }
 
-        internal void AddInstructions(InstructionList newInstructions, ulong newEnd)
+        internal void AddInstructions(IList<TInstruction> newInstructions, ulong newEnd)
         {
             _allInstructions.AddRange(newInstructions);
             AbsoluteMethodEnd = newEnd;
@@ -194,7 +190,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             // if (type == null)
             //     throw new Exception($"Tried to create a local (in reg {reg}, with name {name}), with a null type");
-            
+
             var local = new LocalDefinition
             {
                 Name = name ?? $"local{Locals.Count}",
@@ -288,12 +284,20 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             return jumpTarget >= MethodStart && jumpTarget < AbsoluteMethodEnd;
         }
-
+        
         public bool IsThereProbablyAnElseAt(ulong conditionalJumpTarget)
+        {
+            if (typeof(TInstruction) == typeof(Iced.Intel.Instruction))
+                return IsThereProbablyAnElseAtX86Version(conditionalJumpTarget);
+
+            throw new($"Not Implemented: {typeof(TInstruction)}");
+        }
+
+        private bool IsThereProbablyAnElseAtX86Version(ulong conditionalJumpTarget)
         {
             if (!IsJumpDestinationInThisFunction(conditionalJumpTarget)) return false;
 
-            var instructionBeforeJump = _allInstructions.FirstOrDefault(i => i.NextIP == conditionalJumpTarget);
+            var instructionBeforeJump = (Iced.Intel.Instruction)(object)_allInstructions.FirstOrDefault(i => i.GetNextInstructionAddress() == conditionalJumpTarget)!;
 
             if (instructionBeforeJump == default) return false;
 
@@ -309,10 +313,18 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             return false;
         }
-
-        private ulong GetEndOfElseBlock(ulong ipOfFirstInstructionInElse)
+        
+        public ulong GetEndOfElseBlock(ulong ipOfFirstInstructionInElse)
         {
-            var endOfIf = _allInstructions.FirstOrDefault(i => i.NextIP == ipOfFirstInstructionInElse);
+            if (typeof(TInstruction) == typeof(Iced.Intel.Instruction))
+                return GetEndOfElseBlockX86Version(ipOfFirstInstructionInElse);
+
+            throw new($"Not Implemented: {typeof(TInstruction)}");
+        }
+
+        private ulong GetEndOfElseBlockX86Version(ulong ipOfFirstInstructionInElse)
+        {
+            var endOfIf = (Iced.Intel.Instruction)(object)_allInstructions.FirstOrDefault(i => i.GetNextInstructionAddress() == ipOfFirstInstructionInElse)!;
 
             if (endOfIf == default) return 0;
 
@@ -347,10 +359,10 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             FloatingPointStack = state.FloatingPointStack;
         }
 
-        public void RegisterIfElseStatement(ulong startOfIf, ulong startOfElse, BaseAction conditionalJump)
+        public void RegisterIfElseStatement(ulong startOfIf, ulong startOfElse, BaseAction<TInstruction> conditionalJump)
         {
             IfElseBlockData.Add(SaveAnalysisState(
-                new IfElseData
+                new IfElseData<TInstruction>
                 {
                     Stack = Stack.Clone(),
                     ConditionalJumpStatement = conditionalJump,
@@ -360,11 +372,11 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 }
             ));
         }
-        
-        public void RegisterIfStatement(ulong startOfIf, ulong endOfIf, BaseAction conditionalJump)
+
+        public void RegisterIfStatement(ulong startOfIf, ulong endOfIf, BaseAction<TInstruction> conditionalJump)
         {
             IfOnlyBlockData.Add(SaveAnalysisState(
-                new IfData
+                new IfData<TInstruction>
                 {
                     Stack = Stack.Clone(),
                     ConditionalJumpStatement = conditionalJump,
@@ -391,7 +403,10 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public ulong GetAddressOfAssociatedIfForThisElse(ulong elseStartAddr)
         {
             var ifElseData = IfElseBlockData.Find(i => i.ElseStatementStart == elseStartAddr);
-            return ifElseData?.ConditionalJumpStatement.AssociatedInstruction.IP ?? 0UL;
+            if (ifElseData == null)
+                return 0UL;
+
+            return Utils.GetAddressOfInstruction(ifElseData.ConditionalJumpStatement.AssociatedInstruction);
         }
 
         public void PopStashedIfDataForElseAt(ulong elseStartAddr)
@@ -406,43 +421,51 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public void PopStashedIfDataFrom(ulong ifStartAddr)
         {
             var ifData = IfOnlyBlockData.Find(i => i.IfStatementStart == ifStartAddr);
-            
-            if(ifData == null)
+
+            if (ifData == null)
                 return;
-            
+
             LoadAnalysisState(ifData);
         }
 
         public ulong GetEndOfLoopWhichPossiblyStartsHere(ulong instructionIp)
         {
-            //Look for a jump which is pointing at this instruction ip, and is after it.
-            var matchingJump = _allInstructions.FirstOrDefault(i => i.IP > instructionIp && i.NearBranchTarget == instructionIp);
+            if (typeof(TInstruction) == typeof(Iced.Intel.Instruction))
+                return GetEndOfLoopWhichPossiblyStartsHereX86Version(instructionIp);
 
-            return matchingJump.Mnemonic.IsJump() ? matchingJump.IP : 0UL;
+            throw new($"Not Implemented: {typeof(TInstruction)}");
         }
 
-        public void RegisterLastInstructionOfLoopAt(ComparisonAction loopCondition, ulong lastStatementInLoop)
+        private ulong GetEndOfLoopWhichPossiblyStartsHereX86Version(ulong instructionIp)
+        {
+            //Look for a jump which is pointing at this instruction ip, and is after it.
+            var matchingJump = _allInstructions.Cast<Iced.Intel.Instruction>().FirstOrDefault(i => i.GetInstructionAddress() > instructionIp && i.NearBranchTarget == instructionIp);
+
+            return matchingJump.Mnemonic.IsJump() ? matchingJump.GetInstructionAddress() : 0UL;
+        }
+
+        public void RegisterLastInstructionOfLoopAt(AbstractComparisonAction<TInstruction> loopCondition, ulong lastStatementInLoop)
         {
             if (!IsJumpDestinationInThisFunction(lastStatementInLoop)) return;
 
-            var matchingInstruction = _allInstructions.FirstOrDefault(i => i.IP == lastStatementInLoop);
+            var matchingInstruction = _allInstructions.FirstOrDefault(i => i.GetInstructionAddress() == lastStatementInLoop);
 
-            if (matchingInstruction.Mnemonic == Mnemonic.INVALID) return;
+            if (matchingInstruction == null) return;
 
-            var firstIpNotInLoop = matchingInstruction.NextIP;
+            var firstIpNotInLoop = matchingInstruction.GetNextInstructionAddress();
 
-            var firstInstructionNotInLoop = _allInstructions.FirstOrDefault(i => i.IP == firstIpNotInLoop);
-            if (firstInstructionNotInLoop.Mnemonic == Mnemonic.INVALID) return;
+            var firstInstructionNotInLoop = _allInstructions.FirstOrDefault(i => i.GetInstructionAddress() == firstIpNotInLoop);
+            if (firstInstructionNotInLoop == null) return;
 
-            var data = new LoopData
+            var data = new LoopData<TInstruction>
             {
-                ipFirstInstruction = loopCondition.AssociatedInstruction.IP,
+                ipFirstInstruction = Utils.GetAddressOfInstruction(loopCondition.AssociatedInstruction),
                 loopCondition = loopCondition,
                 ipFirstInstructionNotInLoop = firstIpNotInLoop
             };
             SaveAnalysisState(data);
-            
-            LoopBlockData.Add(data);           
+
+            LoopBlockData.Add(data);
         }
 
         public void RegisterGotoDestination(ulong source, ulong dest)
@@ -452,7 +475,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public bool IsIpInOneOrMoreLoops(ulong ip) => GetLoopConditionsInNestedOrder(ip).Length > 0;
 
-        public ComparisonAction[] GetLoopConditionsInNestedOrder(ulong ip) =>
+        public AbstractComparisonAction<TInstruction>[] GetLoopConditionsInNestedOrder(ulong ip) =>
             LoopBlockData.Where(d => d.ipFirstInstruction <= ip && d.ipFirstInstructionNotInLoop > ip)
                 .Select(d => d.loopCondition)
                 .ToArray();
@@ -463,8 +486,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             return matchingBlock != null;
         }
-        
-        public ComparisonAction? GetLoopWhichJustEnded(ulong ip)
+
+        public AbstractComparisonAction<TInstruction>? GetLoopWhichJustEnded(ulong ip)
         {
             var matchingBlock = LoopBlockData.FirstOrDefault(d => d.ipFirstInstructionNotInLoop == ip);
 
@@ -476,7 +499,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             var matchingBlock = LoopBlockData.FirstOrDefault(d => d.ipFirstInstructionNotInLoop == ipFirstInstructionNotInLoop);
 
             if (matchingBlock == null) return;
-            
+
             LoadAnalysisState(matchingBlock);
         }
 
@@ -490,7 +513,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             if (!starts.Any())
                 return (0, 0);
-            
+
             var latestStart = starts.Max();
 
             if (IfOnlyBlockData.FirstOrDefault(i => i.IfStatementStart == latestStart) is { } data1)
@@ -498,21 +521,21 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             if (IfElseBlockData.FirstOrDefault(i => i.IfStatementStart == latestStart) is { } data2)
                 return (startAddr: data2.IfStatementStart, endAddr: data2.ElseStatementStart);
-            
+
             if (IfElseBlockData.FirstOrDefault(i => i.ElseStatementStart == latestStart) is { } data3)
                 return (startAddr: data3.ElseStatementStart, endAddr: data3.ElseStatementEnd);
-            
+
             if (LoopBlockData.FirstOrDefault(i => i.ipFirstInstruction == latestStart) is { } data4)
                 return (startAddr: data4.ipFirstInstruction, endAddr: data4.ipFirstInstructionNotInLoop);
 
             return (0, 0);
         }
 
-        public Instruction GetILToLoad(LocalDefinition localDefinition, ILProcessor processor)
+        public Instruction GetIlToLoad(LocalDefinition localDefinition, ILProcessor processor)
         {
-            if(localDefinition.ParameterDefinition != null)
+            if (localDefinition.ParameterDefinition != null)
                 return processor.Create(OpCodes.Ldarg, localDefinition.ParameterDefinition);
-            
+
             if (FunctionArgumentLocals.Contains(localDefinition))
             {
                 if (localDefinition.ParameterDefinition == null)
@@ -529,14 +552,14 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             var target = Actions
                 .Where(a => !ActionsWhichGenerateNoIL.Contains(a.GetType()))
-                .FirstOrDefault(a => a.AssociatedInstruction.IP >= jumpTarget);
-            
-            if(target == null)
+                .FirstOrDefault(a => Utils.GetAddressOfInstruction(a.AssociatedInstruction) >= jumpTarget);
+
+            if (target == null)
                 return;
 
             if (!JumpTargetsToFixByAction.ContainsKey(target))
-                JumpTargetsToFixByAction[target] = new List<Instruction>();
-            
+                JumpTargetsToFixByAction[target] = new();
+
             JumpTargetsToFixByAction[target].Add(jumpInstruction);
         }
     }

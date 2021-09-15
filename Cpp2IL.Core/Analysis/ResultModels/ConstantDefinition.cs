@@ -69,7 +69,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             return str;
         }
 
-        public Instruction[] GetILToLoad(MethodAnalysis context, ILProcessor ilProcessor)
+        public Instruction[] GetILToLoad<TAnalysis>(MethodAnalysis<TAnalysis> context, ILProcessor ilProcessor)
         {
             if (Type == typeof(string))
                 return new[] {ilProcessor.Create(OpCodes.Ldstr, $"{Value}")};

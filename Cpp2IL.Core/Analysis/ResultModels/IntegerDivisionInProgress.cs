@@ -1,6 +1,6 @@
 ﻿namespace Cpp2IL.Core.Analysis.ResultModels
 {
-    public class IntegerDivisionInProgress
+    public class IntegerDivisionInProgress<T>
     {
         public IAnalysedOperand OriginalValue;
         public ulong MultipliedBy;

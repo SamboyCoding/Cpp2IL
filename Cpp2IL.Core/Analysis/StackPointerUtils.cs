@@ -6,7 +6,7 @@ namespace Cpp2IL.Core.Analysis
 {
     public static class StackPointerUtils
     {
-        public static LocalDefinition? GetLocalReferencedByEBPRead(MethodAnalysis context, Instruction instruction)
+        public static LocalDefinition? GetLocalReferencedByEBPRead(MethodAnalysis<Instruction> context, Instruction instruction)
         {
             var offset = (int) instruction.MemoryDisplacement;
             //in 32-bit mode:
@@ -43,7 +43,7 @@ namespace Cpp2IL.Core.Analysis
             return null;
         }
 
-        public static int SaveLocalToStack(MethodAnalysis context, Instruction savingInstruction, LocalDefinition theLocal)
+        public static int SaveLocalToStack(MethodAnalysis<Instruction> context, Instruction savingInstruction, LocalDefinition theLocal)
         {
             var offset = (int) savingInstruction.MemoryDisplacement;
             //in 32-bit mode:
