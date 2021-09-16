@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.ResultModels;
@@ -51,6 +52,9 @@ namespace Cpp2IL.Core.Analysis
                     if (SharedState.MethodsByAddress.TryGetValue(jumpTarget, out var managedFunctionBeingCalled))
                     {
                         Analysis.Actions.Add(new Arm64ManagedFunctionCallAction(Analysis, instruction));
+                    } else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_codegen_object_new)
+                    {
+                        Analysis.Actions.Add(new Arm64NewObjectAction(Analysis, instruction));
                     }
 
                     //If we're a b, we need a return too
@@ -116,6 +120,10 @@ namespace Cpp2IL.Core.Analysis
                 case "ldr" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && memVar is LocalDefinition && memoryOffset != 0:
                     //Field read - non-zero memory offset on local to register.
                     Analysis.Actions.Add(new Arm64FieldReadToRegAction(Analysis, instruction));
+                    break;
+                case "ldr" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && memVar is ConstantDefinition && memoryOffset == 0:
+                    //Dereferencing a pointer to a metadata usage
+                    Analysis.Actions.Add(new Arm64DereferencePointerAction(Analysis, instruction));
                     break;
                 case "ldr" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && memVar is ConstantDefinition { Value: long pageAddress } && memoryOffset < 0x4000:
                     //Combined with adrp to load a global. The adrp loads the page, and this adds an additional offset to resolve a specific memory value.

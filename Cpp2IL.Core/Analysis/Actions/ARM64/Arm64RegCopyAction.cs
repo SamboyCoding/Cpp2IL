@@ -17,6 +17,11 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             _dest = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
             _whatCopied = context.GetOperandInRegister(_source);
+            
+            if(_whatCopied == null)
+                return;
+            
+            context.SetRegContent(_dest, _whatCopied);
         }
 
         public override Instruction[] ToILInstructions(MethodAnalysis<Arm64Instruction> context, ILProcessor processor)
