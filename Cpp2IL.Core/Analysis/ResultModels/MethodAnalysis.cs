@@ -4,6 +4,7 @@ using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
+using Gee.External.Capstone.Arm64;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -45,13 +46,15 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         //This data is essentially our transient state - it must be stashed and unstashed when we jump into ifs etc.
         public List<LocalDefinition> FunctionArgumentLocals = new();
-        private Dictionary<string, IAnalysedOperand> RegisterData = new();
+        internal Dictionary<string, IAnalysedOperand> RegisterData = new();
         public Dictionary<int, LocalDefinition> StackStoredLocals = new();
         public Stack<IAnalysedOperand> Stack = new();
         public Stack<IAnalysedOperand> FloatingPointStack = new();
 
         public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
         public TypeReference ReturnType => _method?.ReturnType ?? Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
+
+        public Arm64ReturnValueLocation Arm64ReturnValueLocation;
 
         public static readonly List<Type> ActionsWhichGenerateNoIL = new()
         {
@@ -88,7 +91,12 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             var args = method.Parameters.ToList();
             var haveHandledMethodInfoArg = false;
             //Set up parameters in registers & as locals.
-            if (LibCpp2IlMain.Binary!.InstructionSet != InstructionSet.X86_32)
+            //Arm64 is quite complicated here.
+            if (LibCpp2IlMain.Binary!.InstructionSet == InstructionSet.ARM64)
+            {
+                HandleArm64Parameters();
+            }
+            else if (LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_32)
             {
                 _parameterDestRegList = LibCpp2IlMain.Binary.InstructionSet switch
                 {
@@ -136,6 +144,86 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             {
                 var local = MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
                 Stack.Push(local);
+                FunctionArgumentLocals.Add(local);
+            }
+        }
+
+        private void HandleArm64Parameters()
+        {
+            //Parameters are pushed to x0-x7 but also v0-v7 if vectors.
+            //But the interesting part is that having something in x0 doesn't mean you can't have something in v0.
+            //So you can have, essentially, 14 parameters in registers before you go to the stack.
+            //However, the return value of the function also has to go into one of x0-x7 or v0-v7. So in practise that limit is 
+            //Less than 14 for non-void functions. Also, arm functions can return more than one value in this way.
+            //Specifically: 
+            //Integer values go in x0.
+            //Floating point values go in v0.
+            //Simple combinations of floating values (e.g. vectors) which have no constructor, private fields, base class, etc, and <= 4 fields, go in v0-v3 as required.
+            //Simple structs that: Have no con or destructor, no private or protected fields, and no base class, and are:
+            //    8 bytes => x0
+            //    8-16 bytes => x0-x1
+            //    >16 bytes => calling function allocates memory and passes pointer in x8. Called function does what it needs with that.
+            //But ^ this only applies for static or global methods (those which don't have a "this" parameter, which has to go in x0)
+            //For all other types and for functions with a "this" param:
+            //Calling function allocates memory and passes in as x0, or x1 if x0 is taken by "this". Called function does what it needs.
+            var xCount = 0;
+            var vCount = 0;
+            
+            //First things first: this parameter, if it exists.
+            if (!_method!.IsStatic)
+            {
+                _method.Body.ThisParameter.Name = "this";
+                var local = MakeLocal(_method.DeclaringType, "this", $"x{xCount}").WithParameter(_method.Body.ThisParameter);
+                FunctionArgumentLocals.Add(local);
+                xCount++;
+            }
+            
+            //Now: return type
+            if (!IsVoid())
+            {
+                //What type of object do we have?
+                if (_method.ReturnType.ShouldBeInFloatingPointRegister())
+                {
+                    //Simple floating point => v0
+                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.V0;
+                    vCount++;
+                } else if (_method.ReturnType.IsPrimitive && _method.ReturnType.Name != "String" && xCount == 0)
+                {
+                    //Simple scalar => x0 if we're static
+                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.X0;
+                }
+                //TODO Investigate exactly where UnityEngine.Vector3 ends up - is it simple enough to go in v0-v3? Or because it has constructors etc, does it get treated as complex?
+                //TODO Equally, are there any plain data objects which take the X0_X1 slot? Or in the same vein, the x8 pointer slot?
+                else if (xCount == 0)
+                {
+                    //No this, complex object => pointer in x0
+                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.POINTER_X0;
+                    xCount++;
+                }
+                else
+                {
+                    //Have a this, and a complex object => pointer in x1
+                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.POINTER_X1;
+                }
+            }
+            
+            //Finally: params themselves
+            foreach (var methodParameter in _method.Parameters)
+            {
+                var useV = methodParameter.ParameterType.ShouldBeInFloatingPointRegister();
+
+                var reg = useV ? "v" : "x";
+                var thisIdx = useV ? vCount++ : xCount++;
+                reg += thisIdx;
+                
+                if(thisIdx >= 8)
+                    continue; //TODO Stack Params.
+
+                var name = methodParameter.Name;
+                if (string.IsNullOrWhiteSpace(name))
+                    name = methodParameter.Name = $"cpp2il__autoParamName__idx_{vCount + xCount - 1}";
+                
+                var local = MakeLocal(methodParameter.ParameterType, name, reg).WithParameter(methodParameter);
                 FunctionArgumentLocals.Add(local);
             }
         }
@@ -295,6 +383,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             if (typeof(TInstruction) == typeof(Iced.Intel.Instruction))
                 return IsThereProbablyAnElseAtX86Version(conditionalJumpTarget);
+            if (typeof(TInstruction) == typeof(Arm64Instruction))
+                return false; //TODO
 
             throw new($"Not Implemented: {typeof(TInstruction)}");
         }
@@ -324,6 +414,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             if (typeof(TInstruction) == typeof(Iced.Intel.Instruction))
                 return GetEndOfElseBlockX86Version(ipOfFirstInstructionInElse);
+            if (typeof(TInstruction) == typeof(Arm64Instruction))
+                return 0; //TODO
 
             throw new($"Not Implemented: {typeof(TInstruction)}");
         }
@@ -438,6 +530,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             if (typeof(TInstruction) == typeof(Iced.Intel.Instruction))
                 return GetEndOfLoopWhichPossiblyStartsHereX86Version(instructionIp);
+            if (typeof(TInstruction) == typeof(Arm64Instruction))
+                return 0; //TODO
 
             throw new($"Not Implemented: {typeof(TInstruction)}");
         }

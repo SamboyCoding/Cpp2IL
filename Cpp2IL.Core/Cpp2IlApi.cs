@@ -369,6 +369,7 @@ namespace Cpp2IL.Core
                         {
                             InstructionSet.X86_32 or InstructionSet.X86_64 => new AsmAnalyzerX86(methodDefinition, methodStart, keyFunctionAddresses!),
                             InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, methodStart),
+                            InstructionSet.ARM64 => new AsmAnalyzerArmV8A(methodDefinition, methodStart),
                             _ => throw new UnsupportedInstructionSetException()
                         };
 

@@ -17,11 +17,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         public bool UnimportantComparison;
         public ulong EndOfLoopAddr;
 
-        protected AbstractComparisonAction(MethodAnalysis<T> context, T associatedInstruction) : base(context, associatedInstruction)
+        protected AbstractComparisonAction(MethodAnalysis<T> context, T associatedInstruction, bool skipSecond = false) : base(context, associatedInstruction)
         {
             ArgumentOne = ExtractArgument(context, associatedInstruction, 0, out var unimportant1, out ArgumentOneRegister);
-
-            ArgumentTwo = ExtractArgument(context, associatedInstruction, 1, out var unimportant2, out ArgumentTwoRegister);
 
             if (ArgumentOne is ConstantDefinition { Value: UnknownGlobalAddr globalAddr } cons && ArgumentTwo is LocalDefinition { Type: { }, KnownInitialValue: null } loc2)
             {
@@ -36,16 +34,22 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 }
             }
 
-            if (ArgumentTwo is ConstantDefinition { Value: UnknownGlobalAddr globalAddr2 } cons2 && ArgumentOne is LocalDefinition { Type: { }, KnownInitialValue: null } loc1)
+            var unimportant2 = false;
+            if (!skipSecond)
             {
-                try
+                ArgumentTwo = ExtractArgument(context, associatedInstruction, 1, out unimportant2, out ArgumentTwoRegister);
+
+                if (ArgumentTwo is ConstantDefinition { Value: UnknownGlobalAddr globalAddr2 } cons2 && ArgumentOne is LocalDefinition { Type: { }, KnownInitialValue: null } loc1)
                 {
-                    Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
-                    unimportant2 = false;
-                }
-                catch
-                {
-                    // ignored
+                    try
+                    {
+                        Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
+                        unimportant2 = false;
+                    }
+                    catch
+                    {
+                        // ignored
+                    }
                 }
             }
 
@@ -79,7 +83,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             var display1 = ArgumentOne?.ToString();
             var display2 = ArgumentTwo?.ToString();
 
-            //Only show the important [!] if this is an important comparison (i.e. not an il2cpp one)
+            if (display2 == null || display1 == display2)
+                return UnimportantComparison ? $"Compares {display1} against itself" : $"[!] Compares {display1} against itself";
+
+                //Only show the important [!] if this is an important comparison (i.e. not an il2cpp one)
             return UnimportantComparison ? $"Compares {display1} and {display2}" : $"[!] Compares {display1} and {display2}";
         }
         
@@ -92,7 +99,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             return ArgumentOneRegister == regName ? ArgumentOne : ArgumentTwoRegister == regName ? ArgumentTwo : null;
         }
 
-        protected abstract bool IsMemoryReferenceAnAbsolutePointer(T instruction);
+        protected abstract bool IsMemoryReferenceAnAbsolutePointer(T instruction, int operandIdx);
 
         protected abstract string GetRegisterName(T instruction, int opIdx);
 
@@ -103,6 +110,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         protected abstract ulong GetImmediateValue(T instruction, int operandIdx);
 
         protected abstract ComparisonOperandType GetOperandType(T instruction, int operandIdx);
+
+        protected abstract ulong GetMemoryPointer(T instruction, int operandIdx);
 
         protected IComparisonArgument? ExtractArgument(MethodAnalysis<T> context, T instruction, int operandIdx, out bool unimportant, out string? argumentRegister)
         {
@@ -134,7 +143,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 case ComparisonOperandType.MEMORY_ADDRESS_OR_OFFSET:
                     //Otherwise, memory of some sort.
 
-                    if (!IsMemoryReferenceAnAbsolutePointer(instruction))
+                    if (!IsMemoryReferenceAnAbsolutePointer(instruction, operandIdx))
                     {
                         //Non-absolute memory pointer - offset on a register
                         //Field/property/etc read.
@@ -210,13 +219,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
                     //This operand is a pointer to a location in memory
 
-                    if (LibCpp2IlMain.GetAnyGlobalByAddress(instructionMemoryOffset) is { } usage)
+                    var ptr = GetMemoryPointer(instruction, operandIdx);
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(ptr) is { } usage)
                         //Specifically, a metadata usage
                         return context.MakeConstant(typeof(MetadataUsage), usage);
 
                     //An unknown global address
                     unimportant = true;
-                    return context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(instructionMemoryOffset));
+                    return context.MakeConstant(typeof(UnknownGlobalAddr), new UnknownGlobalAddr(ptr));
             }
 
             return null;

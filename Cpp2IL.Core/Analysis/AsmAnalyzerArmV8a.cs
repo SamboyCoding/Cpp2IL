@@ -1,30 +1,29 @@
 ﻿#define DEBUG_PRINT_OPERAND_DATA
-
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Gee.External.Capstone;
-using Gee.External.Capstone.Arm;
+using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil;
 
 namespace Cpp2IL.Core.Analysis
 {
-    public class AsmAnalyzerArmV7 : AsmAnalyzerBase<ArmInstruction>
+    public partial class AsmAnalyzerArmV8A : AsmAnalyzerBase<Arm64Instruction>
     {
         private static List<ulong> _allKnownFunctionStarts;
 
-        static AsmAnalyzerArmV7()
+        static AsmAnalyzerArmV8A()
         {
             _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer).Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys).ToList();
             //Sort in ascending order
             _allKnownFunctionStarts.Sort();
         }
-        
-        private static List<ArmInstruction> DisassembleInstructions(MethodDefinition definition)
+
+        private static List<Arm64Instruction> DisassembleInstructions(MethodDefinition definition)
         {
             var baseAddress = definition.AsUnmanaged().MethodPointer;
-            
+
             //We can't use CppMethodBodyBytes to get the byte array, because ARMv7 doesn't have filler bytes like x86 does.
             //So we can't work out the end of the method.
             //But we can find the start of the next one!
@@ -32,22 +31,31 @@ namespace Cpp2IL.Core.Analysis
             var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(baseAddress);
             if (rawStartOfNextMethod < rawStart)
                 rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
-            
+
             var bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().Skip((int)rawStart).Take((int)(rawStartOfNextMethod - rawStart)).ToArray();
 
-            var disassembler = CapstoneDisassembler.CreateArmDisassembler(ArmDisassembleMode.Arm);
+            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
             disassembler.EnableInstructionDetails = true;
             disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
 
             return disassembler.Disassemble(bytes, (long)baseAddress).ToList();
         }
+        
+        private string FunctionArgumentDump;
 
-        public AsmAnalyzerArmV7(ulong methodPointer, IEnumerable<ArmInstruction> instructions) : base(methodPointer, instructions)
+        public AsmAnalyzerArmV8A(ulong methodPointer, IEnumerable<Arm64Instruction> instructions) : base(methodPointer, instructions)
         {
         }
 
-        public AsmAnalyzerArmV7(MethodDefinition definition, ulong methodPointer) : base(definition, methodPointer, DisassembleInstructions(definition))
+        public AsmAnalyzerArmV8A(MethodDefinition definition, ulong methodPointer) : base(definition, methodPointer, DisassembleInstructions(definition))
         {
+            var builder = new StringBuilder();
+            foreach (var (reg, operand) in Analysis.RegisterData)
+            {
+                builder.Append($"\t\t{operand} in {reg}\n");
+            }
+
+            FunctionArgumentDump = builder.ToString();
         }
 
         protected override bool FindInstructionWhichOverran(out int idx)
@@ -66,9 +74,15 @@ namespace Cpp2IL.Core.Analysis
         {
             var builder = new StringBuilder();
 
-            builder.Append($"Method: {MethodDefinition?.FullName}:\n");
+            builder.Append($"Method: {MethodDefinition?.FullName}:\n\n");
 
-            builder.Append("\tMethod Body (ARMv7 ASM):");
+            builder.Append($"\tReturn value uses ARM64 slot: {Analysis.Arm64ReturnValueLocation}\n");
+
+            builder.Append("\tFunction Parameter Dump:\n");
+
+            builder.Append(FunctionArgumentDump).Append('\n');
+
+            builder.Append("\tMethod Body (ARMv8a ASM):");
 
 #if DEBUG_PRINT_OPERAND_DATA
             builder.Append("  {T0}/R0 {T1}/R1 {T2}/R2 ||| MBase | MOffset | MIndex ||| Imm0 | Imm1 | Imm2");
@@ -84,7 +98,7 @@ namespace Cpp2IL.Core.Analysis
 #if DEBUG_PRINT_OPERAND_DATA
                 line.Append("\t\t; DEBUG: ");
                 line.Append("{").Append(instruction.Details.Operands.GetValueSafely(0)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(0)?.RegisterSafe()?.Name).Append(' ');
-                line.Append('{').Append(instruction.Details.Operands.GetValueSafely(1)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(1)?.RegisterSafe()?.Name);
+                line.Append('{').Append(instruction.Details.Operands.GetValueSafely(1)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(1)?.RegisterSafe()?.Name).Append(' ');
                 line.Append('{').Append(instruction.Details.Operands.GetValueSafely(2)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(2)?.RegisterSafe()?.Name);
 
                 line.Append(" ||| ");
@@ -106,11 +120,6 @@ namespace Cpp2IL.Core.Analysis
         public override void RunPostProcessors()
         {
             //no-op
-        }
-
-        protected override void PerformInstructionChecks(ArmInstruction instruction)
-        {
-            
         }
     }
 }

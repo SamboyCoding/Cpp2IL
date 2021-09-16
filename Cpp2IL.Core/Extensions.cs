@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Gee.External.Capstone.Arm;
+using Gee.External.Capstone.Arm64;
 using Iced.Intel;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
@@ -24,6 +25,7 @@ namespace Cpp2IL.Core
         public static bool IsJump(this Mnemonic mnemonic) => mnemonic is Mnemonic.Call or >= Mnemonic.Ja and <= Mnemonic.Js;
         public static bool IsConditionalJump(this Mnemonic mnemonic) => mnemonic.IsJump() && mnemonic != Mnemonic.Jmp && mnemonic != Mnemonic.Call;
 
+        //Arm Extensions
         public static ArmRegister? RegisterSafe(this ArmOperand operand) => operand.Type != ArmOperandType.Register ? null : operand.Register;
         public static bool IsImmediate(this ArmOperand operand) => operand.Type is ArmOperandType.CImmediate or ArmOperandType.Immediate or ArmOperandType.PImmediate;
         public static int ImmediateSafe(this ArmOperand operand) => operand.IsImmediate() ? operand.Immediate : 0;
@@ -32,6 +34,16 @@ namespace Cpp2IL.Core
         public static ArmRegister? MemoryBase(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Base;
         public static ArmRegister? MemoryIndex(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Index;
         public static int MemoryOffset(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Displacement ?? 0;
+        
+        //Arm64 Extensions
+        public static Arm64Register? RegisterSafe(this Arm64Operand operand) => operand.Type != Arm64OperandType.Register ? null : operand.Register;
+        public static bool IsImmediate(this Arm64Operand operand) => operand.Type is Arm64OperandType.CImmediate or Arm64OperandType.Immediate;
+        public static long ImmediateSafe(this Arm64Operand operand) => operand.IsImmediate() ? operand.Immediate : 0;
+        private static Arm64Operand? MemoryOperand(Arm64Instruction instruction) => instruction.Details.Operands.FirstOrDefault(a => a.Type == Arm64OperandType.Memory);
+
+        public static Arm64Register? MemoryBase(this Arm64Instruction instruction) => MemoryOperand(instruction)?.Memory.Base;
+        public static Arm64Register? MemoryIndex(this Arm64Instruction instruction) => MemoryOperand(instruction)?.Memory.Index;
+        public static int MemoryOffset(this Arm64Instruction instruction) => MemoryOperand(instruction)?.Memory.Displacement ?? 0;
 
         public static Stack<T> Clone<T>(this Stack<T> original)
         {

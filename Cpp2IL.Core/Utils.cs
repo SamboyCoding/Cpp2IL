@@ -7,6 +7,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Gee.External.Capstone.Arm;
+using Gee.External.Capstone.Arm64;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
@@ -43,22 +44,22 @@ namespace Cpp2IL.Core
 
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
         {
-            {"Byte", 1},
-            {"SByte", 1},
-            {"Boolean", 1},
-            {"Int16", 2},
-            {"UInt16", 2},
-            {"Char", 2},
-            {"Int32", 4},
-            {"UInt32", 4},
-            {"Single", 4},
-            {"Int64", 8},
-            {"UInt64", 8},
-            {"Double", 8},
-            {"IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL},
-            {"UIntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL},
+            { "Byte", 1 },
+            { "SByte", 1 },
+            { "Boolean", 1 },
+            { "Int16", 2 },
+            { "UInt16", 2 },
+            { "Char", 2 },
+            { "Int32", 4 },
+            { "UInt32", 4 },
+            { "Single", 4 },
+            { "Int64", 8 },
+            { "UInt64", 8 },
+            { "Double", 8 },
+            { "IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
+            { "UIntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
         };
-        
+
         internal static void Reset()
         {
             primitiveTypeMappings.Clear();
@@ -83,14 +84,14 @@ namespace Cpp2IL.Core
 
             primitiveTypeMappings = new Dictionary<string, TypeDefinition>
             {
-                {"string", StringReference},
-                {"long", Int64Reference},
-                {"float", SingleReference},
-                {"double", DoubleReference},
-                {"int", Int32Reference},
-                {"bool", BooleanReference},
-                {"uint", UInt32Reference},
-                {"ulong", UInt64Reference}
+                { "string", StringReference },
+                { "long", Int64Reference },
+                { "float", SingleReference },
+                { "double", DoubleReference },
+                { "int", Int32Reference },
+                { "bool", BooleanReference },
+                { "uint", UInt32Reference },
+                { "ulong", UInt64Reference }
             };
         }
 
@@ -139,7 +140,7 @@ namespace Cpp2IL.Core
             {
                 if (managedType.IsGenericInstance)
                 {
-                    return AreManagedAndCppTypesEqual(cppType, ((GenericInstanceType) managedType).ElementType);
+                    return AreManagedAndCppTypesEqual(cppType, ((GenericInstanceType)managedType).ElementType);
                 }
 
                 return cppType.baseType.FullName == managedType.FullName;
@@ -178,7 +179,7 @@ namespace Cpp2IL.Core
 
             if (moduleDefinition == null)
                 throw new Exception($"Couldn't get a module for {importInto}. Its module is {importInto.Module}, its declaring type is {importInto.DeclaringType}, and its declaring type's module is {importInto.DeclaringType?.Module}");
-            
+
             switch (toImport.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
@@ -243,7 +244,7 @@ namespace Cpp2IL.Core
                     else
                     {
                         //V27 - type indexes are pointers now. 
-                        var type = theDll.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
+                        var type = theDll.ReadClassAtVirtualAddress<Il2CppType>((ulong)genericClass.typeDefinitionIndex);
                         type.Init();
                         typeDefinition = ImportTypeInto(importInto, type).Resolve();
                     }
@@ -253,7 +254,7 @@ namespace Cpp2IL.Core
                     ulong[] pointers;
 
                     lock (_pointerReadLock)
-                        pointers = theDll.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
+                        pointers = theDll.GetPointers(genericInst.pointerStart, (long)genericInst.pointerCount);
 
                     foreach (var pointer in pointers)
                     {
@@ -288,32 +289,32 @@ namespace Cpp2IL.Core
                     if (importInto is MethodDefinition methodDefinition)
                     {
                         genericParameter = new GenericParameter(genericName, methodDefinition.DeclaringType).WithFlags(param.flags);
-                        
+
                         SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
-                        
+
                         param.ConstraintTypes!
                             .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
                             .ToList()
                             .ForEach(genericParameter.Constraints.Add);
-                        
+
                         methodDefinition.GenericParameters.Add(genericParameter);
                         methodDefinition.DeclaringType.GenericParameters.Add(genericParameter);
                         return genericParameter;
                     }
 
-                    var typeDefinition = (TypeDefinition) importInto;
+                    var typeDefinition = (TypeDefinition)importInto;
 
                     genericParameter = new GenericParameter(genericName, typeDefinition).WithFlags(param.flags);
-                    
+
                     SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
-                    
+
                     typeDefinition.GenericParameters.Add(genericParameter);
-                    
+
                     param.ConstraintTypes!
                         .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
                         .ToList()
                         .ForEach(genericParameter.Constraints.Add);
-                    
+
                     return genericParameter;
                 }
 
@@ -325,15 +326,15 @@ namespace Cpp2IL.Core
                         return genericParameter;
                     }
 
-                    var methodDefinition = (MethodDefinition) importInto;
+                    var methodDefinition = (MethodDefinition)importInto;
                     var param = metadata.genericParameters[toImport.data.genericParameterIndex];
                     var genericName = metadata.GetStringFromIndex(param.nameIndex);
                     genericParameter = new GenericParameter(genericName, methodDefinition).WithFlags(param.flags);
-                    
+
                     SharedState.GenericParamsByIndex.Add(toImport.data.genericParameterIndex, genericParameter);
 
                     methodDefinition.GenericParameters.Add(genericParameter);
-                    
+
                     param.ConstraintTypes!
                         .Select(c => new GenericParameterConstraint(ImportTypeInto(importInto, c)))
                         .ToList()
@@ -478,7 +479,8 @@ namespace Cpp2IL.Core
                 {
                     return literal.ToString();
                 }
-            } else if (c == '\0')
+            }
+            else if (c == '\0')
                 return string.Empty;
 
             return null;
@@ -503,14 +505,14 @@ namespace Cpp2IL.Core
             if (type.IsValueType && !type.IsPrimitive && type.Resolve() is { } def)
             {
                 //Struct - sum instance fields, including any nested structs.
-                return (ulong) def.Fields
+                return (ulong)def.Fields
                     .Where(f => !f.IsStatic)
                     .Select(f => f.FieldType)
                     .Select(reference =>
                         reference == type
                             ? throw new Exception($"Cannot get size of a self-referencing value type: {type} has field of type {reference}")
                             : GetSizeOfObject(reference))
-                    .Select(u => (long) u)
+                    .Select(u => (long)u)
                     .Sum();
             }
 
@@ -569,7 +571,8 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static readonly ConcurrentDictionary<Register, string> CachedRegNamesNew = new ConcurrentDictionary<Register, string>();
+        private static readonly ConcurrentDictionary<Register, string> CachedX86RegNamesNew = new();
+        private static readonly ConcurrentDictionary<Arm64RegisterId, string> CachedArm64RegNamesNew = new();
 
         public static string GetRegisterNameNew(Register register)
         {
@@ -578,12 +581,83 @@ namespace Cpp2IL.Core
             if (!register.IsVectorRegister())
                 return register.GetFullRegister().ToString().ToLowerInvariant();
 
-            if (!CachedRegNamesNew.TryGetValue(register, out var ret))
+            if (!CachedX86RegNamesNew.TryGetValue(register, out var ret))
             {
                 ret = UpscaleRegisters(register.ToString().ToLower());
-                CachedRegNamesNew[register] = ret;
+                CachedX86RegNamesNew[register] = ret;
             }
 
+            return ret;
+        }
+
+        public static string GetRegisterNameNew(Arm64RegisterId registerId)
+        {
+            var key = registerId;
+            if (registerId == Arm64RegisterId.Invalid)
+                return "";
+
+            if (CachedArm64RegNamesNew.TryGetValue(key, out var ret))
+                return ret;
+
+            //General purpose registers: X0-X30 are 64-bit registers. Can be accessed via W0-W30 to only take lower 32-bits. These need upscaling.
+            //Vector registers: V0-V31 are 128-bit vector registers. Aliased to Q0-Q31. D0-D31 are the lower half (64 bits), S0-S31 are the lower half of that (32 bits)
+            //H0-H31 are the lower half of *that* (16 bits), and b0-b31 are the lowest 8 bits of the vector registers. All of these should be upscaled to V registers.
+
+            //Upscale W registers to X.
+            if (registerId is >= Arm64RegisterId.ARM64_REG_W0 and <= Arm64RegisterId.ARM64_REG_W30)
+                registerId = (registerId - Arm64RegisterId.ARM64_REG_W0) + Arm64RegisterId.ARM64_REG_X0;
+
+            if (registerId is >= Arm64RegisterId.ARM64_REG_X0 and <= Arm64RegisterId.ARM64_REG_X28)
+            {
+                ret = $"x{registerId - Arm64RegisterId.ARM64_REG_X0}";
+                CachedArm64RegNamesNew[key] = ret;
+                return ret;
+            }
+
+            if (registerId is Arm64RegisterId.ARM64_REG_FP)
+            {
+                CachedArm64RegNamesNew[key] = "fp";
+                return "fp";
+            }
+
+            if (registerId is Arm64RegisterId.ARM64_REG_LR)
+            {
+                CachedArm64RegNamesNew[key] = "lr";
+                return "lr";
+            }
+
+            if (registerId is Arm64RegisterId.ARM64_REG_WZR or Arm64RegisterId.ARM64_REG_XZR)
+            {
+                //Zero register - upscale to x variant
+                CachedArm64RegNamesNew[key] = "xzr";
+                return "xzr";
+            }
+
+            //Upscale vector registers.
+            //One by one.
+
+            //B to V
+            if (registerId is >= Arm64RegisterId.ARM64_REG_B0 and <= Arm64RegisterId.ARM64_REG_B31)
+                registerId = (registerId - Arm64RegisterId.ARM64_REG_B0) + Arm64RegisterId.ARM64_REG_V0;
+
+            //H to V
+            if (registerId is >= Arm64RegisterId.ARM64_REG_H0 and <= Arm64RegisterId.ARM64_REG_H31)
+                registerId = (registerId - Arm64RegisterId.ARM64_REG_H0) + Arm64RegisterId.ARM64_REG_V0;
+
+            //S to V
+            if (registerId is >= Arm64RegisterId.ARM64_REG_B0 and <= Arm64RegisterId.ARM64_REG_B31)
+                registerId = (registerId - Arm64RegisterId.ARM64_REG_B0) + Arm64RegisterId.ARM64_REG_V0;
+
+            //D to V
+            if (registerId is >= Arm64RegisterId.ARM64_REG_D0 and <= Arm64RegisterId.ARM64_REG_D31)
+                registerId = (registerId - Arm64RegisterId.ARM64_REG_D0) + Arm64RegisterId.ARM64_REG_V0;
+
+            //Q to V
+            if (registerId is >= Arm64RegisterId.ARM64_REG_Q0 and <= Arm64RegisterId.ARM64_REG_Q31)
+                registerId = (registerId - Arm64RegisterId.ARM64_REG_Q0) + Arm64RegisterId.ARM64_REG_V0;
+
+            ret = $"v{registerId - Arm64RegisterId.ARM64_REG_V0}";
+            CachedArm64RegNamesNew[key] = ret;
             return ret;
         }
 
@@ -596,9 +670,9 @@ namespace Cpp2IL.Core
 
             if (offsetInVtable > 0)
             {
-                var slotNum = (decimal) offsetInVtable / 0x10;
+                var slotNum = (decimal)offsetInVtable / 0x10;
 
-                return (int) slotNum;
+                return (int)slotNum;
             }
 
             return -1;
@@ -620,7 +694,7 @@ namespace Cpp2IL.Core
 
             while (con)
             {
-                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong) rawAddr));
+                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong)rawAddr));
 
                 ret = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary.is32Bit, buff.ToArray(), functionStart);
 
@@ -647,7 +721,7 @@ namespace Cpp2IL.Core
         public static object GetNumericConstant(ulong addr, TypeReference type)
         {
             var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
-            var bytes = LibCpp2IlMain.Binary.ReadByteArrayAtRawAddress(rawAddr, (int) GetSizeOfObject(type));
+            var bytes = LibCpp2IlMain.Binary.ReadByteArrayAtRawAddress(rawAddr, (int)GetSizeOfObject(type));
 
             if (type == Int32Reference)
                 return BitConverter.ToInt32(bytes, 0);
@@ -701,7 +775,7 @@ namespace Cpp2IL.Core
 
                 if (owner.GenericParameters.FirstOrDefault(a => a.Name == typeData.variableGenericParamName) is { } gp)
                     return gp;
-                
+
                 foreach (var extraProvider in extra)
                 {
                     if (extraProvider?.GenericParameters.FirstOrDefault(a => a.Name == typeData.variableGenericParamName) is { } gp2)
@@ -763,7 +837,7 @@ namespace Cpp2IL.Core
             ret = 0;
             try
             {
-                ret = (ulong) CoerceValue(value, UInt64Reference)!;
+                ret = (ulong)CoerceValue(value, UInt64Reference)!;
                 return true;
             }
             catch (Exception)
@@ -774,12 +848,12 @@ namespace Cpp2IL.Core
 
         public static object? CoerceValue(object value, TypeReference coerceToType)
         {
-            if (coerceToType is ArrayType) 
+            if (coerceToType is ArrayType)
                 throw new Exception($"Can't coerce {value} to an array type {coerceToType}");
 
             if (coerceToType.Resolve() is { IsEnum: true } enumType)
                 coerceToType = enumType.GetEnumUnderlyingType();
-            
+
             //Definitely both primitive
             switch (coerceToType.Name)
             {
@@ -792,8 +866,8 @@ namespace Cpp2IL.Core
                     return Convert.ToSByte(value);
                 case "Byte":
                     if (value is ulong uValue)
-                        return (byte) (int) uValue;
-                    
+                        return (byte)(int)uValue;
+
                     return Convert.ToByte(value);
                 case "Int16":
                     return Convert.ToInt16(value);
@@ -801,9 +875,9 @@ namespace Cpp2IL.Core
                     return Convert.ToUInt16(value);
                 case "Int32":
                     if (value is uint u)
-                        return (int) u;
+                        return (int)u;
                     if (value is ulong ul && ul <= uint.MaxValue)
-                        return BitConverter.ToInt32(BitConverter.GetBytes((uint) ul), 0);
+                        return BitConverter.ToInt32(BitConverter.GetBytes((uint)ul), 0);
                     return Convert.ToInt32(value);
                 case "UInt32":
                     return Convert.ToUInt32(value);
@@ -814,7 +888,7 @@ namespace Cpp2IL.Core
                 case "String":
                     if (value is string)
                         return value;
-                    
+
                     if (Convert.ToInt32(value) == 0)
                         return null;
                     break; //Fail through to failure below.
@@ -850,7 +924,7 @@ namespace Cpp2IL.Core
                 destinationConstant.Value = BitConverter.ToSingle(newValue, 0);
             else if (targetType.Name == "Double")
                 destinationConstant.Value = BitConverter.ToDouble(newValue, 0);
-            else if(allowByteArray)
+            else if (allowByteArray)
                 destinationConstant.Value = newValue;
             else
                 return;
@@ -860,26 +934,28 @@ namespace Cpp2IL.Core
 
         public static ulong GetAddressOfInstruction<T>(T t)
         {
-            if (t == null) 
+            if (t == null)
                 throw new ArgumentNullException(nameof(t));
-            
+
             return t switch
             {
                 Iced.Intel.Instruction x86 => x86.IP,
                 ArmInstruction arm => (ulong)arm.Address,
+                Arm64Instruction arm64 => (ulong)arm64.Address,
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
         }
 
         public static ulong GetAddressOfNextInstruction<T>(T t)
         {
-            if (t == null) 
+            if (t == null)
                 throw new ArgumentNullException(nameof(t));
-            
+
             return t switch
             {
                 Iced.Intel.Instruction x86 => x86.NextIP,
                 ArmInstruction arm => (ulong)(arm.Address + 4),
+                Arm64Instruction arm64 => (ulong)(arm64.Address + 4),
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
         }

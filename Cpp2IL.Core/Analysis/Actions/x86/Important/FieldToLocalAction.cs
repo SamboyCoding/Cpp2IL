@@ -21,14 +21,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if (readFrom is ConstantDefinition {Value: NewSafeCastResult<Instruction> result})
             {
                 readFromType = result.castTo;
-                _readFrom = result.original;
-                RegisterUsedLocal(_readFrom);
+                ReadFrom = result.original;
+                RegisterUsedLocal(ReadFrom);
             }
             else if(readFrom is LocalDefinition {IsMethodInfoParam: false} l && l.Type?.Resolve() != null)
             {
-                _readFrom = l;
-                readFromType = _readFrom!.Type!;
-                RegisterUsedLocal(_readFrom);
+                ReadFrom = l;
+                readFromType = ReadFrom!.Type!;
+                RegisterUsedLocal(ReadFrom);
             } else
             {
                 AddComment($"This shouldn't be a field read? Op in reg {sourceRegName} is {context.GetOperandInRegister(sourceRegName)}, offset is {sourceFieldOffset} (0x{sourceFieldOffset:X})");

@@ -8,31 +8,31 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
     {
         public FieldUtils.FieldBeingAccessedData? FieldRead;
         public LocalDefinition? LocalWritten;
-        protected LocalDefinition? _readFrom;
+        protected LocalDefinition? ReadFrom;
         
-        protected AbstractFieldReadAction(MethodAnalysis<T> context, T associatedInstruction) : base(context, associatedInstruction)
+        protected AbstractFieldReadAction(MethodAnalysis<T> context, T instruction) : base(context, instruction)
         {
         }
         
         public override string ToPsuedoCode()
         {
-            return $"{LocalWritten?.Type?.FullName} {LocalWritten?.Name} = {_readFrom?.Name}.{FieldRead}";
+            return $"{LocalWritten?.Type?.FullName} {LocalWritten?.Name} = {ReadFrom?.Name}.{FieldRead}";
         }
 
         public override string ToTextSummary()
         {
-            return $"[!] Reads field {FieldRead} from {_readFrom} and stores in a new local {LocalWritten}\n";
+            return $"[!] Reads field {FieldRead} from {ReadFrom} and stores in a new local {LocalWritten}\n";
         }
         
         public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {
-            if (LocalWritten == null || _readFrom == null || FieldRead == null)
+            if (LocalWritten == null || ReadFrom == null || FieldRead == null)
                 throw new TaintedInstructionException();
             
             var ret = new List<Mono.Cecil.Cil.Instruction>();
 
             //Load object
-            ret.AddRange(_readFrom.GetILToLoad(context, processor));
+            ret.AddRange(ReadFrom.GetILToLoad(context, processor));
 
             //Access field
             ret.AddRange(FieldRead.GetILToLoad(processor));

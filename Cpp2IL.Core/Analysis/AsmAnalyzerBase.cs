@@ -51,6 +51,8 @@ namespace Cpp2IL.Core.Analysis
             MethodDefinition = definition;
             MethodDefinition.Body = new(MethodDefinition);
             IsGenuineMethod = true;
+            Analysis = new(definition, methodPointer, MethodEnd, _instructions);
+            Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 
         public StringBuilder GetWordyFunctionality()

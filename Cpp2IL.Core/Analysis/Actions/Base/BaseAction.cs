@@ -18,10 +18,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         protected bool is32Bit => LibCpp2IlMain.Binary!.is32Bit;
         
-        public BaseAction(MethodAnalysis<T> context, T associatedInstruction)
+        public BaseAction(MethodAnalysis<T> context, T instruction)
         {
             IndentLevel = context.IndentLevel;
-            AssociatedInstruction = associatedInstruction;
+            AssociatedInstruction = instruction;
         }
 
         public abstract Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor);
