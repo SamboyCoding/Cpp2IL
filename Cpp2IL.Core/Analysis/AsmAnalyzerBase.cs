@@ -11,7 +11,7 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis
 {
-    public abstract class AsmAnalyzerBase<T>
+    public abstract class AsmAnalyzerBase<T> : IAsmAnalyzer
     {
         public IList<T> Instructions { get; }
         protected MethodDefinition? MethodDefinition;
@@ -53,7 +53,7 @@ namespace Cpp2IL.Core.Analysis
             IsGenuineMethod = true;
         }
 
-        internal StringBuilder GetWordyFunctionality()
+        public StringBuilder GetWordyFunctionality()
         {
             var builder = new StringBuilder();
 
@@ -65,7 +65,7 @@ namespace Cpp2IL.Core.Analysis
             return builder;
         }
 
-        internal StringBuilder GetPseudocode()
+        public StringBuilder GetPseudocode()
         {
             var builder = new StringBuilder();
 
@@ -91,7 +91,7 @@ namespace Cpp2IL.Core.Analysis
             return builder;
         }
 
-        internal StringBuilder BuildILToString()
+        public StringBuilder BuildILToString()
         {
             var builder = new StringBuilder();
 
@@ -215,7 +215,7 @@ namespace Cpp2IL.Core.Analysis
             return builder;
         }
 
-        internal void BuildMethodFunctionality()
+        public void BuildMethodFunctionality()
         {
             _methodFunctionality.Append($"\t\tEnd of function at 0x{MethodEnd:X}\n\t\tAbsolute End is at 0x{Analysis.AbsoluteMethodEnd:X}\n");
 
@@ -298,7 +298,7 @@ namespace Cpp2IL.Core.Analysis
             Analysis.AddParameter(new(name, ParameterAttributes.None, type));
         }
 
-        internal StringBuilder GetFullDumpNoIL()
+        public StringBuilder GetFullDumpNoIL()
         {
             var builder = new StringBuilder();
 
@@ -313,7 +313,7 @@ namespace Cpp2IL.Core.Analysis
         /// Performs analysis in order to populate the Action list. Doesn't generate any text. 
         /// </summary>
         /// <exception cref="AnalysisExceptionRaisedException">If an unhandled exception occurs while analyzing.</exception>
-        internal void AnalyzeMethod()
+        public void AnalyzeMethod()
         {
             //Main instruction loop
             foreach (var instruction in _instructions)
@@ -336,7 +336,7 @@ namespace Cpp2IL.Core.Analysis
 
         internal abstract StringBuilder GetAssemblyDump();
 
-        internal abstract void RunPostProcessors();
+        public abstract void RunPostProcessors();
 
         protected abstract void PerformInstructionChecks(T instruction);
     }

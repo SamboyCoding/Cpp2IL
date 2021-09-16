@@ -95,7 +95,7 @@ namespace Cpp2IL.Core.Analysis
             return builder;
         }
 
-        internal override void RunPostProcessors()
+        public override void RunPostProcessors()
         {
             new RemovedUnusedLocalsPostProcessor<Instruction>().PostProcess(Analysis, MethodDefinition!);
             new RenameLocalsPostProcessor().PostProcess(Analysis, MethodDefinition!);

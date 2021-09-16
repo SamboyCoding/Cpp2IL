@@ -143,7 +143,7 @@ namespace LibCpp2IL.Metadata
                         break;
                     }
 
-                    if (b == 0xCC && bytes.Count > 0 && bytes.Last() == 0xc3) break;
+                    if (b == 0xCC && bytes.Count > 0 && bytes[^1] == 0xc3) break;
                     bytes.Add(b);
                     offset++;
                 }

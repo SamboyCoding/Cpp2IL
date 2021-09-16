@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Gee.External.Capstone.Arm;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
@@ -865,6 +866,7 @@ namespace Cpp2IL.Core
             return t switch
             {
                 Iced.Intel.Instruction x86 => x86.IP,
+                ArmInstruction arm => (ulong)arm.Address,
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
         }
@@ -877,6 +879,7 @@ namespace Cpp2IL.Core
             return t switch
             {
                 Iced.Intel.Instruction x86 => x86.NextIP,
+                ArmInstruction arm => (ulong)(arm.Address + 4),
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
         }

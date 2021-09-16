@@ -291,11 +291,8 @@ namespace Cpp2IL.Core
             if (assembly == null)
                 throw new ArgumentNullException(nameof(assembly));
 
-            if (keyFunctionAddresses == null)
+            if (keyFunctionAddresses == null && LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64)
                 throw new ArgumentNullException(nameof(keyFunctionAddresses));
-
-            if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_32 && LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.X86_64)
-                throw new UnsupportedInstructionSetException();
 
             AsmAnalyzerX86.FAILED_METHODS = 0;
             AsmAnalyzerX86.SUCCESSFUL_METHODS = 0;
@@ -368,7 +365,12 @@ namespace Cpp2IL.Core
                             //No body
                             continue;
 
-                        var dumper = new AsmAnalyzerX86(methodDefinition, methodStart, keyFunctionAddresses!);
+                        IAsmAnalyzer dumper = LibCpp2IlMain.Binary?.InstructionSet switch
+                        {
+                            InstructionSet.X86_32 or InstructionSet.X86_64 => new AsmAnalyzerX86(methodDefinition, methodStart, keyFunctionAddresses!),
+                            InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, methodStart),
+                            _ => throw new UnsupportedInstructionSetException()
+                        };
 
                         dumper.AnalyzeMethod();
                         dumper.RunPostProcessors();

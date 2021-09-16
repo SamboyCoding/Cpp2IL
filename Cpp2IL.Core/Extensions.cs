@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using Gee.External.Capstone.Arm;
 using Iced.Intel;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
@@ -22,6 +23,16 @@ namespace Cpp2IL.Core
         
         public static bool IsJump(this Mnemonic mnemonic) => mnemonic is Mnemonic.Call or >= Mnemonic.Ja and <= Mnemonic.Js;
         public static bool IsConditionalJump(this Mnemonic mnemonic) => mnemonic.IsJump() && mnemonic != Mnemonic.Jmp && mnemonic != Mnemonic.Call;
+
+        public static ArmRegister? RegisterSafe(this ArmOperand operand) => operand.Type != ArmOperandType.Register ? null : operand.Register;
+        public static bool IsImmediate(this ArmOperand operand) => operand.Type is ArmOperandType.CImmediate or ArmOperandType.Immediate or ArmOperandType.PImmediate;
+        public static int ImmediateSafe(this ArmOperand operand) => operand.IsImmediate() ? operand.Immediate : 0;
+        private static ArmOperand? MemoryOperand(ArmInstruction instruction) => instruction.Details.Operands.FirstOrDefault(a => a.Type == ArmOperandType.Memory);
+
+        public static ArmRegister? MemoryBase(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Base;
+        public static ArmRegister? MemoryIndex(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Index;
+        public static int MemoryOffset(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Displacement ?? 0;
+
         public static Stack<T> Clone<T>(this Stack<T> original)
         {
             var arr = new T[original.Count];
@@ -116,6 +127,14 @@ namespace Cpp2IL.Core
         public static T? GetValueSafely<T>(this Collection<T> arr, int i) where T : class
         {
             if (i >= arr.Count)
+                return null;
+
+            return arr[i];
+        }
+        
+        public static T? GetValueSafely<T>(this T[] arr, int i) where T : class
+        {
+            if (i >= arr.Length)
                 return null;
 
             return arr[i];

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
+using Cpp2IL.Core.Exceptions;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -72,8 +73,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
 
             //Can't handle params - we don't have any - but can populate reg list if needed.
-            if (!LibCpp2IlMain.Binary!.is32Bit)
-                _parameterDestRegList = new List<string> { "rcx", "rdx", "r8", "r9" };
+            if (LibCpp2IlMain.Binary!.InstructionSet == InstructionSet.X86_64)
+                _parameterDestRegList = new() { "rcx", "rdx", "r8", "r9" };
         }
 
         internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, IList<TInstruction> allInstructions)
@@ -87,9 +88,14 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             var args = method.Parameters.ToList();
             var haveHandledMethodInfoArg = false;
             //Set up parameters in registers & as locals.
-            if (!LibCpp2IlMain.Binary!.is32Bit)
+            if (LibCpp2IlMain.Binary!.InstructionSet != InstructionSet.X86_32)
             {
-                _parameterDestRegList = new List<string> { "rcx", "rdx", "r8", "r9" };
+                _parameterDestRegList = LibCpp2IlMain.Binary.InstructionSet switch
+                {
+                    InstructionSet.X86_64 => new() { "rcx", "rdx", "r8", "r9" },
+                    InstructionSet.ARM32 => new() {"r0", "r1", "r2", "r3"},
+                    _ => throw new UnsupportedInstructionSetException(),
+                };
 
                 if (!method.IsStatic)
                 {
