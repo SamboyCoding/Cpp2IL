@@ -88,9 +88,6 @@ namespace Cpp2IL.Core.Analysis
                 line.Append(" ||| ").Append(instruction.Details.Operands.GetValueSafely(0)?.ImmediateSafe().ToString() ?? "N/A").Append(" | ").Append(instruction.Details.Operands.GetValueSafely(1)?.ImmediateSafe().ToString() ?? "N/A");
 #endif
 
-                //I'm doing this here because it saves a bunch of effort later. Upscale all registers from 32 to 64-bit accessors. It's not correct, but it's simpler.
-                // line = Utils.UpscaleRegisters(line);
-
                 builder.Append("\t\t").Append(line); //write the current disassembled instruction to the type dump
 
                 builder.Append('\n');
