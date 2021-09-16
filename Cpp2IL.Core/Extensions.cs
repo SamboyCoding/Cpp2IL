@@ -128,6 +128,24 @@ namespace Cpp2IL.Core
         }
         
         [return: NotNullIfNotNull("managed")]
+        public static Il2CppFieldDefinition? AsUnmanaged(this FieldDefinition? managed)
+        {
+            if (managed == null)
+                return null;
+
+            return SharedState.ManagedToUnmanagedFields[managed];
+        }
+        
+        [return: NotNullIfNotNull("unmanaged")]
+        public static FieldDefinition? AsManaged(this Il2CppFieldDefinition? unmanaged)
+        {
+            if (unmanaged == null)
+                return null;
+
+            return SharedState.UnmanagedToManagedFields[unmanaged];
+        }
+        
+        [return: NotNullIfNotNull("managed")]
         public static Il2CppMethodDefinition? AsUnmanaged(this MethodDefinition? managed)
         {
             if (managed == null)

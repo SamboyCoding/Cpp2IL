@@ -191,15 +191,25 @@ namespace Cpp2IL.Core
             return Assemblies;
         }
 
-        public static KeyFunctionAddresses ScanForKeyFunctionAddresses()
+        public static BaseKeyFunctionAddresses ScanForKeyFunctionAddresses()
         {
             CheckLibInitialized();
 
-            return KeyFunctionAddresses.Find();
+            BaseKeyFunctionAddresses keyFunctionAddresses = LibCpp2IlMain.Binary!.InstructionSet switch
+            {
+                InstructionSet.X86_32 => new X86KeyFunctionAddresses(),
+                InstructionSet.X86_64 => new X86KeyFunctionAddresses(),
+                InstructionSet.ARM64 => new Arm64KeyFunctionAddresses(),
+                InstructionSet.ARM32 => throw new UnsupportedInstructionSetException(), //todo
+                _ => throw new ArgumentOutOfRangeException()
+            };
+
+            keyFunctionAddresses.Find();
+            return keyFunctionAddresses;
         }
 
         [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed")]
-        public static void RunAttributeRestorationForAllAssemblies(KeyFunctionAddresses? keyFunctionAddresses = null, bool parallel = true)
+        public static void RunAttributeRestorationForAllAssemblies(BaseKeyFunctionAddresses? keyFunctionAddresses = null, bool parallel = true)
         {
             CheckLibInitialized();
 
@@ -215,7 +225,7 @@ namespace Cpp2IL.Core
             }).ToList(); //Force full evaluation
         }
 
-        public static void RunAttributeRestorationForAssembly(AssemblyDefinition assembly, KeyFunctionAddresses? keyFunctionAddresses = null)
+        public static void RunAttributeRestorationForAssembly(AssemblyDefinition assembly, BaseKeyFunctionAddresses? keyFunctionAddresses = null)
         {
             CheckLibInitialized();
 
@@ -284,7 +294,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, KeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
+        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
         {
             CheckLibInitialized();
 
@@ -368,8 +378,8 @@ namespace Cpp2IL.Core
                         IAsmAnalyzer dumper = LibCpp2IlMain.Binary?.InstructionSet switch
                         {
                             InstructionSet.X86_32 or InstructionSet.X86_64 => new AsmAnalyzerX86(methodDefinition, methodStart, keyFunctionAddresses!),
-                            InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, methodStart),
-                            InstructionSet.ARM64 => new AsmAnalyzerArmV8A(methodDefinition, methodStart),
+                            InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, methodStart, keyFunctionAddresses!),
+                            InstructionSet.ARM64 => new AsmAnalyzerArmV8A(methodDefinition, methodStart, keyFunctionAddresses!),
                             _ => throw new UnsupportedInstructionSetException()
                         };
 

@@ -80,7 +80,7 @@ namespace Cpp2IL.Core
             Initialize();
         }
 
-        internal static void ApplyCustomAttributesToAllTypesInAssembly(AssemblyDefinition assemblyDefinition, KeyFunctionAddresses? keyFunctionAddresses)
+        internal static void ApplyCustomAttributesToAllTypesInAssembly(AssemblyDefinition assemblyDefinition, BaseKeyFunctionAddresses? keyFunctionAddresses)
         {
             var imageDef = SharedState.ManagedToUnmanagedAssemblies[assemblyDefinition];
 
@@ -88,7 +88,7 @@ namespace Cpp2IL.Core
                 RestoreAttributesInType(imageDef, typeDef, keyFunctionAddresses);
         }
 
-        private static void RestoreAttributesInType(Il2CppImageDefinition imageDef, TypeDefinition typeDefinition, KeyFunctionAddresses? keyFunctionAddresses)
+        private static void RestoreAttributesInType(Il2CppImageDefinition imageDef, TypeDefinition typeDefinition, BaseKeyFunctionAddresses? keyFunctionAddresses)
         {
             var typeDef = SharedState.ManagedToUnmanagedTypes[typeDefinition];
 
@@ -130,7 +130,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, KeyFunctionAddresses? keyFunctionAddresses, string warningName)
+        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, BaseKeyFunctionAddresses? keyFunctionAddresses, string warningName)
         {
             var attributes = new List<CustomAttribute>();
 
@@ -162,7 +162,7 @@ namespace Cpp2IL.Core
                 //No need to run analysis, so don't
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, false);
 
-            if (keyFunctionAddresses == null)
+            if (keyFunctionAddresses == null || LibCpp2IlMain.Binary!.InstructionSet is not InstructionSet.X86_32 or InstructionSet.X86_64)
                 //Analysis isn't yet supported for ARM.
                 //So just generate those which can be generated without params.
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, true);
@@ -327,7 +327,7 @@ namespace Cpp2IL.Core
             return ca;
         }
 
-        private static List<BaseAction<Instruction>> GetActionsPerformedByGenerator(KeyFunctionAddresses? keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
+        private static List<BaseAction<Instruction>> GetActionsPerformedByGenerator(BaseKeyFunctionAddresses keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
         {
             var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false);
 
@@ -504,7 +504,7 @@ namespace Cpp2IL.Core
             return (from object? o in arr select new CustomAttributeArgument(array.ArrayType.ElementType, o)).ToArray();
         }
 
-        private static FieldToParameterMapping[]? TryAnalyzeAttributeConstructorToResolveFieldWrites(MethodDefinition constructor, KeyFunctionAddresses keyFunctionAddresses)
+        private static FieldToParameterMapping[]? TryAnalyzeAttributeConstructorToResolveFieldWrites(MethodDefinition constructor, BaseKeyFunctionAddresses keyFunctionAddresses)
         {
             //Some games have optimization dialed up to 11 - this results in attribute generator functions not actually calling constructors.
             //Instead, the constructor is inlined, and the field writes are copied directly into the generator.
@@ -555,7 +555,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(KeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<Instruction>> actions, LocalDefinition? local)
+        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(BaseKeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<Instruction>> actions, LocalDefinition? local)
         {
             //Try and get mappings for all constructors.
             var allPotentialCtors = attr.GetConstructors()

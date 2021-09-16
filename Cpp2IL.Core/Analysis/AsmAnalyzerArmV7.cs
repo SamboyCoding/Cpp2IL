@@ -42,11 +42,11 @@ namespace Cpp2IL.Core.Analysis
             return disassembler.Disassemble(bytes, (long)baseAddress).ToList();
         }
 
-        public AsmAnalyzerArmV7(ulong methodPointer, IEnumerable<ArmInstruction> instructions) : base(methodPointer, instructions)
+        public AsmAnalyzerArmV7(ulong methodPointer, IEnumerable<ArmInstruction> instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)
         {
         }
 
-        public AsmAnalyzerArmV7(MethodDefinition definition, ulong methodPointer) : base(definition, methodPointer, DisassembleInstructions(definition))
+        public AsmAnalyzerArmV7(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : base(definition, methodPointer, DisassembleInstructions(definition), baseKeyFunctionAddresses)
         {
         }
 

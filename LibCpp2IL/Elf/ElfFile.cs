@@ -627,5 +627,25 @@ namespace LibCpp2IL.Elf
         public override ulong GetRVA(ulong pointer) => pointer - _globalOffset;
 
         public override byte[] GetRawBinaryContent() => _raw;
+
+        public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
+        {
+            if (!_exportTable.TryGetValue(toFind, out var exportedSymbol))
+                return 0;
+
+            return exportedSymbol.VirtualAddress;
+        }
+
+        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
+
+        public override byte[] GetEntirePrimaryExecutableSection()
+        {
+            var primarySection = _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text");
+
+            if (primarySection == null)
+                return Array.Empty<byte>();
+
+            return GetRawBinaryContent().SubArray((int)primarySection.RawAddress, (int)primarySection.Size);
+        }
     }
 }

@@ -153,10 +153,10 @@ namespace Cpp2IL
             if (runtimeArgs.EnableMetadataGeneration)
                 Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
-            KeyFunctionAddresses? keyFunctionAddresses = null;
+            BaseKeyFunctionAddresses? keyFunctionAddresses = null;
 
             //We have to always run key function scan (if we can), so that attribute reconstruction can run.
-            if (LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_32 || LibCpp2IlMain.Binary?.InstructionSet == InstructionSet.X86_64 && LibCpp2IlMain.Binary is PE)
+            if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.ARM32)
             {
                 Logger.InfoNewline("Running Scan for Known Functions...");
 
@@ -183,7 +183,7 @@ namespace Cpp2IL
             return 0;
         }
 
-        private static void DoAssemblyCSharpAnalysis(string assemblyName, AnalysisLevel analysisLevel, string rootDir, KeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel)
+        private static void DoAssemblyCSharpAnalysis(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel)
         {
             var assemblyCsharp = Cpp2IlApi.GetAssemblyByName(assemblyName);
 

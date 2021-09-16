@@ -390,5 +390,10 @@ namespace LibCpp2IL
         public ulong[] AllCustomAttributeGenerators => customAttributeGenerators ?? Array.Empty<ulong>(); 
 
         public abstract byte[] GetRawBinaryContent();
+        public abstract ulong GetVirtualAddressOfExportedFunctionByName(string toFind);
+
+        public abstract byte[] GetEntirePrimaryExecutableSection();
+
+        public abstract ulong GetVirtualAddressOfPrimaryExecutableSection();
     }
 }

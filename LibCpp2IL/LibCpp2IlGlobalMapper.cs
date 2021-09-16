@@ -95,7 +95,7 @@ namespace LibCpp2IL
 
         public static MetadataUsage? CheckForPost27GlobalAt(ulong address)
         {
-            if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(address, out _))
+            if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(address, out var raw) || raw >= LibCpp2IlMain.Binary.RawLength)
                 return null;
             
             var encoded = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<ulong>(address);

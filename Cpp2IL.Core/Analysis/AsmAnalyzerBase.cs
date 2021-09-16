@@ -22,9 +22,11 @@ namespace Cpp2IL.Core.Analysis
         internal MethodAnalysis<T> Analysis;
         private readonly StringBuilder _methodFunctionality = new();
         protected readonly List<T> _instructions;
+        protected BaseKeyFunctionAddresses _keyFunctionAddresses;
 
-        internal AsmAnalyzerBase(ulong methodPointer, IEnumerable<T> instructions)
+        internal AsmAnalyzerBase(ulong methodPointer, IEnumerable<T> instructions, BaseKeyFunctionAddresses keyFunctionAddresses)
         {
+            _keyFunctionAddresses = keyFunctionAddresses;
             _instructions = new();
             CppAssembly = LibCpp2IlMain.Binary!;
             
@@ -45,7 +47,7 @@ namespace Cpp2IL.Core.Analysis
             if (MethodEnd == 0) MethodEnd = methodPointer;
         }
 
-        internal AsmAnalyzerBase(MethodDefinition definition, ulong methodPointer, IList<T> instructions) : this(methodPointer, instructions)
+        internal AsmAnalyzerBase(MethodDefinition definition, ulong methodPointer, IList<T> instructions, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(methodPointer, instructions, baseKeyFunctionAddresses)
         {
             Instructions = instructions;
             MethodDefinition = definition;

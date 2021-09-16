@@ -192,7 +192,7 @@ namespace LibCpp2IL.PE
             peExportedFunctionOrdinals = ReadClassArrayAtVirtualAddress<ushort>(directoryEntryExports.RawAddressOfExportOrdinalTable + peImageBase, directoryEntryExports.NumberOfExportNames); //This uses the name count per MSoft spec
         }
 
-        public ulong GetVirtualAddressOfPeExportByName(string toFind)
+        public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {
             if (peExportedFunctionPointers == null)
                 LoadPeExportTable();
@@ -217,14 +217,25 @@ namespace LibCpp2IL.PE
         {
             return pointer - peImageBase;
         }
+        
+        public override byte[] GetEntirePrimaryExecutableSection()
+        {
+            var primarySection = peSectionHeaders.FirstOrDefault(s => s.Name == ".text");
+
+            if (primarySection == null)
+                return Array.Empty<byte>();
+
+            return GetRawBinaryContent().SubArray((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
+        }
+        
+        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
 
         public InstructionList DisassembleTextSection()
         {
             if (_cachedDisassembledBytes == null)
             {
-                var textSection = peSectionHeaders.First(s => s.Name == ".text");
-                var toDisasm = raw.SubArray((int) textSection.PointerToRawData, (int) textSection.SizeOfRawData);
-                _cachedDisassembledBytes = LibCpp2ILUtils.DisassembleBytesNew(is32Bit, toDisasm, textSection.VirtualAddress + peImageBase);
+                var toDisasm = GetEntirePrimaryExecutableSection();
+                _cachedDisassembledBytes = LibCpp2ILUtils.DisassembleBytesNew(is32Bit, toDisasm, GetVirtualAddressOfPrimaryExecutableSection() + peImageBase);
             }
 
             return _cachedDisassembledBytes;

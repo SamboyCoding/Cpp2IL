@@ -43,11 +43,11 @@ namespace Cpp2IL.Core.Analysis
         
         private string FunctionArgumentDump;
 
-        public AsmAnalyzerArmV8A(ulong methodPointer, IEnumerable<Arm64Instruction> instructions) : base(methodPointer, instructions)
+        public AsmAnalyzerArmV8A(ulong methodPointer, IEnumerable<Arm64Instruction> instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)
         {
         }
 
-        public AsmAnalyzerArmV8A(MethodDefinition definition, ulong methodPointer) : base(definition, methodPointer, DisassembleInstructions(definition))
+        public AsmAnalyzerArmV8A(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : base(definition, methodPointer, DisassembleInstructions(definition), baseKeyFunctionAddresses)
         {
             var builder = new StringBuilder();
             foreach (var (reg, operand) in Analysis.RegisterData)

@@ -16,22 +16,18 @@ namespace Cpp2IL.Core.Analysis
         public static int SUCCESSFUL_METHODS = 0;
         public static int FAILED_METHODS = 0;
 
-        private readonly KeyFunctionAddresses _keyFunctionAddresses;
-
         private static readonly Mnemonic[] MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT =
         {
             Mnemonic.Add, Mnemonic.Sub
         };
 
-        internal AsmAnalyzerX86(ulong methodPointer, InstructionList instructions, KeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions)
+        internal AsmAnalyzerX86(ulong methodPointer, InstructionList instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)
         {
-            _keyFunctionAddresses = keyFunctionAddresses;
         }
 
-        internal AsmAnalyzerX86(MethodDefinition methodDefinition, ulong methodStart, KeyFunctionAddresses keyFunctionAddresses)
-            : base(methodDefinition, methodStart, LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart))
+        internal AsmAnalyzerX86(MethodDefinition methodDefinition, ulong methodStart, BaseKeyFunctionAddresses keyFunctionAddresses)
+            : base(methodDefinition, methodStart, LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart), keyFunctionAddresses)
         {
-            _keyFunctionAddresses = keyFunctionAddresses;
         }
 
         protected override void AnalysisRequestedExpansion(ulong ptr)
