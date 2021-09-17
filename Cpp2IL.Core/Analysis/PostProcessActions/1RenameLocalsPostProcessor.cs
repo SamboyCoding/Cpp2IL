@@ -1,16 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
-using Mono.Cecil;
 
 namespace Cpp2IL.Core.Analysis.PostProcessActions
 {
-    public class RenameLocalsPostProcessor : PostProcessor<Instruction> {
+    public class RenameLocalsPostProcessor<T> : PostProcessor<T> {
 
-        public override void PostProcess(MethodAnalysis<Instruction> analysis, MethodDefinition definition)
+        public override void PostProcess(MethodAnalysis<T> analysis)
         {
             var countDict = new Dictionary<string, int>();
             
@@ -18,7 +18,7 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
             {
                 LocalDefinition localDefinition;
                 string nameBase;
-                if (action is FieldToLocalAction {FieldRead: {}, LocalWritten: {}} ftla)
+                if (action is AbstractFieldReadAction<T> {FieldRead: {}, LocalWritten: {}} ftla)
                 {
                     var field = ftla.FieldRead.GetLast().FinalLoadInChain!;
                     nameBase = field.Name;
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
 
                     localDefinition = ftla.LocalWritten;
                 }
-                else if (action is StaticFieldToRegAction {FieldRead: {}, LocalWritten: {}} sftra)
+                else if (action is AbstractStaticFieldReadAction<T> {FieldRead: {}, LocalWritten: {}} sftra)
                 {
                     var field = sftra.FieldRead;
                     nameBase = field.Name;
@@ -36,7 +36,7 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
 
                     localDefinition = sftra.LocalWritten;
                 }
-                else if (action is BaseX86CallAction {ReturnedLocal: { }, ManagedMethodBeingCalled: {}} aca)
+                else if (action is AbstractCallAction<T> {ReturnedLocal: { }, ManagedMethodBeingCalled: {}} aca)
                 {
                     if (aca.ManagedMethodBeingCalled.Name.StartsWith("get_"))
                         nameBase = aca.ManagedMethodBeingCalled.Name[4..];
@@ -53,11 +53,11 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 {
                     nameBase = "length";
                     localDefinition = alptla.LocalMade;
-                } else if (action is ArrayElementReadToRegAction {LocalMade: { }} aertpa)
+                } else if (action is AbstractArrayOffsetReadAction<T> {LocalMade: { }} aertpa)
                 {
                     nameBase = aertpa.LocalMade.Type!.Name;
                     localDefinition = aertpa.LocalMade;
-                } else if (action is AllocateInstanceAction {LocalReturned: { }, TypeCreated: { }} aia)
+                } else if (action is AbstractNewObjAction<T> {LocalReturned: { }, TypeCreated: { }} aia)
                 {
                     nameBase = aia.TypeCreated.Name;
                     localDefinition = aia.LocalReturned;

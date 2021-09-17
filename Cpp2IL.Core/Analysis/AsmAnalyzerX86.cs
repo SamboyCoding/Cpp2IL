@@ -93,8 +93,8 @@ namespace Cpp2IL.Core.Analysis
 
         public override void RunPostProcessors()
         {
-            new RemovedUnusedLocalsPostProcessor<Instruction>().PostProcess(Analysis, MethodDefinition!);
-            new RenameLocalsPostProcessor().PostProcess(Analysis, MethodDefinition!);
+            new RemovedUnusedLocalsPostProcessor<Instruction>().PostProcess(Analysis);
+            new RenameLocalsPostProcessor<Instruction>().PostProcess(Analysis);
         }
 
 #if false

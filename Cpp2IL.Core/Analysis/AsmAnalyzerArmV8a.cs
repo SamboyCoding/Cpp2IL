@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Analysis.PostProcessActions;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
@@ -119,7 +120,8 @@ namespace Cpp2IL.Core.Analysis
 
         public override void RunPostProcessors()
         {
-            //no-op
+            new RemovedUnusedLocalsPostProcessor<Arm64Instruction>().PostProcess(Analysis);
+            new RenameLocalsPostProcessor<Arm64Instruction>().PostProcess(Analysis);
         }
     }
 }

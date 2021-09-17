@@ -2,13 +2,12 @@
 
 using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
-using Mono.Cecil;
 
 namespace Cpp2IL.Core.Analysis.PostProcessActions
 {
     public class RemovedUnusedLocalsPostProcessor<T> : PostProcessor<T>
     {
-        public override void PostProcess(MethodAnalysis<T> analysis, MethodDefinition definition)
+        public override void PostProcess(MethodAnalysis<T> analysis)
         {
             var unused = analysis.Locals.Where(l => !analysis.FunctionArgumentLocals.Contains(l) && analysis.Actions.All(a => !a.GetUsedLocals().Contains(l))).ToList();
 #if PRINT_UNUSED_LOCAL_DATA

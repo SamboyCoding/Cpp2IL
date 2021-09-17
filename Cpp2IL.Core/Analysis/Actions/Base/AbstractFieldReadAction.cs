@@ -29,7 +29,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             if (LocalWritten == null || ReadFrom == null || FieldRead == null)
                 throw new TaintedInstructionException();
             
-            var ret = new List<Mono.Cecil.Cil.Instruction>();
+            var ret = new List<Instruction>();
 
             //Load object
             ret.AddRange(ReadFrom.GetILToLoad(context, processor));

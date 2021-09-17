@@ -23,6 +23,9 @@ namespace Cpp2IL.Core.Analysis
                 case 2:
                     CheckForTwoOpInstruction(instruction);
                     break;
+                case 3:
+                    CheckForThreeOpInstruction(instruction);
+                    break;
             }
         }
 
@@ -93,6 +96,8 @@ namespace Cpp2IL.Core.Analysis
             var mnemonic = instruction.Mnemonic;
             if (mnemonic is "ldrb" or "ldrh")
                 mnemonic = "ldr";
+            if (mnemonic is "strb" or "strh")
+                mnemonic = "str";
 
             //The single most annoying part about capstone is that its mnemonics are strings.
             switch (mnemonic)
@@ -174,6 +179,59 @@ namespace Cpp2IL.Core.Analysis
                 case "mov" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Register && var1 is { }:
                     //Move generic analyzed op to another reg
                     Analysis.Actions.Add(new Arm64RegCopyAction(Analysis, instruction));
+                    break;
+                case "str" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && var0 is {} && memVar is LocalDefinition:
+                    //Field write from register.
+                    //Unlike a bunch of other instructions, source is operand 0, destination is operand 1.
+                    Analysis.Actions.Add(new Arm64RegisterToFieldAction(Analysis, instruction));
+                    break;
+                case "str" when t0 is Arm64OperandType.Immediate && t1 is Arm64OperandType.Memory && memVar is LocalDefinition:
+                    //Field write from immediate
+                    Analysis.Actions.Add(new Arm64ImmediateToFieldAction(Analysis, instruction));
+                    break;
+            }
+        }
+
+        private void CheckForThreeOpInstruction(Arm64Instruction instruction)
+        {
+            var op0 = instruction.Details.Operands[0]!;
+            var op1 = instruction.Details.Operands[1]!;
+            var op2 = instruction.Details.Operands[2]!;
+
+            var t0 = op0.Type;
+            var t1 = op1.Type;
+            var t2 = op2.Type;
+
+            var r0 = op0.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
+            var r1 = op1.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
+            var r2 = op2.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
+
+            var r0Name = Utils.GetRegisterNameNew(r0);
+            var r1Name = Utils.GetRegisterNameNew(r1);
+            var r2Name = Utils.GetRegisterNameNew(r2);
+
+            var var0 = Analysis.GetOperandInRegister(r0Name);
+            var var1 = Analysis.GetOperandInRegister(r1Name);
+            var var2 = Analysis.GetOperandInRegister(r2Name);
+
+            var imm0 = op0.ImmediateSafe();
+            var imm1 = op1.ImmediateSafe();
+            var imm2 = op2.ImmediateSafe();
+
+            var memoryBase = instruction.MemoryBase()?.Id ?? Arm64RegisterId.Invalid;
+            var memoryOffset = instruction.MemoryOffset();
+            var memoryIndex = instruction.MemoryIndex()?.Id ?? Arm64RegisterId.Invalid;
+
+            var memVar = Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(memoryBase));
+
+            var mnemonic = instruction.Mnemonic;
+            
+            switch (mnemonic)
+            {
+                case "orr" when r1Name is "xzr" && t2 == Arm64OperandType.Immediate && imm2 != 0:
+                    //ORR dest, xzr, #n
+                    //dest = n, basically. Technically 0 | n, but that's the same.
+                    Analysis.Actions.Add(new Arm64OrZeroAndImmAction(Analysis, instruction));
                     break;
             }
         }
