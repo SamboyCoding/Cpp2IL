@@ -36,34 +36,39 @@ namespace Cpp2IL.Core
                 //Globalgamemanagers
                 var globalgamemanagersPath = Path.Combine(gameDataPath, "globalgamemanagers");
                 var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
-                var verString = new StringBuilder();
-                var idx = 0x14;
+                version = GetVersionFromGlobalGameManagers(ggmBytes);
+            }
+
+            return version;
+        }
+
+        public static int[] GetVersionFromGlobalGameManagers(byte[] ggmBytes)
+        {
+            var verString = new StringBuilder();
+            var idx = 0x14;
+            while (ggmBytes[idx] != 0)
+            {
+                verString.Append(Convert.ToChar(ggmBytes[idx]));
+                idx++;
+            }
+
+            var unityVer = verString.ToString();
+
+            if (!unityVer.Contains("f"))
+            {
+                idx = 0x30;
+                verString = new StringBuilder();
                 while (ggmBytes[idx] != 0)
                 {
                     verString.Append(Convert.ToChar(ggmBytes[idx]));
                     idx++;
                 }
 
-                var unityVer = verString.ToString();
-
-                if (!unityVer.Contains("f"))
-                {
-                    idx = 0x30;
-                    verString = new StringBuilder();
-                    while (ggmBytes[idx] != 0)
-                    {
-                        verString.Append(Convert.ToChar(ggmBytes[idx]));
-                        idx++;
-                    }
-
-                    unityVer = verString.ToString();
-                }
-
-                unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
-                version = unityVer.Split('.').Select(int.Parse).ToArray();
+                unityVer = verString.ToString();
             }
 
-            return version;
+            unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
+            return unityVer.Split('.').Select(int.Parse).ToArray();
         }
 
         private static void ConfigureLib(bool allowUserToInputAddresses)

@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics.CodeAnalysis;
+using System.IO;
 using CommandLine;
 
 namespace Cpp2IL
@@ -48,6 +49,9 @@ namespace Cpp2IL
 
         [Option("parallel", HelpText = "Run analysis in parallel. Might break things.")]
         public bool Parallel { get; set; }
+
+        [Option("output-root", HelpText = "Root directory to output to. Defaults to cpp2il_out in the current working directory.")]
+        public string OutputRootDir { get; set; } = Path.GetFullPath("cpp2il_out");
 
         internal bool AreForceOptionsValid
         {

@@ -19,6 +19,9 @@ The link above will take you to the documentation for LibCpp2IL.
 The simplest usage of this application is for a windows x86 or x64 unity game. In that case you can just run `Cpp2IL-Win.exe --game-path=C:\Path\To\Your\Game`
 and Cpp2IL will detect your unity version, locate the files it needs, and dump the output into a cpp2il_out folder wherever you ran the command from.
 
+Assuming you have a single APK file (not an APKM or XAPK), and are running at least cpp2il 2021.4.0 (or the pre-release for it), you
+can use the same argument as above but pass in the path to the APK, and cpp2il will extract the files it needs from the APK.
+
 ### Supported Command Line Option Listing
 
 | Option | Argument Example | Description |
@@ -34,6 +37,7 @@ and Cpp2IL will detect your unity version, locate the files it needs, and dump t
 | --suppress-attributes | &lt;None> | Prevents generated DLLs from containing attributes providing il2cpp-specific metadata, such as function pointers, etc. |
 | --parallel | &lt;None> | Run analysis in parallel. Usually much faster, but may be unstable. Also puts your CPU under a lot of strain (100% usage is targeted). |
 | --run-analysis-for-assembly | mscorlib | Run analysis for the specified assembly. Do not specify the `.dll` extension. |
+| --output-root | cpp2il_out | Root directory to output to. Dummy DLLs will be put directly in here, and analysis results will be put in a types folder inside. |
 
 ## Release Structure
 

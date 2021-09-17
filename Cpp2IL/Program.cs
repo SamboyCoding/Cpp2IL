@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using CommandLine;
 using Cpp2IL.Core;
@@ -15,6 +16,8 @@ namespace Cpp2IL
     [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
     internal class Program
     {
+        private static readonly List<string> _pathsToDeleteOnExit = new List<string>();
+
         private static readonly string[] BlacklistedExecutableFilenames =
         {
             "UnityCrashHandler.exe",
@@ -24,15 +27,95 @@ namespace Cpp2IL
             "MelonLoader.Installer.exe"
         };
 
-        public static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)
+        private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
+        {
+            if (Directory.Exists(gamePath))
+            {
+                //Windows game.
+                args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.dll");
+                var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
+                    .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
+
+                exeName = inputExeName ?? exeName;
+
+                var unityPlayerPath = Path.Combine(gamePath, $"{exeName}.exe");
+                args.PathToMetadata = Path.Combine(gamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
+
+                if (!File.Exists(args.PathToAssembly) || !File.Exists(unityPlayerPath) || !File.Exists(args.PathToMetadata))
+                    throw new SoftException("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
+                                            $"\t{args.PathToAssembly}\n" +
+                                            $"\t{unityPlayerPath}\n" +
+                                            $"\t{args.PathToMetadata}\n");
+
+                args.UnityVersion = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, Path.Combine(gamePath, $"{exeName}_Data"));
+
+                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}");
+
+                if (args.UnityVersion[0] <= 4)
+                    throw new SoftException($"Unable to determine a valid unity version (got {args.UnityVersion.ToStringEnumerable()})");
+
+                args.Valid = true;
+            }
+            else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".apk")
+            {
+                //APK
+                //Metadata: assets/bin/Data/Managed/Metadata
+                //Binary: lib/(armeabi-v7a)|(arm64-v8a)/libil2cpp.so
+                
+                Logger.InfoNewline($"Attempting to extract required files from APK {gamePath}");
+
+                using var stream = File.OpenRead(gamePath);
+                using var zipArchive = new ZipArchive(stream);
+
+                var globalMetadata = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/Managed/Metadata/global-metadata.dat"));
+                var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/arm64-v8a/libil2cpp.so"));
+                binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/armeabi-v7a/libil2cpp.so"));
+
+                var globalgamemanagers = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/globalgamemanagers"));
+
+                if (binary == null)
+                    throw new SoftException("Could not find libil2cpp.so inside the apk.");
+                if (globalMetadata == null)
+                    throw new SoftException("Could not find global-metadata.dat inside the apk");
+                if (globalgamemanagers == null)
+                    throw new SoftException("Could not find globalgamemanagers inside the apk");
+
+                var tempFileBinary = Path.GetTempFileName();
+                var tempFileMeta = Path.GetTempFileName();
+
+                _pathsToDeleteOnExit.Add(tempFileBinary);
+                _pathsToDeleteOnExit.Add(tempFileMeta);
+
+                Logger.InfoNewline($"Extracting APK/{binary.FullName} to {tempFileBinary}");
+                binary.ExtractToFile(tempFileBinary, true);
+                Logger.InfoNewline($"Extracting APK/{globalMetadata.FullName} to {tempFileMeta}");
+                globalMetadata.ExtractToFile(tempFileMeta, true);
+
+                args.PathToAssembly = tempFileBinary;
+                args.PathToMetadata = tempFileMeta;
+
+                Logger.InfoNewline("Reading globalgamemanagers to determine unity version...");
+                var ggmBytes = new byte[0x40];
+                using var ggmStream = globalgamemanagers.Open();
+                ggmStream.Read(ggmBytes, 0, 0x40);
+
+                args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
+                
+                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}");
+
+                args.Valid = true;
+            }
+        }
+
+        private static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)
         {
             var parserResult = Parser.Default.ParseArguments<CommandLineArgs>(commandLine);
 
-            if(parserResult is NotParsed<CommandLineArgs> notParsed && notParsed.Errors.Count() == 1 && notParsed.Errors.All(e => e.Tag == ErrorType.VersionRequestedError || e.Tag == ErrorType.HelpRequestedError))
+            if (parserResult is NotParsed<CommandLineArgs> notParsed && notParsed.Errors.Count() == 1 && notParsed.Errors.All(e => e.Tag == ErrorType.VersionRequestedError || e.Tag == ErrorType.HelpRequestedError))
                 //Version or help requested
                 Environment.Exit(0);
-            
-            if (!(parserResult is Parsed<CommandLineArgs> {Value: { } options}))
+
+            if (!(parserResult is Parsed<CommandLineArgs> { Value: { } options }))
                 throw new SoftException("Failed to parse command line arguments");
 
             if (!options.AreForceOptionsValid)
@@ -42,34 +125,7 @@ namespace Cpp2IL
 
             if (options.ForcedBinaryPath == null)
             {
-                var baseGamePath = options.GamePath;
-
-                if (!Directory.Exists(baseGamePath))
-                    throw new SoftException($"Specified game-path does not exist: {baseGamePath}");
-
-                result.PathToAssembly = Path.Combine(baseGamePath, "GameAssembly.dll");
-                var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(baseGamePath)
-                    .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
-
-                exeName = options.ExeName ?? exeName;
-
-                var unityPlayerPath = Path.Combine(baseGamePath, $"{exeName}.exe");
-                result.PathToMetadata = Path.Combine(baseGamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
-
-                if (!File.Exists(result.PathToAssembly) || !File.Exists(unityPlayerPath) || !File.Exists(result.PathToMetadata))
-                    throw new SoftException("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
-                                            $"\t{result.PathToAssembly}\n" +
-                                            $"\t{unityPlayerPath}\n" +
-                                            $"\t{result.PathToMetadata}\n");
-
-                result.UnityVersion = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, Path.Combine(baseGamePath, $"{exeName}_Data"));
-
-                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", result.UnityVersion)}");
-
-                if (result.UnityVersion[0] <= 4)
-                    throw new SoftException($"Unable to determine a valid unity version (got {result.UnityVersion.ToStringEnumerable()})");
-
-                result.Valid = true;
+                ResolvePathsFromCommandLine(options.GamePath, options.ExeName, ref result);
             }
             else
             {
@@ -94,9 +150,9 @@ namespace Cpp2IL
                 Logger.WarnNewline("!!!!!!!!!!You have enabled IL-To-ASM. If this breaks, it breaks.!!!!!!!!!!");
             }
 
-            result.AnalysisLevel = (AnalysisLevel) options.AnalysisLevel;
-            
-            result.OutputRootDirectory = Path.GetFullPath("cpp2il_out");
+            result.AnalysisLevel = (AnalysisLevel)options.AnalysisLevel;
+
+            result.OutputRootDirectory = options.OutputRootDir;
 
             return result;
         }
@@ -107,7 +163,7 @@ namespace Cpp2IL
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.\n");
 
             ConsoleLogger.Initialize();
-            
+
             Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
 
             try
@@ -171,13 +227,26 @@ namespace Cpp2IL
 
             Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
-            if (runtimeArgs.EnableAnalysis) 
+            if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
 
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
-            if (runtimeArgs.EnableAnalysis) 
+            if (runtimeArgs.EnableAnalysis)
                 DoAssemblyCSharpAnalysis(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel);
+
+            foreach (var p in _pathsToDeleteOnExit)
+            {
+                try
+                {
+                    Logger.InfoNewline($"Cleaning up {p}...");
+                    File.Delete(p);
+                }
+                catch (Exception)
+                {
+                    //Ignore
+                }
+            }
 
             Logger.InfoNewline("Done.");
             return 0;
@@ -191,9 +260,9 @@ namespace Cpp2IL
                 return;
 
             Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), parallel);
-            
-            if(doIlToAsm)
-                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {assemblyCsharp});
+
+            if (doIlToAsm)
+                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> { assemblyCsharp });
         }
     }
 }
