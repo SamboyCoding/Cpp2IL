@@ -105,6 +105,10 @@ namespace Cpp2IL
 
                 args.Valid = true;
             }
+            else
+            {
+                throw new SoftException($"Could not find a valid unity game at {gamePath}");
+            }
         }
 
         private static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)

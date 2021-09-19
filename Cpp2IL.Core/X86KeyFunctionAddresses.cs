@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Iced.Intel;
 using LibCpp2IL;
@@ -8,13 +9,13 @@ namespace Cpp2IL.Core
 {
     public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
-        protected override ulong FindThunkFunction(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
+        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
         {
             //Disassemble .text
             var allInstructions = ((PE) LibCpp2IlMain.Binary!).DisassembleTextSection();
 
             //Find all jumps to the target address
-            var matchingJmps = allInstructions.Where(i => i.Mnemonic == Mnemonic.Jmp || i.Mnemonic == Mnemonic.Call && i.NearBranchTarget == addr).ToList();
+            var matchingJmps = allInstructions.Where(i => i.Mnemonic is Mnemonic.Jmp or Mnemonic.Call && i.NearBranchTarget == addr).ToList();
 
             foreach (var matchingJmp in matchingJmps)
             {
@@ -32,7 +33,8 @@ namespace Cpp2IL.Core
                 //Double-cc = thunk
                 if (previousByte == 0xCC && nextByte == 0xCC)
                 {
-                    return matchingJmp.IP;
+                    yield return matchingJmp.IP;
+                    continue;
                 }
 
                 if (nextByte == 0xCC && maxBytesBack > 0)
@@ -44,12 +46,13 @@ namespace Cpp2IL.Core
                             break;
 
                         if (LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
-                            return matchingJmp.IP - (backtrack - 1);
+                        {
+                            yield return matchingJmp.IP - (backtrack - 1);
+                            break;
+                        }
                     }
                 }
             }
-
-            return 0;
         }
 
         protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
@@ -73,6 +76,15 @@ namespace Cpp2IL.Core
             {
                 return 0;
             }
+        }
+
+        protected override int GetCallerCount(ulong toWhere)
+        {
+            //Disassemble .text
+            var allInstructions = ((PE) LibCpp2IlMain.Binary!).DisassembleTextSection();
+
+            //Find all jumps to the target address
+            return allInstructions.Count(i => i.Mnemonic == Mnemonic.Jmp || i.Mnemonic == Mnemonic.Call && i.NearBranchTarget == toWhere);
         }
     }
 }

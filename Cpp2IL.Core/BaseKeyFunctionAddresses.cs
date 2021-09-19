@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Iced.Intel;
 using LibCpp2IL;
@@ -57,7 +58,19 @@ namespace Cpp2IL.Core
             if (il2cpp_vm_object_new != 0)
             {
                 Logger.Verbose("\t\tLooking for il2cpp_codegen_object_new as a thunk of vm::Object::New...");
-                il2cpp_codegen_object_new = FindThunkFunction(il2cpp_vm_object_new);
+                
+                var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, 10);
+                
+                //Sort by caller count in ascending order
+                var list = potentialThunks.Select(ptr => (ptr, count: GetCallerCount(ptr))).ToList();
+                list.SortByExtractedKey(pair => pair.count);
+
+                //Sort in descending order - most called first
+                list.Reverse();
+                
+                //Take first as the target
+                il2cpp_codegen_object_new = list.FirstOrDefault().ptr;
+                
                 Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_object_new:X}");
             }
 
@@ -124,7 +137,7 @@ namespace Cpp2IL.Core
             if (il2cpp_vm_exception_raise != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp::vm::Exception::Raise to il2cpp_codegen_raise_exception...");
-                il2cpp_codegen_raise_exception = FindThunkFunction(il2cpp_vm_exception_raise, 4, il2cpp_raise_exception);
+                il2cpp_codegen_raise_exception = FindAllThunkFunctions(il2cpp_vm_exception_raise, 4, il2cpp_raise_exception).FirstOrDefault();
                 Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_raise_exception:X}");
             }
 
@@ -155,7 +168,7 @@ namespace Cpp2IL.Core
             if (il2cpp_vm_array_new_specific != 0)
             {
                 Logger.Verbose("\t\tLooking for SzArrayNew as a thunk function proxying Array::NewSpecific...");
-                SzArrayNew = FindThunkFunction(il2cpp_vm_array_new_specific, 4, il2cpp_array_new_specific);
+                SzArrayNew = FindAllThunkFunctions(il2cpp_vm_array_new_specific, 4, il2cpp_array_new_specific).FirstOrDefault();
                 Logger.VerboseNewline($"Found at 0x{SzArrayNew:X}");
             }
         }
@@ -198,7 +211,7 @@ namespace Cpp2IL.Core
         /// <param name="maxBytesBack">The maximum number of bytes to go back from any branching instructions to find the actual start of the thunk function.</param>
         /// <param name="addressesToIgnore">A list of function addresses which this function must not return</param>
         /// <returns>The address of the first function in the file which thunks addr, starts within maxBytesBack bytes of the branch, and is not contained within addressesToIgnore, else 0 if none can be found.</returns>
-        protected abstract ulong FindThunkFunction(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore);
+        protected abstract IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore);
 
         /// <summary>
         /// Given a function at thunkPtr, return the address of the function that said function exists only to call.
@@ -208,5 +221,7 @@ namespace Cpp2IL.Core
         /// <param name="prioritiseCall">True to prioritise "call" statements - conditional flow transfer - over "jump" statements - unconditional flow transfer. False for the inverse.</param>
         /// <returns>The address of the thunked function, if it can be found, else 0</returns>
         protected abstract ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false);
+
+        protected abstract int GetCallerCount(ulong toWhere);
     }
 }

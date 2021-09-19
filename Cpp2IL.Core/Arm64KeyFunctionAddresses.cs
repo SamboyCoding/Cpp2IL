@@ -21,7 +21,7 @@ namespace Cpp2IL.Core
             _allInstructions = disassembler.Disassemble(LibCpp2IlMain.Binary.GetEntirePrimaryExecutableSection(), (long)LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection()).ToList();
         }
         
-        protected override ulong FindThunkFunction(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
+        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
         {
             var allBranchesToAddr = _allInstructions.Where(i => i.Mnemonic == "b")
                 .Where(i => i.Details.Operands[0].IsImmediate() && i.Details.Operands[0].Immediate == (long)addr)
@@ -46,12 +46,18 @@ namespace Cpp2IL.Core
                         
                         if(addressesToIgnore.Contains((ulong) prevInstruction.Address))
                             continue;
-                        
-                        if(prevInstruction.Mnemonic is "b" or "bl")
-                            return (ulong)potentialBranch.Address - (ulong)(backtrack * 4);
-                        
-                        if(prevInstruction.Mnemonic is "ret")
-                            return (ulong)potentialBranch.Address - (ulong)(backtrack * 4);
+
+                        if (prevInstruction.Mnemonic is "b" or "bl")
+                        {
+                            yield return (ulong)potentialBranch.Address - (ulong)(backtrack * 4);
+                            break;
+                        }
+
+                        if (prevInstruction.Mnemonic is "ret")
+                        {
+                            yield return (ulong)potentialBranch.Address - (ulong)(backtrack * 4);
+                            break;
+                        }
                     }
                     
                     //We're working in the .text section here so we have few symbols, so there's no point looking for the previous one.
@@ -59,8 +65,6 @@ namespace Cpp2IL.Core
                     backtrack++;
                 } while (backtrack * 4 < maxBytesBack);
             }
-
-            return 0;
         }
 
         protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
@@ -82,5 +86,8 @@ namespace Cpp2IL.Core
 
             return 0;
         }
+
+        protected override int GetCallerCount(ulong toWhere) => _allInstructions.Where(i => i.Mnemonic is "b" or "bl")
+            .Count(i => i.Details.Operands[0].IsImmediate() && i.Details.Operands[0].Immediate == (long)toWhere);
     }
 }

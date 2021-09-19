@@ -71,6 +71,10 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 if (nameBase.Contains("`"))
                     nameBase = nameBase[..nameBase.IndexOf("`", StringComparison.Ordinal)];
 
+                if (nameBase.Contains("<"))
+                    //Compiler-generated IEnumerator instances
+                    nameBase = "enumeratorInstance";
+
                 if (nameBase.EndsWith("[]"))
                     nameBase = nameBase[..^2] + "Array";
 
