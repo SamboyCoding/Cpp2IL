@@ -2,6 +2,8 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Samboy063.Cpp2IL.Core)](https://www.nuget.org/packages/Samboy063.Cpp2IL.Core/)
 
+### Need Help? Join [the discord](https://discord.gg/XdggT7XZXm)!
+
 WIP Tool to reverse Unity's IL2CPP build process back to the original managed DLLs.
 
 The information below almost entirely applies to the CLI application available on github releases. For documentation on 
