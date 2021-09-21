@@ -166,23 +166,39 @@ namespace Cpp2IL.Core.Analysis
                     }
                     catch (NotImplementedException)
                     {
-                        builder.Append($"Don't know how to write IL for {action.GetType()}. Aborting here.\n");
-                        success = false;
-                        break;
+                        builder.Append($"Don't know how to write IL for {action.GetType()}.");
+
+                        if (!Cpp2IlApi.IlContinueThroughErrors)
+                        {
+                            builder.Append(" Aborting here.");
+                            builder.Append('\n');
+                            success = false;
+                            break;
+                        }
                     }
                     catch (TaintedInstructionException e)
                     {
                         var message = e.ActualMessage ?? "No further info";
-                        builder.Append($"Action of type {action.GetType()} at (0x{action.AssociatedInstruction.GetInstructionAddress():X}) is corrupt ({message}) and cannot be created as IL. Aborting here.\n");
-                        success = false;
-                        break;
+                        builder.Append($"Action of type {action.GetType()} at (0x{action.AssociatedInstruction.GetInstructionAddress():X}) is corrupt ({message}) and cannot be created as IL.");
+                        if (!Cpp2IlApi.IlContinueThroughErrors)
+                        {
+                            builder.Append(" Aborting here.");
+                            builder.Append('\n');
+                            success = false;
+                            break;
+                        }
                     }
                     catch (Exception e)
                     {
-                        builder.Append($"Action of type {action.GetType()} threw an exception while generating IL. Aborting here.\n");
                         Logger.WarnNewline($"Exception generating IL for {MethodDefinition.FullName}, thrown by action {action.GetType().Name}, associated instruction {action.AssociatedInstruction}: {e}");
-                        success = false;
-                        break;
+                        builder.Append($"Action of type {action.GetType()} threw an exception while generating IL.");
+                        if (!Cpp2IlApi.IlContinueThroughErrors)
+                        {
+                            builder.Append(" Aborting here.");
+                            builder.Append('\n');
+                            success = false;
+                            break;
+                        }
                     }
                 }
             }

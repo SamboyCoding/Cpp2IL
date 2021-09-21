@@ -52,6 +52,9 @@ namespace Cpp2IL
 
         [Option("output-root", HelpText = "Root directory to output to. Defaults to cpp2il_out in the current working directory.")]
         public string OutputRootDir { get; set; } = Path.GetFullPath("cpp2il_out");
+        
+        [Option("throw-safety-out-the-window", HelpText = "Throw safety out the window, and try and push all the IL we can to the DLL, *even if it might break things*. Only has an effect if IL-to-file is enabled.")]
+        public bool ThrowSafetyOutTheWindow { get; set; }
 
         internal bool AreForceOptionsValid
         {

@@ -40,6 +40,7 @@ can use the same argument as above but pass in the path to the APK, and cpp2il w
 | --parallel | &lt;None> | Run analysis in parallel. Usually much faster, but may be unstable. Also puts your CPU under a lot of strain (100% usage is targeted). |
 | --run-analysis-for-assembly | mscorlib | Run analysis for the specified assembly. Do not specify the `.dll` extension. |
 | --output-root | cpp2il_out | Root directory to output to. Dummy DLLs will be put directly in here, and analysis results will be put in a types folder inside. |
+| --throw-safety-out-the-window | &lt;None> | When paired with `--experimental-enable-il-to-assembly-please`, do not abort attempting to generate IL for a method if an error occurs. Instead, continue on with the next action, skipping only the one which errored. WILL PROBABLY BREAK THINGS. |
 
 ## Release Structure
 

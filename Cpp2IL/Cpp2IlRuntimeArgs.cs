@@ -1,4 +1,6 @@
-﻿namespace Cpp2IL.Core
+﻿using Cpp2IL.Core;
+
+namespace Cpp2IL
 {
     public struct Cpp2IlRuntimeArgs
     {
@@ -17,6 +19,7 @@
         public bool EnableMetadataGeneration;
         public bool EnableRegistrationPrompts;
         public bool EnableIlToAsm;
+        public bool IlToAsmContinueThroughErrors;
         public bool SuppressAttributes;
         public bool Parallel;
 

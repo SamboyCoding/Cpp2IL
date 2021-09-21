@@ -18,6 +18,7 @@ namespace Cpp2IL.Core
     public static class Cpp2IlApi
     {
         public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
+        internal static bool IlContinueThroughErrors = false;
 
         public static AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name.Name == name);
@@ -299,7 +300,11 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel)
+        [Obsolete("Use (AnalysisLevel, AssemblyDefinition, BaseKeyFunctionAddresses, string, bool, *bool*)")]
+        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel) =>
+            AnalyseAssembly(analysisLevel, assembly, keyFunctionAddresses, methodOutputDir, parallel,  false);
+
+        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel, bool continueThroughErrors)
         {
             CheckLibInitialized();
 
@@ -309,6 +314,8 @@ namespace Cpp2IL.Core
             if (keyFunctionAddresses == null && LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64)
                 throw new ArgumentNullException(nameof(keyFunctionAddresses));
 
+            IlContinueThroughErrors = continueThroughErrors;
+            
             AsmAnalyzerX86.FAILED_METHODS = 0;
             AsmAnalyzerX86.SUCCESSFUL_METHODS = 0;
 
