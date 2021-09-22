@@ -12,10 +12,9 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 {
-    public class CallExceptionThrowerFunction : BaseAction<Instruction>
+    public class CallExceptionThrowerFunction : AbstractExceptionThrowerAction<Instruction>
     {
-        private static readonly ConcurrentDictionary<ulong, TypeDefinition?> ExceptionThrowers = new ConcurrentDictionary<ulong, TypeDefinition?>();
-        private TypeDefinition? _exceptionType;
+        private static readonly ConcurrentDictionary<ulong, TypeDefinition?> ExceptionThrowers = new();
 
         internal static void Reset() => ExceptionThrowers.Clear();
 
@@ -115,46 +114,6 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             if(_exceptionType != null)
                 context.MakeLocal(_exceptionType, reg: "rax");
-        }
-
-        public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
-        {
-            if (_exceptionType == null)
-                throw new TaintedInstructionException();
-
-            var ctor = _exceptionType.GetConstructors().FirstOrDefault(c => !c.HasParameters);
-
-            if (ctor == null)
-            {
-                var exceptionCtor = Utils.ExceptionReference.GetConstructors().First(c => c.HasParameters && c.Parameters.Count == 1 && c.Parameters[0].ParameterType.Name == "String");
-                return new[]
-                {
-                    processor.Create(OpCodes.Ldstr, $"Exception of type {_exceptionType.FullName}, but couldn't find a no-arg ctor"),
-                    processor.Create(OpCodes.Newobj, processor.ImportReference(exceptionCtor)),
-                    processor.Create(OpCodes.Throw)
-                };
-            }
-
-            return new[]
-            {
-                processor.Create(OpCodes.Newobj, processor.ImportReference(ctor)),
-                processor.Create(OpCodes.Throw)
-            };
-        }
-
-        public override string? ToPsuedoCode()
-        {
-            return $"throw new {_exceptionType}()";
-        }
-
-        public override string ToTextSummary()
-        {
-            return $"[!] Constructs and throws an exception of kind {_exceptionType}\n";
-        }
-        
-        public override bool IsImportant()
-        {
-            return true;
         }
     }
 }

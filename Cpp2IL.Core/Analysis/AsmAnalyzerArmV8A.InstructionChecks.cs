@@ -1,7 +1,5 @@
 ﻿using System;
-using System.Diagnostics;
 using Cpp2IL.Core.Analysis.Actions.ARM64;
-using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
@@ -63,13 +61,34 @@ namespace Cpp2IL.Core.Analysis
                     if (SharedState.MethodsByAddress.TryGetValue(jumpTarget, out var managedFunctionBeingCalled))
                     {
                         Analysis.Actions.Add(new Arm64ManagedFunctionCallAction(Analysis, instruction));
-                    } else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_codegen_object_new)
+                    }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_codegen_object_new)
                     {
                         Analysis.Actions.Add(new Arm64NewObjectAction(Analysis, instruction));
+                    }
+                    else if (jumpTarget < Utils.GetAddressOfNextFunctionStart((ulong)instruction.Address) && jumpTarget > (ulong)instruction.Address)
+                    {
+                        //Jumping over an instruction, may need to expand function to include jumpTarget.
+                    }
+                    else if (Arm64CallThrowHelperAction.IsThrowHelper((long)jumpTarget))
+                    {
+                        Analysis.Actions.Add(new Arm64CallThrowHelperAction(Analysis, instruction));
+                        break; //Skip adding a return lower down.
                     }
 
                     //If we're a b, we need a return too
                     if (instruction.Mnemonic == "b")
+                        Analysis.Actions.Add(new Arm64ReturnAction(Analysis, instruction));
+                    break;
+                case "br":
+                case "blr":
+                    //Branch to register
+
+                    //This part is TODO
+                    //because we need to know what's in the register first (e.g. virtual function)
+
+                    //We need a ret if br
+                    if(instruction.Mnemonic == "br")
                         Analysis.Actions.Add(new Arm64ReturnAction(Analysis, instruction));
                     break;
             }
@@ -141,42 +160,58 @@ namespace Cpp2IL.Core.Analysis
                 case "ldr" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && memVar is ConstantDefinition { Value: long pageAddress } && memoryOffset < 0x4000:
                     //Combined with adrp to load a global. The adrp loads the page, and this adds an additional offset to resolve a specific memory value.
                     var globalAddress = (ulong)(pageAddress + memoryOffset);
-                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is not { IsValid: true } global)
+                    MetadataUsage global = null;
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { IsValid: true } global2)
+                        global = global2;
+                    else
                     {
                         //Try pointer to global
                         try
                         {
                             var possiblePtr = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ulong>(globalAddress);
-                            if (LibCpp2IlMain.GetAnyGlobalByAddress(possiblePtr) is { IsValid: true } global2)
-                                global = global2;
-                            else
-                                break;
+                            if (LibCpp2IlMain.GetAnyGlobalByAddress(possiblePtr) is { IsValid: true } global3)
+                                global = global3;
                         }
                         catch (Exception)
                         {
-                            break;
+                            //Nothing
                         }
                     }
 
-                    //Have a global here.
-                    switch (global.Type)
+                    if (global != null)
                     {
-                        case MetadataUsageType.Type:
-                        case MetadataUsageType.TypeInfo:
-                            Analysis.Actions.Add(new Arm64MetadataUsageTypeToRegisterAction(Analysis, instruction));
-                            break;
-                        case MetadataUsageType.MethodDef:
-                            Analysis.Actions.Add(new Arm64MetadataUsageMethodDefToRegisterAction(Analysis, instruction));
-                            break;
-                        case MetadataUsageType.MethodRef:
-                            Analysis.Actions.Add(new Arm64MetadataUsageMethodRefToRegisterAction(Analysis, instruction));
-                            break;
-                        case MetadataUsageType.FieldInfo:
-                            Analysis.Actions.Add(new Arm64MetadataUsageFieldToRegisterAction(Analysis, instruction));
-                            break;
-                        case MetadataUsageType.StringLiteral:
-                            Analysis.Actions.Add(new Arm64MetadataUsageLiteralToRegisterAction(Analysis, instruction));
-                            break;
+                        //Have a global here.
+                        switch (global.Type)
+                        {
+                            case MetadataUsageType.Type:
+                            case MetadataUsageType.TypeInfo:
+                                Analysis.Actions.Add(new Arm64MetadataUsageTypeToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.MethodDef:
+                                Analysis.Actions.Add(new Arm64MetadataUsageMethodDefToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.MethodRef:
+                                Analysis.Actions.Add(new Arm64MetadataUsageMethodRefToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.FieldInfo:
+                                Analysis.Actions.Add(new Arm64MetadataUsageFieldToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.StringLiteral:
+                                Analysis.Actions.Add(new Arm64MetadataUsageLiteralToRegisterAction(Analysis, instruction));
+                                break;
+                        }
+                    }
+
+                    //Unknown global or string
+                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
+                    if (potentialLiteral != null && instruction.Details.Operands[0].RegisterSafe()?.Name[0] != 'v')
+                    {
+                        Analysis.Actions.Add(new Arm64UnmanagedLiteralToConstantAction(Analysis, instruction, potentialLiteral, globalAddress));
+                    }
+                    else
+                    {
+                        //Unknown global
+                        Analysis.Actions.Add(new Arm64UnknownGlobalToConstantAction(Analysis, instruction, globalAddress));
                     }
 
                     break;
@@ -188,7 +223,7 @@ namespace Cpp2IL.Core.Analysis
                     //Move generic analyzed op to another reg
                     Analysis.Actions.Add(new Arm64RegCopyAction(Analysis, instruction));
                     break;
-                case "str" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && var0 is {} && memVar is LocalDefinition:
+                case "str" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && var0 is { } && memVar is LocalDefinition:
                     //Field write from register.
                     //Unlike a bunch of other instructions, source is operand 0, destination is operand 1.
                     Analysis.Actions.Add(new Arm64RegisterToFieldAction(Analysis, instruction));
@@ -233,7 +268,7 @@ namespace Cpp2IL.Core.Analysis
             var memVar = Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(memoryBase));
 
             var mnemonic = instruction.Mnemonic;
-            
+
             switch (mnemonic)
             {
                 case "orr" when r1Name is "xzr" && t2 == Arm64OperandType.Immediate && imm2 != 0:

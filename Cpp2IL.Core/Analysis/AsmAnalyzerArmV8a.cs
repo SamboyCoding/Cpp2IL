@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.PostProcessActions;
-using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -12,36 +11,13 @@ namespace Cpp2IL.Core.Analysis
 {
     public partial class AsmAnalyzerArmV8A : AsmAnalyzerBase<Arm64Instruction>
     {
-        private static List<ulong> _allKnownFunctionStarts;
-
-        static AsmAnalyzerArmV8A()
-        {
-            _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer).Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys).ToList();
-            //Sort in ascending order
-            _allKnownFunctionStarts.Sort();
-        }
-
         private static List<Arm64Instruction> DisassembleInstructions(MethodDefinition definition)
         {
             var baseAddress = definition.AsUnmanaged().MethodPointer;
 
-            //We can't use CppMethodBodyBytes to get the byte array, because ARMv7 doesn't have filler bytes like x86 does.
-            //So we can't work out the end of the method.
-            //But we can find the start of the next one!
-            var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(_allKnownFunctionStarts.FirstOrDefault(a => a > baseAddress));
-            var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(baseAddress);
-            if (rawStartOfNextMethod < rawStart)
-                rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
-
-            var bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().Skip((int)rawStart).Take((int)(rawStartOfNextMethod - rawStart)).ToArray();
-
-            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
-            disassembler.EnableInstructionDetails = true;
-            disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
-
-            return disassembler.Disassemble(bytes, (long)baseAddress).ToList();
+            return Utils.GetArm64MethodBodyAtVirtualAddress(baseAddress);
         }
-        
+
         private string FunctionArgumentDump;
 
         public AsmAnalyzerArmV8A(ulong methodPointer, IEnumerable<Arm64Instruction> instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)

@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.Actions.Base;
+﻿using System;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Gee.External.Capstone.Arm64;
 
@@ -13,7 +14,15 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         protected sealed override bool IsImplicitNRE()
         {
-            //TODO
+            var body = Utils.GetArm64MethodBodyAtVirtualAddress(JumpTarget);
+
+            for (var i = 0; i < Math.Min(3, body.Count); i++)
+            {
+                if (body[i].Mnemonic is "b" or "bl" && body[i].Details.Operands[0].IsImmediate() && Arm64CallThrowHelperAction.IsThrowHelper(body[i].Details.Operands[0].Immediate))
+                    if (Arm64CallThrowHelperAction.GetExceptionThrown(body[i].Details.Operands[0].Immediate)?.Name == "NullReferenceException")
+                        return true;
+            }
+
             return false;
         }
     }

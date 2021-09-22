@@ -72,6 +72,9 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 //lower first character
                 nameBase = $"{char.ToLower(nameBase[0])}{nameBase[1..]}";
 
+                if (nameBase.Contains("k__BackingField"))
+                    nameBase = nameBase[1..nameBase.IndexOf(">", StringComparison.Ordinal)];
+                
                 if (nameBase.Contains("`"))
                     nameBase = nameBase[..nameBase.IndexOf("`", StringComparison.Ordinal)];
 

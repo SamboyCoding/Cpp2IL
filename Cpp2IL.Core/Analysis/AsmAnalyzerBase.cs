@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis
 
         internal AsmAnalyzerBase(ulong methodPointer, IEnumerable<T> instructions, BaseKeyFunctionAddresses keyFunctionAddresses)
         {
-            _keyFunctionAddresses = keyFunctionAddresses;
+            _keyFunctionAddresses = keyFunctionAddresses ?? throw new ArgumentNullException(nameof(keyFunctionAddresses));
             _instructions = new();
             CppAssembly = LibCpp2IlMain.Binary!;
             
@@ -175,7 +175,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
-                        builder.Append('\n');
+                        builder.Append("\n\t");
                     }
                     catch (TaintedInstructionException e)
                     {
@@ -188,7 +188,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
-                        builder.Append('\n');
+                        builder.Append("\n\t");
                     }
                     catch (Exception e)
                     {
@@ -201,7 +201,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
-                        builder.Append('\n');
+                        builder.Append("\n\t");
                     }
                 }
             }

@@ -5,7 +5,9 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
+using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using Gee.External.Capstone.Arm64;
 using Iced.Intel;
@@ -461,6 +463,9 @@ namespace Cpp2IL.Core
 
         public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
         {
+            if (theDll.RawLength <= (long)rawAddr)
+                return null;
+            
             var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
             if (char.IsLetterOrDigit(c) || char.IsPunctuation(c) || char.IsSymbol(c) || char.IsWhiteSpace(c))
             {
@@ -939,7 +944,7 @@ namespace Cpp2IL.Core
 
             return t switch
             {
-                Iced.Intel.Instruction x86 => x86.IP,
+                Instruction x86 => x86.IP,
                 ArmInstruction arm => (ulong)arm.Address,
                 Arm64Instruction arm64 => (ulong)arm64.Address,
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
@@ -953,11 +958,74 @@ namespace Cpp2IL.Core
 
             return t switch
             {
-                Iced.Intel.Instruction x86 => x86.NextIP,
+                Instruction x86 => x86.NextIP,
                 ArmInstruction arm => (ulong)(arm.Address + 4),
                 Arm64Instruction arm64 => (ulong)(arm64.Address + 4),
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
+        }
+        
+        private static List<ulong>? _allKnownFunctionStarts;
+        private static CapstoneArm64Disassembler? _arm64Disassembler;
+
+        private static void InitArm64Decompilation()
+        {
+            _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer).Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys).ToList();
+            //Sort in ascending order
+            _allKnownFunctionStarts.Sort();
+            
+            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
+            disassembler.EnableInstructionDetails = true;
+            disassembler.EnableSkipDataMode = true;
+            disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
+            _arm64Disassembler = disassembler;
+        }
+
+        public static ulong GetAddressOfNextFunctionStart(ulong current)
+        {
+            if(_allKnownFunctionStarts == null)
+                InitArm64Decompilation();
+
+            return _allKnownFunctionStarts!.FirstOrDefault(a => a > current);
+        }
+
+        public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true)
+        {
+            if(_allKnownFunctionStarts == null)
+                InitArm64Decompilation();
+            
+            //We can't use CppMethodBodyBytes to get the byte array, because ARMv7 doesn't have filler bytes like x86 does.
+            //So we can't work out the end of the method.
+            //But we can find the start of the next one! (If managed)
+            if (managed)
+            {
+                var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(GetAddressOfNextFunctionStart(virtAddress));
+                var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
+                if (rawStartOfNextMethod < rawStart)
+                    rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
+
+                byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().Skip((int)rawStart).Take((int)(rawStartOfNextMethod - rawStart)).ToArray();
+                
+                return _arm64Disassembler!.Disassemble(bytes, (long)virtAddress).ToList();
+            }
+            
+            //Unmanaged function, look for first b or bl
+            var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
+            var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
+            List<Arm64Instruction> ret = new();
+            
+            var keepGoing = true;
+            while (keepGoing)
+            {
+                //All arm64 instructions are 4 bytes
+                ret.AddRange(_arm64Disassembler!.Disassemble(allBytes.Skip(pos).Take(4).ToArray(), (long)virtAddress));
+                virtAddress += 4;
+                pos += 4;
+
+                keepGoing = !ret.Any(i => i.Mnemonic is "b" or "bl");
+            }
+
+            return ret;
         }
     }
 }

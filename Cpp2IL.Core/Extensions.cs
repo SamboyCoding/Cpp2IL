@@ -68,9 +68,7 @@ namespace Cpp2IL.Core
         
         public static T[] SubArray<T>(this T[] data, int index, int length)
         {
-            var result = new T[length];
-            Array.Copy(data, index, result, 0, length);
-            return result;
+            return data.Skip(index).Take(length).ToArray();
         }
 
         public static T RemoveAndReturn<T>(this List<T> data, int index)
