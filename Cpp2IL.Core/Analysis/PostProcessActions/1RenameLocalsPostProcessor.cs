@@ -61,6 +61,10 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 {
                     nameBase = aia.TypeCreated.Name;
                     localDefinition = aia.LocalReturned;
+                    
+                    if (nameBase.Contains("<"))
+                        //Compiler-generated IEnumerator instances
+                        nameBase = "enumeratorInstance";
                 }
                 else
                     continue;
@@ -70,10 +74,6 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
 
                 if (nameBase.Contains("`"))
                     nameBase = nameBase[..nameBase.IndexOf("`", StringComparison.Ordinal)];
-
-                if (nameBase.Contains("<"))
-                    //Compiler-generated IEnumerator instances
-                    nameBase = "enumeratorInstance";
 
                 if (nameBase.EndsWith("[]"))
                     nameBase = nameBase[..^2] + "Array";

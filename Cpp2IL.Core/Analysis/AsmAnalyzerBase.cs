@@ -175,6 +175,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
+                        builder.Append('\n');
                     }
                     catch (TaintedInstructionException e)
                     {
@@ -187,6 +188,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
+                        builder.Append('\n');
                     }
                     catch (Exception e)
                     {
@@ -199,6 +201,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
+                        builder.Append('\n');
                     }
                 }
             }

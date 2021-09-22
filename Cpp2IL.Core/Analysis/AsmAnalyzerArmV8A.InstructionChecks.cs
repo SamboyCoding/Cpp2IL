@@ -31,6 +31,14 @@ namespace Cpp2IL.Core.Analysis
 
         private void CheckForZeroOpInstruction(Arm64Instruction instruction)
         {
+            var mnemonic = instruction.Mnemonic;
+
+            switch (mnemonic)
+            {
+                case "ret":
+                    Analysis.Actions.Add(new Arm64ReturnAction(Analysis, instruction));
+                    break;
+            }
         }
 
         private void CheckForSingleOpInstruction(Arm64Instruction instruction)

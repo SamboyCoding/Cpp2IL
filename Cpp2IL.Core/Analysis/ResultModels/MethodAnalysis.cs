@@ -203,7 +203,10 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 else
                 {
                     //Have a this, and a complex object => pointer in x1
-                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.POINTER_X1;
+                    // Arm64ReturnValueLocation = Arm64ReturnValueLocation.POINTER_X1;
+                    
+                    //According to the spec, this should go as a pointer in x1. But a pointer in x0 is being observed in practise.
+                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.POINTER_X0;
                 }
             }
             
