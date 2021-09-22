@@ -91,6 +91,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         {
             if (ManagedMethodBeingCalled == null)
                 throw new TaintedInstructionException("Don't know what method is being called");
+
+            if (InstanceBeingCalledOn == null && !ManagedMethodBeingCalled.Resolve().IsStatic)
+                throw new TaintedInstructionException("Method is non-static but don't have an instance");
+
+            if (InstanceBeingCalledOn != null && !ManagedMethodBeingCalled.Resolve().IsStatic && InstanceBeingCalledOn.Type?.Resolve() != ManagedMethodBeingCalled.DeclaringType.Resolve())
+                throw new TaintedInstructionException($"Mismatched instance parameter. Expecting an instance of {ManagedMethodBeingCalled.DeclaringType.FullName}, actually {InstanceBeingCalledOn}");
             
             if (ManagedMethodBeingCalled.Name == ".ctor")
             {

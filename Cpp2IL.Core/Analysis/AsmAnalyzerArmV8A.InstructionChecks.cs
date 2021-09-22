@@ -10,6 +10,9 @@ namespace Cpp2IL.Core.Analysis
     {
         protected override void PerformInstructionChecks(Arm64Instruction instruction)
         {
+            if(instruction.IsSkippedData)
+                return;
+            
             switch (instruction.Details.Operands.Length)
             {
                 case 0:
