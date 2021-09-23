@@ -203,6 +203,8 @@ namespace Cpp2IL.Core.Analysis
                                 Analysis.Actions.Add(new Arm64MetadataUsageLiteralToRegisterAction(Analysis, instruction));
                                 break;
                         }
+
+                        return;
                     }
 
                     //Unknown global or string

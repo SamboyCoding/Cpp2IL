@@ -418,28 +418,46 @@ namespace Cpp2IL.Core.Analysis
 
         public static IAnalysedOperand? GetMethodInfoArg<T>(MethodReference managedMethodBeingCalled, MethodAnalysis<T> context)
         {
-            if (LibCpp2IlMain.Binary!.is32Bit)
+            switch (LibCpp2IlMain.Binary!.InstructionSet)
             {
-                //Already should have popped off all the arguments, just peek-and-pop one more
-                if (context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _})
+                case InstructionSet.X86_32 when context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _}:
+                    //Already should have popped off all the arguments, just peek-and-pop one more
                     return context.Stack.Pop();
+                case InstructionSet.X86_64:
+                {
+                    var paramIdx = managedMethodBeingCalled.Parameters.Count;
 
-                return null;
+                    if (managedMethodBeingCalled.HasThis)
+                        paramIdx++;
+
+                    if (paramIdx < 4)
+                        return context.GetOperandInRegister(NON_FP_REGISTERS_BY_IDX[paramIdx]);
+
+                    var stackOffset = 0x20 + Utils.GetPointerSizeBytes() * (paramIdx - 4);
+
+                    context.StackStoredLocals.TryGetValue(stackOffset, out var ret);
+
+                    return ret;
+                }
+                case InstructionSet.ARM64:
+                    var xCount = managedMethodBeingCalled.Resolve().IsStatic ? 0 : 1;
+
+                    foreach (var parameterDefinition in managedMethodBeingCalled.Parameters)
+                    {
+                        //Floating point -> v reg, else -> x reg
+                        if (!parameterDefinition.ParameterType.ShouldBeInFloatingPointRegister())
+                            xCount++;
+                    }
+
+                    if (xCount > 7)
+                        return null;
+
+                    var reg = $"x{xCount}";
+
+                    return context.GetOperandInRegister(reg);
             }
-            
-            var paramIdx = managedMethodBeingCalled.Parameters.Count;
 
-            if (managedMethodBeingCalled.HasThis)
-                paramIdx++;
-
-            if (paramIdx < 4)
-                return context.GetOperandInRegister(NON_FP_REGISTERS_BY_IDX[paramIdx]);
-
-            var stackOffset = 0x20 + Utils.GetPointerSizeBytes() * (paramIdx - 4);
-
-            context.StackStoredLocals.TryGetValue(stackOffset, out var ret);
-
-            return ret;
+            return null;
         }
     }
 }

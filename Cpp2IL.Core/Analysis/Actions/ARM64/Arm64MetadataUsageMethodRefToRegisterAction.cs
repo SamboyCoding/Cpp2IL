@@ -60,6 +60,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if (genericTypeParams.Count > 0)
             {
                 declaringType = declaringType.MakeGenericInstanceType(genericTypeParams.ToArray());
+                method = method.MakeGeneric(genericTypeParams.ToArray());
             }
 
             if (genericMethodParams.Count > 0)

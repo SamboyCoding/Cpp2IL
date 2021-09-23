@@ -10,5 +10,10 @@
             ContainedString = containedString;
             Address = addr;
         }
+
+        public override string ToString()
+        {
+            return $"{{il2cpp string, value = \"{ContainedString}\", address = 0x{Address:X}}}";
+        }
     }
 }

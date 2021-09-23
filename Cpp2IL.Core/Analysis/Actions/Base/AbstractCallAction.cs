@@ -95,7 +95,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             if (InstanceBeingCalledOn == null && !ManagedMethodBeingCalled.Resolve().IsStatic)
                 throw new TaintedInstructionException("Method is non-static but don't have an instance");
 
-            if (InstanceBeingCalledOn != null && !ManagedMethodBeingCalled.Resolve().IsStatic && InstanceBeingCalledOn.Type?.Resolve() != ManagedMethodBeingCalled.DeclaringType.Resolve())
+            if (InstanceBeingCalledOn != null && !ManagedMethodBeingCalled.Resolve().IsStatic && !ManagedMethodBeingCalled.DeclaringType.Resolve().IsAssignableFrom(InstanceBeingCalledOn.Type?.Resolve()))
                 throw new TaintedInstructionException($"Mismatched instance parameter. Expecting an instance of {ManagedMethodBeingCalled.DeclaringType.FullName}, actually {InstanceBeingCalledOn}");
             
             if (ManagedMethodBeingCalled.Name == ".ctor")
@@ -142,7 +142,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 result += $" with arguments {Arguments.ToStringEnumerable()}";
 
             if (ReturnedLocal != null)
-                result += $" and stores the result in {ReturnedLocal} in register rax";
+                result += $" and stores the result in {ReturnedLocal}";
 
             return result + "\n";
         }
@@ -161,7 +161,12 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     returnType = ResolveGenericReturnTypeIfNeeded(returnType, context);
                 }
 
-                var destReg = returnType.ShouldBeInFloatingPointRegister() ? "xmm0" : "rax";
+                var destReg = LibCpp2IlMain.Binary.InstructionSet switch
+                {
+                    InstructionSet.X86_32 => returnType.ShouldBeInFloatingPointRegister() ? "xmm0" : "rax",
+                    InstructionSet.X86_64 => returnType.ShouldBeInFloatingPointRegister() ? "xmm0" : "rax",
+                    InstructionSet.ARM64 => returnType.ShouldBeInFloatingPointRegister() ? "v0" : "x0",
+                };
                 ReturnedLocal = context.MakeLocal(returnType, reg: destReg);
 
                 //todo maybe improve?
