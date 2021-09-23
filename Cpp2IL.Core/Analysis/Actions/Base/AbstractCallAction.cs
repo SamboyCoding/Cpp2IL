@@ -118,6 +118,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             if(toCall is GenericInstanceMethod gim2)
                 toCall = processor.ImportRecursive(gim2);
 
+            // if (toCall.DeclaringType is GenericInstanceType git2)
+            //     toCall.DeclaringType = processor.ImportRecursive(git2);
+
             result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, processor.ImportReference(toCall)));
 
             if (ManagedMethodBeingCalled.ReturnType.FullName == "System.Void")

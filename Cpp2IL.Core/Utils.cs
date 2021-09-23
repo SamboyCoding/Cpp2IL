@@ -442,11 +442,11 @@ namespace Cpp2IL.Core
             return instance;
         }
 
-        public static MethodReference MakeGeneric(this MethodReference self, params TypeReference[] arguments)
+        public static MethodReference MakeMethodOnGenericType(this MethodReference self, params TypeReference[] typeParams)
         {
             var reference = new MethodReference(self.Name, self.ReturnType)
             {
-                DeclaringType = self.DeclaringType.MakeGenericType(arguments),
+                DeclaringType = self.DeclaringType.MakeGenericType(typeParams),
                 HasThis = self.HasThis,
                 ExplicitThis = self.ExplicitThis,
                 CallingConvention = self.CallingConvention

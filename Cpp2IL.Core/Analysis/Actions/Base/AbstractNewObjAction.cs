@@ -40,7 +40,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 ctorToCall = TypeCreated?.Resolve()?.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == ctorToCall.Parameters.Count) ?? throw new TaintedInstructionException($"Could not resolve a constructor with {ctorToCall.Parameters.Count} parameters.");
 
             if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
-                ctorToCall = ctorToCall.MakeGeneric(git.GenericArguments.ToArray());
+                ctorToCall = ctorToCall.MakeMethodOnGenericType(git.GenericArguments.ToArray());
 
             result.Add(processor.Create(OpCodes.Newobj, processor.ImportReference(ctorToCall)));
             

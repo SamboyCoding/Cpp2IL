@@ -29,7 +29,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             ShouldUseCallvirt = true;
 
             if (methodSpec.classIndexIndex != -1)
-                ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeGeneric(methodSpec.GenericClassParams.Select(p => Utils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled)).ToArray()!);
+                ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeMethodOnGenericType(methodSpec.GenericClassParams.Select(p => Utils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled)).ToArray()!);
 
             CreateLocalForReturnType(context);
             RegisterLocals();

@@ -163,7 +163,7 @@ namespace Cpp2IL.Core
                     {
                         //Non-null assertion because we've null-checked the params above.
                         genericParams = genericParams.Select(p => p is GenericParameter ? p : ilTypeDefinition.Module.ImportReference(p, currentlyFixingUp)).ToList()!;
-                        baseRef = nonGenericRef.MakeGeneric(genericParams.ToArray()!);
+                        baseRef = nonGenericRef.MakeMethodOnGenericType(genericParams.ToArray()!);
                     }
                     else
                     {
