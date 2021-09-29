@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions.Base;
@@ -486,6 +487,9 @@ namespace Cpp2IL.Core
 
             var arrayType = Type.GetType(typeForArrayToCreateNow.FullName) ?? throw new Exception($"Could not resolve array type {array.ArrayType.ElementType.FullName}");
             var arr = Array.CreateInstance(arrayType, array.Size);
+
+            if (array.KnownValuesAtOffsets.Count != array.Size)
+                throw new Exception($"Failed to populate known array - only have {array.KnownValuesAtOffsets.Count} known values for an array of length {array.Size}.");
 
             foreach (var (index, value) in array.KnownValuesAtOffsets)
             {

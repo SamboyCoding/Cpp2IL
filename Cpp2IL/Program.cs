@@ -61,7 +61,7 @@ namespace Cpp2IL
                 //APK
                 //Metadata: assets/bin/Data/Managed/Metadata
                 //Binary: lib/(armeabi-v7a)|(arm64-v8a)/libil2cpp.so
-                
+
                 Logger.InfoNewline($"Attempting to extract required files from APK {gamePath}");
 
                 using var stream = File.OpenRead(gamePath);
@@ -100,7 +100,7 @@ namespace Cpp2IL
                 ggmStream.Read(ggmBytes, 0, 0x40);
 
                 args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
-                
+
                 Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}");
 
                 args.Valid = true;
@@ -176,11 +176,14 @@ namespace Cpp2IL
 
             Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
 
+#if !DEBUG
             try
             {
+#endif
                 var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
 
                 return MainWithArgs(runtimeArgs);
+#if !DEBUG
             }
             catch (DllSaveException e)
             {
@@ -203,6 +206,7 @@ namespace Cpp2IL
                 Logger.ErrorNewline($"Execution Failed: {e.Message}");
                 return -1;
             }
+#endif
         }
 
         public static int MainWithArgs(Cpp2IlRuntimeArgs runtimeArgs)

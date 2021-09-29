@@ -22,7 +22,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
             }
 
-            _constantMade = context.MakeConstant(typeof(Il2CppString), new Il2CppString(_detectedString, instruction.MemoryDisplacement64), reg: _destReg);
+            _constantMade = context.MakeConstant(typeof(Il2CppString), new Il2CppString(_detectedString, instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64), reg: _destReg);
             
             if (instruction.Mnemonic == Mnemonic.Push)
             {

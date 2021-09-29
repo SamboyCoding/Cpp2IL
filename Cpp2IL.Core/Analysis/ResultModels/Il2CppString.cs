@@ -1,4 +1,7 @@
-﻿namespace Cpp2IL.Core.Analysis.ResultModels
+﻿using System;
+using LibCpp2IL;
+
+namespace Cpp2IL.Core.Analysis.ResultModels
 {
     public class Il2CppString
     {
@@ -8,6 +11,10 @@
         public Il2CppString(string containedString, ulong addr)
         {
             ContainedString = containedString;
+
+            if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(addr, out _))
+                throw new Exception($"Invalid il2cpp string creation - 0x{addr:X} cannot be mapped to the binary.");
+            
             Address = addr;
         }
 
