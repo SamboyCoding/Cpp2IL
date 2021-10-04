@@ -184,12 +184,22 @@ namespace LibCpp2IL.PE
                 addrExportTable = peOptionalHeader64.DataDirectory.First().VirtualAddress;
             }
 
-            //Non-virtual addresses for these
-            var directoryEntryExports = ReadClassAtVirtualAddress<PeDirectoryEntryExport>(addrExportTable + peImageBase);
+            try
+            {
+                //Non-virtual addresses for these
+                var directoryEntryExports = ReadClassAtVirtualAddress<PeDirectoryEntryExport>(addrExportTable + peImageBase);
 
-            peExportedFunctionPointers = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportTable + peImageBase, directoryEntryExports.NumberOfExports);
-            peExportedFunctionNamePtrs = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportNameTable + peImageBase, directoryEntryExports.NumberOfExportNames);
-            peExportedFunctionOrdinals = ReadClassArrayAtVirtualAddress<ushort>(directoryEntryExports.RawAddressOfExportOrdinalTable + peImageBase, directoryEntryExports.NumberOfExportNames); //This uses the name count per MSoft spec
+                peExportedFunctionPointers = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportTable + peImageBase, directoryEntryExports.NumberOfExports);
+                peExportedFunctionNamePtrs = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportNameTable + peImageBase, directoryEntryExports.NumberOfExportNames);
+                peExportedFunctionOrdinals = ReadClassArrayAtVirtualAddress<ushort>(directoryEntryExports.RawAddressOfExportOrdinalTable + peImageBase, directoryEntryExports.NumberOfExportNames); //This uses the name count per MSoft spec
+            }
+            catch (EndOfStreamException)
+            {
+                LibLogger.WarnNewline($"PE does not appear to contain a valid export table! It would be apparently located at virt address 0x{addrExportTable + peImageBase:X}, raw 0x{MapVirtualAddressToRaw(addrExportTable + peImageBase):X}, but that's beyond the end of the binary. No exported functions will be accessible.");
+                peExportedFunctionPointers = Array.Empty<uint>();
+                peExportedFunctionNamePtrs = Array.Empty<uint>();
+                peExportedFunctionOrdinals = Array.Empty<ushort>();
+            }
         }
 
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)

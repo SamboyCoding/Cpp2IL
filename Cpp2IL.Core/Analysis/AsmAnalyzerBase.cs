@@ -339,8 +339,9 @@ namespace Cpp2IL.Core.Analysis
         public void AnalyzeMethod()
         {
             //Main instruction loop
-            foreach (var instruction in _instructions)
+            for (var index = 0; index < _instructions.Count; index++)
             {
+                var instruction = _instructions[index];
                 try
                 {
                     PerformInstructionChecks(instruction);
