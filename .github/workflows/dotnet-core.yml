@@ -47,7 +47,7 @@ jobs:
       with:
         name: Cpp2IL-Win
         path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
-  - name: Upload Netframework Artifact
+    - name: Upload Netframework Artifact
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Netframework48-Win.zip
