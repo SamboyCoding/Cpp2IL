@@ -3,36 +3,13 @@
     <LangVersion>8</LangVersion>
     <Nullable>enable</Nullable>
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64</RuntimeIdentifiers>
+    <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64;win7-x64</RuntimeIdentifiers>
     <OutputType>Exe</OutputType>
-    <TargetFramework>net5.0</TargetFramework>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <RuntimeIdentifier>ubuntu-x64</RuntimeIdentifier>
-    <Configuration>Release</Configuration>
-    <PublishTrimmed>true</PublishTrimmed>
+    <PublishTrimmed Condition="'$(TargetFramework)' != 'net48'">true</PublishTrimmed>
     <TrimMode>link</TrimMode>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <RuntimeIdentifier>osx-x64</RuntimeIdentifier>
-    <Configuration>Release</Configuration>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-  </PropertyGroup>
-
-  <PropertyGroup Condition="'$(Configuration)'=='Release'">
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
-    <Configuration>Release</Configuration>
-    <PublishTrimmed>true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
-    <PublishSingleFile>true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+    <PublishSingleFile Condition="'$(TargetFramework)' != 'net48'">true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net48'">true</IncludeNativeLibrariesForSelfExtract>
+    <TargetFrameworks>net48;net5.0</TargetFrameworks>
   </PropertyGroup>
   
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
@@ -47,5 +24,9 @@
   
   <ItemGroup>
     <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
+  </ItemGroup>
+  
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net48'" />
   </ItemGroup>
 </Project>
