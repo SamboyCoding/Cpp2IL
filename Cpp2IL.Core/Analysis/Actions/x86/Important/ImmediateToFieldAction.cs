@@ -32,6 +32,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 ConstantValue = BitConverter.ToSingle(BitConverter.GetBytes(rawConstant), 0);
             else if(destTypeName == "System.Double")
                 ConstantValue = BitConverter.ToDouble(BitConverter.GetBytes(rawConstant), 0);
+            else if (destTypeName == "System.Boolean")
+                ConstantValue = BitConverter.ToBoolean(BitConverter.GetBytes(rawConstant), 0);
         }
 
         protected override string? GetValueSummary() => ConstantValue?.ToString();
