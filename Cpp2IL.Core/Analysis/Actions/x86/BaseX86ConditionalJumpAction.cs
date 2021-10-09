@@ -24,6 +24,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                     return true;
                 }
             }
+            
+            if (body.Count > 1 && body[0].Mnemonic == Mnemonic.Xor && body[1].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[1].NearBranchTarget))
+            {
+                if (CallExceptionThrowerFunction.GetExceptionThrown(body[1].NearBranchTarget)?.Name == "NullReferenceException")
+                {
+                    return true;
+                }
+            }
 
             return false;
         }
