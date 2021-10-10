@@ -146,8 +146,6 @@ namespace Cpp2IL.Core.Analysis
             {
                 if (actualGenericMethod.Name == method.Name && actualGenericMethod.DeclaringType == method.DeclaringType)
                     method = actualGenericMethod;
-                else
-                    return false; //We have a method which isn't this one.
             }
 
             var tempArgs = new List<IAnalysedOperand>();
