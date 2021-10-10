@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if(_readOn == null)
                 return;
             
-            RegisterUsedLocal(_readOn);
+            RegisterUsedLocal(_readOn, context);
             _read = FieldUtils.GetFieldBeingAccessed(_readOn.Type!, 0, false);
             
             if(_read == null)

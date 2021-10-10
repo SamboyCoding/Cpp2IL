@@ -38,18 +38,18 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             // }
             
             if (associatedCompare?.ArgumentOne is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
             else if (associatedCompare?.ArgumentOne is ComparisonDirectFieldAccess a)
-                RegisterUsedLocal(a.localAccessedOn);
+                RegisterUsedLocal(a.localAccessedOn, context);
             else if (associatedCompare?.ArgumentOne is ComparisonDirectPropertyAccess p)
-                RegisterUsedLocal(p.localAccessedOn);
+                RegisterUsedLocal(p.localAccessedOn, context);
 
             if (associatedCompare?.ArgumentTwo is LocalDefinition l2)
-                RegisterUsedLocal(l2);
+                RegisterUsedLocal(l2, context);
             else if (associatedCompare?.ArgumentTwo is ComparisonDirectFieldAccess a2)
-                RegisterUsedLocal(a2.localAccessedOn);
+                RegisterUsedLocal(a2.localAccessedOn, context);
             else if (associatedCompare?.ArgumentTwo is ComparisonDirectPropertyAccess p2)
-                RegisterUsedLocal(p2.localAccessedOn);
+                RegisterUsedLocal(p2.localAccessedOn, context);
 
             var (currBlockStart, currBlockEnd) = context.GetMostRecentBlock(AssociatedInstruction.GetInstructionAddress());
 

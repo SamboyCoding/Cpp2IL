@@ -216,7 +216,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             CreateLocalForReturnType(context);
 
-            RegisterLocals();
+            RegisterLocals(context);
 
             if (ManagedMethodBeingCalled?.FullName == "System.Void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(System.Array,System.RuntimeFieldHandle)")
             {

@@ -35,9 +35,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             return UsedLocals;
         }
 
-        protected void RegisterUsedLocal(LocalDefinition l)
+        protected void RegisterUsedLocal(LocalDefinition l, MethodAnalysis<T> context)
         {
             UsedLocals.Add(l);
+            context.UnusedLocals.Remove(l);
         }
         
         public List<LocalDefinition> GetRegisteredLocalsWithoutSideEffects()

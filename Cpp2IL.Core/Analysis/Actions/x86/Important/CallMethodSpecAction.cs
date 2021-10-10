@@ -32,7 +32,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeMethodOnGenericType(methodSpec.GenericClassParams.Select(p => Utils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled)).ToArray()!);
 
             CreateLocalForReturnType(context);
-            RegisterLocals();
+            RegisterLocals(context);
         }
     }
 }

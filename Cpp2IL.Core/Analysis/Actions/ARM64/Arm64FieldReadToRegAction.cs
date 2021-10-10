@@ -20,11 +20,11 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if(FieldRead == null)
                 return;
             
-            RegisterUsedLocal(ReadFrom);
+            RegisterUsedLocal(ReadFrom, context);
 
             LocalWritten = context.MakeLocal(FieldRead.GetFinalType()!, reg: destReg);
             
-            RegisterUsedLocal(LocalWritten);
+            RegisterUsedLocal(LocalWritten, context);
         }
     }
 }

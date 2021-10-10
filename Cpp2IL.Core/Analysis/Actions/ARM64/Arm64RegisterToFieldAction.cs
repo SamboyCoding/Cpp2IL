@@ -21,10 +21,10 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if(InstanceBeingSetOn?.Type == null)
                 return;
             
-            RegisterUsedLocal(InstanceBeingSetOn);
+            RegisterUsedLocal(InstanceBeingSetOn, context);
             
             if(_sourceOperand is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
 
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, (ulong)instruction.MemoryOffset(), sourceReg[0] == 'v');
         }

@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             LocalReturned = context.MakeLocal(TypeCreated, reg: "rax");
             
             //Keeping this as used implicitly because we have to create instances of things.
-            RegisterUsedLocal(LocalReturned);
+            RegisterUsedLocal(LocalReturned, context);
 
             if (LibCpp2IlMain.Binary.is32Bit)
                 context.Stack.Pop(); //Pop off the type created

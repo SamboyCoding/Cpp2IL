@@ -21,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 return;
             
             context.StackStoredLocals[(int) _stackOffset] = _sourceLocal;
-            RegisterUsedLocal(_sourceLocal);
+            RegisterUsedLocal(_sourceLocal, context);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

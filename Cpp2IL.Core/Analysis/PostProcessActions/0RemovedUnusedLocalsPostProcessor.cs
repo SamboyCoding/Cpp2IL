@@ -1,6 +1,8 @@
 ﻿// #define PRINT_UNUSED_LOCAL_DATA
 
+using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 
 namespace Cpp2IL.Core.Analysis.PostProcessActions
@@ -9,20 +11,23 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
     {
         public override void PostProcess(MethodAnalysis<T> analysis)
         {
-            var unused = analysis.Locals.Where(l => !analysis.FunctionArgumentLocals.Contains(l) && analysis.Actions.All(a => !a.GetUsedLocals().Contains(l))).ToList();
+            var unused = analysis.UnusedLocals;
 #if PRINT_UNUSED_LOCAL_DATA
             Console.WriteLine($"Found {unused.Count} unused locals for method {definition}: ");
 #endif
 
+            var toRemove = new List<BaseAction<T>>();
             foreach (var unusedLocal in unused)
             {
-#if PRINT_UNUSED_LOCAL_DATA
-                Console.WriteLine($"\t{unusedLocal.Name}");
-#endif
-                analysis.Actions = analysis.Actions.Where(a => !a.GetRegisteredLocalsWithoutSideEffects().Contains(unusedLocal)).ToList();
+                foreach (var analysisAction in analysis.Actions)
+                {
+                    if(analysisAction.GetRegisteredLocalsWithoutSideEffects().Contains(unusedLocal))
+                        toRemove.Add(analysisAction);
+                }
             }
-
-            analysis.Locals.RemoveAll(l => unused.Contains(l));
+            
+            toRemove.ForEach(a => analysis.Actions.Remove(a));
+            unused.ForEach(l => analysis.Locals.Remove(l));
         }
     }
 }

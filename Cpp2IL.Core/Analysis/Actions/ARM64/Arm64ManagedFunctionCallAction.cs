@@ -59,7 +59,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         {
             CreateLocalForReturnType(context);
 
-            RegisterLocals();
+            RegisterLocals(context);
 
             if (ManagedMethodBeingCalled?.FullName == "System.Void System.Runtime.CompilerServices.RuntimeHelpers::InitializeArray(System.Array,System.RuntimeFieldHandle)")
             {

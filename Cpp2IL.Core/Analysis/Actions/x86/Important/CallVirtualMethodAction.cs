@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 AddComment("Arguments are incorrect?");
 
             CreateLocalForReturnType(context);
-            RegisterLocals();
+            RegisterLocals(context);
         }
     }
 }

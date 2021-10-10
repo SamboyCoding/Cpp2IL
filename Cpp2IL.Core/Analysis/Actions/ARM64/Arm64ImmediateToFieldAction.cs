@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if(InstanceBeingSetOn?.Type == null)
                 return;
             
-            RegisterUsedLocal(InstanceBeingSetOn);
+            RegisterUsedLocal(InstanceBeingSetOn, context);
 
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, (ulong)instruction.MemoryOffset(), false);
         }

@@ -29,10 +29,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             LocalMade = context.MakeLocal(ArrType.ElementType, reg: destReg);
             
-            RegisterUsedLocal(ArrayLocal);
+            RegisterUsedLocal(ArrayLocal, context);
             
             if(OffsetLocal != null)
-                RegisterUsedLocal(OffsetLocal);
+                RegisterUsedLocal(OffsetLocal, context);
         }
     }
 }

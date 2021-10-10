@@ -21,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 context.PushEmptyStackFrames(1);
 
             if (whatIsPushed is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

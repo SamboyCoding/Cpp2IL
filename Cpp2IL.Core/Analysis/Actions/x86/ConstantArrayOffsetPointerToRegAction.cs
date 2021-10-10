@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (_arrayLocal?.Type?.IsArray != true) return;
             
-            RegisterUsedLocal(_arrayLocal);
+            RegisterUsedLocal(_arrayLocal, context);
 
             _index = (int) ((arrayOffset - Il2CppArrayUtils.FirstItemOffset) / Utils.GetPointerSizeBytes());
             

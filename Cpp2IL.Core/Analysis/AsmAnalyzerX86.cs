@@ -21,14 +21,10 @@ namespace Cpp2IL.Core.Analysis
             Mnemonic.Add, Mnemonic.Sub
         };
 
-        internal AsmAnalyzerX86(ulong methodPointer, InstructionList instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)
-        {
-        }
+        internal AsmAnalyzerX86(ulong methodPointer, InstructionList instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses) { }
 
         internal AsmAnalyzerX86(MethodDefinition methodDefinition, ulong methodStart, BaseKeyFunctionAddresses keyFunctionAddresses)
-            : base(methodDefinition, methodStart, LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart), keyFunctionAddresses)
-        {
-        }
+            : base(methodDefinition, methodStart, LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart), keyFunctionAddresses) { }
 
         protected override void AnalysisRequestedExpansion(ulong ptr)
         {
@@ -45,13 +41,20 @@ namespace Cpp2IL.Core.Analysis
             foreach (var i in _instructions.Skip(1))
             {
                 idx++;
-                if (SharedState.MethodsByAddress.ContainsKey(i.IP) || LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.Contains(i.IP))
+
+                if (i.Code == Code.Int3)
                 {
                     return true;
                 }
 
-                if (i.Code == Code.Int3)
+                if (MethodDefinition != null && SharedState.MethodsByAddress.ContainsKey(i.IP))
                 {
+                    //Have method def - so are managed method - and hit another one here.
+                    return true;
+                }
+                if (MethodDefinition == null && SharedState.AttributeGeneratorStarts.Contains(i.IP))
+                {
+                    //We have no method def - so are an attrib gen - and another attrib gen here.
                     return true;
                 }
             }

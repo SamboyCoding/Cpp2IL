@@ -23,7 +23,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             if(InstanceBeingSetOn?.Type?.Resolve() == null) return;
 
-            RegisterUsedLocal(InstanceBeingSetOn);
+            RegisterUsedLocal(InstanceBeingSetOn, context);
 
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
 

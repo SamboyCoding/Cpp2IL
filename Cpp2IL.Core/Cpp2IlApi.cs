@@ -219,6 +219,8 @@ namespace Cpp2IL.Core
         {
             CheckLibInitialized();
 
+            SharedState.AttributeGeneratorStarts = LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList();
+
             var enumerable = (IEnumerable<AssemblyDefinition>) SharedState.AssemblyList;
 
             if (parallel)

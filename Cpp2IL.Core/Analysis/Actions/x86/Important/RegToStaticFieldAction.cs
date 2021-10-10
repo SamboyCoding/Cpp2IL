@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 return;
 
             if (_sourceOperand is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
 
             _theField = FieldUtils.GetStaticFieldByOffset(staticFieldsPtr, staticFieldOffset);
         }

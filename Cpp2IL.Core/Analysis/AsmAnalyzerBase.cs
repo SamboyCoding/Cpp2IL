@@ -29,12 +29,12 @@ namespace Cpp2IL.Core.Analysis
             _keyFunctionAddresses = keyFunctionAddresses ?? throw new ArgumentNullException(nameof(keyFunctionAddresses));
             _instructions = new();
             CppAssembly = LibCpp2IlMain.Binary!;
-            
+
             foreach (var instruction in instructions)
             {
                 _instructions.Add(instruction);
             }
-            
+
             Analysis = new(methodPointer, MethodEnd, _instructions);
             Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
 
@@ -175,6 +175,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
+
                         builder.Append("\n\t");
                     }
                     catch (TaintedInstructionException e)
@@ -188,6 +189,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
+
                         builder.Append("\n\t");
                     }
                     catch (Exception e)
@@ -201,6 +203,7 @@ namespace Cpp2IL.Core.Analysis
                             success = false;
                             break;
                         }
+
                         builder.Append("\n\t");
                     }
                 }

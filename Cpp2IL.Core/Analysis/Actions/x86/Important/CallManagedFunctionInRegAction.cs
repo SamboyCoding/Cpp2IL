@@ -45,7 +45,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             CreateLocalForReturnType(context);
             
-            RegisterLocals();
+            RegisterLocals(context);
         }
     }
 }

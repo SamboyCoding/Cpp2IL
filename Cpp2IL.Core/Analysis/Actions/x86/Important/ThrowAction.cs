@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             exceptionToThrow = context.GetOperandInRegister("rcx");
             
             if(exceptionToThrow is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

@@ -17,6 +17,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
     {
         public delegate void PtrConsumer(ulong ptr);
 
+        public readonly List<LocalDefinition> UnusedLocals = new();
         public readonly List<LocalDefinition> Locals = new();
         public readonly List<ConstantDefinition> Constants = new();
         public List<BaseAction<TInstruction>> Actions = new();
@@ -296,6 +297,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             };
 
             Locals.Add(local);
+            UnusedLocals.Add(local);
 
             if (reg != null)
                 RegisterData[reg] = local;

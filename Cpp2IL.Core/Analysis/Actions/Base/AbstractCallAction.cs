@@ -173,7 +173,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 ReturnedLocal = context.MakeLocal(returnType, reg: destReg);
 
                 //todo maybe improve?
-                RegisterUsedLocal(ReturnedLocal);
+                RegisterUsedLocal(ReturnedLocal, context);
             }
         }
 
@@ -212,11 +212,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             return returnType;
         }
 
-        protected void RegisterLocals()
+        protected void RegisterLocals(MethodAnalysis<T> context)
         {
-            Arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o!));
+            Arguments?.Where(o => o is LocalDefinition).ToList().ForEach(o => RegisterUsedLocal((LocalDefinition) o!, context));
             if (InstanceBeingCalledOn != null)
-                RegisterUsedLocal(InstanceBeingCalledOn);
+                RegisterUsedLocal(InstanceBeingCalledOn, context);
         }
 
         public List<Mono.Cecil.Cil.Instruction> GetILToLoadParams(MethodAnalysis<T> context, ILProcessor processor, bool includeThis = true)

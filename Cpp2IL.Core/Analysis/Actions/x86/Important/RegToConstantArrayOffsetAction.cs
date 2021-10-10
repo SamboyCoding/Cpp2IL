@@ -30,10 +30,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             _opRead = context.GetOperandInRegister(regRead);
             
             if(TheArray != null)
-                RegisterUsedLocal(TheArray);
+                RegisterUsedLocal(TheArray, context);
             
             if(_opRead is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
         }
 
         protected override int GetOffsetWritten() => (int)_offsetIdx;

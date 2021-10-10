@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);
             
             if(ValueRead is LocalDefinition loc)
-                RegisterUsedLocal(loc);
+                RegisterUsedLocal(loc, context);
 
             if (ValueRead is ConstantDefinition { Value: StackPointer s })
             {
@@ -36,14 +36,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 if (context.GetConstantInReg(destRegName) is {Value: FieldPointer p})
                 {
                     InstanceBeingSetOn = p.OnWhat;
-                    RegisterUsedLocal(InstanceBeingSetOn);
+                    RegisterUsedLocal(InstanceBeingSetOn, context);
                     FieldWritten = p.Field;
                 }
                 
                 return;
             }
 
-            RegisterUsedLocal(InstanceBeingSetOn);
+            RegisterUsedLocal(InstanceBeingSetOn, context);
 
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
         }
@@ -56,8 +56,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             InstanceBeingSetOn = instanceWrittenOn;
             ValueRead = readFrom;
             
-            RegisterUsedLocal(InstanceBeingSetOn);
-            RegisterUsedLocal(readFrom);
+            RegisterUsedLocal(InstanceBeingSetOn, context);
+            RegisterUsedLocal(readFrom, context);
         }
 
         protected override string? GetValuePseudocode() => ValueRead?.GetPseudocodeRepresentation();

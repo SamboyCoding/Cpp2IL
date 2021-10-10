@@ -32,7 +32,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             if (sizeOperand is LocalDefinition local && (local.KnownInitialValue is ulong || local.KnownInitialValue is uint))
             {
-                RegisterUsedLocal(local);
+                RegisterUsedLocal(local, context);
                 SizeAllocated = Convert.ToInt32(local.KnownInitialValue);
             }
             else if (sizeOperand is ConstantDefinition {Value: ulong sizeC})
@@ -46,7 +46,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if (TypeOfArray is not ArrayType arrayType) return;
 
             LocalWritten = context.MakeLocal(arrayType, reg: "rax", knownInitialValue: new AllocatedArray(SizeAllocated, arrayType));
-            RegisterUsedLocal(LocalWritten); //Used implicitly until I can find out what's causing these issues
+            RegisterUsedLocal(LocalWritten, context); //Used implicitly until I can find out what's causing these issues
         }
     }
 }

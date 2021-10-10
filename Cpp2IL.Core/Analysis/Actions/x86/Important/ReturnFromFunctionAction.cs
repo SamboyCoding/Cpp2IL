@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             returnValue = returnType.ShouldBeInFloatingPointRegister() ? context.GetOperandInRegister("xmm0") : context.GetOperandInRegister("rax");
 
             if (returnValue is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
         }
     }
 }

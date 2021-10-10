@@ -42,9 +42,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             }
             
             if(_argOne is LocalDefinition l1)
-                RegisterUsedLocal(l1);
+                RegisterUsedLocal(l1, context);
             if(_argTwo is LocalDefinition l2)
-                RegisterUsedLocal(l2);
+                RegisterUsedLocal(l2, context);
 
             _resultLocal = context.MakeLocal(Utils.Int64Reference, reg: _destReg);
         }

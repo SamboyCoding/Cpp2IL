@@ -20,10 +20,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             _secondOp = context.GetOperandInRegister(secondReg);
             
             if(_firstOp != null)
-                RegisterUsedLocal(_firstOp);
+                RegisterUsedLocal(_firstOp, context);
             
             if(_secondOp is LocalDefinition l)
-                RegisterUsedLocal(l);
+                RegisterUsedLocal(l, context);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

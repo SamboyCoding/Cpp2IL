@@ -22,12 +22,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             if (_arrayLocal?.Type?.IsArray != true) return;
             
-            RegisterUsedLocal(_arrayLocal);
+            RegisterUsedLocal(_arrayLocal, context);
 
             _indexLocal = context.GetLocalInReg(indexReg);
             
             if(_indexLocal != null)
-                RegisterUsedLocal(_indexLocal);
+                RegisterUsedLocal(_indexLocal, context);
             
             //Regardless of if we have an index local, we can still work out the type of the array and make a local.
             //Resolve() turns array types into non-array types

@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             if (localBeingRead == null) return;
             
-            RegisterUsedLocal(localBeingRead);
+            RegisterUsedLocal(localBeingRead, context);
             
             _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
 

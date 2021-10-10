@@ -62,10 +62,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             }
 
             if (ArgumentOne is LocalDefinition l1)
-                RegisterUsedLocal(l1);
+                RegisterUsedLocal(l1, context);
 
             if (ArgumentTwo is LocalDefinition l2)
-                RegisterUsedLocal(l2);
+                RegisterUsedLocal(l2, context);
         }
         
         public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)

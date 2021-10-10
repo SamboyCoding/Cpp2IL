@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
             LocalReturned = context.MakeLocal(TypeCreated, reg: "x0");
             
-            RegisterUsedLocal(LocalReturned);
+            RegisterUsedLocal(LocalReturned, context);
         }
     }
 }

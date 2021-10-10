@@ -23,7 +23,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             
             _newLocal = context.MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric(_sourceConstant.Type.FullName)!, knownInitialValue: _sourceConstant.Value);
             context.StackStoredLocals[(int) _stackOffset] = _newLocal;
-            RegisterUsedLocal(_newLocal);
+            RegisterUsedLocal(_newLocal, context);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
