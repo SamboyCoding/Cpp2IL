@@ -5,10 +5,10 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64;win7-x64</RuntimeIdentifiers>
     <OutputType>Exe</OutputType>
-    <PublishTrimmed Condition="'$(TargetFramework)' != 'net48'">true</PublishTrimmed>
+    <PublishTrimmed Condition="'$(TargetFramework)' != 'net472'">true</PublishTrimmed>
     <TrimMode>link</TrimMode>
-    <PublishSingleFile Condition="'$(TargetFramework)' != 'net48'">true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net48'">true</IncludeNativeLibrariesForSelfExtract>
+    <PublishSingleFile Condition="'$(TargetFramework)' != 'net472'">true</PublishSingleFile>
+    <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net472'">true</IncludeNativeLibrariesForSelfExtract>
     <TargetFrameworks>net472;net5.0</TargetFrameworks>
   </PropertyGroup>
   
@@ -27,6 +27,6 @@
   </ItemGroup>
   
   <ItemGroup>
-    <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net48'" />
+    <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net472'" />
   </ItemGroup>
 </Project>
