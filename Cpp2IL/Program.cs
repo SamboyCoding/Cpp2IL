@@ -21,6 +21,7 @@ namespace Cpp2IL
         private static readonly string[] BlacklistedExecutableFilenames =
         {
             "UnityCrashHandler.exe",
+            "UnityCrashHandler32.exe",
             "UnityCrashHandler64.exe",
             "install.exe",
             "launch.exe",
