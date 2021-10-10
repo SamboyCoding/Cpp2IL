@@ -25,6 +25,7 @@ namespace Cpp2IL.Core
 
         public static int[] DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
+            return new[] { 1, 0, 0 };
             int[] version;
             if (Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
@@ -68,6 +69,33 @@ namespace Cpp2IL.Core
                 unityVer = verString.ToString();
             }
 
+            unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
+            return unityVer.Split('.').Select(int.Parse).ToArray();
+        }
+
+        public static int[] GetVersionFromDataUnity3D(Stream fileStream)
+        {
+            //data.unity3d is a bundle file and it's used on later unity versions.
+            //These files are usually really large and we only want the first couple bytes, so it's done via a stream.
+            //e.g.: Secret Neighbour
+            //Fake unity version at 0xC, real one at 0x12
+            
+            var verString = new StringBuilder();
+
+            fileStream.Seek(0x12, SeekOrigin.Begin);
+            while (true)
+            {
+                var read = fileStream.ReadByte();
+                if (read == 0)
+                {
+                    //I'm using a while true..break for this, shoot me.
+                    break;
+                }
+                verString.Append(Convert.ToChar(read));
+            }
+
+            var unityVer = verString.ToString();
+            
             unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
             return unityVer.Split('.').Select(int.Parse).ToArray();
         }

@@ -47,7 +47,24 @@ namespace Cpp2IL
                                             $"\t{unityPlayerPath}\n" +
                                             $"\t{args.PathToMetadata}\n");
 
-                args.UnityVersion = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, Path.Combine(gamePath, $"{exeName}_Data"));
+                var gameDataPath = Path.Combine(gamePath, $"{exeName}_Data");
+                args.UnityVersion = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, gameDataPath);
+
+                if (args.UnityVersion[0] < 4)
+                {
+                    Logger.WarnNewline($"Fail once: Unity version of provided executable is {args.UnityVersion.ToStringEnumerable()}. This is probably not the correct version. Retrying with alternative method...");
+
+                    var readUnityVersionFrom = Path.Combine(gameDataPath, "globalgamemanagers");
+                    if (File.Exists(readUnityVersionFrom))
+                        args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(File.ReadAllBytes(readUnityVersionFrom));
+                    else
+                    {
+                        readUnityVersionFrom = Path.Combine(gameDataPath, "data.unity3d");
+                        using var stream = File.OpenRead(readUnityVersionFrom);
+
+                        args.UnityVersion = Cpp2IlApi.GetVersionFromDataUnity3D(stream);
+                    }
+                }
 
                 Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}");
 
