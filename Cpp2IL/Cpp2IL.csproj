@@ -9,7 +9,7 @@
     <TrimMode>link</TrimMode>
     <PublishSingleFile Condition="'$(TargetFramework)' != 'net48'">true</PublishSingleFile>
     <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net48'">true</IncludeNativeLibrariesForSelfExtract>
-    <TargetFrameworks>net48;net5.0</TargetFrameworks>
+    <TargetFrameworks>net472;net5.0</TargetFrameworks>
   </PropertyGroup>
   
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
