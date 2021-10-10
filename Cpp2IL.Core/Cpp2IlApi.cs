@@ -25,7 +25,6 @@ namespace Cpp2IL.Core
 
         public static int[] DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
-            return new[] { 1, 0, 0 };
             int[] version;
             if (Environment.OSVersion.Platform == PlatformID.Win32NT)
             {
