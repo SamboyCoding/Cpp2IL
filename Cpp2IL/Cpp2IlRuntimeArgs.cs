@@ -13,6 +13,7 @@ namespace Cpp2IL
         public string PathToMetadata;
 
         public string AssemblyToRunAnalysisFor;
+        public bool AnalyzeAllAssemblies;
         
         //Feature flags
         public bool EnableAnalysis;

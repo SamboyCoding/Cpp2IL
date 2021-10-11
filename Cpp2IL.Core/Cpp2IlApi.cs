@@ -482,7 +482,9 @@ namespace Cpp2IL.Core
             if (analysisLevel != AnalysisLevel.PSUEDOCODE_ONLY)
             {
                 var total = AsmAnalyzerX86.SUCCESSFUL_METHODS + AsmAnalyzerX86.FAILED_METHODS;
-                var successPercent = AsmAnalyzerX86.SUCCESSFUL_METHODS * 100 / total;
+                var successPercent = 100;
+                if (total != 0)
+                    successPercent = AsmAnalyzerX86.SUCCESSFUL_METHODS * 100 / total;
 
                 Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzerX86.SUCCESSFUL_METHODS}) of {total} methods.");
             }

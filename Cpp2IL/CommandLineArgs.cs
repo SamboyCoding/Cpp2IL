@@ -38,7 +38,7 @@ namespace Cpp2IL
         [Option("verbose", Required = false, HelpText = "Enable Verbose Logging.")]
         public bool Verbose { get; set; }
         
-        [Option("experimental-enable-il-to-assembly-please")]
+        [Option("experimental-enable-il-to-assembly-please", HelpText = "Attempt to emit IL to the assembly saved to the output directory.")]
         public bool EnableIlToAsm { get; set; }
         
         [Option("suppress-attributes", HelpText = "Suppress generation of Cpp2ILInjected attributes.")]
@@ -55,6 +55,9 @@ namespace Cpp2IL
         
         [Option("throw-safety-out-the-window", HelpText = "Throw safety out the window, and try and push all the IL we can to the DLL, *even if it might break things*. Only has an effect if IL-to-file is enabled.")]
         public bool ThrowSafetyOutTheWindow { get; set; }
+        
+        [Option("analyze-all", HelpText = "Analyze every single assembly in the application. Probably very slow, might break.")]
+        public bool AnalyzeAllAssemblies { get; set; }
 
         internal bool AreForceOptionsValid
         {

@@ -166,6 +166,7 @@ namespace Cpp2IL
             result.SuppressAttributes = options.SuppressAttributes;
             result.Parallel = options.Parallel;
             result.AssemblyToRunAnalysisFor = options.RunAnalysisForAssembly;
+            result.AnalyzeAllAssemblies = options.AnalyzeAllAssemblies;
             result.IlToAsmContinueThroughErrors = options.ThrowSafetyOutTheWindow;
 
             if (result.EnableIlToAsm)
@@ -265,7 +266,19 @@ namespace Cpp2IL
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
             if (runtimeArgs.EnableAnalysis)
-                DoAssemblyCSharpAnalysis(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors);
+            {
+                if (runtimeArgs.AnalyzeAllAssemblies)
+                {
+                    foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
+                    {
+                        DoAnalysisForAssembly(assemblyDefinition.Name.Name, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors);
+                    }
+                }
+                else
+                {
+                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors);
+                }
+            }
 
             foreach (var p in _pathsToDeleteOnExit)
             {
@@ -284,17 +297,19 @@ namespace Cpp2IL
             return 0;
         }
 
-        private static void DoAssemblyCSharpAnalysis(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors)
+        private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors)
         {
-            var assemblyCsharp = Cpp2IlApi.GetAssemblyByName(assemblyName);
+            var targetAssembly = Cpp2IlApi.GetAssemblyByName(assemblyName);
 
-            if (assemblyCsharp == null)
+            if (targetAssembly == null)
                 return;
+            
+            Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
 
-            Cpp2IlApi.AnalyseAssembly(analysisLevel, assemblyCsharp, keyFunctionAddresses, Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
+            Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
 
             if (doIlToAsm)
-                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> { assemblyCsharp });
+                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> { targetAssembly });
         }
     }
 }
