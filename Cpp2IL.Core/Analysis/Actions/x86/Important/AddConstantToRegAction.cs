@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.Actions.Base;
+﻿using System.Collections.Generic;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Iced.Intel;
 using Mono.Cecil.Cil;
@@ -21,6 +22,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             _constantBeingAdded = instruction.Mnemonic == Mnemonic.Inc ? 1 : instruction.GetImmediate(1); 
 
             if (_valueInReg?.Type == null) return;
+            
+            RegisterUsedLocal(_valueInReg, context);
 
             if (!Utils.IsNumericType(_valueInReg.Type))
             {
@@ -30,7 +33,41 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_valueInReg?.Type is null)
+                throw new TaintedInstructionException("Local being added to is null / doesn't have a type");
+
+            var instructions = new List<Mono.Cecil.Cil.Instruction>(); 
+            
+            instructions.AddRange(_valueInReg.GetILToLoad(context, processor));
+
+            var typeAddingTo = typeof(int).Module.GetType(_valueInReg.Type.FullName);
+
+            if (typeAddingTo == typeof(int)) 
+                instructions.AddRange(context.MakeConstant(typeof(int), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(uint))
+                instructions.AddRange(context.MakeConstant(typeof(uint), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(ulong))
+                instructions.AddRange(context.MakeConstant(typeof(ulong), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(long))
+                instructions.AddRange(context.MakeConstant(typeof(long), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(byte))
+                instructions.AddRange(context.MakeConstant(typeof(byte), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(float))
+                instructions.AddRange(context.MakeConstant(typeof(float), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(double))
+                instructions.AddRange(context.MakeConstant(typeof(double), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(char))
+                instructions.AddRange(context.MakeConstant(typeof(char), _constantBeingAdded).GetILToLoad(context, processor));
+            else if (typeAddingTo == typeof(sbyte))
+                instructions.AddRange(context.MakeConstant(typeof(sbyte), _constantBeingAdded).GetILToLoad(context, processor));
+            else 
+                throw new TaintedInstructionException($"Don't know how to create a suitable constant for type: {typeAddingTo.FullName} to add to local");
+
+            instructions.Add(processor.Create(OpCodes.Add));
+            
+            instructions.Add(processor.Create(OpCodes.Stloc, _valueInReg.Variable));
+
+            return instructions.ToArray();
         }
 
         public override string? ToPsuedoCode()
