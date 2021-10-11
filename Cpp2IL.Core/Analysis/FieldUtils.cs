@@ -89,7 +89,12 @@ namespace Cpp2IL.Core.Analysis
         private static FieldBeingAccessedData? GetIndirectlyPointedAtField(List<FieldInType> allFields, ulong offset, bool tryFindFloatingPointValue)
         {
             //We have no field directly at this offset - find the one immediately prior, and map that struct to its own fields
-            var structFIT = allFields.FindLast(f => !f.Static && f.Offset <= offset);
+            
+            FieldInType structFIT = default(FieldInType);
+
+            foreach (var field in allFields)
+                if (!field.Static && field.Offset <= offset && field.Offset > structFIT.Offset)
+                    structFIT = field;
 
             if (structFIT.FieldType == null || structFIT.Constant != null) return null; //Couldn't find one, or they're all constants
 
