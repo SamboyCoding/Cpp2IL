@@ -43,23 +43,23 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             var typeAddingTo = typeof(int).Module.GetType(_valueInReg.Type.FullName);
 
             if (typeAddingTo == typeof(int)) 
-                instructions.AddRange(context.MakeConstant(typeof(int), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(uint))
-                instructions.AddRange(context.MakeConstant(typeof(uint), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(ulong))
-                instructions.AddRange(context.MakeConstant(typeof(ulong), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(long))
-                instructions.AddRange(context.MakeConstant(typeof(long), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(byte))
-                instructions.AddRange(context.MakeConstant(typeof(byte), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(float))
-                instructions.AddRange(context.MakeConstant(typeof(float), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(double))
-                instructions.AddRange(context.MakeConstant(typeof(double), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(char))
-                instructions.AddRange(context.MakeConstant(typeof(char), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(sbyte))
-                instructions.AddRange(context.MakeConstant(typeof(sbyte), _constantBeingAdded).GetILToLoad(context, processor));
+                instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else 
                 throw new TaintedInstructionException($"Don't know how to create a suitable constant for type: {typeAddingTo.FullName} to add to local");
 
