@@ -30,6 +30,9 @@ namespace Cpp2IL.Core
             foreach (var typeDefinition in SharedState.AllTypeDefinitions)
             {
                 var il2cppTypeDef = SharedState.ManagedToUnmanagedTypes[typeDefinition];
+                
+                //Type generic params.
+                PopulateGenericParamsForType(il2cppTypeDef, typeDefinition);
 
                 //Set base type
                 if (il2cppTypeDef.RawBaseType is { } parent)
@@ -196,27 +199,8 @@ namespace Cpp2IL.Core
                 ilTypeDefinition.CustomAttributes.Add(customTokenAttribute);
             }
 
-            if (cppTypeDefinition.GenericContainer != null)
-            {
-                //Type generic params.
-                foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
-                {
-                    if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
-                    {
-                        p = new GenericParameter(param.Name, ilTypeDefinition).WithFlags(param.flags);
-                        SharedState.GenericParamsByIndex[param.Index] = p;
-
-                        ilTypeDefinition.GenericParameters.Add(p);
-
-                        param.ConstraintTypes!
-                            .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(ilTypeDefinition, c)))
-                            .ToList()
-                            .ForEach(p.Constraints.Add);
-                    }
-                    else if (!ilTypeDefinition.GenericParameters.Contains(p))
-                        ilTypeDefinition.GenericParameters.Add(p);
-                }
-            }
+            //Type generic params.
+            // PopulateGenericParamsForType(cppTypeDefinition, ilTypeDefinition);
 
             //Fields
             ProcessFieldsInType(cppTypeDefinition, ilTypeDefinition, stringType, fieldOffsetAttribute, tokenAttribute);
@@ -229,6 +213,30 @@ namespace Cpp2IL.Core
 
             //Events
             ProcessEventsInType(cppTypeDefinition, ilTypeDefinition, tokenAttribute, stringType);
+        }
+
+        private static void PopulateGenericParamsForType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+        {
+            if (cppTypeDefinition.GenericContainer == null) 
+                return;
+            
+            foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
+            {
+                if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
+                {
+                    p = new GenericParameter(param.Name, ilTypeDefinition).WithFlags(param.flags);
+                    SharedState.GenericParamsByIndex[param.Index] = p;
+
+                    ilTypeDefinition.GenericParameters.Add(p);
+
+                    param.ConstraintTypes!
+                        .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(ilTypeDefinition, c)))
+                        .ToList()
+                        .ForEach(p.Constraints.Add);
+                }
+                else if (!ilTypeDefinition.GenericParameters.Contains(p))
+                    ilTypeDefinition.GenericParameters.Add(p);
+            }
         }
 
         private static (MethodDefinition addressAttribute, MethodDefinition fieldOffsetAttribute, MethodDefinition tokenAttribute) GetInjectedAttributes(TypeDefinition ilTypeDefinition)

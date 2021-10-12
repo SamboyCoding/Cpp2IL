@@ -32,6 +32,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (localBeingMoved.Type.FullName == _localBeingOverwritten?.Type?.FullName && (localBeingMoved.KnownInitialValue == _localBeingOverwritten.KnownInitialValue))
             {
+                //For now, let's leave this to only work on primitives, because this is giving false positives everywhere
+                
+                if(!localBeingMoved.Type.IsPrimitive)
+                    return;
+                
                 //Variable being overwritten is the same type as this one - are we maybe just changing the value of that one (e.g. in a loop)?
                 context.SetRegContent(newReg, _localBeingOverwritten);
                 copyingValueNotLocal = true;
