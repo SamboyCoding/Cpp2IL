@@ -25,9 +25,6 @@ namespace Cpp2IL.Core.Analysis
 
         private void CheckForSingleOpInstruction(Instruction instruction)
         {
-            if (instruction.IP == 0x1804ae0ac)
-                Debugger.Break();
-
             var reg = Utils.GetRegisterNameNew(instruction.Op0Register == Register.None ? instruction.MemoryBase : instruction.Op0Register);
             var operand = Analysis.GetOperandInRegister(reg);
 

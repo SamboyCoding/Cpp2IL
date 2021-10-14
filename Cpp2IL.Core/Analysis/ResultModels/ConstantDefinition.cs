@@ -106,8 +106,14 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                     ilProcessor.Create(OpCodes.Ldc_R8, (double) Value),
                 };
 
+            if(Type == typeof(MethodReference) && Value is GenericInstanceMethod gim)
+                return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportRecursive(gim))};
+            
             if (Type == typeof(MethodReference) && Value is MethodReference reference)
                 return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportReference(reference))};
+
+            if(Type == typeof(TypeReference) && Value is GenericInstanceType git)
+                return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportRecursive(git))}; 
             
             if (Type == typeof(TypeReference) && Value is TypeReference typeReference)
                 return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportReference(typeReference))};

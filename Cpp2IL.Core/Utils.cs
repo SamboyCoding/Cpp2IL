@@ -595,6 +595,13 @@ namespace Cpp2IL.Core
             return ret;
         }
 
+        public static TypeReference GetUltimateElementType(this ArrayType arr) =>
+            arr.ElementType switch
+            {
+                ArrayType arr2 => arr2.GetUltimateElementType(),
+                { } other => other,
+            };
+
         public static string GetRegisterNameNew(Arm64RegisterId registerId)
         {
             var key = registerId;
