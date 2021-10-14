@@ -79,51 +79,55 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 - [x] Restoration of explicit override methods in managed types. This data is not explicitly saved to the Il2Cpp
   metadata, but is useful for Unhollower.
 - [x] Il2CPP Api Function Detection
-- [x] Analysis of both x86_32 and x86_64 machine code for the following features:
-    - [x] Managed Function Calls (including virtual calls via vtable)
-    - [x] Managed Function Argument Resolution
-    - [x] Object Instantiation
-    - [x] String Constant Loads
-    - [x] Instance field assignments
-    - [x] Instance field reads
-    - [x] Static field assignments
-    - [x] Static field reads
-    - [x] IL2CPP "Exception Helper" function detection (shown as `throw new ExceptionType()` in pseudocode)
-    - [x] Array instantiation
-    - [x] Array assignment by index
-    - [x] Array read by index
-    - [x] Array length reads
-    - [x] If/White/Else If/Else detection
-    - [x] Mathematical subtraction
-    - [x] Mathematical addition
-    - [x] Some mathematical multiplication
-    - [x] Integer division via magic constant multiplication.
-    - [x] Return statements, including returned variables
-    - [x] FPU (Floating-Point processor) support for x86_32 games.
-    - [x] RGCTX (Runtime Generic Context) Support
-- [x] Analysis for ARMv8/ARM64 machine code for the following features (note a more limited set than above):
-    - [x] Managed function calls (but not virtual calls)
-    - [x] Managed function argument resolution
-    - [x] Object instantiation
-    - [x] String constant loads
-    - [x] Instance field assignments
-    - [x] Instance field reads
-    - [x] IL2CPP Exception Helper function detection, as above
-    - [x] Some If/While/Else detection
+- [x] Flagship analysis of both x86_32 and x86_64 instruction sets.
+- [x] Analysis for ARMv8/ARM64 machine code for a more limited set of operations than x86 (see the table below)
+- [x] A framework for ARMv7 support, albeit with no operations supported yet.
 - [x] Able to save generated IL to the actual function body in the Assembly, allowing decompilation using dnSpy/ILSpy.
 - [x] Significantly faster than both Il2CppDumper and Il2CppInspector (for DummyDLL Generation)
+
+## Supported Analysis Features Table
+
+| Feature | Supported in x86 | Supported in ARMv8 | Supported in ARMv7 |
+| :-----: | :--------------: | :----------------: | :----------------: |
+| Simple Method Calls[^1] | ✔️ | ✔️ | ❌ |
+| Virtual function calls (via vftable) | ✔️ | ❌ | ❌ |
+| Interface function calls (via interfaceOffsets) | ✔️ | ❌ | ❌ |
+| Argument resolution for function calls | ✔️ | ✔️ | ❌ |
+| Object Instantiation | ✔️ | ✔️ | ❌ |
+| Unmanaged String Literal Detection | ✔️ | ✔️ | ❌ |
+| Instance field reads | ✔️ | ✔️ | ❌ |
+| Instance field writes | ✔️ | ✔️ | ❌ |
+| Static field reads | ✔️ | ❌ | ❌ |
+| Static field writes | ✔️ | ❌ | ❌ |
+| IL2CPP "Exception Helper" functions[^2] | ✔️ | ✔️ | ❌ |
+| IL2CPP MetadataUsage parsing[^3] | ✔️ | ✔️ | ❌ |
+| Array instantiation | ✔️ | ❌ | ❌ |
+| Array offset reads | ✔️ | ❌ | ❌ |
+| Array offset writes | ✔️ | ❌ | ❌ |
+| Array length read | ✔️ | ❌ | ❌ |
+| If/While/for/else if detection | ✔️ | Partial[^4] | ❌ |
+| Mathematical operations | Partial[^5] | ❌ | ❌ |
+| Floating point coprocessor support | ✔️ | N/A | N/A |
+| RGCTX[^6] Support | ✔️ | ❌ | ❌ |
+| Return statements, including return value detection | ✔️ | ✔️ | ❌ |
+
+[^1]: A simple function call is one that is non-virtual, and not defined in an interface. This includes both static and instance functions.
+[^2]: An exception helper is a function call which throws an exception, halting the execution of the current function. These are used for checks which are implicit in the .NET runtime, such as throwing NullReferenceExceptions if something is null and a field is accessed on it.
+[^3]: A MetadataUsage is a reference to a type, field, method, generic instance method, or managed string literal.
+[^4]: Analysis of ARMv8 binaries supports the following conditions in conditional statements: greater than, greater than or equal to, less than or equal to, not equal to null, not equal to, equal to null, equal to.
+[^5]: x86 has a lot of opcodes for mathematical operations. Some are supported: Addition, subtraction, some multiplication (but not all), integer division.
+[^6]: RGCTX stands for Runtime Generic ConTeXt, and is used to provide information about generic methods during runtime.
 
 ## What's work in progress (Roadmap)
 
 (Subject to change)
 
 - [ ] Ongoing: Wider support for actions to improve analysis accuracy. Some key points:
-    - [ ] Wider support for multiplication (IMUL instructions) as well as mathematical operations in general.
-    - [ ] Floating-point-related instructions.
+    - [ ] Wider support for x86 multiplication (IMUL instructions) as well as mathematical operations in general.
+    - [ ] Possibly more x86 floating-point-related instructions.
     - [ ] Feature parity for Arm64 with X86. Most importantly: static fields, full range of conditions, managed array
       support, virtual functions, mathematical operations
-- [ ] Armv7 analysis. A template is present, but nothing specific runs.
-- [ ] Reworking this document to show a matrix of supported features per instruction set.
+- [ ] ARMv7 analysis. A template is present, but nothing specific runs.
 
 ## Credits
 
@@ -131,10 +135,14 @@ This application is built using .NET 5.0.
 
 It uses the following libraries, for which I am very thankful:
 
+(All are MIT licensed aside from XUnit which is Apache 2.0+MIT)
+
 - [iced](https://github.com/icedland/iced) disassembler for x86
+- [Capstone.NET](https://github.com/9ee1/Capstone.NET) for ARMv8 and ARMv7 disassembly.
 - [Pastel](https://github.com/silkfire/Pastel) for the console colours.
 - [CommandLineParser](https://github.com/commandlineparser/commandline) so I didn't need to write one myself.
 - [Mono.Cecil](https://github.com/jbevain/cecil/) to create and save the Dummy DLLs, and generate IL.
+- [HarmonyX](https://github.com/BepInEx/HarmonyX) to fix some of cecil's annoyingly vague error messages.
 - [xUnit](https://github.com/xunit/xunit) for the unit tests.
 
 It's (very loosely, at this point) based off of [Il2CppDumper](https://github.com/Perfare/Il2CppDumper), which I forked
