@@ -32,7 +32,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             var funcBody = Utils.GetArm64MethodBodyAtVirtualAddress((ulong)pointer, false);
 
             var registerPages = new Dictionary<string, long>();
-            foreach (var arm64Instruction in funcBody.Where(i => i.Mnemonic is "adrp"))
+            foreach (var arm64Instruction in funcBody.Where(i => i.Mnemonic is "adrp" && i.Details.Operands[0].Type == Arm64OperandType.Register))
             {
                 registerPages[arm64Instruction.Details.Operands[0].Register.Name.ToLowerInvariant()] = arm64Instruction.Details.Operands[1].Immediate;
             }

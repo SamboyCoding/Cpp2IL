@@ -237,6 +237,34 @@ namespace Cpp2IL.Core
             return newGim;
         }
 
+        public static MethodReference ImportParameterTypes(this ILProcessor processor, MethodReference input)
+        {
+            //Copy over basic properties
+            var output = new MethodReference(input.Name, input.ReturnType, input.DeclaringType)
+            {
+                HasThis = input.HasThis,
+                ExplicitThis = input.ExplicitThis,
+                CallingConvention = input.CallingConvention
+            };
+            
+            //Copy generic params
+            foreach (var generic_parameter in input.GenericParameters)
+                output.GenericParameters.Add(new(generic_parameter.Name, output));
+            
+            //Copy params but import each one that needs importing.
+            foreach (var parameter in input.Parameters)
+            {
+                if(parameter.ParameterType is GenericInstanceType git)
+                    output.Parameters.Add(new(processor.ImportReference(git.Resolve())));
+                else if(parameter.ParameterType is not GenericParameter)
+                    output.Parameters.Add(new(processor.ImportReference(parameter.ParameterType)));
+                else
+                    output.Parameters.Add(parameter);
+            }
+
+            return output;
+        }
+
         public static TypeReference ImportReference(this ILProcessor processor, TypeReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference, context);
         
         public static MethodReference ImportReference(this ILProcessor processor, MethodReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);

@@ -82,17 +82,20 @@ namespace Cpp2IL.Core.Analysis
 
                 //Dump debug data
 #if DEBUG_PRINT_OPERAND_DATA
-                line.Append("\t\t; DEBUG: ");
-                line.Append("{").Append(instruction.Details.Operands.GetValueSafely(0)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(0)?.RegisterSafe()?.Name).Append(' ');
-                line.Append('{').Append(instruction.Details.Operands.GetValueSafely(1)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(1)?.RegisterSafe()?.Name);
-                line.Append('{').Append(instruction.Details.Operands.GetValueSafely(2)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(2)?.RegisterSafe()?.Name);
+                if (!instruction.IsSkippedData)
+                {
+                    line.Append("\t\t; DEBUG: ");
+                    line.Append("{").Append(instruction.Details.Operands.GetValueSafely(0)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(0)?.RegisterSafe()?.Name).Append(' ');
+                    line.Append('{').Append(instruction.Details.Operands.GetValueSafely(1)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(1)?.RegisterSafe()?.Name);
+                    line.Append('{').Append(instruction.Details.Operands.GetValueSafely(2)?.Type).Append('}').Append('/').Append(instruction.Details.Operands.GetValueSafely(2)?.RegisterSafe()?.Name);
 
-                line.Append(" ||| ");
-                line.Append(instruction.MemoryBase()?.Name).Append(" | ").Append(instruction.MemoryOffset()).Append(" | ").Append(instruction.MemoryIndex()?.Name);
-                line.Append(" ||| ");
-                line.Append(instruction.Details.Operands.GetValueSafely(0)?.ImmediateSafe().ToString() ?? "N/A").Append(" | ");
-                line.Append(instruction.Details.Operands.GetValueSafely(1)?.ImmediateSafe().ToString() ?? "N/A").Append(" | ");
-                line.Append(instruction.Details.Operands.GetValueSafely(2)?.ImmediateSafe().ToString() ?? "N/A");
+                    line.Append(" ||| ");
+                    line.Append(instruction.MemoryBase()?.Name).Append(" | ").Append(instruction.MemoryOffset()).Append(" | ").Append(instruction.MemoryIndex()?.Name);
+                    line.Append(" ||| ");
+                    line.Append(instruction.Details.Operands.GetValueSafely(0)?.ImmediateSafe().ToString() ?? "N/A").Append(" | ");
+                    line.Append(instruction.Details.Operands.GetValueSafely(1)?.ImmediateSafe().ToString() ?? "N/A").Append(" | ");
+                    line.Append(instruction.Details.Operands.GetValueSafely(2)?.ImmediateSafe().ToString() ?? "N/A");
+                }
 #endif
 
                 builder.Append("\t\t").Append(line); //write the current disassembled instruction to the type dump

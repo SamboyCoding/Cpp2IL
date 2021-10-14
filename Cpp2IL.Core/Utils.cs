@@ -977,7 +977,11 @@ namespace Cpp2IL.Core
 
         private static void InitArm64Decompilation()
         {
-            _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer).Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys).ToList();
+            _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer)
+                .Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys)
+                .Concat(SharedState.AttributeGeneratorStarts)
+                .ToList();
+            
             //Sort in ascending order
             _allKnownFunctionStarts.Sort();
             
