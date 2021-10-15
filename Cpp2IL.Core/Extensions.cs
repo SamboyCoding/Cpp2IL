@@ -209,19 +209,21 @@ namespace Cpp2IL.Core
             return false;
         }
 
-        public static TypeReference ImportRecursive(this ILProcessor processor, GenericInstanceType git, IGenericParameterProvider? context = null)
+        public static TypeReference ImportRecursive(this ModuleDefinition module, GenericInstanceType git, IGenericParameterProvider? context = null)
         {
-            var newGit = new GenericInstanceType(processor.ImportReference(git.ElementType, context));
+            var newGit = new GenericInstanceType(module.ImportReference(git.ElementType, context));
             
             git.GenericArguments.Select(ga =>
             {
                 if (ga is GenericInstanceType git2)
-                    return processor.ImportRecursive(git2, context);
-                return processor.ImportReference(ga, context);
+                    return module.ImportRecursive(git2, context);
+                return module.ImportReference(ga, context);
             }).ToList().ForEach(newGit.GenericArguments.Add);
 
             return newGit;
         }
+
+        public static TypeReference ImportRecursive(this ILProcessor processor, GenericInstanceType git, IGenericParameterProvider? context = null) => processor.Body.Method.Module.ImportRecursive(git, context);
 
         public static MethodReference ImportRecursive(this ILProcessor processor, GenericInstanceMethod gim, IGenericParameterProvider? context = null)
         {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis;
@@ -134,7 +135,10 @@ namespace Cpp2IL.Core
                 var (baseType, genericParamNames) = Utils.TryLookupTypeDefByName(baseMethodType);
 
                 if (baseType == null)
+                {
+                    Logger.WarnNewline($"\tFailed to resolve base type {baseMethodType} for base method override {methodDef.Name}");
                     continue;
+                }
 
                 var targetParameters = currentlyFixingUp.Parameters.Select(p => p.ParameterType.FullName).ToArray();
                 MethodReference? baseRef;
@@ -155,12 +159,22 @@ namespace Cpp2IL.Core
                         continue;
                     }
 
-                    var genericParams = genericParamNames
-                        .Select(g =>
-                            (TypeReference?) Utils.TryLookupTypeDefKnownNotGeneric(g)
-                            ?? GenericInstanceUtils.ResolveGenericParameterType(new GenericParameter(g, baseType), ilTypeDefinition)
-                        )
-                        .ToList();
+                    TypeReference? ResolveGenericParameter(string name)
+                    {
+                        var (type, gParams) = Utils.TryLookupTypeDefByName(name);
+                        if (type == null) 
+                            return GenericInstanceUtils.ResolveGenericParameterType(new GenericParameter(name, baseType), ilTypeDefinition);
+
+                        if (gParams.Length > 0)
+                        {
+                            var parameterRefs = gParams.Select(ResolveGenericParameter).ToArray();
+                            return ilTypeDefinition.Module.ImportRecursive(type.MakeGenericInstanceType(parameterRefs));
+                        }
+                            
+                        return type;
+                    }
+
+                    var genericParams = genericParamNames.Select(ResolveGenericParameter).ToList();
 
                     if (genericParams.All(gp => gp != null))
                     {
@@ -177,7 +191,10 @@ namespace Cpp2IL.Core
                 }
 
                 if (baseRef != null)
+                {
+                    // Logger.InfoNewline($"Added override for type {ilTypeDefinition.FullName}, base type {baseMethodType} method {baseMethodName}, overriding {baseRef}");
                     currentlyFixingUp.Overrides.Add(ilTypeDefinition.Module.ImportReference(baseRef, currentlyFixingUp));
+                }
                 else
                     Logger.WarnNewline($"\tFailed to resolve base method override in type {ilTypeDefinition.FullName}: Type {baseMethodType} / Name {baseMethodName}");
             }

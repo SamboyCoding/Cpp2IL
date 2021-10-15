@@ -358,7 +358,6 @@ namespace Cpp2IL.Core
 
 
         public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name) => TryLookupTypeDefByName(name).Item1;
-
         public static Tuple<TypeDefinition?, string[]> TryLookupTypeDefByName(string? name)
         {
             if (name == null) return new Tuple<TypeDefinition?, string[]>(null, Array.Empty<string>());
@@ -395,10 +394,10 @@ namespace Cpp2IL.Core
             {
                 //Replace < > with the number of generic params after a ` 
                 var origName = name;
-                genericParams = name[(name.IndexOf("<", StringComparison.Ordinal) + 1)..].TrimEnd('>').Split(',');
+                genericParams = GetGenericParams(name[(name.IndexOf("<", StringComparison.Ordinal) + 1)..^1]);
                 name = name[..name.IndexOf("<", StringComparison.Ordinal)];
                 if (!name.Contains("`"))
-                    name = name + "`" + (origName.Count(c => c == ',') + 1);
+                    name = name + "`" + (genericParams.Length);
 
                 definedType = SharedState.AllTypeDefinitions.Find(t => t.FullName == name);
             }
@@ -426,6 +425,35 @@ namespace Cpp2IL.Core
 
 
             return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
+        }
+
+        private static string[] GetGenericParams(string input)
+        {
+            if (!input.Contains('<'))
+                return input.Split(',');
+
+            var depth = 0;
+            var ret = new List<string>();
+            var sb = new StringBuilder();
+            
+            foreach (var c in input)
+            {
+                if (c == '<')
+                    depth++;
+                if (c == '>')
+                    depth--;
+                if (depth == 0 && c == ',')
+                {
+                    ret.Add(sb.ToString());
+                    sb.Clear();
+                    continue;
+                }
+
+                sb.Append(c);
+            }
+            ret.Add(sb.ToString());
+
+            return ret.ToArray();
         }
 
         private static TypeReference MakeGenericType(this TypeReference self, params TypeReference[] arguments)
