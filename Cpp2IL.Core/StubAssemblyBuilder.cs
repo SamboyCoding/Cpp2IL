@@ -91,6 +91,7 @@ namespace Cpp2IL.Core
                         nameof(Single) => 0xC, //R4
                         nameof(Double) => 0xD, //R8
                         nameof(String) => 0xE,
+                        nameof(Object) => 0x1C, //Object
                         // nameof(IntPtr) => 0xF,
                         _ => 0x0,
                     };
