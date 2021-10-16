@@ -1,32 +1,37 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <LangVersion>8</LangVersion>
-    <Nullable>enable</Nullable>
-    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-    <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64;win7-x64</RuntimeIdentifiers>
-    <OutputType>Exe</OutputType>
-    <PublishTrimmed Condition="'$(TargetFramework)' != 'net472'">true</PublishTrimmed>
-    <TrimMode>link</TrimMode>
-    <PublishSingleFile Condition="'$(TargetFramework)' != 'net472'">true</PublishSingleFile>
-    <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net472'">true</IncludeNativeLibrariesForSelfExtract>
-    <TargetFrameworks>net472;net5.0</TargetFrameworks>
-  </PropertyGroup>
-  
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-    <OutputPath>bin\x64\Debug\</OutputPath>
-  </PropertyGroup>
-  
-  <ItemGroup>
-    <PackageReference Include="CommandLineParser" Version="2.8.0" />
-    <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-    <PackageReference Include="Pastel" Version="2.1.0" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
-  </ItemGroup>
-  
-  <ItemGroup>
-    <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net472'" />
-  </ItemGroup>
+    <PropertyGroup>
+        <LangVersion>8</LangVersion>
+        <Nullable>enable</Nullable>
+        <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+        <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64;win7-x64</RuntimeIdentifiers>
+        <OutputType>Exe</OutputType>
+        <PublishTrimmed Condition="'$(TargetFramework)' != 'net472'">true</PublishTrimmed>
+        <TrimMode>link</TrimMode>
+        <PublishSingleFile Condition="'$(TargetFramework)' != 'net472'">true</PublishSingleFile>
+        <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net472'">true</IncludeNativeLibrariesForSelfExtract>
+        <TargetFrameworks>net472;net5.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <!--Fixes harmonyx-->
+        <TrimmerRootAssembly Include="mscorlib" Visible="false"/>
+    </ItemGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
+        <OutputPath>bin\x64\Debug\</OutputPath>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="CommandLineParser" Version="2.8.0"/>
+        <PackageReference Include="Microsoft.CSharp" Version="4.7.0"/>
+        <PackageReference Include="Pastel" Version="2.1.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net472'"/>
+    </ItemGroup>
 </Project>
