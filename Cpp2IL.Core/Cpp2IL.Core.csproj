@@ -19,6 +19,11 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <!--Fixes harmonyx-->
+        <TrimmerRootAssembly Include="mscorlib"/>
+    </ItemGroup>
+
+    <ItemGroup>
         <PackageReference Include="Gee.External.Capstone" Version="2.0.2" />
         <PackageReference Include="HarmonyX" Version="2.5.5" />
         <PackageReference Include="Iced" Version="1.11.1" />
