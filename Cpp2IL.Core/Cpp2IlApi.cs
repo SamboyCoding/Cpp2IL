@@ -358,6 +358,8 @@ namespace Cpp2IL.Core
             toProcess.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
             var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
             var nextThreshold = thresholds.First();
+            
+            Logger.InfoNewline($"This assembly contains {toProcess.Count} types. Assuming an average rate of 20 types per second, this will take approximately {toProcess.Count / 20} seconds, or {toProcess.Count / 20f / 60f:f1} minutes, to process.");
 
             var numProcessed = 0;
 

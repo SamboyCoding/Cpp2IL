@@ -17,7 +17,7 @@ namespace Cpp2IL.Core
             disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
             disassembler.EnableSkipDataMode = true;
 
-            Logger.VerboseNewline("\tRunning entire .text section through Arm64 disassembler, this might take a moment...");
+            Logger.InfoNewline("\tRunning entire .text section through Arm64 disassembler, this might take up to several minutes for large games, and may fail on large games if you have <16GB ram...");
             _allInstructions = disassembler.Disassemble(LibCpp2IlMain.Binary.GetEntirePrimaryExecutableSection(), (long)LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection()).ToList();
         }
         
@@ -43,9 +43,12 @@ namespace Cpp2IL.Core
                     if (idx - backtrack > 0)
                     {
                         var prevInstruction = _allInstructions[idx - backtrack - 1];
-                        
-                        if(addressesToIgnore.Contains((ulong) prevInstruction.Address))
+
+                        if (addressesToIgnore.Contains((ulong)prevInstruction.Address))
+                        {
+                            backtrack++;
                             continue;
+                        }
 
                         if (prevInstruction.Mnemonic is "b" or "bl")
                         {
