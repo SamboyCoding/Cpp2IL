@@ -81,7 +81,11 @@ namespace Cpp2IL.Core
             
             var verString = new StringBuilder();
 
-            fileStream.Seek(0x12, SeekOrigin.Begin);
+            if (fileStream.CanSeek)
+                fileStream.Seek(0x12, SeekOrigin.Begin);
+            else
+                fileStream.Read(new byte[12], 0, 12);
+            
             while (true)
             {
                 var read = fileStream.ReadByte();
