@@ -124,7 +124,16 @@ namespace Cpp2IL.Core
 
             return SharedState.UnmanagedToManagedMethods[unmanaged];
         }
-        
+
+        [return: NotNullIfNotNull("managed")]
+        public static Il2CppMethodDefinition? AsUnmanaged(this MethodDefinition? managed)
+        {
+            if (managed == null)
+                return null;
+
+            return SharedState.ManagedToUnmanagedMethods[managed];
+        }
+
         [return: NotNullIfNotNull("managed")]
         public static Il2CppFieldDefinition? AsUnmanaged(this FieldDefinition? managed)
         {
@@ -133,7 +142,7 @@ namespace Cpp2IL.Core
 
             return SharedState.ManagedToUnmanagedFields[managed];
         }
-        
+
         [return: NotNullIfNotNull("unmanaged")]
         public static FieldDefinition? AsManaged(this Il2CppFieldDefinition? unmanaged)
         {
@@ -144,12 +153,21 @@ namespace Cpp2IL.Core
         }
         
         [return: NotNullIfNotNull("managed")]
-        public static Il2CppMethodDefinition? AsUnmanaged(this MethodDefinition? managed)
+        public static Il2CppTypeDefinition? AsUnmanaged(this TypeDefinition? managed)
         {
             if (managed == null)
                 return null;
 
-            return SharedState.ManagedToUnmanagedMethods[managed];
+            return SharedState.ManagedToUnmanagedTypes[managed];
+        }
+
+        [return: NotNullIfNotNull("unmanaged")]
+        public static TypeDefinition? AsManaged(this Il2CppTypeDefinition? unmanaged)
+        {
+            if (unmanaged == null)
+                return null;
+
+            return SharedState.UnmanagedToManagedTypes[unmanaged];
         }
 
         public static T? GetValueSafely<T>(this Collection<T> arr, int i) where T : class

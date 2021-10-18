@@ -52,12 +52,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                     if (!MethodUtils.CheckParameters(instruction, locatedMethod, context, locatedMethod.HasThis, out Arguments, InstanceBeingCalledOn?.Type, failOnLeftoverArgs: false))
                         AddComment("parameters do not match, but concrete method was resolved from a constant in a register.");
 
-                    if (locatedMethod.HasThis && InstanceBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(locatedMethod.Resolve().AsUnmanaged().DeclaringType!), InstanceBeingCalledOn.Type))
+                    if (locatedMethod.HasThis && InstanceBeingCalledOn?.Type != null && !locatedMethod.DeclaringType.Resolve().IsAssignableFrom(InstanceBeingCalledOn.Type))
                         AddComment($"This is an instance method, but the type of the 'this' parameter is mismatched. Expecting {locatedMethod.Resolve()?.DeclaringType.Name}, actually {InstanceBeingCalledOn.Type.FullName}");
                     else if (locatedMethod.HasThis && InstanceBeingCalledOn?.Type != null)
                     {
                         //Matching type, but is it us or a base type?
-                        IsCallToSuperclassMethod = !Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(locatedMethod.Resolve().AsUnmanaged().DeclaringType!), InstanceBeingCalledOn.Type);
+                        IsCallToSuperclassMethod = locatedMethod.DeclaringType.Resolve() != InstanceBeingCalledOn.Type?.Resolve();
                     }
 
                     ManagedMethodBeingCalled = locatedMethod;
@@ -90,12 +90,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 if (!MethodUtils.CheckParameters(instruction, possibleTarget, context, !possibleTarget.IsStatic, out Arguments, InstanceBeingCalledOn, failOnLeftoverArgs: false))
                     AddComment("parameters do not match, but there is only one function at this address.");
 
-                if (!possibleTarget.IsStatic && InstanceBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), InstanceBeingCalledOn.Type))
+                if (!possibleTarget.IsStatic && InstanceBeingCalledOn?.Type != null && !possibleTarget.DeclaringType!.AsManaged().IsAssignableFrom(InstanceBeingCalledOn.Type))
                     AddComment($"This is an instance method, but the type of the 'this' parameter is mismatched. Expecting {possibleTarget.DeclaringType.Name}, actually {InstanceBeingCalledOn.Type.FullName}");
                 else if (!possibleTarget.IsStatic && InstanceBeingCalledOn?.Type != null)
                 {
                     //Matching type, but is it us or a base type?
-                    IsCallToSuperclassMethod = !Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), InstanceBeingCalledOn.Type);
+                    IsCallToSuperclassMethod = possibleTarget.DeclaringType.AsManaged() != InstanceBeingCalledOn.Type?.Resolve();
                 }
             }
             else
@@ -119,7 +119,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                         if (m.IsStatic) continue; //Only checking instance methods here.
                         
                         //Check defining type matches instance, and check params.
-                        if (Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(m.DeclaringType!), InstanceBeingCalledOn.Type))
+                        if (m.DeclaringType!.AsManaged() == InstanceBeingCalledOn.Type.Resolve())
                         {
                             possibleTarget = m;
 
@@ -140,7 +140,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                     if (possibleTarget == null)
                     {
                         //Methods which are non-static and for which the declaring type is some form of supertype of the object we're calling on.
-                        var baseClassMethods = listOfCallableMethods.Where(m => !m.IsStatic && Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(m.DeclaringType!), InstanceBeingCalledOn.Type)).ToList();
+                        var baseClassMethods = listOfCallableMethods.Where(m => !m.IsStatic && m.DeclaringType!.AsManaged().IsAssignableFrom(InstanceBeingCalledOn.Type)).ToList();
 
                         if (baseClassMethods.Count == 0 && toPushBackIfNeeded != null)
                         {

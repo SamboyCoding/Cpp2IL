@@ -42,7 +42,6 @@ namespace Cpp2IL.Core
 
         private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
         private static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition?, string[]>>();
-        private static readonly Dictionary<(TypeDefinition, TypeReference), bool> _assignableCache = new Dictionary<(TypeDefinition, TypeReference), bool>();
 
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
         {
@@ -66,7 +65,7 @@ namespace Cpp2IL.Core
         {
             primitiveTypeMappings.Clear();
             _cachedTypeDefsByName.Clear();
-            _assignableCache.Clear();
+            CecilExtensions.AssignabilityCache.Clear();
         }
 
         public static void BuildPrimitiveMappings()
@@ -109,26 +108,12 @@ namespace Cpp2IL.Core
             {
                 var managedBaseType = SharedState.UnmanagedToManagedTypes[cppType.baseType!];
 
-                return CheckAssignability(managedBaseType, managedType);
+                return managedBaseType.IsAssignableFrom(managedType);
             }
 
             //todo generics etc.
 
             return false;
-        }
-
-        private static bool CheckAssignability(TypeDefinition baseType, TypeReference potentialChild)
-        {
-            var key = (baseType, potentialChild);
-            lock (_assignableCache)
-            {
-                if (!_assignableCache.ContainsKey(key))
-                {
-                    _assignableCache[key] = baseType.IsAssignableFrom(potentialChild);
-                }
-
-                return _assignableCache[key];
-            }
         }
 
         public static bool AreManagedAndCppTypesEqual(Il2CppTypeReflectionData cppType, TypeReference managedType)

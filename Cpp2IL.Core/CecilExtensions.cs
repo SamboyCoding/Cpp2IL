@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 
@@ -6,6 +7,8 @@ namespace Cpp2IL.Core
 {
     internal static class CecilExtensions
     {
+        internal static readonly ConcurrentDictionary<TypeDefinition, ConcurrentDictionary<TypeReference, bool>> AssignabilityCache = new();
+
         /// <summary>
         /// Is childTypeDef a subclass of parentTypeDef. Does not test interface inheritance
         /// </summary>
@@ -65,12 +68,35 @@ namespace Cpp2IL.Core
         /// <param name="potentialSubclass"></param>
         /// <returns></returns>
         public static bool IsAssignableFrom(this TypeDefinition? instanceOrBaseClass, TypeReference? potentialSubclass)
-            => instanceOrBaseClass != null && potentialSubclass != null && (instanceOrBaseClass == potentialSubclass
-                                                                            || instanceOrBaseClass.MetadataToken == potentialSubclass.Resolve()?.MetadataToken
-                                                                            || potentialSubclass.IsSubclassOf(instanceOrBaseClass)
-                                                                            || instanceOrBaseClass.IsInterface && potentialSubclass.DoesAnySuperTypeImplementInterface(instanceOrBaseClass)
-                                                                            || instanceOrBaseClass.IsEnumerableLikeAndSoIs(potentialSubclass)
-                );
+        {
+            //Do the quick checks first, they don't need to be cached.
+            if (instanceOrBaseClass is null || potentialSubclass is null)
+                return false;
+
+            if (instanceOrBaseClass == potentialSubclass)
+                return true;
+
+            if (instanceOrBaseClass.MetadataToken == potentialSubclass.Resolve()?.MetadataToken)
+                return true;
+
+            //Slow checks are cached
+            if (!AssignabilityCache.TryGetValue(instanceOrBaseClass, out var subclassCache))
+            {
+                subclassCache = new();
+                AssignabilityCache.TryAdd(instanceOrBaseClass, subclassCache);
+            }
+
+            if (subclassCache.TryGetValue(potentialSubclass, out var ret))
+                return ret;
+            
+            ret = potentialSubclass.IsSubclassOf(instanceOrBaseClass)
+                   || instanceOrBaseClass.IsInterface && potentialSubclass.DoesAnySuperTypeImplementInterface(instanceOrBaseClass)
+                   || instanceOrBaseClass.IsEnumerableLikeAndSoIs(potentialSubclass);
+
+            subclassCache.TryAdd(potentialSubclass, ret);
+
+            return ret;
+        }
 
         /// <summary>
         /// Enumerate the current type, it's parent and all the way to the top type
