@@ -168,6 +168,10 @@ namespace Cpp2IL.Core
                         if (gParams.Length > 0)
                         {
                             var parameterRefs = gParams.Select(ResolveGenericParameter).ToArray();
+
+                            if (parameterRefs.Any(gp => gp == null))
+                                return null;
+                            
                             return ilTypeDefinition.Module.ImportRecursive(type.MakeGenericInstanceType(parameterRefs));
                         }
                             

@@ -40,7 +40,7 @@ namespace Cpp2IL.Core
         internal static readonly List<AssemblyDefinition> AssemblyList = new List<AssemblyDefinition>();
         internal static readonly Dictionary<AssemblyDefinition, Il2CppImageDefinition> ManagedToUnmanagedAssemblies = new Dictionary<AssemblyDefinition, Il2CppImageDefinition>();
         
-        internal static List<ulong> AttributeGeneratorStarts = new();
+        internal static HashSet<ulong> AttributeGeneratorStarts = new();
 
         internal static void Clear()
         {
