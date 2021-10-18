@@ -84,7 +84,7 @@ namespace Cpp2IL.Core
             if (fileStream.CanSeek)
                 fileStream.Seek(0x12, SeekOrigin.Begin);
             else
-                fileStream.Read(new byte[12], 0, 12);
+                fileStream.Read(new byte[0x12], 0, 0x12);
             
             while (true)
             {
