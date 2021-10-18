@@ -80,7 +80,7 @@ namespace Cpp2IL
                 //Metadata: assets/bin/Data/Managed/Metadata
                 //Binary: lib/(armeabi-v7a)|(arm64-v8a)/libil2cpp.so
 
-                Logger.InfoNewline($"Attempting to extract required files from APK {gamePath}");
+                Logger.InfoNewline($"Attempting to extract required files from APK {gamePath}", "APK");
 
                 using var stream = File.OpenRead(gamePath);
                 using var zipArchive = new ZipArchive(stream);
@@ -90,13 +90,14 @@ namespace Cpp2IL
                 binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/armeabi-v7a/libil2cpp.so"));
 
                 var globalgamemanagers = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/globalgamemanagers"));
+                var dataUnity3d = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/data.unity3d"));
 
                 if (binary == null)
                     throw new SoftException("Could not find libil2cpp.so inside the apk.");
                 if (globalMetadata == null)
                     throw new SoftException("Could not find global-metadata.dat inside the apk");
-                if (globalgamemanagers == null)
-                    throw new SoftException("Could not find globalgamemanagers inside the apk");
+                if (globalgamemanagers == null && dataUnity3d == null)
+                    throw new SoftException("Could not find globalgamemanagers or data.unity3d inside the apk");
 
                 var tempFileBinary = Path.GetTempFileName();
                 var tempFileMeta = Path.GetTempFileName();
@@ -104,22 +105,32 @@ namespace Cpp2IL
                 _pathsToDeleteOnExit.Add(tempFileBinary);
                 _pathsToDeleteOnExit.Add(tempFileMeta);
 
-                Logger.InfoNewline($"Extracting APK/{binary.FullName} to {tempFileBinary}");
+                Logger.InfoNewline($"Extracting APK/{binary.FullName} to {tempFileBinary}", "APK");
                 binary.ExtractToFile(tempFileBinary, true);
-                Logger.InfoNewline($"Extracting APK/{globalMetadata.FullName} to {tempFileMeta}");
+                Logger.InfoNewline($"Extracting APK/{globalMetadata.FullName} to {tempFileMeta}", "APK");
                 globalMetadata.ExtractToFile(tempFileMeta, true);
 
                 args.PathToAssembly = tempFileBinary;
                 args.PathToMetadata = tempFileMeta;
 
-                Logger.InfoNewline("Reading globalgamemanagers to determine unity version...");
-                var ggmBytes = new byte[0x40];
-                using var ggmStream = globalgamemanagers.Open();
-                ggmStream.Read(ggmBytes, 0, 0x40);
+                if (globalgamemanagers != null)
+                {
+                    Logger.InfoNewline("Reading globalgamemanagers to determine unity version...", "APK");
+                    var ggmBytes = new byte[0x40];
+                    using var ggmStream = globalgamemanagers.Open();
+                    ggmStream.Read(ggmBytes, 0, 0x40);
 
-                args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
+                    args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
+                }
+                else
+                {
+                    Logger.InfoNewline("Reading data.unity3d to determine unity version...", "APK");
+                    using var du3dStream = dataUnity3d!.Open();
 
-                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}");
+                    args.UnityVersion = Cpp2IlApi.GetVersionFromDataUnity3D(du3dStream);
+                }
+
+                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}", "APK");
 
                 args.Valid = true;
             }
