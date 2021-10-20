@@ -131,7 +131,7 @@ namespace Cpp2IL.Core.Analysis
                 }
                 catch (InvalidOperationException)
                 {
-                    Logger.WarnNewline($"Skipping IL Generation for {MethodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {varType}, which is invalid for use in a variable.", "Analysis");
+                    // Logger.WarnNewline($"Skipping IL Generation for {MethodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {varType}, which is invalid for use in a variable.", "Analysis");
                     builder.Append($"IL Generation Skipped due to invalid local {localDefinition.Name} of type {localDefinition.Type}\n\t");
                     success = false;
                     break;

@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         public int IndentLevel;
 
         private List<LocalDefinition> UsedLocals = new();
-        private List<LocalDefinition> RegisteredLocalsWithoutSideEffects = new();
+        public readonly List<LocalDefinition> RegisteredLocalsWithoutSideEffects = new();
 
         protected bool is32Bit => LibCpp2IlMain.Binary!.is32Bit;
         
@@ -39,11 +39,6 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         {
             UsedLocals.Add(l);
             context.UnusedLocals.Remove(l);
-        }
-        
-        public List<LocalDefinition> GetRegisteredLocalsWithoutSideEffects()
-        {
-            return RegisteredLocalsWithoutSideEffects;
         }
 
         protected void RegisterDefinedLocalWithoutSideEffects(LocalDefinition l)

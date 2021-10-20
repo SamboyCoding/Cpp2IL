@@ -954,7 +954,8 @@ namespace Cpp2IL.Core
             else
                 return;
 
-            destinationConstant.Type = Type.GetType(targetType.FullName!)!;
+            if(destinationConstant.Type != typeof(byte[]) || targetType.IsArray)
+                destinationConstant.Type = Type.GetType(targetType.FullName!)!;
         }
 
         public static ulong GetAddressOfInstruction<T>(T t)
@@ -1009,11 +1010,41 @@ namespace Cpp2IL.Core
         {
             if(_allKnownFunctionStarts == null)
                 InitArm64Decompilation();
+            
+            //Binary-search-like approach
+            var lower = 0;
+            var upper = _allKnownFunctionStarts!.Count;
 
-            return _allKnownFunctionStarts!.FirstOrDefault(a => a > current);
+            var ret = ulong.MaxValue;
+            while (upper - lower >= 1)
+            {
+                var pos = (upper - lower) / 2 + lower;
+                
+                if (upper - lower == 1)
+                    pos = upper;
+                
+                var ptr = _allKnownFunctionStarts[pos];
+                if (ptr > current)
+                {
+                    //This matches what we want to look for
+                    if (ptr < ret)
+                        //This is a better "next method" pointer
+                        ret = ptr;
+                    
+                    //Either way, we're above our current address now, so search lower in the list
+                    upper = pos - 1;
+                }
+                else
+                {
+                    //Not what we want, so move up in the list
+                    lower = pos + 1;
+                }
+            }
+
+            return ret;
         }
 
-        public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true)
+        public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
         {
             if(_allKnownFunctionStarts == null)
                 InitArm64Decompilation();
@@ -1028,9 +1059,13 @@ namespace Cpp2IL.Core
                 if (rawStartOfNextMethod < rawStart)
                     rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
 
-                byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().Skip((int)rawStart).Take((int)(rawStartOfNextMethod - rawStart)).ToArray();
+                byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray((int) rawStart..(int)rawStartOfNextMethod);
+
+                var iter = _arm64Disassembler!.Iterate(bytes, (long)virtAddress);
+                if (count > 0)
+                    iter = iter.Take(count);
                 
-                return _arm64Disassembler!.Disassemble(bytes, (long)virtAddress).ToList();
+                return iter.ToList();
             }
             
             //Unmanaged function, look for first b or bl
@@ -1038,15 +1073,12 @@ namespace Cpp2IL.Core
             var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
             List<Arm64Instruction> ret = new();
             
-            var keepGoing = true;
-            while (keepGoing)
+            while (!ret.Any(i => i.Mnemonic is "b" or "bl") && (count == -1 || ret.Count < count))
             {
                 //All arm64 instructions are 4 bytes
-                ret.AddRange(_arm64Disassembler!.Disassemble(allBytes.Skip(pos).Take(4).ToArray(), (long)virtAddress));
+                ret.AddRange(_arm64Disassembler!.Iterate(allBytes.SubArray(pos..(pos+4)), (long)virtAddress));
                 virtAddress += 4;
                 pos += 4;
-
-                keepGoing = !ret.Any(i => i.Mnemonic is "b" or "bl");
             }
 
             return ret;

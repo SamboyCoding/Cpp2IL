@@ -116,6 +116,16 @@ namespace Cpp2IL.Core
             builder.Append(")");
         }
 
+        public static T[] SubArray<T>(this T[] source, Range range)
+        {
+            var (offset, len) = range.GetOffsetAndLength(source.Length);
+            var dest = new T[len];
+            
+            Array.Copy(source, offset, dest, 0, len);
+
+            return dest;
+        }
+
         [return: NotNullIfNotNull("unmanaged")]
         public static MethodDefinition? AsManaged(this Il2CppMethodDefinition? unmanaged)
         {

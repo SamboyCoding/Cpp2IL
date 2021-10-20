@@ -21,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
             {
                 foreach (var analysisAction in analysis.Actions)
                 {
-                    if(analysisAction.GetRegisteredLocalsWithoutSideEffects().Contains(unusedLocal))
+                    if(analysisAction.RegisteredLocalsWithoutSideEffects.Contains(unusedLocal))
                         toRemove.Add(analysisAction);
                 }
             }
