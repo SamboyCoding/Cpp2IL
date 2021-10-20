@@ -1040,6 +1040,10 @@ namespace Cpp2IL.Core
                     lower = pos + 1;
                 }
             }
+            
+            ret = _allKnownFunctionStarts[lower];
+            if (ret < current)
+                ret = _allKnownFunctionStarts[upper];
 
             return ret;
         }

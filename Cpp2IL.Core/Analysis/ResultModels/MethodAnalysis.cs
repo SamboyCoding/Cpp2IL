@@ -234,6 +234,9 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         internal void AddParameter(ParameterDefinition arg)
         {
+            //TODO Make this work for arm. Realistically we should be ok to just insert starting from x0, because this is only used for attribute restoration and those all return void (right? check it)
+            //TODO and, hell, realistically, this is only called once when we're analyzing arm, on a method with no params anyway, so it can just go in x0.
+            
             if (_parameterDestRegList.Count > 0)
             {
                 var dest = _parameterDestRegList.RemoveAndReturn(0);

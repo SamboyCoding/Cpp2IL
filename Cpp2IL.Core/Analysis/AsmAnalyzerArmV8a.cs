@@ -37,8 +37,8 @@ namespace Cpp2IL.Core.Analysis
 
         protected override bool FindInstructionWhichOverran(out int idx)
         {
-            //todo
             idx = _instructions.Count;
+                
             return false;
         }
 
