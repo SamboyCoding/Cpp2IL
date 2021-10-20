@@ -69,6 +69,11 @@ namespace Cpp2IL.Core.Analysis
                     {
                         Analysis.Actions.Add(new Arm64NewObjectAction(Analysis, instruction));
                     }
+                    else if (LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.ContainsKey(jumpTarget))
+                    {
+                        //Call concrete generic function
+                        Analysis.Actions.Add(new Arm64ManagedFunctionCallAction(Analysis, instruction));
+                    }
                     else if (jumpTarget < Utils.GetAddressOfNextFunctionStart((ulong)instruction.Address) && jumpTarget > (ulong)instruction.Address)
                     {
                         //Jumping over an instruction, may need to expand function to include jumpTarget.
