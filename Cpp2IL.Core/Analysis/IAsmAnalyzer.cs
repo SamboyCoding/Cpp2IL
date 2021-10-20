@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Cpp2IL.Core.Analysis.Actions.Base;
 
 namespace Cpp2IL.Core.Analysis
 {

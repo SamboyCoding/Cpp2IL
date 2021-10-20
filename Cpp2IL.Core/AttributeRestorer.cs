@@ -4,14 +4,14 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Cpp2IL.Core.Analysis;
+using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
-using Iced.Intel;
+using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -81,20 +81,20 @@ namespace Cpp2IL.Core
             Initialize();
         }
 
-        internal static void ApplyCustomAttributesToAllTypesInAssembly(AssemblyDefinition assemblyDefinition, BaseKeyFunctionAddresses? keyFunctionAddresses)
+        internal static void ApplyCustomAttributesToAllTypesInAssembly<T>(AssemblyDefinition assemblyDefinition, BaseKeyFunctionAddresses? keyFunctionAddresses)
         {
             var imageDef = SharedState.ManagedToUnmanagedAssemblies[assemblyDefinition];
 
             foreach (var typeDef in assemblyDefinition.MainModule.Types.Where(t => t.Namespace != AssemblyPopulator.InjectedNamespaceName))
-                RestoreAttributesInType(imageDef, typeDef, keyFunctionAddresses);
+                RestoreAttributesInType<T>(imageDef, typeDef, keyFunctionAddresses);
         }
 
-        private static void RestoreAttributesInType(Il2CppImageDefinition imageDef, TypeDefinition typeDefinition, BaseKeyFunctionAddresses? keyFunctionAddresses)
+        private static void RestoreAttributesInType<T>(Il2CppImageDefinition imageDef, TypeDefinition typeDefinition, BaseKeyFunctionAddresses? keyFunctionAddresses)
         {
             var typeDef = SharedState.ManagedToUnmanagedTypes[typeDefinition];
 
             //Apply custom attributes to type itself
-            GetCustomAttributesByAttributeIndex(imageDef, typeDef.customAttributeIndex, typeDef.token, typeDefinition.Module, keyFunctionAddresses, typeDef.FullName!)
+            GetCustomAttributesByAttributeIndex<T>(imageDef, typeDef.customAttributeIndex, typeDef.token, typeDefinition.Module, keyFunctionAddresses, typeDef.FullName!)
                 .ForEach(attribute => typeDefinition.CustomAttributes.Add(attribute));
 
             //Apply custom attributes to fields
@@ -102,7 +102,7 @@ namespace Cpp2IL.Core
             {
                 var fieldDefinition = SharedState.UnmanagedToManagedFields[fieldDef];
 
-                GetCustomAttributesByAttributeIndex(imageDef, fieldDef.customAttributeIndex, fieldDef.token, typeDefinition.Module, keyFunctionAddresses, fieldDefinition.FullName)
+                GetCustomAttributesByAttributeIndex<T>(imageDef, fieldDef.customAttributeIndex, fieldDef.token, typeDefinition.Module, keyFunctionAddresses, fieldDefinition.FullName)
                     .ForEach(attribute => fieldDefinition.CustomAttributes.Add(attribute));
             }
 
@@ -111,7 +111,7 @@ namespace Cpp2IL.Core
             {
                 var methodDefinition = methodDef.AsManaged();
 
-                GetCustomAttributesByAttributeIndex(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDefinition.FullName)
+                GetCustomAttributesByAttributeIndex<T>(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDefinition.FullName)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
             }
             
@@ -120,18 +120,18 @@ namespace Cpp2IL.Core
             {
                 var propertyDefinition = SharedState.UnmanagedToManagedProperties[propertyDef];
 
-                GetCustomAttributesByAttributeIndex(imageDef, propertyDef.customAttributeIndex, propertyDef.token, typeDefinition.Module, keyFunctionAddresses, propertyDefinition.FullName)
+                GetCustomAttributesByAttributeIndex<T>(imageDef, propertyDef.customAttributeIndex, propertyDef.token, typeDefinition.Module, keyFunctionAddresses, propertyDefinition.FullName)
                     .ForEach(attribute => propertyDefinition.CustomAttributes.Add(attribute));
             }
             
             //Nested Types
             foreach (var nestedType in typeDefinition.NestedTypes)
             {
-                RestoreAttributesInType(imageDef, nestedType, keyFunctionAddresses);
+                RestoreAttributesInType<T>(imageDef, nestedType, keyFunctionAddresses);
             }
         }
 
-        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, BaseKeyFunctionAddresses? keyFunctionAddresses, string warningName)
+        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex<T>(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, BaseKeyFunctionAddresses? keyFunctionAddresses, string warningName)
         {
             var attributes = new List<CustomAttribute>();
 
@@ -173,10 +173,10 @@ namespace Cpp2IL.Core
                 //If not, just generate those which we can (no params).
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, 0, true);
 
-            List<BaseAction<Instruction>> actions;
+            List<BaseAction<T>> actions;
             try
             {
-                actions = GetActionsPerformedByGenerator(keyFunctionAddresses, attributeGeneratorAddress, attributesExpected);
+                actions = GetActionsPerformedByGenerator<T>(keyFunctionAddresses, attributeGeneratorAddress, attributesExpected);
             }
             catch (AnalysisExceptionRaisedException e)
             {
@@ -194,8 +194,8 @@ namespace Cpp2IL.Core
             //Indexes shared with attributesExpected
             var localArray = new LocalDefinition?[attributesExpected.Count];
 
-            foreach (var action in actions.Where(a => a is LoadAttributeFromAttributeListAction)
-                .Cast<LoadAttributeFromAttributeListAction>())
+            foreach (var action in actions.Where(a => a is AbstractAttributeLoadFromListAction<T>)
+                .Cast<AbstractAttributeLoadFromListAction<T>>())
             {
                 localArray[action.OffsetInList] = action.LocalMade;
             }
@@ -228,7 +228,7 @@ namespace Cpp2IL.Core
 
                 //We have a local - look for constructor calls and/or field writes.
                 var allCtorNames = attr.GetConstructors().Select(c => c.FullName).ToList();
-                var matchingCtorCall = (CallManagedFunctionAction?) actions.FirstOrDefault(c => c is CallManagedFunctionAction {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
+                var matchingCtorCall = (AbstractCallAction<T>?) actions.FirstOrDefault(c => c is AbstractCallAction<T> {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
 
                 (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? hardWayResult = null;
                 if (matchingCtorCall?.ManagedMethodBeingCalled == null && noArgCtor == null)
@@ -328,12 +328,18 @@ namespace Cpp2IL.Core
             return ca;
         }
 
-        private static List<BaseAction<Instruction>> GetActionsPerformedByGenerator(BaseKeyFunctionAddresses keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
+        private static List<BaseAction<T>> GetActionsPerformedByGenerator<T>(BaseKeyFunctionAddresses keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
         {
-            var generatorBody = Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false);
-
+            //Nasty generic casting crap
+            AsmAnalyzerBase<T> analyzer = (AsmAnalyzerBase<T>) (LibCpp2IlMain.Binary?.InstructionSet switch
+            {
+                InstructionSet.X86_32 or InstructionSet.X86_64 => (object) new AsmAnalyzerX86(attributeGeneratorAddress, Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
+                // InstructionSet.ARM32 => (object) new AsmAnalyzerArmV7(attributeGeneratorAddress, FIX_ME, keyFunctionAddresses!),
+                InstructionSet.ARM64 => (object) new AsmAnalyzerArmV8A(attributeGeneratorAddress, Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, false), keyFunctionAddresses!),
+                _ => throw new UnsupportedInstructionSetException()
+            });
+            
             //Run analysis on this method to get parameters for the various constructors.
-            var analyzer = new AsmAnalyzerX86(attributeGeneratorAddress, generatorBody, keyFunctionAddresses!);
             analyzer.AddParameter(DummyTypeDefForAttributeCache, "attributeCache");
             analyzer.AttributesForRestoration = attributesExpected;
 
@@ -559,7 +565,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay(BaseKeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<Instruction>> actions, LocalDefinition? local)
+        private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay<T>(BaseKeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<T>> actions, LocalDefinition? local)
         {
             //Try and get mappings for all constructors.
             var allPotentialCtors = attr.GetConstructors()
@@ -570,8 +576,8 @@ namespace Cpp2IL.Core
 
             //And get all field writes on this attribute
             var allWritesInGeneratorOnThisAttribute = actions
-                .Where(a => (a is AbstractFieldWriteAction<Instruction> afwa && afwa.InstanceBeingSetOn == local))
-                .Cast<AbstractFieldWriteAction<Instruction>>()
+                .Where(a => (a is AbstractFieldWriteAction<T> afwa && afwa.InstanceBeingSetOn == local))
+                .Cast<AbstractFieldWriteAction<T>>()
                 .ToList();
 
             if (allWritesInGeneratorOnThisAttribute.Any(w => w.FieldWritten?.FinalLoadInChain == null))
@@ -618,26 +624,52 @@ namespace Cpp2IL.Core
                     if (fieldWrite == null)
                         return null;
 
-                    if (fieldWrite is ImmediateToFieldAction i)
+                    var destType = parameter.ParameterType.Resolve()?.IsEnum == true ? parameter.ParameterType.Resolve().GetEnumUnderlyingType() : parameter.ParameterType;
+                    switch (fieldWrite)
                     {
-                        var destType = parameter.ParameterType.Resolve()?.IsEnum == true ? parameter.ParameterType.Resolve().GetEnumUnderlyingType() : parameter.ParameterType;
-                        var value = i.ConstantValue;
-
-                        if (value.GetType().FullName != destType.FullName)
-                            value = Utils.CoerceValue(value, destType);
-
-                        if (destType.FullName == "System.Object")
+                        case ImmediateToFieldAction i:
                         {
-                            //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
-                            value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(i.ConstantValue.GetType().FullName), i.ConstantValue);
-                        }
+                            var value = i.ConstantValue;
+
+                            if (value.GetType().FullName != destType.FullName)
+                                value = Utils.CoerceValue(value, destType);
+
+                            if (destType.FullName == "System.Object")
+                            {
+                                //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
+                                value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(i.ConstantValue.GetType().FullName), i.ConstantValue);
+                            }
                         
-                        parameterList.Add(new CustomAttributeArgument(destType, value));
+                            parameterList.Add(new CustomAttributeArgument(destType, value));
+                            break;
+                        }
+                        case Arm64ImmediateToFieldAction armI:
+                        {
+                            var value = (object) armI.ImmValue;
+
+                            if (value.GetType().FullName != destType.FullName)
+                                value = Utils.CoerceValue(value, destType);
+
+                            if (destType.FullName == "System.Object")
+                            {
+                                //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
+                                value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(armI.ImmValue.GetType().FullName), armI.ImmValue);
+                            }
+
+                            parameterList.Add(new CustomAttributeArgument(destType, value));
+                            break;
+                        }
+                        case RegToFieldAction {ValueRead: { }} r:
+                            parameterList.Add(CoerceAnalyzedOpToParameter(r.ValueRead!, parameter));
+                            break;
+                        case Arm64RegisterToFieldAction { SourceOperand: { } } armR:
+                        {
+                            parameterList.Add(CoerceAnalyzedOpToParameter(armR.SourceOperand!, parameter));
+                            break;
+                        }
+                        default:
+                            return null;
                     }
-                    else if (fieldWrite is RegToFieldAction {ValueRead: { }} r)
-                        parameterList.Add(CoerceAnalyzedOpToParameter(r.ValueRead!, parameter));
-                    else
-                        return null;
                 }
 
                 return (potentialCtor, parameterList);

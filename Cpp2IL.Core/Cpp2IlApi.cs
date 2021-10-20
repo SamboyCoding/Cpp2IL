@@ -9,6 +9,8 @@ using System.Threading;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
+using Gee.External.Capstone.Arm;
+using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
 using Mono.Cecil;
@@ -268,7 +270,21 @@ namespace Cpp2IL.Core
         {
             CheckLibInitialized();
 
-            AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly(assembly, keyFunctionAddresses);
+            switch (LibCpp2IlMain.Binary!.InstructionSet)
+            {
+                case InstructionSet.X86_32:
+                case InstructionSet.X86_64:
+                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<Iced.Intel.Instruction>(assembly, keyFunctionAddresses);
+                    break;
+                case InstructionSet.ARM32:
+                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<ArmInstruction>(assembly, keyFunctionAddresses);
+                    break;
+                case InstructionSet.ARM64:
+                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<Arm64Instruction>(assembly, keyFunctionAddresses);
+                    break;
+                default:
+                    throw new UnsupportedInstructionSetException();
+            }
         }
 
         public static void GenerateMetadataForAllAssemblies(string rootFolder)
