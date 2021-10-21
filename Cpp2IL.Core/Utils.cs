@@ -1013,7 +1013,7 @@ namespace Cpp2IL.Core
             
             //Binary-search-like approach
             var lower = 0;
-            var upper = _allKnownFunctionStarts!.Count;
+            var upper = _allKnownFunctionStarts!.Count - 1;
 
             var ret = ulong.MaxValue;
             while (upper - lower >= 1)
@@ -1021,7 +1021,7 @@ namespace Cpp2IL.Core
                 var pos = (upper - lower) / 2 + lower;
                 
                 if (upper - lower == 1)
-                    pos = upper;
+                    pos = lower;
                 
                 var ptr = _allKnownFunctionStarts[pos];
                 if (ptr > current)
@@ -1032,7 +1032,7 @@ namespace Cpp2IL.Core
                         ret = ptr;
                     
                     //Either way, we're above our current address now, so search lower in the list
-                    upper = pos - 1;
+                    upper = pos;
                 }
                 else
                 {
@@ -1044,6 +1044,9 @@ namespace Cpp2IL.Core
             ret = _allKnownFunctionStarts[lower];
             if (ret < current)
                 ret = _allKnownFunctionStarts[upper];
+
+            if (ret <= current && upper == _allKnownFunctionStarts.Count - 1)
+                return 0;
 
             return ret;
         }
@@ -1058,18 +1061,25 @@ namespace Cpp2IL.Core
             //But we can find the start of the next one! (If managed)
             if (managed)
             {
-                var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(GetAddressOfNextFunctionStart(virtAddress));
-                var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
-                if (rawStartOfNextMethod < rawStart)
-                    rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
-
-                byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray((int) rawStart..(int)rawStartOfNextMethod);
-
-                var iter = _arm64Disassembler!.Iterate(bytes, (long)virtAddress);
-                if (count > 0)
-                    iter = iter.Take(count);
+                var startOfNext = GetAddressOfNextFunctionStart(virtAddress);
                 
-                return iter.ToList();
+                //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
+                if (startOfNext > 0)
+                {
+                    var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(startOfNext);
+
+                    var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
+                    if (rawStartOfNextMethod < rawStart)
+                        rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
+
+                    byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
+
+                    var iter = _arm64Disassembler!.Iterate(bytes, (long)virtAddress);
+                    if (count > 0)
+                        iter = iter.Take(count);
+
+                    return iter.ToList();
+                }
             }
             
             //Unmanaged function, look for first b or bl
@@ -1077,7 +1087,7 @@ namespace Cpp2IL.Core
             var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
             List<Arm64Instruction> ret = new();
             
-            while (!ret.Any(i => i.Mnemonic is "b" or "bl") && (count == -1 || ret.Count < count))
+            while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
             {
                 //All arm64 instructions are 4 bytes
                 ret.AddRange(_arm64Disassembler!.Iterate(allBytes.SubArray(pos..(pos+4)), (long)virtAddress));
