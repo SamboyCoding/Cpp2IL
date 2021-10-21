@@ -157,6 +157,19 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                                 //It's not an array
                                 if (local.Type?.Resolve() == null) return null;
 
+                                if (instructionMemoryOffset == 0)
+                                {
+                                    //Class pointer
+                                    argumentRegister = name;
+                                    var klassPtr = new Il2CppClassIdentifier
+                                    {
+                                        backingType = local.Type.Resolve().AsUnmanaged(),
+                                        objectAlias = local.Name,
+                                    };
+
+                                    return context.MakeConstant(typeof(Il2CppClassIdentifier), klassPtr);
+                                }
+
                                 //Find a field we're accessing
                                 var fields = SharedState.FieldsByType[local.Type.Resolve()];
                                 var fieldName = fields.FirstOrDefault(f => f.Offset == instructionMemoryOffset).Name;
