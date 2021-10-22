@@ -249,7 +249,7 @@ namespace Cpp2IL.Core.Analysis
                     //Field write from immediate
                     Analysis.Actions.Add(new Arm64ImmediateToFieldAction(Analysis, instruction));
                     break;
-                case "mov" when t0 is Arm64OperandType.Memory && t1 is Arm64OperandType.Register && var0 is { } && memVar is ConstantDefinition { Value: StaticFieldsPtr _ }:
+                case "str" when t0 is Arm64OperandType.Memory && t1 is Arm64OperandType.Register && var0 is { } && memVar is ConstantDefinition { Value: StaticFieldsPtr _ }:
                     //Static Field write from register.
                     Analysis.Actions.Add(new Arm64RegisterToStaticFieldAction(Analysis, instruction));
                     break;
@@ -267,6 +267,10 @@ namespace Cpp2IL.Core.Analysis
                 case "ldr" when t1 == Arm64OperandType.Memory && t0 == Arm64OperandType.Register && memoryIndex == Arm64RegisterId.Invalid && memVar is ConstantDefinition constant && constant.Type == typeof(StaticFieldsPtr):
                     //Load a specific static field.
                     Analysis.Actions.Add(new Arm64StaticFieldToRegAction(Analysis, instruction));
+                    break;
+                case "ldr" when t1 == Arm64OperandType.Memory && t0 == Arm64OperandType.Register && memoryIndex == Arm64RegisterId.Invalid && memVar is ConstantDefinition { Value: Il2CppClassIdentifier _ } && Il2CppClassUsefulOffsets.IsStaticFieldsPtr((uint)offset1):
+                    //Static fields ptr read
+                    Analysis.Actions.Add(new Arm64StaticFieldOffsetToRegAction(Analysis, instruction));
                     break;
             }
         }
