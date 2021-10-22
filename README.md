@@ -97,8 +97,8 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 | Unmanaged String Literal Detection | ✔️ | ✔️ | ❌ |
 | Instance field reads | ✔️ | ✔️ | ❌ |
 | Instance field writes | ✔️ | ✔️ | ❌ |
-| Static field reads | ✔️ | ❌ | ❌ |
-| Static field writes | ✔️ | ❌ | ❌ |
+| Static field reads | ✔️ | ✔️ (In pre-release) | ❌ |
+| Static field writes | ✔️ | ✔️ (In pre-release) | ❌ |
 | IL2CPP "Exception Helper" functions[^2] | ✔️ | ✔️ | ❌ |
 | IL2CPP MetadataUsage parsing[^3] | ✔️ | ✔️ | ❌ |
 | Array instantiation | ✔️ | ❌ | ❌ |
