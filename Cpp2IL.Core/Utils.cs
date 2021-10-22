@@ -592,6 +592,19 @@ namespace Cpp2IL.Core
         private static readonly ConcurrentDictionary<Register, string> CachedX86RegNamesNew = new();
         private static readonly ConcurrentDictionary<Arm64RegisterId, string> CachedArm64RegNamesNew = new();
 
+        public static string Arm64GetRegisterNameNew(Arm64Register register)
+        {
+            if (register == null) return "";
+
+            if (!CachedArm64RegNamesNew.TryGetValue(register.Id, out var ret))
+            {
+                ret = UpscaleRegisters(register.ToString().ToLower());
+                CachedArm64RegNamesNew[register.Id] = ret;
+            }
+
+            return ret;
+        }
+
         public static string GetRegisterNameNew(Register register)
         {
             if (register == Register.None) return "";
@@ -1040,7 +1053,6 @@ namespace Cpp2IL.Core
                     lower = pos + 1;
                 }
             }
-            
             ret = _allKnownFunctionStarts[lower];
             if (ret < current)
                 ret = _allKnownFunctionStarts[upper];

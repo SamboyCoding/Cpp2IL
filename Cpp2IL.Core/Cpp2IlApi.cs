@@ -447,7 +447,7 @@ namespace Cpp2IL.Core
                         };
 
                         dumper.AnalyzeMethod();
-                        dumper.RunPostProcessors();
+                        dumper.RunActionPostProcessors();
 
                         switch (analysisLevel)
                         {

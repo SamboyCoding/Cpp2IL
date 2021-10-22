@@ -1,0 +1,26 @@
+﻿using Cpp2IL.Core.Analysis.Actions.Base;
+using Cpp2IL.Core.Analysis.ResultModels;
+using Gee.External.Capstone.Arm64;
+
+namespace Cpp2IL.Core.Analysis.Actions.ARM64
+{
+    public class Arm64StaticFieldToRegAction : AbstractStaticFieldReadAction<Arm64Instruction>
+    {
+        public Arm64StaticFieldToRegAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
+        {
+            Logger.WarnNewline("Hell Yeah Arm64StaticFieldToRegAction");
+            var fieldsPtrConst = context.GetConstantInReg(Utils.Arm64GetRegisterNameNew(instruction.MemoryBase()!));
+            string destReg = Utils.Arm64GetRegisterNameNew(instruction.Details.Operands[0].Register);
+
+            if (fieldsPtrConst == null || fieldsPtrConst.Type != typeof(StaticFieldsPtr)) return;
+
+            var fieldsPtr = (StaticFieldsPtr)fieldsPtrConst.Value;
+
+            FieldRead = FieldUtils.GetStaticFieldByOffset(fieldsPtr, (uint)instruction.MemoryOffset());
+
+            if (FieldRead == null) return;
+
+            LocalWritten = context.MakeLocal(FieldRead.FieldType, reg: destReg);
+        }
+    }
+}

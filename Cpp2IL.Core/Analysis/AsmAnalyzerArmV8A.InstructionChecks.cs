@@ -106,6 +106,9 @@ namespace Cpp2IL.Core.Analysis
         {
             var op0 = instruction.Details.Operands[0]!;
             var op1 = instruction.Details.Operands[1]!;
+            var memR = Utils.Arm64GetRegisterNameNew(instruction.MemoryBase()!);
+            var offset0 = instruction.MemoryOffset();
+            var offset1 = offset0; // TODO?
 
             var t0 = op0.Type;
             var t1 = op1.Type;
@@ -135,6 +138,10 @@ namespace Cpp2IL.Core.Analysis
                 mnemonic = "str";
 
             //The single most annoying part about capstone is that its mnemonics are strings.
+            if(memVar is ConstantDefinition constant2 && constant2.Type == typeof(StaticFieldsPtr))
+            {
+                Logger.InfoNewline(mnemonic);
+            }    
             switch (mnemonic)
             {
                 case "adrp":
@@ -241,6 +248,25 @@ namespace Cpp2IL.Core.Analysis
                 case "str" when t0 is Arm64OperandType.Immediate && t1 is Arm64OperandType.Memory && memVar is LocalDefinition:
                     //Field write from immediate
                     Analysis.Actions.Add(new Arm64ImmediateToFieldAction(Analysis, instruction));
+                    break;
+                case "mov" when t0 is Arm64OperandType.Memory && t1 is Arm64OperandType.Register && var0 is { } && memVar is ConstantDefinition { Value: StaticFieldsPtr _ }:
+                    //Static Field write from register.
+                    Analysis.Actions.Add(new Arm64RegisterToStaticFieldAction(Analysis, instruction));
+                    break;
+                case "ldr" when t1 == Arm64OperandType.Memory && (offset1 == 0 || r0 == Arm64RegisterId.ARM64_REG_SP) && offset1 == 0 && memVar is LocalDefinition && memoryIndex == Arm64RegisterId.Invalid:
+                {
+                    //Zero offsets, but second operand is a memory pointer -> class pointer move.
+                    //MUST Check for non-cpp type
+                    if (Analysis.GetLocalInReg(memR) != null)
+                    {
+                        Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it 
+                            Logger.InfoNewline(instruction.GetInstructionAddress().ToString());
+                    }
+                    return;
+                }
+                case "ldr" when t1 == Arm64OperandType.Memory && t0 == Arm64OperandType.Register && memoryIndex == Arm64RegisterId.Invalid && memVar is ConstantDefinition constant && constant.Type == typeof(StaticFieldsPtr):
+                    //Load a specific static field.
+                    Analysis.Actions.Add(new Arm64StaticFieldToRegAction(Analysis, instruction));
                     break;
             }
         }

@@ -7,6 +7,7 @@ using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Mono.Collections.Generic;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis
@@ -224,9 +225,10 @@ namespace Cpp2IL.Core.Analysis
             }
             else
             {
+                RunILPostProcessors(body);
                 body.Optimize();
 
-                builder.Append(string.Join("\n\t", body.Instructions))
+                builder.Append(string.Join("\n\t", body))
                     .Append("\n\t");
             }
 
@@ -367,7 +369,8 @@ namespace Cpp2IL.Core.Analysis
 
         internal abstract StringBuilder GetAssemblyDump();
 
-        public abstract void RunPostProcessors();
+        public abstract void RunActionPostProcessors();
+        public abstract void RunILPostProcessors(MethodBody body);
 
         protected abstract void PerformInstructionChecks(T instruction);
     }
