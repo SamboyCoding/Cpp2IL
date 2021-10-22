@@ -3,6 +3,7 @@ using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
+using Mono.Cecil;
 
 namespace Cpp2IL.Core.Analysis
 {
@@ -249,28 +250,28 @@ namespace Cpp2IL.Core.Analysis
                     //Field write from immediate
                     Analysis.Actions.Add(new Arm64ImmediateToFieldAction(Analysis, instruction));
                     break;
-                case "str" when t0 is Arm64OperandType.Memory && t1 is Arm64OperandType.Register && var0 is { } && memVar is ConstantDefinition { Value: StaticFieldsPtr _ }:
-                    //Static Field write from register.
-                    Analysis.Actions.Add(new Arm64RegisterToStaticFieldAction(Analysis, instruction));
-                    break;
                 case "ldr" when t1 == Arm64OperandType.Memory && (offset1 == 0 || r0 == Arm64RegisterId.ARM64_REG_SP) && offset1 == 0 && memVar is LocalDefinition && memoryIndex == Arm64RegisterId.Invalid:
-                {
-                    //Zero offsets, but second operand is a memory pointer -> class pointer move.
-                    //MUST Check for non-cpp type
-                    if (Analysis.GetLocalInReg(memR) != null)
                     {
-                        Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it 
+                        //Zero offsets, but second operand is a memory pointer -> class pointer move.
+                        //MUST Check for non-cpp type
+                        if (Analysis.GetLocalInReg(memR) != null)
+                        {
+                            Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it 
                             Logger.InfoNewline(instruction.GetInstructionAddress().ToString());
+                        }
+                        return;
                     }
-                    return;
-                }
                 case "ldr" when t1 == Arm64OperandType.Memory && t0 == Arm64OperandType.Register && memoryIndex == Arm64RegisterId.Invalid && memVar is ConstantDefinition constant && constant.Type == typeof(StaticFieldsPtr):
                     //Load a specific static field.
                     Analysis.Actions.Add(new Arm64StaticFieldToRegAction(Analysis, instruction));
                     break;
-                case "ldr" when t1 == Arm64OperandType.Memory && t0 == Arm64OperandType.Register && memoryIndex == Arm64RegisterId.Invalid && memVar is ConstantDefinition { Value: Il2CppClassIdentifier _ } && Il2CppClassUsefulOffsets.IsStaticFieldsPtr((uint)offset1):
+                case "ldr" when t1 == Arm64OperandType.Memory && t0 == Arm64OperandType.Register && memoryIndex == Arm64RegisterId.Invalid && memVar is ConstantDefinition { Value: TypeReference _ } && Il2CppClassUsefulOffsets.IsStaticFieldsPtr((uint)offset1):
                     //Static fields ptr read
                     Analysis.Actions.Add(new Arm64StaticFieldOffsetToRegAction(Analysis, instruction));
+                    break;
+                case "str" when t1 is Arm64OperandType.Memory && t0 is Arm64OperandType.Register && var0 is { } && memVar is ConstantDefinition { Value: StaticFieldsPtr _ }:
+                    //Static Field write from register.
+                    Analysis.Actions.Add(new Arm64RegisterToStaticFieldAction(Analysis, instruction));
                     break;
             }
         }
