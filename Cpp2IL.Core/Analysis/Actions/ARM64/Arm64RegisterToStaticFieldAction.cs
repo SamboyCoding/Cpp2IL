@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64RegisterToStaticFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             Logger.WarnNewline("Hell Yeah Arm64RegisterToStaticFieldAction");
-            var sourceReg = Utils.Arm64GetRegisterNameNew(instruction.Details.Operands[1].Register);
+            var sourceReg = Utils.Arm64GetRegisterNameNew(instruction.Details.Operands[0].Register);
             _sourceOperand = context.GetOperandInRegister(sourceReg);
             var destStaticFieldsPtr = context.GetConstantInReg(Utils.Arm64GetRegisterNameNew(instruction.MemoryBase()!));
             var staticFieldOffset = instruction.MemoryOffset();
