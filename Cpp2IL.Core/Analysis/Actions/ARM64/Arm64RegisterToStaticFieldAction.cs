@@ -12,9 +12,9 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64RegisterToStaticFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            var sourceReg = Utils.Arm64GetRegisterNameNew(instruction.Details.Operands[0].Register);
+            var sourceReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
             _sourceOperand = context.GetOperandInRegister(sourceReg);
-            var destStaticFieldsPtr = context.GetConstantInReg(Utils.Arm64GetRegisterNameNew(instruction.MemoryBase()!));
+            var destStaticFieldsPtr = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id));
             var staticFieldOffset = instruction.MemoryOffset();
 
             if (destStaticFieldsPtr?.Value is not StaticFieldsPtr staticFieldsPtr)

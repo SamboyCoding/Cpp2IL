@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Gee.External.Capstone.Arm64;
@@ -107,7 +108,6 @@ namespace Cpp2IL.Core.Analysis
         {
             var op0 = instruction.Details.Operands[0]!;
             var op1 = instruction.Details.Operands[1]!;
-            var memR = Utils.Arm64GetRegisterNameNew(instruction.MemoryBase()!);
             var offset0 = instruction.MemoryOffset();
             var offset1 = offset0; // TODO?
 
@@ -137,12 +137,10 @@ namespace Cpp2IL.Core.Analysis
                 mnemonic = "ldr";
             if (mnemonic is "strb" or "strh")
                 mnemonic = "str";
+            if (mnemonic is "movz")
+                mnemonic = "mov";
 
             //The single most annoying part about capstone is that its mnemonics are strings.
-            if(memVar is ConstantDefinition constant2 && constant2.Type == typeof(StaticFieldsPtr))
-            {
-                Logger.InfoNewline(mnemonic);
-            }    
             switch (mnemonic)
             {
                 case "adrp":
@@ -173,7 +171,7 @@ namespace Cpp2IL.Core.Analysis
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
-                    if (Analysis.GetLocalInReg(memR) != null)
+                    if (Analysis.GetLocalInReg(Utils.GetRegisterNameNew(memoryBase)) != null)
                     {
                         Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it 
                         Logger.InfoNewline(instruction.GetInstructionAddress().ToString());
@@ -255,6 +253,15 @@ namespace Cpp2IL.Core.Analysis
                 case "mov" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Register && r1Name == "xzr":
                     //Move zero register to other register
                     Analysis.Actions.Add(new Arm64ZeroRegisterToRegisterAction(Analysis, instruction));
+                    break;
+                case "mov" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Immediate:
+                    //Move immediate to reg
+                    var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT
+                        .Any(m => _instructions
+                            .Any(i => !i.IsSkippedData && i.Mnemonic == m && !i.Details.Operands
+                                .Any(o => Utils.GetRegisterNameNew(o.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid) is "sp")));
+                    
+                    Analysis.Actions.Add(new Arm64ImmediateToRegAction(Analysis, instruction, mayNotBeAConstant));
                     break;
                 case "mov" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Register && var1 is { }:
                     //Move generic analyzed op to another reg

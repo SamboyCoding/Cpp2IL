@@ -8,8 +8,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
     {
         public Arm64StaticFieldToRegAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            var fieldsPtrConst = context.GetConstantInReg(Utils.Arm64GetRegisterNameNew(instruction.MemoryBase()!));
-            string destReg = Utils.Arm64GetRegisterNameNew(instruction.Details.Operands[0].Register);
+            var fieldsPtrConst = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id));
+            string destReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
             if (fieldsPtrConst == null || fieldsPtrConst.Type != typeof(StaticFieldsPtr)) return;
 

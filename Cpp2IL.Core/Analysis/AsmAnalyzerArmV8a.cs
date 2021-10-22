@@ -13,6 +13,11 @@ namespace Cpp2IL.Core.Analysis
 {
     public partial class AsmAnalyzerArmV8A : AsmAnalyzerBase<Arm64Instruction>
     {
+        private static readonly string[] MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT =
+        {
+            "add", "sub"
+        };
+        
         private static List<Arm64Instruction> DisassembleInstructions(MethodDefinition definition)
         {
             var baseAddress = definition.AsUnmanaged().MethodPointer;
