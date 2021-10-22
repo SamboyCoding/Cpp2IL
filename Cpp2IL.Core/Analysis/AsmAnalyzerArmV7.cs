@@ -7,6 +7,7 @@ using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using LibCpp2IL;
 using Mono.Cecil;
+using Mono.Collections.Generic;
 
 namespace Cpp2IL.Core.Analysis
 {
@@ -106,7 +107,11 @@ namespace Cpp2IL.Core.Analysis
             return builder;
         }
 
-        public override void RunPostProcessors()
+        public override void RunActionPostProcessors()
+        {
+            //no-op
+        }
+        public override void RunILPostProcessors(Mono.Cecil.Cil.MethodBody body)
         {
             //no-op
         }

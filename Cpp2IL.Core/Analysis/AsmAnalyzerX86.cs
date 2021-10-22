@@ -8,6 +8,7 @@ using Cpp2IL.Core.Analysis.PostProcessActions;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
+using Mono.Collections.Generic;
 
 namespace Cpp2IL.Core.Analysis
 {
@@ -94,10 +95,14 @@ namespace Cpp2IL.Core.Analysis
             return builder;
         }
 
-        public override void RunPostProcessors()
+        public override void RunActionPostProcessors()
         {
             new RemovedUnusedLocalsPostProcessor<Instruction>().PostProcess(Analysis);
             new RenameLocalsPostProcessor<Instruction>().PostProcess(Analysis);
+        }
+        public override void RunILPostProcessors(Mono.Cecil.Cil.MethodBody body)
+        {
+            new RestoreConstReferences<Instruction>().PostProcess(Analysis, body);
         }
 
 #if false

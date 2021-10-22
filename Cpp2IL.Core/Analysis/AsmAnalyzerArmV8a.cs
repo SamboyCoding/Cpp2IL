@@ -6,6 +6,8 @@ using Cpp2IL.Core.Analysis.PostProcessActions;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil;
+using Mono.Cecil.Cil;
+using Mono.Collections.Generic;
 
 namespace Cpp2IL.Core.Analysis
 {
@@ -97,10 +99,14 @@ namespace Cpp2IL.Core.Analysis
             return builder;
         }
 
-        public override void RunPostProcessors()
+        public override void RunActionPostProcessors()
         {
             new RemovedUnusedLocalsPostProcessor<Arm64Instruction>().PostProcess(Analysis);
             new RenameLocalsPostProcessor<Arm64Instruction>().PostProcess(Analysis);
+        }
+        public override void RunILPostProcessors(MethodBody body)
+        {
+            new RestoreConstReferences<Arm64Instruction>().PostProcess(Analysis, body);
         }
     }
 }

@@ -1,5 +1,5 @@
 ﻿using System.Text;
-using Cpp2IL.Core.Analysis.Actions.Base;
+using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis
 {
@@ -11,6 +11,7 @@ namespace Cpp2IL.Core.Analysis
         public StringBuilder BuildILToString();
         public StringBuilder GetPseudocode();
         public StringBuilder GetWordyFunctionality();
-        public void RunPostProcessors();
+        public void RunActionPostProcessors();
+        public void RunILPostProcessors(MethodBody body);
     }
 }
