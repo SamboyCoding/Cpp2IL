@@ -14,8 +14,6 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64ClassPointerLoadAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            Logger.WarnNewline("Hell Yeah Arm64ClassPointerLoadAction");
-
             var op0 = instruction.Details.Operands[0].Register;
             destReg = Utils.Arm64GetRegisterNameNew(op0);
 

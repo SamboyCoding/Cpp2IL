@@ -8,7 +8,6 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
     {
         public Arm64StaticFieldToRegAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            Logger.WarnNewline("Hell Yeah Arm64StaticFieldToRegAction");
             var fieldsPtrConst = context.GetConstantInReg(Utils.Arm64GetRegisterNameNew(instruction.MemoryBase()!));
             string destReg = Utils.Arm64GetRegisterNameNew(instruction.Details.Operands[0].Register);
 

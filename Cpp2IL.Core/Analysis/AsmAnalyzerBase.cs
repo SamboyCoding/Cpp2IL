@@ -228,7 +228,7 @@ namespace Cpp2IL.Core.Analysis
                 RunILPostProcessors(body);
                 body.Optimize();
 
-                builder.Append(string.Join("\n\t", body))
+                builder.Append(string.Join("\n\t", body.Instructions))
                     .Append("\n\t");
             }
 
