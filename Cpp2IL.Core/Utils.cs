@@ -877,6 +877,43 @@ namespace Cpp2IL.Core
             }
         }
 
+        public static IConvertible ReinterpretBytes(IConvertible original, TypeReference desired) => ReinterpretBytes(original, typeof(int).Module.GetType(desired.FullName));
+
+        public static IConvertible ReinterpretBytes(IConvertible original, Type desired)
+        {
+            var rawBytes = original switch
+            {
+                byte b => BitConverter.GetBytes(b),
+                sbyte sb => BitConverter.GetBytes(sb),
+                ushort us => BitConverter.GetBytes(us),
+                short s => BitConverter.GetBytes(s),
+                uint ui => BitConverter.GetBytes(ui),
+                int i => BitConverter.GetBytes(i),
+                ulong ul => BitConverter.GetBytes(ul),
+                long l => BitConverter.GetBytes(l),
+                _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
+            };
+
+            if (desired == typeof(byte))
+                return rawBytes[0];
+            if (desired == typeof(sbyte))
+                return unchecked((sbyte)rawBytes[0]);
+            if (desired == typeof(ushort))
+                return BitConverter.ToUInt16(rawBytes, 0);
+            if (desired == typeof(short))
+                return BitConverter.ToInt16(rawBytes, 0);
+            if (desired == typeof(uint))
+                return BitConverter.ToUInt32(rawBytes, 0);
+            if (desired == typeof(int))
+                return BitConverter.ToInt32(rawBytes, 0);
+            if (desired == typeof(ulong))
+                return BitConverter.ToUInt64(rawBytes, 0);
+            if (desired == typeof(long))
+                return BitConverter.ToInt64(rawBytes, 0);
+
+            throw new($"ReinterpretBytes: Cannot convert byte array back to a type of {desired}");
+        }
+
         public static object? CoerceValue(object value, TypeReference coerceToType)
         {
             if (coerceToType is ArrayType)
