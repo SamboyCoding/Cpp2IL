@@ -293,8 +293,7 @@ namespace Cpp2IL.Core.Analysis
 
             var mnemonic = instruction.Mnemonic;
 
-            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps || mnemonic == Mnemonic.Movups || mnemonic == Mnemonic.Movdqa ||
-                mnemonic == Mnemonic.Cmove || mnemonic == Mnemonic.Cmovne || mnemonic == Mnemonic.Cmovge || mnemonic == Mnemonic.Cmovs || mnemonic == Mnemonic.Cmovns || mnemonic == Mnemonic.Cmovg || mnemonic == Mnemonic.Cmovge || mnemonic == Mnemonic.Cmovl || mnemonic == Mnemonic.Cmovle || mnemonic == Mnemonic.Cmova || mnemonic == Mnemonic.Cmovae || mnemonic == Mnemonic.Cmovb || mnemonic == Mnemonic.Cmovbe)
+            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps || mnemonic == Mnemonic.Movups || mnemonic == Mnemonic.Movdqa || instruction.IsConditionalMove())
                 mnemonic = Mnemonic.Mov;
 
             if (mnemonic == Mnemonic.Comiss)
