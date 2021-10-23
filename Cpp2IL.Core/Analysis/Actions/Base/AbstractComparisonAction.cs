@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -51,8 +52,34 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                         // ignored
                     }
                 }
+                // Are we comparing a field/property/local with a constant and if so then try change the type of the constant to match the type so it outputs better pseudo code and il
+                // Feel free to clean it up if you feel the need to :P
+                if (ArgumentTwo is ConstantDefinition constantDefinition && typeof(IConvertible).IsAssignableFrom(constantDefinition.Type) && constantDefinition.Type != typeof(string))
+                {
+                    TypeReference? argumentOneType = null;
+                    if (ArgumentOne is ComparisonDirectPropertyAccess comparisonDirectPropertyAccess)
+                    {
+                        argumentOneType = comparisonDirectPropertyAccess.propertyAccessed.PropertyType;
+                    } 
+                    else if (ArgumentOne is ComparisonDirectFieldAccess comparisonDirectFieldAccess)
+                    {
+                        argumentOneType = comparisonDirectFieldAccess.fieldAccessed.FieldType;
+                    }
+                    else if (ArgumentOne is LocalDefinition localDefinition)
+                    {
+                        argumentOneType = localDefinition.Type; 
+                    }
+                    if (!string.IsNullOrEmpty(argumentOneType?.FullName) && !argumentOneType!.IsArray)
+                    {
+                        var argumentOneSystemType = typeof(int).Module.GetType(argumentOneType.FullName);
+                        if(argumentOneSystemType != null && Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
+                        {
+                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible)constantDefinition.Value, argumentOneType);
+                            constantDefinition.Type = argumentOneSystemType;
+                        }
+                    }
+                }
             }
-
             UnimportantComparison = unimportant1 || unimportant2;
 
             if (context.GetEndOfLoopWhichPossiblyStartsHere(associatedInstruction.GetInstructionAddress()) is { } endOfLoop && endOfLoop != 0)

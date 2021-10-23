@@ -1,5 +1,7 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
@@ -50,6 +52,25 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         public override bool IsImportant()
         {
             return true;
+        }
+
+        protected void TryCorrectConstant(MethodAnalysis<T> context)
+        {
+            if (!_isVoid && returnValue is ConstantDefinition constantDefinition && typeof(IConvertible).IsAssignableFrom(constantDefinition.Type) && constantDefinition.Type != typeof(string))
+            {
+                if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
+                {
+                    var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
+                    if (!string.IsNullOrEmpty(returnValueType?.FullName) && !returnValueType!.IsArray)
+                    {
+                        if (Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(context.ReturnType) && context.ReturnType.Name != "String")
+                        {
+                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
+                            constantDefinition.Type = returnValueType;
+                        }
+                    }
+                }
+            }
         }
     }
 }

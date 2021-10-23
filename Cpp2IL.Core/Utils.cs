@@ -230,7 +230,7 @@ namespace Cpp2IL.Core
                     }
                     else
                     {
-                        //V27 - type indexes are pointers now. 
+                        //V27 - type indexes are pointers now.
                         var type = theDll.ReadClassAtVirtualAddress<Il2CppType>((ulong)genericClass.typeDefinitionIndex);
                         type.Init();
                         typeDefinition = ImportTypeInto(importInto, type).Resolve();
@@ -377,7 +377,7 @@ namespace Cpp2IL.Core
             var genericParams = Array.Empty<string>();
             if (definedType == null && name.Contains("<"))
             {
-                //Replace < > with the number of generic params after a ` 
+                //Replace < > with the number of generic params after a `
                 var origName = name;
                 genericParams = GetGenericParams(name[(name.IndexOf("<", StringComparison.Ordinal) + 1)..^1]);
                 name = name[..name.IndexOf("<", StringComparison.Ordinal)];
@@ -420,7 +420,7 @@ namespace Cpp2IL.Core
             var depth = 0;
             var ret = new List<string>();
             var sb = new StringBuilder();
-            
+
             foreach (var c in input)
             {
                 if (c == '<')
@@ -478,7 +478,7 @@ namespace Cpp2IL.Core
         {
             if (theDll.RawLength <= (long)rawAddr)
                 return null;
-            
+
             var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
             if (char.IsLetterOrDigit(c) || char.IsPunctuation(c) || char.IsSymbol(c) || char.IsWhiteSpace(c))
             {
@@ -884,6 +884,7 @@ namespace Cpp2IL.Core
             var rawBytes = original switch
             {
                 bool b => BitConverter.GetBytes(b),
+                char c => BitConverter.GetBytes(c),
                 byte b => BitConverter.GetBytes(b),
                 sbyte sb => BitConverter.GetBytes(sb),
                 ushort us => BitConverter.GetBytes(us),
@@ -901,6 +902,8 @@ namespace Cpp2IL.Core
                 return BitConverter.ToBoolean(rawBytes, 0);
             if (desired == typeof(byte))
                 return rawBytes[0];
+            if (desired == typeof(char))
+                return (char)rawBytes[0];
             if (desired == typeof(sbyte))
                 return unchecked((sbyte)rawBytes[0]);
             if (desired == typeof(ushort))
@@ -1037,7 +1040,7 @@ namespace Cpp2IL.Core
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
         }
-        
+
         private static List<ulong>? _allKnownFunctionStarts;
         private static CapstoneArm64Disassembler? _arm64Disassembler;
 
@@ -1047,10 +1050,10 @@ namespace Cpp2IL.Core
                 .Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys)
                 .Concat(SharedState.AttributeGeneratorStarts)
                 .ToList();
-            
+
             //Sort in ascending order
             _allKnownFunctionStarts.Sort();
-            
+
             var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
             disassembler.EnableInstructionDetails = true;
             disassembler.EnableSkipDataMode = true;
@@ -1062,7 +1065,7 @@ namespace Cpp2IL.Core
         {
             if(_allKnownFunctionStarts == null)
                 InitArm64Decompilation();
-            
+
             //Binary-search-like approach
             var lower = 0;
             var upper = _allKnownFunctionStarts!.Count - 1;
@@ -1071,10 +1074,10 @@ namespace Cpp2IL.Core
             while (upper - lower >= 1)
             {
                 var pos = (upper - lower) / 2 + lower;
-                
+
                 if (upper - lower == 1)
                     pos = lower;
-                
+
                 var ptr = _allKnownFunctionStarts[pos];
                 if (ptr > current)
                 {
@@ -1082,7 +1085,7 @@ namespace Cpp2IL.Core
                     if (ptr < ret)
                         //This is a better "next method" pointer
                         ret = ptr;
-                    
+
                     //Either way, we're above our current address now, so search lower in the list
                     upper = pos;
                 }
@@ -1106,14 +1109,14 @@ namespace Cpp2IL.Core
         {
             if(_allKnownFunctionStarts == null)
                 InitArm64Decompilation();
-            
+
             //We can't use CppMethodBodyBytes to get the byte array, because ARMv7 doesn't have filler bytes like x86 does.
             //So we can't work out the end of the method.
             //But we can find the start of the next one! (If managed)
             if (managed)
             {
                 var startOfNext = GetAddressOfNextFunctionStart(virtAddress);
-                
+
                 //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
                 if (startOfNext > 0)
                 {
@@ -1132,12 +1135,12 @@ namespace Cpp2IL.Core
                     return iter.ToList();
                 }
             }
-            
+
             //Unmanaged function, look for first b or bl
             var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
             var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
             List<Arm64Instruction> ret = new();
-            
+
             while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
             {
                 //All arm64 instructions are 4 bytes

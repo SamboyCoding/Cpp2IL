@@ -482,7 +482,7 @@ namespace Cpp2IL.Core
                     }
                     catch (Exception e)
                     {
-                        Logger.WarnNewline($"Failed to dump methods for type {type.Name}, method {methodDefinition.Name} {e}", "Analyze");
+                        Logger.WarnNewline($"Failed to dump method {methodDefinition.FullName} {e}", "Analyze");
                     }
                 }
 

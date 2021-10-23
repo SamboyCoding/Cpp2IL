@@ -67,7 +67,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override string? ToPsuedoCode()
         {
-            return $"if (Todo:Need to add condition here)" + $"{_moveAction.ToPsuedoCode()}";
+            return $"if (Todo:Need to add condition here) {_moveAction.ToPsuedoCode()}";
         }
 
         public override string ToTextSummary()

@@ -26,6 +26,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
             if (returnValue is LocalDefinition l)
                 RegisterUsedLocal(l, context);
+            
+            TryCorrectConstant(context);
         }
     }
 }
