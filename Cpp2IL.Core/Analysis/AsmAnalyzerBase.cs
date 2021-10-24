@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis
 {
     public abstract class AsmAnalyzerBase<T> : IAsmAnalyzer
     {
-        public IList<T> Instructions { get; }
+        public IList<T> Instructions => _instructions;
         protected MethodDefinition? MethodDefinition;
         protected ulong MethodEnd;
         protected Il2CppBinary CppAssembly;
@@ -50,7 +50,6 @@ namespace Cpp2IL.Core.Analysis
 
         internal AsmAnalyzerBase(MethodDefinition definition, ulong methodPointer, IList<T> instructions, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(methodPointer, instructions, baseKeyFunctionAddresses)
         {
-            Instructions = instructions;
             MethodDefinition = definition;
             MethodDefinition.Body = new(MethodDefinition);
             IsGenuineMethod = true;

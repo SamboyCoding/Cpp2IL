@@ -39,11 +39,11 @@ namespace Cpp2IL.Core
         public static Arm64Register? RegisterSafe(this Arm64Operand operand) => operand.Type != Arm64OperandType.Register ? null : operand.Register;
         public static bool IsImmediate(this Arm64Operand operand) => operand.Type is Arm64OperandType.CImmediate or Arm64OperandType.Immediate;
         public static long ImmediateSafe(this Arm64Operand operand) => operand.IsImmediate() ? operand.Immediate : 0;
-        private static Arm64Operand? MemoryOperand(Arm64Instruction instruction) => instruction.Details.Operands.FirstOrDefault(a => a.Type == Arm64OperandType.Memory);
+        internal static Arm64Operand? MemoryOperand(this Arm64Instruction instruction) => instruction.Details.Operands.FirstOrDefault(a => a.Type == Arm64OperandType.Memory);
 
-        public static Arm64Register? MemoryBase(this Arm64Instruction instruction) => MemoryOperand(instruction)?.Memory.Base;
-        public static Arm64Register? MemoryIndex(this Arm64Instruction instruction) => MemoryOperand(instruction)?.Memory.Index;
-        public static int MemoryOffset(this Arm64Instruction instruction) => MemoryOperand(instruction)?.Memory.Displacement ?? 0;
+        public static Arm64Register? MemoryBase(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Base;
+        public static Arm64Register? MemoryIndex(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Index;
+        public static int MemoryOffset(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Displacement ?? 0;
 
         public static Stack<T> Clone<T>(this Stack<T> original)
         {

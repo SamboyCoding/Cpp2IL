@@ -25,9 +25,12 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64MetadataUsageMethodRefToRegisterAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             if (context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id)) is not { Value: long pageAddress })
-                return;
+                if (instruction.Details.Operands[1].Type == Arm64OperandType.Register && context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.Details.Operands[1].Register.Id)) is { Value: long pageAddr2 })
+                    pageAddress = pageAddr2;
+                else
+                    return;
 
-            _pointer = (ulong)(pageAddress + instruction.MemoryOffset());
+            _pointer = (ulong) (pageAddress + (instruction.MemoryOperand() != null ? instruction.MemoryOffset() : instruction.Details.Operands[2].Immediate));
             _metadataUsage = LibCpp2IlMain.GetAnyGlobalByAddress(_pointer);
             
             if (_metadataUsage == null)

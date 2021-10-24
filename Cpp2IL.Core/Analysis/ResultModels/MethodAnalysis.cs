@@ -96,6 +96,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             if (LibCpp2IlMain.Binary!.InstructionSet == InstructionSet.ARM64)
             {
                 HandleArm64Parameters();
+                return; //TODO handle stack params
             }
             else if (LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_32)
             {
@@ -236,6 +237,23 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             //TODO Make this work for arm. Realistically we should be ok to just insert starting from x0, because this is only used for attribute restoration and those all return void (right? check it)
             //TODO and, hell, realistically, this is only called once when we're analyzing arm, on a method with no params anyway, so it can just go in x0.
+
+            if (LibCpp2IlMain.Binary!.InstructionSet == InstructionSet.ARM64)
+            {
+                //Let's be lazy because I really can't be arsed right now. - 2021-10-24
+                if (GetOperandInRegister("x0") is { })
+                    throw new("X0 is already taken when calling AddParameter. Can't be lazy this time, Samboy");
+
+                if (arg.ParameterType.ShouldBeInFloatingPointRegister())
+                    throw new("AddParameter: Type should be in a floating point. Still can't be lazy, Samboy.");
+
+                var name = arg.Name;
+                if (string.IsNullOrWhiteSpace(name))
+                    name = arg.Name = $"cpp2il__autoParamName__idx_{_numParamsAdded}";
+
+                FunctionArgumentLocals.Add(MakeLocal(arg.ParameterType, name, "x0").WithParameter(arg));
+                return;
+            }
             
             if (_parameterDestRegList.Count > 0)
             {

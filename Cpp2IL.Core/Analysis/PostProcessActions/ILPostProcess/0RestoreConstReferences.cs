@@ -20,8 +20,8 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 for (int i = 0; i < instructions.Count; i++)
                 {
                     Instruction instruction = instructions[i];
-                    Logger.InfoNewline(instruction.OpCode.Code.ToString());
-                    Logger.InfoNewline(instruction.Operand.ToString());
+                    // Logger.InfoNewline(instruction.OpCode.Code.ToString());
+                    // Logger.InfoNewline(instruction.Operand.ToString());
                 }
             }
             for (int i = 0; i < instructions.Count-1; i++)
@@ -30,8 +30,9 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions
                 Instruction nextInstruction = instructions[i+1];
                 if (instruction.OpCode.Code == Code.Ldc_I4 && nextInstruction.OpCode.Code == Code.Ret)
                 {
-                    Logger.InfoNewline(analysis.DeclaringType.FullName);
-                    Logger.InfoNewline(instruction.Operand.GetType().FullName);
+                    //TODO: FM wanted to do something here
+                    // Logger.InfoNewline(analysis.DeclaringType.FullName);
+                    // Logger.InfoNewline(instruction.Operand.GetType().FullName);
                 }
             }
         }

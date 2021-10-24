@@ -71,6 +71,12 @@ namespace Cpp2IL.Core.Analysis
                     {
                         Analysis.Actions.Add(new Arm64NewObjectAction(Analysis, instruction));
                     }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_string_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_string_new || jumpTarget == _keyFunctionAddresses.il2cpp_string_new_wrapper 
+                             || jumpTarget == _keyFunctionAddresses.il2cpp_codegen_string_new_wrapper || jumpTarget == _keyFunctionAddresses.il2cpp_vm_string_newWrapper)
+                    {
+                        //Creates a mono string from a string global
+                        Analysis.Actions.Add(new Arm64UnmanagedToManagedStringAction(Analysis, instruction));
+                    }
                     else if (LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.ContainsKey(jumpTarget))
                     {
                         //Call concrete generic function
@@ -163,6 +169,10 @@ namespace Cpp2IL.Core.Analysis
                 case "cmp":
                     Analysis.Actions.Add(new Arm64ComparisonAction(Analysis, instruction));
                     break;
+                case "ldr" when t1 == Arm64OperandType.Memory && t0 == Arm64OperandType.Register && memVar is LocalDefinition potentialDummyAttributeList && potentialDummyAttributeList.Type?.Resolve() == AttributeRestorer.DummyTypeDefForAttributeList:
+                    //Load attribute from attribute list.
+                    Analysis.Actions.Add(new Arm64LoadAttributeFromAttributeListAction(Analysis, instruction, AttributesForRestoration));
+                    break;
                 case "ldr" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Memory && memVar is LocalDefinition && memoryOffset != 0:
                     //Field read - non-zero memory offset on local to register.
                     Analysis.Actions.Add(new Arm64FieldReadToRegAction(Analysis, instruction));
@@ -173,8 +183,7 @@ namespace Cpp2IL.Core.Analysis
                     //MUST Check for non-cpp type
                     if (Analysis.GetLocalInReg(Utils.GetRegisterNameNew(memoryBase)) != null)
                     {
-                        Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it 
-                        Logger.InfoNewline(instruction.GetInstructionAddress().ToString());
+                        Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     }
                     return;
                 }
@@ -323,6 +332,66 @@ namespace Cpp2IL.Core.Analysis
                     //ORR dest, xzr, #n
                     //dest = n, basically. Technically 0 | n, but that's the same.
                     Analysis.Actions.Add(new Arm64OrZeroAndImmAction(Analysis, instruction));
+                    break;
+                case "add" when t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Register && t2 == Arm64OperandType.Immediate && var0 is ConstantDefinition { Value: long pageAddress } && imm2 < 0x4000:
+                    //Combined with adrp to load a global. The adrp loads the page, and this adds an additional offset to resolve a specific memory value.
+                    var globalAddress = (ulong)(pageAddress + imm2);
+                    MetadataUsage global = null;
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { IsValid: true } global2)
+                        global = global2;
+                    else
+                    {
+                        //Try pointer to global
+                        try
+                        {
+                            var possiblePtr = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ulong>(globalAddress);
+                            if (LibCpp2IlMain.GetAnyGlobalByAddress(possiblePtr) is { IsValid: true } global3)
+                                global = global3;
+                        }
+                        catch (Exception)
+                        {
+                            //Nothing
+                        }
+                    }
+
+                    if (global != null)
+                    {
+                        //Have a global here.
+                        switch (global.Type)
+                        {
+                            case MetadataUsageType.Type:
+                            case MetadataUsageType.TypeInfo:
+                                Analysis.Actions.Add(new Arm64MetadataUsageTypeToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.MethodDef:
+                                Analysis.Actions.Add(new Arm64MetadataUsageMethodDefToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.MethodRef:
+                                Analysis.Actions.Add(new Arm64MetadataUsageMethodRefToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.FieldInfo:
+                                Analysis.Actions.Add(new Arm64MetadataUsageFieldToRegisterAction(Analysis, instruction));
+                                break;
+                            case MetadataUsageType.StringLiteral:
+                                Analysis.Actions.Add(new Arm64MetadataUsageLiteralToRegisterAction(Analysis, instruction));
+                                break;
+                        }
+
+                        return;
+                    }
+
+                    //Unknown global or string
+                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
+                    if (potentialLiteral != null && instruction.Details.Operands[0].RegisterSafe()?.Name[0] != 'v')
+                    {
+                        Analysis.Actions.Add(new Arm64UnmanagedLiteralToConstantAction(Analysis, instruction, potentialLiteral, globalAddress));
+                    }
+                    else
+                    {
+                        //Unknown global
+                        Analysis.Actions.Add(new Arm64UnknownGlobalToConstantAction(Analysis, instruction, globalAddress));
+                    }
+
                     break;
             }
         }

@@ -12,6 +12,7 @@ using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Exceptions;
+using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -163,7 +164,7 @@ namespace Cpp2IL.Core
                 //No need to run analysis, so don't
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, false);
 
-            if (keyFunctionAddresses == null || LibCpp2IlMain.Binary!.InstructionSet is not InstructionSet.X86_32 or InstructionSet.X86_64)
+            if (keyFunctionAddresses == null || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.ARM32)
                 //Analysis isn't yet supported for ARM.
                 //So just generate those which can be generated without params.
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, true);
@@ -197,7 +198,8 @@ namespace Cpp2IL.Core
             foreach (var action in actions.Where(a => a is AbstractAttributeLoadFromListAction<T>)
                 .Cast<AbstractAttributeLoadFromListAction<T>>())
             {
-                localArray[action.OffsetInList] = action.LocalMade;
+                if(action.LocalMade != null)
+                    localArray[action.OffsetInList] = action.LocalMade;
             }
             attributes.AddRange(GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, false));
 
@@ -335,7 +337,7 @@ namespace Cpp2IL.Core
             {
                 InstructionSet.X86_32 or InstructionSet.X86_64 => (object) new AsmAnalyzerX86(attributeGeneratorAddress, Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
                 // InstructionSet.ARM32 => (object) new AsmAnalyzerArmV7(attributeGeneratorAddress, FIX_ME, keyFunctionAddresses!),
-                InstructionSet.ARM64 => (object) new AsmAnalyzerArmV8A(attributeGeneratorAddress, Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, false), keyFunctionAddresses!),
+                InstructionSet.ARM64 => (object) new AsmAnalyzerArmV8A(attributeGeneratorAddress, Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
                 _ => throw new UnsupportedInstructionSetException()
             });
             
@@ -530,25 +532,34 @@ namespace Cpp2IL.Core
                 var methodPointer = constructor.AsUnmanaged().MethodPointer;
                 var analyzer = new AsmAnalyzerX86(constructor, methodPointer, keyFunctionAddresses);
 
-                analyzer.AnalyzeMethod();
-
-                //Grab field writes specifically from registers.
-                var fieldWrites = analyzer.Analysis.Actions.Where(f => f is RegToFieldAction).Cast<RegToFieldAction>().ToList();
-
                 var fail = false;
-                if (!fieldWrites.All(f => f.ValueRead is LocalDefinition {ParameterDefinition: {}}))
+                List<RegToFieldAction>? fieldWrites = null;
+                try
                 {
+                    analyzer.AnalyzeMethod();
+
+                    //Grab field writes specifically from registers.
+                    fieldWrites = analyzer.Analysis.Actions.Where(f => f is RegToFieldAction).Cast<RegToFieldAction>().ToList();
+
+                    if (!fieldWrites.All(f => f.ValueRead is LocalDefinition { ParameterDefinition: { } }))
+                    {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                     Logger.VerboseNewline($"\t{constructor.FullName} has a local => field where the local isn't a parameter.");
 #endif
-                    fail = true;
-                }
+                        fail = true;
+                    }
 
-                if (fieldWrites.Any(f => f.FieldWritten?.FinalLoadInChain == null))
-                {
+                    if (fieldWrites.Any(f => f.FieldWritten?.FinalLoadInChain == null))
+                    {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                     Logger.VerboseNewline($"\t{constructor.FullName} has a local => field where the field is non-simple.");
 #endif
+                        fail = true;
+                    }
+                }
+                catch (Exception e)
+                {
+                    Logger.WarnNewline($"Failed to run constructor restoration: {e}.");
                     fail = true;
                 }
 
@@ -558,7 +569,7 @@ namespace Cpp2IL.Core
                     return null;
                 }
 
-                ret = fieldWrites.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition) f.ValueRead!).ParameterDefinition!)).ToArray();
+                ret = fieldWrites!.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition) f.ValueRead!).ParameterDefinition!)).ToArray();
 
                 FieldToParameterMappings.TryAdd(constructor, ret);
                 return ret;
@@ -567,6 +578,9 @@ namespace Cpp2IL.Core
 
         private static (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? TryResolveAttributeConstructorParamsTheHardWay<T>(BaseKeyFunctionAddresses keyFunctionAddresses, TypeDefinition attr, List<BaseAction<T>> actions, LocalDefinition? local)
         {
+            if (typeof(T) != typeof(Instruction))
+                return null;
+            
             //Try and get mappings for all constructors.
             var allPotentialCtors = attr.GetConstructors()
                 .Where(f => !f.IsStatic)

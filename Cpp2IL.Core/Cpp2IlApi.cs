@@ -261,7 +261,11 @@ namespace Cpp2IL.Core
 
             enumerable.Select(def =>
             {
+                if(!parallel)
+                    Logger.Verbose($"Processing {def.Name.Name}...");
                 RunAttributeRestorationForAssembly(def, keyFunctionAddresses);
+                
+                Logger.VerboseNewline($"Finished processing {def.Name.Name}");
                 return true;
             }).ToList(); //Force full evaluation
         }

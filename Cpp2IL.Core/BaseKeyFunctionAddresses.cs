@@ -24,8 +24,13 @@ namespace Cpp2IL.Core
         public ulong il2cpp_vm_reflection_get_type_object; //Thunked from above
         public ulong il2cpp_resolve_icall; //Api function (exported)
         public ulong InternalCalls_Resolve; //Thunked from above.
+        
         public ulong il2cpp_string_new; //Api function (exported)
         public ulong il2cpp_vm_string_new; //Thunked from above
+        public ulong il2cpp_string_new_wrapper; //Api function
+        public ulong il2cpp_vm_string_newWrapper; //Thunked from above
+        public ulong il2cpp_codegen_string_new_wrapper; //Not sure if actual name, used in ARM64 attribute gens, thunks TO above.
+        
         public ulong il2cpp_value_box; //Api function (exported)
         public ulong il2cpp_vm_object_box; //Thunked from above
         public ulong il2cpp_raise_exception; //Api function (exported)
@@ -108,6 +113,25 @@ namespace Cpp2IL.Core
                 Logger.Verbose("\t\tMapping il2cpp_string_new to String::New...");
                 il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(il2cpp_string_new);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_new:X}");
+            }
+            
+            //New string wrapper
+            Logger.Verbose("\tLooking for Exported il2cpp_string_new_wrapper function...");
+            il2cpp_string_new_wrapper = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_string_new_wrapper");
+            Logger.VerboseNewline($"Found at 0x{il2cpp_string_new_wrapper:X}");
+
+            if (il2cpp_string_new_wrapper != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_string_new_wrapper to String::NewWrapper...");
+                il2cpp_vm_string_newWrapper = FindFunctionThisIsAThunkOf(il2cpp_string_new_wrapper);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_newWrapper:X}");
+            }
+
+            if (il2cpp_vm_string_newWrapper != 0)
+            {
+                Logger.Verbose("\t\tMapping String::NewWrapper to il2cpp_codegen_string_new_wrapper...");
+                il2cpp_codegen_string_new_wrapper = FindAllThunkFunctions(il2cpp_vm_string_newWrapper, 0, il2cpp_string_new_wrapper).First();
+                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_string_new_wrapper:X}");
             }
 
             //Box Value
