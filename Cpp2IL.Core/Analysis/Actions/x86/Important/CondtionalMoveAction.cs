@@ -67,13 +67,49 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override string? ToPsuedoCode()
         {
-            return $"if (Todo:Need to add condition here) {_moveAction.ToPsuedoCode()}";
+            return $"if ({GetArgumentOnePseudocodeValue()} {GetJumpOpCodePseudoCodeValue()} {GetArgumentTwoPseudocodeValue()}) {_moveAction.ToPsuedoCode()}";
+        }
+        
+        private string GetArgumentOnePseudocodeValue()
+        {
+            return _associatedCompare?.ArgumentOne == null ? "" : _associatedCompare.ArgumentOne.GetPseudocodeRepresentation();
+        }
+
+        private string GetArgumentTwoPseudocodeValue()
+        {
+            return _associatedCompare?.ArgumentTwo == null ? "" : _associatedCompare.ArgumentTwo.GetPseudocodeRepresentation();
         }
 
         public override string ToTextSummary()
         {
-            return $"{_moveAction.ToTextSummary()} based on previous condition";
+            return $"{_moveAction.ToTextSummary()} based on previous comparison";
         }
+
+        private string GetJumpOpCodePseudoCodeValue()
+        {
+            switch (AssociatedInstruction.Mnemonic)
+            {
+                case Mnemonic.Cmove:
+                    return "==";
+                case Mnemonic.Cmovne:
+                    return "!=";
+                case Mnemonic.Cmova:
+                case Mnemonic.Cmovg:
+                    return ">";
+                case Mnemonic.Cmovae:
+                case Mnemonic.Cmovge:
+                    return ">=";
+                case Mnemonic.Cmovb:
+                case Mnemonic.Cmovl:
+                    return "<";
+                case Mnemonic.Cmovbe:
+                case Mnemonic.Cmovle:
+                    return "<=";
+                default:
+                    return "(Unknown conditional operation)";
+            }
+        }
+        
         private OpCode GetJumpOpcode()
         {
             switch (AssociatedInstruction.Mnemonic)
