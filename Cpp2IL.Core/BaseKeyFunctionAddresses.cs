@@ -130,7 +130,7 @@ namespace Cpp2IL.Core
             if (il2cpp_vm_string_newWrapper != 0)
             {
                 Logger.Verbose("\t\tMapping String::NewWrapper to il2cpp_codegen_string_new_wrapper...");
-                il2cpp_codegen_string_new_wrapper = FindAllThunkFunctions(il2cpp_vm_string_newWrapper, 0, il2cpp_string_new_wrapper).First();
+                il2cpp_codegen_string_new_wrapper = FindAllThunkFunctions(il2cpp_vm_string_newWrapper, 0, il2cpp_string_new_wrapper).FirstOrDefault();
                 Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_string_new_wrapper:X}");
             }
 

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using System.Threading;
@@ -88,6 +89,77 @@ namespace LibCpp2IL
             {
                 PositionShiftLock.Exit();
             }
+        }
+
+        public uint ReadUnityCompressedUIntAtRawAddr(long offset, out int bytesRead)
+        {
+            var obtained = false;
+            PositionShiftLock.Enter(ref obtained);
+
+            if (!obtained)
+                throw new Exception("Failed to obtain lock");
+
+            try
+            {
+                if (offset >= 0)
+                    Position = offset;
+
+                //Ref Unity.IL2CPP.dll, Unity.IL2CPP.Metadata.MetadataUtils::WriteCompressedUInt32
+                //Read first byte
+                var b = ReadByte();
+                bytesRead = 1;
+                if (b < 128)
+                    return b;
+                if (b == 240)
+                {
+                    //Full Uint
+                    bytesRead = 5;
+                    return ReadUInt32();
+                }
+
+                //Special constant values
+                if (b == byte.MaxValue)
+                    return uint.MaxValue;
+                if (b == 254)
+                    return uint.MaxValue - 1;
+                
+                if ((b & 192) == 192)
+                {
+                    //3 more to read
+                    bytesRead = 4;
+                    return (b & ~192U) << 24 | (uint)(ReadByte() << 16) | (uint)(ReadByte() << 8) | ReadByte();
+                }
+
+                if ((b & 128) == 128)
+                {
+                    //1 more to read
+                    bytesRead = 2;
+                    return (b & ~128U) << 8 | ReadByte();
+                }
+
+
+                throw new Exception($"How did we even get here? Invalid compressed int first byte {b}");
+            }
+            finally
+            {
+                PositionShiftLock.Exit();
+            }
+        }
+
+        public int ReadUnityCompressedIntAtRawAddr(long position, out int bytesRead)
+        {
+            //Ref libil2cpp, il2cpp\utils\ReadCompressedInt32
+            var unsigned = ReadUnityCompressedUIntAtRawAddr(position, out bytesRead);
+
+            if (unsigned == uint.MaxValue)
+                return int.MinValue;
+
+            var isNegative = (unsigned & 1) == 1;
+            unsigned >>= 1;
+            if (isNegative)
+                return -(int)(unsigned + 1);
+
+            return (int)unsigned;
         }
 
         private T InternalReadClass<T>(bool overrideArchCheck = false) where T : new()

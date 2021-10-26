@@ -881,6 +881,9 @@ namespace Cpp2IL.Core
 
         public static IConvertible ReinterpretBytes(IConvertible original, Type desired)
         {
+            if (desired is null)
+                throw new ArgumentNullException(nameof(desired), "Destination type is null");
+            
             var rawBytes = original switch
             {
                 bool b => BitConverter.GetBytes(b),

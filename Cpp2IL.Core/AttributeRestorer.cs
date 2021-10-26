@@ -75,10 +75,12 @@ namespace Cpp2IL.Core
             {
                 _attributeCtorsByClassIndex.Clear();
             }
+
             lock (FieldToParameterMappings)
             {
                 FieldToParameterMappings.Clear();
             }
+
             Initialize();
         }
 
@@ -115,7 +117,7 @@ namespace Cpp2IL.Core
                 GetCustomAttributesByAttributeIndex<T>(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDefinition.FullName)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
             }
-            
+
             //Apply custom attributes to properties
             foreach (var propertyDef in typeDef.Properties!)
             {
@@ -124,7 +126,7 @@ namespace Cpp2IL.Core
                 GetCustomAttributesByAttributeIndex<T>(imageDef, propertyDef.customAttributeIndex, propertyDef.token, typeDefinition.Module, keyFunctionAddresses, propertyDefinition.FullName)
                     .ForEach(attribute => propertyDefinition.CustomAttributes.Add(attribute));
             }
-            
+
             //Nested Types
             foreach (var nestedType in typeDefinition.NestedTypes)
             {
@@ -157,6 +159,10 @@ namespace Cpp2IL.Core
 
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
             
+            if (LibCpp2IlMain.MetadataVersion >= 29)
+                //TODO Can't do this on v29 because attributeGeneratorAddress is unknown
+                return GenerateAttributesWithoutAnalysis(attributeConstructors, module, 0, false);
+
             //Grab generator for this context - be it field, type, method, etc.
             var attributeGeneratorAddress = GetAddressOfAttributeGeneratorFunction(imageDef, attributeTypeRange);
 
@@ -198,9 +204,10 @@ namespace Cpp2IL.Core
             foreach (var action in actions.Where(a => a is AbstractAttributeLoadFromListAction<T>)
                 .Cast<AbstractAttributeLoadFromListAction<T>>())
             {
-                if(action.LocalMade != null)
+                if (action.LocalMade != null)
                     localArray[action.OffsetInList] = action.LocalMade;
             }
+
             attributes.AddRange(GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, false));
 
             for (var i = 0; i < attributesExpected.Count; i++)
@@ -223,14 +230,14 @@ namespace Cpp2IL.Core
 #endif
                     //Give up on this attribute and move to the next one.
                     var fallback = GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress);
-                    if(fallback != null)
+                    if (fallback != null)
                         attributes.Add(fallback);
                     continue;
                 }
 
                 //We have a local - look for constructor calls and/or field writes.
                 var allCtorNames = attr.GetConstructors().Select(c => c.FullName).ToList();
-                var matchingCtorCall = (AbstractCallAction<T>?) actions.FirstOrDefault(c => c is AbstractCallAction<T> {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
+                var matchingCtorCall = (AbstractCallAction<T>?)actions.FirstOrDefault(c => c is AbstractCallAction<T> { ManagedMethodBeingCalled: { } method } cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
 
                 (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? hardWayResult = null;
                 if (matchingCtorCall?.ManagedMethodBeingCalled == null && noArgCtor == null)
@@ -253,9 +260,9 @@ namespace Cpp2IL.Core
                         Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has no zero-argument constructor but no call to a constructor was found, and 'hard way' reconstruction failed. Only a fallback Attribute will be added.");
 #endif
                         //Give up on this attribute and move to the next one.
-                        
+
                         var fallback = GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress);
-                        if(fallback != null)
+                        if (fallback != null)
                             attributes.Add(fallback);
                         continue;
                     }
@@ -280,7 +287,7 @@ namespace Cpp2IL.Core
 #endif
                     //Give up on this attribute and move to the next one.
                     var fallback = GenerateFallbackAttribute(attr.GetConstructors().First(), module, attributeGeneratorAddress);
-                    if(fallback != null)
+                    if (fallback != null)
                         attributes.Add(fallback);
                     continue;
                 }
@@ -316,14 +323,14 @@ namespace Cpp2IL.Core
 
             if (attributeType == null)
                 return null;
-            
+
             var attributeCtor = attributeType.GetConstructors().First();
-            
+
             var ca = new CustomAttribute(attributeCtor);
             var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(Utils.StringReference), constructor.DeclaringType.Name));
             var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(Utils.StringReference), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
             var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.StringReference), $"0x{LibCpp2IlMain.Binary.MapVirtualAddressToRaw(generatorPtr):X}"));
-            
+
             ca.Fields.Add(name);
             ca.Fields.Add(rva);
             ca.Fields.Add(offset);
@@ -333,14 +340,14 @@ namespace Cpp2IL.Core
         private static List<BaseAction<T>> GetActionsPerformedByGenerator<T>(BaseKeyFunctionAddresses keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
         {
             //Nasty generic casting crap
-            AsmAnalyzerBase<T> analyzer = (AsmAnalyzerBase<T>) (LibCpp2IlMain.Binary?.InstructionSet switch
+            AsmAnalyzerBase<T> analyzer = (AsmAnalyzerBase<T>)(LibCpp2IlMain.Binary?.InstructionSet switch
             {
-                InstructionSet.X86_32 or InstructionSet.X86_64 => (object) new AsmAnalyzerX86(attributeGeneratorAddress, Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
+                InstructionSet.X86_32 or InstructionSet.X86_64 => (object)new AsmAnalyzerX86(attributeGeneratorAddress, Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
                 // InstructionSet.ARM32 => (object) new AsmAnalyzerArmV7(attributeGeneratorAddress, FIX_ME, keyFunctionAddresses!),
-                InstructionSet.ARM64 => (object) new AsmAnalyzerArmV8A(attributeGeneratorAddress, Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
+                InstructionSet.ARM64 => (object)new AsmAnalyzerArmV8A(attributeGeneratorAddress, Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
                 _ => throw new UnsupportedInstructionSetException()
             });
-            
+
             //Run analysis on this method to get parameters for the various constructors.
             analyzer.AddParameter(DummyTypeDefForAttributeCache, "attributeCache");
             analyzer.AttributesForRestoration = attributesExpected;
@@ -377,7 +384,7 @@ namespace Cpp2IL.Core
             {
                 var baseAddress = LibCpp2IlMain.Binary!.GetCodegenModuleByName(imageDef.Name!)!.customAttributeCacheGenerator;
                 var relativeIndex = rangeIndex - imageDef.customAttributeStart;
-                var ptrToAddress = baseAddress + (ulong) relativeIndex * (LibCpp2IlMain.Binary.is32Bit ? 4ul : 8ul);
+                var ptrToAddress = baseAddress + (ulong)relativeIndex * (LibCpp2IlMain.Binary.is32Bit ? 4ul : 8ul);
                 attributeGeneratorAddress = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<ulong>(ptrToAddress);
             }
 
@@ -424,7 +431,7 @@ namespace Cpp2IL.Core
             foreach (var analysedOperand in constructorArgs)
             {
                 var actualArg = constructor.Parameters[i];
-                
+
                 customAttribute.ConstructorArguments.Add(CoerceAnalyzedOpToParameter(analysedOperand, actualArg));
 
                 i++;
@@ -490,7 +497,7 @@ namespace Cpp2IL.Core
             if (typeForArrayToCreateNow == null)
                 throw new Exception("Array has no type");
 
-            if (typeForArrayToCreateNow.Resolve() is {IsEnum: true} enumType)
+            if (typeForArrayToCreateNow.Resolve() is { IsEnum: true } enumType)
                 typeForArrayToCreateNow = enumType.GetEnumUnderlyingType() ?? typeForArrayToCreateNow;
 
             var arrayType = Type.GetType(typeForArrayToCreateNow.FullName) ?? throw new Exception($"Could not resolve array type {array.ArrayType.ElementType.FullName}");
@@ -569,7 +576,7 @@ namespace Cpp2IL.Core
                     return null;
                 }
 
-                ret = fieldWrites!.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition) f.ValueRead!).ParameterDefinition!)).ToArray();
+                ret = fieldWrites!.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition)f.ValueRead!).ParameterDefinition!)).ToArray();
 
                 FieldToParameterMappings.TryAdd(constructor, ret);
                 return ret;
@@ -580,7 +587,7 @@ namespace Cpp2IL.Core
         {
             if (typeof(T) != typeof(Instruction))
                 return null;
-            
+
             //Try and get mappings for all constructors.
             var allPotentialCtors = attr.GetConstructors()
                 .Where(f => !f.IsStatic)
@@ -653,13 +660,13 @@ namespace Cpp2IL.Core
                                 //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
                                 value = new CustomAttributeArgument(Utils.TryLookupTypeDefKnownNotGeneric(i.ConstantValue.GetType().FullName), i.ConstantValue);
                             }
-                        
+
                             parameterList.Add(new CustomAttributeArgument(destType, value));
                             break;
                         }
                         case Arm64ImmediateToFieldAction armI:
                         {
-                            var value = (object) armI.ImmValue;
+                            var value = (object)armI.ImmValue;
 
                             if (value.GetType().FullName != destType.FullName)
                                 value = Utils.CoerceValue(value, destType);
@@ -673,7 +680,7 @@ namespace Cpp2IL.Core
                             parameterList.Add(new CustomAttributeArgument(destType, value));
                             break;
                         }
-                        case RegToFieldAction {ValueRead: { }} r:
+                        case RegToFieldAction { ValueRead: { } } r:
                             parameterList.Add(CoerceAnalyzedOpToParameter(r.ValueRead!, parameter));
                             break;
                         case Arm64RegisterToFieldAction { SourceOperand: { } } armR:
@@ -702,7 +709,7 @@ namespace Cpp2IL.Core
             if (constructor.Parameters.Count != constructorArgs.Count)
                 throw new Exception("Mismatch between constructor param count & actual args count? Probably because named args support not implemented");
 
-            foreach (var arg in constructorArgs) 
+            foreach (var arg in constructorArgs)
                 customAttribute.ConstructorArguments.Add(arg);
 
             return customAttribute;
@@ -721,4 +728,3 @@ namespace Cpp2IL.Core
         }
     }
 }
-

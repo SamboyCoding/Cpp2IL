@@ -15,42 +15,42 @@ namespace LibCpp2IL
     {
         private static readonly Dictionary<int, string> TypeString = new Dictionary<int, string>
         {
-            {1, "void"},
-            {2, "bool"},
-            {3, "char"},
-            {4, "sbyte"},
-            {5, "byte"},
-            {6, "short"},
-            {7, "ushort"},
-            {8, "int"},
-            {9, "uint"},
-            {10, "long"},
-            {11, "ulong"},
-            {12, "float"},
-            {13, "double"},
-            {14, "string"},
-            {22, "TypedReference"},
-            {24, "IntPtr"},
-            {25, "UIntPtr"},
-            {28, "object"}
+            { 1, "void" },
+            { 2, "bool" },
+            { 3, "char" },
+            { 4, "sbyte" },
+            { 5, "byte" },
+            { 6, "short" },
+            { 7, "ushort" },
+            { 8, "int" },
+            { 9, "uint" },
+            { 10, "long" },
+            { 11, "ulong" },
+            { 12, "float" },
+            { 13, "double" },
+            { 14, "string" },
+            { 22, "TypedReference" },
+            { 24, "IntPtr" },
+            { 25, "UIntPtr" },
+            { 28, "object" }
         };
 
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new()
         {
-            {"Byte", 1},
-            {"SByte", 1},
-            {"Boolean", 1},
-            {"Int16", 2},
-            {"UInt16", 2},
-            {"Char", 2},
-            {"Int32", 4},
-            {"UInt32", 4},
-            {"Single", 4},
-            {"Int64", 8},
-            {"UInt64", 8},
-            {"Double", 8},
+            { "Byte", 1 },
+            { "SByte", 1 },
+            { "Boolean", 1 },
+            { "Int16", 2 },
+            { "UInt16", 2 },
+            { "Char", 2 },
+            { "Int32", 4 },
+            { "UInt32", 4 },
+            { "Single", 4 },
+            { "Int64", 8 },
+            { "UInt64", 8 },
+            { "Double", 8 },
         };
-        
+
         private static Dictionary<FieldInfo, VersionAttribute[]> _cachedVersionAttributes = new();
 
         internal static void Reset()
@@ -66,7 +66,7 @@ namespace LibCpp2IL
             var decoder = Decoder.Create(is32Bit ? 32 : 64, codeReader);
             decoder.IP = methodBase;
             var instructions = new InstructionList();
-            var endRip = decoder.IP + (uint) bytes.Length;
+            var endRip = decoder.IP + (uint)bytes.Length;
 
             while (decoder.IP < endRip)
                 decoder.Decode(out instructions.AllocUninitializedElement());
@@ -114,7 +114,7 @@ namespace LibCpp2IL
             if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null) return null;
 
             var types = new List<Il2CppTypeReflectionData>();
-            var pointers = LibCpp2IlMain.Binary.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
+            var pointers = LibCpp2IlMain.Binary.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long)genericInst.pointerCount);
             for (uint i = 0; i < genericInst.pointerCount; ++i)
             {
                 var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointers[i]);
@@ -127,7 +127,7 @@ namespace LibCpp2IL
         internal static string GetGenericTypeParamNames(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppGenericInst genericInst)
         {
             var typeNames = new List<string>();
-            var pointers = cppAssembly.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
+            var pointers = cppAssembly.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long)genericInst.pointerCount);
             for (uint i = 0; i < genericInst.pointerCount; ++i)
             {
                 var oriType = cppAssembly.GetIl2CppTypeFromPointer(pointers[i]);
@@ -188,7 +188,7 @@ namespace LibCpp2IL
                     break;
                 }
                 default:
-                    ret = TypeString[(int) type.type];
+                    ret = TypeString[(int)type.type];
                     break;
             }
 
@@ -222,9 +222,13 @@ namespace LibCpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
                     return metadata.ReadClassAtRawAddr<short>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    return metadata.ReadClassAtRawAddr<uint>(pointer);
+                    if (LibCpp2IlMain.MetadataVersion < 29)
+                        return metadata.ReadClassAtRawAddr<uint>(pointer);
+                    return metadata.ReadUnityCompressedUIntAtRawAddr(pointer, out _);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    return metadata.ReadClassAtRawAddr<int>(pointer);
+                    if (LibCpp2IlMain.MetadataVersion < 29)
+                        return metadata.ReadClassAtRawAddr<int>(pointer);
+                    return metadata.ReadUnityCompressedIntAtRawAddr(pointer, out _);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
                     return metadata.ReadClassAtRawAddr<ulong>(pointer, true);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I8:
@@ -234,8 +238,15 @@ namespace LibCpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
                     return metadata.ReadClassAtRawAddr<double>(pointer);
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    var len = metadata.ReadClassAtRawAddr<int>(pointer);
-                    return Encoding.UTF8.GetString(metadata.ReadByteArrayAtRawAddress(pointer + 4, len));
+                    int len;
+                    int lenLen = 4;
+                    if (LibCpp2IlMain.MetadataVersion < 29)
+                        len = metadata.ReadClassAtRawAddr<int>(pointer);
+                    else
+                        len = (int)metadata.ReadUnityCompressedIntAtRawAddr(pointer, out lenLen);
+                    if (len > 1024 * 32)
+                        throw new Exception($"Unreasonable string length {len}");
+                    return Encoding.UTF8.GetString(metadata.ReadByteArrayAtRawAddress(pointer + lenLen, len));
                 default:
                     return null;
             }
@@ -317,13 +328,13 @@ namespace LibCpp2IL
                     else
                     {
                         //This is slightly annoying, because we will have already read this type, but we have to re-read it. TODO FUTURE: Make a mapping of type definition addr => type def?
-                        var type = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
+                        var type = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppType>((ulong)genericClass.typeDefinitionIndex);
                         type.Init();
                         typeDefinition = LibCpp2IlMain.TheMetadata!.typeDefs[type.data.classIndex];
                     }
 
                     var genericInst = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
-                    var pointers = LibCpp2IlMain.Binary.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
+                    var pointers = LibCpp2IlMain.Binary.GetPointers(genericInst.pointerStart, (long)genericInst.pointerCount);
                     var genericParams = pointers
                         .Select(pointer => LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointer))
                         .Select(type => GetTypeReflectionData(type)!) //Recursive call here
@@ -396,7 +407,7 @@ namespace LibCpp2IL
         public static int VersionAwareSizeOf(Type type, bool dontCheckVersionAttributes = false, bool downsize = true)
         {
             if (type.IsPrimitive)
-                return (int) PrimitiveSizes[type.Name];
+                return (int)PrimitiveSizes[type.Name];
 
             var shouldDownsize = downsize && LibCpp2IlMain.Binary!.is32Bit;
 
@@ -405,7 +416,7 @@ namespace LibCpp2IL
             {
                 if (!dontCheckVersionAttributes)
                 {
-                    if(!ShouldReadFieldOnThisVersion(field))
+                    if (!ShouldReadFieldOnThisVersion(field))
                         //Move to next field.
                         continue;
                 }

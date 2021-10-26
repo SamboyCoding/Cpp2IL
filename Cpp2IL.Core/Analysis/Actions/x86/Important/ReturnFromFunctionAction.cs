@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.Actions.Base;
+﻿using System;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Instruction = Iced.Intel.Instruction;
 
