@@ -1,0 +1,386 @@
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Metadata;
+using Mono.Cecil;
+using Mono.Cecil.Rocks;
+
+namespace Cpp2IL.Core
+{
+    public static class AttributeRestorerPost29
+    {
+        internal static void ApplyCustomAttributesToAllTypesInAssembly(AssemblyDefinition assemblyDefinition)
+        {
+            var imageDef = SharedState.ManagedToUnmanagedAssemblies[assemblyDefinition];
+
+            foreach (var typeDef in assemblyDefinition.MainModule.Types.Where(t => t.Namespace != AssemblyPopulator.InjectedNamespaceName))
+                RestoreAttributesInType(imageDef, typeDef);
+        }
+
+        private static void RestoreAttributesInType(Il2CppImageDefinition imageDef, TypeDefinition typeDefinition)
+        {
+            var typeDef = SharedState.ManagedToUnmanagedTypes[typeDefinition];
+
+            //Apply custom attributes to type itself
+            GetCustomAttributesByAttributeIndex(imageDef, typeDefinition.Module, typeDef.customAttributeIndex, typeDef.token, typeDef.FullName!)
+                .ForEach(attribute => typeDefinition.CustomAttributes.Add(attribute));
+        }
+
+        public static List<CustomAttribute> GetCustomAttributesByAttributeIndex(Il2CppImageDefinition imageDef, ModuleDefinition moduleDefinition, int attributeIndex, uint token, string warningName)
+        {
+            var ret = new List<CustomAttribute>();
+            
+            //Search attribute data ranges for one with matching token
+            var target = new Il2CppCustomAttributeDataRange() { token = token };
+            var customAttributeIndex = LibCpp2IlMain.TheMetadata!.AttributeDataRanges.BinarySearch(imageDef.customAttributeStart, (int)imageDef.customAttributeCount, target, new TokenComparer());
+
+            if (customAttributeIndex < 0)
+                return ret; //No attributes
+
+            var attributeDataRange = LibCpp2IlMain.TheMetadata!.AttributeDataRanges[customAttributeIndex];
+            var next = LibCpp2IlMain.TheMetadata!.AttributeDataRanges[customAttributeIndex + 1];
+
+            var start = LibCpp2IlMain.TheMetadata.metadataHeader.attributeDataOffset + attributeDataRange.startOffset;
+            var end = LibCpp2IlMain.TheMetadata.metadataHeader.attributeDataOffset + next.startOffset;
+
+            //Now we start actually reading. Start is a pointer to the address in the metadata file where the attribute data is.
+            
+            //Read attribute count as compressed uint
+            var attributeCount = LibCpp2IlMain.TheMetadata.ReadUnityCompressedUIntAtRawAddr(start, out var countBytes);
+
+            //Read attribute constructors themselves
+            var pos = start + countBytes;
+            var constructorDefs = ReadConstructors(attributeCount, pos);
+            pos += attributeCount * 4;
+
+            foreach (var constructorDef in constructorDefs)
+            {
+                ret.Add(ReadAndCreateCustomAttribute(moduleDefinition, constructorDef, pos, out var bytesRead));
+                pos += bytesRead;
+            }
+
+            return ret;
+        }
+
+        private static Il2CppMethodDefinition[] ReadConstructors(uint count, long pos)
+        {
+            //uint method definition indices
+            var methodDefinitionIndices = new uint[count];
+            for (var i = 0; i < count; i++)
+            {
+                methodDefinitionIndices[i] = LibCpp2IlMain.TheMetadata!.ReadClassAtRawAddr<uint>(pos);
+                pos += 4;
+            }
+
+            return methodDefinitionIndices.Select(m => LibCpp2IlMain.TheMetadata!.methodDefs[m]).ToArray();
+        }
+
+        private static CustomAttribute ReadAndCreateCustomAttribute(ModuleDefinition module, Il2CppMethodDefinition constructor, long pos, out int bytesRead)
+        {
+            bytesRead = 0;
+            try
+            {
+                var ret = new CustomAttribute(module.ImportReference(constructor.AsManaged()));
+
+                var numCtorArgs = LibCpp2IlMain.TheMetadata!.ReadUnityCompressedUIntAtRawAddr(pos, out var compressedRead);
+                bytesRead += compressedRead;
+                pos += compressedRead;
+
+                var numFields = LibCpp2IlMain.TheMetadata!.ReadUnityCompressedUIntAtRawAddr(pos, out compressedRead);
+                bytesRead += compressedRead;
+                pos += compressedRead;
+
+                var numProps = LibCpp2IlMain.TheMetadata!.ReadUnityCompressedUIntAtRawAddr(pos, out compressedRead);
+                bytesRead += compressedRead;
+                pos += compressedRead;
+
+                //Read n constructor args
+                for (var i = 0; i < numCtorArgs; i++)
+                {
+                    var val = ReadBlob(pos, out var ctorArgBytesRead, out var typeReference);
+                    bytesRead += ctorArgBytesRead;
+                    pos += ctorArgBytesRead;
+
+                    if (typeReference.IsArray)
+                    {
+                        Logger.WarnNewline($"Failed to parse custom attribute {constructor.DeclaringType!.FullName} due to an array type");
+                        return MakeFallbackAttribute(module, constructor.AsManaged());
+                    }
+
+                    ret.ConstructorArguments.Add(new CustomAttributeArgument(typeReference, val));
+                }
+
+                //Read n fields
+                for (var i = 0; i < numFields; i++)
+                {
+                    var val = ReadBlob(pos, out var fieldBytesRead, out var typeReference);
+                    bytesRead += fieldBytesRead;
+                    pos += fieldBytesRead;
+                }
+
+                //Read n props
+                for (var i = 0; i < numProps; i++)
+                {
+                    var val = ReadBlob(pos, out var propBytesRead, out var typeReference);
+                    bytesRead += propBytesRead;
+                    pos += propBytesRead;
+                }
+
+                return ret;
+            }
+            catch (Exception e)
+            {
+                Logger.WarnNewline($"Failed to parse custom attribute {constructor.DeclaringType!.FullName} due to an exception: {e.GetType()}: {e.Message}");
+                return MakeFallbackAttribute(module, constructor.AsManaged());
+            }
+        }
+
+        private static CustomAttribute MakeFallbackAttribute(ModuleDefinition module, MethodDefinition constructor)
+        {
+            var attributeType = module.Types.SingleOrDefault(t => t.Namespace == AssemblyPopulator.InjectedNamespaceName && t.Name == "AttributeAttribute");
+
+            if (attributeType == null)
+                return null;
+
+            var attributeCtor = attributeType.GetConstructors().First();
+
+            var ca = new CustomAttribute(attributeCtor);
+            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(Utils.StringReference), constructor.DeclaringType.Name));
+            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(Utils.StringReference), $"0x0"));
+            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.StringReference), $"0x0"));
+
+            ca.Fields.Add(name);
+            ca.Fields.Add(rva);
+            ca.Fields.Add(offset);
+            return ca;
+        }
+
+        private static object? ReadBlob(long pos, out int bytesRead, out TypeReference typeReference)
+        {
+            bytesRead = 0;
+            
+            var type = ReadBlobType(pos, out var typeBytesRead, out typeReference);
+            bytesRead += typeBytesRead;
+            pos += typeBytesRead;
+
+            var ret = ReadBlobValue(pos, type, out var dataBytesRead, out var typeOverride);
+            bytesRead += dataBytesRead;
+
+            if (typeOverride != null)
+                typeReference = typeOverride;
+
+            return ret;
+        }
+
+        private static object? ReadBlobValue(long pos, Il2CppTypeEnum type, out int bytesRead, out TypeReference? typeOverride)
+        {
+            bytesRead = 0;
+            object? ret;
+            typeOverride = null;
+            var md = LibCpp2IlMain.TheMetadata!;
+            switch (type)
+            {
+                //For most of these, we don't bother to increment pos because it's irrelevant
+                case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
+                    ret = md.ReadClassAtRawAddr<bool>(pos);
+                    bytesRead += 1;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
+                    ret = md.ReadClassAtRawAddr<char>(pos);
+                    bytesRead += 2;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I1:
+                    ret = md.ReadClassAtRawAddr<sbyte>(pos);
+                    bytesRead += 1;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U1:
+                    ret = md.ReadClassAtRawAddr<byte>(pos);
+                    bytesRead += 1;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I2:
+                    ret = md.ReadClassAtRawAddr<short>(pos);
+                    bytesRead += 2;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U2:
+                    ret = md.ReadClassAtRawAddr<ushort>(pos);
+                    bytesRead += 2;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I4:
+                    ret = md.ReadUnityCompressedIntAtRawAddr(pos, out var i4BytesRead);
+                    bytesRead += i4BytesRead;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U4:
+                    ret = md.ReadUnityCompressedUIntAtRawAddr(pos, out var u4BytesRead);
+                    bytesRead += u4BytesRead;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I8:
+                    ret = md.ReadClassAtRawAddr<long>(pos);
+                    bytesRead += 8;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U8:
+                    ret = md.ReadClassAtRawAddr<ulong>(pos);
+                    bytesRead += 8;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_R4:
+                    ret = md.ReadClassAtRawAddr<float>(pos);
+                    bytesRead += 4;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_R8:
+                    ret = md.ReadClassAtRawAddr<double>(pos);
+                    bytesRead += 8;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
+                    var strLength = md.ReadUnityCompressedIntAtRawAddr(pos, out var stringLenBytesRead);
+                    bytesRead += stringLenBytesRead;
+                    pos += stringLenBytesRead;
+                    
+                    ret = Encoding.UTF8.GetString(md.ReadByteArrayAtRawAddress(pos, strLength));
+                    bytesRead += strLength;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
+                    var arrLength = md.ReadUnityCompressedIntAtRawAddr(pos, out var arrayLenBytesRead);
+                    bytesRead += arrayLenBytesRead;
+                    pos += arrayLenBytesRead;
+
+                    if (arrLength == -1)
+                    {
+                        //A length of -1 is a null array
+                        ret = null;
+                        break;
+                    }
+
+                    //Read the type of the array
+                    var arrayElementType = ReadBlobType(pos, out var arrTypeBytesRead, out var arrTypeDef);
+                    pos += arrTypeBytesRead;
+                    bytesRead += arrTypeBytesRead;
+
+                    typeOverride = arrTypeDef.MakeArrayType();
+
+                    //Boolean for if each element is prefixed with its type
+                    var arrayElementsAreDifferent = md.ReadClassAtRawAddr<bool>(pos);
+                    pos++;
+                    bytesRead++;
+
+                    if (arrayElementsAreDifferent && arrayElementType != Il2CppTypeEnum.IL2CPP_TYPE_OBJECT)
+                        throw new($"Array elements are different but array element type is {arrayElementType}, not IL2CPP_TYPE_OBJECT");
+
+                    //Create a representation our side of the array
+                    var ourRuntimesArrayElementType = typeof(int).Module.GetType(arrTypeDef.FullName!);
+                    var resultArray = Array.CreateInstance(ourRuntimesArrayElementType, arrLength);
+
+                    //Read the array
+                    for (var i = 0; i < arrLength; i++)
+                    {
+                        //Read this element's type if we have to
+                        var thisElementType = arrayElementType;
+
+                        if (arrayElementsAreDifferent)
+                        {
+                            thisElementType = ReadBlobType(pos, out var arrElementType2BytesRead, out _);
+                            bytesRead += arrElementType2BytesRead;
+                            pos += arrElementType2BytesRead;
+                        }
+
+                        //Read the value
+                        var arrElem = ReadBlobValue(pos, thisElementType, out var elemBytesRead, out _);
+                        bytesRead += elemBytesRead;
+                        pos += elemBytesRead;
+                        
+                        //Set in the array
+                        resultArray.SetValue(arrElem, i);
+                    }
+
+                    ret = resultArray;
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
+                case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
+                case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
+                    //LibIl2Cpp is slightly unclear here. It checks that they're null, but also doesn't increment the ptr.
+                    throw new Exception("Object not implemented");
+                    break;
+                case Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX:
+                    var typeIndex = md.ReadUnityCompressedIntAtRawAddr(pos, out var compressedBytesRead);
+                    pos += compressedBytesRead;
+                    bytesRead += compressedBytesRead;
+                    if (typeIndex == -1)
+                        ret = null;
+                    else
+                    {
+                        //Weirdly, libil2cpp checks "Deserialize managed object" boolean here
+                        //But as far as I can see, it's actually returning typeof(x)
+                        var il2cppType = LibCpp2IlMain.Binary!.GetType(typeIndex);
+                        ret = Utils.TryResolveTypeReflectionData(LibCpp2ILUtils.GetTypeReflectionData(il2cppType));
+
+                        if (ret == null)
+                            throw new($"Failed to resolve type reflection data for type index {typeIndex}");
+                    }
+                    break;
+                default:
+                    throw new ArgumentOutOfRangeException();
+            }
+
+            return ret;
+        }
+
+        private static Il2CppTypeEnum ReadBlobType(long pos, out int bytesRead, out TypeReference type)
+        {
+            bytesRead = 0;
+            var ret = (Il2CppTypeEnum)LibCpp2IlMain.TheMetadata!.ReadClassAtRawAddr<byte>(pos);
+            pos += 1;
+            bytesRead += 1;
+            
+            if (ret == Il2CppTypeEnum.IL2CPP_TYPE_ENUM)
+            {
+                var enumTypeIndex = LibCpp2IlMain.TheMetadata.ReadUnityCompressedIntAtRawAddr(pos, out var compressedBytesRead);
+                bytesRead += compressedBytesRead;
+                pos += compressedBytesRead;
+                var rawType = LibCpp2IlMain.Binary!.GetType(enumTypeIndex);
+                var typeDef = LibCpp2IlReflection.GetTypeDefinitionByTypeIndex(enumTypeIndex)!;
+                type = typeDef.AsManaged(); //Get enum type
+                ret = LibCpp2IlMain.Binary!.GetType(typeDef.elementTypeIndex).type; //Get enum underlying type's type enum
+            } else if (ret == Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)
+            {
+                type = Utils.ArrayReference;
+            }
+            else
+            {
+                type = FromTypeEnum(ret).AsManaged();
+            }
+
+            return ret;
+        }
+
+        private static Il2CppTypeDefinition FromTypeEnum(Il2CppTypeEnum typeEnum) => typeEnum switch
+        {
+            Il2CppTypeEnum.IL2CPP_TYPE_VOID => Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN => Utils.BooleanReference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_CHAR => Utils.TryLookupTypeDefKnownNotGeneric("System.Char")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I1 => Utils.TryLookupTypeDefKnownNotGeneric("System.SByte")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U1 => Utils.TryLookupTypeDefKnownNotGeneric("System.Byte")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I2 => Utils.TryLookupTypeDefKnownNotGeneric("System.Short")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U2 => Utils.TryLookupTypeDefKnownNotGeneric("System.UShort")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I4 => Utils.Int32Reference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U4 => Utils.UInt32Reference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I8 => Utils.Int64Reference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U8 => Utils.UInt64Reference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_R4 => Utils.SingleReference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_R8 => Utils.DoubleReference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_STRING => Utils.StringReference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_BYREF => Utils.TryLookupTypeDefKnownNotGeneric("System.TypedReference")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => Utils.TryLookupTypeDefKnownNotGeneric("System.Type")!.AsUnmanaged(),
+            _ => throw new ArgumentOutOfRangeException(nameof(typeEnum), typeEnum, null)
+        };
+
+        public class TokenComparer : IComparer<Il2CppCustomAttributeDataRange>
+        {
+            public int Compare(Il2CppCustomAttributeDataRange x, Il2CppCustomAttributeDataRange y)
+            {
+                if (ReferenceEquals(x, y)) return 0;
+                return x.token.CompareTo(y.token);
+            }
+        }
+    }
+}

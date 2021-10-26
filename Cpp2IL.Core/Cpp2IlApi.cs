@@ -274,6 +274,13 @@ namespace Cpp2IL.Core
         {
             CheckLibInitialized();
 
+            if (LibCpp2IlMain.MetadataVersion >= 29)
+            {
+                //V29: Attributes are stored in metadata. This process becomes a lot simpler.
+                AttributeRestorerPost29.ApplyCustomAttributesToAllTypesInAssembly(assembly);
+                return;
+            }
+
             switch (LibCpp2IlMain.Binary!.InstructionSet)
             {
                 case InstructionSet.X86_32:

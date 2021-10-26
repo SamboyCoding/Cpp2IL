@@ -14,7 +14,7 @@ namespace LibCpp2IL.Metadata
     {
         //Disable null check as this stuff is reflected.
 #pragma warning disable 8618
-        private Il2CppGlobalMetadataHeader metadataHeader;
+        public Il2CppGlobalMetadataHeader metadataHeader;
         public Il2CppImageDefinition[] imageDefinitions;
         public Il2CppTypeDefinition[] typeDefs;
         internal Il2CppInterfaceOffset[] interfaceOffsets;
@@ -30,8 +30,13 @@ namespace LibCpp2IL.Metadata
         public Il2CppMetadataUsageList[] metadataUsageLists;
         private Il2CppMetadataUsagePair[] metadataUsagePairs;
         public Il2CppRGCTXDefinition[] RgctxDefinitions; //Moved to binary in v24.2
+        
+        //Pre-29
         public int[] attributeTypes;
         public int[] interfaceIndices;
+        
+        //Post-29
+        public List<Il2CppCustomAttributeDataRange> AttributeDataRanges;
 
         //Moved to binary in v27.
         public Dictionary<uint, SortedDictionary<uint, uint>> metadataUsageDic;
@@ -212,11 +217,26 @@ namespace LibCpp2IL.Metadata
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //v21+ fields
-            LibLogger.Verbose("\tReading attribute types...");
-            start = DateTime.Now;
-            attributeTypeRanges = ReadMetadataClassArray<Il2CppCustomAttributeTypeRange>(metadataHeader.attributesInfoOffset, metadataHeader.attributesInfoCount);
-            attributeTypes = ReadClassArrayAtRawAddr<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
-            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            if (LibCpp2IlMain.MetadataVersion < 29)
+            {
+                //Removed in v29
+                LibLogger.Verbose("\tReading attribute types...");
+                start = DateTime.Now;
+                attributeTypeRanges = ReadMetadataClassArray<Il2CppCustomAttributeTypeRange>(metadataHeader.attributesInfoOffset, metadataHeader.attributesInfoCount);
+                attributeTypes = ReadClassArrayAtRawAddr<int>(metadataHeader.attributeTypesOffset, metadataHeader.attributeTypesCount / 4);
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
+            else
+            {
+                //Since v29
+                LibLogger.Verbose("\tReading Attribute data...");
+                start = DateTime.Now;
+                
+                //Pointer array
+                AttributeDataRanges = ReadClassArrayAtRawAddr<Il2CppCustomAttributeDataRange>(metadataHeader.attributeDataRangeOffset, metadataHeader.attributeDataRangeCount / 8).ToList();
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
 
             LibLogger.Verbose("\tBuilding Lookup Table for field defaults...");
             start = DateTime.Now;

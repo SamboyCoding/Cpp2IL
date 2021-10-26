@@ -34,6 +34,9 @@ namespace LibCpp2IL
             if (type == typeof(bool))
                 return ReadBoolean();
 
+            if (type == typeof(char))
+                return ReadChar();
+
             if (type == typeof(int))
                 return ReadInt32();
 
