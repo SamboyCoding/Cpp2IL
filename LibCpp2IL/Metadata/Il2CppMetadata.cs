@@ -56,7 +56,7 @@ namespace LibCpp2IL.Metadata
             }
 
             var version = BitConverter.ToInt32(bytes, 4);
-            if (version < 24 || version > 29)
+            if (version is < 24 or > 29)
             {
                 throw new FormatException("Unsupported metadata version found! We support 24-29, got " + version);
             }
@@ -67,10 +67,8 @@ namespace LibCpp2IL.Metadata
             if (version == 27)
             {
                 if (unityVer[0] == 2021 || (unityVer[0] == 2020 && unityVer[1] >= 3) || (unityVer[0] == 2020 && unityVer[1] == 2 && unityVer[2] >= 4)) actualVersion = 27.1f; //27.1 (2020.2.4) adds adjustorThunks on codegenModules and GenericMethodIndices
-                else if (unityVer[0] == 2020 && unityVer[1] >= 2) actualVersion = 27; //2020.2 introduces v27
-            }
-
-            if (version == 24)
+                else actualVersion = version; //2020.2 introduces v27
+            } else if (version == 24)
             {
                 if (unityVer[0] == 2019 && unityVer[1] == 4 && unityVer[2] >= 21) actualVersion = 24.5f;
                 //Note should there ever be a case of weird issues here, there *is* actually a 24.4, but it's barely ever used. Only change is AssemblyNameDefinition is missing
