@@ -4,6 +4,7 @@ using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
 {
@@ -71,9 +72,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     }
                     if (!string.IsNullOrEmpty(argumentOneType?.FullName) && !argumentOneType!.IsArray)
                     {
-                        if (argumentOneType.Resolve().IsEnum)
+                        var argumentOneTypeDefinition = argumentOneType.Resolve();
+                        if (argumentOneTypeDefinition.IsEnum)
                         {
-                            constantDefinition.Type = typeof(int);
+                            constantDefinition.Type = typeof(int).Module.GetType(argumentOneTypeDefinition.GetEnumUnderlyingType().FullName);
                             constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, typeof(int));
                         }
                         else

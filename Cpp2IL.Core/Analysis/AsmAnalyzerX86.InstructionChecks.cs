@@ -298,12 +298,10 @@ namespace Cpp2IL.Core.Analysis
 
             if (mnemonic == Mnemonic.Comiss)
                 mnemonic = Mnemonic.Cmp;
-
-            
             
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
-
+            
             switch (mnemonic)
             {
                 case Mnemonic.Mov when !CppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():

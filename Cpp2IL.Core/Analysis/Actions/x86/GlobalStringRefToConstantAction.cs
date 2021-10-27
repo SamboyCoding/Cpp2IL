@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
     public class GlobalStringRefToConstantAction : BaseAction<Instruction>
     {
         public readonly string? ResolvedString;
-        public  ConstantDefinition? ConstantWritten;
+        public ConstantDefinition? ConstantWritten;
         public LocalDefinition LastKnownLocalInReg;
         private string? _destReg;
 

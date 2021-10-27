@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
 {
@@ -58,9 +59,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         {
             if (!_isVoid && returnValue is ConstantDefinition constantDefinition && typeof(IConvertible).IsAssignableFrom(constantDefinition.Type) && constantDefinition.Type != typeof(string))
             {
-                if (context.ReturnType.Resolve().IsEnum)
+                var returnTypeDefinition = context.ReturnType.Resolve();
+                if (returnTypeDefinition.IsEnum)
                 {
-                    constantDefinition.Type = typeof(int);
+                    constantDefinition.Type = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
                     constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, typeof(int));
                 }
                 else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
