@@ -1,6 +1,9 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
 {
@@ -50,6 +53,32 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         public override bool IsImportant()
         {
             return true;
+        }
+
+        protected void TryCorrectConstant(MethodAnalysis<T> context)
+        {
+            if (!_isVoid && returnValue is ConstantDefinition constantDefinition && typeof(IConvertible).IsAssignableFrom(constantDefinition.Type) && constantDefinition.Type != typeof(string))
+            {
+                var returnTypeDefinition = context.ReturnType.Resolve();
+                if (returnTypeDefinition.IsEnum)
+                {
+                    var underLyingType = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
+                    constantDefinition.Type = underLyingType;
+                    constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
+                }
+                else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
+                {
+                    var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
+                    if (!string.IsNullOrEmpty(returnValueType?.FullName) && !returnValueType!.IsArray)
+                    {
+                        if (Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(context.ReturnType) && context.ReturnType.Name != "String")
+                        {
+                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
+                            constantDefinition.Type = returnValueType;
+                        }
+                    }
+                }
+            }
         }
     }
 }

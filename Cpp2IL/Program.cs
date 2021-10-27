@@ -9,7 +9,6 @@ using CommandLine;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
-using LibCpp2IL.PE;
 using Mono.Cecil;
 
 namespace Cpp2IL

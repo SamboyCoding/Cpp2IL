@@ -14,6 +14,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             if (returnValue is LocalDefinition l)
                 RegisterUsedLocal(l, context);
+
+            TryCorrectConstant(context);
         }
     }
 }

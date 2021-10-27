@@ -1,5 +1,5 @@
-﻿using System.Diagnostics;
-using System.Linq;
+﻿using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
@@ -269,6 +269,11 @@ namespace Cpp2IL.Core.Analysis
             }
         }
 
+        private BaseAction<Instruction> MaybeWrap(BaseAction<Instruction> action)
+        {
+            return action.AssociatedInstruction.IsConditionalMove() ? new ConditionalMoveAction(Analysis, action.AssociatedInstruction, action) : action;
+        }
+
         private void CheckForTwoOpInstruction(Instruction instruction)
         {
             var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
@@ -288,15 +293,15 @@ namespace Cpp2IL.Core.Analysis
 
             var mnemonic = instruction.Mnemonic;
 
-            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps || mnemonic == Mnemonic.Movups || mnemonic == Mnemonic.Movdqa)
+            if (mnemonic == Mnemonic.Movzx || mnemonic == Mnemonic.Movss || mnemonic == Mnemonic.Movsxd || mnemonic == Mnemonic.Movaps || mnemonic == Mnemonic.Movups || mnemonic == Mnemonic.Movdqa || instruction.IsConditionalMove())
                 mnemonic = Mnemonic.Mov;
 
             if (mnemonic == Mnemonic.Comiss)
                 mnemonic = Mnemonic.Cmp;
-
+            
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
-
+            
             switch (mnemonic)
             {
                 case Mnemonic.Mov when !CppAssembly.is32Bit && type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null && instruction.Op1Register.IsGPR32():
@@ -307,25 +312,25 @@ namespace Cpp2IL.Core.Analysis
                         if (FieldUtils.GetFieldBeingAccessed(t!, 0, false) != FieldUtils.GetFieldBeingAccessed(t!, 4, false))
                         {
                             //Different fields at 0 and 4 (i.e. first field is an int, etc).
-                            Analysis.Actions.Add(new Implicit4ByteFieldReadAction(Analysis, instruction));
+                            Analysis.Actions.Add(MaybeWrap(new Implicit4ByteFieldReadAction(Analysis, instruction)));
                             break;
                         }
                     }
 
                     //Fallback to a reg->reg move.
-                    Analysis.Actions.Add(new RegToRegMoveAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new RegToRegMoveAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Register && type1 == OpKind.Register && offset0 == 0 && offset1 == 0 && op1 != null:
                     //Both zero offsets and a known secondary operand = Register content copy
-                    Analysis.Actions.Add(new RegToRegMoveAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new RegToRegMoveAction(Analysis, instruction)));
                     return;
                 case Mnemonic.Mov when type1 == OpKind.Register && r0 == "rsp" && offset1 == 0 && op1 != null:
                     //Second operand is a reg, no offset, moving into the stack = Copy reg content to stack.
-                    Analysis.Actions.Add(new StackToRegCopyAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new StackToRegCopyAction(Analysis, instruction)));
                     return;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition constant && constant.Type == typeof(StaticFieldsPtr):
                     //Load a specific static field.
-                    Analysis.Actions.Add(new StaticFieldToRegAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new StaticFieldToRegAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memOp is LocalDefinition l && l.Type == AttributeRestorer.DummyTypeDefForAttributeList:
                     //Move of attribute list entry, used for restoration of attribute constructors
@@ -333,14 +338,14 @@ namespace Cpp2IL.Core.Analysis
                     var offsetInList = instruction.MemoryDisplacement32 / ptrSize;
 
                     if (offsetInList < AttributesForRestoration!.Count)
-                        Analysis.Actions.Add(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributesForRestoration!));
+                        Analysis.Actions.Add(MaybeWrap(new LoadAttributeFromAttributeListAction(Analysis, instruction, AttributesForRestoration!)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && (offset0 == 0 || r0 == "rsp") && offset1 == 0 && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
-                    if (Analysis.GetLocalInReg(memR) != null)
-                        Analysis.Actions.Add(new ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
+                    if (Analysis.GetLocalInReg(memR) != null) 
+                        Analysis.Actions.Add(MaybeWrap(new ClassPointerLoadAction(Analysis, instruction))); //We have a managed local type, we can load the class pointer for it
                     return;
                 }
                 case Mnemonic.Lea when !CppAssembly.is32Bit && type1 == OpKind.Memory && instruction.MemoryBase == Register.RIP && instruction.MemoryIndex == Register.None:
@@ -350,26 +355,28 @@ namespace Cpp2IL.Core.Analysis
                 {
                     //Global to stack or reg. Could be metadata literal, non-metadata literal, metadata type, or metadata method.
                     var globalAddress = instruction.MemoryDisplacement64;
-                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is { IsValid: true } global)
+                    if (LibCpp2IlMain.GetAnyGlobalByAddress(globalAddress) is {IsValid: true} global)
                     {
                         //Have a global here.
                         switch (global.Type)
                         {
                             case MetadataUsageType.Type:
                             case MetadataUsageType.TypeInfo:
-                                Analysis.Actions.Add(new GlobalTypeRefToConstantAction(Analysis, instruction));
+                                Analysis.Actions.Add(MaybeWrap(new GlobalTypeRefToConstantAction(Analysis, instruction)));
                                 break;
                             case MetadataUsageType.MethodDef:
-                                Analysis.Actions.Add(new GlobalMethodDefToConstantAction(Analysis, instruction));
+                                Analysis.Actions.Add(MaybeWrap(new GlobalMethodDefToConstantAction(Analysis, instruction)));
                                 break;
                             case MetadataUsageType.MethodRef:
-                                Analysis.Actions.Add(new GlobalMethodRefToConstantAction(Analysis, instruction));
+                                Analysis.Actions.Add(MaybeWrap(new GlobalMethodRefToConstantAction(Analysis, instruction)));
                                 break;
                             case MetadataUsageType.FieldInfo:
-                                Analysis.Actions.Add(new GlobalFieldDefToConstantAction(Analysis, instruction));
+                                Analysis.Actions.Add(MaybeWrap(new GlobalFieldDefToConstantAction(Analysis, instruction)));
                                 break;
                             case MetadataUsageType.StringLiteral:
-                                Analysis.Actions.Add(new GlobalStringRefToConstantAction(Analysis, instruction));
+                                // Handle this one separately because it's special 
+                                Analysis.Actions.Add(!instruction.IsConditionalMove() ? new GlobalStringRefToConstantAction(Analysis, instruction)
+                                    : new ConditionalGlobalStringRefToConstantAction(Analysis, instruction, new GlobalStringRefToConstantAction(Analysis, instruction)));
                                 break;
                         }
                     }
@@ -378,8 +385,8 @@ namespace Cpp2IL.Core.Analysis
                         var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.MemoryDisplacement64));
                         if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
                         {
-                            if (r0 != "rsp")
-                                Analysis.Actions.Add(new Il2CppStringToConstantAction(Analysis, instruction, potentialLiteral));
+                            if (r0 != "rsp") 
+                                Analysis.Actions.Add(MaybeWrap(new Il2CppStringToConstantAction(Analysis, instruction, potentialLiteral)));
 
                             // if (r0 == "rsp")
                             //     _analysis.Actions.Add(new ConstantToStackAction(_analysis, instruction));
@@ -389,7 +396,7 @@ namespace Cpp2IL.Core.Analysis
                         else
                         {
                             //Unknown global
-                            Analysis.Actions.Add(new UnknownGlobalToConstantAction(Analysis, instruction));
+                            Analysis.Actions.Add(MaybeWrap(new UnknownGlobalToConstantAction(Analysis, instruction)));
                         }
                     }
 
@@ -406,12 +413,11 @@ namespace Cpp2IL.Core.Analysis
                 case Mnemonic.Mov when type1.IsImmediate() && type0 == OpKind.Register:
                     //Constant move to reg
                     var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));
-
-                    Analysis.Actions.Add(new ConstantToRegAction(Analysis, instruction, mayNotBeAConstant));
+                    Analysis.Actions.Add(MaybeWrap(new ConstantToRegAction(Analysis, instruction, mayNotBeAConstant)));
                     return;
                 case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 == OpKind.Memory && instruction.MemoryBase == Register.None:
                     //Move constant to addr
-                    Analysis.Actions.Add(new ConstantToGlobalAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new ConstantToGlobalAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1.IsImmediate() && offset0 != 0 && type0 != OpKind.Register && memR != "rip" && memR != "rbp" && memR != "rsp":
                     if (memOp is LocalDefinition {KnownInitialValue: AllocatedArray _})
@@ -419,13 +425,13 @@ namespace Cpp2IL.Core.Analysis
                         if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
                         {
                             //Array write
-                            Analysis.Actions.Add(new ImmediateToArrayAction(Analysis, instruction));
+                            Analysis.Actions.Add(MaybeWrap(new ImmediateToArrayAction(Analysis, instruction)));
                         }
                     }
                     else
                     {
                         //Immediate move to field
-                        Analysis.Actions.Add(new ImmediateToFieldAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new ImmediateToFieldAction(Analysis, instruction)));
                     }
 
                     return;
@@ -435,26 +441,26 @@ namespace Cpp2IL.Core.Analysis
                 //So if we're accessing 0xC (32-bit) or 0x18 (64-bit) on an array - that's the length.
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && instruction.MemoryBase == Register.EBP:
                     //Read stack pointer to local
-                    Analysis.Actions.Add(new EbpOffsetToLocalAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new EbpOffsetToLocalAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && instruction.MemoryBase == Register.EBP:
                     //Local to stack pointer (opposite of above)
-                    Analysis.Actions.Add(new LocalToRbpOffsetAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new LocalToRbpOffsetAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && Analysis.GetConstantInReg(memR) != null && Il2CppClassUsefulOffsets.IsStaticFieldsPtr(instruction.MemoryDisplacement32):
                     //Static fields ptr read
-                    Analysis.Actions.Add(new StaticFieldOffsetToRegAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new StaticFieldOffsetToRegAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {Type: {IsArray: true}}:
                     //Move reg, [reg+0x10]
                     //Reading an element from an array at a fixed offset
                     if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
                     {
-                        Analysis.Actions.Add(new ConstantArrayOffsetToRegAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new ConstantArrayOffsetToRegAction(Analysis, instruction)));
                     }
                     else if (Il2CppArrayUtils.IsIl2cppLengthAccessor(instruction.MemoryDisplacement32))
                     {
-                        Analysis.Actions.Add(new ArrayLengthPropertyToLocalAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new ArrayLengthPropertyToLocalAction(Analysis, instruction)));
                     }
 
                     break;
@@ -462,54 +468,57 @@ namespace Cpp2IL.Core.Analysis
                     //Same as above but an LEA - copying a reference to the *address* of this item to the reg.
                     if (Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32))
                     {
-                        Analysis.Actions.Add(new ConstantArrayOffsetPointerToRegAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new ConstantArrayOffsetPointerToRegAction(Analysis, instruction)));
                     }
 
                     break;
-                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex != Register.None && instruction.MemoryDisplacement32 == Il2CppArrayUtils.FirstItemOffset && memOp is LocalDefinition {Type: {IsArray: true}}:
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" &&
+                                       instruction.MemoryIndex != Register.None &&
+                                       instruction.MemoryDisplacement32 == Il2CppArrayUtils.FirstItemOffset &&
+                                       memOp is LocalDefinition {Type: {IsArray: true}}:
                     //Mov reg, [reg + index * value + 20h]
                     //Array read of index-th element (assuming value is equal to sizeof(elementType) )
-                    Analysis.Actions.Add(new ArrayElementReadToRegAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new ArrayElementReadToRegAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex != Register.None && memIdxOp is LocalDefinition {Type: {IsArray: true}}:
                     //Move reg, [reg+reg] => usually array reads.
                     //So much so that this is guarded behind an array read check - change the case if you need to change this.
-                    Analysis.Actions.Add(new RegOffsetArrayValueReadRegToRegAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new RegOffsetArrayValueReadRegToRegAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when !LibCpp2IlMain.Binary!.is32Bit && type1 == OpKind.Memory && type0 == OpKind.Register && memR == "rsp" && instruction.MemoryIndex == Register.None:
                     //x64 Stack pointer read.
-                    Analysis.Actions.Add(new StackOffsetReadX64Action(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new StackOffsetReadX64Action(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && memOp is ConstantDefinition {Value: Il2CppClassIdentifier _}:
                     if (Il2CppClassUsefulOffsets.IsInterfaceOffsetsPtr(offset1))
                     {
                         //Class pointer interface offset read
-                        Analysis.Actions.Add(new InterfaceOffsetsReadAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new InterfaceOffsetsReadAction(Analysis, instruction)));
                     }
                     else if (Il2CppClassUsefulOffsets.IsPointerIntoVtable(offset1))
                     {
                         //Virtual method pointer load
-                        Analysis.Actions.Add(new LoadVirtualFunctionPointerAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new LoadVirtualFunctionPointerAction(Analysis, instruction)));
                     }
                     else if (Il2CppClassUsefulOffsets.IsInterfaceOffsetsCount(offset1))
                     {
                         //Interface offsets count
-                        Analysis.Actions.Add(new InterfaceOffsetCountToLocalAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new InterfaceOffsetCountToLocalAction(Analysis, instruction)));
                     }
                     else if (Il2CppClassUsefulOffsets.IsRGCTXDataPtr(offset1))
                     {
                         //RGCTX data read
-                        Analysis.Actions.Add(new ReadRGCTXDataListAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new ReadRGCTXDataListAction(Analysis, instruction)));
                     }
                     else if (Il2CppClassUsefulOffsets.IsElementTypePtr(offset1))
                     {
                         //Element Type Read
                         //Valid for arrays at least, maybe others
-                        Analysis.Actions.Add(new ReadElementTypeFromClassPtrAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new ReadElementTypeFromClassPtrAction(Analysis, instruction)));
                     }
                     else
                     {
-                        Analysis.Actions.Add(new UnknownClassOffsetReadAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new UnknownClassOffsetReadAction(Analysis, instruction)));
                     }
 
                     break;
@@ -518,30 +527,31 @@ namespace Cpp2IL.Core.Analysis
                     //Read offset on method global
                     if (Il2CppMethodDefinitionUsefulOffsets.IsSlotOffset(instruction.MemoryDisplacement32))
                     {
-                        Analysis.Actions.Add(new MethodSlotToLocalAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new MethodSlotToLocalAction(Analysis, instruction)));
                     }
 
                     if (Il2CppMethodDefinitionUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement32))
                     {
-                        Analysis.Actions.Add(new MethodDefiningTypeToConstantAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new MethodDefiningTypeToConstantAction(Analysis, instruction)));
                     }
 
-                    if (Il2CppMethodDefinitionUsefulOffsets.IsMethodPtr(instruction.MemoryDisplacement32) || instruction.MemoryDisplacement32 == 0)
+                    if (Il2CppMethodDefinitionUsefulOffsets.IsMethodPtr(instruction.MemoryDisplacement32) ||
+                        instruction.MemoryDisplacement32 == 0)
                     {
-                        Analysis.Actions.Add(new MoveMethodInfoPtrToRegAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new MoveMethodInfoPtrToRegAction(Analysis, instruction)));
                     }
 
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: Il2CppRGCTXArray _}:
                     //Read RGCTX array value
-                    Analysis.Actions.Add(new ReadSpecificRGCTXDataAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new ReadSpecificRGCTXDataAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition {IsMethodInfoParam: true}:
                     //MethodInfo offset read
                     if (Il2CppMethodInfoUsefulOffsets.IsKlassPtr(instruction.MemoryDisplacement32))
                     {
                         //Read klass ptr.
-                        Analysis.Actions.Add(new LoadClassPointerFromMethodInfoAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new LoadClassPointerFromMethodInfoAction(Analysis, instruction)));
                     }
 
                     break;
@@ -553,7 +563,7 @@ namespace Cpp2IL.Core.Analysis
                         break;
                     }
 
-                    Analysis.Actions.Add(new FieldToLocalAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new FieldToLocalAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
                     //LEA generic memory to register - field pointer load.
@@ -561,30 +571,30 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: StaticFieldsPtr _}:
                     //Write static field
-                    Analysis.Actions.Add(new RegToStaticFieldAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new RegToStaticFieldAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition {Type: ArrayType _} && Il2CppArrayUtils.IsAtLeastFirstItemPtr(instruction.MemoryDisplacement32):
-                    Analysis.Actions.Add(new RegToConstantArrayOffsetAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new RegToConstantArrayOffsetAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is LocalDefinition:
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: FieldPointer _}:
                     //Write non-static field
-                    Analysis.Actions.Add(new RegToFieldAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new RegToFieldAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: Il2CppArrayOffsetPointer<Instruction> _}:
                     //Write into array offset via pointer
-                    Analysis.Actions.Add(new RegisterToArrayViaPointerAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new RegisterToArrayViaPointerAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR == "rsp":
                     //Write to stack
 
                     if (op1 is LocalDefinition)
-                        Analysis.Actions.Add(new LocalToStackOffsetAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new LocalToStackOffsetAction(Analysis, instruction)));
                     else if (op1 is ConstantDefinition)
-                        Analysis.Actions.Add(new ConstantToStackOffsetAction(Analysis, instruction));
+                        Analysis.Actions.Add(MaybeWrap(new ConstantToStackOffsetAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1.IsImmediate() && memR == "rsp":
-                    Analysis.Actions.Add(new ImmediateToStackOffsetAction(Analysis, instruction));
+                    Analysis.Actions.Add(MaybeWrap(new ImmediateToStackOffsetAction(Analysis, instruction)));
                     break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic

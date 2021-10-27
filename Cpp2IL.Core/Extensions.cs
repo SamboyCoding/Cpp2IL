@@ -45,6 +45,27 @@ namespace Cpp2IL.Core
         public static Arm64Register? MemoryIndex(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Index;
         public static int MemoryOffset(this Arm64Instruction instruction) => instruction.MemoryOperand()?.Memory.Displacement ?? 0;
 
+        public static bool IsConditionalMove(this Instruction instruction)
+        {
+            switch (instruction.Mnemonic)
+            {
+                case Mnemonic.Cmove:
+                case Mnemonic.Cmovne:
+                case Mnemonic.Cmovs:
+                case Mnemonic.Cmovns:
+                case Mnemonic.Cmovg:
+                case Mnemonic.Cmovge:
+                case Mnemonic.Cmovl:
+                case Mnemonic.Cmovle:
+                case Mnemonic.Cmova:
+                case Mnemonic.Cmovae:
+                case Mnemonic.Cmovb:
+                case Mnemonic.Cmovbe:
+                    return true;
+                default:
+                    return false;
+            }
+        }
         public static Stack<T> Clone<T>(this Stack<T> original)
         {
             var arr = new T[original.Count];

@@ -123,6 +123,15 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             throw new TaintedInstructionException($"ConstantDefinition: Don't know how to get IL to load a {Type}");
         }
+        
+        public bool IsSafeToCorrect()
+        {
+            if (Value is GenericInstanceMethod or MethodReference or GenericInstanceMethod or TypeReference or FieldDefinition)
+            {
+                return false;
+            }
+            return true;
+        }
 
         
     }

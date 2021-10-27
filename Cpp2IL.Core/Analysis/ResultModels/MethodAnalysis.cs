@@ -68,6 +68,11 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             typeof(LoadConstantUsingLeaAction)
         };
 
+        public MethodDefinition GetMethodDefinition()
+        {
+            return _method;
+        }
+        
         //For analysing cpp-only methods, like attribute generators
         internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, IList<TInstruction> allInstructions)
         {
