@@ -75,8 +75,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                         var argumentOneTypeDefinition = argumentOneType.Resolve();
                         if (argumentOneTypeDefinition.IsEnum)
                         {
-                            constantDefinition.Type = typeof(int).Module.GetType(argumentOneTypeDefinition.GetEnumUnderlyingType().FullName);
-                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, typeof(int));
+                            var underLyingType = typeof(int).Module.GetType(argumentOneTypeDefinition.GetEnumUnderlyingType().FullName);
+                            constantDefinition.Type = underLyingType;
+                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
                         }
                         else
                         {

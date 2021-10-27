@@ -62,8 +62,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 var returnTypeDefinition = context.ReturnType.Resolve();
                 if (returnTypeDefinition.IsEnum)
                 {
-                    constantDefinition.Type = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
-                    constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, typeof(int));
+                    var underLyingType = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
+                    constantDefinition.Type = underLyingType;
+                    constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
                 }
                 else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
                 {
