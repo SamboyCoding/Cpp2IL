@@ -47,12 +47,22 @@ same argument as above but pass in the path to the APK, and cpp2il will extract 
 
 ## Release Structure
 
-Every single commit is built to a pre-release using Github Actions - the action file can be found in the .github folder,
+Every single commit is built to a CI build using Github Actions - the action file can be found in the .github folder,
 if you want to reproduce the builds yourself. Be aware these may not be the most stable - while there are tests to
 ensure compatibility with a range of games, sometimes things do break! These are versioned by the commit they were built
 from.
 
-On top of this, I manually release "milestone" builds whenever I think a major set of improvements have been made. These
+The release files can be downloaded from the Actions tab if you are signed into GitHub, or you can use the following links,
+which always point to the latest successful CI build. Note that the .NET Framework build is provided for compatibility with 
+wine/proton.
+
+- [Windows Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Windows.zip)
+- [Linux Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Linux.zip)
+- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Max.zip)
+- [.NET Framework 4.7.2 Windows Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Netframework472-Windows.zip)
+
+
+On top of this, I manually release "milestone" release builds whenever I think a major set of improvements have been made. These
 are NOT marked as pre-releases on github, and should (at least in theory) be stable and suitable for use on a range of
 games.
 
@@ -72,7 +82,7 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 
 ## What Works (Features)
 
-- [x] Loading of Metadata and Binaries using LibCpp2IL for IL2CPP versions 24 through 27.1 (unity 2018 to present-day)
+- [x] Loading of Metadata and Binaries using LibCpp2IL for IL2CPP versions 24 through 29 (unity 2018 to present-day)
 - [x] "Dummy DLL" (Stub Assembly) generation, suitable for use
   with [Il2CppAssemblyUnhollower](https://github.com/knah/Il2CppAssemblyUnhollower/), for PE and ELF binaries, x86 and
   ARM instruction sets
@@ -97,8 +107,8 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 | Unmanaged String Literal Detection | ✔️ | ✔️ | ❌ |
 | Instance field reads | ✔️ | ✔️ | ❌ |
 | Instance field writes | ✔️ | ✔️ | ❌ |
-| Static field reads | ✔️ | ✔️ (In pre-release) | ❌ |
-| Static field writes | ✔️ | ✔️ (In pre-release) | ❌ |
+| Static field reads | ✔️ | ✔️ | ❌ |
+| Static field writes | ✔️ | ✔️ | ❌ |
 | IL2CPP "Exception Helper" functions[^2] | ✔️ | ✔️ | ❌ |
 | IL2CPP MetadataUsage parsing[^3] | ✔️ | ✔️ | ❌ |
 | Array instantiation | ✔️ | ❌ | ❌ |

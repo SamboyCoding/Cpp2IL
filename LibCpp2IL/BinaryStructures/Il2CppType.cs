@@ -15,9 +15,13 @@ namespace LibCpp2IL.BinaryStructures
 
         public void Init()
         {
-            attrs = bits & 0xffff;
-            type = (Il2CppTypeEnum) ((bits >> 16) & 0xff);
-            num_mods = (bits >> 24) & 0x3f;
+            attrs = bits & 0b1111_1111_1111_1111;
+            type = (Il2CppTypeEnum) ((bits >> 16) & 0b1111_1111);
+            
+            //Note for future: some unity 2021 version (2021.1.0?) changed this to be 5 bits not 6
+            //Which shifts num_mods, byref, and pinned left one
+            //And adds a new bit 31 which is valuetype
+            num_mods = (bits >> 24) & 0b11_1111;
             byref = (bits >> 30) & 1;
             pinned = bits >> 31;
             data = new Union {dummy = datapoint};

@@ -6,7 +6,7 @@
         <LangVersion>9</LangVersion>
         <TargetFramework>netstandard2.0</TargetFramework>
         <PackageId>Samboy063.LibCpp2IL</PackageId>
-        <Version>2021.4.0</Version>
+        <Version>2021.5.0</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>

@@ -45,12 +45,12 @@ jobs:
     - name: Upload Win x64 Artifact
       uses: actions/upload-artifact@v2
       with:
-        name: Cpp2IL-Win
+        name: Cpp2IL-Windows
         path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
     - name: Upload Netframework Artifact
       uses: actions/upload-artifact@v2
       with:
-        name: Cpp2IL-Netframework472-Win
+        name: Cpp2IL-Netframework472-Windows
         path: ./Cpp2IL/bin/Release/net472/publish/
     - name: Upload Ubuntu x64 Artifact
       uses: actions/upload-artifact@v2
@@ -62,43 +62,43 @@ jobs:
       with:
         name: Cpp2IL-Mac
         path: ./Cpp2IL/bin/Release/net5.0/osx-x64/publish/Cpp2IL
-    - name: Create Release
-      id: create_release
-      uses: actions/create-release@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        tag_name: commit_${{ github.sha }}
-        release_name: Commit ${{ github.sha }}
-        draft: false
-        prerelease: true
-    - name: Release Windows Build
-      id: release-win
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
-        asset_name: Cpp2IL-Win.exe
-        asset_content_type: application/octet-stream
-    - name: Release Linux Build
-      id: release-linux
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./Cpp2IL/bin/Release/net5.0/ubuntu-x64/publish/Cpp2IL
-        asset_name: Cpp2IL-Linux
-        asset_content_type: application/octet-stream
-    - name: Release OSX Build
-      id: release-osx
-      uses: actions/upload-release-asset@v1
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-      with:
-        upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./Cpp2IL/bin/Release/net5.0/osx-x64/publish/Cpp2IL
-        asset_name: Cpp2IL-OSX
-        asset_content_type: application/octet-stream
+#    - name: Create Release
+#      id: create_release
+#      uses: actions/create-release@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        tag_name: commit_${{ github.sha }}
+#        release_name: Commit ${{ github.sha }}
+#        draft: false
+#        prerelease: true
+#    - name: Release Windows Build
+#      id: release-win
+#      uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_release.outputs.upload_url }}
+#        asset_path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
+#        asset_name: Cpp2IL-Win.exe
+#        asset_content_type: application/octet-stream
+#    - name: Release Linux Build
+#      id: release-linux
+#      uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_release.outputs.upload_url }}
+#        asset_path: ./Cpp2IL/bin/Release/net5.0/ubuntu-x64/publish/Cpp2IL
+#        asset_name: Cpp2IL-Linux
+#        asset_content_type: application/octet-stream
+#    - name: Release OSX Build
+#      id: release-osx
+#      uses: actions/upload-release-asset@v1
+#      env:
+#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+#      with:
+#        upload_url: ${{ steps.create_release.outputs.upload_url }}
+#        asset_path: ./Cpp2IL/bin/Release/net5.0/osx-x64/publish/Cpp2IL
+#        asset_name: Cpp2IL-OSX
+#        asset_content_type: application/octet-stream
