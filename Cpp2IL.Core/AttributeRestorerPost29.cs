@@ -73,11 +73,11 @@ namespace Cpp2IL.Core
             if (customAttributeIndex < 0)
                 return ret; //No attributes
 
-            var attributeDataRange = LibCpp2IlMain.TheMetadata!.AttributeDataRanges[customAttributeIndex];
-            var next = LibCpp2IlMain.TheMetadata!.AttributeDataRanges[customAttributeIndex + 1];
+            var attributeDataRange = LibCpp2IlMain.TheMetadata.AttributeDataRanges[customAttributeIndex];
+            // var next = LibCpp2IlMain.TheMetadata.AttributeDataRanges[customAttributeIndex + 1];
 
             var start = LibCpp2IlMain.TheMetadata.metadataHeader.attributeDataOffset + attributeDataRange.startOffset;
-            var end = LibCpp2IlMain.TheMetadata.metadataHeader.attributeDataOffset + next.startOffset;
+            // var end = LibCpp2IlMain.TheMetadata.metadataHeader.attributeDataOffset + next.startOffset;
 
             //Now we start actually reading. Start is a pointer to the address in the metadata file where the attribute data is.
 
@@ -122,11 +122,11 @@ namespace Cpp2IL.Core
                 bytesRead += compressedRead;
                 pos += compressedRead;
 
-                var numFields = LibCpp2IlMain.TheMetadata!.ReadUnityCompressedUIntAtRawAddr(pos, out compressedRead);
+                var numFields = LibCpp2IlMain.TheMetadata.ReadUnityCompressedUIntAtRawAddr(pos, out compressedRead);
                 bytesRead += compressedRead;
                 pos += compressedRead;
 
-                var numProps = LibCpp2IlMain.TheMetadata!.ReadUnityCompressedUIntAtRawAddr(pos, out compressedRead);
+                var numProps = LibCpp2IlMain.TheMetadata.ReadUnityCompressedUIntAtRawAddr(pos, out compressedRead);
                 bytesRead += compressedRead;
                 pos += compressedRead;
 
@@ -167,7 +167,7 @@ namespace Cpp2IL.Core
                         fieldIndex = -(fieldIndex + 1);
 
                         var declaringType = LibCpp2IlMain.TheMetadata.typeDefs[typeIndex];
-                        field = declaringType!.Fields![fieldIndex].AsManaged();
+                        field = declaringType.Fields![fieldIndex].AsManaged();
                     }
                     else
                     {
@@ -204,7 +204,7 @@ namespace Cpp2IL.Core
                         propIndex = -(propIndex + 1);
 
                         var declaringType = LibCpp2IlMain.TheMetadata.typeDefs[typeIndex];
-                        prop = declaringType!.Properties![propIndex].AsManaged();
+                        prop = declaringType.Properties![propIndex].AsManaged();
                     }
                     else
                     {
@@ -224,11 +224,11 @@ namespace Cpp2IL.Core
             catch (Exception e)
             {
                 Logger.WarnNewline($"Failed to parse custom attribute {constructor.DeclaringType!.FullName} due to an exception: {e.GetType()}: {e.Message}");
-                return MakeFallbackAttribute(module, constructor.AsManaged());
+                return MakeFallbackAttribute(module, constructor.AsManaged()) ?? throw new("Failed to resolve AttributeAttribute type");
             }
         }
 
-        private static CustomAttribute MakeFallbackAttribute(ModuleDefinition module, MethodDefinition constructor)
+        private static CustomAttribute? MakeFallbackAttribute(ModuleDefinition module, MethodDefinition constructor)
         {
             var attributeType = module.Types.SingleOrDefault(t => t.Namespace == AssemblyPopulator.InjectedNamespaceName && t.Name == "AttributeAttribute");
 
@@ -397,11 +397,9 @@ namespace Cpp2IL.Core
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                     //LibIl2Cpp is slightly unclear here. It checks that they're null, but also doesn't increment the ptr.
-                    throw new Exception("Object not implemented");
-                    break;
+                    throw new("Object not implemented");
                 case Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX:
                     var typeIndex = md.ReadUnityCompressedIntAtRawAddr(pos, out var compressedBytesRead);
-                    pos += compressedBytesRead;
                     bytesRead += compressedBytesRead;
                     if (typeIndex == -1)
                         ret = null;
@@ -409,8 +407,8 @@ namespace Cpp2IL.Core
                     {
                         //Weirdly, libil2cpp checks "Deserialize managed object" boolean here
                         //But as far as I can see, it's actually returning typeof(x)
-                        var il2cppType = LibCpp2IlMain.Binary!.GetType(typeIndex);
-                        ret = Utils.TryResolveTypeReflectionData(LibCpp2ILUtils.GetTypeReflectionData(il2cppType));
+                        var il2CppType = LibCpp2IlMain.Binary!.GetType(typeIndex);
+                        ret = Utils.TryResolveTypeReflectionData(LibCpp2ILUtils.GetTypeReflectionData(il2CppType));
 
                         if (ret == null)
                             throw new($"Failed to resolve type reflection data for type index {typeIndex}");
@@ -435,8 +433,6 @@ namespace Cpp2IL.Core
             {
                 var enumTypeIndex = LibCpp2IlMain.TheMetadata.ReadUnityCompressedIntAtRawAddr(pos, out var compressedBytesRead);
                 bytesRead += compressedBytesRead;
-                pos += compressedBytesRead;
-                var rawType = LibCpp2IlMain.Binary!.GetType(enumTypeIndex);
                 var typeDef = LibCpp2IlReflection.GetTypeDefinitionByTypeIndex(enumTypeIndex)!;
                 type = typeDef.AsManaged(); //Get enum type
                 ret = LibCpp2IlMain.Binary!.GetType(typeDef.elementTypeIndex).type; //Get enum underlying type's type enum

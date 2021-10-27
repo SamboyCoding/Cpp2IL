@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Runtime;
 using CommandLine;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Exceptions;
@@ -244,6 +245,8 @@ namespace Cpp2IL
             if (!runtimeArgs.Valid)
                 throw new SoftException("Arguments have Valid = false");
 
+            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+
             ConsoleLogger.ShowVerbose = runtimeArgs.EnableVerboseLogging;
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
@@ -255,8 +258,9 @@ namespace Cpp2IL
 
             BaseKeyFunctionAddresses? keyFunctionAddresses = null;
 
-            //We have to always run key function scan (if we can), so that attribute reconstruction can run.
-            if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.ARM32)
+            //We need to run key function sweep if we can for attribute restoration
+            //or if we want to analyze. But we DON'T need it for restoration on v29
+            if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.ARM32 && (LibCpp2IlMain.MetadataVersion < 29 || runtimeArgs.EnableAnalysis))
             {
                 Logger.InfoNewline("Running Scan for Known Functions...");
 
