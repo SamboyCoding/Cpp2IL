@@ -6,10 +6,8 @@ using System.IO.Compression;
 using System.Linq;
 using CommandLine;
 using Cpp2IL.Core;
-using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
-using LibCpp2IL.PE;
 using Mono.Cecil;
 
 namespace Cpp2IL

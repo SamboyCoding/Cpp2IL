@@ -903,7 +903,7 @@ namespace Cpp2IL.Core
             if (desired == typeof(byte))
                 return rawBytes[0];
             if (desired == typeof(char))
-                return (char)rawBytes[0];
+                return BitConverter.ToChar(rawBytes, 0);
             if (desired == typeof(sbyte))
                 return unchecked((sbyte)rawBytes[0]);
             if (desired == typeof(ushort))
