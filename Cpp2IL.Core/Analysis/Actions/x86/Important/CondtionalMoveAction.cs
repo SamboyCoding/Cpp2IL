@@ -26,19 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 nullMode = _associatedCompare.ArgumentOne == _associatedCompare.ArgumentTwo;
                 booleanMode = nullMode && _associatedCompare.ArgumentOne is LocalDefinition local && local.Type?.FullName == "System.Boolean";
             }
-
-            if (Counter.TryGetValue(AssociatedInstruction.Mnemonic, out int value))
-            {
-                Counter[AssociatedInstruction.Mnemonic] = ++value;
-            }
-            else
-            {
-                Counter.Add(AssociatedInstruction.Mnemonic, 1);
-            }
         }
-
-        public static Dictionary<Mnemonic, int> Counter = new Dictionary<Mnemonic, int>();
-
 
         public bool IsTypeCheckCondtionalMove()
         {

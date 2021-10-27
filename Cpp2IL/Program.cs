@@ -291,10 +291,6 @@ namespace Cpp2IL
                 else
                 {
                     DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors);
-                    foreach (var kvp in ConditionalMoveAction.Counter)
-                    {
-                        Console.WriteLine($"Got: {kvp.Key} {kvp.Value} times");
-                    }
                 }
             }
 

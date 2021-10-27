@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 }
                 else
                 {
-                    // TODO: Account for other scenarios where its overwriting an old string old thats not found?
+                    // TODO: Account for other scenarios where its overwriting an old string thats not found?
                 }
 
                 context.Actions.Remove(AssociatedStringLoad);
@@ -68,7 +68,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             ret.Add(processor.Create(GetJumpOpcode(), target));
 
-            ret.Add(processor.Create(OpCodes.Ldstr, ((_moveAction as GlobalStringRefToConstantAction)!).ResolvedString));
+            ret.Add(processor.Create(OpCodes.Ldstr, (_moveAction as GlobalStringRefToConstantAction)!.ResolvedString));
             ret.Add(processor.Create(OpCodes.Stloc, LocalCreated.Variable));
 
             ret.Add(target);
@@ -83,7 +83,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override string ToTextSummary()
         {
-            return $"[!] Sets local {LocalCreated?.Name} in {_destReg} to \"{(_moveAction as GlobalStringRefToConstantAction).ResolvedString}\" if {GetArgumentOnePseudocodeValue()} {GetJumpOpCodePseudoCodeValue()} {GetArgumentTwoPseudocodeValue()} else it sets the local to \"{AssociatedStringLoad.ResolvedString}\"";
+            return $"[!] Sets local {LocalCreated?.Name} in {_destReg} to \"{(_moveAction as GlobalStringRefToConstantAction)!.ResolvedString}\" if {GetArgumentOnePseudocodeValue()} {GetJumpOpCodePseudoCodeValue()} {GetArgumentTwoPseudocodeValue()} else it sets the local to \"{AssociatedStringLoad.ResolvedString}\"";
         }
     }
 }

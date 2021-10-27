@@ -63,7 +63,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     constantDefinition.Type = typeof(int);
                     constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, typeof(int));
                 }
-                if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
+                else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
                 {
                     var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
                     if (!string.IsNullOrEmpty(returnValueType?.FullName) && !returnValueType!.IsArray)
