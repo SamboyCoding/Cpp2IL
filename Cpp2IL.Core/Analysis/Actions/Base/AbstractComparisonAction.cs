@@ -71,11 +71,19 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     }
                     if (!string.IsNullOrEmpty(argumentOneType?.FullName) && !argumentOneType!.IsArray)
                     {
-                        var argumentOneSystemType = typeof(int).Module.GetType(argumentOneType.FullName);
-                        if(argumentOneSystemType != null && Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
+                        if (argumentOneType.Resolve().IsEnum)
                         {
-                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible)constantDefinition.Value, argumentOneType);
-                            constantDefinition.Type = argumentOneSystemType;
+                            constantDefinition.Type = typeof(int);
+                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, typeof(int));
+                        }
+                        else
+                        {
+                            var argumentOneSystemType = typeof(int).Module.GetType(argumentOneType.FullName);
+                            if (argumentOneSystemType != null && Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
+                            {
+                                constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, argumentOneType);
+                                constantDefinition.Type = argumentOneSystemType;
+                            }
                         }
                     }
                 }

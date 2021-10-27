@@ -376,7 +376,9 @@ namespace Cpp2IL.Core.Analysis
                                 Analysis.Actions.Add(MaybeWrap(new GlobalFieldDefToConstantAction(Analysis, instruction)));
                                 break;
                             case MetadataUsageType.StringLiteral:
-                                Analysis.Actions.Add(MaybeWrap(new GlobalStringRefToConstantAction(Analysis, instruction)));
+                                // Handle this one separately because it's special 
+                                Analysis.Actions.Add(!instruction.IsConditionalMove() ? new GlobalStringRefToConstantAction(Analysis, instruction)
+                                    : new ConditionalGlobalStringRefToConstantAction(Analysis, instruction, new GlobalStringRefToConstantAction(Analysis, instruction)));
                                 break;
                         }
                     }

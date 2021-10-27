@@ -58,6 +58,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         {
             if (!_isVoid && returnValue is ConstantDefinition constantDefinition && typeof(IConvertible).IsAssignableFrom(constantDefinition.Type) && constantDefinition.Type != typeof(string))
             {
+                if (context.ReturnType.Resolve().IsEnum)
+                {
+                    constantDefinition.Type = typeof(int);
+                    constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, typeof(int));
+                }
                 if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
                 {
                     var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);

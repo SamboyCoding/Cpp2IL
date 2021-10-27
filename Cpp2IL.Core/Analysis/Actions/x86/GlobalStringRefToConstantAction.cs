@@ -11,7 +11,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
     public class GlobalStringRefToConstantAction : BaseAction<Instruction>
     {
         public readonly string? ResolvedString;
-        public readonly ConstantDefinition? ConstantWritten;
+        public  ConstantDefinition? ConstantWritten;
+        public LocalDefinition LastKnownLocalInReg;
         private string? _destReg;
 
         public GlobalStringRefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
@@ -35,8 +36,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             }
 
+            LastKnownLocalInReg = context.GetLocalInReg(_destReg);
             ConstantWritten = context.MakeConstant(typeof(string), ResolvedString, null, _destReg);
-            
+
             if (instruction.Mnemonic == Mnemonic.Push)
             {
                 context.Stack.Push(ConstantWritten);

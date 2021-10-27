@@ -20,13 +20,25 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             _associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
             _moveAction = moveAction;
-            
+
             if (_associatedCompare != null && (instruction.Mnemonic == Mnemonic.Cmove || instruction.Mnemonic == Mnemonic.Cmovne))
             {
                 nullMode = _associatedCompare.ArgumentOne == _associatedCompare.ArgumentTwo;
                 booleanMode = nullMode && _associatedCompare.ArgumentOne is LocalDefinition local && local.Type?.FullName == "System.Boolean";
             }
+
+            if (Counter.TryGetValue(AssociatedInstruction.Mnemonic, out int value))
+            {
+                Counter[AssociatedInstruction.Mnemonic] = ++value;
+            }
+            else
+            {
+                Counter.Add(AssociatedInstruction.Mnemonic, 1);
+            }
         }
+
+        public static Dictionary<Mnemonic, int> Counter = new Dictionary<Mnemonic, int>();
+
 
         public bool IsTypeCheckCondtionalMove()
         {
@@ -70,22 +82,22 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             return $"if ({GetArgumentOnePseudocodeValue()} {GetJumpOpCodePseudoCodeValue()} {GetArgumentTwoPseudocodeValue()}) {_moveAction.ToPsuedoCode()}";
         }
         
-        private string GetArgumentOnePseudocodeValue()
+        protected string GetArgumentOnePseudocodeValue()
         {
             return _associatedCompare?.ArgumentOne == null ? "" : _associatedCompare.ArgumentOne.GetPseudocodeRepresentation();
         }
 
-        private string GetArgumentTwoPseudocodeValue()
+        protected string GetArgumentTwoPseudocodeValue()
         {
             return _associatedCompare?.ArgumentTwo == null ? "" : _associatedCompare.ArgumentTwo.GetPseudocodeRepresentation();
         }
 
         public override string ToTextSummary()
         {
-            return $"{_moveAction.ToTextSummary()} based on previous comparison";
+            return $"[!] {_moveAction.ToTextSummary()} based on previous comparison";
         }
 
-        private string GetJumpOpCodePseudoCodeValue()
+        protected string GetJumpOpCodePseudoCodeValue()
         {
             switch (AssociatedInstruction.Mnemonic)
             {
@@ -110,14 +122,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             }
         }
         
-        private OpCode GetJumpOpcode()
+        protected OpCode GetJumpOpcode()
         {
             switch (AssociatedInstruction.Mnemonic)
             {
                 case Mnemonic.Cmove:
-                    return OpCodes.Brfalse;
+                    return OnlyNeedToLoadOneOperand() ? OpCodes.Brtrue : OpCodes.Bne_Un;
                 case Mnemonic.Cmovne:
-                    return OpCodes.Brtrue;
+                    return OnlyNeedToLoadOneOperand() ? OpCodes.Brfalse : OpCodes.Beq;
                 case Mnemonic.Cmovg:
                     return OpCodes.Ble;
                 case Mnemonic.Cmovge:
@@ -142,6 +154,6 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 //case Mnemonic.Cmovns:
             }
         }
-        private bool OnlyNeedToLoadOneOperand() => booleanMode || nullMode;
+        protected bool OnlyNeedToLoadOneOperand() => booleanMode || nullMode;
     }
 }

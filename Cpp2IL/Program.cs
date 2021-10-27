@@ -6,6 +6,7 @@ using System.IO.Compression;
 using System.Linq;
 using CommandLine;
 using Cpp2IL.Core;
+using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
 using LibCpp2IL.PE;
@@ -290,6 +291,10 @@ namespace Cpp2IL
                 else
                 {
                     DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors);
+                    foreach (var kvp in ConditionalMoveAction.Counter)
+                    {
+                        Console.WriteLine($"Got: {kvp.Key} {kvp.Value} times");
+                    }
                 }
             }
 
