@@ -170,6 +170,24 @@ namespace Cpp2IL.Core
 
             return SharedState.ManagedToUnmanagedTypes[managed];
         }
+        
+        [return: NotNullIfNotNull("unmanaged")]
+        public static PropertyDefinition? AsManaged(this Il2CppPropertyDefinition? unmanaged)
+        {
+            if (unmanaged == null)
+                return null;
+
+            return SharedState.UnmanagedToManagedProperties[unmanaged];
+        }
+        
+        [return: NotNullIfNotNull("managed")]
+        public static Il2CppPropertyDefinition? AsUnmanaged(this PropertyDefinition? managed)
+        {
+            if (managed == null)
+                return null;
+
+            return SharedState.ManagedToUnmanagedProperties[managed];
+        }
 
         [return: NotNullIfNotNull("unmanaged")]
         public static TypeDefinition? AsManaged(this Il2CppTypeDefinition? unmanaged)

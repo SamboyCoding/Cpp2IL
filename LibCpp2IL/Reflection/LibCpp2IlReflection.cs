@@ -12,6 +12,7 @@ namespace LibCpp2IL
         private static readonly Dictionary<Il2CppTypeDefinition, int> _typeIndices = new();
         private static readonly Dictionary<Il2CppMethodDefinition, int> _methodIndices = new();
         private static readonly Dictionary<Il2CppFieldDefinition, int> _fieldIndices = new();
+        private static readonly Dictionary<Il2CppPropertyDefinition, int> _propertyIndices = new();
 
         internal static void ResetCaches()
         {
@@ -21,6 +22,7 @@ namespace LibCpp2IL
             _typeIndices.Clear();
             _methodIndices.Clear();
             _fieldIndices.Clear();
+            _propertyIndices.Clear();
         }
 
         public static Il2CppTypeDefinition? GetType(string name, string? @namespace = null)
@@ -133,6 +135,28 @@ namespace LibCpp2IL
             }
 
             return _fieldIndices[fieldDefinition];
+        }
+        
+        public static int GetPropertyIndexFromProperty(Il2CppPropertyDefinition propertyDefinition)
+        {
+            if (LibCpp2IlMain.TheMetadata == null) return -1;
+
+            if (_propertyIndices.Count == 0)
+            {
+                lock (_propertyIndices)
+                {
+                    if (_propertyIndices.Count == 0)
+                    {
+                        for (var i = 0; i < LibCpp2IlMain.TheMetadata.propertyDefs.Length; i++)
+                        {
+                            var def = LibCpp2IlMain.TheMetadata.propertyDefs[i];
+                            _propertyIndices[def] = i;
+                        }
+                    }
+                }
+            }
+
+            return _propertyIndices[propertyDefinition];
         }
     }
 }

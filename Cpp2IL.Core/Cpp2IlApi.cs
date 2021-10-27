@@ -261,11 +261,12 @@ namespace Cpp2IL.Core
 
             enumerable.Select(def =>
             {
-                if(!parallel)
+                if(!parallel && LibCpp2IlMain.MetadataVersion < 29)
                     Logger.Verbose($"Processing {def.Name.Name}...");
                 RunAttributeRestorationForAssembly(def, keyFunctionAddresses);
                 
-                Logger.VerboseNewline($"Finished processing {def.Name.Name}");
+                if(LibCpp2IlMain.MetadataVersion < 29)
+                    Logger.VerboseNewline($"Finished processing {def.Name.Name}");
                 return true;
             }).ToList(); //Force full evaluation
         }

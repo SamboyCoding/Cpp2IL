@@ -14,6 +14,8 @@ namespace LibCpp2IL.Metadata
         public uint token;
 
         [NonSerialized] private Il2CppTypeDefinition? _type;
+        
+        public int PropertyIndex => LibCpp2IlReflection.GetPropertyIndexFromProperty(this);
 
         public Il2CppTypeDefinition? DeclaringType
         {

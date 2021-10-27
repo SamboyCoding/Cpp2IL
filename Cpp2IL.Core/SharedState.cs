@@ -9,36 +9,37 @@ namespace Cpp2IL.Core
     public static class SharedState
     {
         //Virt methods
-        internal static readonly Dictionary<ushort, MethodDefinition> VirtualMethodsBySlot = new Dictionary<ushort, MethodDefinition>();
+        internal static readonly Dictionary<ushort, MethodDefinition> VirtualMethodsBySlot = new();
         
         //Methods
-        internal static readonly ConcurrentDictionary<ulong, MethodDefinition> MethodsByAddress = new ConcurrentDictionary<ulong, MethodDefinition>();
-        internal static readonly ConcurrentDictionary<long, MethodDefinition> MethodsByIndex = new ConcurrentDictionary<long, MethodDefinition>();
-        internal static readonly ConcurrentDictionary<Il2CppMethodDefinition, MethodDefinition> UnmanagedToManagedMethods = new ConcurrentDictionary<Il2CppMethodDefinition, MethodDefinition>();
-        internal static readonly ConcurrentDictionary<MethodDefinition, Il2CppMethodDefinition> ManagedToUnmanagedMethods = new ConcurrentDictionary<MethodDefinition, Il2CppMethodDefinition>();
+        internal static readonly ConcurrentDictionary<ulong, MethodDefinition> MethodsByAddress = new();
+        internal static readonly ConcurrentDictionary<long, MethodDefinition> MethodsByIndex = new();
+        internal static readonly ConcurrentDictionary<Il2CppMethodDefinition, MethodDefinition> UnmanagedToManagedMethods = new();
+        internal static readonly ConcurrentDictionary<MethodDefinition, Il2CppMethodDefinition> ManagedToUnmanagedMethods = new();
 
         //Generic params
-        internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndex = new Dictionary<long, GenericParameter>();
+        internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndex = new();
         
         //Type defs
-        internal static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new ConcurrentDictionary<long, TypeDefinition>();
-        internal static readonly List<TypeDefinition> AllTypeDefinitions = new List<TypeDefinition>();
-        internal static readonly ConcurrentDictionary<TypeDefinition, Il2CppTypeDefinition> ManagedToUnmanagedTypes = new ConcurrentDictionary<TypeDefinition, Il2CppTypeDefinition>();
-        internal static readonly ConcurrentDictionary<Il2CppTypeDefinition, TypeDefinition> UnmanagedToManagedTypes = new ConcurrentDictionary<Il2CppTypeDefinition, TypeDefinition>();
+        internal static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
+        internal static readonly List<TypeDefinition> AllTypeDefinitions = new();
+        internal static readonly ConcurrentDictionary<TypeDefinition, Il2CppTypeDefinition> ManagedToUnmanagedTypes = new();
+        internal static readonly ConcurrentDictionary<Il2CppTypeDefinition, TypeDefinition> UnmanagedToManagedTypes = new();
 
-        internal static readonly Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition> ConcreteImplementations = new Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition>();
+        internal static readonly Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition> ConcreteImplementations = new();
 
         //Fields
-        internal static readonly ConcurrentDictionary<Il2CppFieldDefinition, FieldDefinition> UnmanagedToManagedFields = new ConcurrentDictionary<Il2CppFieldDefinition, FieldDefinition>();
-        internal static readonly ConcurrentDictionary<FieldDefinition, Il2CppFieldDefinition> ManagedToUnmanagedFields = new ConcurrentDictionary<FieldDefinition, Il2CppFieldDefinition>();
-        internal static readonly ConcurrentDictionary<TypeDefinition, List<FieldInType>> FieldsByType = new ConcurrentDictionary<TypeDefinition, List<FieldInType>>();
+        internal static readonly ConcurrentDictionary<Il2CppFieldDefinition, FieldDefinition> UnmanagedToManagedFields = new();
+        internal static readonly ConcurrentDictionary<FieldDefinition, Il2CppFieldDefinition> ManagedToUnmanagedFields = new();
+        internal static readonly ConcurrentDictionary<TypeDefinition, List<FieldInType>> FieldsByType = new();
         
         //Properties
-        internal static readonly ConcurrentDictionary<Il2CppPropertyDefinition, PropertyDefinition> UnmanagedToManagedProperties = new ConcurrentDictionary<Il2CppPropertyDefinition, PropertyDefinition>();
+        internal static readonly ConcurrentDictionary<Il2CppPropertyDefinition, PropertyDefinition> UnmanagedToManagedProperties = new();
+        internal static readonly ConcurrentDictionary<PropertyDefinition, Il2CppPropertyDefinition> ManagedToUnmanagedProperties = new();
         
         //Assemblies
-        internal static readonly List<AssemblyDefinition> AssemblyList = new List<AssemblyDefinition>();
-        internal static readonly Dictionary<AssemblyDefinition, Il2CppImageDefinition> ManagedToUnmanagedAssemblies = new Dictionary<AssemblyDefinition, Il2CppImageDefinition>();
+        internal static readonly List<AssemblyDefinition> AssemblyList = new();
+        internal static readonly Dictionary<AssemblyDefinition, Il2CppImageDefinition> ManagedToUnmanagedAssemblies = new();
         
         internal static HashSet<ulong> AttributeGeneratorStarts = new();
 
