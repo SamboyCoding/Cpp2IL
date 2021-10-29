@@ -367,12 +367,16 @@ namespace Cpp2IL.Core
                 var methodPointer = methodDef.MethodPointer;
 
                 //Address attribute
-                if (methodPointer > 0 && addressAttribute != null)
+                if ((methodPointer > 0 || methodDef.slot != ushort.MaxValue) && addressAttribute != null)
                 {
                     var customAttribute = new CustomAttribute(ilTypeDefinition.Module.ImportReference(addressAttribute));
-                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.GetRVA(methodPointer):X}")));
-                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.MapVirtualAddressToRaw(methodPointer):X}")));
-                    customAttribute.Fields.Add(new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}")));
+                    if (methodPointer > 0)
+                    {
+                        customAttribute.Fields.Add(new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.GetRVA(methodPointer):X}")));
+                        customAttribute.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.MapVirtualAddressToRaw(methodPointer):X}")));
+                        customAttribute.Fields.Add(new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}")));
+                    }
+
                     if (methodDef.slot != ushort.MaxValue)
                     {
                         customAttribute.Fields.Add(new CustomAttributeNamedArgument("Slot", new CustomAttributeArgument(stringType, methodDef.slot.ToString())));
