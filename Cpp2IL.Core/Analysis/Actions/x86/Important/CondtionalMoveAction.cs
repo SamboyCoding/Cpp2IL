@@ -41,7 +41,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             return false;
         }
 
-        public override bool IsImportant() => !IsTypeCheckCondtionalMove();
+        public override bool IsImportant() => !IsTypeCheckCondtionalMove() && _moveAction.IsImportant();
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {

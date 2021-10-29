@@ -35,7 +35,7 @@ namespace LibCpp2IL.BinaryStructures
             sb.Append(".").Append(MethodDefinition?.Name);
             
             if(methodIndexIndex != -1)
-                sb.Append("<").Append(string.Join(", ", GenericMethodParams.GetEnumerator())).Append(">");
+                sb.Append("<").Append(string.Join(", ", GenericMethodParams.AsEnumerable())).Append(">");
 
             return sb.ToString();
         }
