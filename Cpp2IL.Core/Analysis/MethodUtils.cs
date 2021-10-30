@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis
 
             TypeReference? beingCalledOn = null;
             var objectType = objectMethodBeingCalledOn?.Type;
-            if (managedMethod.HasGenericParameters && managedMethod.DeclaringType.HasGenericParameters && objectType is GenericInstanceType {HasGenericArguments: true} git)
+            if ((managedMethod.HasGenericParameters || managedMethod.DeclaringType.HasGenericParameters) && objectType is GenericInstanceType {HasGenericArguments: true} git)
             {
                 managedMethod = Utils.MakeGenericMethodFromType(managedMethod, git);
                 beingCalledOn = git;
@@ -156,6 +156,13 @@ namespace Cpp2IL.Core.Analysis
             {
                 if (actualGenericMethod.Name == method.Name && actualGenericMethod.DeclaringType == method.DeclaringType)
                     method = actualGenericMethod;
+            }
+
+            if (actualArgs.FindLast(a => a is ConstantDefinition { Value: GenericMethodReference _ }) is ConstantDefinition { Value: GenericMethodReference actualGenericMethodRef })
+            {
+                var agm = actualGenericMethodRef.Method;
+                if (agm.Name == method.Name && agm.DeclaringType == method.DeclaringType)
+                    method = agm;
             }
 
             var tempArgs = new List<IAnalysedOperand>();

@@ -55,8 +55,16 @@ namespace Cpp2IL.Core
             );
 
             var processor = defaultConstructor.Body.GetILProcessor();
-            // processor.Emit(OpCodes.Ldarg_0);
-            // processor.Emit(OpCodes.Call, module.ImportReference(Utils.TryLookupTypeDefByName("System.Attribute").Item1.GetConstructors().First()));
+
+            var ctor = Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute").GetConstructors().FirstOrDefault();
+
+            if (ctor != null)
+            {
+                //Can be null if we're on mscorlib, thus attribute hasn't been initialized yet.
+                processor.Emit(OpCodes.Ldarg_0);
+                processor.Emit(OpCodes.Call, module.ImportReference(ctor));
+            }
+
             processor.Emit(OpCodes.Ret);
 
             typeDefinition.Methods.Add(defaultConstructor);

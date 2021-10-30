@@ -209,6 +209,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             else
                 AddComment($"Failed to resolve any matching method (there are {listOfCallableMethods.Count} at this address)");
 
+            if (ManagedMethodBeingCalled != null && MethodUtils.GetMethodInfoArg(ManagedMethodBeingCalled, context) is ConstantDefinition {Value: GenericMethodReference gmr} arg)
+            {
+                ManagedMethodBeingCalled = gmr.Method;
+
+                if (gmr.Type is GenericInstanceType git)
+                    ManagedMethodBeingCalled = gmr.Method.MakeMethodOnGenericType(git.GenericArguments.ToArray());
+            }
+
             HandleReturnType(context);
         }
 

@@ -224,6 +224,7 @@ namespace Cpp2IL.Core.Analysis
             }
             else
             {
+                body.InitLocals = true;
                 if(IsGenuineMethod)
                     RunILPostProcessors(body);
                 body.Optimize();

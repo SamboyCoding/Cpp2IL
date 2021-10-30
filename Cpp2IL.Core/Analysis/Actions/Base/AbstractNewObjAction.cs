@@ -36,13 +36,18 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
             var ctorToCall = managedConstructorCall.ManagedMethodBeingCalled!;
             
-            if (ctorToCall.DeclaringType != TypeCreated)
+            if (ctorToCall.DeclaringType.ToString() != TypeCreated.ToString())
                 ctorToCall = TypeCreated?.Resolve()?.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == ctorToCall.Parameters.Count) ?? throw new TaintedInstructionException($"Could not resolve a constructor with {ctorToCall.Parameters.Count} parameters.");
 
             if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
                 ctorToCall = ctorToCall.MakeMethodOnGenericType(git.GenericArguments.ToArray());
 
-            result.Add(processor.Create(OpCodes.Newobj, processor.ImportReference(ctorToCall)));
+            if (ctorToCall is GenericInstanceMethod gim)
+                ctorToCall = processor.ImportRecursive(gim);
+            else
+                ctorToCall = processor.ImportReference(ctorToCall);
+
+            result.Add(processor.Create(OpCodes.Newobj, ctorToCall));
             
             result.Add(processor.Create(OpCodes.Stloc, LocalReturned.Variable));
 
