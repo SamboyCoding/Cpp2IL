@@ -42,6 +42,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             var typeAddingTo = typeof(int).Module.GetType(_valueInReg.Type.FullName);
 
+            if (typeAddingTo == null)
+                throw new TaintedInstructionException($"Value in reg is {_valueInReg} with type {_valueInReg.Type}, which we can't find in the system, so can't cast our constant {_constantBeingAdded} to");
+
+            if (_valueInReg?.Variable == null)
+                throw new TaintedInstructionException("Value is reg has no variable. Stripped? Or a function param?");
+
             if (typeAddingTo == typeof(int)) 
                 instructions.AddRange(context.MakeConstant(typeAddingTo, _constantBeingAdded).GetILToLoad(context, processor));
             else if (typeAddingTo == typeof(uint))

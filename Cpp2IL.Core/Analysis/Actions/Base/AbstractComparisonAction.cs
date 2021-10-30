@@ -73,7 +73,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     if (!string.IsNullOrEmpty(argumentOneType?.FullName) && !argumentOneType!.IsArray)
                     {
                         var argumentOneTypeDefinition = argumentOneType.Resolve();
-                        if (argumentOneTypeDefinition.IsEnum)
+                        if (argumentOneTypeDefinition?.IsEnum == true)
                         {
                             var underLyingType = typeof(int).Module.GetType(argumentOneTypeDefinition.GetEnumUnderlyingType().FullName);
                             constantDefinition.Type = underLyingType;

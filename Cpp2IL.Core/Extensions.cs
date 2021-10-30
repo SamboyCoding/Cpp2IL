@@ -308,6 +308,28 @@ namespace Cpp2IL.Core
 
         public static MethodReference ImportParameterTypes(this ILProcessor processor, MethodReference input)
         {
+            ParameterDefinition ImportParam(ParameterDefinition parameter, ILProcessor processor)
+            {
+                if (parameter.ParameterType is GenericInstanceType git)
+                    return new(processor.ImportReference(git.Resolve()));
+                
+                if (parameter.ParameterType is not GenericParameter and not ByReferenceType {ElementType: GenericParameter})
+                    return new(processor.ImportReference(parameter.ParameterType));
+                
+                return parameter;
+            }
+            
+            if (input is GenericInstanceMethod gim)
+            {
+                //Preserve generic method arguments
+                //We don't have to worry about overwriting parameters because this is a GIM, so it was specially-constructed for this one call.
+                var importedParams = gim.Parameters.Select(p => ImportParam(p, processor)).ToList();
+                gim.Parameters.Clear();
+                importedParams.ForEach(gim.Parameters.Add);
+                
+                return gim;
+            }
+            
             //Copy over basic properties
             var output = new MethodReference(input.Name, input.ReturnType, input.DeclaringType)
             {
@@ -323,12 +345,7 @@ namespace Cpp2IL.Core
             //Copy params but import each one that needs importing.
             foreach (var parameter in input.Parameters)
             {
-                if(parameter.ParameterType is GenericInstanceType git)
-                    output.Parameters.Add(new(processor.ImportReference(git.Resolve())));
-                else if(parameter.ParameterType is not GenericParameter)
-                    output.Parameters.Add(new(processor.ImportReference(parameter.ParameterType)));
-                else
-                    output.Parameters.Add(parameter);
+                output.Parameters.Add(ImportParam(parameter, processor));
             }
 
             return output;

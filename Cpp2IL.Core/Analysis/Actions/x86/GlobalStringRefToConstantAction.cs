@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
     {
         public readonly string? ResolvedString;
         public ConstantDefinition? ConstantWritten;
-        public LocalDefinition LastKnownLocalInReg;
+        public LocalDefinition? LastKnownLocalInReg;
         private string? _destReg;
 
         public GlobalStringRefToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)

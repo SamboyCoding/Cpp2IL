@@ -33,7 +33,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         protected override Mono.Cecil.Cil.Instruction[] GetInstructionsToLoadValue(MethodAnalysis<Instruction> context, ILProcessor processor) => new[]
         {
-            processor.Create(OpCodes.Ldc_I8, _immediateValue),
+            processor.Create(OpCodes.Ldc_I8, (long) _immediateValue),
+            processor.Create(OpCodes.Conv_U8),
         };
     }
 }

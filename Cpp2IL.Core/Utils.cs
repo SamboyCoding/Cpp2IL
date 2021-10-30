@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Cpp2IL.Core.Analysis;
@@ -877,7 +878,7 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static IConvertible ReinterpretBytes(IConvertible original, TypeReference desired) => ReinterpretBytes(original, typeof(int).Module.GetType(desired.FullName));
+        public static IConvertible ReinterpretBytes(IConvertible original, TypeReference desired) => ReinterpretBytes(original, typeof(int).Module.GetType((desired is TypeSpecification typeSpec ? typeSpec.ElementType : desired).FullName));
 
         public static IConvertible ReinterpretBytes(IConvertible original, Type desired)
         {
@@ -900,6 +901,14 @@ namespace Cpp2IL.Core
                 double d => BitConverter.GetBytes(d),
                 _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
             };
+            
+            //Pad out with leading zeros if we have to
+            var requiredLength = LibCpp2ILUtils.VersionAwareSizeOf(desired);
+
+            if (requiredLength > rawBytes.Length)
+            {
+                rawBytes = ((byte) 0).Repeat(requiredLength - rawBytes.Length).Concat(rawBytes).ToArray();
+            }
 
             if (desired == typeof(bool))
                 return BitConverter.ToBoolean(rawBytes, 0);

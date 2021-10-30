@@ -70,7 +70,7 @@ namespace Cpp2IL.Core.Analysis
                         break; //Forgive primitive coercion.
                     if (parameterType.FullName is "System.String" or "System.Object" && cons.Value is string)
                         break; //Forgive unmanaged string literal as managed string or object param
-                    if (parameterType.IsPrimitive && cons.Value is Il2CppString cppString)
+                    if (parameterType.IsPrimitive && cons.Value is Il2CppString {HasBeenUsedAsAString: false} cppString)
                     {
                         //Il2CppString contains any unknown global address that looks vaguely like a string
                         //We try and re-interpret it here, most commonly as a floating point value, as integer constants are usually immediate values.

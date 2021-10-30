@@ -7,6 +7,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
     {
         public string ContainedString;
         public ulong Address;
+        public bool HasBeenUsedAsAString;
 
         public Il2CppString(string containedString, ulong addr)
         {

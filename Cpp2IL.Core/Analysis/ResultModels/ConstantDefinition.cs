@@ -39,10 +39,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 return Convert.ToString(intValue)!;
             }
 
-            if (Type == typeof(float))
-                return Convert.ToString((float) Value, CultureInfo.InvariantCulture);
-            if (Type == typeof(double))
-                return Convert.ToString((double) Value, CultureInfo.InvariantCulture);
+            if (Type == typeof(float) || Type == typeof(double))
+                return Convert.ToString(Convert.ToDouble(Value), CultureInfo.InvariantCulture);
 
             if (Type == typeof(UnknownGlobalAddr))
                 return Value.ToString()!;
@@ -78,12 +76,12 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 return new[] {ilProcessor.Create(Convert.ToInt64(Value) != 0 ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)};
 
             if (Type == typeof(int))
-                return new[] {ilProcessor.Create(OpCodes.Ldc_I4, Convert.ToInt32(Value))};
+                return new[] {ilProcessor.Create(OpCodes.Ldc_I4, (int) Utils.ReinterpretBytes((IConvertible) Value, Type))};
 
             if (Type == typeof(uint))
                 return new[]
                 {
-                    ilProcessor.Create(OpCodes.Ldc_I4, (int) Convert.ToUInt32(Value)),
+                    ilProcessor.Create(OpCodes.Ldc_I4, (int) Utils.ReinterpretBytes((IConvertible) Value, Type)),
                     ilProcessor.Create(OpCodes.Conv_U4) //Convert to uint
                 };
 

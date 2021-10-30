@@ -25,8 +25,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (!(constant.Value is Il2CppString str))
                 return;
-
+            
             fullMethodSignature = str.ContainedString;
+            str.HasBeenUsedAsAString = true; //Prevent this from being reinterpreted
 
             var split = fullMethodSignature.Split(new[] {"::"}, StringSplitOptions.None);
 

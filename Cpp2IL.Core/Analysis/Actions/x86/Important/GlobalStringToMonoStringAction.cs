@@ -18,10 +18,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if (LibCpp2IlMain.Binary!.is32Bit && stringConstant != null)
                 context.Stack.Pop();
 
-            _stringValue = (stringConstant?.Value as Il2CppString)?.ContainedString;
+            var il2CppString = stringConstant?.Value as Il2CppString;
+
+            _stringValue = il2CppString?.ContainedString;
             
             if(_stringValue == null)
                 return;
+
+            il2CppString!.HasBeenUsedAsAString = true;
 
             _localMade = context.MakeLocal(Utils.StringReference, reg: "rax", knownInitialValue: _stringValue);
         }
