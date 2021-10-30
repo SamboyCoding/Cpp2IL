@@ -43,9 +43,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             var localAtDest = AssociatedStringLoad.LastKnownLocalInReg;
 
             if ("System.String".Equals(localAtDest?.Type?.FullName))
+            {
                 LocalCreated = localAtDest;
+                context.SetRegContent(_destReg!, LocalCreated);
+            }
             else
+            {
                 LocalCreated = context.MakeLocal(whatWeWant, null, _destReg, AssociatedStringLoad.ResolvedString);
+            }
 
             RegisterUsedLocal(LocalCreated, context);
         }
