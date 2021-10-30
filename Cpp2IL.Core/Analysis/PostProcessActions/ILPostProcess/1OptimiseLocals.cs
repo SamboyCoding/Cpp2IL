@@ -19,12 +19,13 @@ namespace Cpp2IL.Core.Analysis.PostProcessActions.ILPostProcess
             //And count is 1
 
             foreach (var instruction in body.Instructions)
-                if (instruction.Operand is VariableDefinition variable && instruction.OpCode != OpCodes.Stloc)
+                if (instruction.Operand is VariableDefinition variable)
                     variableUsageCount[variable]++;
 
             foreach (var (variable, count) in variableUsageCount)
             {
-                if (count != 1) continue;
+                //Count: One stloc, one ldloc
+                if (count != 2) continue;
 
                 //Search through body for IL pattern
                 for (var i = 0; i < body.Instructions.Count; i++)
