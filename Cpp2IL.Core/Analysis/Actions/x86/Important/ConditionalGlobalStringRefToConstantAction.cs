@@ -83,6 +83,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             return ret.ToArray();
         }
 
+        public override bool IsImportant() => true;
+
         public override string ToPsuedoCode()
         {
             return $"string {LocalCreated?.Name} = {GetArgumentOnePseudocodeValue()} {GetJumpOpCodePseudoCodeValue()} {GetArgumentTwoPseudocodeValue()} ? \"{(_moveAction as GlobalStringRefToConstantAction)?.ResolvedString}\" : \"{AssociatedStringLoad?.ResolvedString}\"";
