@@ -1,13 +1,12 @@
 ﻿#define DEBUG_PRINT_OPERAND_DATA
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.PostProcessActions;
+using Cpp2IL.Core.Analysis.PostProcessActions.ILPostProcess;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Mono.Collections.Generic;
 
 namespace Cpp2IL.Core.Analysis
 {
@@ -112,6 +111,7 @@ namespace Cpp2IL.Core.Analysis
         public override void RunILPostProcessors(MethodBody body)
         {
             new RestoreConstReferences<Arm64Instruction>().PostProcess(Analysis, body);
+            new OptimiseLocalsPostProcessor<Arm64Instruction>().PostProcess(Analysis, body);
         }
     }
 }

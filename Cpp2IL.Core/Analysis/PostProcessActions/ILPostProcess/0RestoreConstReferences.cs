@@ -1,14 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using Cpp2IL.Core.Analysis.Actions.Base;
-using Cpp2IL.Core.Analysis.Actions.x86;
-using Cpp2IL.Core.Analysis.Actions.x86.Important;
-using Cpp2IL.Core.Analysis.ResultModels;
+﻿using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
-using Mono.Collections.Generic;
 using Code = Mono.Cecil.Cil.Code;
 
-namespace Cpp2IL.Core.Analysis.PostProcessActions
+namespace Cpp2IL.Core.Analysis.PostProcessActions.ILPostProcess
 {
     public class RestoreConstReferences<T> : ILPostProcessor<T> {
         public override void PostProcess(MethodAnalysis<T> analysis, MethodBody body)

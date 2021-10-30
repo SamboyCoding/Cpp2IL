@@ -224,7 +224,8 @@ namespace Cpp2IL.Core.Analysis
             }
             else
             {
-                RunILPostProcessors(body);
+                if(IsGenuineMethod)
+                    RunILPostProcessors(body);
                 body.Optimize();
 
                 builder.Append(string.Join("\n\t", body.Instructions))

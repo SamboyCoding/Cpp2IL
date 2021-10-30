@@ -5,6 +5,7 @@
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.PostProcessActions;
+using Cpp2IL.Core.Analysis.PostProcessActions.ILPostProcess;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -103,6 +104,7 @@ namespace Cpp2IL.Core.Analysis
         public override void RunILPostProcessors(Mono.Cecil.Cil.MethodBody body)
         {
             new RestoreConstReferences<Instruction>().PostProcess(Analysis, body);
+            new OptimiseLocalsPostProcessor<Instruction>().PostProcess(Analysis, body);
         }
 
 #if false
