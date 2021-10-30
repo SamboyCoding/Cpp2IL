@@ -31,10 +31,13 @@ namespace LibCpp2IL.Metadata
         {
             get
             {
-                if (Name?.StartsWith("__StaticArrayInitTypeSize=") != true)
-                    return new byte[0];
+                if (FieldType is not { isArray: false, isPointer: false, isType: true, isGenericType: false })
+                    return Array.Empty<byte>();
+                
+                if (FieldType.baseType!.Name?.StartsWith("__StaticArrayInitTypeSize=") != true)
+                    return Array.Empty<byte>();
 
-                var length = int.Parse(Name.Replace("__StaticArrayInitTypeSize=", ""));
+                var length = int.Parse(FieldType.baseType!.Name.Replace("__StaticArrayInitTypeSize=", ""));
                 var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(FieldIndex);
 
                 var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);

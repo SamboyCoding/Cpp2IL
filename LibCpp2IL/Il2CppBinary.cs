@@ -36,6 +36,7 @@ namespace LibCpp2IL
         protected readonly ConcurrentDictionary<ulong, Il2CppType> typesDict = new();
         public readonly Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new();
         public readonly Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new();
+        public ulong[] TypeDefinitionSizePointers;
 
         protected Il2CppBinary(MemoryStream input, long maxMetadataUsages) : base(input)
         {
@@ -89,6 +90,11 @@ namespace LibCpp2IL
                 typesDict[typesAddress[i]] = types[i];
             }
 
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            LibLogger.Verbose("\tReading type definition sizes...");
+            start = DateTime.Now;
+            TypeDefinitionSizePointers = ReadClassArrayAtVirtualAddress<ulong>(metadataRegistration.typeDefinitionsSizes, metadataRegistration.typeDefinitionsSizesCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             if (metadataRegistration.metadataUsages != 0)

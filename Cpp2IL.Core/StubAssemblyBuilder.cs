@@ -104,6 +104,11 @@ namespace Cpp2IL.Core
                 if(!isNestedType)
                     mainModule.Types.Add(definition);
 
+                if (!type.PackingSizeIsDefault)
+                    definition.PackingSize = (short)type.PackingSize;
+                if (!type.ClassSizeIsDefault)
+                    definition.ClassSize = type.Size;
+
                 SharedState.AllTypeDefinitions.Add(definition);
                 SharedState.TypeDefsByIndex[type.TypeIndex] = definition;
                 SharedState.UnmanagedToManagedTypes[type] = definition;

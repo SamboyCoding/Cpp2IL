@@ -10,10 +10,9 @@ namespace LibCpp2IL.Metadata
     {
         public int nameIndex;
         public int namespaceIndex;
-        [Version(Max = 24)] 
-        public int customAttributeIndex;
+        [Version(Max = 24)] public int customAttributeIndex;
         public int byvalTypeIndex;
-        
+
         [Version(Max = 24.5f)] //Removed in v27 
         public int byrefTypeIndex;
 
@@ -21,10 +20,8 @@ namespace LibCpp2IL.Metadata
         public int parentIndex;
         public int elementTypeIndex; // we can probably remove this one. Only used for enums
 
-        [Version(Max = 24.1f)] 
-        public int rgctxStartIndex;
-        [Version(Max = 24.1f)]
-        public int rgctxCount;
+        [Version(Max = 24.1f)] public int rgctxStartIndex;
+        [Version(Max = 24.1f)] public int rgctxCount;
 
         public int genericContainerIndex;
 
@@ -56,8 +53,33 @@ namespace LibCpp2IL.Metadata
         // 05 - is_blittable;
         // 06 - is_import_or_windows_runtime;
         // 07-10 - One of nine possible PackingSize values (0, 1, 2, 4, 8, 16, 32, 64, or 128)
+        // 11 - PackingSize is default
+        // 12 - ClassSize is default
+        // 13-16 - One of nine possible PackingSize values (0, 1, 2, 4, 8, 16, 32, 64, or 128) - the specified packing size (even for explicit layouts)
         public uint bitfield;
         public uint token;
+
+        public bool IsValueType => (bitfield >> 0 & 0x1) == 1;
+        public bool IsEnumType => (bitfield >> 1 & 0x1) == 1;
+        public bool HasFinalizer => (bitfield >> 2 & 0x1) == 1;
+        public bool HasCctor => (bitfield >> 3 & 0x1) == 1;
+        public bool IsBlittable => (bitfield >> 4 & 0x1) == 1;
+        public bool IsImportOrWindowsRuntime => (bitfield >> 5 & 0x1) == 1;
+        public uint PackingSize => ((Il2CppPackingSizeEnum)(bitfield >> 6 & 0xF)).NumericalValue();
+        public bool PackingSizeIsDefault => (bitfield >> 10 & 0x1) == 1;
+        public bool ClassSizeIsDefault => (bitfield >> 11 & 0x1) == 1;
+        public uint SpecifiedPackingSize => ((Il2CppPackingSizeEnum)(bitfield >> 12 & 0xF)).NumericalValue();
+        public bool IsByRefLike => (bitfield >> 16 & 0x1) == 1;
+
+        public int Size
+        {
+            get
+            {
+                var sizePtr = LibCpp2IlMain.Binary!.TypeDefinitionSizePointers[TypeIndex];
+                var sizes = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppTypeDefinitionSizes>(sizePtr);
+                return sizes.native_size;
+            }
+        } 
 
         public Il2CppInterfaceOffset[] InterfaceOffsets
         {
@@ -81,9 +103,10 @@ namespace LibCpp2IL.Metadata
 
         public int TypeIndex => LibCpp2IlReflection.GetTypeIndexFromType(this);
 
-        public bool IsAbstract => ((TypeAttributes) flags & TypeAttributes.Abstract) != 0;
+        public bool IsAbstract => ((TypeAttributes)flags & TypeAttributes.Abstract) != 0;
 
         private Il2CppImageDefinition? _cachedDeclaringAssembly;
+
         public Il2CppImageDefinition? DeclaringAssembly
         {
             get
@@ -91,7 +114,7 @@ namespace LibCpp2IL.Metadata
                 if (_cachedDeclaringAssembly == null)
                 {
                     if (LibCpp2IlMain.TheMetadata == null) return null;
-                    
+
                     LibCpp2ILUtils.PopulateDeclaringAssemblyCache();
                 }
 
@@ -111,12 +134,12 @@ namespace LibCpp2IL.Metadata
                     //No codegen modules here.
                     return LibCpp2IlMain.TheMetadata!.RgctxDefinitions.Skip(rgctxStartIndex).Take(rgctxCount).ToArray();
                 }
-                
+
                 var cgm = CodeGenModule;
 
                 if (cgm == null)
                     return new Il2CppRGCTXDefinition[0];
-                
+
                 var rangePair = cgm.RGCTXRanges.FirstOrDefault(r => r.token == token);
 
                 if (rangePair == null)
@@ -174,7 +197,7 @@ namespace LibCpp2IL.Metadata
         {
             get
             {
-                if(LibCpp2IlMain.TheMetadata == null)
+                if (LibCpp2IlMain.TheMetadata == null)
                     return null;
 
                 if (DeclaringType != null)
@@ -193,7 +216,7 @@ namespace LibCpp2IL.Metadata
         public FieldAttributes[]? FieldAttributes => Fields?
             .Select(f => f.typeIndex)
             .Select(idx => LibCpp2IlMain.Binary!.GetType(idx))
-            .Select(t => (FieldAttributes) t.attrs)
+            .Select(t => (FieldAttributes)t.attrs)
             .ToArray();
 
         public object?[]? FieldDefaults => Fields?
@@ -211,24 +234,28 @@ namespace LibCpp2IL.Metadata
                 var defaults = FieldDefaults;
 
                 return fields?
-                    .Select((t, i) => new Il2CppFieldReflectionData {attributes = attributes![i], field = t, defaultValue = defaults![i]})
+                    .Select((t, i) => new Il2CppFieldReflectionData { attributes = attributes![i], field = t, defaultValue = defaults![i] })
                     .ToArray();
             }
         }
 
         public Il2CppMethodDefinition[]? Methods => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.methodDefs.Skip(firstMethodIdx).Take(method_count).ToArray();
 
-        public Il2CppPropertyDefinition[]? Properties => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.propertyDefs.Skip(firstPropertyId).Take(propertyCount).Select(p =>
-        {
-            p.DeclaringType = this;
-            return p;
-        }).ToArray();
+        public Il2CppPropertyDefinition[]? Properties => LibCpp2IlMain.TheMetadata == null
+            ? null
+            : LibCpp2IlMain.TheMetadata.propertyDefs.Skip(firstPropertyId).Take(propertyCount).Select(p =>
+            {
+                p.DeclaringType = this;
+                return p;
+            }).ToArray();
 
-        public Il2CppEventDefinition[]? Events => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.eventDefs.Skip(firstEventId).Take(eventCount).Select(e =>
-        {
-            e.DeclaringType = this;
-            return e;
-        }).ToArray();
+        public Il2CppEventDefinition[]? Events => LibCpp2IlMain.TheMetadata == null
+            ? null
+            : LibCpp2IlMain.TheMetadata.eventDefs.Skip(firstEventId).Take(eventCount).Select(e =>
+            {
+                e.DeclaringType = this;
+                return e;
+            }).ToArray();
 
         public Il2CppTypeDefinition[]? NestedTypes => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.nestedTypeIndices.Skip(nestedTypesStart).Take(nested_type_count).Select(idx => LibCpp2IlMain.TheMetadata.typeDefs[idx]).ToArray();
 
@@ -248,7 +275,7 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(declaringTypeIndex).data.classIndex];
 
-        public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex]; 
+        public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
 
         public override string ToString()
         {
