@@ -507,7 +507,7 @@ namespace Cpp2IL.Core
                 toProcess.ForEach(ProcessType);
 
             var elapsed = DateTime.Now - startTime;
-            Logger.InfoNewline($"Finished processing {numProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} methods/sec", "Analyze");
+            Logger.InfoNewline($"Finished processing {numProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} types/sec, {Math.Round(numProcessed / elapsed.TotalSeconds)} methods/sec", "Analyze");
 
             if (analysisLevel != AnalysisLevel.PSUEDOCODE_ONLY)
             {

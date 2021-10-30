@@ -67,7 +67,17 @@ namespace Cpp2IL.Core.Analysis
                     if (parameterType.Resolve()?.IsEnum == true && cons.Type.IsPrimitive)
                         break; //Forgive primitive => enum coercion.
                     if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
+                    {
+                        if (parameterType.Name is not "IntPtr" && cons.Value is IConvertible ic)
+                        {
+                            //Correct primitive type - fixes boolean arguments etc.
+                            cons.Type = typeof(int).Module.GetType(parameterType.FullName);
+                            cons.Value = Utils.ReinterpretBytes(ic, parameterType);
+                        }
+
                         break; //Forgive primitive coercion.
+                    }
+
                     if (parameterType.FullName is "System.String" or "System.Object" && cons.Value is string)
                         break; //Forgive unmanaged string literal as managed string or object param
                     if (parameterType.IsPrimitive && cons.Value is Il2CppString {HasBeenUsedAsAString: false} cppString)

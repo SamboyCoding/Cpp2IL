@@ -910,30 +910,32 @@ namespace Cpp2IL.Core
                 rawBytes = ((byte) 0).Repeat(requiredLength - rawBytes.Length).Concat(rawBytes).ToArray();
             }
 
+            var startIndex = rawBytes.Length - requiredLength;
+
             if (desired == typeof(bool))
-                return BitConverter.ToBoolean(rawBytes, 0);
+                return BitConverter.ToBoolean(rawBytes, startIndex);
             if (desired == typeof(byte))
-                return rawBytes[0];
+                return rawBytes[startIndex];
             if (desired == typeof(char))
-                return BitConverter.ToChar(rawBytes, 0);
+                return BitConverter.ToChar(rawBytes, startIndex);
             if (desired == typeof(sbyte))
-                return unchecked((sbyte)rawBytes[0]);
+                return unchecked((sbyte)rawBytes[startIndex]);
             if (desired == typeof(ushort))
-                return BitConverter.ToUInt16(rawBytes, 0);
+                return BitConverter.ToUInt16(rawBytes, startIndex);
             if (desired == typeof(short))
-                return BitConverter.ToInt16(rawBytes, 0);
+                return BitConverter.ToInt16(rawBytes,startIndex);
             if (desired == typeof(uint))
-                return BitConverter.ToUInt32(rawBytes, 0);
+                return BitConverter.ToUInt32(rawBytes, startIndex);
             if (desired == typeof(int))
-                return BitConverter.ToInt32(rawBytes, 0);
+                return BitConverter.ToInt32(rawBytes, startIndex);
             if (desired == typeof(ulong))
-                return BitConverter.ToUInt64(rawBytes, 0);
+                return BitConverter.ToUInt64(rawBytes, startIndex);
             if (desired == typeof(long))
-                return BitConverter.ToInt64(rawBytes, 0);
+                return BitConverter.ToInt64(rawBytes, startIndex);
             if (desired == typeof(float))
-                return BitConverter.ToSingle(rawBytes, 0);
+                return BitConverter.ToSingle(rawBytes, startIndex);
             if(desired == typeof(double))
-                return BitConverter.ToDouble(rawBytes, 0);
+                return BitConverter.ToDouble(rawBytes, startIndex);
 
             throw new($"ReinterpretBytes: Cannot convert byte array back to a type of {desired}");
         }
