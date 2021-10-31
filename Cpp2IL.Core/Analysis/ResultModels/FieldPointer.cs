@@ -1,4 +1,6 @@
-﻿namespace Cpp2IL.Core.Analysis.ResultModels
+﻿using Cpp2IL.Core.Utils;
+
+namespace Cpp2IL.Core.Analysis.ResultModels
 {
     public class FieldPointer
     {

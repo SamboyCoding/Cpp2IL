@@ -4,6 +4,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
@@ -37,11 +38,11 @@ namespace Cpp2IL.Core
 
                 //Set base type
                 if (il2cppTypeDef.RawBaseType is { } parent)
-                    typeDefinition.BaseType = Utils.ImportTypeInto(typeDefinition, parent);
+                    typeDefinition.BaseType = Utils.Utils.ImportTypeInto(typeDefinition, parent);
 
                 //Set interfaces
                 foreach (var interfaceType in il2cppTypeDef.RawInterfaces)
-                    typeDefinition.Interfaces.Add(new InterfaceImplementation(Utils.ImportTypeInto(typeDefinition, interfaceType)));
+                    typeDefinition.Interfaces.Add(new InterfaceImplementation(Utils.Utils.ImportTypeInto(typeDefinition, interfaceType)));
             }
         }
 
@@ -51,12 +52,12 @@ namespace Cpp2IL.Core
             var defaultConstructor = new MethodDefinition(
                 ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
-                module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Void"))
+                module.ImportReference(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Void"))
             );
 
             var processor = defaultConstructor.Body.GetILProcessor();
 
-            var ctor = Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute").GetConstructors().FirstOrDefault();
+            var ctor = Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute").GetConstructors().FirstOrDefault();
 
             if (ctor != null)
             {
@@ -83,9 +84,9 @@ namespace Cpp2IL.Core
 
         private static void InjectOurTypes(AssemblyDefinition imageDef, bool suppressAttributes)
         {
-            var stringTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
-            var attributeTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute"));
-            var exceptionTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Exception"));
+            var stringTypeReference = imageDef.MainModule.ImportReference(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
+            var attributeTypeReference = imageDef.MainModule.ImportReference(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute"));
+            var exceptionTypeReference = imageDef.MainModule.ImportReference(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Exception"));
 
             if (!suppressAttributes)
             {
@@ -100,7 +101,7 @@ namespace Cpp2IL.Core
             var defaultConstructor = new MethodDefinition(
                 ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
-                imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Void"))
+                imageDef.MainModule.ImportReference(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Void"))
             );
             
             defaultConstructor.Parameters.Add(new("message", ParameterAttributes.None, stringTypeReference));
@@ -168,7 +169,7 @@ namespace Cpp2IL.Core
                 var baseMethodName = methodDef.Name[(methodDef.Name.LastIndexOf(".", StringComparison.Ordinal) + 1)..];
 
                 //Unfortunately, the only way we can get these types is by name - there is no metadata reference.
-                var (baseType, genericParamNames) = Utils.TryLookupTypeDefByName(baseMethodType);
+                var (baseType, genericParamNames) = Utils.Utils.TryLookupTypeDefByName(baseMethodType);
 
                 if (baseType == null)
                 {
@@ -197,7 +198,7 @@ namespace Cpp2IL.Core
 
                     TypeReference? ResolveGenericParameter(string name)
                     {
-                        var (type, gParams) = Utils.TryLookupTypeDefByName(name);
+                        var (type, gParams) = Utils.Utils.TryLookupTypeDefByName(name);
                         if (type == null) 
                             return GenericInstanceUtils.ResolveGenericParameterType(new GenericParameter(name, baseType), ilTypeDefinition);
 
@@ -246,7 +247,7 @@ namespace Cpp2IL.Core
             if (!suppressAttributes)
                 (addressAttribute, fieldOffsetAttribute, tokenAttribute) = GetInjectedAttributes(ilTypeDefinition);
 
-            var stringType = ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
+            var stringType = ilTypeDefinition.Module.ImportReference(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
 
             if (!suppressAttributes)
             {
@@ -287,7 +288,7 @@ namespace Cpp2IL.Core
                     ilTypeDefinition.GenericParameters.Add(p);
 
                     param.ConstraintTypes!
-                        .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(ilTypeDefinition, c)))
+                        .Select(c => new GenericParameterConstraint(Utils.Utils.ImportTypeInto(ilTypeDefinition, c)))
                         .ToList()
                         .ForEach(p.Constraints.Add);
                 }
@@ -325,7 +326,7 @@ namespace Cpp2IL.Core
             foreach (var fieldDef in cppTypeDefinition.Fields!)
             {
                 counter++;
-                var fieldTypeRef = Utils.ImportTypeInto(ilTypeDefinition, fieldDef.RawFieldType!);
+                var fieldTypeRef = Utils.Utils.ImportTypeInto(ilTypeDefinition, fieldDef.RawFieldType!);
 
                 var fieldDefinition = new FieldDefinition(fieldDef.Name, (FieldAttributes) fieldDef.RawFieldType.attrs, fieldTypeRef);
 
@@ -376,13 +377,13 @@ namespace Cpp2IL.Core
                 var methodReturnType = methodDef.RawReturnType!;
 
                 var methodDefinition = new MethodDefinition(methodDef.Name, (MethodAttributes) methodDef.flags,
-                    ilTypeDefinition.Module.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Void")));
+                    ilTypeDefinition.Module.ImportReference(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Void")));
 
                 SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
                 SharedState.ManagedToUnmanagedMethods[methodDefinition] = methodDef;
 
                 ilTypeDefinition.Methods.Add(methodDefinition);
-                methodDefinition.ReturnType = Utils.ImportTypeInto(methodDefinition, methodReturnType);
+                methodDefinition.ReturnType = Utils.Utils.ImportTypeInto(methodDefinition, methodReturnType);
 
                 if (tokenAttribute != null)
                 {
@@ -439,7 +440,7 @@ namespace Cpp2IL.Core
                             methodDefinition.GenericParameters.Add(gp);
 
                         p.ConstraintTypes!
-                            .Select(c => new GenericParameterConstraint(Utils.ImportTypeInto(methodDefinition, c)))
+                            .Select(c => new GenericParameterConstraint(Utils.Utils.ImportTypeInto(methodDefinition, c)))
                             .ToList()
                             .ForEach(gp.Constraints.Add);
                     });
@@ -482,7 +483,7 @@ namespace Cpp2IL.Core
         {
             foreach (var il2cppEventDef in cppTypeDefinition.Events!)
             {
-                var monoDef = new EventDefinition(il2cppEventDef.Name, (EventAttributes) il2cppEventDef.EventAttributes, Utils.ImportTypeInto(ilTypeDefinition, il2cppEventDef.RawType!))
+                var monoDef = new EventDefinition(il2cppEventDef.Name, (EventAttributes) il2cppEventDef.EventAttributes, Utils.Utils.ImportTypeInto(ilTypeDefinition, il2cppEventDef.RawType!))
                 {
                     AddMethod = il2cppEventDef.Adder?.AsManaged(),
                     RemoveMethod = il2cppEventDef.Remover?.AsManaged(),
@@ -547,7 +548,7 @@ namespace Cpp2IL.Core
         {
             foreach (var il2cppParam in il2CppMethodDef.Parameters!)
             {
-                var parameterTypeRef = Utils.ImportTypeInto(monoMethodDef, il2cppParam.RawType);
+                var parameterTypeRef = Utils.Utils.ImportTypeInto(monoMethodDef, il2cppParam.RawType);
 
                 if (il2cppParam.RawType.byref == 1)
                     parameterTypeRef = new ByReferenceType(parameterTypeRef);

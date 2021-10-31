@@ -36,9 +36,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             context.Actions.Remove(AssociatedStringLoad);
 
-            _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            _destReg = instruction.Op0Kind == OpKind.Register ? Utils.Utils.GetRegisterNameNew(instruction.Op0Register) : null;
 
-            var whatWeWant = context.DeclaringType.Module.ImportReference(Utils.StringReference);
+            var whatWeWant = context.DeclaringType.Module.ImportReference(Utils.Utils.StringReference);
 
             var localAtDest = AssociatedStringLoad.LastKnownLocalInReg;
 

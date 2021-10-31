@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public MethodSlotToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var constantBeingRead = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
+            var constantBeingRead = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (constantBeingRead?.Type != typeof(MethodReference))
             {
@@ -35,9 +35,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 _slot = SharedState.ManagedToUnmanagedMethods[_methodBeingRead.Resolve()]?.slot ?? 0;
 
             if(_slot != 0)
-                _localMade = context.MakeLocal(Utils.UInt32Reference, reg: Utils.GetRegisterNameNew(instruction.Op0Register), knownInitialValue: _slot);
+                _localMade = context.MakeLocal(Utils.Utils.UInt32Reference, reg: Utils.Utils.GetRegisterNameNew(instruction.Op0Register), knownInitialValue: _slot);
             else
-                _localMade = context.MakeLocal(Utils.UInt32Reference, reg: Utils.GetRegisterNameNew(instruction.Op0Register));
+                _localMade = context.MakeLocal(Utils.Utils.UInt32Reference, reg: Utils.Utils.GetRegisterNameNew(instruction.Op0Register));
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             var typeName = split[0];
             var methodSignature = split[1];
 
-            var type = Utils.TryLookupTypeDefKnownNotGeneric(typeName);
+            var type = Utils.Utils.TryLookupTypeDefKnownNotGeneric(typeName);
 
             if (type == null)
                 return;

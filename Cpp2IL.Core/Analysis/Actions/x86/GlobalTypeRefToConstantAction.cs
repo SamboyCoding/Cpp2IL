@@ -24,7 +24,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             try
             {
-                ResolvedType = Utils.TryResolveTypeReflectionData(typeData);
+                ResolvedType = Utils.Utils.TryResolveTypeReflectionData(typeData);
             }
             catch (ArgumentException)
             {
@@ -36,7 +36,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             var name = ResolvedType.Name;
             if (instruction.Mnemonic != Mnemonic.Push)
             {
-                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             }
 
             ConstantWritten = context.MakeConstant(typeof(TypeReference), ResolvedType, name, _destReg);

@@ -21,8 +21,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public RegToRegMoveAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            originalReg = Utils.GetRegisterNameNew(instruction.Op1Register);
-            newReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            originalReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            newReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             beingMoved = context.GetOperandInRegister(originalReg);
             _localBeingOverwritten = context.GetLocalInReg(newReg);
 

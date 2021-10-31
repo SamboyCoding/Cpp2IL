@@ -2,6 +2,7 @@
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using Iced.Intel;
 using LibCpp2IL;
@@ -24,8 +25,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64MetadataUsageMethodRefToRegisterAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            if (context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id)) is not { Value: long pageAddress })
-                if (instruction.Details.Operands[1].Type == Arm64OperandType.Register && context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.Details.Operands[1].Register.Id)) is { Value: long pageAddr2 })
+            if (context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id)) is not { Value: long pageAddress })
+                if (instruction.Details.Operands[1].Type == Arm64OperandType.Register && context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[1].Register.Id)) is { Value: long pageAddr2 })
                     pageAddress = pageAddr2;
                 else
                     return;
@@ -42,7 +43,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if (_metadataUsage == null)
                 return;
 
-            _destReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
             try
             {
@@ -57,8 +58,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             TypeReference declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.declaringType];
             MethodReference method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.baseMethod];
 
-            var genericTypeParams = _genericMethodRef.typeGenericParams.Select(data => Utils.TryResolveTypeReflectionData(data, method)!).ToList();
-            var genericMethodParams = _genericMethodRef.methodGenericParams.Select(data => Utils.TryResolveTypeReflectionData(data, method)!).ToList();
+            var genericTypeParams = _genericMethodRef.typeGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, method)!).ToList();
+            var genericMethodParams = _genericMethodRef.methodGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, method)!).ToList();
 
             if (genericTypeParams.Count > 0)
             {

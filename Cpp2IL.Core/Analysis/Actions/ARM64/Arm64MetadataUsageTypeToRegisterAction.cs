@@ -18,8 +18,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64MetadataUsageTypeToRegisterAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            if (context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id)) is not { Value: long pageAddress })
-                if (instruction.Details.Operands[1].Type == Arm64OperandType.Register && context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.Details.Operands[1].Register.Id)) is { Value: long pageAddr2 })
+            if (context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id)) is not { Value: long pageAddress })
+                if (instruction.Details.Operands[1].Type == Arm64OperandType.Register && context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[1].Register.Id)) is { Value: long pageAddr2 })
                     pageAddress = pageAddr2;
                 else
                     return;
@@ -36,9 +36,9 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if(_metadataUsage == null)
                 return;
 
-            _destReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
-            var resolved = Utils.TryResolveTypeReflectionData(_metadataUsage.AsType());
+            var resolved = Utils.Utils.TryResolveTypeReflectionData(_metadataUsage.AsType());
             
             if(resolved == null)
                 return;

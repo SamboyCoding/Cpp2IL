@@ -42,7 +42,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             try
             {
-                value = Utils.CoerceValue(value, destinationType);
+                value = Utils.Utils.CoerceValue(value, destinationType);
             }
             catch (Exception)
             {

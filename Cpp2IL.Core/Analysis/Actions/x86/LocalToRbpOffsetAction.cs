@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -13,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public LocalToRbpOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _regBeingRead = Utils.GetRegisterNameNew(instruction.Op1Register);
+            _regBeingRead = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
             _localBeingRead = context.GetLocalInReg(_regBeingRead);
 
             if (_localBeingRead == null) return;

@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             _attributeType = attributes[(int) OffsetInList];
 
-            var destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             LocalMade = context.MakeLocal(_attributeType, reg: destReg);
         }
     }

@@ -15,13 +15,13 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public ConstantToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _stackOffset = instruction.MemoryDisplacement32;
-            _sourceReg = Utils.GetRegisterNameNew(instruction.Op1Register);
+            _sourceReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
             _sourceConstant = context.GetConstantInReg(_sourceReg);
 
             if (_sourceConstant == null) 
                 return;
             
-            _newLocal = context.MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric(_sourceConstant.Type.FullName)!, knownInitialValue: _sourceConstant.Value);
+            _newLocal = context.MakeLocal(Utils.Utils.TryLookupTypeDefKnownNotGeneric(_sourceConstant.Type.FullName)!, knownInitialValue: _sourceConstant.Value);
             context.StackStoredLocals[(int) _stackOffset] = _newLocal;
             RegisterUsedLocal(_newLocal, context);
         }

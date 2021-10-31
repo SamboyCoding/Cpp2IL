@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         protected sealed override bool IsImplicitNRE()
         {
-            var body = Utils.GetMethodBodyAtVirtAddressNew(JumpTarget, true);
+            var body = Utils.Utils.GetMethodBodyAtVirtAddressNew(JumpTarget, true);
 
             if (body.Count > 0 && body[0].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[0].NearBranchTarget))
             {

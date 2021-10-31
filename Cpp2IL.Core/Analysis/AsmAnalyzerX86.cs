@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Analysis
 
         protected override void AnalysisRequestedExpansion(ulong ptr)
         {
-            var newInstructions = Utils.GetMethodBodyAtVirtAddressNew(ptr, false);
+            var newInstructions = Utils.Utils.GetMethodBodyAtVirtAddressNew(ptr, false);
 
             MethodEnd = newInstructions.LastOrDefault().NextIP;
             _instructions.AddRange(newInstructions);

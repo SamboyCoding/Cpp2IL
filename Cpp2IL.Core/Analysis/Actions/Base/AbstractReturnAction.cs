@@ -64,16 +64,16 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 {
                     var underLyingType = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
                     constantDefinition.Type = underLyingType;
-                    constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
+                    constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
                 }
                 else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
                 {
                     var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
                     if (!string.IsNullOrEmpty(returnValueType?.FullName) && !returnValueType!.IsArray)
                     {
-                        if (Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(context.ReturnType) && context.ReturnType.Name != "String")
+                        if (Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(context.ReturnType) && context.ReturnType.Name != "String")
                         {
-                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
+                            constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
                             constantDefinition.Type = returnValueType;
                         }
                     }

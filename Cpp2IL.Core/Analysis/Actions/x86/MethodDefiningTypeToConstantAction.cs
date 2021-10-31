@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public MethodDefiningTypeToConstantAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var constantBeingRead = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
+            var constantBeingRead = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (constantBeingRead?.Type != typeof(MethodReference))
             {
@@ -33,7 +33,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             _declaringType = _methodBeingRead.DeclaringType;
 
-            _constantMade = context.MakeConstant(typeof(TypeReference), _declaringType, reg: Utils.GetRegisterNameNew(instruction.Op0Register));
+            _constantMade = context.MakeConstant(typeof(TypeReference), _declaringType, reg: Utils.Utils.GetRegisterNameNew(instruction.Op0Register));
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

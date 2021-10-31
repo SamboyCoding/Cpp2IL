@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using Mono.Cecil.Cil;
 
@@ -11,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64ImmediateToFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
+            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
             InstanceBeingSetOn = context.GetLocalInReg(memReg);
 
             ImmValue = instruction.Details.Operands[0].Immediate;

@@ -162,7 +162,7 @@ namespace Cpp2IL.Core
         {
             SharedState.Clear();
 
-            Utils.Reset();
+            Utils.Utils.Reset();
 
             AttributeRestorer.Reset();
 
@@ -196,7 +196,7 @@ namespace Cpp2IL.Core
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Configure utils class
-            Utils.BuildPrimitiveMappings();
+            Utils.Utils.BuildPrimitiveMappings();
 
             //Set base types and interfaces
             startTwo = DateTime.Now;

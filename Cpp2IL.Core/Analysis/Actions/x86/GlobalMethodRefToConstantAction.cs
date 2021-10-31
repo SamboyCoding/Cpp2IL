@@ -43,8 +43,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             _declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.declaringType];
             _method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.baseMethod];
 
-            _genericTypeParams = _genericMethodRef.typeGenericParams.Select(data => Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
-            _genericMethodParams = _genericMethodRef.methodGenericParams.Select(data => Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
+            _genericTypeParams = _genericMethodRef.typeGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
+            _genericMethodParams = _genericMethodRef.methodGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
 
             if (_genericTypeParams.Count > 0)
             {
@@ -60,7 +60,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (instruction.Mnemonic != Mnemonic.Push)
             {
-                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             }
 
             var name = _method.Name;

@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -11,8 +12,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public FieldToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var sourceRegName = Utils.GetRegisterNameNew(instruction.MemoryBase);
-            _destRegName = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var sourceRegName = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            _destRegName = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             var sourceFieldOffset = instruction.MemoryDisplacement;
 
             var readFrom = context.GetOperandInRegister(sourceRegName);

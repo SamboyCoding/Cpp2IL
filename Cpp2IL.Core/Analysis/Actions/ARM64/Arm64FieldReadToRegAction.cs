@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 
 namespace Cpp2IL.Core.Analysis.Actions.ARM64
@@ -9,8 +10,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64FieldReadToRegAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             var sourceReg = instruction.MemoryBase()!.Id;
-            ReadFrom = context.GetLocalInReg(Utils.GetRegisterNameNew(sourceReg));
-            var destReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            ReadFrom = context.GetLocalInReg(Utils.Utils.GetRegisterNameNew(sourceReg));
+            var destReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
             if(ReadFrom?.Type == null)
                 return;

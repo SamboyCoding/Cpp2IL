@@ -18,8 +18,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public ConstantArrayOffsetPointerToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //God knows why the memory *index* contains the array, and the base contains the index, but it does.
-            var arrayContainingReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
-            _destinationReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var arrayContainingReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            _destinationReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             var arrayOffset = instruction.MemoryDisplacement;
 
             _arrayLocal = context.GetLocalInReg(arrayContainingReg);
@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             
             RegisterUsedLocal(_arrayLocal, context);
 
-            _index = (int) ((arrayOffset - Il2CppArrayUtils.FirstItemOffset) / Utils.GetPointerSizeBytes());
+            _index = (int) ((arrayOffset - Il2CppArrayUtils.FirstItemOffset) / Utils.Utils.GetPointerSizeBytes());
             
             //Regardless of if we have an index local, we can still work out the type of the array and make a local.
             //Resolve() turns array types into non-array types

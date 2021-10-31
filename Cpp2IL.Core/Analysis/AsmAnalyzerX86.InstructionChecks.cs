@@ -3,6 +3,7 @@ using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
@@ -25,10 +26,10 @@ namespace Cpp2IL.Core.Analysis
 
         private void CheckForSingleOpInstruction(Instruction instruction)
         {
-            var reg = Utils.GetRegisterNameNew(instruction.Op0Register == Register.None ? instruction.MemoryBase : instruction.Op0Register);
+            var reg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register == Register.None ? instruction.MemoryBase : instruction.Op0Register);
             var operand = Analysis.GetOperandInRegister(reg);
 
-            var memR = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var memR = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             var memOp = Analysis.GetOperandInRegister(memR);
             var memOffset = instruction.MemoryDisplacement64;
 
@@ -54,7 +55,7 @@ namespace Cpp2IL.Core.Analysis
                         break;
                     }
 
-                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
+                    var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
                     if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
                     {
                         // if (reg != "rsp")
@@ -276,14 +277,14 @@ namespace Cpp2IL.Core.Analysis
 
         private void CheckForTwoOpInstruction(Instruction instruction)
         {
-            var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
-            var r1 = Utils.GetRegisterNameNew(instruction.Op1Register);
-            var memR = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var r0 = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            var r1 = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            var memR = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
 
             var op0 = Analysis.GetOperandInRegister(r0);
             var op1 = Analysis.GetOperandInRegister(r1);
             var memOp = Analysis.GetOperandInRegister(memR);
-            var memIdxOp = instruction.MemoryIndex == Register.None ? null : Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryIndex));
+            var memIdxOp = instruction.MemoryIndex == Register.None ? null : Analysis.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(instruction.MemoryIndex));
 
             var offset0 = instruction.MemoryDisplacement32;
             var offset1 = offset0; //todo?
@@ -382,7 +383,7 @@ namespace Cpp2IL.Core.Analysis
                     }
                     else
                     {
-                        var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.MemoryDisplacement64));
+                        var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(instruction.MemoryDisplacement64));
                         if (potentialLiteral != null && !instruction.Op0Register.IsXMM())
                         {
                             if (r0 != "rsp") 
@@ -412,7 +413,7 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 case Mnemonic.Mov when type1.IsImmediate() && type0 == OpKind.Register:
                     //Constant move to reg
-                    var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));
+                    var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT.Any(m => _instructions.Any(i => i.Mnemonic == m && Utils.Utils.GetRegisterNameNew(i.Op0Register) != "rsp"));
                     Analysis.Actions.Add(MaybeWrap(new ConstantToRegAction(Analysis, instruction, mayNotBeAConstant)));
                     return;
                 case Mnemonic.Mov when type1 >= OpKind.Immediate8 && type1 <= OpKind.Immediate32to64 && offset0 != 0 && type0 == OpKind.Memory && instruction.MemoryBase == Register.None:
@@ -598,7 +599,7 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 //TODO Everything from CheckForFieldArrayAndStackReads
                 //TODO More Arithmetic
-                case Mnemonic.Add when type0 == OpKind.Register && type1.IsImmediate() && r0 != "rsp" && op0 is LocalDefinition l && !Utils.IsNumericType(l.Type):
+                case Mnemonic.Add when type0 == OpKind.Register && type1.IsImmediate() && r0 != "rsp" && op0 is LocalDefinition l && !Utils.Utils.IsNumericType(l.Type):
                     //Add reg, val
                     //But value in reg is non-numeric
                     Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
@@ -662,16 +663,16 @@ namespace Cpp2IL.Core.Analysis
 
         private void CheckForThreeOpInstruction(Instruction instruction)
         {
-            var r0 = Utils.GetRegisterNameNew(instruction.Op0Register);
-            var r1 = Utils.GetRegisterNameNew(instruction.Op1Register);
-            var r2 = Utils.GetRegisterNameNew(instruction.Op2Register);
-            var memR = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var r0 = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            var r1 = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            var r2 = Utils.Utils.GetRegisterNameNew(instruction.Op2Register);
+            var memR = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
 
             var op0 = Analysis.GetOperandInRegister(r0);
             var op1 = Analysis.GetOperandInRegister(r1);
             var op2 = Analysis.GetOperandInRegister(r2);
             var memOp = Analysis.GetOperandInRegister(memR);
-            var memIdxOp = instruction.MemoryIndex == Register.None ? null : Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryIndex));
+            var memIdxOp = instruction.MemoryIndex == Register.None ? null : Analysis.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(instruction.MemoryIndex));
 
             var offset0 = instruction.MemoryDisplacement32;
             var offset1 = offset0;

@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64AddressToRegisterAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             _addressLoaded = instruction.Details.Operands[1].Immediate;
-            _destReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
             _constantMade = context.MakeConstant(typeof(long), _addressLoaded, reg: _destReg);
         }

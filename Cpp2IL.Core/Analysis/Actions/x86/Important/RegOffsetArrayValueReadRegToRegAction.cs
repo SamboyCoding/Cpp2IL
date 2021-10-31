@@ -14,9 +14,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         public RegOffsetArrayValueReadRegToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //God knows why the memory *index* contains the array, and the base contains the index, but it does.
-            var arrayContainingReg = Utils.GetRegisterNameNew(instruction.MemoryIndex);
-            var indexReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
-            var destinationReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var arrayContainingReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryIndex);
+            var indexReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var destinationReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
 
             _arrayLocal = context.GetLocalInReg(arrayContainingReg);
 

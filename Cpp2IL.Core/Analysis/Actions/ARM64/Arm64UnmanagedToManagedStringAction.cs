@@ -23,7 +23,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if(_stringValue == null)
                 return;
 
-            _localMade = context.MakeLocal(Utils.StringReference, reg: "x0", knownInitialValue: _stringValue);
+            _localMade = context.MakeLocal(Utils.Utils.StringReference, reg: "x0", knownInitialValue: _stringValue);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Arm64Instruction> context, ILProcessor processor)

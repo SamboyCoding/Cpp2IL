@@ -1,12 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
-namespace Cpp2IL.Core.Analysis
+namespace Cpp2IL.Core.Utils
 {
     public static class FieldUtils
     {

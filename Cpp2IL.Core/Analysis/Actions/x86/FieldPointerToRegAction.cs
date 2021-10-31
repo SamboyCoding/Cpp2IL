@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -16,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         {
             if (instruction.MemoryBase != Register.None)
             {
-                var memoryBase = Utils.GetRegisterNameNew(instruction.MemoryBase);
+                var memoryBase = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
 
                 _accessedOn = context.GetLocalInReg(memoryBase);
                 if (_accessedOn?.Type == null)
@@ -28,7 +29,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             {
                 //Add?
                 var amountBeingAdded = instruction.GetImmediate(1);
-                _accessedOn = context.GetLocalInReg(Utils.GetRegisterNameNew(instruction.Op0Register));
+                _accessedOn = context.GetLocalInReg(Utils.Utils.GetRegisterNameNew(instruction.Op0Register));
                 
                 if (_accessedOn?.Type == null)
                     return;
@@ -36,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 _fieldBeingRead = FieldUtils.GetFieldBeingAccessed(_accessedOn.Type, amountBeingAdded, false);
             }
 
-            _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             
             if(_fieldBeingRead == null)
                 return;

@@ -44,7 +44,7 @@ namespace Cpp2IL.Core
 
         public static PropertyDefinition GetLengthProperty()
         {
-            var arrayType = Utils.TryLookupTypeDefKnownNotGeneric("System.Array");
+            var arrayType = Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Array");
 
             return arrayType!.Properties.First(p => p.Name == nameof(Array.Length));
         }

@@ -49,7 +49,7 @@ namespace Cpp2IL.Core.Analysis
             var op0 = instruction.Details.Operands[0]!;
             var t0 = op0.Type;
             var r0 = op0.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
-            var r0Name = Utils.GetRegisterNameNew(r0);
+            var r0Name = Utils.Utils.GetRegisterNameNew(r0);
             var var0 = Analysis.GetOperandInRegister(r0Name);
             var imm0 = op0.ImmediateSafe();
 
@@ -82,7 +82,7 @@ namespace Cpp2IL.Core.Analysis
                         //Call concrete generic function
                         Analysis.Actions.Add(new Arm64ManagedFunctionCallAction(Analysis, instruction));
                     }
-                    else if (jumpTarget < Utils.GetAddressOfNextFunctionStart((ulong)instruction.Address) && jumpTarget > (ulong)instruction.Address)
+                    else if (jumpTarget < Utils.Utils.GetAddressOfNextFunctionStart((ulong)instruction.Address) && jumpTarget > (ulong)instruction.Address)
                     {
                         //Jumping over an instruction, may need to expand function to include jumpTarget.
                     }
@@ -123,8 +123,8 @@ namespace Cpp2IL.Core.Analysis
             var r0 = op0.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
             var r1 = op1.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
 
-            var r0Name = Utils.GetRegisterNameNew(r0);
-            var r1Name = Utils.GetRegisterNameNew(r1);
+            var r0Name = Utils.Utils.GetRegisterNameNew(r0);
+            var r1Name = Utils.Utils.GetRegisterNameNew(r1);
 
             var var0 = Analysis.GetOperandInRegister(r0Name);
             var var1 = Analysis.GetOperandInRegister(r1Name);
@@ -136,7 +136,7 @@ namespace Cpp2IL.Core.Analysis
             var memoryOffset = instruction.MemoryOffset();
             var memoryIndex = instruction.MemoryIndex()?.Id ?? Arm64RegisterId.Invalid;
 
-            var memVar = Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(memoryBase));
+            var memVar = Analysis.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(memoryBase));
 
             var mnemonic = instruction.Mnemonic;
             if (mnemonic is "ldrb" or "ldrh")
@@ -181,7 +181,7 @@ namespace Cpp2IL.Core.Analysis
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
-                    if (Analysis.GetLocalInReg(Utils.GetRegisterNameNew(memoryBase)) != null)
+                    if (Analysis.GetLocalInReg(Utils.Utils.GetRegisterNameNew(memoryBase)) != null)
                     {
                         Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     }
@@ -247,7 +247,7 @@ namespace Cpp2IL.Core.Analysis
                     }
 
                     //Unknown global or string
-                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
+                    var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
                     if (potentialLiteral != null && instruction.Details.Operands[0].RegisterSafe()?.Name[0] != 'v')
                     {
                         Analysis.Actions.Add(new Arm64UnmanagedLiteralToConstantAction(Analysis, instruction, potentialLiteral, globalAddress));
@@ -268,7 +268,7 @@ namespace Cpp2IL.Core.Analysis
                     var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT
                         .Any(m => _instructions
                             .Any(i => !i.IsSkippedData && i.Mnemonic == m && !i.Details.Operands
-                                .Any(o => Utils.GetRegisterNameNew(o.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid) is "sp")));
+                                .Any(o => Utils.Utils.GetRegisterNameNew(o.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid) is "sp")));
                     
                     Analysis.Actions.Add(new Arm64ImmediateToRegAction(Analysis, instruction, mayNotBeAConstant));
                     break;
@@ -306,9 +306,9 @@ namespace Cpp2IL.Core.Analysis
             var r1 = op1.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
             var r2 = op2.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
 
-            var r0Name = Utils.GetRegisterNameNew(r0);
-            var r1Name = Utils.GetRegisterNameNew(r1);
-            var r2Name = Utils.GetRegisterNameNew(r2);
+            var r0Name = Utils.Utils.GetRegisterNameNew(r0);
+            var r1Name = Utils.Utils.GetRegisterNameNew(r1);
+            var r2Name = Utils.Utils.GetRegisterNameNew(r2);
 
             var var0 = Analysis.GetOperandInRegister(r0Name);
             var var1 = Analysis.GetOperandInRegister(r1Name);
@@ -322,7 +322,7 @@ namespace Cpp2IL.Core.Analysis
             var memoryOffset = instruction.MemoryOffset();
             var memoryIndex = instruction.MemoryIndex()?.Id ?? Arm64RegisterId.Invalid;
 
-            var memVar = Analysis.GetOperandInRegister(Utils.GetRegisterNameNew(memoryBase));
+            var memVar = Analysis.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(memoryBase));
 
             var mnemonic = instruction.Mnemonic;
 
@@ -381,7 +381,7 @@ namespace Cpp2IL.Core.Analysis
                     }
 
                     //Unknown global or string
-                    var potentialLiteral = Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
+                    var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
                     if (potentialLiteral != null && instruction.Details.Operands[0].RegisterSafe()?.Name[0] != 'v')
                     {
                         Analysis.Actions.Add(new Arm64UnmanagedLiteralToConstantAction(Analysis, instruction, potentialLiteral, globalAddress));

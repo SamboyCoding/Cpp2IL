@@ -57,7 +57,7 @@ namespace Cpp2IL.Core
 
         protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
         {
-            var instructions = Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
+            var instructions = Utils.Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
 
             try
             {

@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         
         public PushRegisterAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            regPushedFrom = Utils.GetRegisterNameNew(instruction.Op0Register);
+            regPushedFrom = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             whatIsPushed = context.GetOperandInRegister(regPushedFrom);
 
             if(whatIsPushed != null)

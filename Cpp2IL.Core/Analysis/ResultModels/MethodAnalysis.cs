@@ -4,6 +4,7 @@ using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using Iced.Intel;
 using LibCpp2IL;
@@ -52,8 +53,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public Stack<IAnalysedOperand> Stack = new();
         public Stack<IAnalysedOperand> FloatingPointStack = new();
 
-        public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.ObjectReference;
-        public TypeReference ReturnType => _method?.ReturnType ?? Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
+        public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.Utils.ObjectReference;
+        public TypeReference ReturnType => _method?.ReturnType ?? Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
 
         public Arm64ReturnValueLocation Arm64ReturnValueLocation;
 
@@ -126,7 +127,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
                 if (_parameterDestRegList.Count > 0)
                 {
-                    FunctionArgumentLocals.Add(MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", _parameterDestRegList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
+                    FunctionArgumentLocals.Add(MakeLocal(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", _parameterDestRegList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
                     haveHandledMethodInfoArg = true;
                 }
             }
@@ -149,7 +150,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             if (!haveHandledMethodInfoArg)
             {
-                var local = MakeLocal(Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
+                var local = MakeLocal(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
                 Stack.Push(local);
                 FunctionArgumentLocals.Add(local);
             }
@@ -265,7 +266,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 var dest = _parameterDestRegList.RemoveAndReturn(0);
 
                 if (arg.ParameterType.ShouldBeInFloatingPointRegister())
-                    dest = Utils.GetFloatingRegister(dest);
+                    dest = Utils.Utils.GetFloatingRegister(dest);
 
                 var name = arg.Name;
                 if (string.IsNullOrWhiteSpace(name))
@@ -300,7 +301,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public bool IsConstructor() => _method?.IsConstructor ?? false;
 
-        public TypeDefinition GetTypeOfThis() => _method?.DeclaringType ?? Utils.ObjectReference;
+        public TypeDefinition GetTypeOfThis() => _method?.DeclaringType ?? Utils.Utils.ObjectReference;
 
         public bool IsStatic() => _method?.IsStatic ?? true;
 
@@ -535,7 +536,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             if (ifElseData == null)
                 return 0UL;
 
-            return Utils.GetAddressOfInstruction(ifElseData.ConditionalJumpStatement.AssociatedInstruction);
+            return Utils.Utils.GetAddressOfInstruction(ifElseData.ConditionalJumpStatement.AssociatedInstruction);
         }
 
         public void PopStashedIfDataForElseAt(ulong elseStartAddr)
@@ -612,7 +613,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             var data = new LoopData<TInstruction>
             {
-                ipFirstInstruction = Utils.GetAddressOfInstruction(loopCondition.AssociatedInstruction),
+                ipFirstInstruction = Utils.Utils.GetAddressOfInstruction(loopCondition.AssociatedInstruction),
                 loopCondition = loopCondition,
                 ipFirstInstructionNotInLoop = firstIpNotInLoop
             };
@@ -705,7 +706,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             var target = Actions
                 .Where(a => !ActionsWhichGenerateNoIL.Contains(a.GetType()))
-                .FirstOrDefault(a => Utils.GetAddressOfInstruction(a.AssociatedInstruction) >= jumpTarget);
+                .FirstOrDefault(a => Utils.Utils.GetAddressOfInstruction(a.AssociatedInstruction) >= jumpTarget);
 
             if (target == null)
                 return;

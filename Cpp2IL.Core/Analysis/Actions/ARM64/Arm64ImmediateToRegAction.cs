@@ -16,16 +16,16 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         {
             _immValue = instruction.Details.Operands[1].Immediate;
             var destRegId = instruction.Details.Operands[0].Register.Id;
-            _destReg = Utils.GetRegisterNameNew(destRegId);
+            _destReg = Utils.Utils.GetRegisterNameNew(destRegId);
 
             var is32BitReg = destRegId < Arm64RegisterId.ARM64_REG_X0;
 
             if (mayNotBeAConstant)
             {
                 if (is32BitReg)
-                    _dest = context.MakeLocal(Utils.Int32Reference, reg: _destReg, knownInitialValue: (int) _immValue);
+                    _dest = context.MakeLocal(Utils.Utils.Int32Reference, reg: _destReg, knownInitialValue: (int) _immValue);
                 else
-                    _dest = context.MakeLocal(Utils.Int64Reference, reg: _destReg, knownInitialValue: _immValue);
+                    _dest = context.MakeLocal(Utils.Utils.Int64Reference, reg: _destReg, knownInitialValue: _immValue);
                 RegisterDefinedLocalWithoutSideEffects((LocalDefinition)_dest);
             }
             else
@@ -57,7 +57,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public override string? ToPsuedoCode()
         {
-            return $"{Utils.Int64Reference} {(_dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition)_dest).Name)} = {(_immValue > 1024 ? $"0x{_immValue:X}" : $"{_immValue}")}";
+            return $"{Utils.Utils.Int64Reference} {(_dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition)_dest).Name)} = {(_immValue > 1024 ? $"0x{_immValue:X}" : $"{_immValue}")}";
         }
 
         public override string ToTextSummary()

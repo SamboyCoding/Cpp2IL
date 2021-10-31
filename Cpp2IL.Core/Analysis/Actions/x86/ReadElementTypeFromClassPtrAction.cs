@@ -12,9 +12,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public ReadElementTypeFromClassPtrAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
 
-            var readFromReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var readFromReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             var readFrom = context.GetConstantInReg(readFromReg);
 
             _classPtr = readFrom?.Value as Il2CppClassIdentifier;

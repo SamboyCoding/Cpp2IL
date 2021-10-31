@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
@@ -230,7 +231,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             {
                 if (Arguments?.Count > 1 && Arguments[1] is ConstantDefinition {Value: FieldDefinition fieldDefinition} && Arguments[0] is LocalDefinition {KnownInitialValue: AllocatedArray arr})
                 {
-                    instantiatedArrayValues = Utils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
+                    instantiatedArrayValues = Utils.Utils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
                     wasArrayInstantiation = true;
                     AddComment("Initializes array containing values: " + instantiatedArrayValues.ToStringEnumerable());
                 }

@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public StackPointerToRegisterAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             _stackOffset = instruction.MemoryDisplacement32;
 
             _constantMade = context.MakeConstant(typeof(StackPointer), new StackPointer(_stackOffset), reg: _destReg);

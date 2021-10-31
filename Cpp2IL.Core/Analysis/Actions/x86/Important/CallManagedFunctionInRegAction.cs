@@ -1,4 +1,5 @@
 ﻿using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil;
 using Instruction = Iced.Intel.Instruction;
@@ -9,10 +10,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
     {
         public CallManagedFunctionInRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var regName = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var regName = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
 
             if (instruction.MemoryBase == Register.None)
-                regName = Utils.GetRegisterNameNew(instruction.Op0Register);
+                regName = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             
             var operand = context.GetConstantInReg(regName);
             

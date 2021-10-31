@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -16,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             ConstantValue = rawConstant;
             
-            var destRegName = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var destRegName = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
 
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);

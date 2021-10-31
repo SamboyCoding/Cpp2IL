@@ -2,7 +2,7 @@
 using Iced.Intel;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Analysis
+namespace Cpp2IL.Core.Utils
 {
     public static class StackPointerUtils
     {

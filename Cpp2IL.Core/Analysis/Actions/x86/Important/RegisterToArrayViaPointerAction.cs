@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public RegisterToArrayViaPointerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             var arrayPointerCons = context.GetConstantInReg(memReg);
             
             _arrayPointer = arrayPointerCons?.Value as Il2CppArrayOffsetPointer<Instruction>;
@@ -23,7 +23,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             TheArray = _arrayPointer.Array;
 
-            var sourceReg = Utils.GetRegisterNameNew(instruction.Op1Register);
+            var sourceReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
             _sourceOp = context.GetOperandInRegister(sourceReg);
             
             if(_arrayPointer.Array.KnownInitialValue is not AllocatedArray array)

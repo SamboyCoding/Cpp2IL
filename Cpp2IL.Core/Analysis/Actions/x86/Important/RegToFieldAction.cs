@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -13,9 +14,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         //TODO: Fix string literal to field - it's a constant in a field.
         public RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var destRegName = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var destRegName = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
-            ValueRead = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.Op1Register));
+            ValueRead = context.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(instruction.Op1Register));
 
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);
             

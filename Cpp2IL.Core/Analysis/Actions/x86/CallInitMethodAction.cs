@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if (consDef != null && consDef.Type == typeof(UnknownGlobalAddr))
             {
                 _globalAddr = (UnknownGlobalAddr) consDef.Value;
-                functionId = (int) Utils.GetNumericConstant(_globalAddr.addr, Utils.Int32Reference);
+                functionId = (int) Utils.Utils.GetNumericConstant(_globalAddr.addr, Utils.Utils.Int32Reference);
             }
         }
 

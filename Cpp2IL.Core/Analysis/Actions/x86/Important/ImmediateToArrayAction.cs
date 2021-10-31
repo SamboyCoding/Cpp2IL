@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ImmediateToArrayAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             TheArray = context.GetLocalInReg(memReg);
 
             if(TheArray?.KnownInitialValue is not AllocatedArray array)
@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             _immediateValue = instruction.GetImmediate(1);
 
-            _offset = (int) (instruction.MemoryDisplacement32 - Il2CppArrayUtils.FirstItemOffset) / Utils.GetPointerSizeBytes();
+            _offset = (int) (instruction.MemoryDisplacement32 - Il2CppArrayUtils.FirstItemOffset) / Utils.Utils.GetPointerSizeBytes();
 
             array.KnownValuesAtOffsets[_offset] = _immediateValue;
         }

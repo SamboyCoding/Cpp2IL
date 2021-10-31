@@ -15,10 +15,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ConditionalRegisterSetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _regToSet = Utils.GetRegisterNameNew(instruction.Op0Register);
+            _regToSet = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             _associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
 
-            _localMade = context.MakeLocal(Utils.BooleanReference, reg: _regToSet);
+            _localMade = context.MakeLocal(Utils.Utils.BooleanReference, reg: _regToSet);
         }
 
         protected abstract string GetTextSummaryCondition();

@@ -20,8 +20,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public ReadSpecificRGCTXDataAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
-            _constant = context.GetConstantInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _constant = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
             _rgctxArray = _constant?.Value as Il2CppRGCTXArray;
             
             if(_rgctxArray == null)
@@ -42,7 +42,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 case Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_TYPE:
                     break;
                 case Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_CLASS:
-                    _dataValue = Utils.TryResolveTypeReflectionData(_actualRgctx.Type, context.DeclaringType);
+                    _dataValue = Utils.Utils.TryResolveTypeReflectionData(_actualRgctx.Type, context.DeclaringType);
                     if (_dataValue != null)
                     {
                         _constantMade = context.MakeConstant(typeof(TypeReference), _dataValue, reg: _destReg);

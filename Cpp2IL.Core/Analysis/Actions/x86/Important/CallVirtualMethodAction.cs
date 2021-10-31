@@ -1,4 +1,5 @@
 ﻿using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.x86.Important
@@ -9,12 +10,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             ShouldUseCallvirt = true;
             
-            var inReg = context.GetOperandInRegister(Utils.GetRegisterNameNew(instruction.MemoryBase));
+            var inReg = context.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
             
             var classReadFrom = klass.backingType;
-            var slotNum = Utils.GetSlotNum((int) instruction.MemoryDisplacement);
+            var slotNum = Utils.Utils.GetSlotNum((int) instruction.MemoryDisplacement);
             
             ManagedMethodBeingCalled = MethodUtils.GetMethodFromVtableSlot(classReadFrom, slotNum);
 

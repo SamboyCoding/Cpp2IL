@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             {
                 try
                 {
-                    Utils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
+                    Utils.Utils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
                     unimportant1 = false;
                 }
                 catch
@@ -45,7 +45,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 {
                     try
                     {
-                        Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
+                        Utils.Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
                         unimportant2 = false;
                     }
                     catch
@@ -77,14 +77,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                         {
                             var underLyingType = typeof(int).Module.GetType(argumentOneTypeDefinition.GetEnumUnderlyingType().FullName);
                             constantDefinition.Type = underLyingType;
-                            constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
+                            constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
                         }
                         else
                         {
                             var argumentOneSystemType = typeof(int).Module.GetType(argumentOneType.FullName);
-                            if (argumentOneSystemType != null && Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
+                            if (argumentOneSystemType != null && Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
                             {
-                                constantDefinition.Value = Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, argumentOneType);
+                                constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, argumentOneType);
                                 constantDefinition.Type = argumentOneSystemType;
                             }
                         }

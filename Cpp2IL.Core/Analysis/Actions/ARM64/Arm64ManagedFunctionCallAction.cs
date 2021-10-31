@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -37,12 +38,12 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
                 if (!MethodUtils.CheckParameters(instruction, possibleTarget, context, !possibleTarget.IsStatic, out Arguments, InstanceBeingCalledOn, failOnLeftoverArgs: false))
                     AddComment("parameters do not match, but there is only one function at this address.");
 
-                if (!possibleTarget.IsStatic && InstanceBeingCalledOn?.Type != null && !Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), InstanceBeingCalledOn.Type))
+                if (!possibleTarget.IsStatic && InstanceBeingCalledOn?.Type != null && !Utils.Utils.IsManagedTypeAnInstanceOfCppOne(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), InstanceBeingCalledOn.Type))
                     AddComment($"This is an instance method, but the type of the 'this' parameter is mismatched. Expecting {possibleTarget.DeclaringType.Name}, actually {InstanceBeingCalledOn.Type.FullName}");
                 else if (!possibleTarget.IsStatic && InstanceBeingCalledOn?.Type != null)
                 {
                     //Matching type, but is it us or a base type?
-                    IsCallToSuperclassMethod = !Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), InstanceBeingCalledOn.Type);
+                    IsCallToSuperclassMethod = !Utils.Utils.AreManagedAndCppTypesEqual(LibCpp2ILUtils.WrapType(possibleTarget.DeclaringType!), InstanceBeingCalledOn.Type);
                 }
             }
             
@@ -65,7 +66,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             {
                 if (Arguments?.Count > 1 && Arguments[1] is ConstantDefinition {Value: FieldDefinition fieldDefinition} && Arguments[0] is LocalDefinition {KnownInitialValue: AllocatedArray arr})
                 {
-                    instantiatedArrayValues = Utils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
+                    instantiatedArrayValues = Utils.Utils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
                     wasArrayInstantiation = true;
                     AddComment("Initializes array containing values: " + instantiatedArrayValues.ToStringEnumerable());
                 }

@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.x86.Important
@@ -13,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public FieldToFpuStackAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _localBeingReadFrom = context.GetLocalInReg(Utils.GetRegisterNameNew(instruction.MemoryBase));
+            _localBeingReadFrom = context.GetLocalInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (_localBeingReadFrom == null) return;
 

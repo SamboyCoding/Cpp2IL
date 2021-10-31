@@ -33,7 +33,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             {
                 case MetadataUsageType.Type:
                 case MetadataUsageType.TypeInfo:
-                    var typeDefinition = Utils.TryResolveTypeReflectionData(usage.AsType());
+                    var typeDefinition = Utils.Utils.TryResolveTypeReflectionData(usage.AsType());
                     context.Stack.Push(context.MakeConstant(typeof(TypeDefinition), typeDefinition));
                     break;
                 case MetadataUsageType.MethodDef:
@@ -48,7 +48,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                     if (unmanagedReference.methodGenericParams.Length > 0)
                     {
                         var methodGParams = unmanagedReference.methodGenericParams
-                            .Select(data => Utils.TryResolveTypeReflectionData(data, managedMethodRef))
+                            .Select(data => Utils.Utils.TryResolveTypeReflectionData(data, managedMethodRef))
                             .ToList();
 
                         if (methodGParams.Any(g => g == null))
@@ -63,7 +63,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                     if (unmanagedReference.typeGenericParams.Length > 0)
                     {
                         var typeGParams = unmanagedReference.typeGenericParams
-                            .Select(data => Utils.TryResolveTypeReflectionData(data, managedTypeRef))
+                            .Select(data => Utils.Utils.TryResolveTypeReflectionData(data, managedTypeRef))
                             .ToList();
 
                         if (typeGParams.Any(g => g == null))

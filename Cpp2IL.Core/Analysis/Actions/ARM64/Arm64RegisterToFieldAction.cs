@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using Mono.Cecil.Cil;
 
@@ -12,10 +13,10 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64RegisterToFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            var memReg = Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
+            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
             InstanceBeingSetOn = context.GetLocalInReg(memReg);
 
-            var sourceReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            var sourceReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
             SourceOperand = context.GetOperandInRegister(sourceReg);
             
             if(InstanceBeingSetOn?.Type == null)

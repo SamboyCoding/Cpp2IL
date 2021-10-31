@@ -13,9 +13,9 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         protected override bool IsMemoryReferenceAnAbsolutePointer(Arm64Instruction instruction, int operandIdx) => instruction.Details.Operands[operandIdx].IsImmediate();
 
-        protected override string GetRegisterName(Arm64Instruction instruction, int opIdx) => Utils.GetRegisterNameNew(instruction.Details.Operands[opIdx].RegisterSafe()?.Id ?? Arm64RegisterId.Invalid);
+        protected override string GetRegisterName(Arm64Instruction instruction, int opIdx) => Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[opIdx].RegisterSafe()?.Id ?? Arm64RegisterId.Invalid);
 
-        protected override string GetMemoryBaseName(Arm64Instruction instruction) => Utils.GetRegisterNameNew(instruction.MemoryBase()?.Id ?? Arm64RegisterId.Invalid);
+        protected override string GetMemoryBaseName(Arm64Instruction instruction) => Utils.Utils.GetRegisterNameNew(instruction.MemoryBase()?.Id ?? Arm64RegisterId.Invalid);
 
         protected override ulong GetInstructionMemoryOffset(Arm64Instruction instruction) => (ulong)instruction.MemoryOffset();
 

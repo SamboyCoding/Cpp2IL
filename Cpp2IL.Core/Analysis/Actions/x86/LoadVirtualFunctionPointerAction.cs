@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -17,19 +18,19 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public LoadVirtualFunctionPointerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            regReadFrom = Utils.GetRegisterNameNew(instruction.MemoryBase);
+            regReadFrom = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(regReadFrom);
 
             if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
 
             classReadFrom = klass.backingType;
-            var slotNum = Utils.GetSlotNum((int) instruction.MemoryDisplacement);
+            var slotNum = Utils.Utils.GetSlotNum((int) instruction.MemoryDisplacement);
             
             methodPointerRead = MethodUtils.GetMethodFromVtableSlot(classReadFrom, slotNum);
 
             if (methodPointerRead == null) return;
 
-            var regPutInto = Utils.GetRegisterNameNew(instruction.Op0Register);
+            var regPutInto = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
             if (regPutInto == "rsp")
             {
                 //todo how do we handle this kind of instruction - does it even exist?

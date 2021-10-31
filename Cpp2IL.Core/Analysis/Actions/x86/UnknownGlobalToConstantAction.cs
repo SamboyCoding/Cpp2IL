@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             var offset = instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64;
             _global = new UnknownGlobalAddr(offset);
             
-            _destReg = Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
 
             _constantMade = context.MakeConstant(typeof(UnknownGlobalAddr), _global, reg: _destReg);
         }

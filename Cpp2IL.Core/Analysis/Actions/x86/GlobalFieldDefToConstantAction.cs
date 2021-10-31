@@ -24,7 +24,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (instruction.Mnemonic != Mnemonic.Push)
             {
-                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.Utils.GetRegisterNameNew(instruction.Op0Register) : null;
             }
 
             var name = ResolvedField.Name;

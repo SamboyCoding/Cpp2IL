@@ -14,10 +14,10 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64OrZeroAndImmAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            _destReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
             _immValue = instruction.Details.Operands[2].Immediate;
 
-            _localMade = context.MakeLocal(Utils.Int64Reference, reg: _destReg, knownInitialValue: _immValue);
+            _localMade = context.MakeLocal(Utils.Utils.Int64Reference, reg: _destReg, knownInitialValue: _immValue);
             RegisterDefinedLocalWithoutSideEffects(_localMade);
         }
 

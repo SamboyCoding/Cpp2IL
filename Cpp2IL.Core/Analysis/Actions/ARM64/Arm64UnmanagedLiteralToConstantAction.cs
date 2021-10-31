@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64UnmanagedLiteralToConstantAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction, string literal, ulong address) : base(context, instruction)
         {
-            var destReg = Utils.GetRegisterNameNew(instruction.Details.Operands[0].RegisterSafe()?.Id ?? Arm64RegisterId.Invalid);
+            var destReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].RegisterSafe()?.Id ?? Arm64RegisterId.Invalid);
             
             if(string.IsNullOrEmpty(destReg))
                 return;

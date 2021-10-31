@@ -13,8 +13,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         
         public SubtractRegFromRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var firstReg = Utils.GetRegisterNameNew(instruction.Op0Register);
-            var secondReg = Utils.GetRegisterNameNew(instruction.Op1Register);
+            var firstReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            var secondReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
 
             _firstOp = context.GetLocalInReg(firstReg);
             _secondOp = context.GetOperandInRegister(secondReg);

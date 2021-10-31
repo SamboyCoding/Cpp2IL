@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base

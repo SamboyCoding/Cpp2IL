@@ -3,10 +3,8 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
-using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
@@ -18,7 +16,7 @@ using LibCpp2IL.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core.Utils
 {
     public static class Utils
     {
