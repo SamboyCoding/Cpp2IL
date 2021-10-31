@@ -81,17 +81,20 @@ namespace Cpp2IL.Core
             CreateDefaultConstructor(attribute);
         }
 
-        private static void InjectOurTypes(AssemblyDefinition imageDef)
+        private static void InjectOurTypes(AssemblyDefinition imageDef, bool suppressAttributes)
         {
             var stringTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
             var attributeTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute"));
             var exceptionTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Exception"));
 
-            InjectAttribute("AddressAttribute", stringTypeReference, attributeTypeReference, imageDef, "RVA", "Offset", "VA", "Slot");
-            InjectAttribute("FieldOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
-            InjectAttribute("AttributeAttribute", stringTypeReference, attributeTypeReference, imageDef, "Name", "RVA", "Offset");
-            InjectAttribute("MetadataOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
-            InjectAttribute("TokenAttribute", stringTypeReference, attributeTypeReference, imageDef, "Token");
+            if (!suppressAttributes)
+            {
+                InjectAttribute("AddressAttribute", stringTypeReference, attributeTypeReference, imageDef, "RVA", "Offset", "VA", "Slot");
+                InjectAttribute("FieldOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
+                InjectAttribute("AttributeAttribute", stringTypeReference, attributeTypeReference, imageDef, "Name", "RVA", "Offset");
+                InjectAttribute("MetadataOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
+                InjectAttribute("TokenAttribute", stringTypeReference, attributeTypeReference, imageDef, "Token");
+            }
 
             var analysisFailedExceptionType = new TypeDefinition(InjectedNamespaceName, "AnalysisFailedException", (TypeAttributes)0x100001, exceptionTypeReference);
             var defaultConstructor = new MethodDefinition(
@@ -123,9 +126,8 @@ namespace Cpp2IL.Core
         {
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
-
-            if (!suppressAttributes)
-                InjectOurTypes(currentAssembly);
+            
+                InjectOurTypes(currentAssembly, suppressAttributes);
 
             foreach (var il2CppTypeDefinition in imageDef.Types!)
             {
