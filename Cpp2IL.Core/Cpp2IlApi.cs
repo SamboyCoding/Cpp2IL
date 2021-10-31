@@ -458,8 +458,15 @@ namespace Cpp2IL.Core
                             _ => throw new UnsupportedInstructionSetException()
                         };
 
-                        dumper.AnalyzeMethod();
-                        dumper.RunActionPostProcessors();
+                        try
+                        {
+                            dumper.AnalyzeMethod();
+                            dumper.RunActionPostProcessors();
+                        }
+                        catch (AnalysisExceptionRaisedException)
+                        {
+                            //ignore, already logged
+                        }
 
                         switch (analysisLevel)
                         {

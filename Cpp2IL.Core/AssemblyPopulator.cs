@@ -81,16 +81,42 @@ namespace Cpp2IL.Core
             CreateDefaultConstructor(attribute);
         }
 
-        private static void InjectCustomAttributes(AssemblyDefinition imageDef)
+        private static void InjectOurTypes(AssemblyDefinition imageDef)
         {
             var stringTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.String"));
             var attributeTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Attribute"));
+            var exceptionTypeReference = imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Exception"));
 
             InjectAttribute("AddressAttribute", stringTypeReference, attributeTypeReference, imageDef, "RVA", "Offset", "VA", "Slot");
             InjectAttribute("FieldOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
             InjectAttribute("AttributeAttribute", stringTypeReference, attributeTypeReference, imageDef, "Name", "RVA", "Offset");
             InjectAttribute("MetadataOffsetAttribute", stringTypeReference, attributeTypeReference, imageDef, "Offset");
             InjectAttribute("TokenAttribute", stringTypeReference, attributeTypeReference, imageDef, "Token");
+
+            var analysisFailedExceptionType = new TypeDefinition(InjectedNamespaceName, "AnalysisFailedException", (TypeAttributes)0x100001, exceptionTypeReference);
+            var defaultConstructor = new MethodDefinition(
+                ".ctor",
+                MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
+                imageDef.MainModule.ImportReference(Utils.TryLookupTypeDefKnownNotGeneric("System.Void"))
+            );
+            
+            defaultConstructor.Parameters.Add(new("message", ParameterAttributes.None, stringTypeReference));
+
+            var exceptionTypeDef = exceptionTypeReference.Resolve();
+            if (exceptionTypeDef.Methods.FirstOrDefault(m => m.IsConstructor && m.Parameters.Count == 1 && m.Parameters[0].ParameterType.Name == "String") is { } parentCtor)
+            {
+                //This block serves to not create this body on mscorlib because the method isn't initialized yet. 
+                var prc = defaultConstructor.Body.GetILProcessor();
+
+                prc.Emit(OpCodes.Ldarg_0); //load this
+                prc.Emit(OpCodes.Ldarg_1); //load message
+                prc.Emit(OpCodes.Call, imageDef.MainModule.ImportReference(parentCtor)); //call super ctor
+                prc.Emit(OpCodes.Ret); //return
+            }
+
+            analysisFailedExceptionType.Methods.Add(defaultConstructor);
+            
+            imageDef.MainModule.Types.Add(analysisFailedExceptionType);
         }
 
         public static void PopulateStubTypesInAssembly(Il2CppImageDefinition imageDef, bool suppressAttributes)
@@ -99,7 +125,7 @@ namespace Cpp2IL.Core
             var currentAssembly = firstTypeDefinition.Module.Assembly;
 
             if (!suppressAttributes)
-                InjectCustomAttributes(currentAssembly);
+                InjectOurTypes(currentAssembly);
 
             foreach (var il2CppTypeDefinition in imageDef.Types!)
             {

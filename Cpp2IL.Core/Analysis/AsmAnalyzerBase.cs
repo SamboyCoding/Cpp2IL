@@ -24,6 +24,7 @@ namespace Cpp2IL.Core.Analysis
         private readonly StringBuilder _methodFunctionality = new();
         protected readonly List<T> _instructions;
         protected BaseKeyFunctionAddresses _keyFunctionAddresses;
+        private bool _didFail;
 
         internal AsmAnalyzerBase(ulong methodPointer, IEnumerable<T> instructions, BaseKeyFunctionAddresses keyFunctionAddresses)
         {
@@ -111,30 +112,33 @@ namespace Cpp2IL.Core.Analysis
 
             builder.Append("Generated IL:\n\t");
 
-            var success = true;
+            var success = !_didFail;
 
-            foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null && localDefinition.Type != null))
+            if (success)
             {
-                var varType = localDefinition.Type!;
-
-                try
+                foreach (var localDefinition in Analysis.Locals.Where(localDefinition => localDefinition.ParameterDefinition == null && localDefinition.Type != null))
                 {
-                    if (varType is GenericInstanceType git2 && git2.HasAnyGenericParams())
-                        varType = git2.Resolve();
-                    if (varType is GenericInstanceType git)
-                        varType = processor.ImportRecursive(git, MethodDefinition);
-                    if (varType is ArrayType arr && arr.GetUltimateElementType().IsGenericParameter)
-                        throw new InvalidOperationException();
+                    var varType = localDefinition.Type!;
 
-                    localDefinition.Variable = new VariableDefinition(processor.ImportReference(varType, MethodDefinition));
-                    body.Variables.Add(localDefinition.Variable);
-                }
-                catch (InvalidOperationException)
-                {
-                    // Logger.WarnNewline($"Skipping IL Generation for {MethodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {varType}, which is invalid for use in a variable.", "Analysis");
-                    builder.Append($"IL Generation Skipped due to invalid local {localDefinition.Name} of type {localDefinition.Type}\n\t");
-                    success = false;
-                    break;
+                    try
+                    {
+                        if (varType is GenericInstanceType git2 && git2.HasAnyGenericParams())
+                            varType = git2.Resolve();
+                        if (varType is GenericInstanceType git)
+                            varType = processor.ImportRecursive(git, MethodDefinition);
+                        if (varType is ArrayType arr && arr.GetUltimateElementType().IsGenericParameter)
+                            throw new InvalidOperationException();
+
+                        localDefinition.Variable = new VariableDefinition(processor.ImportReference(varType, MethodDefinition));
+                        body.Variables.Add(localDefinition.Variable);
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        // Logger.WarnNewline($"Skipping IL Generation for {MethodDefinition}, as one of its locals, {localDefinition.Name}, has a type, {varType}, which is invalid for use in a variable.", "Analysis");
+                        builder.Append($"IL Generation Skipped due to invalid local {localDefinition.Name} of type {localDefinition.Type}\n\t");
+                        success = false;
+                        break;
+                    }
                 }
             }
 
@@ -215,12 +219,25 @@ namespace Cpp2IL.Core.Analysis
                 //don't save to body if any locals are screwed.
                 success = false;
 
+            if (body.Instructions.Count == 0)
+                success = false;
+
             if (!success)
             {
                 body.Variables.Clear();
                 processor.Clear();
-                originalVariables.ForEach(body.Variables.Add);
-                originalBody.ForEach(processor.Append);
+
+                body = new MethodBody(MethodDefinition);
+                MethodDefinition.Body = body;
+
+                var failedAnalysisException = MethodDefinition.Module.GetType(AssemblyPopulator.InjectedNamespaceName, "AnalysisFailedException");
+                var ctor = failedAnalysisException.Methods.First();
+
+                processor = body.GetILProcessor();
+
+                processor.Emit(OpCodes.Ldstr, "CPP2IL failed to recover any usable IL for this method.");
+                processor.Emit(OpCodes.Newobj, ctor);
+                processor.Emit(OpCodes.Throw);
             }
             else
             {
@@ -358,6 +375,7 @@ namespace Cpp2IL.Core.Analysis
                 catch (Exception e)
                 {
                     Logger.WarnNewline($"Failed to perform analysis on method {MethodDefinition?.FullName}\nWhile analysing instruction {instruction} at 0x{instruction.GetInstructionAddress():X}\nGot exception: {e}\n", "Analyze");
+                    _didFail = true;
                     AsmAnalyzerX86.FAILED_METHODS++;
                     throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
                 }
