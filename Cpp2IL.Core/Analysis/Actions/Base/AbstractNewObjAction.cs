@@ -52,6 +52,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             else
                 ctorToCall = processor.ImportReference(ctorToCall);
 
+            if (ctorToCall.DeclaringType is GenericInstanceType git3)
+                ctorToCall.DeclaringType = processor.ImportRecursive(git3);
+
             ctorToCall = processor.ImportParameterTypes(ctorToCall);
 
             result.Add(processor.Create(OpCodes.Newobj, ctorToCall));

@@ -306,6 +306,14 @@ namespace Cpp2IL.Core
             return newGim;
         }
 
+        public static TypeReference GetUltimateElementType(this TypeSpecification specification)
+        {
+            if (specification.ElementType is TypeSpecification t2)
+                return t2.ElementType;
+
+            return specification.ElementType;
+        }
+
         public static MethodReference ImportParameterTypes(this ILProcessor processor, MethodReference input)
         {
             ParameterDefinition ImportParam(ParameterDefinition parameter, ILProcessor processor)
@@ -318,7 +326,18 @@ namespace Cpp2IL.Core
                 
                 return parameter;
             }
-            
+
+            TypeReference ImportType(TypeReference type, ILProcessor processor)
+            {
+                if (type is GenericInstanceType git)
+                    return processor.ImportReference(git.Resolve());
+                
+                if (type is not GenericParameter && !(type is TypeSpecification spec && spec.GetUltimateElementType() is GenericParameter))
+                    return processor.ImportReference(type);
+                
+                return type;
+            }
+
             if (input is GenericInstanceMethod gim)
             {
                 //Preserve generic method arguments
@@ -326,7 +345,9 @@ namespace Cpp2IL.Core
                 var importedParams = gim.Parameters.Select(p => ImportParam(p, processor)).ToList();
                 gim.Parameters.Clear();
                 importedParams.ForEach(gim.Parameters.Add);
-                
+
+                gim.ReturnType = ImportType(gim.ReturnType, processor);
+
                 return gim;
             }
             
@@ -347,6 +368,8 @@ namespace Cpp2IL.Core
             {
                 output.Parameters.Add(ImportParam(parameter, processor));
             }
+            
+            output.ReturnType = ImportType(output.ReturnType, processor);
 
             return output;
         }

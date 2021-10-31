@@ -429,9 +429,13 @@ namespace Cpp2IL.Core
 
                 var methodDumpDir = Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps");
 
-                if (!string.IsNullOrEmpty(type.Namespace))
+                var ns = type.Namespace;
+                if (type.DeclaringType != null)
+                    ns = type.DeclaringType.Namespace;
+                
+                if (!string.IsNullOrEmpty(ns))
                 {
-                    methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(type.Namespace.Split('.')).ToArray());
+                    methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(ns.Split('.')).ToArray());
 
                     if (!Directory.Exists(methodDumpDir))
                         Directory.CreateDirectory(methodDumpDir);
