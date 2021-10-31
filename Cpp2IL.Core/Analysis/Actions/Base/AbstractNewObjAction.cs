@@ -47,6 +47,11 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             else
                 ctorToCall = processor.ImportReference(ctorToCall);
 
+            if (ctorToCall is GenericInstanceMethod gim2 && gim2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
+                ctorToCall = ctorToCall.Resolve();
+            if (ctorToCall is { DeclaringType: GenericInstanceType git2 } && git2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
+                ctorToCall = ctorToCall.Resolve();
+
             result.Add(processor.Create(OpCodes.Newobj, ctorToCall));
             
             result.Add(processor.Create(OpCodes.Stloc, LocalReturned.Variable));
