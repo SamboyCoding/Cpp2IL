@@ -42,15 +42,17 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
                 ctorToCall = ctorToCall.MakeMethodOnGenericType(git.GenericArguments.ToArray());
 
+            if (ctorToCall is GenericInstanceMethod gim2 && gim2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
+                ctorToCall = ctorToCall.Resolve();
+            if (ctorToCall is { DeclaringType: GenericInstanceType git2 } && git2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
+                ctorToCall = ctorToCall.Resolve();
+            
             if (ctorToCall is GenericInstanceMethod gim)
                 ctorToCall = processor.ImportRecursive(gim);
             else
                 ctorToCall = processor.ImportReference(ctorToCall);
 
-            if (ctorToCall is GenericInstanceMethod gim2 && gim2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
-                ctorToCall = ctorToCall.Resolve();
-            if (ctorToCall is { DeclaringType: GenericInstanceType git2 } && git2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
-                ctorToCall = ctorToCall.Resolve();
+            ctorToCall = processor.ImportParameterTypes(ctorToCall);
 
             result.Add(processor.Create(OpCodes.Newobj, ctorToCall));
             
