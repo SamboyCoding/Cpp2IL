@@ -249,11 +249,11 @@ namespace Cpp2IL.Core.Utils
             string fieldName;
             try
             {
-                fieldName = theFields.SingleOrDefault(f => f.Static && f.Constant == null && f.Offset == fieldOffset).Name;
+                fieldName = theFields.SingleOrDefault(f => f.Static && !f.Definition.IsLiteral && f.Offset == fieldOffset).Name;
             }
             catch (InvalidOperationException)
             {
-                var matchingFields = theFields.Where(f => f.Static && f.Constant == null && f.Offset == fieldOffset).ToList();
+                var matchingFields = theFields.Where(f => f.Static && !f.Definition.IsLiteral && f.Offset == fieldOffset).ToList();
                 Logger.ErrorNewline($"FieldUtils#GetStaticFieldByOffset: More than one static field at offset 0x{fieldOffset:X} in type {type}! Matches: " + matchingFields.Select(f => f.Name).ToStringEnumerable());
                 return null;
             }
