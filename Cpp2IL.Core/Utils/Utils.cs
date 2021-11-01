@@ -941,6 +941,9 @@ namespace Cpp2IL.Core.Utils
             if (coerceToType is ArrayType)
                 throw new Exception($"Can't coerce {value} to an array type {coerceToType}");
 
+            if (value is Il2CppString)
+                throw new Exception("Cannot coerce an Il2CppString. Something has gone wrong here");
+
             if (coerceToType.Resolve() is { IsEnum: true } enumType)
                 coerceToType = enumType.GetEnumUnderlyingType();
 

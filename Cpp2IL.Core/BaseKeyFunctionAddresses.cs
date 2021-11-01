@@ -137,7 +137,7 @@ namespace Cpp2IL.Core
             //Box Value
             Logger.Verbose("\tLooking for Exported il2cpp_value_box function...");
             il2cpp_value_box = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_value_box");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_string_new:X}");
+            Logger.VerboseNewline($"Found at 0x{il2cpp_value_box:X}");
 
             if (il2cpp_value_box != 0)
             {
