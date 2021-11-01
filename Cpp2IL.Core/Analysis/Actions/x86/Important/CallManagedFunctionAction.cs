@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
@@ -25,14 +26,29 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             if (LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.TryGetValue(_jumpTarget, out var concMethods))
             {
-                var genericMethodConstants = context.Constants.Where(c => c.Value is MethodReference).ToList();
 
+                // if (context.ToString().Contains("GetAnimCurveData"))
+                // {
+                //     Console.WriteLine("");
+                // }
+                
+                var genericMethodConstants = context.Constants.Where(c => c.Value is MethodReference or GenericMethodReference).ToList();
+                
                 ConstantDefinition? matchingConstant = null;
                 foreach (var m in concMethods)
                 {
                     var managedBaseMethod = m.BaseMethod.AsManaged();
+                    
+                    
 
-                    matchingConstant = genericMethodConstants.LastOrDefault(conMtd => ((MethodReference) conMtd.Value).Resolve() == managedBaseMethod.Resolve());
+                    matchingConstant = genericMethodConstants.LastOrDefault(conMtd =>
+                    {
+                        // if (conMtd.Value is MethodDefinition methodDefinition)
+                        //     return methodDefinition.Resolve() == managedBaseMethod.Resolve();
+                        if (conMtd.Value is MethodReference methodReference)
+                            return methodReference.Resolve() == managedBaseMethod.Resolve();
+                        return ((GenericMethodReference) conMtd.Value).Method.Resolve() == managedBaseMethod.Resolve();
+                    });
 
                     if (matchingConstant != null)
                         break;
@@ -40,7 +56,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
                 if (matchingConstant != null)
                 {
-                    var locatedMethod = (MethodReference) matchingConstant.Value;
+                    MethodReference locatedMethod;
+                    if (matchingConstant.Value is MethodReference value)
+                        locatedMethod = value;
+                    else 
+                        locatedMethod = ((GenericMethodReference) matchingConstant.Value).Method;
 
                     AddComment("Method resolved from concrete implementations at this address, with the help of a constant value to identify which concrete implementation.");
 
@@ -219,6 +239,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             }
 
             HandleReturnType(context);
+        }
+
+        public static string[] ourData;
+        public static string GetSomething(string id)
+        {
+            return ourData.First(i => string.Equals(id, i));
         }
 
         private void HandleReturnType(MethodAnalysis<Instruction> context)

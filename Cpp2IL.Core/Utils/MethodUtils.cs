@@ -392,8 +392,16 @@ namespace Cpp2IL.Core.Utils
             {
                 var usage = klass.VTable[slotNum];
 
-                if (usage != null)
-                    return SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
+                try
+                {
+                    if (usage != null)
+                        return SharedState.UnmanagedToManagedMethods[usage.AsMethod()];
+                }
+                catch (Exception)
+                {
+                    if (usage != null)
+                        return SharedState.UnmanagedToManagedMethods[usage.AsGenericMethodRef().baseMethod];
+                }
             }
             catch (IndexOutOfRangeException)
             {
@@ -409,7 +417,15 @@ namespace Cpp2IL.Core.Utils
             try
             {
                 var concreteUsage = concrete.VTable[slotNum];
-                var concreteMethod = concreteUsage!.AsMethod();
+                Il2CppMethodDefinition concreteMethod;
+                try
+                {
+                    concreteMethod = concreteUsage!.AsMethod();
+                }
+                catch (Exception)
+                {
+                    concreteMethod = concreteUsage!.AsGenericMethodRef().baseMethod;
+                }
 
                 Il2CppMethodDefinition? unmanagedMethod = null;
                 var thisType = klass;
