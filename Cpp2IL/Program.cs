@@ -279,13 +279,14 @@ namespace Cpp2IL
 
             if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
+            
+            Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
 
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
             if (runtimeArgs.EnableAnalysis)
             {
-                Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
-                
+
                 if (runtimeArgs.AnalyzeAllAssemblies)
                 {
                     foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
