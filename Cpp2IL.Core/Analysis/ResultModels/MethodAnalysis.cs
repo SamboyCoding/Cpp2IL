@@ -69,7 +69,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             typeof(LoadConstantUsingLeaAction)
         };
 
-        public MethodDefinition GetMethodDefinition()
+        public MethodDefinition? GetMethodDefinition()
         {
             return _method;
         }
