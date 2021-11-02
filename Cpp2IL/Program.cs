@@ -35,9 +35,12 @@ namespace Cpp2IL
                 //Windows game.
                 args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.dll");
                 var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
-                    .First(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
+                    .FirstOrDefault(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
 
                 exeName = inputExeName ?? exeName;
+
+                if (exeName == null)
+                    throw new SoftException("Failed to locate any executable in the provided game directory. Make sure the path is correct, and if you *really* know what you're doing (and know it's not supported), use the force options, documented if you provide --help.");
 
                 var unityPlayerPath = Path.Combine(gamePath, $"{exeName}.exe");
                 args.PathToMetadata = Path.Combine(gamePath, $"{exeName}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
