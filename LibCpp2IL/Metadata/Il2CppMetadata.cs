@@ -79,8 +79,8 @@ namespace LibCpp2IL.Metadata
                 //Note should there ever be a case of weird issues here, there *is* actually a 24.4, but it's barely ever used. Only change is AssemblyNameDefinition is missing
                 //the hashValueIndex field, which makes the number of assemblies mismatch the number of images.
                 //But we don't use AssemblyDefinitions anyway, so... /shrug.
-                else if ((unityVer[0] == 2019 && unityVer[1] >= 3) || (unityVer[0] == 2020 && unityVer[1] < 2)) actualVersion = 24.3f; //2019.3 - 2020.1 => 24.3
-                else if (unityVer[0] >= 2019) actualVersion = 24.2f; //2019.1 - 2019.2 => 24.2
+                else if ((unityVer[0] == 2019 && unityVer[1] > 3) || (unityVer[0] == 2019 && unityVer[1] == 3 && unityVer[2] >= 7) || (unityVer[0] == 2020 && unityVer[1] < 2)) actualVersion = 24.3f; //2019.3.7 - 2020.1 => 24.3
+                else if (unityVer[0] >= 2019) actualVersion = 24.2f; //2019.1 - 2019.3.6 => 24.2
                 else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f; //2018.3 - 2018.4 => 24.1
                 else actualVersion = version; //2018.1 - 2018.2 => 24
             }

@@ -329,7 +329,11 @@ namespace Cpp2IL.Core
             var ca = new CustomAttribute(attributeCtor);
             var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(Utils.Utils.StringReference), constructor.DeclaringType.Name));
             var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(Utils.Utils.StringReference), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
-            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.Utils.StringReference), $"0x{LibCpp2IlMain.Binary.MapVirtualAddressToRaw(generatorPtr):X}"));
+
+            if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(generatorPtr, out var offsetInBinary))
+                offsetInBinary = 0;
+            
+            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.Utils.StringReference), $"0x{offsetInBinary:X}"));
 
             ca.Fields.Add(name);
             ca.Fields.Add(rva);
@@ -377,9 +381,26 @@ namespace Cpp2IL.Core
         private static ulong GetAddressOfAttributeGeneratorFunction(Il2CppImageDefinition imageDef, Il2CppCustomAttributeTypeRange attributeTypeRange)
         {
             var rangeIndex = Array.IndexOf(LibCpp2IlMain.TheMetadata!.attributeTypeRanges, attributeTypeRange);
+
+            if (rangeIndex < 0)
+            {
+                Logger.WarnNewline("Found attribute type range that's not in the list we have?");
+                return ulong.MaxValue; //Guaranteed to be outside the mappable range, so we fall back to basic restoration
+            }
+
             ulong attributeGeneratorAddress;
             if (LibCpp2IlMain.MetadataVersion < 27)
-                attributeGeneratorAddress = LibCpp2IlMain.Binary!.GetCustomAttributeGenerator(rangeIndex);
+            {
+                try
+                {
+                    attributeGeneratorAddress = LibCpp2IlMain.Binary!.GetCustomAttributeGenerator(rangeIndex);
+                }
+                catch (IndexOutOfRangeException)
+                {
+                    Logger.WarnNewline($"Found attribute type range for token 0x{attributeTypeRange.token:X} at index {rangeIndex} which is beyond the known generator address list (length={LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.Length}).");
+                    return ulong.MaxValue;
+                }
+            }
             else
             {
                 var baseAddress = LibCpp2IlMain.Binary!.GetCodegenModuleByName(imageDef.Name!)!.customAttributeCacheGenerator;

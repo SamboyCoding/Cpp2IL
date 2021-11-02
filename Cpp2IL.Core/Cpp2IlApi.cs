@@ -256,6 +256,12 @@ namespace Cpp2IL.Core
         {
             CheckLibInitialized();
 
+            if (keyFunctionAddresses?.il2cpp_object_new is 0 && keyFunctionAddresses.il2cpp_type_get_object is 0 && keyFunctionAddresses.il2cpp_string_new is 0)
+            {
+                Logger.WarnNewline("Key function addresses are garbage - binary probably has no export table. They will not be used.", "Attribute Restoration");
+                keyFunctionAddresses = null;
+            }
+
             var enumerable = (IEnumerable<AssemblyDefinition>) SharedState.AssemblyList;
 
             if (parallel)
