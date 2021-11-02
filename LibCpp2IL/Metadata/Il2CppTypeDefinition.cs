@@ -71,15 +71,16 @@ namespace LibCpp2IL.Metadata
         public uint SpecifiedPackingSize => ((Il2CppPackingSizeEnum)(bitfield >> 12 & 0xF)).NumericalValue();
         public bool IsByRefLike => (bitfield >> 16 & 0x1) == 1;
 
-        public int Size
+        public Il2CppTypeDefinitionSizes RawSizes
         {
             get
             {
                 var sizePtr = LibCpp2IlMain.Binary!.TypeDefinitionSizePointers[TypeIndex];
-                var sizes = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppTypeDefinitionSizes>(sizePtr);
-                return sizes.native_size;
+                return LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppTypeDefinitionSizes>(sizePtr);
             }
-        } 
+        }
+
+        public int Size => RawSizes.native_size;
 
         public Il2CppInterfaceOffset[] InterfaceOffsets
         {

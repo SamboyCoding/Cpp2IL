@@ -107,7 +107,15 @@ namespace Cpp2IL.Core
                 if (!type.PackingSizeIsDefault)
                     definition.PackingSize = (short)type.PackingSize;
                 if (!type.ClassSizeIsDefault)
-                    definition.ClassSize = type.Size;
+                {
+                    if (type.Size > 1 << 30)
+                        throw new Exception($"Got invalid size for type {type}: {type.RawSizes}");
+
+                    if (type.Size != -1)
+                        definition.ClassSize = type.Size;
+                    else
+                        definition.ClassSize = 0; //Not sure what this value actually implies but it seems to work
+                }
 
                 SharedState.AllTypeDefinitions.Add(definition);
                 SharedState.TypeDefsByIndex[type.TypeIndex] = definition;
