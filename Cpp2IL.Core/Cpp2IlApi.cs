@@ -20,7 +20,7 @@ namespace Cpp2IL.Core
     public static class Cpp2IlApi
     {
         public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
-        internal static bool IlContinueThroughErrors = false;
+        internal static bool IlContinueThroughErrors;
 
         public static AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name.Name == name);
@@ -365,7 +365,18 @@ namespace Cpp2IL.Core
         public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel) =>
             AnalyseAssembly(analysisLevel, assembly, keyFunctionAddresses, methodOutputDir, parallel,  false);
 
-        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel, bool continueThroughErrors)
+        /// <summary>
+        /// Analyze the given assembly, populating method bodies within it with IL if restoration succeeds or continueThroughErrors is set.
+        /// </summary>
+        /// <param name="analysisLevel">The level of analysis to save *to the method dump file*. Has no effect if no output directory is provided</param>
+        /// <param name="assembly">The assembly to analyze</param>
+        /// <param name="keyFunctionAddresses">A BaseKeyFunctionAddresses object, populated with the addresses of il2cpp exports, for analysis purposes.</param>
+        /// <param name="methodOutputDir">The directory to create method dumps in. If null, they won't be created.</param>
+        /// <param name="parallel">True to execute analysis in parallel (using all cpu cores), false to run on a single core (much slower)</param>
+        /// <param name="continueThroughErrors">True to try and bruteforce getting as much IL saved to the assembly as possible, false to bail out if any irregularities are detected.</param>
+        /// <exception cref="ArgumentNullException">If assembly or keyFunctionAddresses is null</exception>
+        /// <exception cref="UnsupportedInstructionSetException">If the instruction set of the IL2CPP binary is not supported for analysis yet.</exception>
+        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string? methodOutputDir, bool parallel, bool continueThroughErrors)
         {
             CheckLibInitialized();
 
@@ -380,8 +391,11 @@ namespace Cpp2IL.Core
             AsmAnalyzerX86.FAILED_METHODS = 0;
             AsmAnalyzerX86.SUCCESSFUL_METHODS = 0;
 
-            Logger.InfoNewline("Dumping method bytes to " + methodOutputDir, "Analyze");
-            Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps"));
+            if (methodOutputDir != null)
+            {
+                Logger.InfoNewline("Dumping method bytes to " + methodOutputDir, "Analyze");
+                Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps"));
+            }
 
             var counter = 0;
             var toProcess = assembly.MainModule.Types.Where(t => t.Namespace != AssemblyPopulator.InjectedNamespaceName).ToList();
@@ -420,29 +434,36 @@ namespace Cpp2IL.Core
                     }
                 }
 
-                var fileSafeTypeName = type.Name;
-
-                if (type.DeclaringType != null)
-                    fileSafeTypeName = $"{type.DeclaringType.Name}--NestedType--{fileSafeTypeName}";
+                string? filename = null;
+                StringBuilder? typeDump = null;
                 
-                fileSafeTypeName = fileSafeTypeName.Replace("<", "_").Replace(">", "_").Replace("|", "_");
-
-                var methodDumpDir = Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps");
-
-                var ns = type.Namespace;
-                if (type.DeclaringType != null)
-                    ns = type.DeclaringType.Namespace;
-                
-                if (!string.IsNullOrEmpty(ns))
+                if (methodOutputDir != null)
                 {
-                    methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(ns.Split('.')).ToArray());
+                    var fileSafeTypeName = type.Name;
 
-                    if (!Directory.Exists(methodDumpDir))
-                        Directory.CreateDirectory(methodDumpDir);
+                    if (type.DeclaringType != null)
+                        fileSafeTypeName = $"{type.DeclaringType.Name}--NestedType--{fileSafeTypeName}";
+
+                    fileSafeTypeName = fileSafeTypeName.Replace("<", "_").Replace(">", "_").Replace("|", "_");
+
+                    var methodDumpDir = Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps");
+
+                    var ns = type.Namespace;
+                    if (type.DeclaringType != null)
+                        ns = type.DeclaringType.Namespace;
+
+                    if (!string.IsNullOrEmpty(ns))
+                    {
+                        methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(ns.Split('.')).ToArray());
+
+                        if (!Directory.Exists(methodDumpDir))
+                            Directory.CreateDirectory(methodDumpDir);
+                    }
+
+                    filename = Path.Combine(methodDumpDir, $"{fileSafeTypeName}_methods.txt");
+
+                    typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
                 }
-
-                var filename = Path.Combine(methodDumpDir, $"{fileSafeTypeName}_methods.txt");
-                var typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
 
                 foreach (var methodDefinition in type.Methods)
                 {
@@ -476,24 +497,38 @@ namespace Cpp2IL.Core
                         {
                             case AnalysisLevel.PRINT_ALL:
                                 dumper.BuildMethodFunctionality();
-                                typeDump.Append(dumper.GetFullDumpNoIL());
-                                typeDump.Append(dumper.BuildILToString());
+
+                                if (typeDump != null)
+                                {
+                                    typeDump.Append(dumper.GetFullDumpNoIL());
+                                    typeDump.Append(dumper.BuildILToString());
+                                }
+
                                 break;
                             case AnalysisLevel.SKIP_ASM:
                                 dumper.BuildMethodFunctionality();
-                                typeDump.Append(dumper.GetWordyFunctionality());
-                                typeDump.Append(dumper.GetPseudocode());
-                                typeDump.Append(dumper.BuildILToString());
+
+                                if (typeDump != null)
+                                {
+                                    typeDump.Append(dumper.GetWordyFunctionality());
+                                    typeDump.Append(dumper.GetPseudocode());
+                                    typeDump.Append(dumper.BuildILToString());
+                                }
+
                                 break;
                             case AnalysisLevel.SKIP_ASM_AND_SYNOPSIS:
-                                typeDump.Append(dumper.GetPseudocode());
-                                typeDump.Append(dumper.BuildILToString());
+                                if (typeDump != null)
+                                {
+                                    typeDump.Append(dumper.GetPseudocode());
+                                    typeDump.Append(dumper.BuildILToString());
+                                }
+
                                 break;
                             case AnalysisLevel.PSUEDOCODE_ONLY:
-                                typeDump.Append(dumper.GetPseudocode());
+                                typeDump?.Append(dumper.GetPseudocode());
                                 break;
                             case AnalysisLevel.IL_ONLY:
-                                typeDump.Append(dumper.BuildILToString());
+                                typeDump?.Append(dumper.BuildILToString());
                                 break;
                         }
 
@@ -509,6 +544,8 @@ namespace Cpp2IL.Core
                     }
                 }
 
+                if (filename is null || typeDump is null) return;
+                
                 lock (type) File.WriteAllText(filename, typeDump.ToString());
             }
 

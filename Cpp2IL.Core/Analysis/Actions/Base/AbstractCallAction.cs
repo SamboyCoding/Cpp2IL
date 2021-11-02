@@ -109,6 +109,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             var result = GetILToLoadParams(context, processor);
 
             var toCall = ManagedMethodBeingCalled;
+            
+            if(context.GetMethodDefinition() is {} contextMethod)
+                GenericMethodUtils.PrepareGenericMethodForEmissionToBody(toCall, toCall.DeclaringType, contextMethod.Module);
+            
             if (ManagedMethodBeingCalled.HasGenericParameters && !ManagedMethodBeingCalled.IsGenericInstance)
                 toCall = ManagedMethodBeingCalled.Resolve();
             if (ManagedMethodBeingCalled.DeclaringType is GenericInstanceType git && git.HasAnyGenericParams())
