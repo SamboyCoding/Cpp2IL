@@ -444,7 +444,12 @@ namespace Cpp2IL.Core
                     if (type.DeclaringType != null)
                         fileSafeTypeName = $"{type.DeclaringType.Name}--NestedType--{fileSafeTypeName}";
 
-                    fileSafeTypeName = fileSafeTypeName.Replace("<", "_").Replace(">", "_").Replace("|", "_");
+                    fileSafeTypeName = fileSafeTypeName
+                        .Replace("<", "_")
+                        .Replace(">", "_")
+                        .Replace("|", "_")
+                        .Replace("{", "_")
+                        .Replace("}", "_");
 
                     var methodDumpDir = Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps");
 
