@@ -461,6 +461,12 @@ namespace Cpp2IL.Core
 
                     if (!string.IsNullOrEmpty(ns))
                     {
+                        ns = ns.Replace("<", "_")
+                            .Replace(">", "_")
+                            .Replace("|", "_")
+                            .Replace("{", "_")
+                            .Replace("}", "_");
+                        
                         methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(ns.Split('.')).ToArray());
 
                         if (!Directory.Exists(methodDumpDir))
