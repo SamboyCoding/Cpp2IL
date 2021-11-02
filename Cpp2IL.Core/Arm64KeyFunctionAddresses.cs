@@ -17,8 +17,31 @@ namespace Cpp2IL.Core
             disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
             disassembler.EnableSkipDataMode = true;
 
+            var primaryExecutableSection = LibCpp2IlMain.Binary.GetEntirePrimaryExecutableSection();
+            var primaryExecutableSectionVa = LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection();
+
             Logger.InfoNewline("\tRunning entire .text section through Arm64 disassembler, this might take up to several minutes for large games, and may fail on large games if you have <16GB ram...");
-            _allInstructions = disassembler.Disassemble(LibCpp2IlMain.Binary.GetEntirePrimaryExecutableSection(), (long)LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection()).ToList();
+
+            Logger.VerboseNewline($"\tPrimary executable section is {primaryExecutableSection.Length} bytes, starting at 0x{primaryExecutableSectionVa:X} and extending to 0x{primaryExecutableSectionVa + (ulong)primaryExecutableSection.Length:X}");
+            var attributeGeneratorList = SharedState.AttributeGeneratorStarts.ToList();
+            attributeGeneratorList.SortByExtractedKey(a => a);
+            
+            Logger.VerboseNewline($"\tLast attribute generator function is at address 0x{attributeGeneratorList[^1]:X}. Skipping everything before that.");
+            
+            //Optimisation: We can skip all bytes up to and including the last attribute restoration function
+            //However we don't know how long the last restoration function is, so just skip up to it, we'd only be saving a further 100 instructions or so
+            //These come at the beginning of the .text section usually and the only thing that comes before them is unmanaged finalizers and initializers.
+            //This may not be correct on v29 which uses the Bee compiler, which may do things differently
+            var oldLength = primaryExecutableSection.Length;
+
+            var toRemove = (int) (attributeGeneratorList[^1] - primaryExecutableSectionVa);
+            primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+
+            primaryExecutableSectionVa = attributeGeneratorList[^1];
+            
+            Logger.VerboseNewline($"\tBy trimming out attribute generator functions, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100 / oldLength:f1}% saving)");
+            
+            _allInstructions = disassembler.Disassemble(primaryExecutableSection, (long)primaryExecutableSectionVa).ToList();
         }
         
         protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)

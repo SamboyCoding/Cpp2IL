@@ -130,6 +130,8 @@ namespace Cpp2IL.Core
             {
                 if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVersion))
                     throw new Exception("Initialization with LibCpp2Il failed");
+                
+                LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
             }
             catch (Exception e)
             {
@@ -151,6 +153,8 @@ namespace Cpp2IL.Core
             {
                 if (!LibCpp2IlMain.Initialize(assemblyData, metadataData, unityVersion))
                     throw new Exception("Initialization with LibCpp2Il failed");
+
+                LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
             }
             catch (Exception e)
             {
@@ -251,8 +255,6 @@ namespace Cpp2IL.Core
         public static void RunAttributeRestorationForAllAssemblies(BaseKeyFunctionAddresses? keyFunctionAddresses = null, bool parallel = true)
         {
             CheckLibInitialized();
-
-            LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
 
             var enumerable = (IEnumerable<AssemblyDefinition>) SharedState.AssemblyList;
 
