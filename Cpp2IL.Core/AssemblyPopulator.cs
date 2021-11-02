@@ -73,7 +73,7 @@ namespace Cpp2IL.Core
 
         private static void InjectAttribute(string name, TypeReference stringRef, TypeReference attributeRef, AssemblyDefinition assembly, params string[] fields)
         {
-            var attribute = new TypeDefinition(InjectedNamespaceName, name, (TypeAttributes) 0x100001, attributeRef);
+            var attribute = new TypeDefinition(InjectedNamespaceName, name, TypeAttributes.BeforeFieldInit | TypeAttributes.NotPublic, attributeRef);
 
             foreach (var field in fields)
                 attribute.Fields.Add(new FieldDefinition(field, FieldAttributes.Public, stringRef));
@@ -97,7 +97,7 @@ namespace Cpp2IL.Core
                 InjectAttribute("TokenAttribute", stringTypeReference, attributeTypeReference, imageDef, "Token");
             }
 
-            var analysisFailedExceptionType = new TypeDefinition(InjectedNamespaceName, "AnalysisFailedException", (TypeAttributes)0x100001, exceptionTypeReference);
+            var analysisFailedExceptionType = new TypeDefinition(InjectedNamespaceName, "AnalysisFailedException", TypeAttributes.BeforeFieldInit, exceptionTypeReference);
             var defaultConstructor = new MethodDefinition(
                 ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
