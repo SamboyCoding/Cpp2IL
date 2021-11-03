@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
@@ -19,10 +20,11 @@ namespace Cpp2IL.Core
 
             var primaryExecutableSection = LibCpp2IlMain.Binary.GetEntirePrimaryExecutableSection();
             var primaryExecutableSectionVa = LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection();
+            var endOfTextSection = primaryExecutableSectionVa + (ulong)primaryExecutableSection.Length;
 
             Logger.InfoNewline("\tRunning entire .text section through Arm64 disassembler, this might take up to several minutes for large games, and may fail on large games if you have <16GB ram...");
 
-            Logger.VerboseNewline($"\tPrimary executable section is {primaryExecutableSection.Length} bytes, starting at 0x{primaryExecutableSectionVa:X} and extending to 0x{primaryExecutableSectionVa + (ulong)primaryExecutableSection.Length:X}");
+            Logger.VerboseNewline($"\tPrimary executable section is {primaryExecutableSection.Length} bytes, starting at 0x{primaryExecutableSectionVa:X} and extending to 0x{endOfTextSection:X}");
             var attributeGeneratorList = SharedState.AttributeGeneratorStarts.ToList();
             attributeGeneratorList.SortByExtractedKey(a => a);
             
@@ -39,8 +41,48 @@ namespace Cpp2IL.Core
 
             primaryExecutableSectionVa = attributeGeneratorList[^1];
             
-            Logger.VerboseNewline($"\tBy trimming out attribute generator functions, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100 / oldLength:f1}% saving)");
+            Logger.VerboseNewline($"\tBy trimming out attribute generator functions, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100 / (float) oldLength:f1}% saving)");
             
+            //Some games (e.g. Muse Dash APK) contain the il2cpp-ified methods in the .text section instead of their own dedicated one.
+            //That makes this very slow
+            //Try and detect the first function
+            var methodAddresses = SharedState.MethodsByAddress.Keys.Where(a => a > 0).ToList();
+            methodAddresses.SortByExtractedKey(a => a);
+
+            if (methodAddresses[0] < endOfTextSection)
+            {
+                var exportAddresses = new[]
+                {
+                    "il2cpp_object_new", "il2cpp_value_box", "il2cpp_runtime_class_init", "il2cpp_array_new_specific",
+                    "il2cpp_type_get_object", "il2cpp_resolve_icall", "il2cpp_string_new", "il2cpp_string_new_wrapper",
+                    "il2cpp_raise_exception"
+                }.Select(LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName).Where(a => a > 0).ToArray();
+
+                var lastExport = exportAddresses.Max();
+                var firstExport = exportAddresses.Min();
+                
+                Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section. Attempting to trim them out for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}, " +
+                                      $"the first export function is at 0x{firstExport:X} and the last at 0x{lastExport:X}");
+                
+                //I am assuming, arbitrarily, that the exports are always towards the end of the managed methods, in this case.
+                var startFrom = Math.Min(firstExport, methodAddresses[^1]);
+                
+                //Just in case we didn't get the first export, let's subtract a little
+                if (startFrom > 0x100_0000)
+                    startFrom -= 0x10_0000;
+                
+                Logger.VerboseNewline($"\tTrimming everything before 0x{startFrom:X}.");
+                oldLength = primaryExecutableSection.Length;
+                
+                toRemove = (int) (startFrom - primaryExecutableSectionVa);
+                primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+
+                primaryExecutableSectionVa = startFrom;
+            
+                Logger.VerboseNewline($"\tBy trimming out most of the il2cpp-ified managed methods, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100L / (float) oldLength:f1}% saving)");
+            }
+            
+
             _allInstructions = disassembler.Disassemble(primaryExecutableSection, (long)primaryExecutableSectionVa).ToList();
         }
         

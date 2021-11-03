@@ -18,4 +18,7 @@ Cpp2IL.Core/obj/
 
 Cpp2IL.Core/bin/
 
+Il2CppBinaryAnalyzer/obj/
+Il2CppBinaryAnalyzer/bin/
+
 .vs

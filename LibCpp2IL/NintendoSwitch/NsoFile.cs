@@ -220,7 +220,6 @@ namespace LibCpp2IL.NintendoSwitch
 
                 writer.Flush();
                 unCompressedStream.Position = 0;
-                File.WriteAllBytes("uncompressed.nso",unCompressedStream.ToArray());
                 return new NsoFile(unCompressedStream, maxMetadataUsages);
             }
 
