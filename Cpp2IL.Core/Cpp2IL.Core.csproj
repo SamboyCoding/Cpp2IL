@@ -6,9 +6,9 @@
         <Nullable>enable</Nullable>
         <PackageId>Samboy063.Cpp2IL.Core</PackageId>
         <Company>Samboy063</Company>
-        <FileVersion>2021.5.2</FileVersion>
-        <Version>2021.5.2</Version>
-        <InformationalVersion>2021.5.2</InformationalVersion>
+        <FileVersion>2021.5.3</FileVersion>
+        <Version>2021.5.3</Version>
+        <InformationalVersion>2021.5.3</InformationalVersion>
         <Copyright>Copyright © Samboy063 2019-2021</Copyright>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
