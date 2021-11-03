@@ -5,6 +5,7 @@ using System.Linq;
 using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.NintendoSwitch;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL
@@ -149,17 +150,24 @@ namespace LibCpp2IL
             start = DateTime.Now;
 
             ulong codereg, metareg;
-            if (BitConverter.ToInt16(binaryBytes.Take(2).ToArray(), 0) == 0x5A4D)
+            if (BitConverter.ToInt16(binaryBytes, 0) == 0x5A4D)
             {
                 var pe = new PE.PE(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
                 Binary = pe;
 
                 (codereg, metareg) = pe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
-            } else if (BitConverter.ToInt32(binaryBytes.Take(4).ToArray(), 0) == 0x464c457f)
+            } else if (BitConverter.ToInt32(binaryBytes, 0) == 0x464c457f)
             {
                 var elf = new ElfFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, true, true), TheMetadata.maxMetadataUsages);
                 Binary = elf;
                 (codereg, metareg) = elf.FindCodeAndMetadataReg();
+            }
+            else if (BitConverter.ToInt32(binaryBytes, 0) == 0x304F534E) //NSO0
+            {
+                var nso = new NsoFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
+                nso = nso.Decompress();
+                Binary = nso;
+                (codereg, metareg) = nso.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
             }
             else
             {

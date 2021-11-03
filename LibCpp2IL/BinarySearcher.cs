@@ -72,22 +72,31 @@ namespace LibCpp2IL
         private IEnumerable<uint> FindAllWords(ulong word)
             => _binary.is32Bit ? FindAllDWords((uint) word) : FindAllQWords(word);
 
-        // Find all valid virtual address pointers to a virtual address
-        private IEnumerable<ulong> FindAllMappedWords(ulong va)
+        private IEnumerable<ulong> MapOffsetsToVirt(IEnumerable<uint> offsets)
         {
-            var fileOffsets = FindAllWords(va);
-            foreach (var offset in fileOffsets)
-                if (_binary.TryMapRawAddressToVirtual(offset, out va))
-                    yield return va;
+            foreach (var offset in offsets)
+                if (_binary.TryMapRawAddressToVirtual(offset, out var word))
+                    yield return word;
+        }
+
+        // Find all valid virtual address pointers to a virtual address
+        private IEnumerable<ulong> FindAllMappedWords(ulong word)
+        {
+            var fileOffsets = FindAllWords(word);
+            return MapOffsetsToVirt(fileOffsets);
         }
 
         // Find all valid virtual address pointers to a set of virtual addresses
         private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(FindAllMappedWords);
+        
+        private IEnumerable<ulong> FindAllMappedWords(IEnumerable<uint> va) => va.SelectMany(a => FindAllMappedWords(a));
 
         public ulong FindCodeRegistrationPre2019()
         {
             //First item in the CodeRegistration is the number of methods.
-            var vas = FindAllMappedWords((ulong) methodCount).ToList();
+            var vas = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(methodCount), 1)).ToList();
+            
+            LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong) methodCount).Select(x => $"0x{x:X}"))}");
 
             if (vas.Count == 0)
                 return 0;
@@ -194,16 +203,24 @@ namespace LibCpp2IL
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
 
             var bytesToSubtract = sizeOfMr - ptrSize * 4;
+            
+            var potentialMetaRegPointers = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(LibCpp2IlMain.TheMetadata!.typeDefs.Length), 1)).ToList();
+            
+            LibLogger.VerboseNewline($"\t\t\tFound {potentialMetaRegPointers.Count} instances of the number of type defs, {LibCpp2IlMain.TheMetadata.typeDefs.Length}");
 
-            var potentialMetaRegPointers = FindAllMappedWords((ulong) LibCpp2IlMain.TheMetadata!.typeDefs.Length);
+            potentialMetaRegPointers = potentialMetaRegPointers.Select(p => p - bytesToSubtract).ToList();
 
-            potentialMetaRegPointers = potentialMetaRegPointers.Select(p => p - bytesToSubtract);
+            foreach (var potentialMetaRegPointer in potentialMetaRegPointers)
+            {
+                var mr = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
+                
+                if (mr.metadataUsagesCount == (ulong)LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length) 
+                    return potentialMetaRegPointer;
+                else
+                    LibLogger.VerboseNewline($"\t\t\tSkipping 0x{potentialMetaRegPointer:X} as the metadata reg, metadata usage count was 0x{mr.metadataUsagesCount:X}, expecting 0x{LibCpp2IlMain.TheMetadata.metadataUsageLists.Length:X}");
+            }
 
-            return (from potentialMetaRegPointer in potentialMetaRegPointers
-                    let mr = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer)
-                    where mr.metadataUsagesCount == (ulong) LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length
-                    select potentialMetaRegPointer)
-                .FirstOrDefault();
+            return 0;
         }
 
         public ulong FindMetadataRegistrationPost24_5()

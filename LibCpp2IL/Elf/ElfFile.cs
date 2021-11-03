@@ -21,7 +21,7 @@ namespace LibCpp2IL.Elf
 
         private readonly List<(ulong start, ulong end)> relocationBlocks = new(); 
 
-        private ulong _globalOffset;
+        private long _globalOffset;
 
         public ElfFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
         {
@@ -53,10 +53,6 @@ namespace LibCpp2IL.Elf
 
             ReadProgramHeaderTable();
 
-            //Non-null assertion reason: It's just been read.
-            var execSegment = _elfProgramHeaderEntries!.First(p => (p.Flags & ElfProgramHeaderFlags.PF_X) != 0);
-            _globalOffset = execSegment.VirtualAddress - execSegment.RawAddress;
-
             LibLogger.VerboseNewline($"Read {_elfProgramHeaderEntries!.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             LibLogger.VerboseNewline("\tReading ELF section header table and names...");
@@ -77,6 +73,16 @@ namespace LibCpp2IL.Elf
             }
 
             LibLogger.VerboseNewline($"\tRead {_elfSectionHeaderEntries.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
+            if (_elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text") is { } textSection)
+            {
+                _globalOffset = (long) textSection.VirtualAddress - (long) textSection.RawAddress;
+            }
+            else
+            {
+                var execSegment = _elfProgramHeaderEntries!.First(p => (p.Flags & ElfProgramHeaderFlags.PF_X) != 0);
+                _globalOffset = (long)execSegment.VirtualAddress - (long)execSegment.RawAddress;
+            }
 
             //Get dynamic section.
             if (GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is { } dynamicSegment)
@@ -547,7 +553,7 @@ namespace LibCpp2IL.Elf
                 if (!Arm64Utils.IsB(func[^1]))
                     continue;
 
-                var registers = Arm64Utils.GetAddressesLoadedIntoRegisters(func, _globalOffset + (ulong)initializerPointer, this);
+                var registers = Arm64Utils.GetAddressesLoadedIntoRegisters(func, (ulong) (_globalOffset + initializerPointer), this);
                 
                 //Did we find the initializer defined in Il2CppCodeRegistration.cpp?
                 //It will have only x0 and x1 set.
@@ -555,8 +561,8 @@ namespace LibCpp2IL.Elf
                 {
                     //Load the function whose address is in X1
                     var secondFunc = Arm64Utils.ReadFunctionAtRawAddress(this, (uint)MapVirtualAddressToRaw(x1), 7);
-                    
-                    if(!Arm64Utils.IsB(secondFunc[^1]))
+
+                    if (!Arm64Utils.IsB(secondFunc[^1]))
                         continue;
 
                     registers = Arm64Utils.GetAddressesLoadedIntoRegisters(secondFunc, x1, this);
@@ -573,7 +579,7 @@ namespace LibCpp2IL.Elf
 
                 //Fail, move on.
                 
-                LibLogger.VerboseNewline($"\t\tInitializer function at 0x{initializerPointer:X} is probably NOT the il2cpp initializer.");
+                LibLogger.VerboseNewline($"\t\tInitializer function at 0x{initializerPointer:X} is probably NOT the il2cpp initializer - got {registers.Count} register values with keys {string.Join(", ", registers.Keys)}.");
             }
 
             return (0, 0);
@@ -624,7 +630,7 @@ namespace LibCpp2IL.Elf
 
         public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-        public override ulong GetRVA(ulong pointer) => pointer - _globalOffset;
+        public override ulong GetRVA(ulong pointer) => (ulong) ((long) pointer - _globalOffset);
 
         public override byte[] GetRawBinaryContent() => _raw;
 

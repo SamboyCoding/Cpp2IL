@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.BinaryStructures;
@@ -102,7 +103,7 @@ namespace LibCpp2IL
                 //Empty in v27
                 LibLogger.Verbose("\tReading metadata usages...");
                 start = DateTime.Now;
-                metadataUsages = ReadClassArrayAtVirtualAddress<ulong>(metadataRegistration.metadataUsages, maxMetadataUsages);
+                metadataUsages = ReadClassArrayAtVirtualAddress<ulong>(metadataRegistration.metadataUsages, (long)Math.Max((decimal) metadataRegistration.metadataUsagesCount, maxMetadataUsages));
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
@@ -401,5 +402,50 @@ namespace LibCpp2IL
         public abstract byte[] GetEntirePrimaryExecutableSection();
 
         public abstract ulong GetVirtualAddressOfPrimaryExecutableSection();
+
+        public (ulong pCodeRegistration, ulong pMetadataRegistration) PlusSearch(int methodCount, int typeDefinitionsCount)
+        {
+            ulong pCodeRegistration = 0;
+            ulong pMetadataRegistration;
+
+            LibLogger.VerboseNewline("\tAttempting to locate code and metadata registration functions...");
+
+            var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount);
+
+            LibLogger.VerboseNewline("\t\t-Searching for MetadataReg...");
+            
+            pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 24.5f 
+                ? plusSearch.FindMetadataRegistrationPre24_5() 
+                : plusSearch.FindMetadataRegistrationPost24_5();
+
+            LibLogger.VerboseNewline("\t\t-Searching for CodeReg...");
+
+            if (pCodeRegistration == 0)
+            {
+                if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                {
+                    LibLogger.VerboseNewline("\t\t\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
+                    pCodeRegistration = plusSearch.FindCodeRegistrationPost2019();
+                }
+                else
+                    pCodeRegistration = plusSearch.FindCodeRegistrationPre2019();
+            }
+
+            if (pCodeRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
+            {
+                LibLogger.Info("Couldn't identify a CodeRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
+                var crInput = Console.ReadLine();
+                ulong.TryParse(crInput, NumberStyles.HexNumber, null, out pCodeRegistration);
+            }
+
+            if (pMetadataRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
+            {
+                LibLogger.Info("Couldn't identify a MetadataRegistration address. If you know it, enter it now, otherwise enter nothing or zero to fail: ");
+                var mrInput = Console.ReadLine();
+                ulong.TryParse(mrInput, NumberStyles.HexNumber, null, out pMetadataRegistration);
+            }
+
+            return (pCodeRegistration, pMetadataRegistration);
+        }
     }
 }
