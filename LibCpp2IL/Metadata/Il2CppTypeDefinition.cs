@@ -212,7 +212,23 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppTypeReflectionData? BaseType => parentIndex == -1 ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(parentIndex));
 
-        public Il2CppFieldDefinition[]? Fields => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.fieldDefs.Skip(firstFieldIdx).Take(field_count).ToArray();
+        public Il2CppFieldDefinition[]? Fields
+        {
+            get
+            {
+                if (LibCpp2IlMain.TheMetadata == null)
+                    return null;
+                
+                if (firstFieldIdx < 0 || field_count == 0)
+                    return Array.Empty<Il2CppFieldDefinition>();
+
+                var ret = new Il2CppFieldDefinition[field_count];
+
+                Array.Copy(LibCpp2IlMain.TheMetadata.fieldDefs, firstFieldIdx, ret, 0, field_count);
+
+                return ret;
+            }
+        }
 
         public FieldAttributes[]? FieldAttributes => Fields?
             .Select(f => f.typeIndex)
@@ -240,15 +256,45 @@ namespace LibCpp2IL.Metadata
             }
         }
 
-        public Il2CppMethodDefinition[]? Methods => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.methodDefs.Skip(firstMethodIdx).Take(method_count).ToArray();
-
-        public Il2CppPropertyDefinition[]? Properties => LibCpp2IlMain.TheMetadata == null
-            ? null
-            : LibCpp2IlMain.TheMetadata.propertyDefs.Skip(firstPropertyId).Take(propertyCount).Select(p =>
+        public Il2CppMethodDefinition[]? Methods
+        {
+            get
             {
-                p.DeclaringType = this;
-                return p;
-            }).ToArray();
+                if (LibCpp2IlMain.TheMetadata == null)
+                    return null;
+                
+                if (firstMethodIdx < 0 || method_count == 0)
+                    return Array.Empty<Il2CppMethodDefinition>();
+
+                var ret = new Il2CppMethodDefinition[method_count];
+
+                Array.Copy(LibCpp2IlMain.TheMetadata.methodDefs, firstMethodIdx, ret, 0, method_count);
+
+                return ret;
+            }
+        }
+
+        public Il2CppPropertyDefinition[]? Properties
+        {
+            get
+            {
+                if (LibCpp2IlMain.TheMetadata == null)
+                    return null;
+                
+                if (firstPropertyId < 0 || propertyCount == 0)
+                    return Array.Empty<Il2CppPropertyDefinition>();
+
+                var ret = new Il2CppPropertyDefinition[propertyCount];
+
+                Array.Copy(LibCpp2IlMain.TheMetadata.propertyDefs, firstPropertyId, ret, 0, propertyCount);
+                
+                return ret.Select(p =>
+                {
+                    p.DeclaringType = this;
+                    return p;
+                }).ToArray();
+            }
+        }
 
         public Il2CppEventDefinition[]? Events => LibCpp2IlMain.TheMetadata == null
             ? null

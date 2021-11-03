@@ -264,7 +264,7 @@ namespace LibCpp2IL
                     builder.Add(b);
 
 
-                return Encoding.Default.GetString(builder.ToArray());
+                return Encoding.UTF8.GetString(builder.ToArray());
             }
             finally
             {

@@ -80,12 +80,23 @@ namespace LibCpp2IL.Metadata
 
         public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
 
-        public Il2CppParameterDefinition[]? InternalParameterData => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null
-            ? null
-            : LibCpp2IlMain.TheMetadata.parameterDefs
-                .Skip(parameterStart)
-                .Take(parameterCount)
-                .ToArray();
+        public Il2CppParameterDefinition[]? InternalParameterData
+        {
+            get
+            {
+                if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null)
+                    return null;
+
+                if (parameterStart < 0 || parameterCount == 0)
+                    return Array.Empty<Il2CppParameterDefinition>();
+
+                var ret = new Il2CppParameterDefinition[parameterCount];
+
+                Array.Copy(LibCpp2IlMain.TheMetadata.parameterDefs, parameterStart, ret, 0, parameterCount);
+
+                return ret;
+            }
+        }
 
         public Il2CppType[]? InternalParameterTypes => InternalParameterData == null
             ? null

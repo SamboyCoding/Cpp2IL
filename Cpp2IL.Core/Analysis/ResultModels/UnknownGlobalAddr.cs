@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         internal int RawAddr => (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
 
-        internal byte[] FirstTenBytes => LibCpp2IlMain.Binary!.GetRawBinaryContent().SubArray(RawAddr, 10);
+        internal byte[] FirstTenBytes => LibCpp2IlMain.Binary!.ReadByteArrayAtRawAddress(RawAddr, 10);
 
         public override string ToString()
         {
