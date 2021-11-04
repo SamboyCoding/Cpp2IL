@@ -33,6 +33,10 @@ namespace Cpp2IL.Core
         
         public ulong il2cpp_value_box; //Api function (exported)
         public ulong il2cpp_vm_object_box; //Thunked from above
+
+        public ulong il2cpp_object_unbox; //Api function
+        public ulong il2cpp_vm_object_unbox; //Thunked from above
+        
         public ulong il2cpp_raise_exception; //Api function (exported)
         public ulong il2cpp_vm_exception_raise; //Thunked from above
         public ulong il2cpp_codegen_raise_exception; //Thunked TO above. don't know real name.
@@ -144,6 +148,18 @@ namespace Cpp2IL.Core
                 Logger.Verbose("\t\tMapping il2cpp_value_box to Object::Box...");
                 il2cpp_vm_object_box = FindFunctionThisIsAThunkOf(il2cpp_value_box);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_box:X}");
+            }
+            
+            //Unbox Value
+            Logger.Verbose("\tLooking for Exported il2cpp_object_unbox function...");
+            il2cpp_object_unbox = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_unbox");
+            Logger.VerboseNewline($"Found at 0x{il2cpp_object_unbox:X}");
+
+            if (il2cpp_object_unbox != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_object_unbox to Object::Unbox...");
+                il2cpp_vm_object_unbox = FindFunctionThisIsAThunkOf(il2cpp_object_unbox);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_unbox:X}");
             }
 
             //Raise Exception
