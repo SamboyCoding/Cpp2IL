@@ -22,3 +22,5 @@ Il2CppBinaryAnalyzer/obj/
 Il2CppBinaryAnalyzer/bin/
 
 .vs
+
+*.user

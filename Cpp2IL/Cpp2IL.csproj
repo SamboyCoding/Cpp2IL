@@ -10,6 +10,7 @@
         <PublishSingleFile Condition="'$(TargetFramework)' != 'net472'">true</PublishSingleFile>
         <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net472'">true</IncludeNativeLibrariesForSelfExtract>
         <TargetFrameworks>net472;net5.0</TargetFrameworks>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
     </PropertyGroup>
 
     <ItemGroup>
