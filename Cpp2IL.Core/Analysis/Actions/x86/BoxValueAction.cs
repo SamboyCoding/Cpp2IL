@@ -79,11 +79,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if (!_boxingFieldPointer)
                 throw new NotImplementedException("This shouldn't have happened");
 
-
-            // Skipping this, do want to deal with it now or think about it
-            return new Mono.Cecil.Cil.Instruction[0];
             
-            if (_localMade == null || _boxedField.OnWhat == null || _boxedField.Field == null)
+            if (_localMade == null || _boxedField?.OnWhat == null || _boxedField?.Field == null)
                 throw new TaintedInstructionException();
             
             var ret = new List<Mono.Cecil.Cil.Instruction>();
@@ -110,7 +107,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public override string ToTextSummary()
         {
-            return $"Boxes a cpp primitive value {primitiveObject} to managed type {destinationType?.FullName} and stores the result in new local {_localMade?.Name} in register rax.";
+            return $"Boxes a cpp primitive {(_boxingFieldPointer?"field":"value")} {primitiveObject} to managed type {destinationType?.FullName} and stores the result in new local {_localMade?.Name} in register rax.";
         }
     }
 }

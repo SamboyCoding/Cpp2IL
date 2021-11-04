@@ -175,6 +175,10 @@ namespace Cpp2IL.Core.Analysis
                         //Box a cpp primitive to a managed type
                         Analysis.Actions.Add(new BoxValueAction(Analysis, instruction));
                     }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_unbox || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_unbox)
+                    {
+                        Analysis.Actions.Add(new UnboxObjectAction(Analysis, instruction));
+                    }
                     else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_is_inst)
                     {
                         //Safe cast an object to a type
