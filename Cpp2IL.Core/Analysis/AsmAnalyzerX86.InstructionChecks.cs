@@ -559,6 +559,10 @@ namespace Cpp2IL.Core.Analysis
                         Analysis.Actions.Add(MaybeWrap(new LoadClassPointerFromMethodInfoAction(Analysis, instruction)));
                     }
 
+                    break; 
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: LocalPointer}:
+                    //Read local pointer
+                    Analysis.Actions.Add(MaybeWrap(new ReadLocalPointerToRegAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition loc:
                     //Move generic memory to register - field read.

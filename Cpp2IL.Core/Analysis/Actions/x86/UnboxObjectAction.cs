@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core.Analysis.Actions.Base;
+﻿using System;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -12,7 +13,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         private LocalDefinition? localBeingUnboxed;
         private LocalDefinition? _localMade;
         private bool _boxingFieldPointer = false;
-        private FieldPointer _boxedField;
+        private FieldPointer? _boxedField;
+        private ConstantDefinition ConstantDefinition;
 
         public UnboxObjectAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
@@ -24,29 +26,25 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             
             RegisterUsedLocal(localBeingUnboxed, context);
             
-            _localMade = context.MakeLocal(destinationType, reg: "rax");
+            ConstantDefinition = context.MakeConstant(typeof(LocalPointer), new LocalPointer(localBeingUnboxed), reg: "rax");
+            
+            //_localMade = context.MakeLocal(destinationType, reg: "rax");
         }
-        public override bool IsImportant() => true;
+        public override bool IsImportant() => false;
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            if (localBeingUnboxed == null || _localMade == null)
-                throw new TaintedInstructionException("Local being unboxed or local created was null");
-            
-            return new[]
-            {
-                context.GetIlToLoad(localBeingUnboxed!, processor),
-                processor.Create(OpCodes.Stloc, _localMade.Variable)
-            };
+            throw new NotImplementedException();
         }
         public override string? ToPsuedoCode()
         {
+            throw new NotImplementedException();
             return $"{_localMade.Name} = {localBeingUnboxed.Name}";
         }
 
         public override string ToTextSummary()
         {
-            return $"Unboxes local {localBeingUnboxed.Name} to {_localMade.Name}";
+            return "";
         }
     }
 }
