@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using LibCpp2IL;
@@ -13,6 +14,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         private TypeReference? destinationType;
         private IAnalysedOperand? primitiveObject;
         private LocalDefinition? _localMade;
+        private bool _boxingFieldPointer = false;
+        private FieldPointer _boxedField;
 
         public BoxValueAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
@@ -22,6 +25,17 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if (primitiveObject == null && !LibCpp2IlMain.Binary!.is32Bit)
                 //Try stack pointer
                 primitiveObject = context.GetConstantInReg("rdx") is {Value: StackPointer pointer} && context.StackStoredLocals.TryGetValue((int) pointer.offset, out var loc) ? loc : null;
+            
+            if (primitiveObject == null && !LibCpp2IlMain.Binary!.is32Bit)
+            {
+                var constantDefinition = context.GetConstantInReg("rdx");
+                if (constantDefinition is {Value: FieldPointer fieldPointer})
+                {
+                    primitiveObject = constantDefinition;
+                    _boxingFieldPointer = true;
+                    _boxedField = fieldPointer;
+                }
+            }
 
             var destinationConstant = context.GetConstantInReg("rcx");
 
@@ -42,23 +56,55 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             try
             {
-                value = Utils.Utils.CoerceValue(value, destinationType);
+                if (!_boxingFieldPointer)
+                {
+                    value = Utils.Utils.CoerceValue(value, destinationType);
+                    _localMade = context.MakeLocal(destinationType, reg: "rax", knownInitialValue: value);
+                }
+                else
+                {
+                    _localMade = context.MakeLocal(destinationType, reg: "rax");
+                }
             }
             catch (Exception)
             {
-                return;
+                //Ignore
             }
-
-            _localMade = context.MakeLocal(destinationType, reg: "rax", knownInitialValue: value);
         }
+        
+        public override bool IsImportant() => _boxingFieldPointer;
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (!_boxingFieldPointer)
+                throw new NotImplementedException("This shouldn't have happened");
+
+
+            // Skipping this, do want to deal with it now or think about it
+            return new Mono.Cecil.Cil.Instruction[0];
+            
+            if (_localMade == null || _boxedField.OnWhat == null || _boxedField.Field == null)
+                throw new TaintedInstructionException();
+            
+            var ret = new List<Mono.Cecil.Cil.Instruction>();
+
+            //Load object
+            ret.AddRange(_boxedField.OnWhat.GetILToLoad(context, processor));
+
+            //Access field
+            ret.AddRange(_boxedField.Field.GetILToLoad(processor));
+
+            //Store to local
+            ret.Add(processor.Create(OpCodes.Stloc, _localMade.Variable));
+            
+            return ret.ToArray();
+            
         }
 
         public override string? ToPsuedoCode()
         {
+            if (_boxingFieldPointer)
+                return $"{_localMade.Name} = {_boxedField.Field}";
             throw new System.NotImplementedException();
         }
 

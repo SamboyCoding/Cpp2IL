@@ -10,10 +10,10 @@ namespace Cpp2IL.Core
         public const int X86_INTERFACE_OFFSETS_OFFSET = 0x50;
         public const int X86_64_INTERFACE_OFFSETS_OFFSET = 0xB0;
 
-        public const int X86_VTABLE_OFFSET = 0x999; //todo
-        public const int X86_64_VTABLE_OFFSET = 0x138; //TODO Check if this is lower (0x128?) on older metadata versions
+        private static readonly int V24_2_VTABLE_OFFSET = LibCpp2IlMain.Binary!.is32Bit ? 0x999 /*TODO*/ : 0x138;
+        private static readonly int PRE_24_2_VTABLE_OFFSET = LibCpp2IlMain.Binary.is32Bit ? 0x999 /*TODO*/ : 0x128;
 
-        public static readonly int VTABLE_OFFSET = LibCpp2IlMain.Binary!.is32Bit ? X86_VTABLE_OFFSET : X86_64_VTABLE_OFFSET;
+        public static readonly int VTABLE_OFFSET = LibCpp2IlMain.MetadataVersion >= 24.2 ? V24_2_VTABLE_OFFSET : PRE_24_2_VTABLE_OFFSET;
 
         public static readonly List<UsefulOffset> UsefulOffsets = new List<UsefulOffset>
         {

@@ -11,22 +11,23 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 {
     public class LoadVirtualFunctionPointerAction : BaseAction<Instruction>
     {
-        private string regReadFrom;
-        private Il2CppTypeDefinition classReadFrom;
-        private MethodDefinition? methodPointerRead;
-        private ConstantDefinition? destinationConstant;
+        private readonly string regReadFrom;
+        private readonly Il2CppTypeDefinition? classReadFrom;
+        private readonly MethodDefinition? methodPointerRead;
+        private readonly ConstantDefinition? destinationConstant;
+        private readonly int _slotNum;
 
         public LoadVirtualFunctionPointerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             regReadFrom = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(regReadFrom);
 
-            if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
+            if (inReg is not ConstantDefinition {Value: Il2CppClassIdentifier klass}) return;
 
             classReadFrom = klass.backingType;
-            var slotNum = Utils.Utils.GetSlotNum((int) instruction.MemoryDisplacement);
+            _slotNum = Utils.Utils.GetSlotNum((int) instruction.MemoryDisplacement32);
             
-            methodPointerRead = MethodUtils.GetMethodFromVtableSlot(classReadFrom, slotNum);
+            methodPointerRead = MethodUtils.GetMethodFromVtableSlot(classReadFrom, _slotNum);
 
             if (methodPointerRead == null) return;
 
@@ -55,7 +56,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public override string ToTextSummary()
         {
-            return $"Loads the pointer to the implementation of virtual function {methodPointerRead?.FullName} specific to {classReadFrom?.FullName} from the class pointer in {regReadFrom} and stores in constant {destinationConstant?.Name}";
+            return $"Loads the pointer to the implementation of virtual function {methodPointerRead?.FullName} specific to {classReadFrom?.FullName} from the class pointer in {regReadFrom}, slot {_slotNum} (from memory offset {AssociatedInstruction.MemoryDisplacement32}) and stores in constant {destinationConstant?.Name}";
         }
     }
 }
