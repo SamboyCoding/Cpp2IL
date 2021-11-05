@@ -21,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         private ulong _pointer;
         private ConstantDefinition? _constantMade;
         private string? _destReg;
-        private readonly Il2CppGlobalGenericMethodRef _genericMethodRef;
+        private readonly Il2CppGenericMethodRef _genericMethodRef;
 
         public Arm64MetadataUsageMethodRefToRegisterAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
@@ -55,11 +55,11 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
                 return;
             }
 
-            TypeReference declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.declaringType];
-            MethodReference method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.baseMethod];
+            TypeReference declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.DeclaringType];
+            MethodReference method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.BaseMethod];
 
-            var genericTypeParams = _genericMethodRef.typeGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, method)!).ToList();
-            var genericMethodParams = _genericMethodRef.methodGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, method)!).ToList();
+            var genericTypeParams = _genericMethodRef.TypeGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, method)!).ToList();
+            var genericMethodParams = _genericMethodRef.MethodGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, method)!).ToList();
 
             if (genericTypeParams.Count > 0)
             {

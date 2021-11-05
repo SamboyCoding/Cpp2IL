@@ -43,11 +43,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 case MetadataUsageType.MethodRef:
                     var unmanagedReference = usage.AsGenericMethodRef();
                     
-                    var managedMethodRef = unmanagedReference.baseMethod.AsManaged() as MethodReference;
+                    var managedMethodRef = unmanagedReference.BaseMethod.AsManaged() as MethodReference;
 
-                    if (unmanagedReference.methodGenericParams.Length > 0)
+                    if (unmanagedReference.MethodGenericParams.Length > 0)
                     {
-                        var methodGParams = unmanagedReference.methodGenericParams
+                        var methodGParams = unmanagedReference.MethodGenericParams
                             .Select(data => Utils.Utils.TryResolveTypeReflectionData(data, managedMethodRef))
                             .ToList();
 
@@ -59,10 +59,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                         managedMethodRef = gim;
                     }
 
-                    var managedTypeRef = SharedState.UnmanagedToManagedTypes[unmanagedReference.declaringType] as TypeReference;
-                    if (unmanagedReference.typeGenericParams.Length > 0)
+                    var managedTypeRef = SharedState.UnmanagedToManagedTypes[unmanagedReference.DeclaringType] as TypeReference;
+                    if (unmanagedReference.TypeGenericParams.Length > 0)
                     {
-                        var typeGParams = unmanagedReference.typeGenericParams
+                        var typeGParams = unmanagedReference.TypeGenericParams
                             .Select(data => Utils.Utils.TryResolveTypeReflectionData(data, managedTypeRef))
                             .ToList();
 

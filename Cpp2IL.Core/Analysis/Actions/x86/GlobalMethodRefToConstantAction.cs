@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 {
     public class GlobalMethodRefToConstantAction : BaseAction<Instruction>
     {
-        private Il2CppGlobalGenericMethodRef? _genericMethodRef;
+        private Il2CppGenericMethodRef? _genericMethodRef;
         private TypeReference? _declaringType;
         private MethodReference? _method;
         private List<TypeReference>? _genericTypeParams;
@@ -40,11 +40,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 return;
             }
 
-            _declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.declaringType];
-            _method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.baseMethod];
+            _declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.DeclaringType];
+            _method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.BaseMethod];
 
-            _genericTypeParams = _genericMethodRef.typeGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
-            _genericMethodParams = _genericMethodRef.methodGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
+            _genericTypeParams = _genericMethodRef.TypeGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
+            _genericMethodParams = _genericMethodRef.MethodGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
 
             if (_genericTypeParams.Count > 0)
             {

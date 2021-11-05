@@ -22,7 +22,7 @@ namespace LibCpp2IL
 
         private string? _cachedLiteral;
 
-        private Il2CppGlobalGenericMethodRef? _cachedGenericMethod;
+        private Il2CppGenericMethodRef? _cachedGenericMethod;
 
         public MetadataUsage(MetadataUsageType type, ulong offset, uint value)
         {
@@ -138,7 +138,7 @@ namespace LibCpp2IL
             return _cachedLiteral;
         }
 
-        public Il2CppGlobalGenericMethodRef AsGenericMethodRef()
+        public Il2CppGenericMethodRef AsGenericMethodRef()
         {
             if (_cachedGenericMethod == null)
             {
@@ -146,36 +146,9 @@ namespace LibCpp2IL
                 {
                     case MetadataUsageType.MethodRef: 
                         var methodSpec = LibCpp2IlMain.Binary!.GetMethodSpec((int) _value);
-                        
-                        var typeName = methodSpec.MethodDefinition!.DeclaringType!.FullName;
-                        
-                        Il2CppTypeReflectionData[] declaringTypeGenericParams = new Il2CppTypeReflectionData[0];
-                        if (methodSpec.classIndexIndex != -1)
-                        {
-                            var classInst = methodSpec.GenericClassInst;
-                            declaringTypeGenericParams = LibCpp2ILUtils.GetGenericTypeParams(classInst!)!;
-                            typeName += LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.Binary!, classInst!);
-                        }
 
-                        var methodName = typeName + "." + methodSpec.MethodDefinition.Name;
-                        
-                        Il2CppTypeReflectionData[] genericMethodParameters = new Il2CppTypeReflectionData[0];
-                        if (methodSpec.methodIndexIndex != -1)
-                        {
-                            var methodInst = methodSpec.GenericMethodInst;
-                            methodName += LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.Binary!, methodInst!);
-                            genericMethodParameters = LibCpp2ILUtils.GetGenericTypeParams(methodInst!)!;
-                        }
-
-                        _cachedName = methodName + "()";
-
-                        _cachedGenericMethod = new Il2CppGlobalGenericMethodRef
-                        {
-                            baseMethod = methodSpec.MethodDefinition,
-                            declaringType = methodSpec.MethodDefinition.DeclaringType,
-                            typeGenericParams = declaringTypeGenericParams,
-                            methodGenericParams = genericMethodParameters
-                        };
+                        _cachedGenericMethod = new Il2CppGenericMethodRef(methodSpec);
+                        _cachedName = _cachedGenericMethod.ToString();
                         break;
                     default:
                         throw new Exception($"Cannot cast metadata usage of kind {Type} to a Generic Method Ref");

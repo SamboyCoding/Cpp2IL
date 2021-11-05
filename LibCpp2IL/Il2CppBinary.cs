@@ -35,8 +35,8 @@ namespace LibCpp2IL
         protected Il2CppRGCTXDefinition[][] codegenModuleRgctxs;
         protected ConcurrentDictionary<int, ulong> genericMethodDictionary;
         protected readonly ConcurrentDictionary<ulong, Il2CppType> typesDict = new();
-        public readonly Dictionary<Il2CppMethodDefinition, List<Il2CppConcreteGenericMethod>> ConcreteGenericMethods = new();
-        public readonly Dictionary<ulong, List<Il2CppConcreteGenericMethod>> ConcreteGenericImplementationsByAddress = new();
+        public readonly Dictionary<Il2CppMethodDefinition, List<Il2CppGenericMethodRef>> ConcreteGenericMethods = new();
+        public readonly Dictionary<ulong, List<Il2CppGenericMethodRef>> ConcreteGenericImplementationsByAddress = new();
         public ulong[] TypeDefinitionSizePointers;
 
         protected Il2CppBinary(MemoryStream input, long maxMetadataUsages) : base(input)
@@ -209,46 +209,29 @@ namespace LibCpp2IL
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
 
-        private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex, out Il2CppConcreteGenericMethod? concreteMethod)
+        private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex, out Il2CppGenericMethodRef? genericMethodRef)
         {
             var methodSpec = GetMethodSpec(genericMethodIndex);
             var methodDefIndex = methodSpec.methodDefinitionIndex;
-            concreteMethod = null;
-            if (methodSpec.methodIndexIndex >= 0)
+            genericMethodRef = new Il2CppGenericMethodRef(methodSpec);
+            
+            if (genericMethodPointerIndex >= 0)
             {
-                var genericInst = GetGenericInst(methodSpec.methodIndexIndex);
-                var ptrs = ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
-                var genericTypes = Enumerable.ToArray(ptrs.Select(GetIl2CppTypeFromPointer));
+                if(genericMethodPointerIndex < genericMethodPointers.Length)
+                    genericMethodRef.GenericVariantPtr = genericMethodPointers[genericMethodPointerIndex];
+            }
+            
+            if (!ConcreteGenericMethods.ContainsKey(genericMethodRef.BaseMethod))
+                ConcreteGenericMethods[genericMethodRef.BaseMethod] = new List<Il2CppGenericMethodRef>();
+            
+            ConcreteGenericMethods[genericMethodRef.BaseMethod].Add(genericMethodRef);
 
-                var genericParamData = genericTypes.Select(type => LibCpp2ILUtils.GetTypeReflectionData(type)!).ToArray();
-
-                ulong concreteMethodPtr = 0;
-                if (genericMethodPointerIndex >= 0)
-                {
-                    if(genericMethodPointerIndex < genericMethodPointers.Length)
-                        concreteMethodPtr = genericMethodPointers[genericMethodPointerIndex];
-                }
-
-                var baseMethod = LibCpp2IlMain.TheMetadata!.methodDefs[methodDefIndex];
-
-                if (!ConcreteGenericMethods.ContainsKey(baseMethod))
-                    ConcreteGenericMethods[baseMethod] = new List<Il2CppConcreteGenericMethod>();
-
-                concreteMethod = new Il2CppConcreteGenericMethod
-                {
-                    BaseMethod = baseMethod,
-                    GenericParams = genericParamData,
-                    GenericVariantPtr = concreteMethodPtr
-                };
-
-                ConcreteGenericMethods[baseMethod].Add(concreteMethod);
-
-                if (concreteMethodPtr > 0)
-                {
-                    if (!ConcreteGenericImplementationsByAddress.ContainsKey(concreteMethodPtr))
-                        ConcreteGenericImplementationsByAddress[concreteMethodPtr] = new List<Il2CppConcreteGenericMethod>();
-                    ConcreteGenericImplementationsByAddress[concreteMethodPtr].Add(concreteMethod);
-                }
+            if (genericMethodRef.GenericVariantPtr > 0)
+            {
+                if (!ConcreteGenericImplementationsByAddress.ContainsKey(genericMethodRef.GenericVariantPtr))
+                    ConcreteGenericImplementationsByAddress[genericMethodRef.GenericVariantPtr] = new List<Il2CppGenericMethodRef>();
+                
+                ConcreteGenericImplementationsByAddress[genericMethodRef.GenericVariantPtr].Add(genericMethodRef);
             }
 
             return methodDefIndex;
