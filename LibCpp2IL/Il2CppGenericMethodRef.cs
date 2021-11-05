@@ -18,30 +18,22 @@ namespace LibCpp2IL
 
         public Il2CppGenericMethodRef(Il2CppMethodSpec methodSpec)
         {
-            var typeName = methodSpec.MethodDefinition!.DeclaringType!.FullName;
-
             Il2CppTypeReflectionData[] declaringTypeGenericParams = new Il2CppTypeReflectionData[0];
             if (methodSpec.classIndexIndex != -1)
             {
                 var classInst = methodSpec.GenericClassInst;
                 declaringTypeGenericParams = LibCpp2ILUtils.GetGenericTypeParams(classInst!)!;
-                typeName += LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.Binary!,
-                    classInst!);
             }
-
-            var methodName = typeName + "." + methodSpec.MethodDefinition.Name;
 
             Il2CppTypeReflectionData[] genericMethodParameters = new Il2CppTypeReflectionData[0];
             if (methodSpec.methodIndexIndex != -1)
             {
                 var methodInst = methodSpec.GenericMethodInst;
-                methodName +=
-                    LibCpp2ILUtils.GetGenericTypeParamNames(LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.Binary!, methodInst!);
                 genericMethodParameters = LibCpp2ILUtils.GetGenericTypeParams(methodInst!)!;
             }
 
-            BaseMethod = methodSpec.MethodDefinition;
-            DeclaringType = methodSpec.MethodDefinition.DeclaringType;
+            BaseMethod = methodSpec.MethodDefinition!;
+            DeclaringType = methodSpec.MethodDefinition!.DeclaringType!;
             TypeGenericParams = declaringTypeGenericParams;
             MethodGenericParams = genericMethodParameters;
         }
