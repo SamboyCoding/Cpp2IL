@@ -26,12 +26,6 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             if (LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.TryGetValue(_jumpTarget, out var concMethods))
             {
-
-                // if (context.ToString().Contains("GetAnimCurveData"))
-                // {
-                //     Console.WriteLine("");
-                // }
-                
                 var genericMethodConstants = context.Constants.Where(c => c.Value is MethodReference or GenericMethodReference).ToList();
                 
                 ConstantDefinition? matchingConstant = null;
@@ -39,12 +33,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 {
                     var managedBaseMethod = m.BaseMethod.AsManaged();
                     
-                    
-
                     matchingConstant = genericMethodConstants.LastOrDefault(conMtd =>
                     {
-                        // if (conMtd.Value is MethodDefinition methodDefinition)
-                        //     return methodDefinition.Resolve() == managedBaseMethod.Resolve();
                         if (conMtd.Value is MethodReference methodReference)
                             return methodReference.Resolve() == managedBaseMethod.Resolve();
                         return ((GenericMethodReference) conMtd.Value).Method.Resolve() == managedBaseMethod.Resolve();

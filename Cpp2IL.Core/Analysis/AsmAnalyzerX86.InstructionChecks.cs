@@ -303,7 +303,6 @@ namespace Cpp2IL.Core.Analysis
 
             if (mnemonic == Mnemonic.Comiss)
                 mnemonic = Mnemonic.Cmp;
-            
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
             
@@ -321,7 +320,6 @@ namespace Cpp2IL.Core.Analysis
                             break;
                         }
                     }
-
                     //Fallback to a reg->reg move.
                     Analysis.Actions.Add(MaybeWrap(new RegToRegMoveAction(Analysis, instruction)));
                     break;
@@ -665,6 +663,10 @@ namespace Cpp2IL.Core.Analysis
                     //But value in reg is the first step of an integer division
                     //So this is step 2
                     Analysis.Actions.Add(new IntegerDivisionShiftStepAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Imul when op0 is LocalDefinition && op1 is LocalDefinition:
+                    //Imul reg, reg
+                    Analysis.Actions.Add(new MultiplyRegByRegAction(Analysis, instruction));
                     break;
             }
         }

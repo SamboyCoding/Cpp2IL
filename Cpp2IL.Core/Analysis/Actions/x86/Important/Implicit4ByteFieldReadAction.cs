@@ -50,9 +50,13 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             //Load object
             ret.AddRange(_readOn.GetILToLoad(context, processor));
-
+            
+            var isEnum = _readOn.Type?.Resolve()?.IsEnum;
+            
+            // Let's not do this for enums since it generates some funny garbage
+            if(isEnum != true)
             //Access field
-            ret.AddRange(_read.GetILToLoad(processor));
+                ret.AddRange(_read.GetILToLoad(processor));
 
             //Store to local
             ret.Add(processor.Create(OpCodes.Stloc, _localMade.Variable));

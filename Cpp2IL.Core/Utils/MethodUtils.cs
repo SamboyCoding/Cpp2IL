@@ -400,7 +400,7 @@ namespace Cpp2IL.Core.Utils
                 catch (Exception)
                 {
                     if (usage != null)
-                        return SharedState.UnmanagedToManagedMethods[usage.AsGenericMethodRef().baseMethod];
+                        return SharedState.UnmanagedToManagedMethods[usage.AsGenericMethodRef().BaseMethod];
                 }
             }
             catch (IndexOutOfRangeException)
@@ -424,7 +424,7 @@ namespace Cpp2IL.Core.Utils
                 }
                 catch (Exception)
                 {
-                    concreteMethod = concreteUsage!.AsGenericMethodRef().baseMethod;
+                    concreteMethod = concreteUsage!.AsGenericMethodRef().BaseMethod;
                 }
 
                 Il2CppMethodDefinition? unmanagedMethod = null;

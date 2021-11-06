@@ -13,7 +13,6 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         private LocalDefinition? _localMade;
         public ReadLocalPointerToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            Debugger.Break();
             LocalPointer = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase)).Value as LocalPointer;
 
             if (LocalPointer == null)
@@ -37,8 +36,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            if (LocalPointer?.Local == null)
-                throw new TaintedInstructionException("Local being dereferenced was null");
+            if (LocalPointer?.Local?.Variable == null)
+                throw new TaintedInstructionException("Local being dereferenced was stripped");
             
             if (_localMade?.Variable == null)
                 throw new TaintedInstructionException("Local was stripped");

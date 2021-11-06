@@ -42,6 +42,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             {
                 SizeAllocated = (int) sizeCSmall;
             }
+            else if (sizeOperand is LocalDefinition localDefinition)
+            {
+                LocalArraySize = true;
+                LocalUsedForArraySize = localDefinition;
+                RegisterUsedLocal(localDefinition, context);
+            }
 
             if (TypeOfArray is not ArrayType arrayType) return;
 
