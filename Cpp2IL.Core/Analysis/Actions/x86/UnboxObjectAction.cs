@@ -23,11 +23,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (localBeingUnboxed == null)
                 return;
-            
+
             RegisterUsedLocal(localBeingUnboxed, context);
-            
+
             ConstantDefinition = context.MakeConstant(typeof(LocalPointer), new LocalPointer(localBeingUnboxed), reg: "rax");
-            
+
             //_localMade = context.MakeLocal(destinationType, reg: "rax");
         }
         public override bool IsImportant() => false;
@@ -39,7 +39,6 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public override string? ToPsuedoCode()
         {
             throw new NotImplementedException();
-            return $"{_localMade.Name} = {localBeingUnboxed.Name}";
         }
 
         public override string ToTextSummary()
