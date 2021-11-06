@@ -14,7 +14,7 @@ jobs:
     - name: Setup .NET Core
       uses: actions/setup-dotnet@v1
       with:
-        dotnet-version: 6.0.x
+        dotnet-version: 5.x
         include-prerelease: true
     - name: Install dependencies
       run: dotnet restore
@@ -26,7 +26,7 @@ jobs:
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r win-x64
     - name: Build - Net Framework 4.8, Windows
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore
     - name: Build - Ubuntu x64
       working-directory: ./Cpp2IL/
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r ubuntu-x64
