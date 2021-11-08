@@ -255,8 +255,14 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 //TODO More Conditional jumps
                 //Conditional boolean sets
+                case Mnemonic.Sete:
+                    Analysis.Actions.Add(new EqualRegisterSetAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Setg:
                     Analysis.Actions.Add(new GreaterThanRegisterSetAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Setl:
+                    Analysis.Actions.Add(new LessThanRegisterSetAction(Analysis, instruction));
                     break;
                 //Floating-point unit (FPU) instructions
                 case Mnemonic.Fld when memR != "rip" && memR != "rbp" && memOp is LocalDefinition:
@@ -572,9 +578,31 @@ namespace Cpp2IL.Core.Analysis
 
                     Analysis.Actions.Add(MaybeWrap(new FieldToLocalAction(Analysis, instruction)));
                     break;
-                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
+                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition localDefinition && instruction.MemoryIndex == Register.None:
                     //LEA generic memory to register - field pointer load.
-                    Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
+
+                    var displacement = (long) instruction.MemoryDisplacement64;
+                    if (displacement == 1 || displacement == -1 )
+                    {
+                        if (localDefinition.Type.FullName.Equals("System.Int32") ||
+                            localDefinition.Type.FullName.Equals("System.Int64") ||
+                            localDefinition.Type.FullName.Equals("System.UInt32") ||
+                            localDefinition.Type.FullName.Equals("System.UInt64") ||
+                            localDefinition.Type.FullName.Equals("System.Byte"))
+                        {
+                            // Plus 1 or minus 1 action
+                            Analysis.Actions.Add(new PlusOneOrMinusOneAction(Analysis, instruction));
+                        }
+                        else
+                        {
+                            Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
+                        }
+                    }
+                    else
+                    {
+                        Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
+                    }
+                    
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: StaticFieldsPtr _}:
                     //Write static field
