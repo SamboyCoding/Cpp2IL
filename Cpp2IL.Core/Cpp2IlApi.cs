@@ -27,22 +27,33 @@ namespace Cpp2IL.Core
 
         public static int[] DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
-            int[] version;
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
             {
                 var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
 
-                version = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
+                return new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
             }
-            else
+
+            if(!string.IsNullOrEmpty(gameDataPath))
             {
                 //Globalgamemanagers
                 var globalgamemanagersPath = Path.Combine(gameDataPath, "globalgamemanagers");
-                var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
-                version = GetVersionFromGlobalGameManagers(ggmBytes);
+                if(File.Exists(globalgamemanagersPath))
+                {
+                    var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
+                    return GetVersionFromGlobalGameManagers(ggmBytes);
+                }
+                
+                //Data.unity3d
+                var dataPath = Path.Combine(gameDataPath, "data.unity3d");
+                if(File.Exists(dataPath))
+                {
+                    using var dataStream = File.OpenRead(dataPath);
+                    return GetVersionFromDataUnity3D(dataStream);
+                }
             }
 
-            return version;
+            return null;
         }
 
         public static int[] GetVersionFromGlobalGameManagers(byte[] ggmBytes)
