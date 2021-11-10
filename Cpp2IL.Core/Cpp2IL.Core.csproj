@@ -18,6 +18,10 @@
         <Description>Reverses Unity's IL2CPP Build Process</Description>
     </PropertyGroup>
 
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <PlatformTarget>x64</PlatformTarget>
+    </PropertyGroup>
+
     <ItemGroup>
         <PackageReference Include="Gee.External.Capstone" Version="2.0.2" />
         <PackageReference Include="HarmonyX" Version="2.5.5" />

@@ -9,8 +9,7 @@
         <TrimMode>link</TrimMode>
         <PublishSingleFile Condition="'$(TargetFramework)' != 'net472'">true</PublishSingleFile>
         <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net472'">true</IncludeNativeLibrariesForSelfExtract>
-        <TargetFrameworks>net472;net5.0</TargetFrameworks>
-        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <TargetFrameworks>net472;net6.0</TargetFrameworks>
     </PropertyGroup>
 
     <ItemGroup>
@@ -20,6 +19,14 @@
 
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
         <OutputPath>bin\x64\Debug\</OutputPath>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Debug' ">
+      <PlatformTarget>x64</PlatformTarget>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'Release' ">
+      <PlatformTarget>x64</PlatformTarget>
     </PropertyGroup>
 
     <ItemGroup>
