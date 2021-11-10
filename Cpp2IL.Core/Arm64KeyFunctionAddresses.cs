@@ -139,6 +139,9 @@ namespace Cpp2IL.Core
         {
             var idx = _allInstructions.FindIndex(i => i.Address == (long)thunkPtr);
 
+            if (idx < 0)
+                return 0;
+
             //Easy case, we have an unconditional jump at that address, just return what it points at
             if (_allInstructions[idx].Mnemonic is "b" or "bl")
                 return (ulong)_allInstructions[idx].Details.Operands[0].Immediate;

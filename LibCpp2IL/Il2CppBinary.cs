@@ -71,7 +71,7 @@ namespace LibCpp2IL
             {
                 LibLogger.Verbose("\tReading custom attribute generators...");
                 start = DateTime.Now;
-                customAttributeGenerators = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.customAttributeGeneratorListAddress, codeRegistration.customAttributeCount);
+                customAttributeGenerators = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.customAttributeGeneratorListAddress, (long) codeRegistration.customAttributeCount);
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
