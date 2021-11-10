@@ -374,7 +374,7 @@ namespace Cpp2IL.Core.Analysis
                 }
                 catch (Exception e)
                 {
-                    Logger.WarnNewline($"Failed to perform analysis on method {MethodDefinition?.FullName}\nWhile analysing instruction {instruction} at 0x{instruction.GetInstructionAddress():X}\nGot exception: {e}\n", "Analyze");
+                    Logger.WarnNewline($"Failed to perform analysis on method {MethodDefinition?.FullName}\nWhile analysing instruction {FormatInstruction(instruction)} at 0x{instruction.GetInstructionAddress():X}\nGot exception: {e}\n", "Analyze");
                     _didFail = true;
                     AsmAnalyzerX86.FAILED_METHODS++;
                     throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
@@ -392,5 +392,7 @@ namespace Cpp2IL.Core.Analysis
         public abstract void RunILPostProcessors(MethodBody body);
 
         protected abstract void PerformInstructionChecks(T instruction);
+
+        protected virtual string FormatInstruction(T? instruction) => instruction?.ToString() ?? "null";
     }
 }

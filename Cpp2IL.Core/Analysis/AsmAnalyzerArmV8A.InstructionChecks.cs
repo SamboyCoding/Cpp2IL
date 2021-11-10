@@ -245,9 +245,14 @@ namespace Cpp2IL.Core.Analysis
 
                         return;
                     }
+                    
+                    if(!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(globalAddress, out var rawAddr))
+                        //Possibly BSS? (all-zero segment for static uninitialized memory, not present in the file)
+                        //Either way, bail out
+                        break;
 
                     //Unknown global or string
-                    var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
+                    var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong) rawAddr);
                     if (potentialLiteral != null && instruction.Details.Operands[0].RegisterSafe()?.Name[0] != 'v')
                     {
                         Analysis.Actions.Add(new Arm64UnmanagedLiteralToConstantAction(Analysis, instruction, potentialLiteral, globalAddress));
@@ -379,9 +384,14 @@ namespace Cpp2IL.Core.Analysis
 
                         return;
                     }
+                    
+                    if(!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(globalAddress, out var rawAddr))
+                        //Possibly BSS, bail out
+                        break;
+
 
                     //Unknown global or string
-                    var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(globalAddress));
+                    var potentialLiteral = Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)rawAddr);
                     if (potentialLiteral != null && instruction.Details.Operands[0].RegisterSafe()?.Name[0] != 'v')
                     {
                         Analysis.Actions.Add(new Arm64UnmanagedLiteralToConstantAction(Analysis, instruction, potentialLiteral, globalAddress));

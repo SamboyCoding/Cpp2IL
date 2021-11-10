@@ -113,5 +113,12 @@ namespace Cpp2IL.Core.Analysis
             new RestoreConstReferences<Arm64Instruction>().PostProcess(Analysis, body);
             new OptimiseLocalsPostProcessor<Arm64Instruction>().PostProcess(Analysis, body);
         }
+
+        protected override string FormatInstruction(Arm64Instruction? instruction)
+        {
+            var line = new StringBuilder();
+            line.Append(instruction?.Mnemonic).Append(' ').Append(instruction?.Operand);
+            return line.ToString();
+        }
     }
 }

@@ -5,6 +5,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Cpp2IL.Core.Analysis;
@@ -643,6 +644,9 @@ namespace Cpp2IL.Core
 
         private static void FixCapstoneLib()
         {
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                return;
+            
             //Capstone is super stupid and randomly fails to load on non-windows platforms. Fix it.
             var runningFrom = AppContext.BaseDirectory;
             var capstonePath = Path.Combine(runningFrom, "Gee.External.Capstone.dll");

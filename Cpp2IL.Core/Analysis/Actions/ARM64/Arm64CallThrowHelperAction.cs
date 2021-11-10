@@ -50,7 +50,10 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             
             foreach (var potentialLiteralAddress in registerAddresses.Values)
             {
-                if (Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw((ulong)potentialLiteralAddress)) is not { } literal) 
+                if(!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw((ulong) potentialLiteralAddress, out var rawLiteralAddress))
+                    continue;
+                
+                if (Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong)rawLiteralAddress) is not { } literal) 
                     continue;
                 if (Utils.Utils.TryLookupTypeDefKnownNotGeneric($"System.{literal}") is not { } exceptionType)
                     continue;

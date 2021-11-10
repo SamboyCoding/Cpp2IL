@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Logging;
@@ -232,7 +233,10 @@ namespace LibCpp2IL.NintendoSwitch
 
         public override long MapVirtualAddressToRaw(ulong addr)
         {
-            var segment = segments.First(x => addr >= x.MemoryOffset && addr <= x.MemoryOffset + x.DecompressedSize);
+            var segment = segments.FirstOrDefault(x => addr >= x.MemoryOffset && addr <= x.MemoryOffset + x.DecompressedSize);
+            if (segment == null)
+                throw new InvalidOperationException($"NSO: Address 0x{addr:X} is not present in any of the segments. Known segment ends are (hex) {string.Join(", ", segments.Select(s => (s.MemoryOffset + s.DecompressedSize).ToString("X")))}");
+            
             return (long)(addr - segment.MemoryOffset + segment.FileOffset);
         }
 

@@ -49,7 +49,7 @@ namespace Cpp2IL.Core
             var methodAddresses = SharedState.MethodsByAddress.Keys.Where(a => a > 0).ToList();
             methodAddresses.SortByExtractedKey(a => a);
 
-            if (methodAddresses[0] < endOfTextSection)
+            if (methodAddresses[0] < endOfTextSection && LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_new") != 0)
             {
                 var exportAddresses = new[]
                 {
@@ -61,7 +61,7 @@ namespace Cpp2IL.Core
                 var lastExport = exportAddresses.Max();
                 var firstExport = exportAddresses.Min();
                 
-                Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section. Attempting to trim them out for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}, " +
+                Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section and api functions are available. Attempting to trim out managed methods for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}, " +
                                       $"the first export function is at 0x{firstExport:X} and the last at 0x{lastExport:X}");
                 
                 //I am assuming, arbitrarily, that the exports are always towards the end of the managed methods, in this case.
@@ -80,8 +80,26 @@ namespace Cpp2IL.Core
                 primaryExecutableSectionVa = startFrom;
             
                 Logger.VerboseNewline($"\tBy trimming out most of the il2cpp-ified managed methods, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100L / (float) oldLength:f1}% saving)");
-            }
+            } else if (methodAddresses[0] < endOfTextSection)
+            {
+                Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section, but api functions are not available. Attempting to (conservatively) trim out managed methods for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}");
+                
+                var startFrom = methodAddresses[^1];
+                
+                //Just in case the exports are mixed in with the end of the managed methods, let's subtract a little
+                if (startFrom > 0x100_0000)
+                    startFrom -= 0x10_0000;
+                
+                Logger.VerboseNewline($"\tTrimming everything before 0x{startFrom:X}.");
+                oldLength = primaryExecutableSection.Length;
+                
+                toRemove = (int) (startFrom - primaryExecutableSectionVa);
+                primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+
+                primaryExecutableSectionVa = startFrom;
             
+                Logger.VerboseNewline($"\tBy trimming out most of the il2cpp-ified managed methods, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100L / (float) oldLength:f1}% saving)");
+            }
 
             _allInstructions = disassembler.Disassemble(primaryExecutableSection, (long)primaryExecutableSectionVa).ToList();
         }
