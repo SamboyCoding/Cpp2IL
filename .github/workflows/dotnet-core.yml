@@ -22,16 +22,16 @@ jobs:
       working-directory: ./LibCpp2IL/
     - name: Build - Windows x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r win-x64
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r win-x64
     - name: Build - Net Framework 4.8, Windows
       working-directory: ./Cpp2IL/
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore
     - name: Build - Ubuntu x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r ubuntu-x64
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r ubuntu-x64
     - name: Build - OSX x64
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net5.0 --no-restore -r osx-x64
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r osx-x64
     - name: Run Tests
       run: |
         dotnet build
@@ -45,7 +45,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Windows
-        path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
+        path: ./Cpp2IL/bin/Release/net6.0/win-x64/publish/Cpp2IL.exe
     - name: Upload Netframework Artifact
       uses: actions/upload-artifact@v2
       with:
@@ -55,12 +55,12 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Linux
-        path: ./Cpp2IL/bin/Release/net5.0/ubuntu-x64/publish/Cpp2IL
+        path: ./Cpp2IL/bin/Release/net6.0/ubuntu-x64/publish/Cpp2IL
     - name: Upload OSX x64 Artifact
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Mac
-        path: ./Cpp2IL/bin/Release/net5.0/osx-x64/publish/Cpp2IL
+        path: ./Cpp2IL/bin/Release/net6.0/osx-x64/publish/Cpp2IL
 #    - name: Create Release
 #      id: create_release
 #      uses: actions/create-release@v1
