@@ -48,6 +48,7 @@ namespace LibCpp2IL
 
         // Find all occurrences of a sequence of bytes, using word alignment by default
         private IEnumerable<uint> FindAllBytes(byte[] signature, int alignment = 0) {
+            LibLogger.VerboseNewline($"\t\t\tLooking for bytes: {string.Join(" ", signature.Select(b => b.ToString("x")))}");
             var offset = 0;
             var ptrSize = _binary.is32Bit ? 4 : 8;
             while (offset != -1) {
