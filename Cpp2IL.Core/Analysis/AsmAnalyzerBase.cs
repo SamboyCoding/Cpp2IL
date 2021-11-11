@@ -326,7 +326,7 @@ namespace Cpp2IL.Core.Analysis
                 }
                 catch (Exception e)
                 {
-                    Logger.WarnNewline($"Failed to generate synopsis for method {MethodDefinition?.FullName}, action of type {action.GetType().Name} for instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.GetInstructionAddress():X} - got exception {e}");
+                    Logger.WarnNewline($"Failed to generate synopsis for method {MethodDefinition?.FullName}, action of type {action.GetType().Name} for instruction {FormatInstruction(action.AssociatedInstruction)} at 0x{action.AssociatedInstruction.GetInstructionAddress():X} - got exception {e}");
                     AsmAnalyzerX86.FAILED_METHODS++;
                     throw new AnalysisExceptionRaisedException("Exception generating synopsis entry", e);
                 }

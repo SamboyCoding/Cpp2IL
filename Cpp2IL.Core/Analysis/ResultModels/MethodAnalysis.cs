@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
@@ -201,7 +202,12 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                     Arm64ReturnValueLocation = Arm64ReturnValueLocation.X0;
                 }
                 //TODO Investigate exactly where UnityEngine.Vector3 ends up - is it simple enough to go in v0-v3? Or because it has constructors etc, does it get treated as complex?
-                //TODO Equally, are there any plain data objects which take the X0_X1 slot? Or in the same vein, the x8 pointer slot?
+                //TODO Equally, are there any plain data objects which take the X0_X1 slot?
+                var lastFieldAddr = _method.ReturnType.Resolve() == null ? 0 : SharedState.FieldsByType[_method.ReturnType.Resolve()].LastOrDefault().Offset;
+                if (_method.ReturnType.IsValueType && lastFieldAddr >= 0x10)
+                {
+                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.POINTER_X8;
+                }
                 else if (xCount == 0)
                 {
                     //No this, complex object => pointer in x0

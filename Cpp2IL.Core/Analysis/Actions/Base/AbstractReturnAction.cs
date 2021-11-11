@@ -24,7 +24,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             if (!_isVoid)
             {
                 if (returnValue == null)
-                    throw new TaintedInstructionException();
+                    throw new TaintedInstructionException("Return value is missing");
+
+                if (returnValue is LocalDefinition loc && loc.Type?.Resolve() != context.ReturnType.Resolve())
+                    throw new TaintedInstructionException($"Return value has a type of {loc.Type}, expecting an object of type {context.ReturnType}");
                 
                 ret.AddRange(returnValue.GetILToLoad(context, processor));
             }
