@@ -327,12 +327,26 @@ namespace Cpp2IL.Core.Analysis
             var memoryOffset = instruction.MemoryOffset();
             var memoryIndex = instruction.MemoryIndex()?.Id ?? Arm64RegisterId.Invalid;
 
-            var memVar = Analysis.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(memoryBase));
+            var memoryBaseName = Utils.Utils.GetRegisterNameNew(memoryBase);
+            var memVar = Analysis.GetOperandInRegister(memoryBaseName);
 
             var mnemonic = instruction.Mnemonic;
 
             switch (mnemonic)
             {
+                case "ldp" when memVar is LocalDefinition && t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Register && t2 is Arm64OperandType.Memory:
+                {
+                    //ldp reg1, reg2, [memReg, offset]
+                    //Load field from memReg at offset into reg1, and another at offset + sizeof(reg1) into reg2.
+                    Analysis.Actions.Add(new Arm64FieldReadToRegAction(Analysis, instruction, memoryBaseName, (ulong) memoryOffset, r0Name));
+                    //Bit more complicated, we have to work out size of reg 1
+                    var size = 4;
+                    if (r0Name[0] is 'x')
+                        size = 8;
+
+                    Analysis.Actions.Add(new Arm64FieldReadToRegAction(Analysis, instruction, memoryBaseName, (ulong) (memoryOffset + size), r1Name));
+                    break;
+                }
                 case "orr" when r1Name is "xzr" && t2 == Arm64OperandType.Immediate && imm2 != 0:
                     //ORR dest, xzr, #n
                     //dest = n, basically. Technically 0 | n, but that's the same.
@@ -403,6 +417,20 @@ namespace Cpp2IL.Core.Analysis
                     }
 
                     break;
+                case "stp" when memVar is LocalDefinition && t0 is Arm64OperandType.Register && t1 is Arm64OperandType.Register && t2 is Arm64OperandType.Memory:
+                {
+                    //stp reg1, reg2, [memReg, offset]
+                    //Store value from reg1 into field at offset into reg1, and another into offset + sizeof(reg1) from reg2.
+                    Analysis.Actions.Add(new Arm64RegisterToFieldAction(Analysis, instruction, memoryBaseName, r0Name, (ulong) memoryOffset));
+                    
+                    //Work out size of reg 1. More than this may be needed?
+                    var size = 4;
+                    if (r0Name[0] is 'x')
+                        size = 8;
+
+                    Analysis.Actions.Add(new Arm64RegisterToFieldAction(Analysis, instruction, memoryBaseName, r1Name, (ulong) (memoryOffset + size)));
+                    break;
+                }
             }
         }
     }

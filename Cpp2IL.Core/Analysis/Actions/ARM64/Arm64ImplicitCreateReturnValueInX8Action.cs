@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
@@ -21,27 +22,29 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public override Instruction[] ToILInstructions(MethodAnalysis<Arm64Instruction> context, ILProcessor processor)
         {
-            if (_returnType.HasGenericParameters || _returnType is GenericInstanceType)
-                throw new TaintedInstructionException("Not implemented for generic types");
-
-            var ctor = _returnType.Resolve().Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0);
-
-            if (ctor == null)
-                throw new TaintedInstructionException("Not implemented for types with a complex constructor");
-
-            if (_localDefinition.Variable == null)
-                throw new TaintedInstructionException("Return value variable has been stripped");
-
-            return new[]
-            {
-                processor.Create(OpCodes.Newobj, ctor),
-                processor.Create(OpCodes.Stloc, _localDefinition.Variable)
-            };
+            return Array.Empty<Instruction>(); //Nothing needed because struct locals are implicitly present - they can't be null
+            
+            // if (_returnType.HasGenericParameters || _returnType is GenericInstanceType)
+            //     throw new TaintedInstructionException("Not implemented for generic types");
+            //
+            // var ctor = _returnType.Resolve().Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0);
+            //
+            // if (ctor == null)
+            //     throw new TaintedInstructionException("Not implemented for types with a complex constructor");
+            //
+            // if (_localDefinition.Variable == null)
+            //     throw new TaintedInstructionException("Return value variable has been stripped");
+            //
+            // return new[]
+            // {
+            //     processor.Create(OpCodes.Newobj, ctor),
+            //     processor.Create(OpCodes.Stloc, _localDefinition.Variable)
+            // };
         }
 
         public override string? ToPsuedoCode()
         {
-            return $"{_returnType} {_localDefinition.Name} = new {_returnType}()";
+            return $"{_returnType} {_localDefinition.Name} = default";
         }
 
         public override string ToTextSummary()
