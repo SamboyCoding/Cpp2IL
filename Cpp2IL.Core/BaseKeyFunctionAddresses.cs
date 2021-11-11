@@ -43,6 +43,17 @@ namespace Cpp2IL.Core
         public ulong il2cpp_object_is_inst; //TODO Re-find this and fix name
         public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
 
+        private void FindExport(string name, ref ulong ptr)
+        {
+            Logger.Verbose($"\tLooking for Exported {name} function...");
+            ptr = LibCpp2IlMain.Binary!.GetVirtualAddressOfExportedFunctionByName(name);
+            
+            if(ptr == 0)
+                Logger.VerboseNewline("Not found");
+            else
+                Logger.VerboseNewline($"Found at 0x{ptr:X}");
+        }
+
         public void Find()
         {
             var cppAssembly = LibCpp2IlMain.Binary!;
@@ -53,164 +64,38 @@ namespace Cpp2IL.Core
                 TryGetInitMetadataFromException();
 
             //New Object
-            Logger.Verbose("\tLooking for Exported il2cpp_object_new function...");
-            il2cpp_object_new = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_new");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_object_new:X}");
-
-            if (il2cpp_object_new != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_object_new to vm::Object::New...");
-                il2cpp_vm_object_new = FindFunctionThisIsAThunkOf(il2cpp_object_new, true);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_new:X}");
-            }
-
-            if (il2cpp_vm_object_new != 0)
-            {
-                Logger.Verbose("\t\tLooking for il2cpp_codegen_object_new as a thunk of vm::Object::New...");
-                
-                var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, 10);
-                
-                //Sort by caller count in ascending order
-                var list = potentialThunks.Select(ptr => (ptr, count: GetCallerCount(ptr))).ToList();
-                list.SortByExtractedKey(pair => pair.count);
-
-                //Sort in descending order - most called first
-                list.Reverse();
-                
-                //Take first as the target
-                il2cpp_codegen_object_new = list.FirstOrDefault().ptr;
-                
-                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_object_new:X}");
-            }
+            FindExport("il2cpp_object_new", ref il2cpp_object_new);
 
             //Type => Object
-            Logger.Verbose("\tLooking for Exported il2cpp_type_get_object function...");
-            il2cpp_type_get_object = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_type_get_object");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_type_get_object:X}");
-
-            if (il2cpp_type_get_object != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
-                il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(il2cpp_type_get_object);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_reflection_get_type_object:X}");
-            }
+            FindExport("il2cpp_type_get_object", ref il2cpp_type_get_object);
 
             //Resolve ICall
-            Logger.Verbose("\tLooking for Exported il2cpp_resolve_icall function...");
-            il2cpp_resolve_icall = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_resolve_icall");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_resolve_icall:X}");
-
-            if (il2cpp_resolve_icall != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
-                InternalCalls_Resolve = FindFunctionThisIsAThunkOf(il2cpp_resolve_icall);
-                Logger.VerboseNewline($"Found at 0x{InternalCalls_Resolve:X}");
-            }
+            FindExport("il2cpp_resolve_icall", ref il2cpp_resolve_icall);
 
             //New String
-            Logger.Verbose("\tLooking for Exported il2cpp_string_new function...");
-            il2cpp_string_new = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_string_new");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_string_new:X}");
+            FindExport("il2cpp_string_new", ref il2cpp_string_new);
 
-            if (il2cpp_string_new != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_string_new to String::New...");
-                il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(il2cpp_string_new);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_new:X}");
-            }
-            
             //New string wrapper
-            Logger.Verbose("\tLooking for Exported il2cpp_string_new_wrapper function...");
-            il2cpp_string_new_wrapper = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_string_new_wrapper");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_string_new_wrapper:X}");
-
-            if (il2cpp_string_new_wrapper != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_string_new_wrapper to String::NewWrapper...");
-                il2cpp_vm_string_newWrapper = FindFunctionThisIsAThunkOf(il2cpp_string_new_wrapper);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_newWrapper:X}");
-            }
-
-            if (il2cpp_vm_string_newWrapper != 0)
-            {
-                Logger.Verbose("\t\tMapping String::NewWrapper to il2cpp_codegen_string_new_wrapper...");
-                il2cpp_codegen_string_new_wrapper = FindAllThunkFunctions(il2cpp_vm_string_newWrapper, 0, il2cpp_string_new_wrapper).FirstOrDefault();
-                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_string_new_wrapper:X}");
-            }
+            FindExport("il2cpp_string_new_wrapper", ref il2cpp_string_new_wrapper);
 
             //Box Value
-            Logger.Verbose("\tLooking for Exported il2cpp_value_box function...");
-            il2cpp_value_box = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_value_box");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_value_box:X}");
+            FindExport("il2cpp_value_box", ref il2cpp_value_box);
 
-            if (il2cpp_value_box != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_value_box to Object::Box...");
-                il2cpp_vm_object_box = FindFunctionThisIsAThunkOf(il2cpp_value_box);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_box:X}");
-            }
-            
             //Unbox Value
-            Logger.Verbose("\tLooking for Exported il2cpp_object_unbox function...");
-            il2cpp_object_unbox = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_unbox");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_object_unbox:X}");
-
-            if (il2cpp_object_unbox != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_object_unbox to Object::Unbox...");
-                il2cpp_vm_object_unbox = FindFunctionThisIsAThunkOf(il2cpp_object_unbox);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_unbox:X}");
-            }
+            FindExport("il2cpp_object_unbox", ref il2cpp_object_unbox);
 
             //Raise Exception
-            Logger.Verbose("\tLooking for exported il2cpp_raise_exception function...");
-            il2cpp_raise_exception = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_raise_exception");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_raise_exception:X}");
-
-            if (il2cpp_raise_exception != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_raise_exception to il2cpp::vm::Exception::Raise...");
-                il2cpp_vm_exception_raise = FindFunctionThisIsAThunkOf(il2cpp_raise_exception, true);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_exception_raise:X}");
-            }
-
-            if (il2cpp_vm_exception_raise != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp::vm::Exception::Raise to il2cpp_codegen_raise_exception...");
-                il2cpp_codegen_raise_exception = FindAllThunkFunctions(il2cpp_vm_exception_raise, 4, il2cpp_raise_exception).FirstOrDefault();
-                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_raise_exception:X}");
-            }
+            FindExport("il2cpp_raise_exception", ref il2cpp_raise_exception);
 
             //Class Init
-            Logger.Verbose("\tLooking for exported il2cpp_runtime_class_init function...");
-            il2cpp_runtime_class_init_export = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_runtime_class_init");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_runtime_class_init_export:X}");
-
-            if (il2cpp_runtime_class_init_export != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_runtime_class_init to il2cpp:vm::Runtime::ClassInit...");
-                il2cpp_runtime_class_init_actual = FindFunctionThisIsAThunkOf(il2cpp_runtime_class_init_export);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_runtime_class_init_actual:X}");
-            }
+            FindExport("il2cpp_runtime_class_init", ref il2cpp_runtime_class_init_export);
 
             //New array of fixed size
-            Logger.Verbose("\tLooking for exported il2cpp_array_new_specific function...");
-            il2cpp_array_new_specific = cppAssembly.GetVirtualAddressOfExportedFunctionByName("il2cpp_array_new_specific");
-            Logger.VerboseNewline($"Found at 0x{il2cpp_array_new_specific:X}");
-
-            if (il2cpp_array_new_specific != 0)
-            {
-                Logger.Verbose("\t\tMapping il2cpp_array_new_specific to vm::Array::NewSpecific...");
-                il2cpp_vm_array_new_specific = FindFunctionThisIsAThunkOf(il2cpp_array_new_specific);
-                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_array_new_specific:X}");
-            }
-
-            if (il2cpp_vm_array_new_specific != 0)
-            {
-                Logger.Verbose("\t\tLooking for SzArrayNew as a thunk function proxying Array::NewSpecific...");
-                SzArrayNew = FindAllThunkFunctions(il2cpp_vm_array_new_specific, 4, il2cpp_array_new_specific).FirstOrDefault();
-                Logger.VerboseNewline($"Found at 0x{SzArrayNew:X}");
-            }
+            FindExport("il2cpp_array_new_specific", ref il2cpp_array_new_specific);
+            
+            AttemptInstructionAnalysisToFillGaps();
+            
+            FindThunks();
         }
 
         protected void TryGetInitMetadataFromException()
@@ -241,6 +126,124 @@ namespace Cpp2IL.Core
                         Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_runtime_metadata => 0x{il2cpp_codegen_initialize_runtime_metadata:X}");
                     }
                 }
+            }
+        }
+
+        protected virtual void AttemptInstructionAnalysisToFillGaps()
+        {
+            
+        }
+
+        private void FindThunks()
+        {
+            if (il2cpp_object_new != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_object_new to vm::Object::New...");
+                il2cpp_vm_object_new = FindFunctionThisIsAThunkOf(il2cpp_object_new, true);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_new:X}");
+            }
+
+            if (il2cpp_vm_object_new != 0)
+            {
+                Logger.Verbose("\t\tLooking for il2cpp_codegen_object_new as a thunk of vm::Object::New...");
+                
+                var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, 16);
+                
+                //Sort by caller count in ascending order
+                var list = potentialThunks.Select(ptr => (ptr, count: GetCallerCount(ptr))).ToList();
+                list.SortByExtractedKey(pair => pair.count);
+
+                //Sort in descending order - most called first
+                list.Reverse();
+                
+                //Take first as the target
+                il2cpp_codegen_object_new = list.FirstOrDefault().ptr;
+                
+                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_object_new:X}");
+            }
+            
+            if (il2cpp_type_get_object != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
+                il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(il2cpp_type_get_object);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_reflection_get_type_object:X}");
+            }
+            
+            if (il2cpp_resolve_icall != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
+                InternalCalls_Resolve = FindFunctionThisIsAThunkOf(il2cpp_resolve_icall);
+                Logger.VerboseNewline($"Found at 0x{InternalCalls_Resolve:X}");
+            }
+            
+            if (il2cpp_string_new != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_string_new to String::New...");
+                il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(il2cpp_string_new);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_new:X}");
+            }
+            
+            if (il2cpp_string_new_wrapper != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_string_new_wrapper to String::NewWrapper...");
+                il2cpp_vm_string_newWrapper = FindFunctionThisIsAThunkOf(il2cpp_string_new_wrapper);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_newWrapper:X}");
+            }
+
+            if (il2cpp_vm_string_newWrapper != 0)
+            {
+                Logger.Verbose("\t\tMapping String::NewWrapper to il2cpp_codegen_string_new_wrapper...");
+                il2cpp_codegen_string_new_wrapper = FindAllThunkFunctions(il2cpp_vm_string_newWrapper, 0, il2cpp_string_new_wrapper).FirstOrDefault();
+                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_string_new_wrapper:X}");
+            }
+
+            if (il2cpp_value_box != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_value_box to Object::Box...");
+                il2cpp_vm_object_box = FindFunctionThisIsAThunkOf(il2cpp_value_box);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_box:X}");
+            }
+            
+            if (il2cpp_object_unbox != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_object_unbox to Object::Unbox...");
+                il2cpp_vm_object_unbox = FindFunctionThisIsAThunkOf(il2cpp_object_unbox);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_unbox:X}");
+            }
+            
+            if (il2cpp_raise_exception != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_raise_exception to il2cpp::vm::Exception::Raise...");
+                il2cpp_vm_exception_raise = FindFunctionThisIsAThunkOf(il2cpp_raise_exception, true);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_exception_raise:X}");
+            }
+
+            if (il2cpp_vm_exception_raise != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp::vm::Exception::Raise to il2cpp_codegen_raise_exception...");
+                il2cpp_codegen_raise_exception = FindAllThunkFunctions(il2cpp_vm_exception_raise, 4, il2cpp_raise_exception).FirstOrDefault();
+                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_raise_exception:X}");
+            }
+            
+            if (il2cpp_runtime_class_init_export != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_runtime_class_init to il2cpp:vm::Runtime::ClassInit...");
+                il2cpp_runtime_class_init_actual = FindFunctionThisIsAThunkOf(il2cpp_runtime_class_init_export);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_runtime_class_init_actual:X}");
+            }
+
+            if (il2cpp_array_new_specific != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_array_new_specific to vm::Array::NewSpecific...");
+                il2cpp_vm_array_new_specific = FindFunctionThisIsAThunkOf(il2cpp_array_new_specific);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_array_new_specific:X}");
+            }
+
+            if (il2cpp_vm_array_new_specific != 0)
+            {
+                Logger.Verbose("\t\tLooking for SzArrayNew as a thunk function proxying Array::NewSpecific...");
+                SzArrayNew = FindAllThunkFunctions(il2cpp_vm_array_new_specific, 4, il2cpp_array_new_specific).FirstOrDefault();
+                Logger.VerboseNewline($"Found at 0x{SzArrayNew:X}");
             }
         }
 
