@@ -95,6 +95,18 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 - [x] Able to save generated IL to the actual function body in the Assembly, allowing decompilation using dnSpy/ILSpy.
 - [x] Significantly faster than both Il2CppDumper and Il2CppInspector (for DummyDLL Generation)
 
+## Supported File Extensions / Instruction sets
+
+| File Extension | x86 | x86_64 | ArmV7 | ArmV8 | Other/Comments |
+| :------------: | :-: | :----: | :---: | :---: | :------------: |
+| PE (DLL files, Windows) | ✔️ | ✔️ | ❌ | ❌ | N/A |
+| ELF (SO files, Linux) | ✔️ | ✔️ | ✔️ | ✔️ | N/A |
+| NSO (Switch)   | N/A | N/A | N/A | ✔️ | Switch is ArmV8, that is the only supported instruction set. Compression supported. |
+| APK (Android)  | ❌ | ❌ | ✔️ | ✔️ | Unpacks the APK, then delegates to ELF loader. x86 support is coming soon. |
+| WASM (WebAssembly) | N/A | N/A | N/A | N/A | Not supported yet, but planned. |
+| Mach-O (Mac OS)| ❌ | ❌ | N/A? | ❌ | Not supported yet, but planned |
+
+
 ## Supported Analysis Features Table
 
 | Feature | Supported in x86 | Supported in ARMv8 | Supported in ARMv7 |
