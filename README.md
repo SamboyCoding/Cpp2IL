@@ -58,7 +58,7 @@ wine/proton.
 
 - [Windows Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Windows.zip)
 - [Linux Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Linux.zip)
-- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Max.zip)
+- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Mac.zip)
 - [.NET Framework 4.7.2 Windows Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Netframework472-Windows.zip)
 
 
