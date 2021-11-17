@@ -51,9 +51,6 @@ namespace Cpp2IL.Core
             foreach (var propertyDef in typeDef.Properties!)
             {
                 var propertyDefinition = SharedState.UnmanagedToManagedProperties[propertyDef];
-                
-                if(typeDef.FullName == "System.Xml.Schema.XmlSchema" && propertyDefinition.Name == "AttributeFormDefault")
-                    Debugger.Break();
 
                 GetCustomAttributesByAttributeIndex(imageDef, typeDefinition.Module, propertyDef.token)
                     .ForEach(attribute => propertyDefinition.CustomAttributes.Add(attribute));
