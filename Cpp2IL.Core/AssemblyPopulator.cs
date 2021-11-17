@@ -10,6 +10,7 @@ using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using MonoMod.Utils;
 using CustomAttributeNamedArgument = Mono.Cecil.CustomAttributeNamedArgument;
 using EventAttributes = Mono.Cecil.EventAttributes;
 using FieldAttributes = Mono.Cecil.FieldAttributes;

@@ -566,6 +566,8 @@ namespace Cpp2IL.Core
                             case AnalysisLevel.IL_ONLY:
                                 typeDump?.Append(dumper.BuildILToString());
                                 break;
+                            case AnalysisLevel.NONE:
+                                break;
                         }
 
                         Interlocked.Increment(ref numProcessed);

@@ -58,6 +58,12 @@ namespace Cpp2IL
         
         [Option("analyze-all", HelpText = "Analyze every single assembly in the application. Probably very slow, might break.")]
         public bool AnalyzeAllAssemblies { get; set; }
+        
+        [Option("skip-method-dumps", HelpText = "Disable method dump files.")]
+        public bool DisableMethodDumps { get; set; }
+
+        [Option("just-give-me-dlls-asap-dammit", HelpText = "Shorthand for --parallel --skip-method-dumps --experimental-enable-il-to-assembly-please --throw-safety-out-the-window --skip-metadata-txts")]
+        public bool UserIsImpatient { get; set; }
 
         internal bool AreForceOptionsValid
         {
