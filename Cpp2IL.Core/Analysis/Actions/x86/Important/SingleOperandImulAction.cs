@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -18,14 +19,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             // = multiply rax by reg and store in rax
 
             _firstOperand = context.GetOperandInRegister("rax");
-            var secondOpRegName = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            var secondOpRegName = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             _secondOperand = context.GetOperandInRegister(secondOpRegName);
 
             //If this is an integer division, rax usually has the constant.
             ulong firstOpConstant = 0;
-            if (_firstOperand is ConstantDefinition {Value: { } val} && Utils.Utils.TryCoerceToUlong(val, out var constUlong))
+            if (_firstOperand is ConstantDefinition {Value: { } val} && MiscUtils.TryCoerceToUlong(val, out var constUlong))
                 firstOpConstant = constUlong;
-            else if (_firstOperand is LocalDefinition {KnownInitialValue: { } val2} && Utils.Utils.TryCoerceToUlong(val2, out var localUlong))
+            else if (_firstOperand is LocalDefinition {KnownInitialValue: { } val2} && MiscUtils.TryCoerceToUlong(val2, out var localUlong))
                 firstOpConstant = localUlong;
 
             if (firstOpConstant != 0 && _secondOperand != null)
@@ -36,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             }
 
             //TODO technically this goes into eax for the lower 32 bits and edx for the upper.
-            _returnedLocal = context.MakeLocal(Utils.Utils.UInt64Reference, reg: "rax");
+            _returnedLocal = context.MakeLocal(MiscUtils.UInt64Reference, reg: "rax");
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

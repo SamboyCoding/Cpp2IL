@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -27,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             {
                 try
                 {
-                    Utils.Utils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
+                    MiscUtils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
                     unimportant1 = false;
                 }
                 catch
@@ -45,7 +46,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 {
                     try
                     {
-                        Utils.Utils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
+                        MiscUtils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
                         unimportant2 = false;
                     }
                     catch
@@ -77,14 +78,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                         {
                             var underLyingType = typeof(int).Module.GetType(argumentOneTypeDefinition.GetEnumUnderlyingType().FullName);
                             constantDefinition.Type = underLyingType;
-                            constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
+                            constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
                         }
                         else
                         {
                             var argumentOneSystemType = typeof(int).Module.GetType(argumentOneType.FullName);
-                            if (argumentOneSystemType != null && Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
+                            if (argumentOneSystemType != null && MiscUtils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
                             {
-                                constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, argumentOneType);
+                                constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, argumentOneType);
                                 constantDefinition.Type = argumentOneSystemType;
                             }
                         }

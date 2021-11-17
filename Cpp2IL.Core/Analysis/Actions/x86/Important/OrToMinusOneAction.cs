@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -14,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         //i.e. set reg to -1
         public OrToMinusOneAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _reg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _reg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
 
             _constantMade = context.MakeConstant(typeof(int), -1, reg: _reg);
         }

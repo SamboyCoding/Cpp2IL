@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 
@@ -103,7 +104,7 @@ namespace Cpp2IL.Core
             //Exception.get_Message() - first call is either to codegen_initialize_method (< v27) or codegen_initialize_runtime_metadata
             Logger.VerboseNewline("\tLooking for Type System.Exception, Method get_Message...");
 
-            var type = Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Exception");
+            var type = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Exception");
             if (type != null)
             {
                 Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");

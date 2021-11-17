@@ -11,6 +11,7 @@ using System.Threading;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
@@ -183,7 +184,7 @@ namespace Cpp2IL.Core
         {
             SharedState.Clear();
 
-            Utils.Utils.Reset();
+            MiscUtils.Reset();
 
             AttributeRestorer.Reset();
 
@@ -217,7 +218,7 @@ namespace Cpp2IL.Core
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Configure utils class
-            Utils.Utils.BuildPrimitiveMappings();
+            MiscUtils.BuildPrimitiveMappings();
 
             //Set base types and interfaces
             startTwo = DateTime.Now;

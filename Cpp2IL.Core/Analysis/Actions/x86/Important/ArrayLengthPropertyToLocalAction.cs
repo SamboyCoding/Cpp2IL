@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -11,21 +12,21 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 {
     public class ArrayLengthPropertyToLocalAction : BaseAction<Instruction>
     {
-        private static readonly MethodDefinition GetLengthDef = Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Array")!.Methods.Single(m => m.Name == "get_Length");
+        private static readonly MethodDefinition GetLengthDef = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Array")!.Methods.Single(m => m.Name == "get_Length");
         public LocalDefinition? LocalMade;
         public LocalDefinition? TheArray;
         private string? _destReg;
 
         public ArrayLengthPropertyToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             TheArray = context.GetLocalInReg(memReg);
 
             if (TheArray?.Type?.IsArray != true)
                 return;
 
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
-            LocalMade = context.MakeLocal(Utils.Utils.Int32Reference, reg: _destReg);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            LocalMade = context.MakeLocal(MiscUtils.Int32Reference, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

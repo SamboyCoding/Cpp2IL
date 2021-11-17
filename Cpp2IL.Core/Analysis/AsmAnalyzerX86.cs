@@ -6,6 +6,7 @@ using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.PostProcessActions;
 using Cpp2IL.Core.Analysis.PostProcessActions.ILPostProcess;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -30,7 +31,7 @@ namespace Cpp2IL.Core.Analysis
 
         protected override void AnalysisRequestedExpansion(ulong ptr)
         {
-            var newInstructions = Utils.Utils.GetMethodBodyAtVirtAddressNew(ptr, false);
+            var newInstructions = MiscUtils.GetMethodBodyAtVirtAddressNew(ptr, false);
 
             MethodEnd = newInstructions.LastOrDefault().NextIP;
             _instructions.AddRange(newInstructions);

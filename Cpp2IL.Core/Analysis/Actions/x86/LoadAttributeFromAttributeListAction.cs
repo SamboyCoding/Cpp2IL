@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -16,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             _attributeType = attributes[(int) OffsetInList];
 
-            var destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            var destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             LocalMade = context.MakeLocal(_attributeType, reg: destReg);
         }
     }

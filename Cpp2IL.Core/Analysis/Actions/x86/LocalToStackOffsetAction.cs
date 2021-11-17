@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -14,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public LocalToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _stackOffset = instruction.MemoryDisplacement32;
-            _sourceReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            _sourceReg = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
             _sourceLocal = context.GetLocalInReg(_sourceReg);
 
             if (_sourceLocal == null) 

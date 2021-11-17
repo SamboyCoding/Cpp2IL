@@ -2,6 +2,7 @@
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -21,8 +22,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public RegToRegMoveAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            originalReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
-            newReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            originalReg = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
+            newReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             beingMoved = context.GetOperandInRegister(originalReg);
             _localBeingOverwritten = context.GetLocalInReg(newReg);
 

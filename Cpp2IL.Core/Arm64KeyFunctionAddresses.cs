@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
@@ -218,12 +219,12 @@ namespace Cpp2IL.Core
         protected override void AttemptInstructionAnalysisToFillGaps()
         {
             Logger.Verbose("\tAttempting to use Array GetEnumerator to find il2cpp_codegen_object_new...");
-            if (Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Array") is { } arrayTypeDef)
+            if (MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Array") is { } arrayTypeDef)
             {
                 if (arrayTypeDef.Methods.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
                 {
                     var ptr = methodDef.AsUnmanaged().MethodPointer;
-                    var body = Utils.Utils.GetArm64MethodBodyAtVirtualAddress(ptr, true);
+                    var body = MiscUtils.GetArm64MethodBodyAtVirtualAddress(ptr, true);
 
                     //Looking for adrp, ldr, ldr, bl. Probably more than one - the first will be initializing the method, second will be the constructor call
                     var probableResult = 0L;

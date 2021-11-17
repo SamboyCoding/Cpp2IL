@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -15,13 +16,13 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public InterfaceOffsetsReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var regName = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var regName = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             var regConstant = context.GetConstantInReg(regName);
 
             loadedFor = (Il2CppClassIdentifier) regConstant.Value;
             InterfaceOffsets = loadedFor.backingType.InterfaceOffsets;
 
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             _destinationConst = context.MakeConstant(typeof(Il2CppInterfaceOffset[]), InterfaceOffsets, reg: _destReg);
         }
 

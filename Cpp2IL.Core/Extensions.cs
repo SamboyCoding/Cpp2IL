@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm;
 using Gee.External.Capstone.Arm64;
 using Iced.Intel;
@@ -18,9 +19,9 @@ namespace Cpp2IL.Core
     {
         public static ulong GetImmediateSafe(this Instruction instruction, int op) => instruction.GetOpKind(op).IsImmediate() ? instruction.GetImmediate(op) : 0;
 
-        public static ulong GetInstructionAddress(this object? instruction) => instruction == null ? 0 : Utils.Utils.GetAddressOfInstruction(instruction);
+        public static ulong GetInstructionAddress(this object? instruction) => instruction == null ? 0 : MiscUtils.GetAddressOfInstruction(instruction);
         
-        public static ulong GetNextInstructionAddress(this object? instruction) => instruction == null ? 0 : Utils.Utils.GetAddressOfNextInstruction(instruction);
+        public static ulong GetNextInstructionAddress(this object? instruction) => instruction == null ? 0 : MiscUtils.GetAddressOfNextInstruction(instruction);
         
         public static bool IsJump(this Mnemonic mnemonic) => mnemonic is Mnemonic.Call or >= Mnemonic.Ja and <= Mnemonic.Js;
         public static bool IsConditionalJump(this Mnemonic mnemonic) => mnemonic.IsJump() && mnemonic != Mnemonic.Jmp && mnemonic != Mnemonic.Call;

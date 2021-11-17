@@ -18,7 +18,7 @@ using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Core.Utils
 {
-    public static class Utils
+    public static class MiscUtils
     {
         private static readonly object _pointerReadLock = new object();
         //Disable these because they're initialised in BuildPrimitiveMappings
@@ -1004,7 +1004,7 @@ namespace Cpp2IL.Core.Utils
 
         public static void CoerceUnknownGlobalValue(TypeReference targetType, UnknownGlobalAddr unknownGlobalAddr, ConstantDefinition destinationConstant, bool allowByteArray = true)
         {
-            var primitiveLength = Utils.GetSizeOfObject(targetType);
+            var primitiveLength = MiscUtils.GetSizeOfObject(targetType);
             byte[] newValue;
             if (primitiveLength == 8)
                 newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 8);

@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Utils
             var ret = new List<FieldInType>();
             
             //Initialize to either 0, 0x8, or 0x10
-            var offset = type.IsValueType ? 0UL : (ulong) (Utils.GetPointerSizeBytes() * 2);
+            var offset = type.IsValueType ? 0UL : (ulong) (MiscUtils.GetPointerSizeBytes() * 2);
             foreach (var field in baseType.Fields.Where(f => !f.IsStatic))
             {
                 var fieldType = field.FieldType!;
@@ -33,7 +33,7 @@ namespace Cpp2IL.Core.Utils
                     Offset = offset
                 });
 
-                offset += Utils.GetSizeOfObject(fieldType);
+                offset += MiscUtils.GetSizeOfObject(fieldType);
             }
 
             return ret;

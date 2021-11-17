@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -19,12 +20,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             _globalAddr = instruction.MemoryDisplacement64;
             
-            _regName = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _regName = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             _op1 = context.GetLocalInReg(_regName);
 
             _globalValue = BitConverter.ToSingle(LibCpp2IlMain.Binary!.GetRawBinaryContent(), (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(_globalAddr));
 
-            _localMade = context.MakeLocal(Utils.Utils.SingleReference, reg: _regName);
+            _localMade = context.MakeLocal(MiscUtils.SingleReference, reg: _regName);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

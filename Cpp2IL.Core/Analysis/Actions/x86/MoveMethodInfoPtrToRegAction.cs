@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -14,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public MoveMethodInfoPtrToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _sourceReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            _sourceReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             var constantBeingRead = context.GetConstantInReg(_sourceReg);
 
             if (constantBeingRead?.Type != typeof(MethodReference))
@@ -32,7 +33,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if(_methodBeingRead == null)
                 return;
 
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             
             context.SetRegContent(_destReg, constantBeingRead);
         }

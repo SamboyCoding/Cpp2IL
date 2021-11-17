@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.PE;
@@ -57,7 +58,7 @@ namespace Cpp2IL.Core
 
         protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
         {
-            var instructions = Utils.Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
+            var instructions = MiscUtils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
 
             try
             {

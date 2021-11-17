@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -16,9 +17,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ThreeOperandImulAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
-            var argOneReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
-            var argTwoReg = Utils.Utils.GetRegisterNameNew(instruction.Op2Register);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var argOneReg = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
+            var argTwoReg = MiscUtils.GetRegisterNameNew(instruction.Op2Register);
 
             if(!string.IsNullOrEmpty(argOneReg))
                 _argOne = context.GetOperandInRegister(argOneReg);
@@ -46,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if(_argTwo is LocalDefinition l2)
                 RegisterUsedLocal(l2, context);
 
-            _resultLocal = context.MakeLocal(Utils.Utils.Int64Reference, reg: _destReg);
+            _resultLocal = context.MakeLocal(MiscUtils.Int64Reference, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

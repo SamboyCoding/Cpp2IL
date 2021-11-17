@@ -14,9 +14,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         //TODO: Fix string literal to field - it's a constant in a field.
         public RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var destRegName = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var destRegName = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
-            ValueRead = context.GetOperandInRegister(Utils.Utils.GetRegisterNameNew(instruction.Op1Register));
+            ValueRead = context.GetOperandInRegister(MiscUtils.GetRegisterNameNew(instruction.Op1Register));
 
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);
             

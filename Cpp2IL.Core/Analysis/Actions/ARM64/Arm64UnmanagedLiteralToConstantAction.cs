@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using Mono.Cecil.Cil;
 
@@ -12,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64UnmanagedLiteralToConstantAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction, string literal, ulong address) : base(context, instruction)
         {
-            var destReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].RegisterSafe()?.Id ?? Arm64RegisterId.Invalid);
+            var destReg = MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].RegisterSafe()?.Id ?? Arm64RegisterId.Invalid);
             
             if(string.IsNullOrEmpty(destReg))
                 return;

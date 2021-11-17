@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Globalization;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 
@@ -76,32 +77,32 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 return new[] {ilProcessor.Create(Convert.ToInt64(Value) != 0 ? OpCodes.Ldc_I4_1 : OpCodes.Ldc_I4_0)};
 
             if (Type == typeof(int))
-                return new[] {ilProcessor.Create(OpCodes.Ldc_I4, (int) Utils.Utils.ReinterpretBytes((IConvertible) Value, Type))};
+                return new[] {ilProcessor.Create(OpCodes.Ldc_I4, (int) MiscUtils.ReinterpretBytes((IConvertible) Value, Type))};
 
             if (Type == typeof(uint))
                 return new[]
                 {
-                    ilProcessor.Create(OpCodes.Ldc_I4, (int) (uint) Utils.Utils.ReinterpretBytes((IConvertible) Value, Type)),
+                    ilProcessor.Create(OpCodes.Ldc_I4, (int) (uint) MiscUtils.ReinterpretBytes((IConvertible) Value, Type)),
                     ilProcessor.Create(OpCodes.Conv_U4) //Convert to uint
                 };
 
             if (Type == typeof(ulong))
                 return new[]
                 {
-                    ilProcessor.Create(OpCodes.Ldc_I8, (long) (ulong) Utils.Utils.ReinterpretBytes((IConvertible) Value, Type)), //Load as long
+                    ilProcessor.Create(OpCodes.Ldc_I8, (long) (ulong) MiscUtils.ReinterpretBytes((IConvertible) Value, Type)), //Load as long
                     ilProcessor.Create(OpCodes.Conv_U8) //Convert to ulong
                 };
 
             if (Type == typeof(float))
                 return new[]
                 {
-                    ilProcessor.Create(OpCodes.Ldc_R4, (float) Utils.Utils.ReinterpretBytes((IConvertible) Value, Type)),
+                    ilProcessor.Create(OpCodes.Ldc_R4, (float) MiscUtils.ReinterpretBytes((IConvertible) Value, Type)),
                 };
             
             if (Type == typeof(double))
                 return new[]
                 {
-                    ilProcessor.Create(OpCodes.Ldc_R8, (double) Utils.Utils.ReinterpretBytes((IConvertible) Value, Type)),
+                    ilProcessor.Create(OpCodes.Ldc_R8, (double) MiscUtils.ReinterpretBytes((IConvertible) Value, Type)),
                 };
 
             if(Type == typeof(MethodReference) && Value is GenericInstanceMethod gim)

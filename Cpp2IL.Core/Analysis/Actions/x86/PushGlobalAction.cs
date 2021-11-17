@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -33,7 +34,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             {
                 case MetadataUsageType.Type:
                 case MetadataUsageType.TypeInfo:
-                    var typeDefinition = Utils.Utils.TryResolveTypeReflectionData(usage.AsType());
+                    var typeDefinition = MiscUtils.TryResolveTypeReflectionData(usage.AsType());
                     context.Stack.Push(context.MakeConstant(typeof(TypeDefinition), typeDefinition));
                     break;
                 case MetadataUsageType.MethodDef:
@@ -48,7 +49,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                     if (unmanagedReference.MethodGenericParams.Length > 0)
                     {
                         var methodGParams = unmanagedReference.MethodGenericParams
-                            .Select(data => Utils.Utils.TryResolveTypeReflectionData(data, managedMethodRef))
+                            .Select(data => MiscUtils.TryResolveTypeReflectionData(data, managedMethodRef))
                             .ToList();
 
                         if (methodGParams.Any(g => g == null))
@@ -63,7 +64,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                     if (unmanagedReference.TypeGenericParams.Length > 0)
                     {
                         var typeGParams = unmanagedReference.TypeGenericParams
-                            .Select(data => Utils.Utils.TryResolveTypeReflectionData(data, managedTypeRef))
+                            .Select(data => MiscUtils.TryResolveTypeReflectionData(data, managedTypeRef))
                             .ToList();
 
                         if (typeGParams.Any(g => g == null))

@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -19,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (instruction.Mnemonic != Mnemonic.Push)
             {
-                _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+                _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             }
 
             _constantMade = context.MakeConstant(typeof(Il2CppString), new Il2CppString(_detectedString, instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64), reg: _destReg);

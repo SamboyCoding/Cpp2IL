@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -58,7 +59,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             {
                 if (!_boxingFieldPointer)
                 {
-                    value = Utils.Utils.CoerceValue(value, destinationType);
+                    value = MiscUtils.CoerceValue(value, destinationType);
                     _localMade = context.MakeLocal(destinationType, reg: "rax", knownInitialValue: value);
                 }
                 else

@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -24,7 +25,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             //This may need expanding on / improving
             _isUpperHalf = instruction.Op0Register.IsGPR32() && instruction.Op0Register == Register.EDX;
 
-            _regBeingShifted = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _regBeingShifted = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             _constantInReg = context.GetConstantInReg(_regBeingShifted);
 
             _intDivision = _constantInReg?.Value as IntegerDivisionInProgress<Instruction>;
@@ -46,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 _potentiallyWrong = true;
             }
 
-            _localMade = context.MakeLocal(Utils.Utils.UInt64Reference, reg: _regBeingShifted);
+            _localMade = context.MakeLocal(MiscUtils.UInt64Reference, reg: _regBeingShifted);
             RegisterUsedLocal(_localMade, context);
         }
 

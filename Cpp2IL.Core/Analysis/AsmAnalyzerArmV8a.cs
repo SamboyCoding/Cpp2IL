@@ -6,6 +6,7 @@ using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.PostProcessActions;
 using Cpp2IL.Core.Analysis.PostProcessActions.ILPostProcess;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -24,7 +25,7 @@ namespace Cpp2IL.Core.Analysis
         {
             var baseAddress = definition.AsUnmanaged().MethodPointer;
 
-            return Utils.Utils.GetArm64MethodBodyAtVirtualAddress(baseAddress);
+            return MiscUtils.GetArm64MethodBodyAtVirtualAddress(baseAddress);
         }
 
         private string FunctionArgumentDump;
