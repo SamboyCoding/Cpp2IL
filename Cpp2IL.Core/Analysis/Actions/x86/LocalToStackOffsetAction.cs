@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public LocalToStackOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _stackOffset = instruction.MemoryDisplacement32;
-            _sourceReg = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
+            _sourceReg = X86Utils.GetRegisterNameNew(instruction.Op1Register);
             _sourceLocal = context.GetLocalInReg(_sourceReg);
 
             if (_sourceLocal == null) 

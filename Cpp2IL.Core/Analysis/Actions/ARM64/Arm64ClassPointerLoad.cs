@@ -16,9 +16,9 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64ClassPointerLoadAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             var op0 = instruction.Details.Operands[0].Register;
-            destReg = MiscUtils.GetRegisterNameNew(op0.Id);
+            destReg = Arm64Utils.GetRegisterNameNew(op0.Id);
 
-            var sourceReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
+            var sourceReg = Arm64Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
             var inReg = context.GetOperandInRegister(sourceReg);
             localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition { Value: NewSafeCastResult<Arm64Instruction> result } ? result.original : null;
 

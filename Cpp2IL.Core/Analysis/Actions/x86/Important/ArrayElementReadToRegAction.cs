@@ -10,8 +10,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
     {
         public ArrayElementReadToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var arrayReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
-            var offsetReg = MiscUtils.GetRegisterNameNew(instruction.MemoryIndex);
+            var arrayReg = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var offsetReg = X86Utils.GetRegisterNameNew(instruction.MemoryIndex);
 
             ArrayLocal = context.GetLocalInReg(arrayReg);
             OffsetLocal = context.GetLocalInReg(offsetReg);
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             ArrayElementType = ArrType.GetElementType();
 
-            var destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
             LocalMade = context.MakeLocal(ArrType.ElementType, reg: destReg);
             

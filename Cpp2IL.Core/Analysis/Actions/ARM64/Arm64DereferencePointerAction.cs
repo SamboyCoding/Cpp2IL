@@ -14,9 +14,9 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64DereferencePointerAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            _ptrReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
+            _ptrReg = Arm64Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
             _ptr = context.GetConstantInReg(_ptrReg)!;
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            _destReg = Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
             
             context.SetRegContent(_destReg, _ptr);
         }

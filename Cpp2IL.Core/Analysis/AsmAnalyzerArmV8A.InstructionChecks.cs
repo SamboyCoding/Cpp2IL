@@ -50,7 +50,7 @@ namespace Cpp2IL.Core.Analysis
             var op0 = instruction.Details.Operands[0]!;
             var t0 = op0.Type;
             var r0 = op0.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
-            var r0Name = MiscUtils.GetRegisterNameNew(r0);
+            var r0Name = Arm64Utils.GetRegisterNameNew(r0);
             var var0 = Analysis.GetOperandInRegister(r0Name);
             var imm0 = op0.ImmediateSafe();
 
@@ -124,8 +124,8 @@ namespace Cpp2IL.Core.Analysis
             var r0 = op0.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
             var r1 = op1.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
 
-            var r0Name = MiscUtils.GetRegisterNameNew(r0);
-            var r1Name = MiscUtils.GetRegisterNameNew(r1);
+            var r0Name = Arm64Utils.GetRegisterNameNew(r0);
+            var r1Name = Arm64Utils.GetRegisterNameNew(r1);
 
             var var0 = Analysis.GetOperandInRegister(r0Name);
             var var1 = Analysis.GetOperandInRegister(r1Name);
@@ -137,7 +137,7 @@ namespace Cpp2IL.Core.Analysis
             var memoryOffset = instruction.MemoryOffset();
             var memoryIndex = instruction.MemoryIndex()?.Id ?? Arm64RegisterId.Invalid;
 
-            var memVar = Analysis.GetOperandInRegister(MiscUtils.GetRegisterNameNew(memoryBase));
+            var memVar = Analysis.GetOperandInRegister(Arm64Utils.GetRegisterNameNew(memoryBase));
 
             var mnemonic = instruction.Mnemonic;
             if (mnemonic is "ldrb" or "ldrh")
@@ -182,7 +182,7 @@ namespace Cpp2IL.Core.Analysis
                 {
                     //Zero offsets, but second operand is a memory pointer -> class pointer move.
                     //MUST Check for non-cpp type
-                    if (Analysis.GetLocalInReg(MiscUtils.GetRegisterNameNew(memoryBase)) != null)
+                    if (Analysis.GetLocalInReg(Arm64Utils.GetRegisterNameNew(memoryBase)) != null)
                     {
                         Analysis.Actions.Add(new Arm64ClassPointerLoadAction(Analysis, instruction)); //We have a managed local type, we can load the class pointer for it
                     }
@@ -274,7 +274,7 @@ namespace Cpp2IL.Core.Analysis
                     var mayNotBeAConstant = MNEMONICS_INDICATING_CONSTANT_IS_NOT_CONSTANT
                         .Any(m => _instructions
                             .Any(i => !i.IsSkippedData && i.Mnemonic == m && !i.Details.Operands
-                                .Any(o => MiscUtils.GetRegisterNameNew(o.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid) is "sp")));
+                                .Any(o => Arm64Utils.GetRegisterNameNew(o.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid) is "sp")));
                     
                     Analysis.Actions.Add(new Arm64ImmediateToRegAction(Analysis, instruction, mayNotBeAConstant));
                     break;
@@ -312,9 +312,9 @@ namespace Cpp2IL.Core.Analysis
             var r1 = op1.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
             var r2 = op2.RegisterSafe()?.Id ?? Arm64RegisterId.Invalid;
 
-            var r0Name = MiscUtils.GetRegisterNameNew(r0);
-            var r1Name = MiscUtils.GetRegisterNameNew(r1);
-            var r2Name = MiscUtils.GetRegisterNameNew(r2);
+            var r0Name = Arm64Utils.GetRegisterNameNew(r0);
+            var r1Name = Arm64Utils.GetRegisterNameNew(r1);
+            var r2Name = Arm64Utils.GetRegisterNameNew(r2);
 
             var var0 = Analysis.GetOperandInRegister(r0Name);
             var var1 = Analysis.GetOperandInRegister(r1Name);
@@ -328,7 +328,7 @@ namespace Cpp2IL.Core.Analysis
             var memoryOffset = instruction.MemoryOffset();
             var memoryIndex = instruction.MemoryIndex()?.Id ?? Arm64RegisterId.Invalid;
 
-            var memoryBaseName = MiscUtils.GetRegisterNameNew(memoryBase);
+            var memoryBaseName = Arm64Utils.GetRegisterNameNew(memoryBase);
             var memVar = Analysis.GetOperandInRegister(memoryBaseName);
 
             var mnemonic = instruction.Mnemonic;

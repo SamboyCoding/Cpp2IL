@@ -276,9 +276,16 @@ namespace Cpp2IL
 #if NET6_0
             //Fix capstone native library loading on non-windows
 
-            var allInstructionsField = typeof(Arm64KeyFunctionAddresses).GetField("_allInstructions", BindingFlags.Instance | BindingFlags.NonPublic);
-            var arm64InstructionType = allInstructionsField!.FieldType.GenericTypeArguments.First();
-            NativeLibrary.SetDllImportResolver(arm64InstructionType.Assembly, DllImportResolver);
+            try
+            {
+                var allInstructionsField = typeof(Arm64KeyFunctionAddresses).GetField("_allInstructions", BindingFlags.Instance | BindingFlags.NonPublic);
+                var arm64InstructionType = allInstructionsField!.FieldType.GenericTypeArguments.First();
+                NativeLibrary.SetDllImportResolver(arm64InstructionType.Assembly, DllImportResolver);
+            }
+            catch (Exception e)
+            {
+                Logger.WarnNewline("Unable to hook native library resolving for Capstone. If you're not on windows and analysing an ARM or ARM64 binary, expect this to crash!");
+            }
 #endif
 
             if (runtimeArgs.EnableMetadataGeneration)

@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public AddConstantToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _regBeingAddedTo = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _regBeingAddedTo = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _valueInReg = context.GetLocalInReg(_regBeingAddedTo);
             
             //Handle INC instructions here too.

@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ClearRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            regCleared = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            regCleared = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             // context.ZeroRegister(regCleared);
             //We make this a local and clean up unused ones in post-processing
             _localMade = context.MakeLocal(MiscUtils.Int32Reference, reg: regCleared, knownInitialValue: 0);

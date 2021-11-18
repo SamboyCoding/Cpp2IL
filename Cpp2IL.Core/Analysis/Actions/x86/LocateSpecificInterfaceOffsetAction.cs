@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public LocateSpecificInterfaceOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var secondOpName = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
+            var secondOpName = X86Utils.GetRegisterNameNew(instruction.Op1Register);
             var secondOp = context.GetConstantInReg(secondOpName);
             _interfaceType = (TypeDefinition) secondOp.Value;
 

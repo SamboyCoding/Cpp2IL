@@ -224,7 +224,7 @@ namespace Cpp2IL.Core
                 if (arrayTypeDef.Methods.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
                 {
                     var ptr = methodDef.AsUnmanaged().MethodPointer;
-                    var body = MiscUtils.GetArm64MethodBodyAtVirtualAddress(ptr, true);
+                    var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(ptr, true);
 
                     //Looking for adrp, ldr, ldr, bl. Probably more than one - the first will be initializing the method, second will be the constructor call
                     var probableResult = 0L;

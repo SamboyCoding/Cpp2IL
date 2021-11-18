@@ -111,7 +111,7 @@ namespace Cpp2IL.Core.Utils
                     if (parameterType.IsPrimitive && cons.Value is UnknownGlobalAddr unknownGlobalAddr)
                     {
                         //Try get unknown global values as a constant
-                        MiscUtils.CoerceUnknownGlobalValue(parameterType, unknownGlobalAddr, cons);
+                        AnalysisUtils.CoerceUnknownGlobalValue(parameterType, unknownGlobalAddr, cons);
                         break;
                     }
 

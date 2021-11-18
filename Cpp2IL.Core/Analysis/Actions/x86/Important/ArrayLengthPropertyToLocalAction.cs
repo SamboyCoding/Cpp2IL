@@ -19,13 +19,13 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ArrayLengthPropertyToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             TheArray = context.GetLocalInReg(memReg);
 
             if (TheArray?.Type?.IsArray != true)
                 return;
 
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             LocalMade = context.MakeLocal(MiscUtils.Int32Reference, reg: _destReg);
         }
 

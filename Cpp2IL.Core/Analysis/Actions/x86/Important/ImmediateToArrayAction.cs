@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ImmediateToArrayAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             TheArray = context.GetLocalInReg(memReg);
 
             if(TheArray?.KnownInitialValue is not AllocatedArray array)

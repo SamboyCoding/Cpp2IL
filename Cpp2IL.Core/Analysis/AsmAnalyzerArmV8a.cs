@@ -25,7 +25,7 @@ namespace Cpp2IL.Core.Analysis
         {
             var baseAddress = definition.AsUnmanaged().MethodPointer;
 
-            return MiscUtils.GetArm64MethodBodyAtVirtualAddress(baseAddress);
+            return Arm64Utils.GetArm64MethodBodyAtVirtualAddress(baseAddress);
         }
 
         private string FunctionArgumentDump;

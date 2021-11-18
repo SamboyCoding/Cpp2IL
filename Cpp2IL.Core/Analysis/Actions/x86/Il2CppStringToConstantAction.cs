@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (instruction.Mnemonic != Mnemonic.Push)
             {
-                _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+                _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             }
 
             _constantMade = context.MakeConstant(typeof(Il2CppString), new Il2CppString(_detectedString, instruction.Op0Kind.IsImmediate() ? instruction.Immediate32 : instruction.MemoryDisplacement64), reg: _destReg);

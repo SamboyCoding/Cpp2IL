@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             _checkedAddresses.Add(pointer);
 
             //This will only return up to the first branch, because it's an unmanaged function, but that's fine for these purposes
-            var funcBody = MiscUtils.GetArm64MethodBodyAtVirtualAddress((ulong)pointer, false, 14);
+            var funcBody = Arm64Utils.GetArm64MethodBodyAtVirtualAddress((ulong)pointer, false, 14);
 
             var registerPages = new Dictionary<string, long>();
             foreach (var arm64Instruction in funcBody.Where(i => i.Mnemonic is "adrp" && i.Details.Operands[0].Type == Arm64OperandType.Register))

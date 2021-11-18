@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public LoadVirtualFunctionPointerAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            regReadFrom = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            regReadFrom = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(regReadFrom);
 
             if (inReg is not ConstantDefinition {Value: Il2CppClassIdentifier klass}) return;
@@ -31,7 +31,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (methodPointerRead == null) return;
 
-            var regPutInto = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var regPutInto = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             if (regPutInto == "rsp")
             {
                 //todo how do we handle this kind of instruction - does it even exist?

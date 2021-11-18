@@ -16,13 +16,13 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public InterfaceOffsetsReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var regName = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            var regName = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             var regConstant = context.GetConstantInReg(regName);
 
             loadedFor = (Il2CppClassIdentifier) regConstant.Value;
             InterfaceOffsets = loadedFor.backingType.InterfaceOffsets;
 
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _destinationConst = context.MakeConstant(typeof(Il2CppInterfaceOffset[]), InterfaceOffsets, reg: _destReg);
         }
 

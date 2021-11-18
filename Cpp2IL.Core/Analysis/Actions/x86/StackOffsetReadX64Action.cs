@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public StackOffsetReadX64Action(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _stackOffset = instruction.MemoryDisplacement32;
 
             if (context.StackStoredLocals.TryGetValue((int) _stackOffset, out localResolved))

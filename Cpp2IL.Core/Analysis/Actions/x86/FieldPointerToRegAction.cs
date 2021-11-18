@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         {
             if (instruction.MemoryBase != Register.None)
             {
-                var memoryBase = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+                var memoryBase = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
 
                 _accessedOn = context.GetLocalInReg(memoryBase);
                 if (_accessedOn?.Type == null)
@@ -29,7 +29,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             {
                 //Add?
                 var amountBeingAdded = instruction.GetImmediate(1);
-                _accessedOn = context.GetLocalInReg(MiscUtils.GetRegisterNameNew(instruction.Op0Register));
+                _accessedOn = context.GetLocalInReg(X86Utils.GetRegisterNameNew(instruction.Op0Register));
                 
                 if (_accessedOn?.Type == null)
                     return;
@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 _fieldBeingRead = FieldUtils.GetFieldBeingAccessed(_accessedOn.Type, amountBeingAdded, false);
             }
 
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             
             if(_fieldBeingRead == null)
                 return;

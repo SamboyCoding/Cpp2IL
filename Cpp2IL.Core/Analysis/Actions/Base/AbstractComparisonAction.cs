@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             {
                 try
                 {
-                    MiscUtils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
+                    AnalysisUtils.CoerceUnknownGlobalValue(loc2.Type, globalAddr, cons, false);
                     unimportant1 = false;
                 }
                 catch
@@ -46,7 +46,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 {
                     try
                     {
-                        MiscUtils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
+                        AnalysisUtils.CoerceUnknownGlobalValue(loc1.Type, globalAddr2, cons2, false);
                         unimportant2 = false;
                     }
                     catch

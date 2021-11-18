@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             _globalAddr = instruction.MemoryDisplacement64;
             
-            _regName = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _regName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _op1 = context.GetLocalInReg(_regName);
 
             _globalValue = BitConverter.ToSingle(LibCpp2IlMain.Binary!.GetRawBinaryContent(), (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(_globalAddr));

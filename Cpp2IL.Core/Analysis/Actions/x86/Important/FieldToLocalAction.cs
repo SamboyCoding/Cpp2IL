@@ -12,8 +12,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public FieldToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var sourceRegName = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
-            _destRegName = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var sourceRegName = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
+            _destRegName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             var sourceFieldOffset = instruction.MemoryDisplacement;
 
             var readFrom = context.GetOperandInRegister(sourceRegName);

@@ -6,7 +6,7 @@ namespace LibCpp2IL
     /// <summary>
     /// Full credit for most of this file goes to djKaty in the il2cppinspector project.
     /// </summary>
-    internal static class Arm64Utils
+    internal static class MiniArm64Decompiler
     {
         private static (uint reg, ulong page)? GetAdrp(uint inst, ulong pc) {
             if ((inst.Bits(24, 8) & 0b_1000_1111) != 1 << 7)

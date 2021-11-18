@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public LoadClassPointerFromMethodInfoAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //Already verified the source type and offset, only need to handle destination
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
             //The klass is the declaring type of this method.
             _type = SharedState.ManagedToUnmanagedTypes[context.DeclaringType];

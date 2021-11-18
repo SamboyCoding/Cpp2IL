@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ConditionalRegisterSetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _regToSet = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _regToSet = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
 
             _localMade = context.MakeLocal(MiscUtils.BooleanReference, reg: _regToSet);

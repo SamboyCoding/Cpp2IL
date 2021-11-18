@@ -16,8 +16,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64StaticFieldOffsetToRegAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             //Get the type we're moving from
-            var theConstant = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase()!.Id));
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            var theConstant = context.GetConstantInReg(Arm64Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id));
+            _destReg = Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
             if (theConstant == null || theConstant.Type != typeof(TypeReference)) return;
 

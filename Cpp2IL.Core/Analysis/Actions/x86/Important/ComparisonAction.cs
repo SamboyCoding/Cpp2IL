@@ -15,9 +15,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         protected override bool IsMemoryReferenceAnAbsolutePointer(Instruction instruction, int operandIdx) => instruction.MemoryBase == Register.None || instruction.MemoryBase.GetFullRegister() == Register.RIP;
 
-        protected override string GetRegisterName(Instruction instruction, int opIdx) => MiscUtils.GetRegisterNameNew(instruction.GetOpRegister(opIdx));
+        protected override string GetRegisterName(Instruction instruction, int opIdx) => X86Utils.GetRegisterNameNew(instruction.GetOpRegister(opIdx));
 
-        protected override string GetMemoryBaseName(Instruction instruction) => MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+        protected override string GetMemoryBaseName(Instruction instruction) => X86Utils.GetRegisterNameNew(instruction.MemoryBase);
 
         protected override ulong GetInstructionMemoryOffset(Instruction instruction) => instruction.MemoryDisplacement64;
 

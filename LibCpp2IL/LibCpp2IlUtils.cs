@@ -3,11 +3,9 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Iced.Intel;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
-using Decoder = Iced.Intel.Decoder;
 
 namespace LibCpp2IL
 {
@@ -58,22 +56,6 @@ namespace LibCpp2IL
         internal static void Reset()
         {
             _cachedVersionAttributes.Clear();
-        }
-
-        public static InstructionList DisassembleBytesNew(bool is32Bit, List<byte> bytes, ulong methodBase) => DisassembleBytesNew(is32Bit, bytes.ToArray(), methodBase);
-
-        public static InstructionList DisassembleBytesNew(bool is32Bit, byte[] bytes, ulong methodBase)
-        {
-            var codeReader = new ByteArrayCodeReader(bytes);
-            var decoder = Decoder.Create(is32Bit ? 32 : 64, codeReader);
-            decoder.IP = methodBase;
-            var instructions = new InstructionList();
-            var endRip = decoder.IP + (uint)bytes.Length;
-
-            while (decoder.IP < endRip)
-                decoder.Decode(out instructions.AllocUninitializedElement());
-
-            return instructions;
         }
 
         internal static string GetTypeName(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppTypeDefinition typeDef, bool fullName = false)

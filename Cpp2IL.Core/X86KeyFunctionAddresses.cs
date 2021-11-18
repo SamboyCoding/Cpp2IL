@@ -17,7 +17,7 @@ namespace Cpp2IL.Core
             if (_cachedDisassembledBytes == null)
             {
                 var toDisasm = LibCpp2IlMain.Binary!.GetEntirePrimaryExecutableSection();
-                _cachedDisassembledBytes = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary.is32Bit, toDisasm, LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection());
+                _cachedDisassembledBytes = X86Utils.Disassemble(toDisasm, LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection());
             }
 
             return _cachedDisassembledBytes;
@@ -71,7 +71,7 @@ namespace Cpp2IL.Core
 
         protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
         {
-            var instructions = MiscUtils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
+            var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
 
             try
             {

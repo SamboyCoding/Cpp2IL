@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public MoveMethodInfoPtrToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _sourceReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            _sourceReg = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             var constantBeingRead = context.GetConstantInReg(_sourceReg);
 
             if (constantBeingRead?.Type != typeof(MethodReference))
@@ -33,7 +33,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if(_methodBeingRead == null)
                 return;
 
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             
             context.SetRegContent(_destReg, constantBeingRead);
         }
