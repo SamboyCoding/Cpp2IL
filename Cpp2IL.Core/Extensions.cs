@@ -88,10 +88,7 @@ namespace Cpp2IL.Core
             return new Dictionary<T1, T2>(original);
         }
         
-        public static T[] SubArray<T>(this T[] data, int index, int length)
-        {
-            return data.Skip(index).Take(length).ToArray();
-        }
+        public static T[] SubArray<T>(this T[] data, int index, int length) => data.SubArray(index..(index + length));
 
         public static T RemoveAndReturn<T>(this List<T> data, int index)
         {

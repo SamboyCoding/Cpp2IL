@@ -49,6 +49,8 @@ namespace LibCpp2IL
             { "Int64", 8 },
             { "UInt64", 8 },
             { "Double", 8 },
+            { "IntPtr", 8 },
+            { "UIntPtr", 8},
         };
 
         private static Dictionary<FieldInfo, VersionAttribute[]> _cachedVersionAttributes = new();

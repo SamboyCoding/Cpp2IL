@@ -10,10 +10,23 @@ namespace Cpp2IL.Core
 {
     public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
+        private InstructionList? _cachedDisassembledBytes;
+
+        private InstructionList DisassembleTextSection()
+        {
+            if (_cachedDisassembledBytes == null)
+            {
+                var toDisasm = LibCpp2IlMain.Binary!.GetEntirePrimaryExecutableSection();
+                _cachedDisassembledBytes = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary.is32Bit, toDisasm, LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection());
+            }
+
+            return _cachedDisassembledBytes;
+        }
+
         protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
         {
             //Disassemble .text
-            var allInstructions = ((PE) LibCpp2IlMain.Binary!).DisassembleTextSection();
+            var allInstructions = DisassembleTextSection();
 
             //Find all jumps to the target address
             var matchingJmps = allInstructions.Where(i => i.Mnemonic is Mnemonic.Jmp or Mnemonic.Call && i.NearBranchTarget == addr).ToList();
@@ -82,7 +95,7 @@ namespace Cpp2IL.Core
         protected override int GetCallerCount(ulong toWhere)
         {
             //Disassemble .text
-            var allInstructions = ((PE) LibCpp2IlMain.Binary!).DisassembleTextSection();
+            var allInstructions = DisassembleTextSection();
 
             //Find all jumps to the target address
             return allInstructions.Count(i => i.Mnemonic == Mnemonic.Jmp || i.Mnemonic == Mnemonic.Call && i.NearBranchTarget == toWhere);

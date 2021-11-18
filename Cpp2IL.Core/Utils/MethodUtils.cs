@@ -69,7 +69,7 @@ namespace Cpp2IL.Core.Utils
                         break; //Forgive primitive => enum coercion.
                     if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
                     {
-                        if (parameterType.Name is not "IntPtr" && cons.Value is IConvertible ic)
+                        if (parameterType.Name is not "IntPtr" and not "UIntPtr" && cons.Value is IConvertible ic)
                         {
                             //Correct primitive type - fixes boolean arguments etc.
                             cons.Type = typeof(int).Module.GetType(parameterType.FullName);
@@ -90,6 +90,7 @@ namespace Cpp2IL.Core.Utils
                         {
                             8 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ulong>(cppString.Address),
                             4 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<uint>(cppString.Address),
+                            2 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ushort>(cppString.Address),
                             1 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<byte>(cppString.Address),
                             _ => throw new Exception($"'string' -> primitive: Not implemented: Size {primitiveLength}, type {parameterType}")
                         };
@@ -436,7 +437,7 @@ namespace Cpp2IL.Core.Utils
         {
             switch (LibCpp2IlMain.Binary!.InstructionSet)
             {
-                case InstructionSet.X86_32 when context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _}:
+                case InstructionSet.X86_32 when context.Stack.Count > 0 && context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _}:
                     //Already should have popped off all the arguments, just peek-and-pop one more
                     return context.Stack.Pop();
                 case InstructionSet.X86_64:

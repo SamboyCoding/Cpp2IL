@@ -93,7 +93,8 @@ namespace Cpp2IL
                 using var zipArchive = new ZipArchive(stream);
 
                 var globalMetadata = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/Managed/Metadata/global-metadata.dat"));
-                var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/arm64-v8a/libil2cpp.so"));
+                var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/x86/libil2cpp.so"));
+                binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/arm64-v8a/libil2cpp.so"));
                 binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/armeabi-v7a/libil2cpp.so"));
 
                 var globalgamemanagers = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/globalgamemanagers"));
@@ -155,7 +156,7 @@ namespace Cpp2IL
                 //Version or help requested
                 Environment.Exit(0);
 
-            if (!(parserResult is Parsed<CommandLineArgs> { Value: { } options }))
+            if (!(parserResult is Parsed<CommandLineArgs> {Value: { } options}))
                 throw new SoftException("Failed to parse command line arguments");
 
             if (!options.AreForceOptionsValid)
@@ -196,11 +197,11 @@ namespace Cpp2IL
                 result.IlToAsmContinueThroughErrors = true;
                 result.EnableMetadataGeneration = false;
             }
-            
-            if(result.DisableMethodDumps) 
+
+            if (result.DisableMethodDumps)
                 result.AnalysisLevel = AnalysisLevel.NONE;
             else
-                result.AnalysisLevel = (AnalysisLevel)options.AnalysisLevel;
+                result.AnalysisLevel = (AnalysisLevel) options.AnalysisLevel;
 
             if (result.EnableIlToAsm)
             {
@@ -230,9 +231,9 @@ namespace Cpp2IL
             try
             {
 #endif
-                var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
+            var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
 
-                return MainWithArgs(runtimeArgs);
+            return MainWithArgs(runtimeArgs);
 #if !DEBUG
             }
             catch (DllSaveException e)
@@ -271,10 +272,10 @@ namespace Cpp2IL
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
 
             Cpp2IlApi.MakeDummyDLLs(runtimeArgs.SuppressAttributes);
-            
+
 #if NET6_0
             //Fix capstone native library loading on non-windows
-            
+
             var allInstructionsField = typeof(Arm64KeyFunctionAddresses).GetField("_allInstructions", BindingFlags.Instance | BindingFlags.NonPublic);
             var arm64InstructionType = allInstructionsField!.FieldType.GenericTypeArguments.First();
             NativeLibrary.SetDllImportResolver(arm64InstructionType.Assembly, DllImportResolver);
@@ -301,20 +302,19 @@ namespace Cpp2IL
             // if(LibCpp2IlMain.MetadataVersion >= 29)
             //     Logger.WarnNewline("Unable to run attribute restoration, because v29 is not fully supported yet.");
             // else
-                Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
+            Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
 
             Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
-            
+
             Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
 
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
             if (runtimeArgs.EnableAnalysis)
             {
-
                 if (runtimeArgs.AnalyzeAllAssemblies)
                 {
                     foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
@@ -351,16 +351,16 @@ namespace Cpp2IL
 
             if (targetAssembly == null)
                 return;
-            
+
             Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
 
             Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
 
             if (doIlToAsm)
-                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> { targetAssembly });
+                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
         }
-        
-        
+
+
         private static IntPtr DllImportResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
         {
             if (libraryName == "capstone")

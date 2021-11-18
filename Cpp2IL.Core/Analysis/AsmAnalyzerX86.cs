@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis
         internal AsmAnalyzerX86(ulong methodPointer, InstructionList instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses) { }
 
         internal AsmAnalyzerX86(MethodDefinition methodDefinition, ulong methodStart, BaseKeyFunctionAddresses keyFunctionAddresses)
-            : base(methodDefinition, methodStart, LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, methodDefinition.AsUnmanaged().CppMethodBodyBytes, methodStart), keyFunctionAddresses) { }
+            : base(methodDefinition, methodStart, MiscUtils.GetMethodBodyAtVirtAddressNew(methodDefinition.AsUnmanaged().MethodPointer, false), keyFunctionAddresses) { }
 
         protected override void AnalysisRequestedExpansion(ulong ptr)
         {

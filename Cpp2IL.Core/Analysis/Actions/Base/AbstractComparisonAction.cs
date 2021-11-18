@@ -83,7 +83,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                         else
                         {
                             var argumentOneSystemType = typeof(int).Module.GetType(argumentOneType.FullName);
-                            if (argumentOneSystemType != null && MiscUtils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.Name != "String")
+                            if (argumentOneSystemType != null && MiscUtils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(argumentOneType) && argumentOneType.IsPrimitive && argumentOneType.Name != "String")
                             {
                                 constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, argumentOneType);
                                 constantDefinition.Type = argumentOneSystemType;
