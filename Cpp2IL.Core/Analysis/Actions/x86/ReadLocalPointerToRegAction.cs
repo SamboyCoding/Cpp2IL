@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         private LocalDefinition? _localMade;
         public ReadLocalPointerToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            LocalPointer = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase)).Value as LocalPointer;
+            LocalPointer = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase))?.Value as LocalPointer;
 
             if (LocalPointer == null)
                 return;
@@ -57,7 +57,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public override string ToTextSummary()
         {
-            return $"Dereference and move local {LocalPointer?.Local?.Name} to {_localMade?.Name}";
+            return $"Dereference and moves local {LocalPointer?.Local?.Name} to {_localMade?.Name}";
         }
     }
 }

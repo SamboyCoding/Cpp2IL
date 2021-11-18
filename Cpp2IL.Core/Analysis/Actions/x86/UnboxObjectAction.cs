@@ -9,12 +9,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 {
     public class UnboxObjectAction : BaseAction<Instruction>
     {
-        private TypeReference? destinationType;
         private LocalDefinition? localBeingUnboxed;
-        private LocalDefinition? _localMade;
-        private bool _boxingFieldPointer = false;
-        private FieldPointer? _boxedField;
-        private ConstantDefinition ConstantDefinition;
+        private ConstantDefinition? ConstantDefinition;
 
         public UnboxObjectAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {

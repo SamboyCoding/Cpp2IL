@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         private IAnalysedOperand? primitiveObject;
         private LocalDefinition? _localMade;
         private bool _boxingFieldPointer = false;
-        private FieldPointer _boxedField;
+        private FieldPointer? _boxedField;
 
         public BoxValueAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
