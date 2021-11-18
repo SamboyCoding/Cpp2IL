@@ -599,7 +599,8 @@ namespace Cpp2IL.Core
                                 typeDump?.Append(dumper.GetPseudocode());
                                 break;
                             case AnalysisLevel.IL_ONLY:
-                                typeDump?.Append(dumper.BuildILToString());
+                                var ilString = dumper.BuildILToString(); //Always want to call this so we generate IL
+                                typeDump?.Append(ilString);
                                 break;
                             case AnalysisLevel.NONE:
                                 break;

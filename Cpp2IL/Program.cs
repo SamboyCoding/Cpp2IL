@@ -198,9 +198,9 @@ namespace Cpp2IL
                 result.IlToAsmContinueThroughErrors = true;
                 result.EnableMetadataGeneration = false;
             }
-
+            
             if (result.DisableMethodDumps)
-                result.AnalysisLevel = AnalysisLevel.NONE;
+                result.AnalysisLevel = AnalysisLevel.IL_ONLY;
             else
                 result.AnalysisLevel = (AnalysisLevel) options.AnalysisLevel;
 

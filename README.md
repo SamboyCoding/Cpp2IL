@@ -87,7 +87,7 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 
 - [x] Loading of Metadata and Binaries using LibCpp2IL for IL2CPP versions 24 through 29 (unity 2018 to present-day)
 - [x] "Dummy DLL" (Stub Assembly) generation, suitable for use
-  with [Il2CppAssemblyUnhollower](https://github.com/knah/Il2CppAssemblyUnhollower/), for PE and ELF binaries, x86 and
+  with [Il2CppAssemblyUnhollower](https://github.com/knah/Il2CppAssemblyUnhollower/), for PE, ELF, and NSO binaries, x86 and
   ARM instruction sets
 - [x] Restoration of explicit override methods in managed types. This data is not explicitly saved to the Il2Cpp
   metadata, but is useful for Unhollower.
@@ -105,7 +105,7 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 | PE (DLL files, Windows) | ✔️ | ✔️ | ❌ | ❌ | N/A |
 | ELF (SO files, Linux) | ✔️ | ✔️ | ✔️ | ✔️ | N/A |
 | NSO (Switch)   | N/A | N/A | N/A | ✔️ | Switch is ArmV8, that is the only supported instruction set. Compression supported. |
-| APK (Android)  | ❌ | ❌ | ✔️ | ✔️ | Unpacks the APK, then delegates to ELF loader. x86 support is coming soon. |
+| APK (Android)  | ✔ | ❌ | ✔️ | ✔️ | Unpacks the APK, then delegates to ELF loader. |
 | WASM (WebAssembly) | N/A | N/A | N/A | N/A | Not supported yet, but planned. |
 | Mach-O (Mac OS)| ❌ | ❌ | N/A? | ❌ | Not supported yet, but planned |
 
