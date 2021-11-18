@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -15,8 +16,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         private LocalDefinition? _localMade;
         public MultiplyRegByRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _operandOneReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
-            _operandZeroReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _operandOneReg = X86Utils.GetRegisterNameNew(instruction.Op1Register);
+            _operandZeroReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _operandOneLocal = context.GetLocalInReg(_operandOneReg);
             _operandZeroLocal = context.GetLocalInReg(_operandZeroReg);
             

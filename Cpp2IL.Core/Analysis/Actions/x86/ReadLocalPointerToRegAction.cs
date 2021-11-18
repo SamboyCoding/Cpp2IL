@@ -1,6 +1,7 @@
 ﻿using System.Diagnostics;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Instruction = Iced.Intel.Instruction;
 using Mono.Cecil.Cil;
 
@@ -13,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         private LocalDefinition? _localMade;
         public ReadLocalPointerToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            LocalPointer = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase)).Value as LocalPointer;
+            LocalPointer = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase)).Value as LocalPointer;
 
             if (LocalPointer == null)
                 return;
@@ -21,7 +22,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             
             RegisterUsedLocal(LocalPointer.Local, context);
             
-            string destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            string destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
             if(LocalPointer.Local.Type != null)
                 _localMade = context.MakeLocal(LocalPointer.Local.Type, reg: destReg);

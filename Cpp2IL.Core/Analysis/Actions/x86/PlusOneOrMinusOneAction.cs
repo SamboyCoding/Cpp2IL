@@ -2,6 +2,7 @@
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -15,9 +16,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public PlusOneOrMinusOneAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            string destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            string destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
-            string regBeingAddedTo = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            string regBeingAddedTo = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
 
             _localBeingAddedTo = context.GetLocalInReg(regBeingAddedTo);
 
