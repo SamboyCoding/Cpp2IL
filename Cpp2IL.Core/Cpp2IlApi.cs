@@ -28,6 +28,32 @@ namespace Cpp2IL.Core
         public static AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name.Name == name);
 
+        private static readonly HashSet<string> ForbiddenDirectoryNames = new()
+        {
+            "CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            "COM1",
+            "COM2",
+            "COM3",
+            "COM4",
+            "COM5",
+            "COM6",
+            "COM7",
+            "COM8",
+            "COM9",
+            "LPT1",
+            "LPT2",
+            "LPT3",
+            "LPT4",
+            "LPT5",
+            "LPT6",
+            "LPT7",
+            "LPT8",
+            "LPT9"
+        };
+
         public static int[] DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
             if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
@@ -490,8 +516,16 @@ namespace Cpp2IL.Core
                             .Replace("|", "_")
                             .Replace("{", "_")
                             .Replace("}", "_");
+
+                        var components = ns.Split('.');
+                        for (var i = 0; i < components.Length; i++)
+                        {
+                            if (ForbiddenDirectoryNames.Contains(components[i]))
+                                components[i] = "__renamed_from_" + components[i];
+                        }
                         
-                        methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(ns.Split('.')).ToArray());
+                        
+                        methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(components).ToArray());
 
                         if (!Directory.Exists(methodDumpDir))
                             Directory.CreateDirectory(methodDumpDir);
