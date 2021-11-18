@@ -1,8 +1,12 @@
 ﻿#define DEBUG_PRINT_OPERAND_DATA
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.PostProcessActions;
 using Cpp2IL.Core.Analysis.PostProcessActions.ILPostProcess;
+using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -21,7 +25,7 @@ namespace Cpp2IL.Core.Analysis
         {
             var baseAddress = definition.AsUnmanaged().MethodPointer;
 
-            return Utils.Utils.GetArm64MethodBodyAtVirtualAddress(baseAddress);
+            return MiscUtils.GetArm64MethodBodyAtVirtualAddress(baseAddress);
         }
 
         private string FunctionArgumentDump;
@@ -39,6 +43,9 @@ namespace Cpp2IL.Core.Analysis
             }
 
             FunctionArgumentDump = builder.ToString();
+            
+            if(Analysis.Arm64ReturnValueLocation == Arm64ReturnValueLocation.POINTER_X8)
+                Analysis.Actions.Add(new Arm64ImplicitCreateReturnValueInX8Action(Analysis, _instructions.First()));
         }
 
         protected override bool FindInstructionWhichOverran(out int idx)
@@ -112,6 +119,13 @@ namespace Cpp2IL.Core.Analysis
         {
             new RestoreConstReferences<Arm64Instruction>().PostProcess(Analysis, body);
             new OptimiseLocalsPostProcessor<Arm64Instruction>().PostProcess(Analysis, body);
+        }
+
+        protected override string FormatInstruction(Arm64Instruction? instruction)
+        {
+            var line = new StringBuilder();
+            line.Append(instruction?.Mnemonic).Append(' ').Append(instruction?.Operand);
+            return line.ToString();
         }
     }
 }

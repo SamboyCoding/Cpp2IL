@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -13,8 +14,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public AddRegToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var firstReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
-            var secondReg = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            var firstReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var secondReg = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
 
             _firstOp = context.GetLocalInReg(firstReg);
             _secondOp = context.GetOperandInRegister(secondReg);

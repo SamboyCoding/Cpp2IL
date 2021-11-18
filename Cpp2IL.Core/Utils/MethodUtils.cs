@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Utils
             var objectType = objectMethodBeingCalledOn?.Type;
             if ((managedMethod.HasGenericParameters || managedMethod.DeclaringType.HasGenericParameters) && objectType is GenericInstanceType {HasGenericArguments: true} git)
             {
-                managedMethod = Utils.MakeGenericMethodFromType(managedMethod, git);
+                managedMethod = MiscUtils.MakeGenericMethodFromType(managedMethod, git);
                 beingCalledOn = git;
             }
 
@@ -69,11 +69,11 @@ namespace Cpp2IL.Core.Utils
                         break; //Forgive primitive => enum coercion.
                     if (parameterType.IsPrimitive && cons.Type.IsPrimitive)
                     {
-                        if (parameterType.Name is not "IntPtr" && cons.Value is IConvertible ic)
+                        if (parameterType.Name is not "IntPtr" and not "UIntPtr" && cons.Value is IConvertible ic)
                         {
                             //Correct primitive type - fixes boolean arguments etc.
                             cons.Type = typeof(int).Module.GetType(parameterType.FullName);
-                            cons.Value = Utils.ReinterpretBytes(ic, parameterType);
+                            cons.Value = MiscUtils.ReinterpretBytes(ic, parameterType);
                         }
 
                         break; //Forgive primitive coercion.
@@ -85,11 +85,12 @@ namespace Cpp2IL.Core.Utils
                     {
                         //Il2CppString contains any unknown global address that looks vaguely like a string
                         //We try and re-interpret it here, most commonly as a floating point value, as integer constants are usually immediate values.
-                        var primitiveLength = Utils.GetSizeOfObject(parameterType);
+                        var primitiveLength = MiscUtils.GetSizeOfObject(parameterType);
                         var newValue = primitiveLength switch
                         {
                             8 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ulong>(cppString.Address),
                             4 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<uint>(cppString.Address),
+                            2 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<ushort>(cppString.Address),
                             1 => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<byte>(cppString.Address),
                             _ => throw new Exception($"'string' -> primitive: Not implemented: Size {primitiveLength}, type {parameterType}")
                         };
@@ -110,7 +111,7 @@ namespace Cpp2IL.Core.Utils
                     if (parameterType.IsPrimitive && cons.Value is UnknownGlobalAddr unknownGlobalAddr)
                     {
                         //Try get unknown global values as a constant
-                        Utils.CoerceUnknownGlobalValue(parameterType, unknownGlobalAddr, cons);
+                        MiscUtils.CoerceUnknownGlobalValue(parameterType, unknownGlobalAddr, cons);
                         break;
                     }
 
@@ -129,7 +130,7 @@ namespace Cpp2IL.Core.Utils
                         break;
                     if (parameterType.IsPrimitive && local.Type?.IsPrimitive == true)
                         break; //Forgive primitive coercion.
-                    if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(Utils.ArrayReference))
+                    if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(MiscUtils.ArrayReference))
                         break; //Forgive IEnumerables etc
                     if (local.Type is GenericParameter && parameterType is GenericParameter && local.Type.Name == parameterType.Name)
                         break; //Unknown generic params which share a name. Not sure this is needed.
@@ -452,7 +453,7 @@ namespace Cpp2IL.Core.Utils
         {
             switch (LibCpp2IlMain.Binary!.InstructionSet)
             {
-                case InstructionSet.X86_32 when context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _}:
+                case InstructionSet.X86_32 when context.Stack.Count > 0 && context.Stack.Peek() is ConstantDefinition {Value: GenericMethodReference _}:
                     //Already should have popped off all the arguments, just peek-and-pop one more
                     return context.Stack.Pop();
                 case InstructionSet.X86_64:
@@ -465,7 +466,7 @@ namespace Cpp2IL.Core.Utils
                     if (paramIdx < 4)
                         return context.GetOperandInRegister(NON_FP_REGISTERS_BY_IDX[paramIdx]);
 
-                    var stackOffset = 0x20 + Utils.GetPointerSizeBytes() * (paramIdx - 4);
+                    var stackOffset = 0x20 + MiscUtils.GetPointerSizeBytes() * (paramIdx - 4);
 
                     context.StackStoredLocals.TryGetValue(stackOffset, out var ret);
 

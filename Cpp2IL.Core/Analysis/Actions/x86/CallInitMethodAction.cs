@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -26,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if (consDef != null && consDef.Type == typeof(UnknownGlobalAddr))
             {
                 _globalAddr = (UnknownGlobalAddr) consDef.Value;
-                functionId = (int) Utils.Utils.GetNumericConstant(_globalAddr.addr, Utils.Utils.Int32Reference);
+                functionId = (int) MiscUtils.GetNumericConstant(_globalAddr.addr, MiscUtils.Int32Reference);
             }
         }
 

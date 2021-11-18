@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
     {
         public CallMethodSpecAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var methodSpecConst = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
+            var methodSpecConst = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
             var methodSpec = methodSpecConst?.Value as Il2CppMethodSpec;
 
             if (methodSpec?.MethodDefinition == null)
@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             ShouldUseCallvirt = true;
 
             if (methodSpec.classIndexIndex != -1)
-                ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeMethodOnGenericType(methodSpec.GenericClassParams.Select(p => Utils.Utils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled)).ToArray()!);
+                ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeMethodOnGenericType(methodSpec.GenericClassParams.Select(p => MiscUtils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled)).ToArray()!);
 
             CreateLocalForReturnType(context);
             RegisterLocals(context);

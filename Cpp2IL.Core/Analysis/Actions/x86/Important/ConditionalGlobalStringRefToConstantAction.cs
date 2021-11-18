@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -36,9 +37,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             context.Actions.Remove(AssociatedStringLoad);
 
-            _destReg = instruction.Op0Kind == OpKind.Register ? Utils.Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+            _destReg = instruction.Op0Kind == OpKind.Register ? MiscUtils.GetRegisterNameNew(instruction.Op0Register) : null;
 
-            var whatWeWant = context.DeclaringType.Module.ImportReference(Utils.Utils.StringReference);
+            var whatWeWant = context.DeclaringType.Module.ImportReference(MiscUtils.StringReference);
 
             var localAtDest = AssociatedStringLoad.LastKnownLocalInReg;
 

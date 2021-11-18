@@ -6,7 +6,7 @@
         X0,
         V0,
         X0_1,
-        POINTER_R8,
+        POINTER_X8,
         POINTER_X0,
         POINTER_X1
     }

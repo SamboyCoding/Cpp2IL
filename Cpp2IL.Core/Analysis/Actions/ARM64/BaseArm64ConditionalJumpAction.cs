@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 
 namespace Cpp2IL.Core.Analysis.Actions.ARM64
@@ -14,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         protected sealed override bool IsImplicitNRE()
         {
-            var body = Utils.Utils.GetArm64MethodBodyAtVirtualAddress(JumpTarget, true, 3);
+            var body = MiscUtils.GetArm64MethodBodyAtVirtualAddress(JumpTarget, true, 3);
 
             for (var i = 0; i < Math.Min(3, body.Count); i++)
             {

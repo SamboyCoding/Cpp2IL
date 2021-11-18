@@ -11,23 +11,32 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
     {
         public readonly IAnalysedOperand? SourceOperand;
 
-        public Arm64RegisterToFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
+        public Arm64RegisterToFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction)
+            : this
+            (
+                context,
+                instruction,
+                MiscUtils.GetRegisterNameNew(instruction.MemoryBase()!.Id),
+                MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id),
+                (ulong) instruction.MemoryOffset()
+            )
         {
-            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
-            InstanceBeingSetOn = context.GetLocalInReg(memReg);
+        }
 
-            var sourceReg = Utils.Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+        public Arm64RegisterToFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction, string memReg, string sourceReg, ulong memoryOffset) : base(context, instruction)
+        {
+            InstanceBeingSetOn = context.GetLocalInReg(memReg);
             SourceOperand = context.GetOperandInRegister(sourceReg);
-            
-            if(InstanceBeingSetOn?.Type == null)
+
+            if (InstanceBeingSetOn?.Type == null)
                 return;
-            
+
             RegisterUsedLocal(InstanceBeingSetOn, context);
-            
-            if(SourceOperand is LocalDefinition l)
+
+            if (SourceOperand is LocalDefinition l)
                 RegisterUsedLocal(l, context);
 
-            FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, (ulong)instruction.MemoryOffset(), sourceReg[0] == 'v');
+            FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, memoryOffset, sourceReg[0] == 'v');
         }
 
         protected override string? GetValueSummary() => SourceOperand?.ToString();

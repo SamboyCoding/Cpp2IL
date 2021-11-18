@@ -1,6 +1,7 @@
 ﻿using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -16,13 +17,13 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public LocateSpecificInterfaceOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var secondOpName = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            var secondOpName = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
             var secondOp = context.GetConstantInReg(secondOpName);
             _interfaceType = (TypeDefinition) secondOp.Value;
 
             offsetReads = (InterfaceOffsetsReadAction) context.Actions.Last(a => a is InterfaceOffsetsReadAction);
             
-            _matchingInterfaceOffset = offsetReads.InterfaceOffsets.LastOrDefault(i => Utils.Utils.AreManagedAndCppTypesEqual(i.type, _interfaceType));
+            _matchingInterfaceOffset = offsetReads.InterfaceOffsets.LastOrDefault(i => MiscUtils.AreManagedAndCppTypesEqual(i.type, _interfaceType));
             
             if(_matchingInterfaceOffset == null)
                 AddComment($"Warning: Could not find an interface offset for class {offsetReads.loadedFor.backingType.FullName}, where it implements interface {_interfaceType.FullName}.");

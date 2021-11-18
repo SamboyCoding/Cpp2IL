@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -17,7 +18,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             _mayNotBeAConstant = mayNotBeAConstant;
             constantValue = instruction.GetImmediate(1);
-            destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
 
             var is32BitInteger = instruction.Op0Register.IsGPR32();
 
@@ -28,9 +29,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             {
                 //Let's be safe and make this a local
                 if (is32BitInteger)
-                    dest = context.MakeLocal(Utils.Utils.UInt32Reference, reg: destReg, knownInitialValue: (uint) constantValue);
+                    dest = context.MakeLocal(MiscUtils.UInt32Reference, reg: destReg, knownInitialValue: (uint) constantValue);
                 else
-                    dest = context.MakeLocal(Utils.Utils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
+                    dest = context.MakeLocal(MiscUtils.UInt64Reference, reg: destReg, knownInitialValue: constantValue);
                 RegisterDefinedLocalWithoutSideEffects((LocalDefinition) dest);
             }
             else
@@ -50,7 +51,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override string? ToPsuedoCode()
         {
-            return $"{Utils.Utils.Int64Reference} {(dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition) dest).Name)} = {(constantValue > 1024 ? $"0x{constantValue:X}" : $"{constantValue}")}";
+            return $"{MiscUtils.Int64Reference} {(dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition) dest).Name)} = {(constantValue > 1024 ? $"0x{constantValue:X}" : $"{constantValue}")}";
         }
 
         public override string ToTextSummary()

@@ -4,11 +4,14 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
@@ -27,22 +30,33 @@ namespace Cpp2IL.Core
 
         public static int[] DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
-            int[] version;
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
             {
                 var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
 
-                version = new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
+                return new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
             }
-            else
+
+            if(!string.IsNullOrEmpty(gameDataPath))
             {
                 //Globalgamemanagers
                 var globalgamemanagersPath = Path.Combine(gameDataPath, "globalgamemanagers");
-                var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
-                version = GetVersionFromGlobalGameManagers(ggmBytes);
+                if(File.Exists(globalgamemanagersPath))
+                {
+                    var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
+                    return GetVersionFromGlobalGameManagers(ggmBytes);
+                }
+                
+                //Data.unity3d
+                var dataPath = Path.Combine(gameDataPath, "data.unity3d");
+                if(File.Exists(dataPath))
+                {
+                    using var dataStream = File.OpenRead(dataPath);
+                    return GetVersionFromDataUnity3D(dataStream);
+                }
             }
 
-            return version;
+            return null;
         }
 
         public static int[] GetVersionFromGlobalGameManagers(byte[] ggmBytes)
@@ -124,7 +138,9 @@ namespace Cpp2IL.Core
         {
             if (IsLibInitialized())
                 ResetInternalState();
+            
             ConfigureLib(allowUserToInputAddresses);
+            FixCapstoneLib();
 
             try
             {
@@ -147,7 +163,9 @@ namespace Cpp2IL.Core
         {
             if (IsLibInitialized())
                 ResetInternalState();
+            
             ConfigureLib(allowUserToInputAddresses);
+            FixCapstoneLib();
 
             try
             {
@@ -166,7 +184,7 @@ namespace Cpp2IL.Core
         {
             SharedState.Clear();
 
-            Utils.Utils.Reset();
+            MiscUtils.Reset();
 
             AttributeRestorer.Reset();
 
@@ -200,7 +218,7 @@ namespace Cpp2IL.Core
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Configure utils class
-            Utils.Utils.BuildPrimitiveMappings();
+            MiscUtils.BuildPrimitiveMappings();
 
             //Set base types and interfaces
             startTwo = DateTime.Now;
@@ -549,6 +567,8 @@ namespace Cpp2IL.Core
                             case AnalysisLevel.IL_ONLY:
                                 typeDump?.Append(dumper.BuildILToString());
                                 break;
+                            case AnalysisLevel.NONE:
+                                break;
                         }
 
                         Interlocked.Increment(ref numProcessed);
@@ -623,6 +643,42 @@ namespace Cpp2IL.Core
         {
             if (!IsLibInitialized())
                 throw new LibraryNotInitializedException();
+        }
+
+        private static void FixCapstoneLib()
+        {
+            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
+                return;
+            
+            //Capstone is super stupid and randomly fails to load on non-windows platforms. Fix it.
+            var runningFrom = AppContext.BaseDirectory;
+            var capstonePath = Path.Combine(runningFrom, "Gee.External.Capstone.dll");
+
+            if (!File.Exists(capstonePath))
+            {
+
+                Logger.InfoNewline("Detected that Capstone's Managed assembly is missing. Attempting to copy the windows one...");
+                var fallbackPath = Path.Combine(runningFrom, "runtimes", "win-x64", "lib", "netstandard2.0", "Gee.External.Capstone.dll");
+
+                if (!File.Exists(fallbackPath))
+                {
+                    Logger.WarnNewline($"Couldn't find it at {fallbackPath}. Your application will probably now throw an exception due to it being missing.");
+                    return;
+                }
+
+                File.Copy(fallbackPath, capstonePath);
+            }
+
+            var loaded = Assembly.LoadFile(capstonePath);
+            Logger.InfoNewline("Loaded capstone: " + loaded.FullName);
+
+            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+            {
+                if (args.Name == loaded.FullName)
+                    return loaded;
+
+                return null;
+            };
         }
     }
 }

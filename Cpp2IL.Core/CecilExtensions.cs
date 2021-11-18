@@ -1,6 +1,7 @@
 ﻿using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 
 namespace Cpp2IL.Core
@@ -116,7 +117,7 @@ namespace Cpp2IL.Core
             //-able
             if (reference.FullName.StartsWith("System.Collections.Generic.IEnumerable"))
             {
-                return Utils.Utils.IEnumerableReference.IsAssignableFrom(otherType);
+                return MiscUtils.IEnumerableReference.IsAssignableFrom(otherType);
             }
 
             return false;

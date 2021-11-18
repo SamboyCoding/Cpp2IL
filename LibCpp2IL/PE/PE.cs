@@ -1,9 +1,7 @@
 using System;
-using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text;
-using Iced.Intel;
 using LibCpp2IL.Logging;
 
 namespace LibCpp2IL.PE
@@ -24,7 +22,6 @@ namespace LibCpp2IL.PE
         private uint[]? peExportedFunctionPointers;
         private uint[] peExportedFunctionNamePtrs;
         private ushort[] peExportedFunctionOrdinals;
-        private InstructionList? _cachedDisassembledBytes;
 
         //Il2cpp binary fields:
         
@@ -193,18 +190,7 @@ namespace LibCpp2IL.PE
             return GetRawBinaryContent().SubArray((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
         }
         
-        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
-
-        public InstructionList DisassembleTextSection()
-        {
-            if (_cachedDisassembledBytes == null)
-            {
-                var toDisasm = GetEntirePrimaryExecutableSection();
-                _cachedDisassembledBytes = LibCpp2ILUtils.DisassembleBytesNew(is32Bit, toDisasm, GetVirtualAddressOfPrimaryExecutableSection() + peImageBase);
-            }
-
-            return _cachedDisassembledBytes;
-        }
+        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress + peImageBase ?? 0;
 
         public override byte GetByteAtRawAddress(ulong addr) => raw[addr];
 

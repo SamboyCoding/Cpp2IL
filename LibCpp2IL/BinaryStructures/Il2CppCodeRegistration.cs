@@ -21,7 +21,7 @@ namespace LibCpp2IL.BinaryStructures
             public ulong invokerPointers;
             
             [Version(Max = 24.5f)] //Removed in v27
-            public long customAttributeCount;
+            public ulong customAttributeCount;
             [Version(Max = 24.5f)] //Removed in v27
             public ulong customAttributeGeneratorListAddress;
             

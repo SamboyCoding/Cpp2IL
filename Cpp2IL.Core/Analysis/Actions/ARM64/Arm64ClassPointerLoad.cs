@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil.Cil;
@@ -15,9 +16,9 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64ClassPointerLoadAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             var op0 = instruction.Details.Operands[0].Register;
-            destReg = Utils.Utils.GetRegisterNameNew(op0.Id);
+            destReg = MiscUtils.GetRegisterNameNew(op0.Id);
 
-            var sourceReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
+            var sourceReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase()!.Id);
             var inReg = context.GetOperandInRegister(sourceReg);
             localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition { Value: NewSafeCastResult<Arm64Instruction> result } ? result.original : null;
 
@@ -25,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
                 return;
 
             var localType = localCopiedFrom.Type?.Resolve();
-            localType ??= Utils.Utils.ObjectReference;
+            localType ??= MiscUtils.ObjectReference;
 
             if (!SharedState.ManagedToUnmanagedTypes.TryGetValue(localType, out var cppTypeDef))
                 return;

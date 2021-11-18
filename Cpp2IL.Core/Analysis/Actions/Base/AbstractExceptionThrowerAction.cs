@@ -1,5 +1,6 @@
 ﻿using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -24,7 +25,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
             if (ctor == null)
             {
-                var exceptionCtor = Utils.Utils.ExceptionReference.GetConstructors().First(c => c.HasParameters && c.Parameters.Count == 1 && c.Parameters[0].ParameterType.Name == "String");
+                var exceptionCtor = MiscUtils.ExceptionReference.GetConstructors().First(c => c.HasParameters && c.Parameters.Count == 1 && c.Parameters[0].ParameterType.Name == "String");
                 return new[]
                 {
                     processor.Create(OpCodes.Ldstr, $"Exception of type {_exceptionType.FullName}, but couldn't find a no-arg ctor"),

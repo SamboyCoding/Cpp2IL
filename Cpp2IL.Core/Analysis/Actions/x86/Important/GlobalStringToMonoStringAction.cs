@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -27,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             il2CppString!.HasBeenUsedAsAString = true;
 
-            _localMade = context.MakeLocal(Utils.Utils.StringReference, reg: "rax", knownInitialValue: _stringValue);
+            _localMade = context.MakeLocal(MiscUtils.StringReference, reg: "rax", knownInitialValue: _stringValue);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

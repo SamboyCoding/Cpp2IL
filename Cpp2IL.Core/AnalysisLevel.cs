@@ -6,6 +6,7 @@
         SKIP_ASM,
         SKIP_ASM_AND_SYNOPSIS,
         IL_ONLY,
-        PSUEDOCODE_ONLY
+        PSUEDOCODE_ONLY,
+        NONE
     }
 }

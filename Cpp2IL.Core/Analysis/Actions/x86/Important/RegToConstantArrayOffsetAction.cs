@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -15,9 +16,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public RegToConstantArrayOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             var relativeOffset = instruction.MemoryDisplacement - Il2CppArrayUtils.FirstItemOffset;
-            _offsetIdx = relativeOffset / Utils.Utils.GetPointerSizeBytes();
+            _offsetIdx = relativeOffset / MiscUtils.GetPointerSizeBytes();
 
             TheArray = context.GetLocalInReg(memReg);
 
@@ -26,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             _elementType = ((ArrayType) TheArray.Type).ElementType;
 
-            var regRead = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            var regRead = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
             _opRead = context.GetOperandInRegister(regRead);
             
             if(TheArray != null)

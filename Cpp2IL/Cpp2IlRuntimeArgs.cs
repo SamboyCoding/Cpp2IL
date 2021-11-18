@@ -23,6 +23,7 @@ namespace Cpp2IL
         public bool IlToAsmContinueThroughErrors;
         public bool SuppressAttributes;
         public bool Parallel;
+        public bool DisableMethodDumps;
 
         public bool EnableVerboseLogging;
 

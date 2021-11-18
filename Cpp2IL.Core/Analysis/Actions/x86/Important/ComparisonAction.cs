@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Instruction = Iced.Intel.Instruction;
 
@@ -14,9 +15,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         protected override bool IsMemoryReferenceAnAbsolutePointer(Instruction instruction, int operandIdx) => instruction.MemoryBase == Register.None || instruction.MemoryBase.GetFullRegister() == Register.RIP;
 
-        protected override string GetRegisterName(Instruction instruction, int opIdx) => Utils.Utils.GetRegisterNameNew(instruction.GetOpRegister(opIdx));
+        protected override string GetRegisterName(Instruction instruction, int opIdx) => MiscUtils.GetRegisterNameNew(instruction.GetOpRegister(opIdx));
 
-        protected override string GetMemoryBaseName(Instruction instruction) => Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+        protected override string GetMemoryBaseName(Instruction instruction) => MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
 
         protected override ulong GetInstructionMemoryOffset(Instruction instruction) => instruction.MemoryDisplacement64;
 

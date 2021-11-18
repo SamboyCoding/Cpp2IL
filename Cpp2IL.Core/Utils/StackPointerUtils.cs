@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Utils
             {
                 offset -= firstParamOffset; //Subtract the base offsets
 
-                var paramNum = offset / Utils.GetPointerSizeBytes();
+                var paramNum = offset / MiscUtils.GetPointerSizeBytes();
                 if (context.FunctionArgumentLocals.Count > paramNum)
                 {
                     return context.FunctionArgumentLocals[paramNum];
@@ -72,7 +72,7 @@ namespace Cpp2IL.Core.Utils
                 //because why wouldn't it be.
                 offset -= firstParamOffset; //Subtract the base offsets
 
-                var paramNum = offset / Utils.GetPointerSizeBytes();
+                var paramNum = offset / MiscUtils.GetPointerSizeBytes();
                 if (context.FunctionArgumentLocals.Count > paramNum)
                 {
                     context.FunctionArgumentLocals[paramNum] = theLocal;
