@@ -113,7 +113,7 @@ namespace Cpp2IL.Core
                 {
                     Logger.VerboseNewline($"\t\tTarget Method Located at {targetMethod.AsUnmanaged().MethodPointer}. Taking first CALL as the (version-specific) metadata initialization function...");
                     
-                    var disasm = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary!.is32Bit, targetMethod.AsUnmanaged().CppMethodBodyBytes, targetMethod.AsUnmanaged().MethodPointer);
+                    var disasm = MiscUtils.GetMethodBodyAtVirtAddressNew(targetMethod.AsUnmanaged().MethodPointer, false);
                     var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
 
                     if (LibCpp2IlMain.MetadataVersion < 27)
