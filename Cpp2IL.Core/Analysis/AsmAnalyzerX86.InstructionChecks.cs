@@ -175,6 +175,10 @@ namespace Cpp2IL.Core.Analysis
                         //Box a cpp primitive to a managed type
                         Analysis.Actions.Add(new BoxValueAction(Analysis, instruction));
                     }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_unbox || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_unbox)
+                    {
+                        Analysis.Actions.Add(new UnboxObjectAction(Analysis, instruction));
+                    }
                     else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_is_inst)
                     {
                         //Safe cast an object to a type
@@ -251,8 +255,14 @@ namespace Cpp2IL.Core.Analysis
                     break;
                 //TODO More Conditional jumps
                 //Conditional boolean sets
+                case Mnemonic.Sete:
+                    Analysis.Actions.Add(new EqualRegisterSetAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Setg:
                     Analysis.Actions.Add(new GreaterThanRegisterSetAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Setl:
+                    Analysis.Actions.Add(new LessThanRegisterSetAction(Analysis, instruction));
                     break;
                 //Floating-point unit (FPU) instructions
                 case Mnemonic.Fld when memR != "rip" && memR != "rbp" && memOp is LocalDefinition:
@@ -299,7 +309,6 @@ namespace Cpp2IL.Core.Analysis
 
             if (mnemonic == Mnemonic.Comiss)
                 mnemonic = Mnemonic.Cmp;
-            
             //Noting here, format of a memory operand is:
             //[memoryBase + memoryIndex * memoryIndexScale + memoryOffset]
             
@@ -317,7 +326,6 @@ namespace Cpp2IL.Core.Analysis
                             break;
                         }
                     }
-
                     //Fallback to a reg->reg move.
                     Analysis.Actions.Add(MaybeWrap(new RegToRegMoveAction(Analysis, instruction)));
                     break;
@@ -555,6 +563,10 @@ namespace Cpp2IL.Core.Analysis
                         Analysis.Actions.Add(MaybeWrap(new LoadClassPointerFromMethodInfoAction(Analysis, instruction)));
                     }
 
+                    break; 
+                case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is ConstantDefinition {Value: LocalPointer}:
+                    //Read local pointer
+                    Analysis.Actions.Add(MaybeWrap(new ReadLocalPointerToRegAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Mov when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && instruction.MemoryIndex == Register.None && memOp is LocalDefinition loc:
                     //Move generic memory to register - field read.
@@ -566,9 +578,19 @@ namespace Cpp2IL.Core.Analysis
 
                     Analysis.Actions.Add(MaybeWrap(new FieldToLocalAction(Analysis, instruction)));
                     break;
-                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition && instruction.MemoryIndex == Register.None:
-                    //LEA generic memory to register - field pointer load.
-                    Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
+                case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition localDefinition && instruction.MemoryIndex == Register.None:
+                    
+                    if (localDefinition.Type is {IsPrimitive: true} && ((long)instruction.MemoryDisplacement64) is 1 or -1)
+                    {
+                        // Plus 1 or minus 1 action
+                        Analysis.Actions.Add(new PlusOneOrMinusOneAction(Analysis, instruction));
+                    }
+                    else
+                    {
+                        //LEA generic memory to register - field pointer load.
+                        Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
+                    }
+                    
                     break;
                 case Mnemonic.Mov when type0 == OpKind.Memory && type1 == OpKind.Register && memR != "rip" && memOp is ConstantDefinition {Value: StaticFieldsPtr _}:
                     //Write static field
@@ -657,6 +679,10 @@ namespace Cpp2IL.Core.Analysis
                     //But value in reg is the first step of an integer division
                     //So this is step 2
                     Analysis.Actions.Add(new IntegerDivisionShiftStepAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Imul when op0 is LocalDefinition && op1 is LocalDefinition:
+                    //Imul reg, reg
+                    Analysis.Actions.Add(new MultiplyRegByRegAction(Analysis, instruction));
                     break;
             }
         }

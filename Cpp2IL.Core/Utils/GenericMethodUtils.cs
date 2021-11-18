@@ -25,7 +25,7 @@ namespace Cpp2IL.Core.Utils
             if(theMethod is MethodDefinition && declaringType is TypeDefinition)
                 return;
             
-            Debugger.Break();
+            //Debugger.Break();
         }
     }
 }
