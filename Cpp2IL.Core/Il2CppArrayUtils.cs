@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil;
 
@@ -44,7 +45,7 @@ namespace Cpp2IL.Core
 
         public static PropertyDefinition GetLengthProperty()
         {
-            var arrayType = Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Array");
+            var arrayType = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Array");
 
             return arrayType!.Properties.First(p => p.Name == nameof(Array.Length));
         }

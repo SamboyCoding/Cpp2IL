@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -24,7 +25,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             try
             {
-                ResolvedType = Utils.Utils.TryResolveTypeReflectionData(typeData);
+                ResolvedType = MiscUtils.TryResolveTypeReflectionData(typeData);
             }
             catch (ArgumentException)
             {
@@ -36,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             var name = ResolvedType.Name;
             if (instruction.Mnemonic != Mnemonic.Push)
             {
-                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+                _destReg = instruction.Op0Kind == OpKind.Register ? MiscUtils.GetRegisterNameNew(instruction.Op0Register) : null;
             }
 
             ConstantWritten = context.MakeConstant(typeof(TypeReference), ResolvedType, name, _destReg);

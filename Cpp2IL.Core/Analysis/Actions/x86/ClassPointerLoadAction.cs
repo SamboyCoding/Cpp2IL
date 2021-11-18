@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -14,11 +15,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public ClassPointerLoadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             if(instruction.Op0Register == Register.RSP)
                 Logger.WarnNewline("WARNING: CLASS POINTER LOAD DEST IS STACK.");
             
-            var sourceReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var sourceReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(sourceReg);
             localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition {Value: NewSafeCastResult<Instruction> result} ? result.original : null;
 
@@ -26,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 return;
             
             var localType = localCopiedFrom.Type?.Resolve();
-            localType ??= Utils.Utils.ObjectReference;
+            localType ??= MiscUtils.ObjectReference;
 
             if (!SharedState.ManagedToUnmanagedTypes.TryGetValue(localType, out var cppTypeDef))
                 return;

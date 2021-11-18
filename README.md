@@ -28,22 +28,24 @@ same argument as above but pass in the path to the APK, and cpp2il will extract 
 
 ### Supported Command Line Option Listing
 
-| Option | Argument Example | Description |
-| :-----: | :--------------: | :----------: |
-| --game-path | C:\Path\To\Game | Specify the path to the game folder. Required. |
-| --exe-name | TestGame | Specify the name of the game's exe file in case auto detection fails (because there are other exe files in the game directory) |
-| --analysis-level | 0 = Everything<br>1 = Skip Instruction Dump<br>2 = Skip Instruction Dump and Synopsis<br>3 = Print Only Generated IL<br>4 = Print Only Pseudocode | Specify what is saved to the `cpp2il_out/types/[Assembly]/typename_methods.txt` file. |
-| --skip-analysis | &lt;None> | Flag to skip analysis entirely, only generating Dummy DLLs and optionally metadata dumps |
-| --skip-metadata-txts | &lt;None> | Flag to skip metadata dumps (`cpp2il_out/types/[Assembly]/typename_metadata.txt`) | 
-| --disable-registration-prompts | &lt;None> | Flag to prevent asking for the user to input addresses in STDIN if they can't be detected |
-| --verbose | &lt;None> | Log more information about what we are doing |
-| --experimental-enable-il-to-assembly-please | &lt;None> | Attempt to save generated IL to the DLL file where possible. MAY BREAK THINGS. |
-| --suppress-attributes | &lt;None> | Prevents generated DLLs from containing attributes providing il2cpp-specific metadata, such as function pointers, etc. |
-| --parallel | &lt;None> | Run analysis in parallel. Usually much faster, but may be unstable. Also puts your CPU under a lot of strain (100% usage is targeted). |
-| --run-analysis-for-assembly | mscorlib | Run analysis for the specified assembly. Do not specify the `.dll` extension. |
-| --output-root | cpp2il_out | Root directory to output to. Dummy DLLs will be put directly in here, and analysis results will be put in a types folder inside. |
-| --throw-safety-out-the-window | &lt;None> | When paired with `--experimental-enable-il-to-assembly-please`, do not abort attempting to generate IL for a method if an error occurs. Instead, continue on with the next action, skipping only the one which errored. WILL PROBABLY BREAK THINGS. |
-| --analyze-all (only available in pre-release builds) | &lt;None> | Analyze all assemblies in the application |
+|                   Option                    |                                                                 Argument Example                                                                  |                                                                                                                     Description                                                                                                                     |
+|:-------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+|                 --game-path                 |                                                                  C:\Path\To\Game                                                                  |                                                                                                   Specify the path to the game folder. Required.                                                                                                    |
+|                 --exe-name                  |                                                                     TestGame                                                                      |                                                           Specify the name of the game's exe file in case auto detection fails (because there are other exe files in the game directory)                                                            |
+|              --analysis-level               | 0 = Everything<br>1 = Skip Instruction Dump<br>2 = Skip Instruction Dump and Synopsis<br>3 = Print Only Generated IL<br>4 = Print Only Pseudocode |                                                                                Specify what is saved to the `cpp2il_out/types/[Assembly]/typename_methods.txt` file.                                                                                |
+|               --skip-analysis               |                                                                     &lt;None>                                                                     |                                                                              Flag to skip analysis entirely, only generating Dummy DLLs and optionally metadata dumps                                                                               |
+|            --skip-metadata-txts             |                                                                     &lt;None>                                                                     |                                                                                  Flag to skip metadata dumps (`cpp2il_out/types/[Assembly]/typename_metadata.txt`)                                                                                  | 
+|       --disable-registration-prompts        |                                                                     &lt;None>                                                                     |                                                                              Flag to prevent asking for the user to input addresses in STDIN if they can't be detected                                                                              |
+|                  --verbose                  |                                                                     &lt;None>                                                                     |                                                                                                    Log more information about what we are doing                                                                                                     |
+| --experimental-enable-il-to-assembly-please |                                                                     &lt;None>                                                                     |                                                                                   Attempt to save generated IL to the DLL file where possible. MAY BREAK THINGS.                                                                                    |
+|            --suppress-attributes            |                                                                     &lt;None>                                                                     |                                                               Prevents generated DLLs from containing attributes providing il2cpp-specific metadata, such as function pointers, etc.                                                                |
+|                 --parallel                  |                                                                     &lt;None>                                                                     |                                                       Run analysis in parallel. Usually much faster, but may be unstable. Also puts your CPU under a lot of strain (100% usage is targeted).                                                        |
+|         --run-analysis-for-assembly         |                                                                     mscorlib                                                                      |                                                                                    Run analysis for the specified assembly. Do not specify the `.dll` extension.                                                                                    |
+|                --output-root                |                                                                    cpp2il_out                                                                     |                                                          Root directory to output to. Dummy DLLs will be put directly in here, and analysis results will be put in a types folder inside.                                                           |
+|        --throw-safety-out-the-window        |                                                                     &lt;None>                                                                     | When paired with `--experimental-enable-il-to-assembly-please`, do not abort attempting to generate IL for a method if an error occurs. Instead, continue on with the next action, skipping only the one which errored. WILL PROBABLY BREAK THINGS. |
+|                --analyze-all                |                                                                     &lt;None>                                                                     |                                                                                                      Analyze all assemblies in the application                                                                                                      |
+|             --skip-method-dumps             |                                                                     &lt;None>                                                                     |                                                                                Suppress creation of method_dumps folder and files, if you don't intend to use them.                                                                                 |
+|       --just-give-me-dlls-asap-dammit       |                                                                     &lt;None>                                                                     |          Shorthand for `--parallel --skip-method-dumps --experimental-enable-il-to-assembly-please --throw-safety-out-the-window --skip-metadata-txts`, if you don't want to type that much, but still want fast, complete, IL generation           |
 
 ## Release Structure
 
@@ -58,7 +60,7 @@ wine/proton.
 
 - [Windows Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Windows.zip)
 - [Linux Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Linux.zip)
-- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Max.zip)
+- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Mac.zip)
 - [.NET Framework 4.7.2 Windows Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Netframework472-Windows.zip)
 
 
@@ -95,31 +97,43 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 - [x] Able to save generated IL to the actual function body in the Assembly, allowing decompilation using dnSpy/ILSpy.
 - [x] Significantly faster than both Il2CppDumper and Il2CppInspector (for DummyDLL Generation)
 
+## Supported File Extensions / Instruction sets
+
+| File Extension | x86 | x86_64 | ArmV7 | ArmV8 | Other/Comments |
+| :------------: | :-: | :----: | :---: | :---: | :------------: |
+| PE (DLL files, Windows) | ✔️ | ✔️ | ❌ | ❌ | N/A |
+| ELF (SO files, Linux) | ✔️ | ✔️ | ✔️ | ✔️ | N/A |
+| NSO (Switch)   | N/A | N/A | N/A | ✔️ | Switch is ArmV8, that is the only supported instruction set. Compression supported. |
+| APK (Android)  | ❌ | ❌ | ✔️ | ✔️ | Unpacks the APK, then delegates to ELF loader. x86 support is coming soon. |
+| WASM (WebAssembly) | N/A | N/A | N/A | N/A | Not supported yet, but planned. |
+| Mach-O (Mac OS)| ❌ | ❌ | N/A? | ❌ | Not supported yet, but planned |
+
+
 ## Supported Analysis Features Table
 
-| Feature | Supported in x86 | Supported in ARMv8 | Supported in ARMv7 |
-| :-----: | :--------------: | :----------------: | :----------------: |
-| Simple Method Calls[^1] | ✔️ | ✔️ | ❌ |
-| Virtual function calls (via vftable) | ✔️ | ❌ | ❌ |
-| Interface function calls (via interfaceOffsets) | ✔️ | ❌ | ❌ |
-| Argument resolution for function calls | ✔️ | ✔️ | ❌ |
-| Object Instantiation | ✔️ | ✔️ | ❌ |
-| Unmanaged String Literal Detection | ✔️ | ✔️ | ❌ |
-| Instance field reads | ✔️ | ✔️ | ❌ |
-| Instance field writes | ✔️ | ✔️ | ❌ |
-| Static field reads | ✔️ | ✔️ | ❌ |
-| Static field writes | ✔️ | ✔️ | ❌ |
-| IL2CPP "Exception Helper" functions[^2] | ✔️ | ✔️ | ❌ |
-| IL2CPP MetadataUsage parsing[^3] | ✔️ | ✔️ | ❌ |
-| Array instantiation | ✔️ | ❌ | ❌ |
-| Array offset reads | ✔️ | ❌ | ❌ |
-| Array offset writes | ✔️ | ❌ | ❌ |
-| Array length read | ✔️ | ❌ | ❌ |
-| If/While/for/else if detection | ✔️ | Partial[^4] | ❌ |
-| Mathematical operations | Partial[^5] | ❌ | ❌ |
-| Floating point coprocessor support | ✔️ | N/A | N/A |
-| RGCTX[^6] Support | ✔️ | ❌ | ❌ |
-| Return statements, including return value detection | ✔️ | ✔️ | ❌ |
+|                       Feature                       | Supported in x86 | Supported in ARMv8 | Supported in ARMv7 |
+|:---------------------------------------------------:|:----------------:|:------------------:|:------------------:|
+|               Simple Method Calls[^1]               |        ✔️        |         ✔️         |         ❌          |
+|        Virtual function calls (via vftable)         |        ✔️        |         ❌          |         ❌          |
+|   Interface function calls (via interfaceOffsets)   |        ✔️        |         ❌          |         ❌          |
+|       Argument resolution for function calls        |        ✔️        |         ✔️         |         ❌          |
+|                Object Instantiation                 |        ✔️        |         ✔️         |         ❌          |
+|         Unmanaged String Literal Detection          |        ✔️        |         ✔️         |         ❌          |
+|                Instance field reads                 |        ✔️        |         ✔️         |         ❌          |
+|                Instance field writes                |        ✔️        |         ✔️         |         ❌          |
+|                 Static field reads                  |        ✔️        |         ✔️         |         ❌          |
+|                 Static field writes                 |        ✔️        |         ✔️         |         ❌          |
+|       IL2CPP "Exception Helper" functions[^2]       |        ✔️        |         ✔️         |         ❌          |
+|          IL2CPP MetadataUsage parsing[^3]           |        ✔️        |         ✔️         |         ❌          |
+|                 Array instantiation                 |        ✔️        |         ❌          |         ❌          |
+|                 Array offset reads                  |        ✔️        |         ❌          |         ❌          |
+|                 Array offset writes                 |        ✔️        |         ❌          |         ❌          |
+|                  Array length read                  |        ✔️        |         ❌          |         ❌          |
+|           If/While/for/else if detection            |        ✔️        |    Partial[^4]     |         ❌          |
+|               Mathematical operations               |   Partial[^5]    |         ❌          |         ❌          |
+|         Floating point coprocessor support          |        ✔️        |        N/A         |        N/A         |
+|                  RGCTX[^6] Support                  |        ✔️        |         ❌          |         ❌          |
+| Return statements, including return value detection |        ✔️        |         ✔️         |         ❌          |
 
 [^1]: A simple function call is one that is non-virtual, and not defined in an interface. This includes both static and instance functions.
 [^2]: An exception helper is a function call which throws an exception, halting the execution of the current function. These are used for checks which are implicit in the .NET runtime, such as throwing NullReferenceExceptions if something is null and a field is accessed on it.

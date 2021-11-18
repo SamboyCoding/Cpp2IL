@@ -12,6 +12,7 @@ using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
@@ -33,10 +34,10 @@ namespace Cpp2IL.Core
 
         private static void Initialize()
         {
-            DummyTypeDefForAttributeCache.BaseType = Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.ValueType");
+            DummyTypeDefForAttributeCache.BaseType = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.ValueType");
 
             //Add count field
-            DummyTypeDefForAttributeCache.Fields.Add(new FieldDefinition("count", FieldAttributes.Public, Utils.Utils.Int32Reference));
+            DummyTypeDefForAttributeCache.Fields.Add(new FieldDefinition("count", FieldAttributes.Public, MiscUtils.Int32Reference));
 
             //Add attribute list
             DummyTypeDefForAttributeCache.Fields.Add(new FieldDefinition("attributes", FieldAttributes.Public, DummyTypeDefForAttributeList));
@@ -50,7 +51,7 @@ namespace Cpp2IL.Core
                     Offset = 0x00,
                     Static = false,
                     DeclaringType = DummyTypeDefForAttributeCache,
-                    FieldType = Utils.Utils.Int32Reference
+                    FieldType = MiscUtils.Int32Reference
                 },
                 new FieldInType
                 {
@@ -327,13 +328,13 @@ namespace Cpp2IL.Core
             var attributeCtor = attributeType.GetConstructors().First();
 
             var ca = new CustomAttribute(attributeCtor);
-            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(Utils.Utils.StringReference), constructor.DeclaringType.Name));
-            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(Utils.Utils.StringReference), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
+            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(MiscUtils.StringReference), constructor.DeclaringType.Name));
+            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(MiscUtils.StringReference), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
 
             if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(generatorPtr, out var offsetInBinary))
                 offsetInBinary = 0;
             
-            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(Utils.Utils.StringReference), $"0x{offsetInBinary:X}"));
+            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(MiscUtils.StringReference), $"0x{offsetInBinary:X}"));
 
             ca.Fields.Add(name);
             ca.Fields.Add(rva);
@@ -346,9 +347,9 @@ namespace Cpp2IL.Core
             //Nasty generic casting crap
             AsmAnalyzerBase<T> analyzer = (AsmAnalyzerBase<T>)(LibCpp2IlMain.Binary?.InstructionSet switch
             {
-                InstructionSet.X86_32 or InstructionSet.X86_64 => (object)new AsmAnalyzerX86(attributeGeneratorAddress, Utils.Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
+                InstructionSet.X86_32 or InstructionSet.X86_64 => (object)new AsmAnalyzerX86(attributeGeneratorAddress, MiscUtils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
                 // InstructionSet.ARM32 => (object) new AsmAnalyzerArmV7(attributeGeneratorAddress, FIX_ME, keyFunctionAddresses!),
-                InstructionSet.ARM64 => (object)new AsmAnalyzerArmV8A(attributeGeneratorAddress, Utils.Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
+                InstructionSet.ARM64 => (object)new AsmAnalyzerArmV8A(attributeGeneratorAddress, MiscUtils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
                 _ => throw new UnsupportedInstructionSetException()
             });
 
@@ -472,7 +473,7 @@ namespace Cpp2IL.Core
                     var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
 
                     if (cons.Type.FullName != destType.FullName)
-                        value = Utils.Utils.CoerceValue(value, destType);
+                        value = MiscUtils.CoerceValue(value, destType);
 
                     return new CustomAttributeArgument(destType, value);
                 }
@@ -491,7 +492,7 @@ namespace Cpp2IL.Core
                     else if (local.Type.FullName != destType.FullName)
                         try
                         {
-                            value = Utils.Utils.CoerceValue(value, destType);
+                            value = MiscUtils.CoerceValue(value, destType);
                         }
                         catch (Exception e)
                         {
@@ -501,7 +502,7 @@ namespace Cpp2IL.Core
                     if (destType.FullName == "System.Object")
                     {
                         //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
-                        value = new CustomAttributeArgument(Utils.Utils.TryLookupTypeDefKnownNotGeneric(originalValue.GetType().FullName), originalValue);
+                        value = new CustomAttributeArgument(MiscUtils.TryLookupTypeDefKnownNotGeneric(originalValue.GetType().FullName), originalValue);
                     }
 
                     return new CustomAttributeArgument(destType, value);
@@ -531,7 +532,7 @@ namespace Cpp2IL.Core
             {
                 try
                 {
-                    var toSet = value == null ? null : Utils.Utils.CoerceValue(value, typeForArrayToCreateNow);
+                    var toSet = value == null ? null : MiscUtils.CoerceValue(value, typeForArrayToCreateNow);
 
                     arr.SetValue(toSet, index);
                 }
@@ -674,12 +675,12 @@ namespace Cpp2IL.Core
                             var value = i.ConstantValue;
 
                             if (value.GetType().FullName != destType.FullName)
-                                value = Utils.Utils.CoerceValue(value, destType);
+                                value = MiscUtils.CoerceValue(value, destType);
 
                             if (destType.FullName == "System.Object")
                             {
                                 //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
-                                value = new CustomAttributeArgument(Utils.Utils.TryLookupTypeDefKnownNotGeneric(i.ConstantValue.GetType().FullName), i.ConstantValue);
+                                value = new CustomAttributeArgument(MiscUtils.TryLookupTypeDefKnownNotGeneric(i.ConstantValue.GetType().FullName), i.ConstantValue);
                             }
 
                             parameterList.Add(new CustomAttributeArgument(destType, value));
@@ -690,12 +691,12 @@ namespace Cpp2IL.Core
                             var value = (object)armI.ImmValue;
 
                             if (value.GetType().FullName != destType.FullName)
-                                value = Utils.Utils.CoerceValue(value, destType);
+                                value = MiscUtils.CoerceValue(value, destType);
 
                             if (destType.FullName == "System.Object")
                             {
                                 //Need to wrap value in another CustomAttributeArgument of the pre-casting type.
-                                value = new CustomAttributeArgument(Utils.Utils.TryLookupTypeDefKnownNotGeneric(armI.ImmValue.GetType().FullName), armI.ImmValue);
+                                value = new CustomAttributeArgument(MiscUtils.TryLookupTypeDefKnownNotGeneric(armI.ImmValue.GetType().FullName), armI.ImmValue);
                             }
 
                             parameterList.Add(new CustomAttributeArgument(destType, value));

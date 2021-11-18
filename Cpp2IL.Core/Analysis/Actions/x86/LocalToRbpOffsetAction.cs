@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public LocalToRbpOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _regBeingRead = Utils.Utils.GetRegisterNameNew(instruction.Op1Register);
+            _regBeingRead = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
             _localBeingRead = context.GetLocalInReg(_regBeingRead);
 
             if (_localBeingRead == null) return;

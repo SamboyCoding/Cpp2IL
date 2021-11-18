@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -126,7 +127,7 @@ namespace Cpp2IL.Core.Analysis
                             varType = git2.Resolve();
                         if (varType is GenericInstanceType git)
                             varType = processor.ImportRecursive(git, MethodDefinition);
-                        if (varType is ArrayType arr && Utils.Utils.GetUltimateElementType(arr).IsGenericParameter)
+                        if (varType is ArrayType arr && MiscUtils.GetUltimateElementType(arr).IsGenericParameter)
                             throw new InvalidOperationException();
 
                         localDefinition.Variable = new VariableDefinition(processor.ImportReference(varType, MethodDefinition));
@@ -326,7 +327,7 @@ namespace Cpp2IL.Core.Analysis
                 }
                 catch (Exception e)
                 {
-                    Logger.WarnNewline($"Failed to generate synopsis for method {MethodDefinition?.FullName}, action of type {action.GetType().Name} for instruction {action.AssociatedInstruction} at 0x{action.AssociatedInstruction.GetInstructionAddress():X} - got exception {e}");
+                    Logger.WarnNewline($"Failed to generate synopsis for method {MethodDefinition?.FullName}, action of type {action.GetType().Name} for instruction {FormatInstruction(action.AssociatedInstruction)} at 0x{action.AssociatedInstruction.GetInstructionAddress():X} - got exception {e}");
                     AsmAnalyzerX86.FAILED_METHODS++;
                     throw new AnalysisExceptionRaisedException("Exception generating synopsis entry", e);
                 }
@@ -374,7 +375,7 @@ namespace Cpp2IL.Core.Analysis
                 }
                 catch (Exception e)
                 {
-                    Logger.WarnNewline($"Failed to perform analysis on method {MethodDefinition?.FullName}\nWhile analysing instruction {instruction} at 0x{instruction.GetInstructionAddress():X}\nGot exception: {e}\n", "Analyze");
+                    Logger.WarnNewline($"Failed to perform analysis on method {MethodDefinition?.FullName}\nWhile analysing instruction {FormatInstruction(instruction)} at 0x{instruction.GetInstructionAddress():X}\nGot exception: {e}\n", "Analyze");
                     _didFail = true;
                     AsmAnalyzerX86.FAILED_METHODS++;
                     throw new AnalysisExceptionRaisedException("Internal analysis exception", e);
@@ -392,5 +393,7 @@ namespace Cpp2IL.Core.Analysis
         public abstract void RunILPostProcessors(MethodBody body);
 
         protected abstract void PerformInstructionChecks(T instruction);
+
+        protected virtual string FormatInstruction(T? instruction) => instruction?.ToString() ?? "null";
     }
 }

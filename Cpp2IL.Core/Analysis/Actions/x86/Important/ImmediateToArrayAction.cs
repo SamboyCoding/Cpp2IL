@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -12,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ImmediateToArrayAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             TheArray = context.GetLocalInReg(memReg);
 
             if(TheArray?.KnownInitialValue is not AllocatedArray array)
@@ -20,7 +21,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             _immediateValue = instruction.GetImmediate(1);
 
-            _offset = (int) (instruction.MemoryDisplacement32 - Il2CppArrayUtils.FirstItemOffset) / Utils.Utils.GetPointerSizeBytes();
+            _offset = (int) (instruction.MemoryDisplacement32 - Il2CppArrayUtils.FirstItemOffset) / MiscUtils.GetPointerSizeBytes();
 
             array.KnownValuesAtOffsets[_offset] = _immediateValue;
         }

@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Analysis.Actions.ARM64;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
@@ -53,8 +54,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public Stack<IAnalysedOperand> Stack = new();
         public Stack<IAnalysedOperand> FloatingPointStack = new();
 
-        public TypeDefinition DeclaringType => _method?.DeclaringType ?? Utils.Utils.ObjectReference;
-        public TypeReference ReturnType => _method?.ReturnType ?? Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
+        public TypeDefinition DeclaringType => _method?.DeclaringType ?? MiscUtils.ObjectReference;
+        public TypeReference ReturnType => _method?.ReturnType ?? MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
 
         public Arm64ReturnValueLocation Arm64ReturnValueLocation;
 
@@ -127,7 +128,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
                 if (_parameterDestRegList.Count > 0)
                 {
-                    FunctionArgumentLocals.Add(MakeLocal(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", _parameterDestRegList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
+                    FunctionArgumentLocals.Add(MakeLocal(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", _parameterDestRegList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
                     haveHandledMethodInfoArg = true;
                 }
             }
@@ -150,7 +151,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             if (!haveHandledMethodInfoArg)
             {
-                var local = MakeLocal(Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
+                var local = MakeLocal(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
                 Stack.Push(local);
                 FunctionArgumentLocals.Add(local);
             }
@@ -201,7 +202,12 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                     Arm64ReturnValueLocation = Arm64ReturnValueLocation.X0;
                 }
                 //TODO Investigate exactly where UnityEngine.Vector3 ends up - is it simple enough to go in v0-v3? Or because it has constructors etc, does it get treated as complex?
-                //TODO Equally, are there any plain data objects which take the X0_X1 slot? Or in the same vein, the x8 pointer slot?
+                //TODO Equally, are there any plain data objects which take the X0_X1 slot?
+                var lastFieldAddr = _method.ReturnType.Resolve() == null ? 0 : SharedState.FieldsByType[_method.ReturnType.Resolve()].LastOrDefault().Offset;
+                if (_method.ReturnType.IsValueType && lastFieldAddr >= 0x10)
+                {
+                    Arm64ReturnValueLocation = Arm64ReturnValueLocation.POINTER_X8;
+                }
                 else if (xCount == 0)
                 {
                     //No this, complex object => pointer in x0
@@ -266,7 +272,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 var dest = _parameterDestRegList.RemoveAndReturn(0);
 
                 if (arg.ParameterType.ShouldBeInFloatingPointRegister())
-                    dest = Utils.Utils.GetFloatingRegister(dest);
+                    dest = MiscUtils.GetFloatingRegister(dest);
 
                 var name = arg.Name;
                 if (string.IsNullOrWhiteSpace(name))
@@ -301,7 +307,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public bool IsConstructor() => _method?.IsConstructor ?? false;
 
-        public TypeDefinition GetTypeOfThis() => _method?.DeclaringType ?? Utils.Utils.ObjectReference;
+        public TypeDefinition GetTypeOfThis() => _method?.DeclaringType ?? MiscUtils.ObjectReference;
 
         public bool IsStatic() => _method?.IsStatic ?? true;
 
@@ -536,7 +542,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             if (ifElseData == null)
                 return 0UL;
 
-            return Utils.Utils.GetAddressOfInstruction(ifElseData.ConditionalJumpStatement.AssociatedInstruction);
+            return MiscUtils.GetAddressOfInstruction(ifElseData.ConditionalJumpStatement.AssociatedInstruction);
         }
 
         public void PopStashedIfDataForElseAt(ulong elseStartAddr)
@@ -613,7 +619,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             var data = new LoopData<TInstruction>
             {
-                ipFirstInstruction = Utils.Utils.GetAddressOfInstruction(loopCondition.AssociatedInstruction),
+                ipFirstInstruction = MiscUtils.GetAddressOfInstruction(loopCondition.AssociatedInstruction),
                 loopCondition = loopCondition,
                 ipFirstInstructionNotInLoop = firstIpNotInLoop
             };
@@ -706,7 +712,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             var target = Actions
                 .Where(a => !ActionsWhichGenerateNoIL.Contains(a.GetType()))
-                .FirstOrDefault(a => Utils.Utils.GetAddressOfInstruction(a.AssociatedInstruction) >= jumpTarget);
+                .FirstOrDefault(a => MiscUtils.GetAddressOfInstruction(a.AssociatedInstruction) >= jumpTarget);
 
             if (target == null)
                 return;

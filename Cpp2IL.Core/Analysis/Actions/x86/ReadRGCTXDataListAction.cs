@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -15,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public ReadRGCTXDataListAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var klassConst = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
+            var klassConst = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
             _klass = klassConst?.Value as Il2CppClassIdentifier;
 
             if (_klass == null)
@@ -26,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if (_rgctxs == null)
                 return;
 
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             _constantMade = context.MakeConstant(typeof(Il2CppRGCTXArray), new Il2CppRGCTXArray
             {
                 Rgctxs = _rgctxs,

@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -133,35 +132,6 @@ namespace LibCpp2IL.Metadata
         }
 
         public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
-
-
-        public List<byte> CppMethodBodyBytes
-        {
-            get
-            {
-                var bytes = new List<byte>();
-
-                if (MethodOffsetInFile == 0)
-                    return bytes; //Empty list.
-                
-                var offset = (ulong) MethodOffsetInFile;
-                while (true)
-                {
-                    var b = LibCpp2IlMain.Binary!.GetByteAtRawAddress(offset);
-                    if (b == 0xC3 && LibCpp2IlMain.Binary!.GetByteAtRawAddress(offset + 1) == 0xCC)
-                    {
-                        bytes.Add(b);
-                        break;
-                    }
-
-                    if (b == 0xCC && bytes.Count > 0 && bytes[^1] == 0xc3) break;
-                    bytes.Add(b);
-                    offset++;
-                }
-
-                return bytes;
-            }
-        }
 
         public override string ToString()
         {

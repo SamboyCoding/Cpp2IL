@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public FieldToFpuStackAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _localBeingReadFrom = context.GetLocalInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
+            _localBeingReadFrom = context.GetLocalInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (_localBeingReadFrom == null) return;
 

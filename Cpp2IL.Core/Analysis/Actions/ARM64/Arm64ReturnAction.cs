@@ -18,11 +18,14 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
                 Arm64ReturnValueLocation.X0 => context.GetOperandInRegister("x0"),
                 Arm64ReturnValueLocation.V0 => context.GetOperandInRegister("v0"),
                 Arm64ReturnValueLocation.X0_1 => context.GetOperandInRegister("x0"),
-                Arm64ReturnValueLocation.POINTER_R8 => context.GetOperandInRegister("x8"),
+                Arm64ReturnValueLocation.POINTER_X8 => context.GetOperandInRegister("x8"),
                 Arm64ReturnValueLocation.POINTER_X0 => context.GetOperandInRegister("x0"),
                 Arm64ReturnValueLocation.POINTER_X1 => context.GetOperandInRegister("x1"),
                 _ => throw new ArgumentOutOfRangeException()
             };
+            
+            if(returnValLocation == Arm64ReturnValueLocation.POINTER_X8)
+                AddComment("WARNING: Method return value is a struct in x8. Support for this is unfinished, this may not be a clean analysis!");
 
             if (returnValue is LocalDefinition l)
                 RegisterUsedLocal(l, context);

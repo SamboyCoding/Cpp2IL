@@ -22,7 +22,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             RegisterUsedLocal(localBeingRead, context);
             
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
 
             _localMade = context.MakeLocal(localBeingRead.Type!, reg: _destReg).WithParameter(localBeingRead.ParameterDefinition);
             // context.SetRegContent(_destReg, localBeingRead);

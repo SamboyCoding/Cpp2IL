@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -24,7 +25,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             if (!_isVoid)
             {
                 if (returnValue == null)
-                    throw new TaintedInstructionException();
+                    throw new TaintedInstructionException("Return value is missing");
+
+                if (returnValue is LocalDefinition loc && loc.Type?.Resolve() != context.ReturnType.Resolve())
+                    throw new TaintedInstructionException($"Return value has a type of {loc.Type}, expecting an object of type {context.ReturnType}");
                 
                 ret.AddRange(returnValue.GetILToLoad(context, processor));
             }
@@ -64,16 +68,16 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 {
                     var underLyingType = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
                     constantDefinition.Type = underLyingType;
-                    constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
+                    constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
                 }
                 else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
                 {
                     var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
                     if (!string.IsNullOrEmpty(returnValueType?.FullName) && !returnValueType!.IsArray)
                     {
-                        if (Utils.Utils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(context.ReturnType) && context.ReturnType.Name != "String")
+                        if (MiscUtils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(context.ReturnType) && context.ReturnType.IsPrimitive && context.ReturnType.Name != "String")
                         {
-                            constantDefinition.Value = Utils.Utils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
+                            constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
                             constantDefinition.Type = returnValueType;
                         }
                     }

@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             ConstantValue = rawConstant;
             
-            var destRegName = Utils.Utils.GetRegisterNameNew(instruction.MemoryBase);
+            var destRegName = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
 
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);

@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -15,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public LoadClassPointerFromMethodInfoAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //Already verified the source type and offset, only need to handle destination
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
 
             //The klass is the declaring type of this method.
             _type = SharedState.ManagedToUnmanagedTypes[context.DeclaringType];

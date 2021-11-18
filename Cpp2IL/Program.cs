@@ -4,10 +4,14 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Runtime;
+using System.Runtime.InteropServices;
 using CommandLine;
 using Cpp2IL.Core;
+#if !DEBUG
 using Cpp2IL.Core.Exceptions;
+#endif
 using LibCpp2IL;
 using Mono.Cecil;
 
@@ -89,7 +93,8 @@ namespace Cpp2IL
                 using var zipArchive = new ZipArchive(stream);
 
                 var globalMetadata = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/Managed/Metadata/global-metadata.dat"));
-                var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/arm64-v8a/libil2cpp.so"));
+                var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/x86/libil2cpp.so"));
+                binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/arm64-v8a/libil2cpp.so"));
                 binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/armeabi-v7a/libil2cpp.so"));
 
                 var globalgamemanagers = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/globalgamemanagers"));
@@ -151,7 +156,7 @@ namespace Cpp2IL
                 //Version or help requested
                 Environment.Exit(0);
 
-            if (!(parserResult is Parsed<CommandLineArgs> { Value: { } options }))
+            if (!(parserResult is Parsed<CommandLineArgs> {Value: { } options}))
                 throw new SoftException("Failed to parse command line arguments");
 
             if (!options.AreForceOptionsValid)
@@ -182,6 +187,21 @@ namespace Cpp2IL
             result.AssemblyToRunAnalysisFor = options.RunAnalysisForAssembly;
             result.AnalyzeAllAssemblies = options.AnalyzeAllAssemblies;
             result.IlToAsmContinueThroughErrors = options.ThrowSafetyOutTheWindow;
+            result.DisableMethodDumps = options.DisableMethodDumps;
+
+            if (options.UserIsImpatient)
+            {
+                result.Parallel = true;
+                result.DisableMethodDumps = true;
+                result.EnableIlToAsm = true;
+                result.IlToAsmContinueThroughErrors = true;
+                result.EnableMetadataGeneration = false;
+            }
+
+            if (result.DisableMethodDumps)
+                result.AnalysisLevel = AnalysisLevel.NONE;
+            else
+                result.AnalysisLevel = (AnalysisLevel) options.AnalysisLevel;
 
             if (result.EnableIlToAsm)
             {
@@ -192,8 +212,6 @@ namespace Cpp2IL
             {
                 Logger.ErrorNewline("!!!!!!!!!!Throwing safety out the window, as you requested! Forget \"If this breaks, it breaks\", this probably WILL break!!!!!!!!!!");
             }
-
-            result.AnalysisLevel = (AnalysisLevel)options.AnalysisLevel;
 
             result.OutputRootDirectory = options.OutputRootDir;
 
@@ -213,9 +231,9 @@ namespace Cpp2IL
             try
             {
 #endif
-                var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
+            var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
 
-                return MainWithArgs(runtimeArgs);
+            return MainWithArgs(runtimeArgs);
 #if !DEBUG
             }
             catch (DllSaveException e)
@@ -255,6 +273,14 @@ namespace Cpp2IL
 
             Cpp2IlApi.MakeDummyDLLs(runtimeArgs.SuppressAttributes);
 
+#if NET6_0
+            //Fix capstone native library loading on non-windows
+
+            var allInstructionsField = typeof(Arm64KeyFunctionAddresses).GetField("_allInstructions", BindingFlags.Instance | BindingFlags.NonPublic);
+            var arm64InstructionType = allInstructionsField!.FieldType.GenericTypeArguments.First();
+            NativeLibrary.SetDllImportResolver(arm64InstructionType.Assembly, DllImportResolver);
+#endif
+
             if (runtimeArgs.EnableMetadataGeneration)
                 Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
@@ -276,30 +302,29 @@ namespace Cpp2IL
             // if(LibCpp2IlMain.MetadataVersion >= 29)
             //     Logger.WarnNewline("Unable to run attribute restoration, because v29 is not fully supported yet.");
             // else
-                Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
+            Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
 
             Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
-            
+
             Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
 
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
             if (runtimeArgs.EnableAnalysis)
             {
-
                 if (runtimeArgs.AnalyzeAllAssemblies)
                 {
                     foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
                     {
-                        DoAnalysisForAssembly(assemblyDefinition.Name.Name, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors);
+                        DoAnalysisForAssembly(assemblyDefinition.Name.Name, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
                     }
                 }
                 else
                 {
-                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors);
+                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
                 }
             }
 
@@ -320,19 +345,37 @@ namespace Cpp2IL
             return 0;
         }
 
-        private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors)
+        private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors, bool skipDumps)
         {
             var targetAssembly = Cpp2IlApi.GetAssemblyByName(assemblyName);
 
             if (targetAssembly == null)
                 return;
-            
+
             Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
 
-            Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
+            Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
 
             if (doIlToAsm)
-                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> { targetAssembly });
+                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
+        }
+
+
+        private static IntPtr DllImportResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
+        {
+            if (libraryName == "capstone")
+            {
+                // On linux, try .so.4
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                {
+#if NET6_0
+                    return NativeLibrary.Load("lib" + libraryName + ".so.4", assembly, searchPath);
+#endif
+                }
+            }
+
+            // Otherwise, fallback to default import resolver.
+            return IntPtr.Zero;
         }
     }
 }

@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -29,7 +30,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             _checkedAddresses.Add(pointer);
 
             //This will only return up to the first branch, because it's an unmanaged function, but that's fine for these purposes
-            var funcBody = Utils.Utils.GetArm64MethodBodyAtVirtualAddress((ulong)pointer, false, 14);
+            var funcBody = MiscUtils.GetArm64MethodBodyAtVirtualAddress((ulong)pointer, false, 14);
 
             var registerPages = new Dictionary<string, long>();
             foreach (var arm64Instruction in funcBody.Where(i => i.Mnemonic is "adrp" && i.Details.Operands[0].Type == Arm64OperandType.Register))
@@ -50,9 +51,12 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             
             foreach (var potentialLiteralAddress in registerAddresses.Values)
             {
-                if (Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary!, (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw((ulong)potentialLiteralAddress)) is not { } literal) 
+                if(!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw((ulong) potentialLiteralAddress, out var rawLiteralAddress))
                     continue;
-                if (Utils.Utils.TryLookupTypeDefKnownNotGeneric($"System.{literal}") is not { } exceptionType)
+                
+                if (MiscUtils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong)rawLiteralAddress) is not { } literal) 
+                    continue;
+                if (MiscUtils.TryLookupTypeDefKnownNotGeneric($"System.{literal}") is not { } exceptionType)
                     continue;
                     
                 Logger.VerboseNewline($"Identified direct exception thrower: 0x{pointer:X} throws {exceptionType.FullName}. Instructions were {string.Join(", ", funcBody.Select(i => $"0x{i.Address:X} {i.Mnemonic}"))}", "Analyze");

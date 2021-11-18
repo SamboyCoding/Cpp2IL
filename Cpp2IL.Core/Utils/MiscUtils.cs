@@ -18,7 +18,7 @@ using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Core.Utils
 {
-    public static class Utils
+    public static class MiscUtils
     {
         private static readonly object _pointerReadLock = new object();
         //Disable these because they're initialised in BuildPrimitiveMappings
@@ -715,6 +715,7 @@ namespace Cpp2IL.Core.Utils
             var con = true;
             var buff = new List<byte>();
             var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
+            var startOfNextFunc = GetAddressOfNextFunctionStart(addr);
 
             if (rawAddr < 0 || rawAddr >= LibCpp2IlMain.Binary.RawLength)
             {
@@ -724,6 +725,9 @@ namespace Cpp2IL.Core.Utils
 
             while (con)
             {
+                if (addr >= startOfNextFunc)
+                    break;
+                
                 buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong)rawAddr));
 
                 ret = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary.is32Bit, buff.ToArray(), functionStart);
@@ -1004,26 +1008,11 @@ namespace Cpp2IL.Core.Utils
 
         public static void CoerceUnknownGlobalValue(TypeReference targetType, UnknownGlobalAddr unknownGlobalAddr, ConstantDefinition destinationConstant, bool allowByteArray = true)
         {
-            var primitiveLength = Utils.GetSizeOfObject(targetType);
-            byte[] newValue;
-            if (primitiveLength == 8)
-                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 8);
-            else if (primitiveLength == 4)
-                newValue = unknownGlobalAddr.FirstTenBytes.SubArray(0, 4);
-            else
-                throw new Exception($"unknown global -> primitive: Not implemented: Size {primitiveLength}, type {targetType}");
+            var ulongValue = BitConverter.ToUInt64(unknownGlobalAddr.FirstTenBytes.SubArray(0, 8), 0);
 
-            if (targetType.Name == "Single")
-                destinationConstant.Value = BitConverter.ToSingle(newValue, 0);
-            else if (targetType.Name == "Double")
-                destinationConstant.Value = BitConverter.ToDouble(newValue, 0);
-            else if (allowByteArray)
-                destinationConstant.Value = newValue;
-            else
-                return;
-
-            if(destinationConstant.Type != typeof(byte[]) || targetType.IsArray)
-                destinationConstant.Type = Type.GetType(targetType.FullName!)!;
+            var converted = ReinterpretBytes(ulongValue, targetType);
+            destinationConstant.Value = converted;
+            destinationConstant.Type = typeof(int).Module.GetType(targetType.FullName);
         }
 
         public static ulong GetAddressOfInstruction<T>(T t)
@@ -1059,13 +1048,7 @@ namespace Cpp2IL.Core.Utils
 
         private static void InitArm64Decompilation()
         {
-            _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer)
-                .Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys)
-                .Concat(SharedState.AttributeGeneratorStarts)
-                .ToList();
-
-            //Sort in ascending order
-            _allKnownFunctionStarts.Sort();
+            InitFunctionStarts();
 
             var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
             disassembler.EnableInstructionDetails = true;
@@ -1074,10 +1057,21 @@ namespace Cpp2IL.Core.Utils
             _arm64Disassembler = disassembler;
         }
 
+        private static void InitFunctionStarts()
+        {
+            _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer)
+                .Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys)
+                .Concat(SharedState.AttributeGeneratorStarts)
+                .ToList();
+
+            //Sort in ascending order
+            _allKnownFunctionStarts.Sort();
+        }
+
         public static ulong GetAddressOfNextFunctionStart(ulong current)
         {
             if(_allKnownFunctionStarts == null)
-                InitArm64Decompilation();
+                InitFunctionStarts();
 
             //Binary-search-like approach
             var lower = 0;

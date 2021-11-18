@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public Implicit4ByteFieldReadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _readOn = context.GetLocalInReg(Utils.Utils.GetRegisterNameNew(instruction.Op1Register));
+            _readOn = context.GetLocalInReg(MiscUtils.GetRegisterNameNew(instruction.Op1Register));
             
             if(_readOn == null)
                 return;
@@ -35,7 +35,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 type ??= _read.GetFinalType();
             }
 
-            _localMade = context.MakeLocal(type, reg: Utils.Utils.GetRegisterNameNew(instruction.Op0Register));
+            _localMade = context.MakeLocal(type, reg: MiscUtils.GetRegisterNameNew(instruction.Op0Register));
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

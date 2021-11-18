@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
@@ -15,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public AddConstantToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _regBeingAddedTo = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _regBeingAddedTo = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             _valueInReg = context.GetLocalInReg(_regBeingAddedTo);
             
             //Handle INC instructions here too.
@@ -25,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             RegisterUsedLocal(_valueInReg, context);
 
-            if (!Utils.Utils.IsNumericType(_valueInReg.Type))
+            if (!MiscUtils.IsNumericType(_valueInReg.Type))
             {
                 AddComment("Type being added to is non-numeric!");
             }

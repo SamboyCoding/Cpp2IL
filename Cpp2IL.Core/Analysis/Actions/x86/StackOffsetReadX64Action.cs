@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Mono.Cecil.Cil;
 using Instruction = Iced.Intel.Instruction;
 
@@ -14,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public StackOffsetReadX64Action(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
             _stackOffset = instruction.MemoryDisplacement32;
 
             if (context.StackStoredLocals.TryGetValue((int) _stackOffset, out localResolved))

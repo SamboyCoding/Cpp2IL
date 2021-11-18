@@ -33,8 +33,8 @@ namespace LibCpp2IL
         protected Il2CppCodeGenModule[] codeGenModules; //24.2+
         protected Il2CppTokenRangePair[][] codegenModuleRgctxRanges;
         protected Il2CppRGCTXDefinition[][] codegenModuleRgctxs;
-        protected ConcurrentDictionary<int, ulong> genericMethodDictionary;
-        protected readonly ConcurrentDictionary<ulong, Il2CppType> typesDict = new();
+        protected Dictionary<int, ulong> genericMethodDictionary;
+        protected readonly Dictionary<ulong, Il2CppType> typesDict = new();
         public readonly Dictionary<Il2CppMethodDefinition, List<Il2CppGenericMethodRef>> ConcreteGenericMethods = new();
         public readonly Dictionary<ulong, List<Il2CppGenericMethodRef>> ConcreteGenericImplementationsByAddress = new();
         public ulong[] TypeDefinitionSizePointers;
@@ -71,7 +71,7 @@ namespace LibCpp2IL
             {
                 LibLogger.Verbose("\tReading custom attribute generators...");
                 start = DateTime.Now;
-                customAttributeGenerators = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.customAttributeGeneratorListAddress, codeRegistration.customAttributeCount);
+                customAttributeGenerators = ReadClassArrayAtVirtualAddress<ulong>(codeRegistration.customAttributeGeneratorListAddress, (long) codeRegistration.customAttributeCount);
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
@@ -192,7 +192,7 @@ namespace LibCpp2IL
 
             LibLogger.Verbose("\tReading generic methods...");
             start = DateTime.Now;
-            genericMethodDictionary = new ConcurrentDictionary<int, ulong>();
+            genericMethodDictionary = new Dictionary<int, ulong>();
             foreach (var table in genericMethodTables)
             {
                 var genericMethodIndex = table.genericMethodIndex;

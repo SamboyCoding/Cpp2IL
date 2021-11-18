@@ -9,8 +9,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
     {
         public StaticFieldToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var fieldsPtrConst = context.GetConstantInReg(Utils.Utils.GetRegisterNameNew(instruction.MemoryBase));
-            string destReg = Utils.Utils.GetRegisterNameNew(instruction.Op0Register);
+            var fieldsPtrConst = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
+            string destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
 
             if (fieldsPtrConst == null || fieldsPtrConst.Type != typeof(StaticFieldsPtr)) return;
 

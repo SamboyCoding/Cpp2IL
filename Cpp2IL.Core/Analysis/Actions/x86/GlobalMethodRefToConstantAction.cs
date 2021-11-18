@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -43,8 +44,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             _declaringType = SharedState.UnmanagedToManagedTypes[_genericMethodRef.DeclaringType];
             _method = SharedState.UnmanagedToManagedMethods[_genericMethodRef.BaseMethod];
 
-            _genericTypeParams = _genericMethodRef.TypeGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
-            _genericMethodParams = _genericMethodRef.MethodGenericParams.Select(data => Utils.Utils.TryResolveTypeReflectionData(data, _method)!).ToList();
+            _genericTypeParams = _genericMethodRef.TypeGenericParams.Select(data => MiscUtils.TryResolveTypeReflectionData(data, _method)!).ToList();
+            _genericMethodParams = _genericMethodRef.MethodGenericParams.Select(data => MiscUtils.TryResolveTypeReflectionData(data, _method)!).ToList();
 
             if (_genericTypeParams.Count > 0)
             {
@@ -60,7 +61,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (instruction.Mnemonic != Mnemonic.Push)
             {
-                _destReg = instruction.Op0Kind == OpKind.Register ? Utils.Utils.GetRegisterNameNew(instruction.Op0Register) : null;
+                _destReg = instruction.Op0Kind == OpKind.Register ? MiscUtils.GetRegisterNameNew(instruction.Op0Register) : null;
             }
 
             var name = _method.Name;

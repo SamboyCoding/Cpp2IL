@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
@@ -26,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 return;
             }
 
-            var body = Utils.Utils.GetMethodBodyAtVirtAddressNew(addr, true);
+            var body = MiscUtils.GetMethodBodyAtVirtAddressNew(addr, true);
             List<string?> strings;
             if (LibCpp2IlMain.Binary.is32Bit)
             {
@@ -34,7 +35,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 strings = body.Where(i => i.Mnemonic == Mnemonic.Push && i.Op0Kind.IsImmediate())
                     .Select(i => LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(i.GetImmediate(0), out var raw) ? raw : long.MinValue)
                     .Where(l => l != long.MinValue)
-                    .Select(pString => Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) pString))
+                    .Select(pString => MiscUtils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) pString))
                     .Where(s => s != null)
                     .ToList()!; //Non-null asserted because we've just checked s is non-null.
             }
@@ -47,7 +48,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                     strings = leas
                         .Select(i => LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(i.MemoryDisplacement64, out var addr) ? addr : 0)
                         .Where(ptr => ptr != 0)
-                        .Select(p => Utils.Utils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) p))
+                        .Select(p => MiscUtils.TryGetLiteralAt(LibCpp2IlMain.Binary, (ulong) p))
                         .ToList();
                 }
                 else
@@ -60,7 +61,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             {
                 var exceptionName = strings[0];
                 var @namespace = strings[1];
-                var type = Utils.Utils.TryLookupTypeDefKnownNotGeneric(@namespace + "." + exceptionName);
+                var type = MiscUtils.TryLookupTypeDefKnownNotGeneric(@namespace + "." + exceptionName);
                 if (type != null)
                 {
                     Logger.VerboseNewline($"Identified direct exception thrower: 0x{addr:X} throws {type.FullName}", "Analyze");

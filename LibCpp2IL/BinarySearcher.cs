@@ -48,6 +48,7 @@ namespace LibCpp2IL
 
         // Find all occurrences of a sequence of bytes, using word alignment by default
         private IEnumerable<uint> FindAllBytes(byte[] signature, int alignment = 0) {
+            LibLogger.VerboseNewline($"\t\t\tLooking for bytes: {string.Join(" ", signature.Select(b => b.ToString("x2")))}");
             var offset = 0;
             var ptrSize = _binary.is32Bit ? 4 : 8;
             while (offset != -1) {
@@ -63,10 +64,10 @@ namespace LibCpp2IL
         private IEnumerable<uint> FindAllStrings(string str) => FindAllBytes(Encoding.ASCII.GetBytes(str), 1);
 
         // Find 32-bit words
-        private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), 4);
+        private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), 1);
 
         // Find 64-bit words
-        private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), 8);
+        private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), 1);
 
         // Find words for the current binary size
         private IEnumerable<uint> FindAllWords(ulong word)
@@ -105,7 +106,7 @@ namespace LibCpp2IL
             {
                 var cr = _binary.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(va);
 
-                if (cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Length)
+                if ((long) cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Length)
                     return va;
             }
 
@@ -116,17 +117,25 @@ namespace LibCpp2IL
         internal ulong FindCodeRegistrationPost2019()
         {
             //Works only on >=24.2
-            var mscorlibs = FindAllStrings("mscorlib.dll\0").Select(idx => _binary.MapRawAddressToVirtual(idx));
-            var pMscorlibCodegenModule = FindAllMappedWords(mscorlibs); //CodeGenModule address will be in here
+            var mscorlibs = FindAllStrings("mscorlib.dll\0").Select(idx => _binary.MapRawAddressToVirtual(idx)).ToList();
+            
+            LibLogger.VerboseNewline($"\t\t\tFound {mscorlibs.Count} occurrences of mscorlib.dll");
+            
+            var pMscorlibCodegenModule = FindAllMappedWords(mscorlibs).ToList(); //CodeGenModule address will be in here
+            
+            LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenModule.Count} potential codegen modules for mscorlib");
+            
             var pMscorlibCodegenEntryInCodegenModulesList = FindAllMappedWords(pMscorlibCodegenModule).ToList(); //CodeGenModules list address will be in here
+            
+            LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenEntryInCodegenModulesList.Count} address for potential codegen modules in potential codegen module lists");
+            
             var ptrSize = (_binary.is32Bit ? 4u : 8u);
 
-            IEnumerable<ulong>? pCodegenModules = null;
+            List<ulong>? pCodegenModules = null;
             if (!(LibCpp2IlMain.MetadataVersion >= 27f))
             {
                 //Pre-v27, mscorlib is the first codegen module, so *MscorlibCodegenEntryInCodegenModulesList == g_CodegenModules, so we can just find a pointer to this.
-                var intermediate = pMscorlibCodegenEntryInCodegenModulesList;
-                pCodegenModules = FindAllMappedWords(intermediate);
+                pCodegenModules = FindAllMappedWords(pMscorlibCodegenEntryInCodegenModulesList).ToList();
             }
             else
             {
@@ -135,15 +144,15 @@ namespace LibCpp2IL
                 var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList.AsEnumerable();
                 for (var backtrack = 0; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
                 {
-                    pCodegenModules = FindAllMappedWords(pSomewhereInCodegenModules);
+                    pCodegenModules = FindAllMappedWords(pSomewhereInCodegenModules).ToList();
 
                     //Sanity check the count, which is one pointer back
-                    if (pCodegenModules.Count() == 1)
+                    if (pCodegenModules.Count == 1)
                     {
                         var moduleCount = _binary.ReadClassAtVirtualAddress<int>(pCodegenModules.First() - ptrSize);
 
                         if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
-                            pCodegenModules = Enumerable.Empty<ulong>();
+                            pCodegenModules = new();
                     }
 
                     pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);
@@ -190,6 +199,55 @@ namespace LibCpp2IL
                     //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
                     //So, subtract the size of one pointer from that...
                     var bytesToGoBack = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppCodeRegistration)) - ptrSize;
+                    
+                    LibLogger.VerboseNewline($"\t\t\tpCodegenModules is the second-to-last field of the codereg struct. Therefore on this version and architecture, we need to subtract {bytesToGoBack} bytes from its address to get pCodeReg");
+
+                    var fields = typeof(Il2CppCodeRegistration).GetFields();
+                    var fieldsByName = fields.ToDictionary(f => f.Name);
+                    
+                    //Sanity checks
+                    foreach (var pCodegenModule in pCodegenModules)
+                    {
+                        var address = pCodegenModule - bytesToGoBack;
+                        LibLogger.Verbose($"\t\t\tConsidering potential code registration at 0x{address:X}...");
+
+                        var codeReg = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(address);
+
+                        var success = true;
+                        foreach (var keyValuePair in fieldsByName)
+                        {
+                            var fieldValue = (ulong) keyValuePair.Value.GetValue(codeReg);
+                            
+                            if(fieldValue == 0)
+                                continue; //Allow zeroes
+                            
+                            if (keyValuePair.Key.EndsWith("count", StringComparison.OrdinalIgnoreCase))
+                            {
+                                if (fieldValue > 0x60_000)
+                                {
+                                    LibLogger.VerboseNewline($"Rejected due to unreasonable count field 0x{fieldValue:X} for field {keyValuePair.Key}");
+                                    success = false;
+                                    break;
+                                }
+                            }
+                            else
+                            {
+                                //Pointer
+                                if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(fieldValue, out _))
+                                {
+                                    LibLogger.VerboseNewline($"Rejected due to invalid pointer 0x{fieldValue:X} for field {keyValuePair.Key}");
+                                    success = false;
+                                    break;
+                                }
+                            }
+                        }
+
+                        if (success)
+                        {
+                            LibLogger.VerboseNewline("Looks good!");
+                            return address;
+                        }
+                    }
 
                     //And subtract that from our pointer.
                     return pCodegenModules.First() - bytesToGoBack;
@@ -259,7 +317,9 @@ namespace LibCpp2IL
                 }
 
                 if (ok)
+                {
                     return va;
+                }
             }
 
             return 0;
