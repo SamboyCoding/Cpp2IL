@@ -579,29 +579,15 @@ namespace Cpp2IL.Core.Analysis
                     Analysis.Actions.Add(MaybeWrap(new FieldToLocalAction(Analysis, instruction)));
                     break;
                 case Mnemonic.Lea when type1 == OpKind.Memory && type0 == OpKind.Register && memR != "rip" && memOp is LocalDefinition localDefinition && instruction.MemoryIndex == Register.None:
-                    //LEA generic memory to register - field pointer load.
-
-                    var displacement = (long) instruction.MemoryDisplacement64;
-                    if (displacement == 1 || displacement == -1)
+                    
+                    if (localDefinition.Type is {IsPrimitive: true} && ((long)instruction.MemoryDisplacement64) is 1 or -1)
                     {
-                        if (localDefinition.Type is {} && (
-
-                            localDefinition.Type.FullName.Equals("System.Int32") ||
-                            localDefinition.Type.FullName.Equals("System.Int64") ||
-                            localDefinition.Type.FullName.Equals("System.UInt32") ||
-                            localDefinition.Type.FullName.Equals("System.UInt64") ||
-                            localDefinition.Type.FullName.Equals("System.Byte")))
-                        {
-                            // Plus 1 or minus 1 action
-                            Analysis.Actions.Add(new PlusOneOrMinusOneAction(Analysis, instruction));
-                        }
-                        else
-                        {
-                            Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
-                        }
+                        // Plus 1 or minus 1 action
+                        Analysis.Actions.Add(new PlusOneOrMinusOneAction(Analysis, instruction));
                     }
                     else
                     {
+                        //LEA generic memory to register - field pointer load.
                         Analysis.Actions.Add(new FieldPointerToRegAction(Analysis, instruction));
                     }
                     
