@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using System.Text;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
@@ -22,32 +23,52 @@ namespace Cpp2IL.Core
         {
             SharedState.ManagedToUnmanagedAssemblies.Clear();
             
-            return metadata.imageDefinitions
+            return metadata.AssemblyDefinitions
                 // .AsParallel()
                 .Select(assemblyDefinition => BuildStubAssembly(moduleParams, assemblyDefinition))
                 .ToList();
         }
 
-        private static AssemblyDefinition BuildStubAssembly(ModuleParameters moduleParams, Il2CppImageDefinition assemblyDefinition)
+        private static AssemblyDefinition BuildStubAssembly(ModuleParameters moduleParams, Il2CppAssemblyDefinition assemblyDefinition)
         {
+            var imageDefinition = assemblyDefinition.Image;
+            
             //Get the name of the assembly (= the name of the DLL without the file extension)
-            var assemblyNameString = assemblyDefinition.Name!.Replace(".dll", "");
+            var assemblyNameString = assemblyDefinition.AssemblyName.Name;
 
             //Build a Mono.Cecil assembly name from this name
-            var asmName = new AssemblyNameDefinition(assemblyNameString, new Version("0.0.0.0"));
+            Version vers;
+            if (assemblyDefinition.AssemblyName.build >= 0)
+                //handle __Generated assembly on v29, which has a version of 0.0.-1.-1
+                vers = new Version(assemblyDefinition.AssemblyName.major, assemblyDefinition.AssemblyName.minor, assemblyDefinition.AssemblyName.build, assemblyDefinition.AssemblyName.revision);
+            else
+                vers = new Version(0, 0, 0, 0);
+            
+            var asmName = new AssemblyNameDefinition(assemblyNameString, vers);
+            asmName.HashAlgorithm = (AssemblyHashAlgorithm) assemblyDefinition.AssemblyName.hash_alg;
+            asmName.Attributes = (AssemblyAttributes) assemblyDefinition.AssemblyName.flags;
+            asmName.Culture = assemblyDefinition.AssemblyName.Culture;
+            asmName.PublicKeyToken = BitConverter.GetBytes(assemblyDefinition.AssemblyName.publicKeyToken);
+            if (assemblyDefinition.AssemblyName.publicKeyToken == 0)
+                asmName.PublicKeyToken = Array.Empty<byte>();
+            // asmName.PublicKey = Encoding.UTF8.GetBytes(assemblyDefinition.AssemblyName.PublicKey); //This seems to be garbage data, e.g. "\x0\x0\x0\x0\x0\x0\x0\x0\x4\x0\x0\x0\x0\x0\x0\x0", so we skip
+            asmName.Hash = assemblyDefinition.AssemblyName.hash_len == 0 ? Array.Empty<byte>() : Encoding.UTF8.GetBytes(assemblyDefinition.AssemblyName.HashValue);
+            
+            if(assemblyDefinition.Token != 0)
+                asmName.MetadataToken = new MetadataToken(assemblyDefinition.Token);
 
             //Create an empty assembly and register it
-            var assembly = AssemblyDefinition.CreateAssembly(asmName, assemblyDefinition.Name, moduleParams);
+            var assembly = AssemblyDefinition.CreateAssembly(asmName, imageDefinition.Name, moduleParams);
 
             //Ensure it really _is_ empty
             var mainModule = assembly.MainModule;
             mainModule.Types.Clear();
-            
+
             //Populate types.
-            foreach (var type in assemblyDefinition.Types!) 
+            foreach (var type in imageDefinition.Types!) 
                 HandleTypeInAssembly(type, mainModule);
 
-            SharedState.ManagedToUnmanagedAssemblies[assembly] = assemblyDefinition;
+            SharedState.ManagedToUnmanagedAssemblies[assembly] = imageDefinition;
 
             return assembly;
         }

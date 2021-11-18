@@ -85,5 +85,10 @@ namespace LibCpp2IL
                 return aKey.CompareTo(bKey);
             });
         }
+        
+        public static int ParseDigit(this char c)
+        {
+            return c - '0';
+        }
     }
 }

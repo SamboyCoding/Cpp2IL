@@ -390,6 +390,9 @@ namespace LibCpp2IL
 
         public static int VersionAwareSizeOf(Type type, bool dontCheckVersionAttributes = false, bool downsize = true)
         {
+            if (type.IsEnum)
+                type = type.GetEnumUnderlyingType();
+
             if (type.IsPrimitive)
                 return (int)PrimitiveSizes[type.Name];
 
@@ -422,6 +425,9 @@ namespace LibCpp2IL
                     case "Byte":
                     case "SByte":
                         size += 1;
+                        break;
+                    default:
+                        size += VersionAwareSizeOf(field.FieldType, dontCheckVersionAttributes, downsize);
                         break;
                 }
             }

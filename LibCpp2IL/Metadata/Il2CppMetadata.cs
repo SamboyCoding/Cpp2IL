@@ -15,6 +15,7 @@ namespace LibCpp2IL.Metadata
         //Disable null check as this stuff is reflected.
 #pragma warning disable 8618
         public Il2CppGlobalMetadataHeader metadataHeader;
+        public Il2CppAssemblyDefinition[] AssemblyDefinitions;
         public Il2CppImageDefinition[] imageDefinitions;
         public Il2CppTypeDefinition[] typeDefs;
         internal Il2CppInterfaceOffset[] interfaceOffsets;
@@ -68,23 +69,34 @@ namespace LibCpp2IL.Metadata
 
             LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
 
+            var unityVersion = UnityVersion.Parse(string.Join(".", unityVer));
             float actualVersion;
             if (version == 27)
             {
-                if (unityVer[0] == 2021 || (unityVer[0] == 2020 && unityVer[1] >= 3) || (unityVer[0] == 2020 && unityVer[1] == 2 && unityVer[2] >= 4)) actualVersion = 27.1f; //27.1 (2020.2.4) adds adjustorThunks on codegenModules and GenericMethodIndices
-                else actualVersion = version; //2020.2 introduces v27
+                if (unityVersion.IsGreaterEqual(2020, 2, 4))
+                    actualVersion = 27.1f; //2020.2.4 and above is v27.1
+                else
+                    actualVersion = version; //2020.2 and above is v27
             } else if (version == 24)
             {
-                if (unityVer[0] == 2019 && unityVer[1] == 4 && unityVer[2] >= 21) actualVersion = 24.5f;
-                //Note should there ever be a case of weird issues here, there *is* actually a 24.4, but it's barely ever used. Only change is AssemblyNameDefinition is missing
-                //the hashValueIndex field, which makes the number of assemblies mismatch the number of images.
-                //But we don't use AssemblyDefinitions anyway, so... /shrug.
-                else if ((unityVer[0] == 2019 && unityVer[1] > 3) || (unityVer[0] == 2019 && unityVer[1] == 3 && unityVer[2] >= 7) || (unityVer[0] == 2020 && unityVer[1] < 2)) actualVersion = 24.3f; //2019.3.7 - 2020.1 => 24.3
-                else if (unityVer[0] >= 2019) actualVersion = 24.2f; //2019.1 - 2019.3.6 => 24.2
-                else if (unityVer[0] == 2018 && unityVer[1] >= 3) actualVersion = 24.1f; //2018.3 - 2018.4 => 24.1
-                else actualVersion = version; //2018.1 - 2018.2 => 24
+                if (unityVersion.IsGreaterEqual(2020, 1, 11))
+                    actualVersion = 24.4f; //2020.1.11-17 were released prior to 2019.4.21, so are still on 24.4
+                else if (unityVersion.IsGreaterEqual(2020))
+                    actualVersion = 24.3f; //2020.1.0-10 were released prior to to 2019.4.15, so are still on 24.3
+                else if (unityVersion.IsGreaterEqual(2019, 4, 21))
+                    actualVersion = 24.5f; //2019.4.21 introduces v24.5
+                else if (unityVersion.IsGreaterEqual(2019, 4, 15))
+                    actualVersion = 24.4f; //2019.4.15 introduces v24.4
+                else if (unityVersion.IsGreaterEqual(2019, 3, 7))
+                    actualVersion = 24.3f; //2019.3.7 introduces v24.3
+                else if (unityVersion.IsGreaterEqual(2019))
+                    actualVersion = 24.2f; //2019.1.0 introduces v24.2
+                else if (unityVersion.IsGreaterEqual(2018, 3))
+                    actualVersion = 24.1f; //2018.3.0 introduces v24.1
+                else
+                    actualVersion = version; //2017.1.0 was the first v24 version
             }
-            else actualVersion = version; //2018.1 - 2018.2 => 24
+            else actualVersion = version; //Covers v29
 
             LibLogger.InfoNewline($"\tUsing actual IL2CPP Metadata version {actualVersion}");
 
@@ -106,6 +118,11 @@ namespace LibCpp2IL.Metadata
             LibLogger.Verbose("\tReading image definitions...");
             var start = DateTime.Now;
             imageDefinitions = ReadMetadataClassArray<Il2CppImageDefinition>(metadataHeader.imagesOffset, metadataHeader.imagesCount);
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            LibLogger.Verbose("\tReading assembly definitions...");
+            start = DateTime.Now;
+            AssemblyDefinitions = ReadMetadataClassArray<Il2CppAssemblyDefinition>(metadataHeader.assembliesOffset, metadataHeader.assembliesCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             LibLogger.Verbose("\tReading type definitions...");
