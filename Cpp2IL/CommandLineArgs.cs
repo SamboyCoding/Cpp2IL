@@ -64,6 +64,9 @@ namespace Cpp2IL
 
         [Option("just-give-me-dlls-asap-dammit", HelpText = "Shorthand for --parallel --skip-method-dumps --experimental-enable-il-to-assembly-please --throw-safety-out-the-window --skip-metadata-txts")]
         public bool UserIsImpatient { get; set; }
+        
+        [Option("simple-attribute-restoration", HelpText = "Don't use analysis to restore attributes, meaning any attributes with constructor parameters won't be recovered. Has no effect on metadata v29+")]
+        public bool SimpleAttributeRestoration { get; set; }
 
         internal bool AreForceOptionsValid
         {

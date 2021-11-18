@@ -188,6 +188,7 @@ namespace Cpp2IL
             result.AnalyzeAllAssemblies = options.AnalyzeAllAssemblies;
             result.IlToAsmContinueThroughErrors = options.ThrowSafetyOutTheWindow;
             result.DisableMethodDumps = options.DisableMethodDumps;
+            result.SimpleAttributeRestoration = options.SimpleAttributeRestoration;
 
             if (options.UserIsImpatient)
             {
@@ -295,7 +296,9 @@ namespace Cpp2IL
 
             //We need to run key function sweep if we can for attribute restoration
             //or if we want to analyze. But we DON'T need it for restoration on v29
-            if (LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.ARM32 && (LibCpp2IlMain.MetadataVersion < 29 || runtimeArgs.EnableAnalysis))
+            var attributeRestorationNeedsKfas = LibCpp2IlMain.MetadataVersion < 29 && !runtimeArgs.SimpleAttributeRestoration;
+            var canGetKfas = LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.ARM32;
+            if (canGetKfas && (attributeRestorationNeedsKfas || runtimeArgs.EnableAnalysis))
             {
                 Logger.InfoNewline("Running Scan for Known Functions...");
 
@@ -306,9 +309,6 @@ namespace Cpp2IL
             Logger.InfoNewline($"Applying type, method, and field attributes for {Cpp2IlApi.GeneratedAssemblies.Count} assemblies...This may take a couple of seconds");
             var start = DateTime.Now;
 
-            // if(LibCpp2IlMain.MetadataVersion >= 29)
-            //     Logger.WarnNewline("Unable to run attribute restoration, because v29 is not fully supported yet.");
-            // else
             Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
 
             Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
