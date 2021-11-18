@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
     {
         public CallMethodSpecAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var methodSpecConst = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
+            var methodSpecConst = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase));
             var methodSpec = methodSpecConst?.Value as Il2CppMethodSpec;
 
             if (methodSpec?.MethodDefinition == null)

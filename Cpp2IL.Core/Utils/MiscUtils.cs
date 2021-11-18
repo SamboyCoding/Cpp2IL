@@ -1,15 +1,8 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Text;
-using System.Text.RegularExpressions;
-using Cpp2IL.Core.Analysis.ResultModels;
-using Gee.External.Capstone;
-using Gee.External.Capstone.Arm;
-using Gee.External.Capstone.Arm64;
-using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
@@ -20,7 +13,7 @@ namespace Cpp2IL.Core.Utils
 {
     public static class MiscUtils
     {
-        private static readonly object _pointerReadLock = new object();
+        private static readonly object PointerReadLock = new();
         //Disable these because they're initialised in BuildPrimitiveMappings
         // ReSharper disable NotNullMemberIsNotInitialized
 #pragma warning disable 8618
@@ -39,10 +32,12 @@ namespace Cpp2IL.Core.Utils
 #pragma warning restore 8618
         // ReSharper restore NotNullMemberIsNotInitialized
 
-        private static Dictionary<string, TypeDefinition> primitiveTypeMappings = new Dictionary<string, TypeDefinition>();
-        private static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> _cachedTypeDefsByName = new Dictionary<string, Tuple<TypeDefinition?, string[]>>();
+        private static Dictionary<string, TypeDefinition> _primitiveTypeMappings = new();
+        private static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> CachedTypeDefsByName = new();
+        
+        private static List<ulong>? _allKnownFunctionStarts;
 
-        private static readonly Dictionary<string, ulong> PrimitiveSizes = new Dictionary<string, ulong>(14)
+        private static readonly Dictionary<string, ulong> PrimitiveSizes = new(14)
         {
             { "Byte", 1 },
             { "SByte", 1 },
@@ -57,14 +52,15 @@ namespace Cpp2IL.Core.Utils
             { "UInt64", 8 },
             { "Double", 8 },
             { "IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
-            { "UIntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
+            { "UIntPtr", LibCpp2IlMain.Binary.is32Bit ? 4UL : 8UL },
         };
 
         internal static void Reset()
         {
-            primitiveTypeMappings.Clear();
-            _cachedTypeDefsByName.Clear();
+            _primitiveTypeMappings.Clear();
+            CachedTypeDefsByName.Clear();
             CecilExtensions.AssignabilityCache.Clear();
+            _allKnownFunctionStarts = null;
         }
 
         public static void BuildPrimitiveMappings()
@@ -82,7 +78,7 @@ namespace Cpp2IL.Core.Utils
             IEnumerableReference = TryLookupTypeDefKnownNotGeneric("System.Collections.IEnumerable")!;
             ExceptionReference = TryLookupTypeDefKnownNotGeneric("System.Exception")!;
 
-            primitiveTypeMappings = new Dictionary<string, TypeDefinition>
+            _primitiveTypeMappings = new Dictionary<string, TypeDefinition>
             {
                 { "string", StringReference },
                 { "long", Int64Reference },
@@ -119,7 +115,7 @@ namespace Cpp2IL.Core.Utils
         {
             if (!cppType.isType && !cppType.isArray && !cppType.isGenericType) return false;
 
-            if (cppType.baseType.Name != managedType.Name)
+            if (cppType.baseType!.Name != managedType.Name)
                 return false;
 
             if (cppType.isType && !cppType.isGenericType)
@@ -239,7 +235,7 @@ namespace Cpp2IL.Core.Utils
                     var genericInst = theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     ulong[] pointers;
 
-                    lock (_pointerReadLock)
+                    lock (PointerReadLock)
                         pointers = theDll.GetPointers(genericInst.pointerStart, (long)genericInst.pointerCount);
 
                     foreach (var pointer in pointers)
@@ -348,20 +344,20 @@ namespace Cpp2IL.Core.Utils
 
             var key = name.ToLower(CultureInfo.InvariantCulture);
 
-            if (_cachedTypeDefsByName.TryGetValue(key, out var ret))
+            if (CachedTypeDefsByName.TryGetValue(key, out var ret))
                 return ret;
 
             var result = InternalTryLookupTypeDefByName(name);
 
-            _cachedTypeDefsByName[key] = result;
+            CachedTypeDefsByName[key] = result;
 
             return result;
         }
 
         private static Tuple<TypeDefinition?, string[]> InternalTryLookupTypeDefByName(string name)
         {
-            if (primitiveTypeMappings.ContainsKey(name))
-                return new Tuple<TypeDefinition?, string[]>(primitiveTypeMappings[name], Array.Empty<string>());
+            if (_primitiveTypeMappings.ContainsKey(name))
+                return new Tuple<TypeDefinition?, string[]>(_primitiveTypeMappings[name], Array.Empty<string>());
 
             var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t?.FullName, name, StringComparison.OrdinalIgnoreCase));
 
@@ -377,7 +373,6 @@ namespace Cpp2IL.Core.Utils
             if (definedType == null && name.Contains("<"))
             {
                 //Replace < > with the number of generic params after a `
-                var origName = name;
                 genericParams = GetGenericParams(name[(name.IndexOf("<", StringComparison.Ordinal) + 1)..^1]);
                 name = name[..name.IndexOf("<", StringComparison.Ordinal)];
                 if (!name.Contains("`"))
@@ -467,8 +462,8 @@ namespace Cpp2IL.Core.Utils
             foreach (var parameter in self.Parameters)
                 reference.Parameters.Add(new ParameterDefinition(parameter.ParameterType));
 
-            foreach (var generic_parameter in self.GenericParameters)
-                reference.GenericParameters.Add(new GenericParameter(generic_parameter.Name, reference));
+            foreach (var genericParameter in self.GenericParameters)
+                reference.GenericParameters.Add(new GenericParameter(genericParameter.Name, reference));
 
             return reference;
         }
@@ -538,158 +533,12 @@ namespace Cpp2IL.Core.Utils
                 : PrimitiveSizes["IntPtr"];
         }
 
-        private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
-
-        private static readonly ConcurrentDictionary<string, string> _cachedUpscaledRegisters = new ConcurrentDictionary<string, string>();
-
-        public static string UpscaleRegisters(string replaceIn)
-        {
-            if (_cachedUpscaledRegisters.ContainsKey(replaceIn))
-                return _cachedUpscaledRegisters[replaceIn];
-
-            if (replaceIn.Length < 2) return replaceIn;
-
-            //Special case the few 8-bit register: "al" => "rax" etc
-            if (replaceIn == "al")
-                return "rax";
-            if (replaceIn == "bl")
-                return "rbx";
-            if (replaceIn == "dl")
-                return "rdx";
-            if (replaceIn == "ax")
-                return "rax";
-            if (replaceIn == "cx" || replaceIn == "cl")
-                return "rcx";
-
-            //R9d, etc.
-            if (replaceIn[0] == 'r' && replaceIn[^1] == 'd')
-                return replaceIn.Substring(0, replaceIn.Length - 1);
-
-            var ret = UpscaleRegex.Replace(replaceIn, "$1r$2");
-            _cachedUpscaledRegisters.TryAdd(replaceIn, ret);
-
-            return ret;
-        }
-
-        public static string GetFloatingRegister(string original)
-        {
-            switch (original)
-            {
-                case "rcx":
-                    return "xmm0";
-                case "rdx":
-                    return "xmm1";
-                case "r8":
-                    return "xmm2";
-                case "r9":
-                    return "xmm3";
-                default:
-                    return original;
-            }
-        }
-
-        private static readonly ConcurrentDictionary<Register, string> CachedX86RegNamesNew = new();
-        private static readonly ConcurrentDictionary<Arm64RegisterId, string> CachedArm64RegNamesNew = new();
-
-        public static string GetRegisterNameNew(Register register)
-        {
-            if (register == Register.None) return "";
-
-            if (!register.IsVectorRegister())
-                return register.GetFullRegister().ToString().ToLowerInvariant();
-
-            if (!CachedX86RegNamesNew.TryGetValue(register, out var ret))
-            {
-                ret = UpscaleRegisters(register.ToString().ToLower());
-                CachedX86RegNamesNew[register] = ret;
-            }
-
-            return ret;
-        }
-
         public static TypeReference GetUltimateElementType(this ArrayType arr) =>
             arr.ElementType switch
             {
                 ArrayType arr2 => arr2.GetUltimateElementType(),
                 { } other => other,
             };
-
-        public static string GetRegisterNameNew(Arm64RegisterId registerId)
-        {
-            var key = registerId;
-            if (registerId == Arm64RegisterId.Invalid)
-                return "";
-
-            if (CachedArm64RegNamesNew.TryGetValue(key, out var ret))
-                return ret;
-
-            //General purpose registers: X0-X30 are 64-bit registers. Can be accessed via W0-W30 to only take lower 32-bits. These need upscaling.
-            //Vector registers: V0-V31 are 128-bit vector registers. Aliased to Q0-Q31. D0-D31 are the lower half (64 bits), S0-S31 are the lower half of that (32 bits)
-            //H0-H31 are the lower half of *that* (16 bits), and b0-b31 are the lowest 8 bits of the vector registers. All of these should be upscaled to V registers.
-
-            //Upscale W registers to X.
-            if (registerId is >= Arm64RegisterId.ARM64_REG_W0 and <= Arm64RegisterId.ARM64_REG_W30)
-                registerId = (registerId - Arm64RegisterId.ARM64_REG_W0) + Arm64RegisterId.ARM64_REG_X0;
-
-            if (registerId is >= Arm64RegisterId.ARM64_REG_X0 and <= Arm64RegisterId.ARM64_REG_X28)
-            {
-                ret = $"x{registerId - Arm64RegisterId.ARM64_REG_X0}";
-                CachedArm64RegNamesNew[key] = ret;
-                return ret;
-            }
-
-            if (registerId is Arm64RegisterId.ARM64_REG_SP)
-            {
-                CachedArm64RegNamesNew[key] = "sp";
-                return "sp";
-            }
-
-            if (registerId is Arm64RegisterId.ARM64_REG_FP)
-            {
-                CachedArm64RegNamesNew[key] = "fp";
-                return "fp";
-            }
-
-            if (registerId is Arm64RegisterId.ARM64_REG_LR)
-            {
-                CachedArm64RegNamesNew[key] = "lr";
-                return "lr";
-            }
-
-            if (registerId is Arm64RegisterId.ARM64_REG_WZR or Arm64RegisterId.ARM64_REG_XZR)
-            {
-                //Zero register - upscale to x variant
-                CachedArm64RegNamesNew[key] = "xzr";
-                return "xzr";
-            }
-
-            //Upscale vector registers.
-            //One by one.
-
-            //B to V
-            if (registerId is >= Arm64RegisterId.ARM64_REG_B0 and <= Arm64RegisterId.ARM64_REG_B31)
-                registerId = (registerId - Arm64RegisterId.ARM64_REG_B0) + Arm64RegisterId.ARM64_REG_V0;
-
-            //H to V
-            if (registerId is >= Arm64RegisterId.ARM64_REG_H0 and <= Arm64RegisterId.ARM64_REG_H31)
-                registerId = (registerId - Arm64RegisterId.ARM64_REG_H0) + Arm64RegisterId.ARM64_REG_V0;
-
-            //S to V
-            if (registerId is >= Arm64RegisterId.ARM64_REG_B0 and <= Arm64RegisterId.ARM64_REG_B31)
-                registerId = (registerId - Arm64RegisterId.ARM64_REG_B0) + Arm64RegisterId.ARM64_REG_V0;
-
-            //D to V
-            if (registerId is >= Arm64RegisterId.ARM64_REG_D0 and <= Arm64RegisterId.ARM64_REG_D31)
-                registerId = (registerId - Arm64RegisterId.ARM64_REG_D0) + Arm64RegisterId.ARM64_REG_V0;
-
-            //Q to V
-            if (registerId is >= Arm64RegisterId.ARM64_REG_Q0 and <= Arm64RegisterId.ARM64_REG_Q31)
-                registerId = (registerId - Arm64RegisterId.ARM64_REG_Q0) + Arm64RegisterId.ARM64_REG_V0;
-
-            ret = $"v{registerId - Arm64RegisterId.ARM64_REG_V0}";
-            CachedArm64RegNamesNew[key] = ret;
-            return ret;
-        }
 
         public static int GetSlotNum(int offset)
         {
@@ -706,45 +555,6 @@ namespace Cpp2IL.Core.Utils
             }
 
             return -1;
-        }
-
-        public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek)
-        {
-            var functionStart = addr;
-            var ret = new InstructionList();
-            var con = true;
-            var buff = new List<byte>();
-            var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
-            var startOfNextFunc = GetAddressOfNextFunctionStart(addr);
-
-            if (rawAddr < 0 || rawAddr >= LibCpp2IlMain.Binary.RawLength)
-            {
-                Logger.ErrorNewline($"Invalid call to GetMethodBodyAtVirtAddressNew, virt addr {addr} resolves to raw {rawAddr} which is out of bounds");
-                return ret;
-            }
-
-            while (con)
-            {
-                if (addr >= startOfNextFunc)
-                    break;
-                
-                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong)rawAddr));
-
-                ret = LibCpp2ILUtils.DisassembleBytesNew(LibCpp2IlMain.Binary.is32Bit, buff.ToArray(), functionStart);
-
-                if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
-                    con = false;
-
-                if (peek && buff.Count > 50)
-                    con = false;
-                else if (buff.Count > 5000)
-                    con = false; //Sanity breakout.
-
-                addr++;
-                rawAddr++;
-            }
-
-            return ret;
         }
 
         public static int GetPointerSizeBytes()
@@ -835,43 +645,12 @@ namespace Cpp2IL.Core.Utils
             return gim;
         }
 
-        public static long[] ReadArrayInitializerForFieldDefinition(FieldDefinition fieldDefinition, AllocatedArray allocatedArray)
-        {
-            var fieldDef = SharedState.ManagedToUnmanagedFields[fieldDefinition];
-            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(fieldDef.FieldIndex);
-
-            var metadata = LibCpp2IlMain.TheMetadata!;
-
-            var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
-            var results = new long[allocatedArray.Size];
-
-            if (pointer <= 0) return results;
-
-            //This should at least work for simple arrays.
-            var elementSize = GetSizeOfObject(allocatedArray.ArrayType.ElementType);
-
-            for (var i = 0; i < allocatedArray.Size; i++)
-            {
-                results[i] = Convert.ToInt64(elementSize switch
-                {
-                    1 => metadata.ReadClassAtRawAddr<byte>(pointer)!,
-                    2 => metadata.ReadClassAtRawAddr<short>(pointer)!,
-                    4 => metadata.ReadClassAtRawAddr<int>(pointer)!,
-                    8 => metadata.ReadClassAtRawAddr<long>(pointer)!,
-                    _ => results[i]
-                });
-                pointer += (int)elementSize;
-            }
-
-            return results;
-        }
-
         public static bool TryCoerceToUlong(object value, out ulong ret)
         {
             ret = 0;
             try
             {
-                ret = (ulong)CoerceValue(value, UInt64Reference)!;
+                ret = (ulong) AnalysisUtils.CoerceValue(value, UInt64Reference)!;
                 return true;
             }
             catch (Exception)
@@ -940,123 +719,6 @@ namespace Cpp2IL.Core.Utils
             throw new($"ReinterpretBytes: Cannot convert byte array back to a type of {desired}");
         }
 
-        public static object? CoerceValue(object value, TypeReference coerceToType)
-        {
-            if (coerceToType is ArrayType)
-                throw new Exception($"Can't coerce {value} to an array type {coerceToType}");
-
-            if (value is Il2CppString)
-                throw new Exception("Cannot coerce an Il2CppString. Something has gone wrong here");
-
-            if (coerceToType.Resolve() is { IsEnum: true } enumType)
-                coerceToType = enumType.GetEnumUnderlyingType();
-
-            //Definitely both primitive
-            switch (coerceToType.Name)
-            {
-                case "Object":
-                    //This one's easy.
-                    return value;
-                case "Boolean":
-                    return Convert.ToInt32(value) != 0;
-                case "SByte":
-                    return Convert.ToSByte(value);
-                case "Byte":
-                    if (value is ulong uValue)
-                        return (byte)(int)uValue;
-
-                    return Convert.ToByte(value);
-                case "Int16":
-                    return Convert.ToInt16(value);
-                case "UInt16":
-                    return Convert.ToUInt16(value);
-                case "Int32":
-                    if (value is uint u)
-                        return (int)u;
-                    if (value is ulong ul && ul <= uint.MaxValue)
-                        return BitConverter.ToInt32(BitConverter.GetBytes((uint)ul), 0);
-                    return Convert.ToInt32(value);
-                case "UInt32":
-                    return Convert.ToUInt32(value);
-                case "Int64":
-                    return Convert.ToInt64(value);
-                case "UInt64":
-                    return Convert.ToUInt64(value);
-                case "String":
-                    if (value is string)
-                        return value;
-
-                    if (Convert.ToInt32(value) == 0)
-                        return null;
-                    break; //Fail through to failure below.
-                case "Single":
-                    if (Convert.ToInt32(value) == 0)
-                        return 0f;
-                    break; //Fail
-                case "Double":
-                    if (Convert.ToInt32(value) == 0)
-                        return 0d;
-                    break; //Fail
-                case "Type":
-                    if (Convert.ToInt32(value) == 0)
-                        return null;
-                    break; //Fail
-            }
-
-            throw new Exception($"Can't coerce {value} to {coerceToType}");
-        }
-
-        public static void CoerceUnknownGlobalValue(TypeReference targetType, UnknownGlobalAddr unknownGlobalAddr, ConstantDefinition destinationConstant, bool allowByteArray = true)
-        {
-            var ulongValue = BitConverter.ToUInt64(unknownGlobalAddr.FirstTenBytes.SubArray(0, 8), 0);
-
-            var converted = ReinterpretBytes(ulongValue, targetType);
-            destinationConstant.Value = converted;
-            destinationConstant.Type = typeof(int).Module.GetType(targetType.FullName);
-        }
-
-        public static ulong GetAddressOfInstruction<T>(T t)
-        {
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
-
-            return t switch
-            {
-                Instruction x86 => x86.IP,
-                ArmInstruction arm => (ulong)arm.Address,
-                Arm64Instruction arm64 => (ulong)arm64.Address,
-                _ => throw new($"Unsupported instruction type {t.GetType()}"),
-            };
-        }
-
-        public static ulong GetAddressOfNextInstruction<T>(T t)
-        {
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
-
-            return t switch
-            {
-                Instruction x86 => x86.NextIP,
-                ArmInstruction arm => (ulong)(arm.Address + 4),
-                Arm64Instruction arm64 => (ulong)(arm64.Address + 4),
-                _ => throw new($"Unsupported instruction type {t.GetType()}"),
-            };
-        }
-
-        private static List<ulong>? _allKnownFunctionStarts;
-        private static CapstoneArm64Disassembler? _arm64Disassembler;
-
-        private static void InitArm64Decompilation()
-        {
-            InitFunctionStarts();
-
-            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
-            disassembler.EnableInstructionDetails = true;
-            disassembler.EnableSkipDataMode = true;
-            disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
-            _arm64Disassembler = disassembler;
-        }
-
         private static void InitFunctionStarts()
         {
             _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer)
@@ -1108,53 +770,6 @@ namespace Cpp2IL.Core.Utils
 
             if (ret <= current && upper == _allKnownFunctionStarts.Count - 1)
                 return 0;
-
-            return ret;
-        }
-
-        public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
-        {
-            if(_allKnownFunctionStarts == null)
-                InitArm64Decompilation();
-
-            //We can't use CppMethodBodyBytes to get the byte array, because ARMv7 doesn't have filler bytes like x86 does.
-            //So we can't work out the end of the method.
-            //But we can find the start of the next one! (If managed)
-            if (managed)
-            {
-                var startOfNext = GetAddressOfNextFunctionStart(virtAddress);
-
-                //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
-                if (startOfNext > 0)
-                {
-                    var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(startOfNext);
-
-                    var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
-                    if (rawStartOfNextMethod < rawStart)
-                        rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
-
-                    byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
-
-                    var iter = _arm64Disassembler!.Iterate(bytes, (long)virtAddress);
-                    if (count > 0)
-                        iter = iter.Take(count);
-
-                    return iter.ToList();
-                }
-            }
-
-            //Unmanaged function, look for first b or bl
-            var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
-            var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
-            List<Arm64Instruction> ret = new();
-
-            while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
-            {
-                //All arm64 instructions are 4 bytes
-                ret.AddRange(_arm64Disassembler!.Iterate(allBytes.SubArray(pos..(pos+4)), (long)virtAddress));
-                virtAddress += 4;
-                pos += 4;
-            }
 
             return ret;
         }

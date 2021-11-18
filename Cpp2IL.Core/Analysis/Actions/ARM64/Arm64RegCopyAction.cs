@@ -14,8 +14,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64RegCopyAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            _source = MiscUtils.GetRegisterNameNew(instruction.Details.Operands[1].Register.Id);
-            _dest = MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            _source = Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[1].Register.Id);
+            _dest = Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
 
             _whatCopied = context.GetOperandInRegister(_source);
             

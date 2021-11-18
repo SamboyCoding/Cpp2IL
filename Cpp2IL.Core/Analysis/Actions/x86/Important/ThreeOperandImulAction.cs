@@ -17,9 +17,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public ThreeOperandImulAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
-            var argOneReg = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
-            var argTwoReg = MiscUtils.GetRegisterNameNew(instruction.Op2Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
+            var argOneReg = X86Utils.GetRegisterNameNew(instruction.Op1Register);
+            var argTwoReg = X86Utils.GetRegisterNameNew(instruction.Op2Register);
 
             if(!string.IsNullOrEmpty(argOneReg))
                 _argOne = context.GetOperandInRegister(argOneReg);

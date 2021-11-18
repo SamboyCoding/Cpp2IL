@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             // = multiply rax by reg and store in rax
 
             _firstOperand = context.GetOperandInRegister("rax");
-            var secondOpRegName = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var secondOpRegName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _secondOperand = context.GetOperandInRegister(secondOpRegName);
 
             //If this is an integer division, rax usually has the constant.

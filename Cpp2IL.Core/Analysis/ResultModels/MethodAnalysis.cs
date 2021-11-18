@@ -272,7 +272,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 var dest = _parameterDestRegList.RemoveAndReturn(0);
 
                 if (arg.ParameterType.ShouldBeInFloatingPointRegister())
-                    dest = MiscUtils.GetFloatingRegister(dest);
+                    dest = X86Utils.GetFloatingRegister(dest);
 
                 var name = arg.Name;
                 if (string.IsNullOrWhiteSpace(name))
@@ -542,7 +542,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             if (ifElseData == null)
                 return 0UL;
 
-            return MiscUtils.GetAddressOfInstruction(ifElseData.ConditionalJumpStatement.AssociatedInstruction);
+            return AnalysisUtils.GetAddressOfInstruction(ifElseData.ConditionalJumpStatement.AssociatedInstruction);
         }
 
         public void PopStashedIfDataForElseAt(ulong elseStartAddr)
@@ -619,7 +619,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             var data = new LoopData<TInstruction>
             {
-                ipFirstInstruction = MiscUtils.GetAddressOfInstruction(loopCondition.AssociatedInstruction),
+                ipFirstInstruction = AnalysisUtils.GetAddressOfInstruction(loopCondition.AssociatedInstruction),
                 loopCondition = loopCondition,
                 ipFirstInstructionNotInLoop = firstIpNotInLoop
             };
@@ -712,7 +712,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         {
             var target = Actions
                 .Where(a => !ActionsWhichGenerateNoIL.Contains(a.GetType()))
-                .FirstOrDefault(a => MiscUtils.GetAddressOfInstruction(a.AssociatedInstruction) >= jumpTarget);
+                .FirstOrDefault(a => AnalysisUtils.GetAddressOfInstruction(a.AssociatedInstruction) >= jumpTarget);
 
             if (target == null)
                 return;

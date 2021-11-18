@@ -20,7 +20,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
             _attributeType = attributes[(int) OffsetInList];
 
-            var destReg = MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            var destReg = Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
             LocalMade = context.MakeLocal(_attributeType, reg: destReg);
         }
     }

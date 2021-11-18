@@ -546,26 +546,26 @@ namespace LibCpp2IL.Elf
             foreach (var initializerPointer in _initializerPointers)
             {
                 //In most cases we don't need more than the first 7 instructions
-                var func = Arm64Utils.ReadFunctionAtRawAddress(this, (uint)initializerPointer, 7);
+                var func = MiniArm64Decompiler.ReadFunctionAtRawAddress(this, (uint)initializerPointer, 7);
 
                 //Don't accept anything longer than 7 instructions
                 //I.e. if it doesn't end with a jump we don't want it 
-                if (!Arm64Utils.IsB(func[^1]))
+                if (!MiniArm64Decompiler.IsB(func[^1]))
                     continue;
 
-                var registers = Arm64Utils.GetAddressesLoadedIntoRegisters(func, (ulong) (_globalOffset + initializerPointer), this);
+                var registers = MiniArm64Decompiler.GetAddressesLoadedIntoRegisters(func, (ulong) (_globalOffset + initializerPointer), this);
                 
                 //Did we find the initializer defined in Il2CppCodeRegistration.cpp?
                 //It will have only x0 and x1 set.
                 if (registers.Count == 2 && registers.ContainsKey(0) && registers.TryGetValue(1, out var x1))
                 {
                     //Load the function whose address is in X1
-                    var secondFunc = Arm64Utils.ReadFunctionAtRawAddress(this, (uint)MapVirtualAddressToRaw(x1), 7);
+                    var secondFunc = MiniArm64Decompiler.ReadFunctionAtRawAddress(this, (uint)MapVirtualAddressToRaw(x1), 7);
 
-                    if (!Arm64Utils.IsB(secondFunc[^1]))
+                    if (!MiniArm64Decompiler.IsB(secondFunc[^1]))
                         continue;
 
-                    registers = Arm64Utils.GetAddressesLoadedIntoRegisters(secondFunc, x1, this);
+                    registers = MiniArm64Decompiler.GetAddressesLoadedIntoRegisters(secondFunc, x1, this);
                 }
                 
                 //Do we have Il2CppCodegenRegistration?

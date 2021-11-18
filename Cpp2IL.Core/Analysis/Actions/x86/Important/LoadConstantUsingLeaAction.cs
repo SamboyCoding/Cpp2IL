@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         public LoadConstantUsingLeaAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             _amount = instruction.MemoryDisplacement32;
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
             _constantMade = context.MakeConstant(typeof(int), (int) _amount, reg: _destReg);
         }

@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public RegToConstantArrayOffsetAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var memReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            var memReg = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             var relativeOffset = instruction.MemoryDisplacement - Il2CppArrayUtils.FirstItemOffset;
             _offsetIdx = relativeOffset / MiscUtils.GetPointerSizeBytes();
 
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             _elementType = ((ArrayType) TheArray.Type).ElementType;
 
-            var regRead = MiscUtils.GetRegisterNameNew(instruction.Op1Register);
+            var regRead = X86Utils.GetRegisterNameNew(instruction.Op1Register);
             _opRead = context.GetOperandInRegister(regRead);
             
             if(TheArray != null)

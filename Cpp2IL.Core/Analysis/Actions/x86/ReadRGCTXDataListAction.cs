@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public ReadRGCTXDataListAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var klassConst = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
+            var klassConst = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase));
             _klass = klassConst?.Value as Il2CppClassIdentifier;
 
             if (_klass == null)
@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             if (_rgctxs == null)
                 return;
 
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _constantMade = context.MakeConstant(typeof(Il2CppRGCTXArray), new Il2CppRGCTXArray
             {
                 Rgctxs = _rgctxs,

@@ -347,9 +347,9 @@ namespace Cpp2IL.Core
             //Nasty generic casting crap
             AsmAnalyzerBase<T> analyzer = (AsmAnalyzerBase<T>)(LibCpp2IlMain.Binary?.InstructionSet switch
             {
-                InstructionSet.X86_32 or InstructionSet.X86_64 => (object)new AsmAnalyzerX86(attributeGeneratorAddress, MiscUtils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
+                InstructionSet.X86_32 or InstructionSet.X86_64 => (object)new AsmAnalyzerX86(attributeGeneratorAddress, X86Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
                 // InstructionSet.ARM32 => (object) new AsmAnalyzerArmV7(attributeGeneratorAddress, FIX_ME, keyFunctionAddresses!),
-                InstructionSet.ARM64 => (object)new AsmAnalyzerArmV8A(attributeGeneratorAddress, MiscUtils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
+                InstructionSet.ARM64 => (object)new AsmAnalyzerArmV8A(attributeGeneratorAddress, Arm64Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
                 _ => throw new UnsupportedInstructionSetException()
             });
 
@@ -473,7 +473,7 @@ namespace Cpp2IL.Core
                     var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
 
                     if (cons.Type.FullName != destType.FullName)
-                        value = MiscUtils.CoerceValue(value, destType);
+                        value = AnalysisUtils.CoerceValue(value, destType);
 
                     return new CustomAttributeArgument(destType, value);
                 }
@@ -492,7 +492,7 @@ namespace Cpp2IL.Core
                     else if (local.Type.FullName != destType.FullName)
                         try
                         {
-                            value = MiscUtils.CoerceValue(value, destType);
+                            value = AnalysisUtils.CoerceValue(value, destType);
                         }
                         catch (Exception e)
                         {
@@ -532,7 +532,7 @@ namespace Cpp2IL.Core
             {
                 try
                 {
-                    var toSet = value == null ? null : MiscUtils.CoerceValue(value, typeForArrayToCreateNow);
+                    var toSet = value == null ? null : AnalysisUtils.CoerceValue(value, typeForArrayToCreateNow);
 
                     arr.SetValue(toSet, index);
                 }
@@ -675,7 +675,7 @@ namespace Cpp2IL.Core
                             var value = i.ConstantValue;
 
                             if (value.GetType().FullName != destType.FullName)
-                                value = MiscUtils.CoerceValue(value, destType);
+                                value = AnalysisUtils.CoerceValue(value, destType);
 
                             if (destType.FullName == "System.Object")
                             {
@@ -691,7 +691,7 @@ namespace Cpp2IL.Core
                             var value = (object)armI.ImmValue;
 
                             if (value.GetType().FullName != destType.FullName)
-                                value = MiscUtils.CoerceValue(value, destType);
+                                value = AnalysisUtils.CoerceValue(value, destType);
 
                             if (destType.FullName == "System.Object")
                             {

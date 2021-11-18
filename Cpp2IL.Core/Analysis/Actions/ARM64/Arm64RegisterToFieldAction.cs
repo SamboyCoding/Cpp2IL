@@ -16,8 +16,8 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             (
                 context,
                 instruction,
-                MiscUtils.GetRegisterNameNew(instruction.MemoryBase()!.Id),
-                MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id),
+                Arm64Utils.GetRegisterNameNew(instruction.MemoryBase()!.Id),
+                Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id),
                 (ulong) instruction.MemoryOffset()
             )
         {

@@ -15,11 +15,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public ClassPointerLoadAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             if(instruction.Op0Register == Register.RSP)
                 Logger.WarnNewline("WARNING: CLASS POINTER LOAD DEST IS STACK.");
             
-            var sourceReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            var sourceReg = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             var inReg = context.GetOperandInRegister(sourceReg);
             localCopiedFrom = inReg is LocalDefinition local ? local : inReg is ConstantDefinition {Value: NewSafeCastResult<Instruction> result} ? result.original : null;
 

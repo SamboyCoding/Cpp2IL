@@ -66,7 +66,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             {
                 if (Arguments?.Count > 1 && Arguments[1] is ConstantDefinition {Value: FieldDefinition fieldDefinition} && Arguments[0] is LocalDefinition {KnownInitialValue: AllocatedArray arr})
                 {
-                    instantiatedArrayValues = MiscUtils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
+                    instantiatedArrayValues = AnalysisUtils.ReadArrayInitializerForFieldDefinition(fieldDefinition, arr);
                     wasArrayInstantiation = true;
                     AddComment("Initializes array containing values: " + instantiatedArrayValues.ToStringEnumerable());
                 }

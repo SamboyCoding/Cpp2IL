@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         //i.e. set reg to -1
         public OrToMinusOneAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _reg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _reg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
             _constantMade = context.MakeConstant(typeof(int), -1, reg: _reg);
         }

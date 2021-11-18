@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         {
             _immValue = instruction.Details.Operands[1].Immediate;
             var destRegId = instruction.Details.Operands[0].Register.Id;
-            _destReg = MiscUtils.GetRegisterNameNew(destRegId);
+            _destReg = Arm64Utils.GetRegisterNameNew(destRegId);
 
             var is32BitReg = destRegId < Arm64RegisterId.ARM64_REG_X0;
 

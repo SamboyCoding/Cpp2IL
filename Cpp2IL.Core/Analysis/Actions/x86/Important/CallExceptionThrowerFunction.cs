@@ -27,7 +27,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 return;
             }
 
-            var body = MiscUtils.GetMethodBodyAtVirtAddressNew(addr, true);
+            var body = X86Utils.GetMethodBodyAtVirtAddressNew(addr, true);
             List<string?> strings;
             if (LibCpp2IlMain.Binary.is32Bit)
             {

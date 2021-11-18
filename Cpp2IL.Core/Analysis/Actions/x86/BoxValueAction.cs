@@ -59,7 +59,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             {
                 if (!_boxingFieldPointer)
                 {
-                    value = MiscUtils.CoerceValue(value, destinationType);
+                    value = AnalysisUtils.CoerceValue(value, destinationType);
                     _localMade = context.MakeLocal(destinationType, reg: "rax", knownInitialValue: value);
                 }
                 else

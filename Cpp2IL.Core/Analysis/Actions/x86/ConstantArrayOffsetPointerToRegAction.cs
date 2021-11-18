@@ -19,8 +19,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public ConstantArrayOffsetPointerToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //God knows why the memory *index* contains the array, and the base contains the index, but it does.
-            var arrayContainingReg = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
-            _destinationReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var arrayContainingReg = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
+            _destinationReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             var arrayOffset = instruction.MemoryDisplacement;
 
             _arrayLocal = context.GetLocalInReg(arrayContainingReg);

@@ -21,8 +21,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public ReadSpecificRGCTXDataAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
-            _constant = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
+            _constant = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase));
             _rgctxArray = _constant?.Value as Il2CppRGCTXArray;
             
             if(_rgctxArray == null)

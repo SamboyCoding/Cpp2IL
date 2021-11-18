@@ -10,7 +10,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             ShouldUseCallvirt = true;
             
-            var inReg = context.GetOperandInRegister(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
+            var inReg = context.GetOperandInRegister(X86Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (!(inReg is ConstantDefinition {Value: Il2CppClassIdentifier klass})) return;
             

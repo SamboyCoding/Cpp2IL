@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
         public InterfaceOffsetCountToLocalAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var constantBeingRead = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
+            var constantBeingRead = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase));
 
             if (constantBeingRead?.Type != typeof(Il2CppClassIdentifier))
                 return;
@@ -28,9 +28,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             offsetCount = _typeCountReadFrom?.interface_offsets_count ?? 0;
 
             if (offsetCount != 0)
-                _localMade = context.MakeLocal(MiscUtils.UInt32Reference, reg: MiscUtils.GetRegisterNameNew(instruction.Op0Register), knownInitialValue: offsetCount);
+                _localMade = context.MakeLocal(MiscUtils.UInt32Reference, reg: X86Utils.GetRegisterNameNew(instruction.Op0Register), knownInitialValue: offsetCount);
             else
-                _localMade = context.MakeLocal(MiscUtils.UInt32Reference, reg: MiscUtils.GetRegisterNameNew(instruction.Op0Register));
+                _localMade = context.MakeLocal(MiscUtils.UInt32Reference, reg: X86Utils.GetRegisterNameNew(instruction.Op0Register));
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

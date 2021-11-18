@@ -25,7 +25,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             //This may need expanding on / improving
             _isUpperHalf = instruction.Op0Register.IsGPR32() && instruction.Op0Register == Register.EDX;
 
-            _regBeingShifted = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            _regBeingShifted = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _constantInReg = context.GetConstantInReg(_regBeingShifted);
 
             _intDivision = _constantInReg?.Value as IntegerDivisionInProgress<Instruction>;

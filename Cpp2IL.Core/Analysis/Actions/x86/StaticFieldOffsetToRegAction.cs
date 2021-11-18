@@ -16,8 +16,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
         public StaticFieldOffsetToRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             //Get the type we're moving from
-            var theConstant = context.GetConstantInReg(MiscUtils.GetRegisterNameNew(instruction.MemoryBase));
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            var theConstant = context.GetConstantInReg(X86Utils.GetRegisterNameNew(instruction.MemoryBase));
+            _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
             if (theConstant == null || theConstant.Type != typeof(TypeReference)) return;
 

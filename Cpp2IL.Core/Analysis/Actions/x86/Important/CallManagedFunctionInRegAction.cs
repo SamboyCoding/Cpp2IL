@@ -10,10 +10,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
     {
         public CallManagedFunctionInRegAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
-            var regName = MiscUtils.GetRegisterNameNew(instruction.MemoryBase);
+            var regName = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
 
             if (instruction.MemoryBase == Register.None)
-                regName = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+                regName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             
             var operand = context.GetConstantInReg(regName);
             

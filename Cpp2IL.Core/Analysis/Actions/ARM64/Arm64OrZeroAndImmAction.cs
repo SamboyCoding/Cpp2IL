@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public Arm64OrZeroAndImmAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
-            _destReg = MiscUtils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
+            _destReg = Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
             _immValue = instruction.Details.Operands[2].Immediate;
 
             _localMade = context.MakeLocal(MiscUtils.Int64Reference, reg: _destReg, knownInitialValue: _immValue);

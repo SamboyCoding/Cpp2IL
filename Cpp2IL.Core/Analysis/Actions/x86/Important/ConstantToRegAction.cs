@@ -18,7 +18,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             _mayNotBeAConstant = mayNotBeAConstant;
             constantValue = instruction.GetImmediate(1);
-            destReg = MiscUtils.GetRegisterNameNew(instruction.Op0Register);
+            destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
 
             var is32BitInteger = instruction.Op0Register.IsGPR32();
 
