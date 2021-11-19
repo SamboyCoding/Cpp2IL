@@ -54,7 +54,7 @@ namespace Cpp2IL.Core
             "LPT9"
         };
 
-        public static int[] DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
+        public static int[]? DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
             if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
             {

@@ -56,7 +56,17 @@ namespace Cpp2IL
                                             $"\t{args.PathToMetadata}\n");
 
                 var gameDataPath = Path.Combine(gamePath, $"{exeName}_Data");
-                args.UnityVersion = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, gameDataPath);
+                var uv = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, gameDataPath);
+
+                if (uv == null)
+                {
+                    Logger.Warn("Could not determine unity version, probably due to not running on windows and not having any assets files to determine it from. Enter unity version, if known, in the format of (xxxx.x.x), else nothing to fail: ");
+                    var userInputUv = Console.ReadLine();
+                    uv = userInputUv?.Split('.').Select(int.Parse).ToArray();
+                    
+                    if(uv == null)
+                        throw new SoftException("Failed to determine unity version. If you're not running on windows, I need a globalgamemanagers file or a data.unity3d file, or you need to use the force options.");
+                }
 
                 if (args.UnityVersion[0] < 4)
                 {
