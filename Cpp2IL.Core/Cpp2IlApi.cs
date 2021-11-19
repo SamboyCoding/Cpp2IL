@@ -244,7 +244,7 @@ namespace Cpp2IL.Core
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Configure utils class
-            MiscUtils.BuildPrimitiveMappings();
+            TypeDefinitions.BuildPrimitiveMappings();
 
             //Set base types and interfaces
             startTwo = DateTime.Now;

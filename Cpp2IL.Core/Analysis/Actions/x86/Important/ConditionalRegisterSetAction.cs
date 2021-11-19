@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             _regToSet = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _associatedCompare = (ComparisonAction?) context.Actions.LastOrDefault(a => a is ComparisonAction);
 
-            _localMade = context.MakeLocal(MiscUtils.BooleanReference, reg: _regToSet);
+            _localMade = context.MakeLocal(TypeDefinitions.Boolean, reg: _regToSet);
         }
 
         protected abstract string GetTextSummaryCondition();

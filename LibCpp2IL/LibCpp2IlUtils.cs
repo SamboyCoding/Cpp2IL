@@ -427,6 +427,9 @@ namespace LibCpp2IL
                         size += 1;
                         break;
                     default:
+                        if (field.FieldType == type)
+                            throw new Exception($"Infinite recursion is not allowed. Field {field} of type {type} has the same type as its parent.");
+                        
                         size += VersionAwareSizeOf(field.FieldType, dontCheckVersionAttributes, downsize);
                         break;
                 }

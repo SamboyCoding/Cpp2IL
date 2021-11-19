@@ -130,7 +130,7 @@ namespace Cpp2IL.Core.Utils
                         break;
                     if (parameterType.IsPrimitive && local.Type?.IsPrimitive == true)
                         break; //Forgive primitive coercion.
-                    if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(MiscUtils.ArrayReference))
+                    if (local.Type?.IsArray == true && parameterType.Resolve().IsAssignableFrom(TypeDefinitions.Array))
                         break; //Forgive IEnumerables etc
                     if (local.Type is GenericParameter && parameterType is GenericParameter && local.Type.Name == parameterType.Name)
                         break; //Unknown generic params which share a name. Not sure this is needed.

@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
                 return;
 
             var localType = localCopiedFrom.Type?.Resolve();
-            localType ??= MiscUtils.ObjectReference;
+            localType ??= TypeDefinitions.Object;
 
             if (!SharedState.ManagedToUnmanagedTypes.TryGetValue(localType, out var cppTypeDef))
                 return;

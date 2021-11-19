@@ -75,7 +75,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
                     if (!string.IsNullOrEmpty(returnValueType?.FullName) && !returnValueType!.IsArray)
                     {
-                        if (MiscUtils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!.IsAssignableFrom(context.ReturnType) && context.ReturnType.IsPrimitive && context.ReturnType.Name != "String")
+                        if (TypeDefinitions.IConvertible.IsAssignableFrom(context.ReturnType) && context.ReturnType.IsPrimitive && context.ReturnType.Name != "String")
                         {
                             constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
                             constantDefinition.Type = returnValueType;

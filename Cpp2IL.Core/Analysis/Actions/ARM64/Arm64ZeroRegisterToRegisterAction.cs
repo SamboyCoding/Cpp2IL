@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         public Arm64ZeroRegisterToRegisterAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction) : base(context, instruction)
         {
             _destReg = Arm64Utils.GetRegisterNameNew(instruction.Details.Operands[0].Register.Id);
-            _localMade = context.MakeLocal(MiscUtils.Int64Reference, reg: _destReg, knownInitialValue: 0UL);
+            _localMade = context.MakeLocal(TypeDefinitions.Int64, reg: _destReg, knownInitialValue: 0UL);
             RegisterDefinedLocalWithoutSideEffects(_localMade);
         }
 

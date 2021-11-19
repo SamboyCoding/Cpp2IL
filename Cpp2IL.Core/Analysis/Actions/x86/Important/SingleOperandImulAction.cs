@@ -37,7 +37,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             }
 
             //TODO technically this goes into eax for the lower 32 bits and edx for the upper.
-            _returnedLocal = context.MakeLocal(MiscUtils.UInt64Reference, reg: "rax");
+            _returnedLocal = context.MakeLocal(TypeDefinitions.UInt64, reg: "rax");
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

@@ -54,8 +54,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         public Stack<IAnalysedOperand> Stack = new();
         public Stack<IAnalysedOperand> FloatingPointStack = new();
 
-        public TypeDefinition DeclaringType => _method?.DeclaringType ?? MiscUtils.ObjectReference;
-        public TypeReference ReturnType => _method?.ReturnType ?? MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Void")!;
+        public TypeDefinition DeclaringType => _method?.DeclaringType ?? TypeDefinitions.Object;
+        public TypeReference ReturnType => _method?.ReturnType ?? TypeDefinitions.Void;
 
         public Arm64ReturnValueLocation Arm64ReturnValueLocation;
 
@@ -128,7 +128,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
                 if (_parameterDestRegList.Count > 0)
                 {
-                    FunctionArgumentLocals.Add(MakeLocal(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo", _parameterDestRegList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
+                    FunctionArgumentLocals.Add(MakeLocal(TypeDefinitions.MethodInfo, "il2cppMethodInfo", _parameterDestRegList.RemoveAndReturn(0)).MarkAsIl2CppMethodInfo());
                     haveHandledMethodInfoArg = true;
                 }
             }
@@ -151,7 +151,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             if (!haveHandledMethodInfoArg)
             {
-                var local = MakeLocal(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
+                var local = MakeLocal(TypeDefinitions.MethodInfo, "il2cppMethodInfo").MarkAsIl2CppMethodInfo();
                 Stack.Push(local);
                 FunctionArgumentLocals.Add(local);
             }
@@ -307,7 +307,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
         public bool IsConstructor() => _method?.IsConstructor ?? false;
 
-        public TypeDefinition GetTypeOfThis() => _method?.DeclaringType ?? MiscUtils.ObjectReference;
+        public TypeDefinition GetTypeOfThis() => _method?.DeclaringType ?? TypeDefinitions.Object;
 
         public bool IsStatic() => _method?.IsStatic ?? true;
 

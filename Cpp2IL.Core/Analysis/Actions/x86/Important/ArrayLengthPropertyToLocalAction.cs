@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 {
     public class ArrayLengthPropertyToLocalAction : BaseAction<Instruction>
     {
-        private static readonly MethodDefinition GetLengthDef = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Array")!.Methods.Single(m => m.Name == "get_Length");
+        private static readonly MethodDefinition GetLengthDef = TypeDefinitions.Array.Methods.Single(m => m.Name == "get_Length");
         public LocalDefinition? LocalMade;
         public LocalDefinition? TheArray;
         private string? _destReg;
@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 return;
 
             _destReg = X86Utils.GetRegisterNameNew(instruction.Op0Register);
-            LocalMade = context.MakeLocal(MiscUtils.Int32Reference, reg: _destReg);
+            LocalMade = context.MakeLocal(TypeDefinitions.Int32, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

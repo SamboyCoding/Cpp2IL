@@ -28,7 +28,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             il2CppString!.HasBeenUsedAsAString = true;
 
-            _localMade = context.MakeLocal(MiscUtils.StringReference, reg: "rax", knownInitialValue: _stringValue);
+            _localMade = context.MakeLocal(TypeDefinitions.String, reg: "rax", knownInitialValue: _stringValue);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

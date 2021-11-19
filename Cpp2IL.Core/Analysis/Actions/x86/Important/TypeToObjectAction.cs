@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             _type = type;
 
-            _localMade = context.MakeLocal(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Type")!, reg: "rax", knownInitialValue: type);
+            _localMade = context.MakeLocal(TypeDefinitions.Type, reg: "rax", knownInitialValue: type);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

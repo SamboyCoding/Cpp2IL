@@ -104,28 +104,25 @@ namespace Cpp2IL.Core
             //Exception.get_Message() - first call is either to codegen_initialize_method (< v27) or codegen_initialize_runtime_metadata
             Logger.VerboseNewline("\tLooking for Type System.Exception, Method get_Message...");
 
-            var type = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Exception");
-            if (type != null)
+            var type = TypeDefinitions.Exception;
+            Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
+            var targetMethod = type.Methods.FirstOrDefault(m => m.Name == "get_Message");
+            if (targetMethod != null) //Check struct contains valid data 
             {
-                Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
-                var targetMethod = type.Methods.FirstOrDefault(m => m.Name == "get_Message");
-                if (targetMethod != null) //Check struct contains valid data 
-                {
-                    Logger.VerboseNewline($"\t\tTarget Method Located at {targetMethod.AsUnmanaged().MethodPointer}. Taking first CALL as the (version-specific) metadata initialization function...");
-                    
-                    var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.AsUnmanaged().MethodPointer, false);
-                    var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
+                Logger.VerboseNewline($"\t\tTarget Method Located at {targetMethod.AsUnmanaged().MethodPointer}. Taking first CALL as the (version-specific) metadata initialization function...");
 
-                    if (LibCpp2IlMain.MetadataVersion < 27)
-                    {
-                        il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
-                        Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_method => 0x{il2cpp_codegen_initialize_method:X}");
-                    }
-                    else
-                    {
-                        il2cpp_codegen_initialize_runtime_metadata = calls.First().NearBranchTarget;
-                        Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_runtime_metadata => 0x{il2cpp_codegen_initialize_runtime_metadata:X}");
-                    }
+                var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.AsUnmanaged().MethodPointer, false);
+                var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
+
+                if (LibCpp2IlMain.MetadataVersion < 27)
+                {
+                    il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
+                    Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_method => 0x{il2cpp_codegen_initialize_method:X}");
+                }
+                else
+                {
+                    il2cpp_codegen_initialize_runtime_metadata = calls.First().NearBranchTarget;
+                    Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_runtime_metadata => 0x{il2cpp_codegen_initialize_runtime_metadata:X}");
                 }
             }
         }

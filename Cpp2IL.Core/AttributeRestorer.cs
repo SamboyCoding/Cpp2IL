@@ -34,10 +34,10 @@ namespace Cpp2IL.Core
 
         private static void Initialize()
         {
-            DummyTypeDefForAttributeCache.BaseType = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.ValueType");
+            DummyTypeDefForAttributeCache.BaseType = TypeDefinitions.ValueType;
 
             //Add count field
-            DummyTypeDefForAttributeCache.Fields.Add(new FieldDefinition("count", FieldAttributes.Public, MiscUtils.Int32Reference));
+            DummyTypeDefForAttributeCache.Fields.Add(new FieldDefinition("count", FieldAttributes.Public, TypeDefinitions.Int32));
 
             //Add attribute list
             DummyTypeDefForAttributeCache.Fields.Add(new FieldDefinition("attributes", FieldAttributes.Public, DummyTypeDefForAttributeList));
@@ -51,7 +51,7 @@ namespace Cpp2IL.Core
                     Offset = 0x00,
                     Static = false,
                     DeclaringType = DummyTypeDefForAttributeCache,
-                    FieldType = MiscUtils.Int32Reference
+                    FieldType = TypeDefinitions.Int32
                 },
                 new FieldInType
                 {
@@ -328,13 +328,13 @@ namespace Cpp2IL.Core
             var attributeCtor = attributeType.GetConstructors().First();
 
             var ca = new CustomAttribute(attributeCtor);
-            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(MiscUtils.StringReference), constructor.DeclaringType.Name));
-            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(MiscUtils.StringReference), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
+            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(TypeDefinitions.String), constructor.DeclaringType.Name));
+            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(TypeDefinitions.String), $"0x{LibCpp2IlMain.Binary!.GetRVA(generatorPtr):X}"));
 
             if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(generatorPtr, out var offsetInBinary))
                 offsetInBinary = 0;
             
-            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(MiscUtils.StringReference), $"0x{offsetInBinary:X}"));
+            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(TypeDefinitions.String), $"0x{offsetInBinary:X}"));
 
             ca.Fields.Add(name);
             ca.Fields.Add(rva);

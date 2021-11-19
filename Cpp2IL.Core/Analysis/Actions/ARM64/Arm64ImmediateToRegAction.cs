@@ -24,9 +24,9 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
             if (mayNotBeAConstant)
             {
                 if (is32BitReg)
-                    _dest = context.MakeLocal(MiscUtils.Int32Reference, reg: _destReg, knownInitialValue: (int) _immValue);
+                    _dest = context.MakeLocal(TypeDefinitions.Int32, reg: _destReg, knownInitialValue: (int) _immValue);
                 else
-                    _dest = context.MakeLocal(MiscUtils.Int64Reference, reg: _destReg, knownInitialValue: _immValue);
+                    _dest = context.MakeLocal(TypeDefinitions.Int64, reg: _destReg, knownInitialValue: _immValue);
                 RegisterDefinedLocalWithoutSideEffects((LocalDefinition)_dest);
             }
             else
@@ -58,7 +58,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
 
         public override string? ToPsuedoCode()
         {
-            return $"{MiscUtils.Int64Reference} {(_dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition)_dest).Name)} = {(_immValue > 1024 ? $"0x{_immValue:X}" : $"{_immValue}")}";
+            return $"{TypeDefinitions.Int64} {(_dest is ConstantDefinition constant ? constant.Name : ((LocalDefinition)_dest).Name)} = {(_immValue > 1024 ? $"0x{_immValue:X}" : $"{_immValue}")}";
         }
 
         public override string ToTextSummary()

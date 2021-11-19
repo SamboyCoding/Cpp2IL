@@ -53,12 +53,12 @@ namespace Cpp2IL.Core
             var defaultConstructor = new MethodDefinition(
                 ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
-                module.ImportReference(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Void"))
+                module.ImportReference(TypeDefinitions.Void)
             );
 
             var processor = defaultConstructor.Body.GetILProcessor();
 
-            var ctor = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Attribute").GetConstructors().FirstOrDefault();
+            var ctor = TypeDefinitions.Attribute.GetConstructors().FirstOrDefault();
 
             if (ctor != null)
             {
@@ -85,9 +85,9 @@ namespace Cpp2IL.Core
 
         private static void InjectOurTypes(AssemblyDefinition imageDef, bool suppressAttributes)
         {
-            var stringTypeReference = imageDef.MainModule.ImportReference(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.String"));
-            var attributeTypeReference = imageDef.MainModule.ImportReference(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Attribute"));
-            var exceptionTypeReference = imageDef.MainModule.ImportReference(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Exception"));
+            var stringTypeReference = imageDef.MainModule.ImportReference(TypeDefinitions.String);
+            var attributeTypeReference = imageDef.MainModule.ImportReference(TypeDefinitions.Attribute);
+            var exceptionTypeReference = imageDef.MainModule.ImportReference(TypeDefinitions.Exception);
 
             if (!suppressAttributes)
             {
@@ -102,7 +102,7 @@ namespace Cpp2IL.Core
             var defaultConstructor = new MethodDefinition(
                 ".ctor",
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
-                imageDef.MainModule.ImportReference(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Void"))
+                imageDef.MainModule.ImportReference(TypeDefinitions.Void)
             );
             
             defaultConstructor.Parameters.Add(new("message", ParameterAttributes.None, stringTypeReference));
@@ -248,7 +248,7 @@ namespace Cpp2IL.Core
             if (!suppressAttributes)
                 (addressAttribute, fieldOffsetAttribute, tokenAttribute) = GetInjectedAttributes(ilTypeDefinition);
 
-            var stringType = ilTypeDefinition.Module.ImportReference(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.String"));
+            var stringType = ilTypeDefinition.Module.ImportReference(TypeDefinitions.String);
 
             if (!suppressAttributes)
             {
@@ -378,7 +378,7 @@ namespace Cpp2IL.Core
                 var methodReturnType = methodDef.RawReturnType!;
 
                 var methodDefinition = new MethodDefinition(methodDef.Name, (MethodAttributes) methodDef.flags,
-                    ilTypeDefinition.Module.ImportReference(MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Void")));
+                    ilTypeDefinition.Module.ImportReference(TypeDefinitions.Void));
 
                 SharedState.UnmanagedToManagedMethods[methodDef] = methodDefinition;
                 SharedState.ManagedToUnmanagedMethods[methodDefinition] = methodDef;

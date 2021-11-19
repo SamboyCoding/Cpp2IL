@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             regCleared = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             // context.ZeroRegister(regCleared);
             //We make this a local and clean up unused ones in post-processing
-            _localMade = context.MakeLocal(MiscUtils.Int32Reference, reg: regCleared, knownInitialValue: 0);
+            _localMade = context.MakeLocal(TypeDefinitions.Int32, reg: regCleared, knownInitialValue: 0);
             RegisterDefinedLocalWithoutSideEffects(_localMade);
         }
 

@@ -151,7 +151,7 @@ namespace Cpp2IL.Core
                     {
                         //Have to wrap val in another argument
                         val = new CustomAttributeArgument(typeReference, val);
-                        typeReference = MiscUtils.ObjectReference;
+                        typeReference = TypeDefinitions.Object;
                     }
 
                     ret.ConstructorArguments.Add(new CustomAttributeArgument(typeReference, val));
@@ -278,9 +278,9 @@ namespace Cpp2IL.Core
             var attributeCtor = attributeType.GetConstructors().First();
 
             var ca = new CustomAttribute(attributeCtor);
-            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(MiscUtils.StringReference), constructor.DeclaringType.Name));
-            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(MiscUtils.StringReference), $"0x0"));
-            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(MiscUtils.StringReference), $"0x0"));
+            var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(TypeDefinitions.String), constructor.DeclaringType.Name));
+            var rva = new CustomAttributeNamedArgument("RVA", new(module.ImportReference(TypeDefinitions.String), $"0x0"));
+            var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(TypeDefinitions.String), $"0x0"));
 
             ca.Fields.Add(name);
             ca.Fields.Add(rva);
@@ -463,7 +463,7 @@ namespace Cpp2IL.Core
                             throw new($"Failed to resolve type reflection data for type index {typeIndex}");
 
                         ret = cecilType;
-                        typeOverride = MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Type");
+                        typeOverride = TypeDefinitions.Type;
                     }
 
                     break;
@@ -491,7 +491,7 @@ namespace Cpp2IL.Core
             }
             else if (ret == Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)
             {
-                type = MiscUtils.ArrayReference;
+                type = TypeDefinitions.Array;
             }
             else
             {
@@ -503,22 +503,22 @@ namespace Cpp2IL.Core
 
         private static Il2CppTypeDefinition FromTypeEnum(Il2CppTypeEnum typeEnum) => typeEnum switch
         {
-            Il2CppTypeEnum.IL2CPP_TYPE_VOID => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Void")!.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN => MiscUtils.BooleanReference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_CHAR => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Char")!.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_I1 => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.SByte")!.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_U1 => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Byte")!.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_I2 => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Short")!.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_U2 => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.UShort")!.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_I4 => MiscUtils.Int32Reference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_U4 => MiscUtils.UInt32Reference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_I8 => MiscUtils.Int64Reference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_U8 => MiscUtils.UInt64Reference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_R4 => MiscUtils.SingleReference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_R8 => MiscUtils.DoubleReference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_STRING => MiscUtils.StringReference.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_BYREF => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.TypedReference")!.AsUnmanaged(),
-            Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Type")!.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_VOID => TypeDefinitions.Void.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN => TypeDefinitions.Boolean.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_CHAR => TypeDefinitions.Char.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I1 => TypeDefinitions.SByte.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U1 => TypeDefinitions.Byte.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I2 => TypeDefinitions.Int16.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U2 => TypeDefinitions.UInt16.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I4 => TypeDefinitions.Int32.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U4 => TypeDefinitions.UInt32.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_I8 => TypeDefinitions.Int64.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_U8 => TypeDefinitions.UInt64.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_R4 => TypeDefinitions.Single.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_R8 => TypeDefinitions.Double.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_STRING => TypeDefinitions.String.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_BYREF => TypeDefinitions.TypedReference.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => TypeDefinitions.Type.AsUnmanaged(),
             _ => throw new ArgumentOutOfRangeException(nameof(typeEnum), typeEnum, null)
         };
 

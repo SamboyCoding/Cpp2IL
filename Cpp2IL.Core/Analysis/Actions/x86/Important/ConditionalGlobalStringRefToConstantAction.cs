@@ -39,7 +39,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             _destReg = instruction.Op0Kind == OpKind.Register ? X86Utils.GetRegisterNameNew(instruction.Op0Register) : null;
 
-            var whatWeWant = context.DeclaringType.Module.ImportReference(MiscUtils.StringReference);
+            var whatWeWant = context.DeclaringType.Module.ImportReference(TypeDefinitions.String);
 
             var localAtDest = AssociatedStringLoad.LastKnownLocalInReg;
 

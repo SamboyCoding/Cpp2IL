@@ -47,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 _potentiallyWrong = true;
             }
 
-            _localMade = context.MakeLocal(MiscUtils.UInt64Reference, reg: _regBeingShifted);
+            _localMade = context.MakeLocal(TypeDefinitions.UInt64, reg: _regBeingShifted);
             RegisterUsedLocal(_localMade, context);
         }
 

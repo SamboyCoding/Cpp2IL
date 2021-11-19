@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
             _stackOffset = instruction.MemoryDisplacement32;
             _sourceImmediate = instruction.GetImmediate(1);
 
-            _newLocal = context.MakeLocal(MiscUtils.UInt64Reference, knownInitialValue: _sourceImmediate);
+            _newLocal = context.MakeLocal(TypeDefinitions.UInt64, knownInitialValue: _sourceImmediate);
             context.StackStoredLocals[(int) _stackOffset] = _newLocal;
             RegisterUsedLocal(_newLocal, context);
         }

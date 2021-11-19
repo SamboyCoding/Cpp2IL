@@ -25,7 +25,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             _globalValue = BitConverter.ToSingle(LibCpp2IlMain.Binary!.GetRawBinaryContent(), (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(_globalAddr));
 
-            _localMade = context.MakeLocal(MiscUtils.SingleReference, reg: _regName);
+            _localMade = context.MakeLocal(TypeDefinitions.Single, reg: _regName);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)

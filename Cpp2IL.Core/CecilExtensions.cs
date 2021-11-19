@@ -117,7 +117,7 @@ namespace Cpp2IL.Core
             //-able
             if (reference.FullName.StartsWith("System.Collections.Generic.IEnumerable"))
             {
-                return MiscUtils.IEnumerableReference.IsAssignableFrom(otherType);
+                return TypeDefinitions.IEnumerable.IsAssignableFrom(otherType);
             }
 
             return false;

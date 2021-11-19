@@ -16,25 +16,10 @@ namespace Cpp2IL.Core.Utils
         private static readonly object PointerReadLock = new();
         //Disable these because they're initialised in BuildPrimitiveMappings
         // ReSharper disable NotNullMemberIsNotInitialized
-#pragma warning disable 8618
-        internal static TypeDefinition ObjectReference;
-        internal static TypeDefinition StringReference;
-        internal static TypeDefinition Int64Reference;
-        internal static TypeDefinition SingleReference;
-        internal static TypeDefinition DoubleReference;
-        internal static TypeDefinition Int32Reference;
-        internal static TypeDefinition UInt32Reference;
-        internal static TypeDefinition UInt64Reference;
-        internal static TypeDefinition BooleanReference;
-        internal static TypeDefinition ArrayReference;
-        internal static TypeDefinition IEnumerableReference;
-        internal static TypeDefinition ExceptionReference;
-#pragma warning restore 8618
-        // ReSharper restore NotNullMemberIsNotInitialized
 
-        private static Dictionary<string, TypeDefinition> _primitiveTypeMappings = new();
+        // ReSharper restore NotNullMemberIsNotInitialized
         private static readonly Dictionary<string, Tuple<TypeDefinition?, string[]>> CachedTypeDefsByName = new();
-        
+
         private static List<ulong>? _allKnownFunctionStarts;
 
         private static readonly Dictionary<string, ulong> PrimitiveSizes = new(14)
@@ -57,38 +42,10 @@ namespace Cpp2IL.Core.Utils
 
         internal static void Reset()
         {
-            _primitiveTypeMappings.Clear();
             CachedTypeDefsByName.Clear();
+            TypeDefinitions.Reset();
             CecilExtensions.AssignabilityCache.Clear();
             _allKnownFunctionStarts = null;
-        }
-
-        public static void BuildPrimitiveMappings()
-        {
-            ObjectReference = TryLookupTypeDefKnownNotGeneric("System.Object")!;
-            StringReference = TryLookupTypeDefKnownNotGeneric("System.String")!;
-            Int64Reference = TryLookupTypeDefKnownNotGeneric("System.Int64")!;
-            SingleReference = TryLookupTypeDefKnownNotGeneric("System.Single")!;
-            DoubleReference = TryLookupTypeDefKnownNotGeneric("System.Double")!;
-            Int32Reference = TryLookupTypeDefKnownNotGeneric("System.Int32")!;
-            UInt32Reference = TryLookupTypeDefKnownNotGeneric("System.UInt32")!;
-            UInt64Reference = TryLookupTypeDefKnownNotGeneric("System.UInt64")!;
-            BooleanReference = TryLookupTypeDefKnownNotGeneric("System.Boolean")!;
-            ArrayReference = TryLookupTypeDefKnownNotGeneric("System.Array")!;
-            IEnumerableReference = TryLookupTypeDefKnownNotGeneric("System.Collections.IEnumerable")!;
-            ExceptionReference = TryLookupTypeDefKnownNotGeneric("System.Exception")!;
-
-            _primitiveTypeMappings = new Dictionary<string, TypeDefinition>
-            {
-                { "string", StringReference },
-                { "long", Int64Reference },
-                { "float", SingleReference },
-                { "double", DoubleReference },
-                { "int", Int32Reference },
-                { "bool", BooleanReference },
-                { "uint", UInt32Reference },
-                { "ulong", UInt64Reference }
-            };
         }
 
         public static bool IsManagedTypeAnInstanceOfCppOne(Il2CppTypeReflectionData cppType, TypeReference? managedType)
@@ -149,7 +106,7 @@ namespace Cpp2IL.Core.Utils
             var def = reference?.Resolve();
             if (def == null) return false;
 
-            return def == Int32Reference || def == Int64Reference || def == SingleReference || def == DoubleReference || def == UInt32Reference;
+            return def == TypeDefinitions.Int32 || def == TypeDefinitions.Int64 || def == TypeDefinitions.Single || def == TypeDefinitions.Double || def == TypeDefinitions.UInt32;
         }
 
         public static TypeReference ImportTypeInto(MemberReference importInto, Il2CppType toImport)
@@ -165,41 +122,41 @@ namespace Cpp2IL.Core.Utils
             switch (toImport.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Object"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.Object);
                 case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Void"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.Void);
                 case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-                    return moduleDefinition.ImportReference(BooleanReference);
+                    return moduleDefinition.ImportReference(TypeDefinitions.Boolean);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Char"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.Char);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.SByte"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.SByte);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Byte"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.Byte);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Int16"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.Int16);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.UInt16"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.UInt16);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    return moduleDefinition.ImportReference(Int32Reference);
+                    return moduleDefinition.ImportReference(TypeDefinitions.Int32);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    return moduleDefinition.ImportReference(UInt32Reference);
+                    return moduleDefinition.ImportReference(TypeDefinitions.UInt32);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.IntPtr"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.IntPtr);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.UIntPtr"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.UIntPtr);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-                    return moduleDefinition.ImportReference(Int64Reference);
+                    return moduleDefinition.ImportReference(TypeDefinitions.Int64);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.UInt64"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.UInt64);
                 case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-                    return moduleDefinition.ImportReference(SingleReference);
+                    return moduleDefinition.ImportReference(TypeDefinitions.Single);
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Double"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.Double);
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    return moduleDefinition.ImportReference(StringReference);
+                    return moduleDefinition.ImportReference(TypeDefinitions.String);
                 case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.TypedReference"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.TypedReference);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
@@ -332,7 +289,7 @@ namespace Cpp2IL.Core.Utils
                 }
 
                 default:
-                    return moduleDefinition.ImportReference(TryLookupTypeDefKnownNotGeneric("System.Object"));
+                    return moduleDefinition.ImportReference(TypeDefinitions.Object);
             }
         }
 
@@ -356,8 +313,15 @@ namespace Cpp2IL.Core.Utils
 
         private static Tuple<TypeDefinition?, string[]> InternalTryLookupTypeDefByName(string name)
         {
-            if (_primitiveTypeMappings.ContainsKey(name))
-                return new Tuple<TypeDefinition?, string[]>(_primitiveTypeMappings[name], Array.Empty<string>());
+            if (TypeDefinitions.GetPrimitive(name) is {} primitive)
+                return new Tuple<TypeDefinition?, string[]>(primitive, Array.Empty<string>());
+            
+            //The only real cases we end up here are:
+            //From explicit override resolving, because that has to be done by name
+            //Sometimes in attribute restoration if we come across an object parameter, but this almost always has to be a system or cecil type, or an enum.
+            //While originally initializing the TypeDefinitions class, which is always a system type
+            //And during exception helper location, which is always a system type.
+            //So really the only remapping we should have to handle is during explicit override restoration.
 
             var definedType = SharedState.AllTypeDefinitions.Find(t => string.Equals(t?.FullName, name, StringComparison.OrdinalIgnoreCase));
 
@@ -567,16 +531,16 @@ namespace Cpp2IL.Core.Utils
             var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
             var bytes = LibCpp2IlMain.Binary.ReadByteArrayAtRawAddress(rawAddr, (int)GetSizeOfObject(type));
 
-            if (type == Int32Reference)
+            if (type == TypeDefinitions.Int32)
                 return BitConverter.ToInt32(bytes, 0);
 
-            if (type == Int64Reference)
+            if (type == TypeDefinitions.Int64)
                 return BitConverter.ToInt64(bytes, 0);
 
-            if (type == SingleReference)
+            if (type == TypeDefinitions.Single)
                 return BitConverter.ToSingle(bytes, 0);
 
-            if (type == DoubleReference)
+            if (type == TypeDefinitions.Double)
                 return BitConverter.ToDouble(bytes, 0);
 
             throw new ArgumentException("Do not know how to get a numeric constant of type " + type);
@@ -650,7 +614,7 @@ namespace Cpp2IL.Core.Utils
             ret = 0;
             try
             {
-                ret = (ulong) AnalysisUtils.CoerceValue(value, UInt64Reference)!;
+                ret = (ulong) AnalysisUtils.CoerceValue(value, TypeDefinitions.UInt64)!;
                 return true;
             }
             catch (Exception)
@@ -682,6 +646,9 @@ namespace Cpp2IL.Core.Utils
                 double d => BitConverter.GetBytes(d),
                 _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
             };
+
+            if (!typeof(IConvertible).IsAssignableFrom(desired))
+                throw new Exception($"ReinterpretBytes: Desired type, {desired}, does not implement IConvertible");
             
             //Pad out with leading zeros if we have to
             var requiredLength = LibCpp2ILUtils.VersionAwareSizeOf(desired);

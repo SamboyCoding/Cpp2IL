@@ -219,7 +219,7 @@ namespace Cpp2IL.Core
         protected override void AttemptInstructionAnalysisToFillGaps()
         {
             Logger.Verbose("\tAttempting to use Array GetEnumerator to find il2cpp_codegen_object_new...");
-            if (MiscUtils.TryLookupTypeDefKnownNotGeneric("System.Array") is { } arrayTypeDef)
+            if (TypeDefinitions.Array is { } arrayTypeDef)
             {
                 if (arrayTypeDef.Methods.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
                 {

@@ -47,7 +47,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if(_argTwo is LocalDefinition l2)
                 RegisterUsedLocal(l2, context);
 
-            _resultLocal = context.MakeLocal(MiscUtils.Int64Reference, reg: _destReg);
+            _resultLocal = context.MakeLocal(TypeDefinitions.Int64, reg: _destReg);
         }
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
