@@ -258,6 +258,9 @@ namespace Cpp2IL.Core.Analysis
                 case Mnemonic.Sete:
                     Analysis.Actions.Add(new EqualRegisterSetAction(Analysis, instruction));
                     break;
+                case Mnemonic.Setne:
+                    Analysis.Actions.Add(new NotEqualRegisterSetAction(Analysis, instruction));
+                    break;
                 case Mnemonic.Setg:
                     Analysis.Actions.Add(new GreaterThanRegisterSetAction(Analysis, instruction));
                     break;
