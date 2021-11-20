@@ -1,6 +1,5 @@
 ﻿using Cpp2IL.Core.Analysis.ResultModels;
 using Mono.Cecil.Cil;
-using MonoMod.Utils;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.x86.Important
