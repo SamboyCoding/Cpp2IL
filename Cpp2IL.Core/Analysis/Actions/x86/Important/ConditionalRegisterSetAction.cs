@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         
         protected abstract string GetPseudocodeCondition();
 
-        protected abstract Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis<Instruction> context, ILProcessor processor);
+        protected abstract Mono.Cecil.Cil.Instruction[] GetComparisonIl(MethodAnalysis<Instruction> context, ILProcessor processor);
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
@@ -41,7 +41,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             ret.AddRange(_associatedCompare.ArgumentOne.GetILToLoad(context, processor));
             ret.AddRange(_associatedCompare.ArgumentTwo.GetILToLoad(context, processor));
             
-            ret.Add(GetComparisonIl(context, processor));
+            ret.AddRange(GetComparisonIl(context, processor));
             
             ret.Add(processor.Create(OpCodes.Stloc, _localMade.Variable));
             

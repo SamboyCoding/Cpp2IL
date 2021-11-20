@@ -21,9 +21,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             return $"{_associatedCompare?.ArgumentOne?.GetPseudocodeRepresentation()} < {_associatedCompare?.ArgumentTwo?.GetPseudocodeRepresentation()}";
         }
 
-        protected override Mono.Cecil.Cil.Instruction GetComparisonIl(MethodAnalysis<Instruction> context, ILProcessor processor)
+        protected override Mono.Cecil.Cil.Instruction[] GetComparisonIl(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            return processor.Create(OpCodes.Clt);
+            return new []{processor.Create(OpCodes.Clt)};
         }
     }
 }
