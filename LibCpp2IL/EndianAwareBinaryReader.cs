@@ -27,7 +27,7 @@ namespace LibCpp2IL
             IsBigEndian = true;
         }
 
-        public override short ReadInt16()
+        public sealed override short ReadInt16()
         {
             if (!shouldReverseArrays)
                 return base.ReadInt16();
@@ -35,7 +35,7 @@ namespace LibCpp2IL
             return this.ReadInt16WithReversedBits();
         }
 
-        public override int ReadInt32()
+        public sealed override int ReadInt32()
         {
             if (!shouldReverseArrays)
                 return base.ReadInt32();
@@ -43,7 +43,7 @@ namespace LibCpp2IL
             return this.ReadInt32WithReversedBits();
         }
 
-        public override long ReadInt64()
+        public sealed override long ReadInt64()
         {
             if (!shouldReverseArrays)
                 return base.ReadInt64();
@@ -51,7 +51,7 @@ namespace LibCpp2IL
             return this.ReadInt64WithReversedBits();
         }
 
-        public override ushort ReadUInt16()
+        public sealed override ushort ReadUInt16()
         {
             if (!shouldReverseArrays)
                 return base.ReadUInt16();
@@ -59,7 +59,7 @@ namespace LibCpp2IL
             return this.ReadUInt16WithReversedBits();
         }
 
-        public override uint ReadUInt32()
+        public sealed override uint ReadUInt32()
         {
             if (!shouldReverseArrays)
                 return base.ReadUInt32();
@@ -67,7 +67,7 @@ namespace LibCpp2IL
             return this.ReadUInt32WithReversedBits();
         }
 
-        public override ulong ReadUInt64()
+        public sealed override ulong ReadUInt64()
         {
             if (!shouldReverseArrays)
                 return base.ReadUInt64();
@@ -75,7 +75,7 @@ namespace LibCpp2IL
             return this.ReadUInt64WithReversedBits();
         }
 
-        public override float ReadSingle()
+        public sealed override float ReadSingle()
         {
             if (!shouldReverseArrays)
                 return base.ReadSingle();
@@ -83,7 +83,7 @@ namespace LibCpp2IL
             return this.ReadSingleWithReversedBits();
         }
 
-        public override double ReadDouble()
+        public sealed override double ReadDouble()
         {
             if (!shouldReverseArrays)
                 return base.ReadDouble();

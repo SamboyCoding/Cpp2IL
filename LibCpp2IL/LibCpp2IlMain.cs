@@ -7,6 +7,7 @@ using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.NintendoSwitch;
 using LibCpp2IL.Reflection;
+using LibCpp2IL.Wasm;
 
 namespace LibCpp2IL
 {
@@ -168,6 +169,11 @@ namespace LibCpp2IL
                 nso = nso.Decompress();
                 Binary = nso;
                 (codereg, metareg) = nso.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
+            } else if (BitConverter.ToInt32(binaryBytes, 0) == 0x6D736100) //\0WASM
+            {
+                var wasm = new WasmFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
+                Binary = wasm;
+                (codereg, metareg) = wasm.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
             }
             else
             {

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
@@ -119,15 +120,15 @@ namespace LibCpp2IL
             //Works only on >=24.2
             var mscorlibs = FindAllStrings("mscorlib.dll\0").Select(idx => _binary.MapRawAddressToVirtual(idx)).ToList();
             
-            LibLogger.VerboseNewline($"\t\t\tFound {mscorlibs.Count} occurrences of mscorlib.dll");
+            LibLogger.VerboseNewline($"\t\t\tFound {mscorlibs.Count} occurrences of mscorlib.dll: [{string.Join(", ", mscorlibs.Select(p => p.ToString("X")))}]");
             
             var pMscorlibCodegenModule = FindAllMappedWords(mscorlibs).ToList(); //CodeGenModule address will be in here
             
-            LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenModule.Count} potential codegen modules for mscorlib");
+            LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenModule.Count} potential codegen modules for mscorlib: [{string.Join(", ", pMscorlibCodegenModule.Select(p => p.ToString("X")))}]");
             
             var pMscorlibCodegenEntryInCodegenModulesList = FindAllMappedWords(pMscorlibCodegenModule).ToList(); //CodeGenModules list address will be in here
             
-            LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenEntryInCodegenModulesList.Count} address for potential codegen modules in potential codegen module lists");
+            LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenEntryInCodegenModulesList.Count} address for potential codegen modules in potential codegen module lists: [{string.Join(", ", pMscorlibCodegenEntryInCodegenModulesList.Select(p => p.ToString("X")))}]");
             
             var ptrSize = (_binary.is32Bit ? 4u : 8u);
 
@@ -213,34 +214,7 @@ namespace LibCpp2IL
 
                         var codeReg = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(address);
 
-                        var success = true;
-                        foreach (var keyValuePair in fieldsByName)
-                        {
-                            var fieldValue = (ulong) keyValuePair.Value.GetValue(codeReg);
-                            
-                            if(fieldValue == 0)
-                                continue; //Allow zeroes
-                            
-                            if (keyValuePair.Key.EndsWith("count", StringComparison.OrdinalIgnoreCase))
-                            {
-                                if (fieldValue > 0x60_000)
-                                {
-                                    LibLogger.VerboseNewline($"Rejected due to unreasonable count field 0x{fieldValue:X} for field {keyValuePair.Key}");
-                                    success = false;
-                                    break;
-                                }
-                            }
-                            else
-                            {
-                                //Pointer
-                                if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(fieldValue, out _))
-                                {
-                                    LibLogger.VerboseNewline($"Rejected due to invalid pointer 0x{fieldValue:X} for field {keyValuePair.Key}");
-                                    success = false;
-                                    break;
-                                }
-                            }
-                        }
+                        var success = ValidateCodeRegistration(codeReg, fieldsByName);
 
                         if (success)
                         {
@@ -252,6 +226,40 @@ namespace LibCpp2IL
                     //And subtract that from our pointer.
                     return pCodegenModules.First() - bytesToGoBack;
             }
+        }
+
+        public static bool ValidateCodeRegistration(Il2CppCodeRegistration codeReg, Dictionary<string, FieldInfo> fieldsByName)
+        {
+            var success = true;
+            foreach (var keyValuePair in fieldsByName)
+            {
+                var fieldValue = (ulong) keyValuePair.Value.GetValue(codeReg);
+
+                if (fieldValue == 0)
+                    continue; //Allow zeroes
+
+                if (keyValuePair.Key.EndsWith("count", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (fieldValue > 0x60_000)
+                    {
+                        LibLogger.VerboseNewline($"Rejected due to unreasonable count field 0x{fieldValue:X} for field {keyValuePair.Key}");
+                        success = false;
+                        break;
+                    }
+                }
+                else
+                {
+                    //Pointer
+                    if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(fieldValue, out _))
+                    {
+                        LibLogger.VerboseNewline($"Rejected due to invalid pointer 0x{fieldValue:X} for field {keyValuePair.Key}");
+                        success = false;
+                        break;
+                    }
+                }
+            }
+
+            return success;
         }
 
         public ulong FindMetadataRegistrationPre24_5()

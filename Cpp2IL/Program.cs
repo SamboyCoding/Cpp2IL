@@ -68,6 +68,8 @@ namespace Cpp2IL
                         throw new SoftException("Failed to determine unity version. If you're not running on windows, I need a globalgamemanagers file or a data.unity3d file, or you need to use the force options.");
                 }
 
+                args.UnityVersion = uv;
+
                 if (args.UnityVersion[0] < 4)
                 {
                     Logger.WarnNewline($"Fail once: Unity version of provided executable is {args.UnityVersion.ToStringEnumerable()}. This is probably not the correct version. Retrying with alternative method...");
