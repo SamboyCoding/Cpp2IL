@@ -30,7 +30,7 @@ namespace LibCpp2IL
             protected set => BaseStream.Position = value;
         }
 
-        internal object? ReadPrimitive(Type type, bool overrideArchCheck = false)
+        internal virtual object? ReadPrimitive(Type type, bool overrideArchCheck = false)
         {
             if (type == typeof(bool))
                 return ReadBoolean();
@@ -262,7 +262,7 @@ namespace LibCpp2IL
 
         public string ReadStringToNull(ulong offset) => ReadStringToNull((long) offset);
 
-        public string ReadStringToNull(long offset)
+        public virtual string ReadStringToNull(long offset)
         {
             var builder = new List<byte>();
 

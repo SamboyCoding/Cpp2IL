@@ -165,6 +165,8 @@ namespace LibCpp2IL
                 if (pCodegenModules.Count() > 1)
                     throw new Exception("Found more than 1 pointer as pCodegenModules");
             }
+            
+            LibLogger.VerboseNewline($"\t\t\tFound pCodegenModules at 0x{pCodegenModules[0]:X}");
 
             switch (_binary.InstructionSet)
             {
@@ -293,9 +295,14 @@ namespace LibCpp2IL
         {
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
             var sizeOfMr = (uint) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
-            var ptrsToNumberOfTypes = FindAllMappedWords((ulong) typeDefinitionsCount);
+            
+            LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{typeDefinitionsCount:X}");
+            var ptrsToNumberOfTypes = FindAllMappedWords((ulong) typeDefinitionsCount).ToList();
 
-            var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4);
+            LibLogger.VerboseNewline($"\t\t\tFound {ptrsToNumberOfTypes.Count} instances of the number of type definitions: [{string.Join(", ", ptrsToNumberOfTypes.Select(p => p.ToString("X")))}]");
+            var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4).ToList();
+            
+            LibLogger.VerboseNewline($"\t\t\tFound {possibleMetadataUsages.Count} potential metadata registrations: [{string.Join(", ", possibleMetadataUsages.Select(p => p.ToString("X")))}]");
 
             var mrFieldCount = sizeOfMr / ptrSize;
             foreach (var va in possibleMetadataUsages)
@@ -326,7 +333,14 @@ namespace LibCpp2IL
 
                 if (ok)
                 {
-                    return va;
+                    if (LibCpp2IlMain.MetadataVersion >= 27f)
+                    {
+                        var metaReg = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(va);
+                        if (metaReg.metadataUsagesCount == 0 && metaReg.metadataUsages == 0)
+                            return va;
+                    }
+                    else
+                        return va;
                 }
             }
 

@@ -27,6 +27,6 @@ namespace LibCpp2IL.Wasm
             Data = readFrom.ReadByteArrayAtRawAddress(FileOffset, (int) Size);
         }
 
-        public long VirtualOffset => OffsetExpr?.Type != ConstantExpression.ConstantInstruction.I32_CONST ? -1 : (long) (ulong) OffsetExpr.Value!;
+        public ulong VirtualOffset => OffsetExpr?.Type != ConstantExpression.ConstantInstruction.I32_CONST ? ulong.MaxValue : (ulong) OffsetExpr.Value!;
     }
 }

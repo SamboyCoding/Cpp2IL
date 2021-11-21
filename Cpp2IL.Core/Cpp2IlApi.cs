@@ -63,19 +63,19 @@ namespace Cpp2IL.Core
                 return new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
             }
 
-            if(!string.IsNullOrEmpty(gameDataPath))
+            if (!string.IsNullOrEmpty(gameDataPath))
             {
                 //Globalgamemanagers
                 var globalgamemanagersPath = Path.Combine(gameDataPath, "globalgamemanagers");
-                if(File.Exists(globalgamemanagersPath))
+                if (File.Exists(globalgamemanagersPath))
                 {
                     var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
                     return GetVersionFromGlobalGameManagers(ggmBytes);
                 }
-                
+
                 //Data.unity3d
                 var dataPath = Path.Combine(gameDataPath, "data.unity3d");
-                if(File.Exists(dataPath))
+                if (File.Exists(dataPath))
                 {
                     using var dataStream = File.OpenRead(dataPath);
                     return GetVersionFromDataUnity3D(dataStream);
@@ -120,14 +120,14 @@ namespace Cpp2IL.Core
             //These files are usually really large and we only want the first couple bytes, so it's done via a stream.
             //e.g.: Secret Neighbour
             //Fake unity version at 0xC, real one at 0x12
-            
+
             var verString = new StringBuilder();
 
             if (fileStream.CanSeek)
                 fileStream.Seek(0x12, SeekOrigin.Begin);
             else
                 fileStream.Read(new byte[0x12], 0, 0x12);
-            
+
             while (true)
             {
                 var read = fileStream.ReadByte();
@@ -136,11 +136,12 @@ namespace Cpp2IL.Core
                     //I'm using a while true..break for this, shoot me.
                     break;
                 }
+
                 verString.Append(Convert.ToChar(read));
             }
 
             var unityVer = verString.ToString();
-            
+
             unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
             return unityVer.Split('.').Select(int.Parse).ToArray();
         }
@@ -164,21 +165,25 @@ namespace Cpp2IL.Core
         {
             if (IsLibInitialized())
                 ResetInternalState();
-            
+
             ConfigureLib(allowUserToInputAddresses);
             FixCapstoneLib();
 
+#if !DEBUG
             try
             {
-                if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVersion))
-                    throw new Exception("Initialization with LibCpp2Il failed");
-                
-                LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
+#endif
+            if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVersion))
+                throw new Exception("Initialization with LibCpp2Il failed");
+
+            LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
+#if !DEBUG
             }
             catch (Exception e)
             {
                 throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
             }
+#endif
         }
 
         [Obsolete("Use InitializeLibCpp2Il(byte[], string, int[], bool) instead as verbose is deprecated", true)]
@@ -189,7 +194,7 @@ namespace Cpp2IL.Core
         {
             if (IsLibInitialized())
                 ResetInternalState();
-            
+
             ConfigureLib(allowUserToInputAddresses);
             FixCapstoneLib();
 
@@ -288,6 +293,7 @@ namespace Cpp2IL.Core
                 InstructionSet.X86_64 => new X86KeyFunctionAddresses(),
                 InstructionSet.ARM64 => new Arm64KeyFunctionAddresses(),
                 InstructionSet.ARM32 => throw new UnsupportedInstructionSetException(), //todo
+                InstructionSet.WASM => throw new UnsupportedInstructionSetException(),
                 _ => throw new ArgumentOutOfRangeException()
             };
 
@@ -313,11 +319,11 @@ namespace Cpp2IL.Core
 
             enumerable.Select(def =>
             {
-                if(!parallel && LibCpp2IlMain.MetadataVersion < 29)
+                if (!parallel && LibCpp2IlMain.MetadataVersion < 29)
                     Logger.Verbose($"Processing {def.Name.Name}...");
                 RunAttributeRestorationForAssembly(def, keyFunctionAddresses);
-                
-                if(LibCpp2IlMain.MetadataVersion < 29)
+
+                if (LibCpp2IlMain.MetadataVersion < 29)
                     Logger.VerboseNewline($"Finished processing {def.Name.Name}");
                 return true;
             }).ToList(); //Force full evaluation
@@ -345,6 +351,10 @@ namespace Cpp2IL.Core
                     break;
                 case InstructionSet.ARM64:
                     AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<Arm64Instruction>(assembly, keyFunctionAddresses);
+                    break;
+                case InstructionSet.WASM:
+                    //TODO
+                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<object>(assembly, keyFunctionAddresses);
                     break;
                 default:
                     throw new UnsupportedInstructionSetException();
@@ -415,7 +425,7 @@ namespace Cpp2IL.Core
 
         [Obsolete("Use (AnalysisLevel, AssemblyDefinition, BaseKeyFunctionAddresses, string, bool, *bool*)")]
         public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel) =>
-            AnalyseAssembly(analysisLevel, assembly, keyFunctionAddresses, methodOutputDir, parallel,  false);
+            AnalyseAssembly(analysisLevel, assembly, keyFunctionAddresses, methodOutputDir, parallel, false);
 
         /// <summary>
         /// Analyze the given assembly, populating method bodies within it with IL if restoration succeeds or continueThroughErrors is set.
@@ -438,8 +448,11 @@ namespace Cpp2IL.Core
             if (keyFunctionAddresses == null && LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64)
                 throw new ArgumentNullException(nameof(keyFunctionAddresses));
 
+            if (LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.WASM)
+                throw new UnsupportedInstructionSetException();
+
             IlContinueThroughErrors = continueThroughErrors;
-            
+
             AsmAnalyzerX86.FAILED_METHODS = 0;
             AsmAnalyzerX86.SUCCESSFUL_METHODS = 0;
 
@@ -456,7 +469,7 @@ namespace Cpp2IL.Core
             toProcess.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
             var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
             var nextThreshold = thresholds.First();
-            
+
             Logger.InfoNewline($"This assembly contains {toProcess.Count} types. Assuming an average rate of 20 types per second, this will take approximately {toProcess.Count / 20} seconds, or {toProcess.Count / 20f / 60f:f1} minutes, to process.");
 
             var numProcessed = 0;
@@ -488,7 +501,7 @@ namespace Cpp2IL.Core
 
                 string? filename = null;
                 StringBuilder? typeDump = null;
-                
+
                 if (methodOutputDir != null)
                 {
                     var fileSafeTypeName = type.Name;
@@ -523,9 +536,9 @@ namespace Cpp2IL.Core
                             if (ForbiddenDirectoryNames.Contains(components[i]))
                                 components[i] = "__renamed_from_" + components[i];
                         }
-                        
-                        
-                        methodDumpDir = Path.Combine(new[] { methodDumpDir }.Concat(components).ToArray());
+
+
+                        methodDumpDir = Path.Combine(new[] {methodDumpDir}.Concat(components).ToArray());
 
                         if (!Directory.Exists(methodDumpDir))
                             Directory.CreateDirectory(methodDumpDir);
@@ -619,7 +632,7 @@ namespace Cpp2IL.Core
                 }
 
                 if (filename is null || typeDump is null) return;
-                
+
                 lock (type) File.WriteAllText(filename, typeDump.ToString());
             }
 
@@ -684,14 +697,13 @@ namespace Cpp2IL.Core
         {
             if (Environment.OSVersion.Platform == PlatformID.Win32NT)
                 return;
-            
+
             //Capstone is super stupid and randomly fails to load on non-windows platforms. Fix it.
             var runningFrom = AppContext.BaseDirectory;
             var capstonePath = Path.Combine(runningFrom, "Gee.External.Capstone.dll");
 
             if (!File.Exists(capstonePath))
             {
-
                 Logger.InfoNewline("Detected that Capstone's Managed assembly is missing. Attempting to copy the windows one...");
                 var fallbackPath = Path.Combine(runningFrom, "runtimes", "win-x64", "lib", "netstandard2.0", "Gee.External.Capstone.dll");
 
