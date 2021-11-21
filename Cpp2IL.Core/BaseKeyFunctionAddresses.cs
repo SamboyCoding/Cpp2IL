@@ -41,7 +41,9 @@ namespace Cpp2IL.Core
         public ulong il2cpp_raise_exception; //Api function (exported)
         public ulong il2cpp_vm_exception_raise; //Thunked from above
         public ulong il2cpp_codegen_raise_exception; //Thunked TO above. don't know real name.
-        public ulong il2cpp_object_is_inst; //TODO Re-find this and fix name
+        
+        public ulong il2cpp_vm_object_is_inst; //Not exported, not thunked. Can be located via the Type#IsInstanceOfType icall.
+        
         public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
 
         private void FindExport(string name, ref ulong ptr)
@@ -93,6 +95,9 @@ namespace Cpp2IL.Core
 
             //New array of fixed size
             FindExport("il2cpp_array_new_specific", ref il2cpp_array_new_specific);
+            
+            //Object IsInst
+            il2cpp_vm_object_is_inst = GetObjectIsInstFromSystemType();
             
             AttemptInstructionAnalysisToFillGaps();
             
@@ -244,6 +249,8 @@ namespace Cpp2IL.Core
                 Logger.VerboseNewline($"Found at 0x{SzArrayNew:X}");
             }
         }
+
+        protected abstract ulong GetObjectIsInstFromSystemType();
 
         /// <summary>
         /// Given a function at addr, find a function which serves no purpose other than to call addr.

@@ -179,7 +179,7 @@ namespace Cpp2IL.Core.Analysis
                     {
                         Analysis.Actions.Add(new UnboxObjectAction(Analysis, instruction));
                     }
-                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_is_inst)
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_is_inst)
                     {
                         //Safe cast an object to a type
                         Analysis.Actions.Add(new SafeCastAction(Analysis, instruction));

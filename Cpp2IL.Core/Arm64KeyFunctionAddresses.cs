@@ -190,6 +190,36 @@ namespace Cpp2IL.Core
             }
         }
 
+        protected override ulong GetObjectIsInstFromSystemType()
+        {
+            Logger.Verbose("\tTrying to use System.Type::IsInstanceOfType to find il2cpp::vm::Object::IsInst...");
+            var typeIsInstanceOfType = LibCpp2IlReflection.GetType("Type", "System")?.Methods?.FirstOrDefault(m => m.Name == "IsInstanceOfType");
+            if (typeIsInstanceOfType == null)
+            {
+                Logger.VerboseNewline("Type or method not found, aborting.");
+                return 0;
+            }
+            
+            //IsInstanceOfType is a very simple ICall, that looks like this:
+            //  Il2CppClass* klass = vm::Class::FromIl2CppType(type->type.type);
+            //  return il2cpp::vm::Object::IsInst(obj, klass) != NULL;
+            //The last call is to Object::IsInst
+            
+            Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
+            var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(typeIsInstanceOfType.MethodPointer, false);
+
+            var lastCall = instructions.LastOrDefault(i => i.Mnemonic == "bl");
+
+            if (lastCall == null)
+            {
+                Logger.VerboseNewline("Method does not match expected signature. Aborting.");
+                return 0;
+            }
+            
+            Logger.VerboseNewline($"Success. IsInst found at 0x{lastCall.Details.Operands[0].Immediate:X}");
+            return (ulong) lastCall.Details.Operands[0].Immediate;            
+        }
+
         protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
         {
             var idx = _allInstructions.FindIndex(i => i.Address == (long) thunkPtr);

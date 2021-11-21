@@ -148,11 +148,18 @@ namespace Cpp2IL.Core.Utils
 
             var actualArgs = new List<IAnalysedOperand?>();
             if (!isInstance)
-                actualArgs.Add(context.GetOperandInRegister("rcx") ?? context.GetOperandInRegister("xmm0"));
-
-            actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(0)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm1", "rdx", context));
-            actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(1)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm2", "r8", context));
-            actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(2)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm3", "r9", context));
+            {
+                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(0)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm0", "rcx", context));
+                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(1)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm1", "rdx", context));
+                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(2)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm2", "r8", context));
+                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(3)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm3", "r9", context));
+            }
+            else 
+            {
+                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(0)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm1", "rdx", context));
+                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(1)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm2", "r8", context));
+                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(2)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm3", "r9", context));
+            }
 
             if (actualArgs.FindLast(a => a is ConstantDefinition {Value: MethodReference _}) is ConstantDefinition {Value: MethodReference actualGenericMethod})
             {
