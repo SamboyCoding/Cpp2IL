@@ -26,6 +26,31 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
                 }
             }
             
+            if (body.Count > 0 && body[0].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[0].NearBranchTarget))
+            {
+                if (CallExceptionThrowerFunction.GetExceptionThrown(body[0].NearBranchTarget)?.Name == "IndexOutOfRangeException")
+                {
+                    return true;
+                }
+            }
+            
+            if (body.Count > 3 && body[0].Mnemonic == Mnemonic.Mov && body[1].Mnemonic == Mnemonic.Xor && body[2].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[2].NearBranchTarget))
+            {
+                if (CallExceptionThrowerFunction.GetExceptionThrown(body[2].NearBranchTarget)?.Name == "IndexOutOfRangeException")
+                {
+                    return true;
+                }
+            }
+            
+            if (body.Count > 0 && body[0].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[0].NearBranchTarget))
+            {
+                if (CallExceptionThrowerFunction.GetExceptionThrown(body[0].NearBranchTarget)?.Name == "ArrayTypeMismatchException")
+                {
+                    return true;
+                }
+            }
+            
+            
             if (body.Count > 1 && body[0].Mnemonic == Mnemonic.Xor && body[1].Mnemonic == Mnemonic.Call && CallExceptionThrowerFunction.IsExceptionThrower(body[1].NearBranchTarget))
             {
                 if (CallExceptionThrowerFunction.GetExceptionThrown(body[1].NearBranchTarget)?.Name == "NullReferenceException")
