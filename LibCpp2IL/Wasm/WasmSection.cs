@@ -31,6 +31,10 @@ namespace LibCpp2IL.Wasm
                 WasmSectionId.SEC_IMPORT => new WasmImportSection(id, pos, size, file),
                 WasmSectionId.SEC_DATA => new WasmDataSection(id, pos, size, file),
                 WasmSectionId.SEC_CODE => new WasmCodeSection(id, pos, size, file),
+                WasmSectionId.SEC_FUNCTION => new WasmFunctionSection(id, pos, size, file),
+                WasmSectionId.SEC_TABLE => new WasmTableSection(id, pos, size, file),
+                WasmSectionId.SEC_GLOBAL => new WasmGlobalSection(id, pos, size, file),
+                WasmSectionId.SEC_ELEMENT => new WasmElementSection(id, pos, size, file),
                 _ => new WasmSection(id, pos, size)
             };
         }

@@ -8,11 +8,13 @@ namespace LibCpp2IL.Wasm
 {
     public sealed class WasmFile : Il2CppBinary
     {
-        private byte[] _raw;
-
-        internal readonly List<WasmSection> Sections = new();
-        private WasmMemoryBlock _memoryBlock;
+        public readonly List<WasmFunctionDefinition> FunctionTable = new();
         
+        internal readonly List<WasmSection> Sections = new();
+        
+        private byte[] _raw;
+        private WasmMemoryBlock _memoryBlock;
+
         public WasmFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
         {
             is32Bit = true;
@@ -42,19 +44,44 @@ namespace LibCpp2IL.Wasm
 
             _memoryBlock = new(this);
             
-            LibLogger.VerboseNewline($"\tAllocated memory block of {_memoryBlock.Bytes.Length} (0x{_memoryBlock.Bytes.Length:X}) bytes ({_memoryBlock.Bytes.Length / 1024 / 1024:F2}MB)");
+            LibLogger.VerboseNewline($"\tAllocated memory block of {_memoryBlock.Bytes.Length} (0x{_memoryBlock.Bytes.Length:X}) bytes ({_memoryBlock.Bytes.Length / 1024 / 1024:F2}MB). Constructing function table...");
+            
+            foreach (var importSectionEntry in ImportSection.Entries)
+            {
+                if(importSectionEntry.Kind == WasmImportEntry.WasmExternalKind.EXT_FUNCTION)
+                    FunctionTable.Add(new(importSectionEntry));
+            }
+
+            for (var index = 0; index < CodeSection.Functions.Count; index++)
+            {
+                var codeSectionFunction = CodeSection.Functions[index];
+                FunctionTable.Add(new(this, codeSectionFunction, index));
+            }
+            
+            LibLogger.VerboseNewline($"\tBuilt function table of {FunctionTable.Count} entries.");
         }
 
         public override long RawLength => _raw.Length;
         public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
         public override byte[] GetRawBinaryContent() => _raw;
 
+        public WasmFunctionDefinition GetFunctionWithIndex(int index)
+        {
+            var realIndex = ElementSection.Elements[0].FunctionIndices![index];
+            return FunctionTable[(int) realIndex];
+        }
+
+        internal WasmTypeSection TypeSection => (WasmTypeSection) Sections.First(s => s.Type == WasmSectionId.SEC_TYPE);
+        
+        internal WasmFunctionSection FunctionSection => (WasmFunctionSection) Sections.First(s => s.Type == WasmSectionId.SEC_FUNCTION);
+        
         internal WasmDataSection DataSection => (WasmDataSection) Sections.First(s => s.Type == WasmSectionId.SEC_DATA);
+        internal WasmCodeSection CodeSection => (WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE);
+        internal WasmImportSection ImportSection => (WasmImportSection) Sections.First(s => s.Type == WasmSectionId.SEC_IMPORT);
+        internal WasmElementSection ElementSection => (WasmElementSection) Sections.First(s => s.Type == WasmSectionId.SEC_ELEMENT);
         
         public override long MapVirtualAddressToRaw(ulong uiAddr)
         {
-            //TODO: This works. But it doesn't account for zero gaps in the file. E.g. windowsRuntimeFactoryCount and the field after are both zero, so they're left out of the data segments and assumed to be zero.
-            //TODO: And so trying to just blindly read from the file at the raw address doesn't work. We have to build a map of the virtual memory in ReadClassAtVirtualAddress, and use that.
             // var data = DataSection;
             // var matchingEntry = data.DataEntries.FirstOrDefault(e => e.VirtualOffset <= uiAddr && e.VirtualOffset + (ulong) e.Data.Length > uiAddr);
             // if (matchingEntry != null)
