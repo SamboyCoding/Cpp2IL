@@ -166,7 +166,7 @@ namespace LibCpp2IL
                     throw new Exception("Found more than 1 pointer as pCodegenModules");
             }
             
-            LibLogger.VerboseNewline($"\t\t\tFound pCodegenModules at 0x{pCodegenModules[0]:X}");
+            LibLogger.VerboseNewline($"\t\t\tFound pCodegenModules at 0x{pCodegenModules.FirstOrDefault():X}");
 
             switch (_binary.InstructionSet)
             {
