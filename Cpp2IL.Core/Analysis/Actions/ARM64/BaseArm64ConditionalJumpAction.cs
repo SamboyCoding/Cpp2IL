@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         {
         }
 
-        protected sealed override bool IsImplicitNRE()
+        protected sealed override bool IsExceptionThrowWhichIsImplicitInCSharp()
         {
             var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(JumpTarget, true, 3);
 

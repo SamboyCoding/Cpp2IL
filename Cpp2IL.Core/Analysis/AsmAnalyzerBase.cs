@@ -38,7 +38,7 @@ namespace Cpp2IL.Core.Analysis
                 _instructions.Add(instruction);
             }
 
-            Analysis = new(methodPointer, MethodEnd, _instructions);
+            Analysis = new(methodPointer, MethodEnd, keyFunctionAddresses, _instructions);
             Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
 
             if (FindInstructionWhichOverran(out var idx))
@@ -55,7 +55,7 @@ namespace Cpp2IL.Core.Analysis
             MethodDefinition = definition;
             MethodDefinition.Body = new(MethodDefinition);
             IsGenuineMethod = true;
-            Analysis = new(definition, methodPointer, MethodEnd, _instructions);
+            Analysis = new(definition, methodPointer, MethodEnd, baseKeyFunctionAddresses, _instructions);
             Analysis.OnExpansionRequested += AnalysisRequestedExpansion;
         }
 
