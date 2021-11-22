@@ -328,7 +328,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 
             var local = new LocalDefinition
             {
-                Name = name ?? $"local{Locals.Count}",
+                Name = name ?? $"local{Locals.Count - 1}",
                 Type = type,
                 KnownInitialValue = knownInitialValue
             };

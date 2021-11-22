@@ -1,16 +1,15 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Cpp2IL.Core.Analysis.PostProcessActions;
 using Cpp2IL.Core.Utils;
-using LibCpp2IL;
-using LibCpp2IL.Logging;
 using LibCpp2IL.Wasm;
 using Mono.Cecil;
 using WasmDisassembler;
 
 namespace Cpp2IL.Core.Analysis
 {
-    public class AsmAnalyzerWasm : AsmAnalyzerBase<WasmInstruction>
+    public partial class AsmAnalyzerWasm : AsmAnalyzerBase<WasmInstruction>
     {
         private static List<WasmInstruction> DisassembleInstructions(WasmFunctionDefinition wasmFunc)
         {
@@ -32,13 +31,6 @@ namespace Cpp2IL.Core.Analysis
             }
         }
 
-        private static WasmFunctionDefinition GetWasmDefinition(MethodDefinition definition)
-        {
-            //First, we have to calculate the signature
-            var signature = WasmUtils.BuildSignature(definition);
-            return ((WasmFile) LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(definition.AsUnmanaged().MethodPointer, signature);
-        }
-        
         private readonly WasmFunctionDefinition _wasmDefinition;
 
         public AsmAnalyzerWasm(ulong methodPointer, IEnumerable<WasmInstruction> instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)
@@ -53,7 +45,7 @@ namespace Cpp2IL.Core.Analysis
                 Logger.WarnNewline($"\tThe friendly name of the failed method is {definition.FullName}");
         }
 
-        public AsmAnalyzerWasm(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(definition, GetWasmDefinition(definition), baseKeyFunctionAddresses)
+        public AsmAnalyzerWasm(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(definition, WasmUtils.GetWasmDefinition(definition), baseKeyFunctionAddresses)
         {
         }
 
@@ -116,16 +108,12 @@ namespace Cpp2IL.Core.Analysis
 
         public override void RunActionPostProcessors()
         {
-            //no-op
+            new RemovedUnusedLocalsPostProcessor<WasmInstruction>().PostProcess(Analysis);
+            new RenameLocalsPostProcessor<WasmInstruction>().PostProcess(Analysis);
         }
         public override void RunILPostProcessors(Mono.Cecil.Cil.MethodBody body)
         {
             //no-op
-        }
-
-        protected override void PerformInstructionChecks(WasmInstruction instruction)
-        {
-            
         }
     }
 }

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Logging;
+using LibCpp2IL.Metadata;
 using WasmDisassembler;
 
 namespace LibCpp2IL.Wasm
@@ -86,6 +87,9 @@ namespace LibCpp2IL.Wasm
             return FunctionTable[(int) realIndex];
         }
 
+        internal WasmGlobalType[] GlobalTypes => ImportSection.Entries.Where(e => e.Kind == WasmExternalKind.EXT_GLOBAL).Select(e => e.GlobalEntry).Concat(GlobalSection.Globals.Select(g => g.Type)).ToArray();
+
+        internal WasmGlobalSection GlobalSection => (WasmGlobalSection) Sections.First(s => s.Type == WasmSectionId.SEC_GLOBAL);
         internal WasmTypeSection TypeSection => (WasmTypeSection) Sections.First(s => s.Type == WasmSectionId.SEC_TYPE);
         
         internal WasmFunctionSection FunctionSection => (WasmFunctionSection) Sections.First(s => s.Type == WasmSectionId.SEC_FUNCTION);
