@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Utils;
@@ -23,6 +24,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             _regName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
             _op1 = context.GetLocalInReg(_regName);
 
+   
+            if(_op1 is {})
+                RegisterUsedLocal(_op1, context);
+
+            // TODO: Extend for doubles?
             _globalValue = BitConverter.ToSingle(LibCpp2IlMain.Binary!.GetRawBinaryContent(), (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(_globalAddr));
 
             _localMade = context.MakeLocal(TypeDefinitions.Single, reg: _regName);
@@ -30,7 +36,20 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_op1 is null || _localMade?.Variable is null)
+                throw new TaintedInstructionException("Operand we were adding to is null or local made was stripped");
+
+            List<Mono.Cecil.Cil.Instruction> instructions = new();
+            
+            instructions.AddRange(_op1.GetILToLoad(context, processor));
+            
+            instructions.Add(processor.Create(OpCodes.Ldc_R4, _globalValue)); 
+            
+            instructions.Add(processor.Create(OpCodes.Mul));
+            
+            instructions.Add(processor.Create(OpCodes.Stloc, _localMade.Variable));
+
+            return instructions.ToArray();
         }
 
         public override string? ToPsuedoCode()
