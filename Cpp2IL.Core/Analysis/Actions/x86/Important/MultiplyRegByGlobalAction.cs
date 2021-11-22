@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Utils;
@@ -10,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 {
     public class MultiplyRegByGlobalAction : BaseAction<Instruction>
     {
-        private LocalDefinition? _op1;
+        private LocalDefinition? _op0;
         private string? _regName;
         private float _globalValue;
         private LocalDefinition? _localMade;
@@ -21,8 +22,13 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             _globalAddr = instruction.MemoryDisplacement64;
             
             _regName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
-            _op1 = context.GetLocalInReg(_regName);
+            _op0 = context.GetLocalInReg(_regName);
 
+   
+            if(_op0 is {})
+                RegisterUsedLocal(_op0, context);
+
+            // TODO: Extend for doubles?
             _globalValue = BitConverter.ToSingle(LibCpp2IlMain.Binary!.GetRawBinaryContent(), (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(_globalAddr));
 
             _localMade = context.MakeLocal(TypeDefinitions.Single, reg: _regName);
@@ -30,17 +36,30 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
         public override Mono.Cecil.Cil.Instruction[] ToILInstructions(MethodAnalysis<Instruction> context, ILProcessor processor)
         {
-            throw new System.NotImplementedException();
+            if (_op0 is null || _localMade?.Variable is null)
+                throw new TaintedInstructionException("Operand we were multiplying by is null or local made was stripped");
+
+            List<Mono.Cecil.Cil.Instruction> instructions = new();
+            
+            instructions.AddRange(_op0.GetILToLoad(context, processor));
+            
+            instructions.Add(processor.Create(OpCodes.Ldc_R4, _globalValue)); 
+            
+            instructions.Add(processor.Create(OpCodes.Mul));
+            
+            instructions.Add(processor.Create(OpCodes.Stloc, _localMade.Variable));
+
+            return instructions.ToArray();
         }
 
         public override string? ToPsuedoCode()
         {
-            return $"{_localMade?.Type} {_localMade?.Name} = {_op1?.GetPseudocodeRepresentation()} * {_globalValue}";
+            return $"{_localMade?.Type} {_localMade?.Name} = {_op0?.GetPseudocodeRepresentation()} * {_globalValue}";
         }
 
         public override string ToTextSummary()
         {
-            return $"Multiplies {_op1} by the constant value at 0x{_globalAddr:X} in the binary, which is {_globalValue}, and stores the result in new local {_localMade} in register {_regName}";
+            return $"Multiplies {_op0} by the constant value at 0x{_globalAddr:X} in the binary, which is {_globalValue}, and stores the result in new local {_localMade} in register {_regName}";
         }
 
         public override bool IsImportant()

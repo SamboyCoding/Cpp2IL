@@ -267,6 +267,12 @@ namespace Cpp2IL.Core.Analysis
                 case Mnemonic.Setl:
                     Analysis.Actions.Add(new LessThanRegisterSetAction(Analysis, instruction));
                     break;
+                case Mnemonic.Setle:
+                    Analysis.Actions.Add(new LessThanOrEqualRegisterSetAction(Analysis, instruction));
+                    break;
+                case Mnemonic.Setge:
+                    Analysis.Actions.Add(new GreaterThanOrEqualRegisterSetAction(Analysis, instruction));
+                    break;
                 //Floating-point unit (FPU) instructions
                 case Mnemonic.Fld when memR != "rip" && memR != "rbp" && memOp is LocalDefinition:
                     //Load [addr] - which is a field address - onto the top of the floating point stack
@@ -641,9 +647,12 @@ namespace Cpp2IL.Core.Analysis
                     //Sub reg, reg
                     Analysis.Actions.Add(new SubtractRegFromRegAction(Analysis, instruction));
                     break;
-                case Mnemonic.Mulss when type0 == OpKind.Register && type1 == OpKind.Memory && memR == "rip":
-                    //mulss reg, [rip+0xblah]
-                    Analysis.Actions.Add(new MultiplyRegByGlobalAction(Analysis, instruction));
+                case Mnemonic.Mulss when type0 == OpKind.Register && type1 == OpKind.Memory:
+                    
+                    if(memR == "rip")//mulss reg, [rip+0xblah]
+                        Analysis.Actions.Add(new MultiplyRegByGlobalAction(Analysis, instruction));
+                    else // Fall back to direct field multiplication (basically any register other than rip)
+                        Analysis.Actions.Add(new MultiplyRegByFieldAction(Analysis, instruction));
                     break;
                 case Mnemonic.Divss when type0 == OpKind.Register && type1 == OpKind.Memory && memR == "rip":
                     //divss reg, [rip+0xblah]
