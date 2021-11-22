@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Logging;
+using WasmDisassembler;
 
 namespace LibCpp2IL.Wasm
 {
@@ -14,6 +15,7 @@ namespace LibCpp2IL.Wasm
         
         private byte[] _raw;
         private WasmMemoryBlock _memoryBlock;
+        private readonly Dictionary<string, WasmDynCallCoefficients> DynCallCoefficients = new();
 
         public WasmFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
         {
@@ -48,7 +50,7 @@ namespace LibCpp2IL.Wasm
             
             foreach (var importSectionEntry in ImportSection.Entries)
             {
-                if(importSectionEntry.Kind == WasmImportEntry.WasmExternalKind.EXT_FUNCTION)
+                if(importSectionEntry.Kind == WasmExternalKind.EXT_FUNCTION)
                     FunctionTable.Add(new(importSectionEntry));
             }
 
@@ -58,16 +60,29 @@ namespace LibCpp2IL.Wasm
                 FunctionTable.Add(new(this, codeSectionFunction, index));
             }
             
-            LibLogger.VerboseNewline($"\tBuilt function table of {FunctionTable.Count} entries.");
+            LibLogger.VerboseNewline($"\tBuilt function table of {FunctionTable.Count} entries. Calculating dynCall coefficients...");
+            
+            CalculateDynCallOffsets();
+            
+            LibLogger.VerboseNewline($"\tGot dynCall coefficients for {DynCallCoefficients.Count} signatures");
         }
 
         public override long RawLength => _raw.Length;
         public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
         public override byte[] GetRawBinaryContent() => _raw;
 
-        public WasmFunctionDefinition GetFunctionWithIndex(int index)
+        public WasmFunctionDefinition GetFunctionFromIndexAndSignature(ulong index, string signature)
         {
-            var realIndex = ElementSection.Elements[0].FunctionIndices![index];
+            if (!DynCallCoefficients.TryGetValue(signature, out var coefficients))
+                throw new($"Can't get function with signature {signature}, as it's not defined in the binary");
+
+            //Calculate adjusted dyncall index
+            index = (index & coefficients.andWith) + coefficients.addConstant;
+
+            //Use element section to look up real index
+            var realIndex = ElementSection.Elements[0].FunctionIndices![(int) index];
+            
+            //Look up real index in function table
             return FunctionTable[(int) realIndex];
         }
 
@@ -79,6 +94,66 @@ namespace LibCpp2IL.Wasm
         internal WasmCodeSection CodeSection => (WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE);
         internal WasmImportSection ImportSection => (WasmImportSection) Sections.First(s => s.Type == WasmSectionId.SEC_IMPORT);
         internal WasmElementSection ElementSection => (WasmElementSection) Sections.First(s => s.Type == WasmSectionId.SEC_ELEMENT);
+        internal WasmExportSection ExportSection => (WasmExportSection) Sections.First(s => s.Type == WasmSectionId.SEC_EXPORT);
+
+        private void CalculateDynCallOffsets()
+        {
+            var codeSec = CodeSection;
+            foreach (var exportedDynCall in ExportSection.Exports.Where(e => e.Kind == WasmExternalKind.EXT_FUNCTION && e.Name.Value.StartsWith("dynCall_")))
+            {
+                var signature = exportedDynCall.Name.Value["dynCall_".Length..];
+
+                var function = FunctionTable[(int) exportedDynCall.Index].AssociatedFunctionBody;
+                var funcBody = function!.Instructions;
+                var disassembled = Disassembler.Disassemble(funcBody, (uint) function.InstructionsOffset);
+                
+                //Find the consts, ands, and adds
+                var relevantInstructions = disassembled.Where(i => i.Mnemonic is WasmMnemonic.I32Const or WasmMnemonic.I32And or WasmMnemonic.I32Add).ToArray();
+
+                ulong andWith;
+                ulong add;
+
+                if (relevantInstructions.Length == 2)
+                {
+                    if (relevantInstructions[^1].Mnemonic == WasmMnemonic.I32And)
+                    {
+                        andWith = (ulong) relevantInstructions[0].Operands[0];
+                        add = 0;
+                    } else if (relevantInstructions[^1].Mnemonic == WasmMnemonic.I32Add)
+                    {
+                        add = (ulong) relevantInstructions[0].Operands[0];
+                        andWith = int.MaxValue;
+                    }
+                    else
+                    {
+                        LibLogger.WarnNewline($"\t\tCouldn't calculate coefficients for {signature}, got only 2 instructions but the last was {relevantInstructions[^1].Mnemonic}, not I32And or I32Add");
+                        continue;
+                    }
+                } else if (relevantInstructions.Length == 4)
+                {
+                    //Should be const, and, const, add
+                    if (!relevantInstructions.Select(i => i.Mnemonic).SequenceEqual(new[] {WasmMnemonic.I32Const, WasmMnemonic.I32And, WasmMnemonic.I32Const, WasmMnemonic.I32Add}))
+                    {
+                        LibLogger.WarnNewline($"\t\tCouldn't calculate coefficients for {signature}, got mnemonics {string.Join(", ", relevantInstructions.Select(i => i.Mnemonic))}, expecting I32Const, I32And, I32Const, I32Add");
+                        continue;
+                    }
+                    
+                    andWith = (ulong) relevantInstructions[0].Operands[0];
+                    add = (ulong) relevantInstructions[2].Operands[0];
+                }
+                else
+                {
+                    LibLogger.WarnNewline($"\t\tCouldn't calculate coefficients for {signature}, got {relevantInstructions.Length} instructions; expecting 4");
+                    continue;
+                }
+
+                DynCallCoefficients[signature] = new()
+                {
+                    andWith = andWith,
+                    addConstant = add,
+                };
+            }
+        }
         
         public override long MapVirtualAddressToRaw(ulong uiAddr)
         {

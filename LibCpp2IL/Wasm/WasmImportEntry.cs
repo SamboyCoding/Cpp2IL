@@ -42,12 +42,5 @@ namespace LibCpp2IL.Wasm
         }
 
         public override string ToString() => $"{Module}.{Field} (Type {Kind})";
-
-        public enum WasmExternalKind : byte {
-            EXT_FUNCTION,
-            EXT_TABLE,
-            EXT_MEMORY,
-            EXT_GLOBAL
-        }
     }
 }
