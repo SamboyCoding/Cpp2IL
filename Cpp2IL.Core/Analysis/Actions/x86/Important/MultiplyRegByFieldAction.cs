@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 {
     public class MultiplyRegByFieldAction : BaseAction<Instruction>
     {
-        private LocalDefinition? _op1;
+        private LocalDefinition? _op0;
         private string? _regName;
         private LocalDefinition? _localMade;
         private LocalDefinition? ReadFrom;
@@ -22,10 +22,10 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             
             _regName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
-            _op1 = context.GetLocalInReg(_regName);
+            _op0 = context.GetLocalInReg(_regName);
             
-            if(_op1 is {})
-                RegisterUsedLocal(_op1, context);
+            if(_op0 is {})
+                RegisterUsedLocal(_op0, context);
             
             var sourceRegName = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             _destRegName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
@@ -63,12 +63,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if (FieldRead is null)
                 throw new TaintedInstructionException("FieldRead was null");
             
-            if (_op1 is null || _localMade?.Variable is null)
-                throw new TaintedInstructionException("Operand we were adding to is null or local made was stripped");
+            if (_op0 is null || _localMade?.Variable is null)
+                throw new TaintedInstructionException("Operand we were multiplying by is null or local made was stripped");
 
             List<Mono.Cecil.Cil.Instruction> instructions = new();
             
-            instructions.AddRange(_op1.GetILToLoad(context, processor));
+            instructions.AddRange(_op0.GetILToLoad(context, processor));
             
             instructions.AddRange(FieldRead.GetILToLoad(processor));
             
@@ -81,12 +81,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         
         public override string? ToPsuedoCode()
         {
-            return $"{_localMade?.Type} {_localMade?.Name} = {_op1?.GetPseudocodeRepresentation()} * {ReadFrom?.Name}.{FieldRead}";
+            return $"{_localMade?.Type} {_localMade?.Name} = {_op0?.GetPseudocodeRepresentation()} * {ReadFrom?.Name}.{FieldRead}";
         }
 
         public override string ToTextSummary()
         {
-            return $"Multiplies {_op1} by the field {FieldRead} from {ReadFrom}, and stores the result in new local {_localMade} in register {_regName}";
+            return $"Multiplies {_op0} by the field {FieldRead} from {ReadFrom}, and stores the result in new local {_localMade} in register {_regName}";
         }
 
         public override bool IsImportant()
