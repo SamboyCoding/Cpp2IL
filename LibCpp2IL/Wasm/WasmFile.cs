@@ -88,6 +88,9 @@ namespace LibCpp2IL.Wasm
             // {
             //     return matchingEntry.FileOffset + (long) (uiAddr - (ulong) matchingEntry.VirtualOffset);
             // }
+
+            if (uiAddr > (ulong) (_memoryBlock.Bytes.Length + _raw.Length))
+                throw new("Way out of bounds");
             
             return (long) uiAddr;
         }
@@ -97,7 +100,7 @@ namespace LibCpp2IL.Wasm
             var data = DataSection;
             if (offset > data.Pointer && offset < data.Pointer + (long) data.Size)
             {
-                var segment = data.DataEntries.FirstOrDefault(entry => offset > entry.FileOffset && offset < entry.FileOffset + entry.Data.Length);
+                var segment = data.DataEntries.FirstOrDefault(entry => offset >= entry.FileOffset && offset < entry.FileOffset + entry.Data.Length);
             
                 if (segment is {VirtualOffset: < ulong.MaxValue})
                 {

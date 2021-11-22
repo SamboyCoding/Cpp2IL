@@ -32,29 +32,35 @@ namespace LibCpp2IL
             this.methodCount = methodCount;
             this.typeDefinitionsCount = typeDefinitionsCount;
         }
-        
-        private int FindBytes(byte[] blob, byte[] signature, int requiredAlignment = 1, int startOffset = 0) {
+
+        private int FindBytes(byte[] blob, byte[] signature, int requiredAlignment = 1, int startOffset = 0)
+        {
             var firstMatchByte = Array.IndexOf(blob, signature[0], startOffset);
             var test = new byte[signature.Length];
 
-            while (firstMatchByte >= 0 && firstMatchByte <= blob.Length - signature.Length) {
+            while (firstMatchByte >= 0 && firstMatchByte <= blob.Length - signature.Length)
+            {
                 Buffer.BlockCopy(blob, firstMatchByte, test, 0, signature.Length);
                 if (firstMatchByte % requiredAlignment == 0 && test.SequenceEqual(signature))
                     return firstMatchByte;
 
                 firstMatchByte = Array.IndexOf(blob, signature[0], firstMatchByte + 1);
             }
+
             return -1;
         }
 
         // Find all occurrences of a sequence of bytes, using word alignment by default
-        private IEnumerable<uint> FindAllBytes(byte[] signature, int alignment = 0) {
+        private IEnumerable<uint> FindAllBytes(byte[] signature, int alignment = 0)
+        {
             LibLogger.VerboseNewline($"\t\t\tLooking for bytes: {string.Join(" ", signature.Select(b => b.ToString("x2")))}");
             var offset = 0;
             var ptrSize = _binary.is32Bit ? 4 : 8;
-            while (offset != -1) {
+            while (offset != -1)
+            {
                 offset = FindBytes(binaryBytes, signature, alignment != 0 ? alignment : ptrSize, offset);
-                if (offset != -1) {
+                if (offset != -1)
+                {
                     yield return (uint) offset;
                     offset += ptrSize;
                 }
@@ -90,19 +96,19 @@ namespace LibCpp2IL
 
         // Find all valid virtual address pointers to a set of virtual addresses
         private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(FindAllMappedWords);
-        
+
         private IEnumerable<ulong> FindAllMappedWords(IEnumerable<uint> va) => va.SelectMany(a => FindAllMappedWords(a));
 
         public ulong FindCodeRegistrationPre2019()
         {
             //First item in the CodeRegistration is the number of methods.
             var vas = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(methodCount), 1)).ToList();
-            
+
             LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong) methodCount).Select(x => $"0x{x:X}"))}");
 
             if (vas.Count == 0)
                 return 0;
-            
+
             foreach (var va in vas)
             {
                 var cr = _binary.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(va);
@@ -119,17 +125,17 @@ namespace LibCpp2IL
         {
             //Works only on >=24.2
             var mscorlibs = FindAllStrings("mscorlib.dll\0").Select(idx => _binary.MapRawAddressToVirtual(idx)).ToList();
-            
+
             LibLogger.VerboseNewline($"\t\t\tFound {mscorlibs.Count} occurrences of mscorlib.dll: [{string.Join(", ", mscorlibs.Select(p => p.ToString("X")))}]");
-            
+
             var pMscorlibCodegenModule = FindAllMappedWords(mscorlibs).ToList(); //CodeGenModule address will be in here
-            
+
             LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenModule.Count} potential codegen modules for mscorlib: [{string.Join(", ", pMscorlibCodegenModule.Select(p => p.ToString("X")))}]");
-            
+
             var pMscorlibCodegenEntryInCodegenModulesList = FindAllMappedWords(pMscorlibCodegenModule).ToList(); //CodeGenModules list address will be in here
-            
+
             LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenEntryInCodegenModulesList.Count} address for potential codegen modules in potential codegen module lists: [{string.Join(", ", pMscorlibCodegenEntryInCodegenModulesList.Select(p => p.ToString("X")))}]");
-            
+
             var ptrSize = (_binary.is32Bit ? 4u : 8u);
 
             List<ulong>? pCodegenModules = null;
@@ -165,69 +171,36 @@ namespace LibCpp2IL
                 if (pCodegenModules.Count() > 1)
                     throw new Exception("Found more than 1 pointer as pCodegenModules");
             }
-            
-            LibLogger.VerboseNewline($"\t\t\tFound pCodegenModules at 0x{pCodegenModules.FirstOrDefault():X}");
 
-            switch (_binary.InstructionSet)
+            LibLogger.VerboseNewline($"\t\t\tFound {pCodegenModules.Count} potential pCodegenModules addresses: [{string.Join(", ", pCodegenModules.Select(p => p.ToString("X")))}]");
+
+            //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
+            //So, subtract the size of one pointer from that...
+            var bytesToGoBack = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppCodeRegistration)) - ptrSize;
+
+            LibLogger.VerboseNewline($"\t\t\tpCodegenModules is the second-to-last field of the codereg struct. Therefore on this version and architecture, we need to subtract {bytesToGoBack} bytes from its address to get pCodeReg");
+
+            var fields = typeof(Il2CppCodeRegistration).GetFields();
+            var fieldsByName = fields.ToDictionary(f => f.Name);
+
+            foreach (var pCodegenModule in pCodegenModules)
             {
-                // case InstructionSet.X86_64:
-                // {
-                //     if (!(_binary is PE.PE pe)) return 0;
-                //
-                //     var codeGenAddr = pCodegenModules.First();
-                //     var allInstructions = pe.DisassembleTextSection();
-                //
-                //     var allSensibleInstructions = allInstructions.Where(i =>
-                //             i.Mnemonic == Mnemonic.Lea
-                //             && i.OpCount == 2
-                //             && i.Op0Kind == OpKind.Register
-                //             && i.Op1Kind == OpKind.Memory
-                //         /*&& i.Op0Register == Register.RCX*/).ToList();
-                //
-                //     var sanity = 0;
-                //     while (sanity++ < 500)
-                //     {
-                //         var instruction = allSensibleInstructions.FirstOrDefault(i =>
-                //             i.GetRipBasedInstructionMemoryAddress() == codeGenAddr
-                //         );
-                //
-                //         if (instruction != default) return codeGenAddr;
-                //
-                //         codeGenAddr -= 8; //Always 64-bit here so IntPtr is 8
-                //     }
-                //
-                //     return 0;
-                // }
-                default:
-                    //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
-                    //So, subtract the size of one pointer from that...
-                    var bytesToGoBack = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppCodeRegistration)) - ptrSize;
-                    
-                    LibLogger.VerboseNewline($"\t\t\tpCodegenModules is the second-to-last field of the codereg struct. Therefore on this version and architecture, we need to subtract {bytesToGoBack} bytes from its address to get pCodeReg");
+                //...and subtract that from our pointer.
+                var address = pCodegenModule - bytesToGoBack;
+                LibLogger.Verbose($"\t\t\tConsidering potential code registration at 0x{address:X}...");
 
-                    var fields = typeof(Il2CppCodeRegistration).GetFields();
-                    var fieldsByName = fields.ToDictionary(f => f.Name);
-                    
-                    //Sanity checks
-                    foreach (var pCodegenModule in pCodegenModules)
-                    {
-                        var address = pCodegenModule - bytesToGoBack;
-                        LibLogger.Verbose($"\t\t\tConsidering potential code registration at 0x{address:X}...");
+                var codeReg = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(address);
 
-                        var codeReg = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(address);
+                var success = ValidateCodeRegistration(codeReg, fieldsByName);
 
-                        var success = ValidateCodeRegistration(codeReg, fieldsByName);
-
-                        if (success)
-                        {
-                            LibLogger.VerboseNewline("Looks good!");
-                            return address;
-                        }
-                    }
-
-                    //And subtract that from our pointer.
-                    return pCodegenModules.First() - bytesToGoBack;
+                if (success)
+                {
+                    LibLogger.VerboseNewline("Looks good!");
+                    return address;
+                }
             }
+            
+            return 0;
         }
 
         public static bool ValidateCodeRegistration(Il2CppCodeRegistration codeReg, Dictionary<string, FieldInfo> fieldsByName)
@@ -271,9 +244,9 @@ namespace LibCpp2IL
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
 
             var bytesToSubtract = sizeOfMr - ptrSize * 4;
-            
+
             var potentialMetaRegPointers = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(LibCpp2IlMain.TheMetadata!.typeDefs.Length), 1)).ToList();
-            
+
             LibLogger.VerboseNewline($"\t\t\tFound {potentialMetaRegPointers.Count} instances of the number of type defs, {LibCpp2IlMain.TheMetadata.typeDefs.Length}");
 
             potentialMetaRegPointers = potentialMetaRegPointers.Select(p => p - bytesToSubtract).ToList();
@@ -281,9 +254,12 @@ namespace LibCpp2IL
             foreach (var potentialMetaRegPointer in potentialMetaRegPointers)
             {
                 var mr = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
-                
-                if (mr.metadataUsagesCount == (ulong)LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length) 
+
+                if (mr.metadataUsagesCount == (ulong) LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length)
+                {
+                    LibLogger.VerboseNewline($"\t\t\tFound and selected probably valid metadata registration at 0x{potentialMetaRegPointer:X}.");
                     return potentialMetaRegPointer;
+                }
                 else
                     LibLogger.VerboseNewline($"\t\t\tSkipping 0x{potentialMetaRegPointer:X} as the metadata reg, metadata usage count was 0x{mr.metadataUsagesCount:X}, expecting 0x{LibCpp2IlMain.TheMetadata.metadataUsageLists.Length:X}");
             }
@@ -295,19 +271,19 @@ namespace LibCpp2IL
         {
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
             var sizeOfMr = (uint) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
-            
+
             LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{typeDefinitionsCount:X}");
             var ptrsToNumberOfTypes = FindAllMappedWords((ulong) typeDefinitionsCount).ToList();
 
             LibLogger.VerboseNewline($"\t\t\tFound {ptrsToNumberOfTypes.Count} instances of the number of type definitions: [{string.Join(", ", ptrsToNumberOfTypes.Select(p => p.ToString("X")))}]");
             var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4).ToList();
-            
+
             LibLogger.VerboseNewline($"\t\t\tFound {possibleMetadataUsages.Count} potential metadata registrations: [{string.Join(", ", possibleMetadataUsages.Select(p => p.ToString("X")))}]");
 
             var mrFieldCount = sizeOfMr / ptrSize;
             foreach (var va in possibleMetadataUsages)
             {
-                var mrWords = _binary.ReadClassArrayAtVirtualAddress<long>(va, (int) mrFieldCount);
+                var mrWords = _binary.ReadClassArrayAtVirtualAddress<ulong>(va, (int) mrFieldCount);
 
                 // Even field indices are counts, odd field indices are pointers
                 var ok = true;
@@ -316,31 +292,52 @@ namespace LibCpp2IL
                     if (i % 2 == 0)
                     {
                         //Count
-                        ok = mrWords[i] < 0xA_0000 && mrWords[i] >= 0;
+                        ok = mrWords[i] < 0xA_0000;
 
-                        if (!ok && mrWords[i] < 0xF_FFFF) 
-                            LibLogger.InfoNewline($"\tWARNING: Metadata Usage count field skipped as unreasonable because it is 0x{mrWords[i]:X} which is above sanity limit of 0xA0000. If metadata registration detection fails, need to bump up the limit.");
+                        if (!ok && mrWords[i] < 0xF_FFFF)
+                            LibLogger.VerboseNewline($"\t\t\tRejected Metadata registration at 0x{va:X}, because it has a count field 0x{mrWords[i]:X} which is above sanity limit of 0xA0000. If metadata registration detection fails, need to bump up the limit.");
                     }
                     else
                     {
                         //Pointer
                         if (mrWords[i] == 0)
                             ok = i >= 14; //Maybe need an investigation here, but metadataUsages can be (always is?) a null ptr on v27
-                        else 
-                            ok = _binary.TryMapVirtualAddressToRaw((ulong) mrWords[i], out _); //Can be mapped successfully to the binary. 
+                        else
+                        {
+                            ok = _binary.TryMapVirtualAddressToRaw((ulong) mrWords[i], out _); //Can be mapped successfully to the binary.
+                            if(!ok)
+                                LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i}, which is 0x{mrWords[i]:X}, can't be mapped to the binary.");
+                        }
                     }
+                    
+                    if(!ok)
+                        break;
                 }
 
                 if (ok)
                 {
-                    if (LibCpp2IlMain.MetadataVersion >= 27f)
+                    var metaReg = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(va);
+                    if (LibCpp2IlMain.MetadataVersion >= 27f && (metaReg.metadataUsagesCount != 0 || metaReg.metadataUsages != 0))
                     {
-                        var metaReg = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(va);
-                        if (metaReg.metadataUsagesCount == 0 && metaReg.metadataUsages == 0)
-                            return va;
+                        //Too many metadata usages - should be 0 on v27
+                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.metadataUsagesCount} metadata usages at a pointer of 0x{metaReg.metadataUsages:X}. We're on v27, these should be 0.");
+                        continue;
                     }
-                    else
-                        return va;
+
+                    if (metaReg.typeDefinitionsSizesCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                    {
+                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.typeDefinitionsSizesCount} type def sizes, while we have {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                        continue;
+                    }
+                    
+                    if (metaReg.numTypes < LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                    {
+                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.numTypes} types, while we have {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                        continue;
+                    }
+
+                    LibLogger.VerboseNewline($"\t\t\tAccepting metadata reg as VA 0x{va:X}");
+                    return va;
                 }
             }
 
