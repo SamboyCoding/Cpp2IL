@@ -1,7 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.Text;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
+using LibCpp2IL.Logging;
 using LibCpp2IL.Wasm;
 using Mono.Cecil;
 using WasmDisassembler;
@@ -10,8 +12,26 @@ namespace Cpp2IL.Core.Analysis
 {
     public class AsmAnalyzerWasm : AsmAnalyzerBase<WasmInstruction>
     {
-        private static List<WasmInstruction> DisassembleInstructions(WasmFunctionDefinition wasmFunc) => Disassembler.Disassemble(wasmFunc.AssociatedFunctionBody!.Instructions, (uint) wasmFunc.AssociatedFunctionBody.InstructionsOffset);
-        
+        private static List<WasmInstruction> DisassembleInstructions(WasmFunctionDefinition wasmFunc)
+        {
+            try
+            {
+                return Disassembler.Disassemble(wasmFunc.AssociatedFunctionBody!.Instructions, (uint) wasmFunc.AssociatedFunctionBody.InstructionsOffset);
+            }
+            catch (Exception e)
+            {
+                Logger.WarnNewline($"Disassembly has failed for a method. Its ghidra name is {WasmUtils.GetGhidraFunctionName(wasmFunc)}. The message was {e.Message}");
+                return new()
+                {
+                    new()
+                    {
+                        Ip = (uint) wasmFunc.AssociatedFunctionBody!.InstructionsOffset,
+                        Mnemonic = WasmMnemonic.Unreachable,
+                    }
+                };
+            }
+        }
+
         private static WasmFunctionDefinition GetWasmDefinition(MethodDefinition definition)
         {
             //First, we have to calculate the signature
@@ -29,6 +49,8 @@ namespace Cpp2IL.Core.Analysis
             : base(definition, (ulong) wasmDefinition.AssociatedFunctionBody!.InstructionsOffset, DisassembleInstructions(wasmDefinition), keyFunctionAddresses)
         {
             _wasmDefinition = wasmDefinition;
+            if(_instructions.Count == 1 && _instructions[0].Mnemonic == WasmMnemonic.Unreachable)
+                Logger.WarnNewline($"\tThe friendly name of the failed method is {definition.FullName}");
         }
 
         public AsmAnalyzerWasm(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(definition, GetWasmDefinition(definition), baseKeyFunctionAddresses)

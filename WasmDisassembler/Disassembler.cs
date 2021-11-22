@@ -57,10 +57,17 @@ public static class Disassembler
             case WasmMnemonic.GlobalGet:
             case WasmMnemonic.GlobalSet:
             case WasmMnemonic.LocalTee:
+            case WasmMnemonic.BrIf:
+            case WasmMnemonic.Br:
                 return new[] {typeof(byte)};
             case WasmMnemonic.I32Const:
+            case WasmMnemonic.I64Const:
             case WasmMnemonic.Call:
                 return new[] {typeof(LEB128)};
+            case WasmMnemonic.F32Const:
+                return new[] {typeof(float)};
+            case WasmMnemonic.F64Const:
+                return new[] {typeof(double)};
             case WasmMnemonic.CallIndirect:
                 //Type, table
                 return new[] {typeof(LEB128), typeof(byte)};
