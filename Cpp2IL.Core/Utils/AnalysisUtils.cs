@@ -6,6 +6,7 @@ using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Rocks;
+using WasmDisassembler;
 
 namespace Cpp2IL.Core.Utils
 {
@@ -21,6 +22,7 @@ namespace Cpp2IL.Core.Utils
                 Instruction x86 => x86.IP,
                 ArmInstruction arm => (ulong)arm.Address,
                 Arm64Instruction arm64 => (ulong)arm64.Address,
+                WasmInstruction wasmInstruction => wasmInstruction.Ip,
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
         }
@@ -35,6 +37,7 @@ namespace Cpp2IL.Core.Utils
                 Instruction x86 => x86.NextIP,
                 ArmInstruction arm => (ulong)(arm.Address + 4),
                 Arm64Instruction arm64 => (ulong)(arm64.Address + 4),
+                WasmInstruction wasmInstruction => wasmInstruction.NextIp,
                 _ => throw new($"Unsupported instruction type {t.GetType()}"),
             };
         }

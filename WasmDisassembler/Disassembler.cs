@@ -18,6 +18,7 @@ public static class Disassembler
 
             var instruction = reader.ReadInstruction(mnemonic);
             instruction.Ip = ip;
+            instruction.NextIp = virtualAddress + (uint) s.Position; //Next ip is position we go into the next instruction with
             ret.Add(instruction);
         }
 
@@ -42,12 +43,23 @@ public static class Disassembler
 
     private static Type[] GetOperandTypes(this WasmMnemonic mnemonic)
     {
+        if (mnemonic is >= WasmMnemonic.I32Load and <= WasmMnemonic.I64Store32)
+            //Align, offset
+            return new[] {typeof(LEB128), typeof(LEB128)};
+
         switch (mnemonic)
         {
+            case WasmMnemonic.If:
+            case WasmMnemonic.Block:
+            case WasmMnemonic.Loop:
             case WasmMnemonic.LocalGet:
             case WasmMnemonic.LocalSet:
+            case WasmMnemonic.GlobalGet:
+            case WasmMnemonic.GlobalSet:
+            case WasmMnemonic.LocalTee:
                 return new[] {typeof(byte)};
             case WasmMnemonic.I32Const:
+            case WasmMnemonic.Call:
                 return new[] {typeof(LEB128)};
             case WasmMnemonic.CallIndirect:
                 //Type, table

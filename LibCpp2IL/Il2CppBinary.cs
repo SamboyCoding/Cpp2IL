@@ -318,8 +318,7 @@ namespace LibCpp2IL
                     var ptr = (ulong) fieldOffsets[typeIndex];
                     if (ptr > 0)
                     {
-                        Position = (long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType);
-                        offset = ReadInt32();
+                        offset = ReadClassAtRawAddr<int>((long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType));
                     }
                 }
                 else

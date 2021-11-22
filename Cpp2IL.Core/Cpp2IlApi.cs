@@ -293,7 +293,7 @@ namespace Cpp2IL.Core
                 InstructionSet.X86_64 => new X86KeyFunctionAddresses(),
                 InstructionSet.ARM64 => new Arm64KeyFunctionAddresses(),
                 InstructionSet.ARM32 => throw new UnsupportedInstructionSetException(), //todo
-                InstructionSet.WASM => throw new UnsupportedInstructionSetException(),
+                InstructionSet.WASM => new WasmKeyFunctionAddresses(),
                 _ => throw new ArgumentOutOfRangeException()
             };
 
@@ -448,9 +448,6 @@ namespace Cpp2IL.Core
             if (keyFunctionAddresses == null && LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64)
                 throw new ArgumentNullException(nameof(keyFunctionAddresses));
 
-            if (LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.WASM)
-                throw new UnsupportedInstructionSetException();
-
             IlContinueThroughErrors = continueThroughErrors;
 
             AsmAnalyzerX86.FAILED_METHODS = 0;
@@ -564,6 +561,7 @@ namespace Cpp2IL.Core
                             InstructionSet.X86_32 or InstructionSet.X86_64 => new AsmAnalyzerX86(methodDefinition, methodStart, keyFunctionAddresses!),
                             InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, methodStart, keyFunctionAddresses!),
                             InstructionSet.ARM64 => new AsmAnalyzerArmV8A(methodDefinition, methodStart, keyFunctionAddresses!),
+                            InstructionSet.WASM => new AsmAnalyzerWasm(methodDefinition, methodStart, keyFunctionAddresses!),
                             _ => throw new UnsupportedInstructionSetException()
                         };
 

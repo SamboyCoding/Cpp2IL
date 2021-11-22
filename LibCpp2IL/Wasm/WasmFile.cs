@@ -200,7 +200,7 @@ namespace LibCpp2IL.Wasm
 
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {
-            throw new System.NotImplementedException();
+            return 0; //Never going to be anything useful, so don't bother looking
         }
 
         public override byte[] GetEntirePrimaryExecutableSection() => ((WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE)).RawSectionContent;

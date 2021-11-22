@@ -109,7 +109,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 HandleArm64Parameters();
                 return; //TODO handle stack params
             }
-            else if (LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_32)
+            else if (LibCpp2IlMain.Binary.InstructionSet is not InstructionSet.X86_32 and not InstructionSet.WASM)
             {
                 _parameterDestRegList = LibCpp2IlMain.Binary.InstructionSet switch
                 {
@@ -138,7 +138,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             }
             else if (!method.IsStatic)
             {
-                //32-bit, instance method
+                //x86_32 and wasm are stack based
                 method.Body.ThisParameter.Name = "this";
                 FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this").WithParameter(method.Body.ThisParameter));
                 Stack.Push(FunctionArgumentLocals.First());

@@ -1,54 +1,37 @@
-﻿#define DEBUG_PRINT_OPERAND_DATA
-
 using System.Collections.Generic;
-using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Utils;
-using Gee.External.Capstone;
-using Gee.External.Capstone.Arm;
 using LibCpp2IL;
+using LibCpp2IL.Wasm;
 using Mono.Cecil;
-using Mono.Collections.Generic;
+using WasmDisassembler;
 
 namespace Cpp2IL.Core.Analysis
 {
-    public class AsmAnalyzerArmV7 : AsmAnalyzerBase<ArmInstruction>
+    public class AsmAnalyzerWasm : AsmAnalyzerBase<WasmInstruction>
     {
-        private static List<ulong> _allKnownFunctionStarts;
-
-        static AsmAnalyzerArmV7()
+        private static List<WasmInstruction> DisassembleInstructions(WasmFunctionDefinition wasmFunc) => Disassembler.Disassemble(wasmFunc.AssociatedFunctionBody!.Instructions, (uint) wasmFunc.AssociatedFunctionBody.InstructionsOffset);
+        
+        private static WasmFunctionDefinition GetWasmDefinition(MethodDefinition definition)
         {
-            _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer).Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys).ToList();
-            //Sort in ascending order
-            _allKnownFunctionStarts.Sort();
+            //First, we have to calculate the signature
+            var signature = WasmUtils.BuildSignature(definition);
+            return ((WasmFile) LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(definition.AsUnmanaged().MethodPointer, signature);
         }
         
-        private static List<ArmInstruction> DisassembleInstructions(MethodDefinition definition)
-        {
-            var baseAddress = definition.AsUnmanaged().MethodPointer;
-            
-            //We can't use CppMethodBodyBytes to get the byte array, because ARMv7 doesn't have filler bytes like x86 does.
-            //So we can't work out the end of the method.
-            //But we can find the start of the next one!
-            var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(_allKnownFunctionStarts.FirstOrDefault(a => a > baseAddress));
-            var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(baseAddress);
-            if (rawStartOfNextMethod < rawStart)
-                rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
-            
-            var bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().Skip((int)rawStart).Take((int)(rawStartOfNextMethod - rawStart)).ToArray();
+        private readonly WasmFunctionDefinition _wasmDefinition;
 
-            var disassembler = CapstoneDisassembler.CreateArmDisassembler(ArmDisassembleMode.Arm);
-            disassembler.EnableInstructionDetails = true;
-            disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
-
-            return disassembler.Disassemble(bytes, (long)baseAddress).ToList();
-        }
-
-        public AsmAnalyzerArmV7(ulong methodPointer, IEnumerable<ArmInstruction> instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)
+        public AsmAnalyzerWasm(ulong methodPointer, IEnumerable<WasmInstruction> instructions, BaseKeyFunctionAddresses keyFunctionAddresses) : base(methodPointer, instructions, keyFunctionAddresses)
         {
         }
 
-        public AsmAnalyzerArmV7(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : base(definition, methodPointer, DisassembleInstructions(definition), baseKeyFunctionAddresses)
+        private AsmAnalyzerWasm(MethodDefinition definition, WasmFunctionDefinition wasmDefinition, BaseKeyFunctionAddresses keyFunctionAddresses)
+            : base(definition, (ulong) wasmDefinition.AssociatedFunctionBody!.InstructionsOffset, DisassembleInstructions(wasmDefinition), keyFunctionAddresses)
+        {
+            _wasmDefinition = wasmDefinition;
+        }
+
+        public AsmAnalyzerWasm(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(definition, GetWasmDefinition(definition), baseKeyFunctionAddresses)
         {
         }
 
@@ -69,8 +52,9 @@ namespace Cpp2IL.Core.Analysis
             var builder = new StringBuilder();
 
             builder.Append($"Method: {MethodDefinition?.FullName}:\n");
+            builder.Append($"Ghidra Name: {WasmUtils.GetGhidraFunctionName(_wasmDefinition)}\n");
 
-            builder.Append("\tMethod Body (ARMv7 ASM):");
+            builder.Append("\tMethod Body (WebAssembly):");
 
 #if DEBUG_PRINT_OPERAND_DATA
             builder.Append("  {T0}/R0 {T1}/R1 {T2}/R2 ||| MBase | MOffset | MIndex ||| Imm0 | Imm1 | Imm2");
@@ -80,7 +64,7 @@ namespace Cpp2IL.Core.Analysis
             foreach (var instruction in _instructions)
             {
                 var line = new StringBuilder();
-                line.Append("0x").Append(instruction.Address.ToString("X8").ToUpperInvariant()).Append(' ').Append(instruction.Mnemonic).Append(' ').Append(instruction.Operand);
+                line.Append(instruction);
 
                 //Dump debug data
 #if DEBUG_PRINT_OPERAND_DATA
@@ -117,7 +101,7 @@ namespace Cpp2IL.Core.Analysis
             //no-op
         }
 
-        protected override void PerformInstructionChecks(ArmInstruction instruction)
+        protected override void PerformInstructionChecks(WasmInstruction instruction)
         {
             
         }
