@@ -30,97 +30,100 @@ namespace Cpp2IL.Core
             var attributeGeneratorList = SharedState.AttributeGeneratorStarts.ToList();
             attributeGeneratorList.SortByExtractedKey(a => a);
 
-            if (LibCpp2IlMain.Binary is not NsoFile)
+            if (attributeGeneratorList.Count > 0)
             {
-                Logger.VerboseNewline($"\tLast attribute generator function is at address 0x{attributeGeneratorList[^1]:X}. Skipping everything before that.");
-
-                //Optimisation: We can skip all bytes up to and including the last attribute restoration function
-                //However we don't know how long the last restoration function is, so just skip up to it, we'd only be saving a further 100 instructions or so
-                //These come at the beginning of the .text section usually and the only thing that comes before them is unmanaged finalizers and initializers.
-                //This may not be correct on v29 which uses the Bee compiler, which may do things differently
-                var oldLength = primaryExecutableSection.Length;
-
-                var toRemove = (int) (attributeGeneratorList[^1] - primaryExecutableSectionVa);
-                primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
-
-                primaryExecutableSectionVa = attributeGeneratorList[^1];
-
-                Logger.VerboseNewline($"\tBy trimming out attribute generator functions, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100 / (float) oldLength:f1}% saving)");
-
-                //Some games (e.g. Muse Dash APK) contain the il2cpp-ified methods in the .text section instead of their own dedicated one.
-                //That makes this very slow
-                //Try and detect the first function
-                var methodAddresses = SharedState.MethodsByAddress.Keys.Where(a => a > 0).ToList();
-                methodAddresses.SortByExtractedKey(a => a);
-
-                if (methodAddresses[0] < endOfTextSection && LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_new") != 0)
+                if (LibCpp2IlMain.Binary is not NsoFile)
                 {
-                    var exportAddresses = new[]
+                    Logger.VerboseNewline($"\tLast attribute generator function is at address 0x{attributeGeneratorList[^1]:X}. Skipping everything before that.");
+
+                    //Optimisation: We can skip all bytes up to and including the last attribute restoration function
+                    //However we don't know how long the last restoration function is, so just skip up to it, we'd only be saving a further 100 instructions or so
+                    //These come at the beginning of the .text section usually and the only thing that comes before them is unmanaged finalizers and initializers.
+                    //This may not be correct on v29 which uses the Bee compiler, which may do things differently
+                    var oldLength = primaryExecutableSection.Length;
+
+                    var toRemove = (int) (attributeGeneratorList[^1] - primaryExecutableSectionVa);
+                    primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+
+                    primaryExecutableSectionVa = attributeGeneratorList[^1];
+
+                    Logger.VerboseNewline($"\tBy trimming out attribute generator functions, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100 / (float) oldLength:f1}% saving)");
+
+                    //Some games (e.g. Muse Dash APK) contain the il2cpp-ified methods in the .text section instead of their own dedicated one.
+                    //That makes this very slow
+                    //Try and detect the first function
+                    var methodAddresses = SharedState.MethodsByAddress.Keys.Where(a => a > 0).ToList();
+                    methodAddresses.SortByExtractedKey(a => a);
+
+                    if (methodAddresses[0] < endOfTextSection && LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_new") != 0)
                     {
-                        "il2cpp_object_new", "il2cpp_value_box", "il2cpp_runtime_class_init", "il2cpp_array_new_specific",
-                        "il2cpp_type_get_object", "il2cpp_resolve_icall", "il2cpp_string_new", "il2cpp_string_new_wrapper",
-                        "il2cpp_raise_exception"
-                    }.Select(LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName).Where(a => a > 0).ToArray();
+                        var exportAddresses = new[]
+                        {
+                            "il2cpp_object_new", "il2cpp_value_box", "il2cpp_runtime_class_init", "il2cpp_array_new_specific",
+                            "il2cpp_type_get_object", "il2cpp_resolve_icall", "il2cpp_string_new", "il2cpp_string_new_wrapper",
+                            "il2cpp_raise_exception"
+                        }.Select(LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName).Where(a => a > 0).ToArray();
 
-                    var lastExport = exportAddresses.Max();
-                    var firstExport = exportAddresses.Min();
+                        var lastExport = exportAddresses.Max();
+                        var firstExport = exportAddresses.Min();
 
-                    Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section and api functions are available. Attempting to trim out managed methods for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}, " +
-                                          $"the first export function is at 0x{firstExport:X} and the last at 0x{lastExport:X}");
+                        Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section and api functions are available. Attempting to trim out managed methods for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}, " +
+                                              $"the first export function is at 0x{firstExport:X} and the last at 0x{lastExport:X}");
 
-                    //I am assuming, arbitrarily, that the exports are always towards the end of the managed methods, in this case.
-                    var startFrom = Math.Min(firstExport, methodAddresses[^1]);
+                        //I am assuming, arbitrarily, that the exports are always towards the end of the managed methods, in this case.
+                        var startFrom = Math.Min(firstExport, methodAddresses[^1]);
 
-                    //Just in case we didn't get the first export, let's subtract a little
-                    if (startFrom > 0x100_0000)
-                        startFrom -= 0x10_0000;
+                        //Just in case we didn't get the first export, let's subtract a little
+                        if (startFrom > 0x100_0000)
+                            startFrom -= 0x10_0000;
 
-                    Logger.VerboseNewline($"\tTrimming everything before 0x{startFrom:X}.");
-                    oldLength = primaryExecutableSection.Length;
+                        Logger.VerboseNewline($"\tTrimming everything before 0x{startFrom:X}.");
+                        oldLength = primaryExecutableSection.Length;
 
-                    toRemove = (int) (startFrom - primaryExecutableSectionVa);
-                    primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+                        toRemove = (int) (startFrom - primaryExecutableSectionVa);
+                        primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
 
-                    primaryExecutableSectionVa = startFrom;
+                        primaryExecutableSectionVa = startFrom;
 
-                    Logger.VerboseNewline($"\tBy trimming out most of the il2cpp-ified managed methods, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100L / (float) oldLength:f1}% saving)");
+                        Logger.VerboseNewline($"\tBy trimming out most of the il2cpp-ified managed methods, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100L / (float) oldLength:f1}% saving)");
+                    }
+                    else if (methodAddresses[0] < endOfTextSection)
+                    {
+                        Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section, but api functions are not available. Attempting to (conservatively) trim out managed methods for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}");
+
+                        var startFrom = methodAddresses[^1];
+
+                        //Just in case the exports are mixed in with the end of the managed methods, let's subtract a little
+                        if (startFrom > 0x100_0000)
+                            startFrom -= 0x10_0000;
+
+                        Logger.VerboseNewline($"\tTrimming everything before 0x{startFrom:X}.");
+                        oldLength = primaryExecutableSection.Length;
+
+                        toRemove = (int) (startFrom - primaryExecutableSectionVa);
+                        primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+
+                        primaryExecutableSectionVa = startFrom;
+
+                        Logger.VerboseNewline($"\tBy trimming out most of the il2cpp-ified managed methods, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100L / (float) oldLength:f1}% saving)");
+                    }
                 }
-                else if (methodAddresses[0] < endOfTextSection)
+                else
                 {
-                    Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section, but api functions are not available. Attempting to (conservatively) trim out managed methods for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}");
+                    //For now we skip everything after the last attribute generator. Not sure this is always reliable but in test binaries it works.
+                    //We choose last not first to include all the generators, so that we hopefully have some context for api function detection.
+                    Logger.VerboseNewline($"\tNSO: Last attribute generator function is at address 0x{attributeGeneratorList[^1]:X}. Skipping everything after that.");
 
-                    var startFrom = methodAddresses[^1];
+                    var oldLength = primaryExecutableSection.Length;
 
-                    //Just in case the exports are mixed in with the end of the managed methods, let's subtract a little
-                    if (startFrom > 0x100_0000)
-                        startFrom -= 0x10_0000;
+                    var toKeep = (int) (attributeGeneratorList[^1] - primaryExecutableSectionVa);
+                    primaryExecutableSection = primaryExecutableSection.SubArray(..toKeep);
 
-                    Logger.VerboseNewline($"\tTrimming everything before 0x{startFrom:X}.");
-                    oldLength = primaryExecutableSection.Length;
+                    //This doesn't change, we've trimmed the end, not the beginning
+                    // primaryExecutableSectionVa = primaryExecutableSectionVa;
 
-                    toRemove = (int) (startFrom - primaryExecutableSectionVa);
-                    primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
-
-                    primaryExecutableSectionVa = startFrom;
-
-                    Logger.VerboseNewline($"\tBy trimming out most of the il2cpp-ified managed methods, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100L / (float) oldLength:f1}% saving)");
+                    Logger.VerboseNewline($"\tBy trimming out everything after and including attribute generator functions, reduced decompilation work by {oldLength - toKeep} of {oldLength} bytes (a {(oldLength - toKeep) * 100L / (float) oldLength:f1}% saving)");
                 }
-            }
-            else
-            {
-                //For now we skip everything after the last attribute generator. Not sure this is always reliable but in test binaries it works.
-                //We choose last not first to include all the generators, so that we hopefully have some context for api function detection.
-                Logger.VerboseNewline($"\tNSO: Last attribute generator function is at address 0x{attributeGeneratorList[^1]:X}. Skipping everything after that.");
-                
-                var oldLength = primaryExecutableSection.Length;
-
-                var toKeep = (int) (attributeGeneratorList[^1] - primaryExecutableSectionVa);
-                primaryExecutableSection = primaryExecutableSection.SubArray(..toKeep);
-
-                //This doesn't change, we've trimmed the end, not the beginning
-                // primaryExecutableSectionVa = primaryExecutableSectionVa;
-
-                Logger.VerboseNewline($"\tBy trimming out everything after and including attribute generator functions, reduced decompilation work by {oldLength-toKeep} of {oldLength} bytes (a {(oldLength-toKeep) * 100L / (float) oldLength:f1}% saving)");
             }
 
             _allInstructions = disassembler.Disassemble(primaryExecutableSection, (long) primaryExecutableSectionVa).ToList();

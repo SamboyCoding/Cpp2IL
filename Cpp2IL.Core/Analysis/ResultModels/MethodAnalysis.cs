@@ -17,6 +17,8 @@ namespace Cpp2IL.Core.Analysis.ResultModels
 {
     public class MethodAnalysis<TInstruction>
     {
+        public BaseKeyFunctionAddresses KeyFunctionAddresses { get; }
+
         public delegate void PtrConsumer(ulong ptr);
 
         public readonly List<LocalDefinition> UnusedLocals = new();
@@ -76,8 +78,9 @@ namespace Cpp2IL.Core.Analysis.ResultModels
         }
         
         //For analysing cpp-only methods, like attribute generators
-        internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, IList<TInstruction> allInstructions)
+        internal MethodAnalysis(ulong methodStart, ulong initialMethodEnd, BaseKeyFunctionAddresses keyFunctionAddresses, IList<TInstruction> allInstructions)
         {
+            KeyFunctionAddresses = keyFunctionAddresses;
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
             _allInstructions = new(allInstructions);
@@ -88,8 +91,9 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 _parameterDestRegList = new() { "rcx", "rdx", "r8", "r9" };
         }
 
-        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, IList<TInstruction> allInstructions)
+        internal MethodAnalysis(MethodDefinition method, ulong methodStart, ulong initialMethodEnd, BaseKeyFunctionAddresses keyFunctionAddresses, IList<TInstruction> allInstructions)
         {
+            KeyFunctionAddresses = keyFunctionAddresses;
             _method = method;
             MethodStart = methodStart;
             AbsoluteMethodEnd = initialMethodEnd;
@@ -105,7 +109,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 HandleArm64Parameters();
                 return; //TODO handle stack params
             }
-            else if (LibCpp2IlMain.Binary.InstructionSet != InstructionSet.X86_32)
+            else if (LibCpp2IlMain.Binary.InstructionSet is not InstructionSet.X86_32 and not InstructionSet.WASM)
             {
                 _parameterDestRegList = LibCpp2IlMain.Binary.InstructionSet switch
                 {
@@ -134,7 +138,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             }
             else if (!method.IsStatic)
             {
-                //32-bit, instance method
+                //x86_32 and wasm are stack based
                 method.Body.ThisParameter.Name = "this";
                 FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this").WithParameter(method.Body.ThisParameter));
                 Stack.Push(FunctionArgumentLocals.First());

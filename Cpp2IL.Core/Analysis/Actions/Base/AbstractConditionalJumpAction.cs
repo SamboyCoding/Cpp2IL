@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         protected bool IsIfStatement;
         protected bool IsIfElse;
         protected bool IsWhile;
-        protected bool IsImplicitNullReferenceException;
+        protected bool IsImplicitExceptionThrower;
         protected bool IsGoto;
         
         protected AbstractConditionalJumpAction(MethodAnalysis<T> context, ulong branchTarget, T associatedInstruction) : base(context, associatedInstruction)
@@ -23,10 +23,10 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             associatedCompare = (AbstractComparisonAction<T>?) context.Actions.LastOrDefault(a => a is AbstractComparisonAction<T>);
             
             //Check for implicit NRE
-            if (IsImplicitNRE())
+            if (IsExceptionThrowWhichIsImplicitInCSharp())
             {
                 //Simply an NRE thrower. Important in cpp code, not in managed.
-                IsImplicitNullReferenceException = true;
+                IsImplicitExceptionThrower = true;
                 return;  //Do not increase indent, do not register used local, do not pass go, do not collect $200.
             }
             
@@ -98,6 +98,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             }
             else if (associatedCompare?.UnimportantComparison == false)
             {
+                //Check for array type check
+                if (IsArrayTypeCheck(context))
+                {
+                    AddComment("Skipping if statement, is array type check");
+                    IsImplicitExceptionThrower = true;
+                    return;
+                }
+
                 //Just an if. No else, no while.
                 context.RegisterIfStatement(associatedInstruction.GetNextInstructionAddress(), JumpTarget, this);
 
@@ -118,12 +126,14 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         
         protected virtual bool OnlyNeedToLoadOneOperand() => false;
 
-        protected abstract bool IsImplicitNRE();
+        protected virtual bool IsArrayTypeCheck(MethodAnalysis<T> methodAnalysis) => false;
+
+        protected abstract bool IsExceptionThrowWhichIsImplicitInCSharp();
         protected abstract OpCode GetJumpOpcode();
 
         public sealed override bool IsImportant()
         {
-            return !IsImplicitNullReferenceException && associatedCompare?.UnimportantComparison == false && (IsIfElse || IsWhile || IsIfStatement || IsGoto);
+            return !IsImplicitExceptionThrower && associatedCompare?.UnimportantComparison == false && (IsIfElse || IsWhile || IsIfStatement || IsGoto);
         }
 
         protected string GetArgumentOnePseudocodeValue()
@@ -150,7 +160,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         public sealed override string ToTextSummary()
         {
-            if (IsImplicitNullReferenceException)
+            if (IsImplicitExceptionThrower)
                 return $"Jumps to 0x{JumpTarget:X} (which throws a NRE) if {GetTextSummaryCondition()}. Implicitly present in managed code, so ignored here.";
 
             return $"Jumps to 0x{JumpTarget:X}{(IsIfStatement ? " (which is an if statement's body)" : "")} if {GetTextSummaryCondition()}\n";

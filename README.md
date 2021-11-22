@@ -106,35 +106,35 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 | ELF (SO files, Linux) | ✔️ | ✔️ | ✔️ | ✔️ | N/A |
 | NSO (Switch)   | N/A | N/A | N/A | ✔️ | Switch is ArmV8, that is the only supported instruction set. Compression supported. |
 | APK (Android)  | ✔ | ❌ | ✔️ | ✔️ | Unpacks the APK, then delegates to ELF loader. |
-| WASM (WebAssembly) | N/A | N/A | N/A | N/A | Not supported yet, but planned. |
+| WASM (WebAssembly) | N/A | N/A | N/A | N/A | WASM is its own instruction set, which **is** supported for dumps but not analyzed yet |
 | Mach-O (Mac OS)| ❌ | ❌ | N/A? | ❌ | Not supported yet, but planned |
 
 
 ## Supported Analysis Features Table
 
-|                       Feature                       | Supported in x86 | Supported in ARMv8 | Supported in ARMv7 |
-|:---------------------------------------------------:|:----------------:|:------------------:|:------------------:|
-|               Simple Method Calls[^1]               |        ✔️        |         ✔️         |         ❌          |
-|        Virtual function calls (via vftable)         |        ✔️        |         ❌          |         ❌          |
-|   Interface function calls (via interfaceOffsets)   |        ✔️        |         ❌          |         ❌          |
-|       Argument resolution for function calls        |        ✔️        |         ✔️         |         ❌          |
-|                Object Instantiation                 |        ✔️        |         ✔️         |         ❌          |
-|         Unmanaged String Literal Detection          |        ✔️        |         ✔️         |         ❌          |
-|                Instance field reads                 |        ✔️        |         ✔️         |         ❌          |
-|                Instance field writes                |        ✔️        |         ✔️         |         ❌          |
-|                 Static field reads                  |        ✔️        |         ✔️         |         ❌          |
-|                 Static field writes                 |        ✔️        |         ✔️         |         ❌          |
-|       IL2CPP "Exception Helper" functions[^2]       |        ✔️        |         ✔️         |         ❌          |
-|          IL2CPP MetadataUsage parsing[^3]           |        ✔️        |         ✔️         |         ❌          |
-|                 Array instantiation                 |        ✔️        |         ❌          |         ❌          |
-|                 Array offset reads                  |        ✔️        |         ❌          |         ❌          |
-|                 Array offset writes                 |        ✔️        |         ❌          |         ❌          |
-|                  Array length read                  |        ✔️        |         ❌          |         ❌          |
-|           If/While/for/else if detection            |        ✔️        |    Partial[^4]     |         ❌          |
-|               Mathematical operations               |   Partial[^5]    |         ❌          |         ❌          |
-|         Floating point coprocessor support          |        ✔️        |        N/A         |        N/A         |
-|                  RGCTX[^6] Support                  |        ✔️        |         ❌          |         ❌          |
-| Return statements, including return value detection |        ✔️        |         ✔️         |         ❌          |
+|                       Feature                       | Supported in x86 | Supported in ARMv8 | Supported in ARMv7 | Supported in WASM |
+|:---------------------------------------------------:|:----------------:|:------------------:|:------------------:|:-----------------:|
+|               Simple Method Calls[^1]               |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|        Virtual function calls (via vftable)         |        ✔️        |         ❌          |         ❌          |         ❌         |
+|   Interface function calls (via interfaceOffsets)   |        ✔️        |         ❌          |         ❌          |         ❌         |
+|       Argument resolution for function calls        |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|                Object Instantiation                 |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|         Unmanaged String Literal Detection          |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|                Instance field reads                 |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|                Instance field writes                |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|                 Static field reads                  |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|                 Static field writes                 |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|       IL2CPP "Exception Helper" functions[^2]       |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|          IL2CPP MetadataUsage parsing[^3]           |        ✔️        |         ✔️         |         ❌          |         ❌         |
+|                 Array instantiation                 |        ✔️        |         ❌          |         ❌          |         ❌         |
+|                 Array offset reads                  |        ✔️        |         ❌          |         ❌          |         ❌         |
+|                 Array offset writes                 |        ✔️        |         ❌          |         ❌          |         ❌         |
+|                  Array length read                  |        ✔️        |         ❌          |         ❌          |         ❌         |
+|           If/While/for/else if detection            |        ✔️        |    Partial[^4]     |         ❌          |         ❌         |
+|               Mathematical operations               |   Partial[^5]    |         ❌          |         ❌          |         ❌         |
+|         Floating point coprocessor support          |        ✔️        |        N/A         |        N/A         |        N/A        |
+|                  RGCTX[^6] Support                  |        ✔️        |         ❌          |         ❌          |         ❌         |
+| Return statements, including return value detection |        ✔️        |         ✔️         |         ❌          |         ❌         |
 
 [^1]: A simple function call is one that is non-virtual, and not defined in an interface. This includes both static and instance functions.
 [^2]: An exception helper is a function call which throws an exception, halting the execution of the current function. These are used for checks which are implicit in the .NET runtime, such as throwing NullReferenceExceptions if something is null and a field is accessed on it.

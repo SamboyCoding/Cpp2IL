@@ -309,7 +309,7 @@ namespace Cpp2IL
             //We need to run key function sweep if we can for attribute restoration
             //or if we want to analyze. But we DON'T need it for restoration on v29
             var attributeRestorationNeedsKfas = LibCpp2IlMain.MetadataVersion < 29 && !runtimeArgs.SimpleAttributeRestoration;
-            var canGetKfas = LibCpp2IlMain.Binary?.InstructionSet != InstructionSet.ARM32;
+            var canGetKfas = LibCpp2IlMain.Binary?.InstructionSet is not InstructionSet.ARM32;
             if (canGetKfas && (attributeRestorationNeedsKfas || runtimeArgs.EnableAnalysis))
             {
                 Logger.InfoNewline("Running Scan for Known Functions...");

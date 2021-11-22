@@ -318,8 +318,7 @@ namespace LibCpp2IL
                     var ptr = (ulong) fieldOffsets[typeIndex];
                     if (ptr > 0)
                     {
-                        Position = (long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType);
-                        offset = ReadInt32();
+                        offset = ReadClassAtRawAddr<int>((long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType));
                     }
                 }
                 else
@@ -377,7 +376,14 @@ namespace LibCpp2IL
 
         public ulong GetCustomAttributeGenerator(int index) => customAttributeGenerators![index];
 
-        public ulong[] AllCustomAttributeGenerators => customAttributeGenerators ?? Array.Empty<ulong>(); 
+        public ulong[] AllCustomAttributeGenerators => LibCpp2IlMain.MetadataVersion >= 27 ? AllCustomAttributeGeneratorsV27 : customAttributeGenerators!;
+
+        private ulong[] AllCustomAttributeGeneratorsV27 =>
+            LibCpp2IlMain.TheMetadata!.imageDefinitions
+                .Select(i => (image: i, cgm: GetCodegenModuleByName(i.Name!)!, ptrSize: is32Bit ? 4UL : 8UL))
+                .SelectMany(tuple => LibCpp2ILUtils.Range(0, (int) tuple.image.customAttributeCount).Select(o => tuple.cgm.customAttributeCacheGenerator + (ulong) o * tuple.ptrSize))
+                .Select(p => ReadClassAtVirtualAddress<ulong>(p))
+                .ToArray();
 
         public abstract byte[] GetRawBinaryContent();
         public abstract ulong GetVirtualAddressOfExportedFunctionByName(string toFind);

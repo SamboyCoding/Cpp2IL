@@ -428,7 +428,7 @@ namespace LibCpp2IL.Elf
             //Well, that didn't work. Look for the specific initializer function which calls into Il2CppCodegenRegistration.
             return InstructionSet switch
             {
-                InstructionSet.ARM32 => FindCodeAndMetadataRegArm32(),
+                InstructionSet.ARM32 when LibCpp2IlMain.MetadataVersion < 24.2f => FindCodeAndMetadataRegArm32(),
                 InstructionSet.ARM64 when LibCpp2IlMain.MetadataVersion < 24.2f => FindCodeAndMetadataRegArm64(),
                 _ => FindCodeAndMetadataRegDefaultBehavior(),
             };

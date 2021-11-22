@@ -438,6 +438,14 @@ namespace LibCpp2IL
             return size;
         }
 
+        internal static IEnumerable<int> Range(int start, int count)
+        {
+            for (var i = start; i < start + count; i++)
+            {
+                yield return i;
+            }
+        }
+
         internal static bool ShouldReadFieldOnThisVersion(FieldInfo i)
         {
             if (!_cachedVersionAttributes.TryGetValue(i, out var attrs))
