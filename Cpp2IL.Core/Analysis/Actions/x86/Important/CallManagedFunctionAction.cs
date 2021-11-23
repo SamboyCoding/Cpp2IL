@@ -228,6 +228,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                     ManagedMethodBeingCalled = gmr.Method.MakeMethodOnGenericType(git.GenericArguments.ToArray());
             }
 
+            CacheMethodInfoArg(context);
             HandleReturnType(context);
         }
 

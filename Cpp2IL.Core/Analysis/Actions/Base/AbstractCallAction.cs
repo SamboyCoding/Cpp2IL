@@ -20,16 +20,23 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         protected bool IsCallToSuperclassMethod;
         protected bool ShouldUseCallvirt;
         protected TypeReference? StaticMethodGenericTypeOverride;
+        protected IAnalysedOperand? MethodInfoArg;
 
         protected AbstractCallAction(MethodAnalysis<T> context, T instruction) : base(context, instruction)
         {
         }
 
+        protected void CacheMethodInfoArg(MethodAnalysis<T> context)
+        {
+            if(ManagedMethodBeingCalled != null)
+                MethodInfoArg = MethodUtils.GetMethodInfoArg(ManagedMethodBeingCalled, context);
+        }
+
         public override string? ToPsuedoCode()
         {
-            if (ManagedMethodBeingCalled == null) 
+            if (ManagedMethodBeingCalled == null)
                 return "[instruction error - managed method being called is null]";
-            
+
             var ret = new StringBuilder();
 
             if (ReturnedLocal != null)
@@ -41,7 +48,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 ret.Append(IsCallToSuperclassMethod ? "base" : "this");
             else
                 ret.Append(InstanceBeingCalledOn?.Name);
-            
+
             if (ManagedMethodBeingCalled is MethodDefinition mDef)
             {
                 if (mDef.Name.StartsWith("get_"))
@@ -51,7 +58,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
                     if (prop != null)
                         return ret.Append('.').Append(prop.Name).ToString();
-                } else if (mDef.Name.StartsWith("set_") && Arguments?.Count > 0)
+                }
+                else if (mDef.Name.StartsWith("set_") && Arguments?.Count > 0)
                 {
                     var unmanaged = mDef.AsUnmanaged();
                     var prop = unmanaged.DeclaringType!.Properties!.FirstOrDefault(p => p.Setter == unmanaged);
@@ -65,7 +73,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
             if (ManagedMethodBeingCalled is GenericInstanceMethod gim)
                 ret.Append('<').Append(string.Join(", ", gim.GenericArguments)).Append('>');
-            
+
             ret.Append('(');
 
             if (Arguments != null && Arguments.Count > 0)
@@ -98,29 +106,30 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
             if (InstanceBeingCalledOn != null && !ManagedMethodBeingCalled.Resolve().IsStatic && !ManagedMethodBeingCalled.DeclaringType.Resolve().IsAssignableFrom(InstanceBeingCalledOn.Type?.Resolve()))
                 throw new TaintedInstructionException($"Mismatched instance parameter. Expecting an instance of {ManagedMethodBeingCalled.DeclaringType.FullName}, actually {InstanceBeingCalledOn}");
-            
+
             if (ManagedMethodBeingCalled.Name == ".ctor")
             {
                 //todo check if calling alternative constructor
                 if (!(IsCallToSuperclassMethod && InstanceBeingCalledOn?.Name == "this"))
                     return Array.Empty<Mono.Cecil.Cil.Instruction>(); //Ignore ctors that aren't super calls, because we're allocating a new instance.
             }
-            
+
             var result = GetILToLoadParams(context, processor);
 
             var toCall = ManagedMethodBeingCalled;
-            
-            if(context.GetMethodDefinition() is {} contextMethod)
-                GenericMethodUtils.PrepareGenericMethodForEmissionToBody(toCall, toCall.DeclaringType, contextMethod.Module);
-            
+
+            if (false && context.GetMethodDefinition() is { } contextMethod)
+                //TODO Finish this method then re-enable
+                GenericMethodUtils.PrepareGenericMethodForEmissionToBody(toCall, toCall.DeclaringType, contextMethod, contextMethod.Module);
+
             if (ManagedMethodBeingCalled.HasGenericParameters && !ManagedMethodBeingCalled.IsGenericInstance)
                 toCall = ManagedMethodBeingCalled.Resolve();
             if (ManagedMethodBeingCalled.DeclaringType is GenericInstanceType git && git.HasAnyGenericParams())
                 toCall = ManagedMethodBeingCalled.Resolve();
             if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter || g is GenericInstanceType git2 && git2.HasAnyGenericParams()))
                 toCall = ManagedMethodBeingCalled.Resolve();
-            
-            if(toCall is GenericInstanceMethod gim2)
+
+            if (toCall is GenericInstanceMethod gim2)
                 toCall = processor.ImportRecursive(gim2);
 
             if (toCall.DeclaringType is GenericInstanceType git2)
@@ -194,8 +203,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 {
                     returnType = GenericInstanceUtils.ResolveGenericParameterType(gp, gmr.Type, gmr.Method) ?? returnType;
                     StaticMethodGenericTypeOverride = gmr.Type;
-                    
-                    if(ManagedMethodBeingCalled.Resolve() == gmr.Method.Resolve())
+
+                    if (ManagedMethodBeingCalled.Resolve() == gmr.Method.Resolve())
                         ManagedMethodBeingCalled = gmr.Method;
                 }
                 else
@@ -240,7 +249,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             {
                 if (operand == null)
                     throw new TaintedInstructionException($"Found null operand in Arguments: {Arguments.ToStringEnumerable()}");
-                
+
                 if (operand is LocalDefinition l)
                     result.Add(context.GetIlToLoad(l, processor));
                 else if (operand is ConstantDefinition c)
