@@ -251,57 +251,60 @@ namespace Cpp2IL.Core
 
         protected override void AttemptInstructionAnalysisToFillGaps()
         {
-            Logger.Verbose("\tAttempting to use Array GetEnumerator to find il2cpp_codegen_object_new...");
-            if (TypeDefinitions.Array is { } arrayTypeDef)
+            if (il2cpp_object_new == 0)
             {
-                if (arrayTypeDef.Methods.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
+                Logger.Verbose("\tAttempting to use Array GetEnumerator to find il2cpp_codegen_object_new...");
+                if (TypeDefinitions.Array is { } arrayTypeDef)
                 {
-                    var ptr = methodDef.AsUnmanaged().MethodPointer;
-                    var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(ptr, true);
-
-                    //Looking for adrp, ldr, ldr, bl. Probably more than one - the first will be initializing the method, second will be the constructor call
-                    var probableResult = 0L;
-                    var numSeen = 0;
-                    for (var i = 0; i < body.Count - 4; i++)
+                    if (arrayTypeDef.Methods.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
                     {
-                        if (body[i].Mnemonic != "adrp" || body[i + 1].Mnemonic != "ldr" || body[i + 2].Mnemonic != "ldr" || body[i + 3].Mnemonic != "bl")
-                            continue;
+                        var ptr = methodDef.AsUnmanaged().MethodPointer;
+                        var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(ptr, true);
 
-                        if (numSeen++ < 2) //Only store first one or second one
-                            probableResult = body[i + 3].Details.Operands[0].Immediate;
-                    }
+                        //Looking for adrp, ldr, ldr, bl. Probably more than one - the first will be initializing the method, second will be the constructor call
+                        var probableResult = 0L;
+                        var numSeen = 0;
+                        for (var i = 0; i < body.Count - 4; i++)
+                        {
+                            if (body[i].Mnemonic != "adrp" || body[i + 1].Mnemonic != "ldr" || body[i + 2].Mnemonic != "ldr" || body[i + 3].Mnemonic != "bl")
+                                continue;
 
-                    if (probableResult > 0)
-                    {
-                        Logger.Verbose($"Probably found at 0x{probableResult:X}...");
+                            if (numSeen++ < 2) //Only store first one or second one
+                                probableResult = body[i + 3].Details.Operands[0].Immediate;
+                        }
 
-                        //This is *codegen*_object_new. Probably. Check it
-                        var thunk = FindFunctionThisIsAThunkOf((ulong) probableResult);
-                        long addrVmObjectNew;
-                        if (thunk > 0)
-                            //We've found codegen_object_new, map to vm::Object::New, then try and get back to object_new
-                            addrVmObjectNew = (long) thunk;
+                        if (probableResult > 0)
+                        {
+                            Logger.Verbose($"Probably found at 0x{probableResult:X}...");
+
+                            //This is *codegen*_object_new. Probably. Check it
+                            var thunk = FindFunctionThisIsAThunkOf((ulong) probableResult);
+                            long addrVmObjectNew;
+                            if (thunk > 0)
+                                //We've found codegen_object_new, map to vm::Object::New, then try and get back to object_new
+                                addrVmObjectNew = (long) thunk;
+                            else
+                                //Looks like we've been inlined and this is just vm::Object::New.
+                                addrVmObjectNew = probableResult;
+
+                            var allThunks = FindAllThunkFunctions((ulong) addrVmObjectNew, 16, (ulong) probableResult).ToList();
+
+                            allThunks.SortByExtractedKey(GetCallerCount); //Sort in ascending order by caller count
+                            allThunks.Reverse(); //Reverse to be in descending order
+
+                            il2cpp_object_new = allThunks.FirstOrDefault(); //Take first (i.e. most called)
+
+                            Logger.VerboseNewline($"Leaving il2cpp_object_new at 0x{il2cpp_object_new:X}");
+                        }
                         else
-                            //Looks like we've been inlined and this is just vm::Object::New.
-                            addrVmObjectNew = probableResult;
-
-                        var allThunks = FindAllThunkFunctions((ulong) addrVmObjectNew, 16, (ulong) probableResult).ToList();
-                        
-                        allThunks.SortByExtractedKey(GetCallerCount); //Sort in ascending order by caller count
-                        allThunks.Reverse(); //Reverse to be in descending order
-
-                        il2cpp_object_new = allThunks.FirstOrDefault(); //Take first (i.e. most called)
-                        
-                        Logger.VerboseNewline($"Leaving il2cpp_object_new at 0x{il2cpp_object_new:X}");
+                            Logger.VerboseNewline("Couldn't find a matching instruction, can't be used.");
                     }
                     else
-                        Logger.VerboseNewline("Couldn't find a matching instruction, can't be used.");
+                        Logger.VerboseNewline("Method stripped, can't be used.");
                 }
                 else
-                    Logger.VerboseNewline("Method stripped, can't be used.");
+                    Logger.VerboseNewline("Type stripped, can't be used.");
             }
-            else
-                Logger.VerboseNewline("Type stripped, can't be used.");
         }
     }
 }

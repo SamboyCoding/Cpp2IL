@@ -440,7 +440,7 @@ namespace Cpp2IL.Core.Utils
             var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
             if (char.IsLetterOrDigit(c) || char.IsPunctuation(c) || char.IsSymbol(c) || char.IsWhiteSpace(c))
             {
-                var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0;
+                var isUnicode = theDll.GetByteAtRawAddress(rawAddr + 1) == 0 && theDll.GetByteAtRawAddress(rawAddr + 3) == 0;
                 var literal = new StringBuilder();
                 while ((theDll.GetByteAtRawAddress(rawAddr) != 0 || isUnicode && theDll.GetByteAtRawAddress(rawAddr + 1) != 0) && literal.Length < 5000)
                 {
