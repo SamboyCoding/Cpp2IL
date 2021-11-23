@@ -217,9 +217,6 @@ namespace Cpp2IL.Core
                 var local = localArray[i];
                 var attr = attributesExpected[i];
 
-                if (attr.Name == "ProtoMemberAttribute" && warningName.Contains("LocalTimeZoneOffsetMinutes"))
-                    Debugger.Break();
-
                 var noArgCtor = attr.GetConstructors().FirstOrDefault(c => !c.HasParameters);
 
                 if (local == null && noArgCtor != null)
