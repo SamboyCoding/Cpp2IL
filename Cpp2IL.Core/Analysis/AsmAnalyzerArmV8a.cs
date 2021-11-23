@@ -34,7 +34,7 @@ namespace Cpp2IL.Core.Analysis
         {
         }
 
-        public AsmAnalyzerArmV8A(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : base(definition, methodPointer, DisassembleInstructions(definition), baseKeyFunctionAddresses)
+        public AsmAnalyzerArmV8A(MethodDefinition definition, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : base(definition, definition.AsUnmanaged().MethodPointer, DisassembleInstructions(definition), baseKeyFunctionAddresses)
         {
             var builder = new StringBuilder();
             foreach (var (reg, operand) in Analysis.RegisterData)

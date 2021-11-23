@@ -45,7 +45,7 @@ namespace Cpp2IL.Core.Analysis
                 Logger.WarnNewline($"\tThe friendly name of the failed method is {definition.FullName}");
         }
 
-        public AsmAnalyzerWasm(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(definition, WasmUtils.GetWasmDefinition(definition), baseKeyFunctionAddresses)
+        public AsmAnalyzerWasm(MethodDefinition definition, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : this(definition, WasmUtils.GetWasmDefinition(definition), baseKeyFunctionAddresses)
         {
         }
 

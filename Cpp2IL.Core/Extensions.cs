@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Utils;
 using Gee.External.Capstone.Arm;
 using Gee.External.Capstone.Arm64;
@@ -378,5 +379,7 @@ namespace Cpp2IL.Core
         
         public static FieldReference ImportReference(this ILProcessor processor, FieldReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);
         public static bool IsImmediate(this OpKind opKind) => opKind is >= OpKind.Immediate8 and <= OpKind.Immediate32to64;
+
+        public static string BuildSynopsisForDebugging<T>(this List<BaseAction<T>> actions) => string.Join("\n", actions.Select(a => a.AssociatedInstruction.GetInstructionAddress().ToString("X") + " " + a.GetSynopsisEntry()));
     }
 }

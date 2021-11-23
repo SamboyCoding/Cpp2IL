@@ -7,29 +7,27 @@ using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 {
-    public class RegToFieldAction : AbstractFieldWriteAction<Instruction>
+    public class RegToFieldAction : AbstractFieldWriteFromVariableAction<Instruction>
     {
-        public readonly IAnalysedOperand? ValueRead;
-
         //TODO: Fix string literal to field - it's a constant in a field.
         public RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction) : base(context, instruction)
         {
             var destRegName = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             var destFieldOffset = instruction.MemoryDisplacement32;
-            ValueRead = context.GetOperandInRegister(X86Utils.GetRegisterNameNew(instruction.Op1Register));
+            SourceOperand = context.GetOperandInRegister(X86Utils.GetRegisterNameNew(instruction.Op1Register));
 
             InstanceBeingSetOn = context.GetLocalInReg(destRegName);
             
-            if(ValueRead is LocalDefinition loc)
+            if(SourceOperand is LocalDefinition loc)
                 RegisterUsedLocal(loc, context);
 
-            if (ValueRead is ConstantDefinition { Value: StackPointer s })
+            if (SourceOperand is ConstantDefinition { Value: StackPointer s })
             {
                 var offset = s.offset;
                 if (context.StackStoredLocals.TryGetValue((int)offset, out var tempLocal))
-                    ValueRead = tempLocal;
+                    SourceOperand = tempLocal;
                 else
-                    ValueRead = context.EmptyRegConstant;
+                    SourceOperand = context.EmptyRegConstant;
             }
 
             if (InstanceBeingSetOn?.Type?.Resolve() == null)
@@ -55,16 +53,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             
             FieldWritten = fieldWritten;
             InstanceBeingSetOn = instanceWrittenOn;
-            ValueRead = readFrom;
+            SourceOperand = readFrom;
             
             RegisterUsedLocal(InstanceBeingSetOn, context);
             RegisterUsedLocal(readFrom, context);
         }
 
-        protected override string? GetValuePseudocode() => ValueRead?.GetPseudocodeRepresentation();
+        protected override string? GetValuePseudocode() => SourceOperand?.GetPseudocodeRepresentation();
 
-        protected override string? GetValueSummary() => ValueRead?.ToString();
-
-        protected override Mono.Cecil.Cil.Instruction[] GetIlToLoadValue(MethodAnalysis<Instruction> context, ILProcessor processor) => ValueRead?.GetILToLoad(context, processor) ?? throw new TaintedInstructionException("Value read is null");
+        protected override string? GetValueSummary() => SourceOperand?.ToString();
     }
 }

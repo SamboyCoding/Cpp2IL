@@ -7,10 +7,8 @@ using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis.Actions.ARM64
 {
-    public class Arm64RegisterToFieldAction : AbstractFieldWriteAction<Arm64Instruction>
+    public class Arm64RegisterToFieldAction : AbstractFieldWriteFromVariableAction<Arm64Instruction>
     {
-        public readonly IAnalysedOperand? SourceOperand;
-
         public Arm64RegisterToFieldAction(MethodAnalysis<Arm64Instruction> context, Arm64Instruction instruction)
             : this
             (
@@ -42,7 +40,5 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
         protected override string? GetValueSummary() => SourceOperand?.ToString();
 
         protected override string? GetValuePseudocode() => SourceOperand?.GetPseudocodeRepresentation();
-
-        protected override Instruction[] GetIlToLoadValue(MethodAnalysis<Arm64Instruction> context, ILProcessor processor) => SourceOperand?.GetILToLoad(context, processor) ?? Array.Empty<Instruction>();
     }
 }

@@ -4,6 +4,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Analysis.Actions.ARM64;
@@ -24,7 +25,9 @@ namespace Cpp2IL.Core
 {
     public static class AttributeRestorer
     {
-        private static readonly ConcurrentDictionary<long, MethodDefinition> _attributeCtorsByClassIndex = new ConcurrentDictionary<long, MethodDefinition>();
+        private static readonly ConcurrentDictionary<long, MethodDefinition> _attributeCtorsByClassIndex = new();
+        private static readonly ConcurrentDictionary<TypeDefinition, Dictionary<FieldDefinition, PropertyDefinition>> _simpleFieldToPropertyCache = new();
+
         internal static readonly TypeDefinition DummyTypeDefForAttributeCache = new TypeDefinition("dummy", "AttributeCache", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
 
@@ -81,6 +84,8 @@ namespace Cpp2IL.Core
             {
                 FieldToParameterMappings.Clear();
             }
+
+            _simpleFieldToPropertyCache.Clear();
 
             Initialize();
         }
@@ -159,10 +164,6 @@ namespace Cpp2IL.Core
 #else
 
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
-            
-            if (LibCpp2IlMain.MetadataVersion >= 29)
-                //TODO Can't do this on v29 because attributeGeneratorAddress is unknown
-                return GenerateAttributesWithoutAnalysis(attributeConstructors, module, 0, false);
 
             //Grab generator for this context - be it field, type, method, etc.
             var attributeGeneratorAddress = GetAddressOfAttributeGeneratorFunction(imageDef, attributeTypeRange);
@@ -171,7 +172,7 @@ namespace Cpp2IL.Core
                 //No need to run analysis, so don't
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, false);
 
-            if (keyFunctionAddresses == null || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.ARM32)
+            if (keyFunctionAddresses == null || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.ARM32 or InstructionSet.WASM)
                 //Analysis isn't yet supported for ARM.
                 //So just generate those which can be generated without params.
                 return GenerateAttributesWithoutAnalysis(attributeConstructors, module, attributeGeneratorAddress, true);
@@ -203,7 +204,7 @@ namespace Cpp2IL.Core
             var localArray = new LocalDefinition?[attributesExpected.Count];
 
             foreach (var action in actions.Where(a => a is AbstractAttributeLoadFromListAction<T>)
-                .Cast<AbstractAttributeLoadFromListAction<T>>())
+                         .Cast<AbstractAttributeLoadFromListAction<T>>())
             {
                 if (action.LocalMade != null)
                     localArray[action.OffsetInList] = action.LocalMade;
@@ -215,6 +216,10 @@ namespace Cpp2IL.Core
             {
                 var local = localArray[i];
                 var attr = attributesExpected[i];
+
+                if (attr.Name == "ProtoMemberAttribute" && warningName.Contains("LocalTimeZoneOffsetMinutes"))
+                    Debugger.Break();
+
                 var noArgCtor = attr.GetConstructors().FirstOrDefault(c => !c.HasParameters);
 
                 if (local == null && noArgCtor != null)
@@ -238,7 +243,7 @@ namespace Cpp2IL.Core
 
                 //We have a local - look for constructor calls and/or field writes.
                 var allCtorNames = attr.GetConstructors().Select(c => c.FullName).ToList();
-                var matchingCtorCall = (AbstractCallAction<T>?)actions.FirstOrDefault(c => c is AbstractCallAction<T> { ManagedMethodBeingCalled: { } method } cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
+                var matchingCtorCall = (AbstractCallAction<T>?) actions.FirstOrDefault(c => c is AbstractCallAction<T> {ManagedMethodBeingCalled: { } method} cmfa && cmfa.InstanceBeingCalledOn == local && allCtorNames.Contains(method.FullName));
 
                 (MethodDefinition potentialCtor, List<CustomAttributeArgument> parameterList)? hardWayResult = null;
                 if (matchingCtorCall?.ManagedMethodBeingCalled == null && noArgCtor == null)
@@ -292,14 +297,60 @@ namespace Cpp2IL.Core
                         attributes.Add(fallback);
                     continue;
                 }
+                
+                var fieldSets = actions.Where(c => c is AbstractFieldWriteFromVariableAction<T> {FieldWritten: {}} fieldWriteAction && fieldWriteAction.InstanceBeingSetOn == local)
+                    .Cast<AbstractFieldWriteFromVariableAction<T>>()
+                    .ToList();
 
-                //TODO Resolve field sets, including processing out hard way result params etc.
-                var fieldSets = actions.Where(c => c is ImmediateToFieldAction ifa && ifa.InstanceBeingSetOn == local || c is RegToFieldAction rfa && rfa.InstanceBeingSetOn == local).ToList();
+                var nonCtorCalls = actions.Where(c => c is AbstractCallAction<T> {ManagedMethodBeingCalled: { } mm} aca && mm.Name != ".ctor" && aca.InstanceBeingCalledOn == local)
+                    .Cast<AbstractCallAction<T>>()
+                    .ToList();
+                
                 if (fieldSets.Count > 0 && !hardWayResult.HasValue)
                 {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                     // Logger.WarnNewline($"Attribute {attr} applied to {warningName} of {module.Name} has at least one field set action associated with it.");
 #endif
+                    var propertyMappings = GetSimplePropertyFieldMappings<T>(attr, keyFunctionAddresses);
+                    foreach (var fieldWriteAction in fieldSets)
+                    {
+                        var field = fieldWriteAction.FieldWritten!.GetLast().FinalLoadInChain!;
+                        if(!propertyMappings.TryGetValue(field, out var prop))
+                            //TODO: This may be an actual field set, not a property set - add support
+                            continue;
+
+                        try
+                        {
+                            attributeInstance.Properties.Add(new(prop.Name, CoerceAnalyzedOpToType(fieldWriteAction.SourceOperand!, prop.PropertyType)));
+                        }
+                        catch (Exception)
+                        {
+                            //Ignore
+                        }
+                    }
+                }
+
+                if (nonCtorCalls.Count > 0 && !hardWayResult.HasValue)
+                {
+                    //Should be property sets
+                    var props = attr.Properties;
+                    foreach (var abstractCallAction in nonCtorCalls)
+                    {
+                        var prop = props.FirstOrDefault(p => p.SetMethod == abstractCallAction.ManagedMethodBeingCalled);
+                        
+                        if(prop == null || abstractCallAction.Arguments?.Count < 1)
+                            //Not even sure what this could be at that point?
+                            continue;
+
+                        try
+                        {
+                            attributeInstance.Properties.Add(new(prop.Name, CoerceAnalyzedOpToType(abstractCallAction.Arguments![0]!, prop.PropertyType)));
+                        }
+                        catch (Exception)
+                        {
+                            //Ignore
+                        }
+                    }
                 }
 
                 attributes.Add(attributeInstance);
@@ -333,7 +384,7 @@ namespace Cpp2IL.Core
 
             if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(generatorPtr, out var offsetInBinary))
                 offsetInBinary = 0;
-            
+
             var offset = new CustomAttributeNamedArgument("Offset", new(module.ImportReference(TypeDefinitions.String), $"0x{offsetInBinary:X}"));
 
             ca.Fields.Add(name);
@@ -345,11 +396,11 @@ namespace Cpp2IL.Core
         private static List<BaseAction<T>> GetActionsPerformedByGenerator<T>(BaseKeyFunctionAddresses keyFunctionAddresses, ulong attributeGeneratorAddress, List<TypeDefinition> attributesExpected)
         {
             //Nasty generic casting crap
-            AsmAnalyzerBase<T> analyzer = (AsmAnalyzerBase<T>)(LibCpp2IlMain.Binary?.InstructionSet switch
+            AsmAnalyzerBase<T> analyzer = (AsmAnalyzerBase<T>) (LibCpp2IlMain.Binary?.InstructionSet switch
             {
-                InstructionSet.X86_32 or InstructionSet.X86_64 => (object)new AsmAnalyzerX86(attributeGeneratorAddress, X86Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
+                InstructionSet.X86_32 or InstructionSet.X86_64 => (object) new AsmAnalyzerX86(attributeGeneratorAddress, X86Utils.GetMethodBodyAtVirtAddressNew(attributeGeneratorAddress, false), keyFunctionAddresses!),
                 // InstructionSet.ARM32 => (object) new AsmAnalyzerArmV7(attributeGeneratorAddress, FIX_ME, keyFunctionAddresses!),
-                InstructionSet.ARM64 => (object)new AsmAnalyzerArmV8A(attributeGeneratorAddress, Arm64Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
+                InstructionSet.ARM64 => (object) new AsmAnalyzerArmV8A(attributeGeneratorAddress, Arm64Utils.GetArm64MethodBodyAtVirtualAddress(attributeGeneratorAddress, true), keyFunctionAddresses!),
                 _ => throw new UnsupportedInstructionSetException()
             });
 
@@ -406,7 +457,7 @@ namespace Cpp2IL.Core
             {
                 var baseAddress = LibCpp2IlMain.Binary!.GetCodegenModuleByName(imageDef.Name!)!.customAttributeCacheGenerator;
                 var relativeIndex = rangeIndex - imageDef.customAttributeStart;
-                var ptrToAddress = baseAddress + (ulong)relativeIndex * (LibCpp2IlMain.Binary.is32Bit ? 4ul : 8ul);
+                var ptrToAddress = baseAddress + (ulong) relativeIndex * (LibCpp2IlMain.Binary.is32Bit ? 4ul : 8ul);
                 attributeGeneratorAddress = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<ulong>(ptrToAddress);
             }
 
@@ -454,7 +505,7 @@ namespace Cpp2IL.Core
             {
                 var actualArg = constructor.Parameters[i];
 
-                customAttribute.ConstructorArguments.Add(CoerceAnalyzedOpToParameter(analysedOperand, actualArg));
+                customAttribute.ConstructorArguments.Add(CoerceAnalyzedOpToType(analysedOperand, actualArg.ParameterType));
 
                 i++;
             }
@@ -462,7 +513,7 @@ namespace Cpp2IL.Core
             return customAttribute;
         }
 
-        private static CustomAttributeArgument CoerceAnalyzedOpToParameter(IAnalysedOperand analysedOperand, ParameterDefinition actualArg)
+        private static CustomAttributeArgument CoerceAnalyzedOpToType(IAnalysedOperand analysedOperand, TypeReference typeReference)
         {
             switch (analysedOperand)
             {
@@ -470,12 +521,12 @@ namespace Cpp2IL.Core
                 {
                     var value = cons.Value;
 
-                    var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
+                    var destType = typeReference.Resolve()?.IsEnum == true ? typeReference.Resolve().GetEnumUnderlyingType() : typeReference;
 
                     if (cons.Type.FullName != destType.FullName)
                         value = AnalysisUtils.CoerceValue(value, destType);
 
-                    return new CustomAttributeArgument(destType, value);
+                    return new CustomAttributeArgument(typeReference, value);
                 }
                 case LocalDefinition local:
                 {
@@ -485,7 +536,7 @@ namespace Cpp2IL.Core
                     var value = local.KnownInitialValue;
                     var originalValue = value;
 
-                    var destType = actualArg.ParameterType.Resolve()?.IsEnum == true ? actualArg.ParameterType.Resolve().GetEnumUnderlyingType() : actualArg.ParameterType;
+                    var destType = typeReference.Resolve()?.IsEnum == true ? typeReference.Resolve().GetEnumUnderlyingType() : typeReference;
 
                     if (value is AllocatedArray array)
                         value = AllocateArray(array);
@@ -505,7 +556,7 @@ namespace Cpp2IL.Core
                         value = new CustomAttributeArgument(MiscUtils.TryLookupTypeDefKnownNotGeneric(originalValue.GetType().FullName), originalValue);
                     }
 
-                    return new CustomAttributeArgument(destType, value);
+                    return new CustomAttributeArgument(typeReference, value);
                 }
                 default:
                     throw new Exception($"Operand {analysedOperand} is not valid for use in a attribute ctor");
@@ -519,7 +570,7 @@ namespace Cpp2IL.Core
             if (typeForArrayToCreateNow == null)
                 throw new Exception("Array has no type");
 
-            if (typeForArrayToCreateNow.Resolve() is { IsEnum: true } enumType)
+            if (typeForArrayToCreateNow.Resolve() is {IsEnum: true} enumType)
                 typeForArrayToCreateNow = enumType.GetEnumUnderlyingType() ?? typeForArrayToCreateNow;
 
             var arrayType = Type.GetType(typeForArrayToCreateNow.FullName) ?? throw new Exception($"Could not resolve array type {array.ArrayType.ElementType.FullName}");
@@ -559,7 +610,7 @@ namespace Cpp2IL.Core
 
                 Logger.VerboseNewline($"Attempting to run attribute constructor reconstruction for {constructor.FullName}", "AttributeRestore");
                 var methodPointer = constructor.AsUnmanaged().MethodPointer;
-                var analyzer = new AsmAnalyzerX86(constructor, methodPointer, keyFunctionAddresses);
+                var analyzer = new AsmAnalyzerX86(constructor, keyFunctionAddresses);
 
                 var fail = false;
                 List<RegToFieldAction>? fieldWrites = null;
@@ -570,7 +621,7 @@ namespace Cpp2IL.Core
                     //Grab field writes specifically from registers.
                     fieldWrites = analyzer.Analysis.Actions.Where(f => f is RegToFieldAction).Cast<RegToFieldAction>().ToList();
 
-                    if (!fieldWrites.All(f => f.ValueRead is LocalDefinition { ParameterDefinition: { } }))
+                    if (!fieldWrites.All(f => f.SourceOperand is LocalDefinition {ParameterDefinition: { }}))
                     {
 #if !NO_ATTRIBUTE_RESTORATION_WARNINGS
                     Logger.VerboseNewline($"\t{constructor.FullName} has a local => field where the local isn't a parameter.");
@@ -598,7 +649,7 @@ namespace Cpp2IL.Core
                     return null;
                 }
 
-                ret = fieldWrites!.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition)f.ValueRead!).ParameterDefinition!)).ToArray();
+                ret = fieldWrites!.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition) f.SourceOperand!).ParameterDefinition!)).ToArray();
 
                 FieldToParameterMappings.TryAdd(constructor, ret);
                 return ret;
@@ -688,7 +739,7 @@ namespace Cpp2IL.Core
                         }
                         case Arm64ImmediateToFieldAction armI:
                         {
-                            var value = (object)armI.ImmValue;
+                            var value = (object) armI.ImmValue;
 
                             if (value.GetType().FullName != destType.FullName)
                                 value = AnalysisUtils.CoerceValue(value, destType);
@@ -702,12 +753,12 @@ namespace Cpp2IL.Core
                             parameterList.Add(new CustomAttributeArgument(destType, value));
                             break;
                         }
-                        case RegToFieldAction { ValueRead: { } } r:
-                            parameterList.Add(CoerceAnalyzedOpToParameter(r.ValueRead!, parameter));
+                        case RegToFieldAction {SourceOperand: { }} r:
+                            parameterList.Add(CoerceAnalyzedOpToType(r.SourceOperand!, parameter.ParameterType));
                             break;
-                        case Arm64RegisterToFieldAction { SourceOperand: { } } armR:
+                        case Arm64RegisterToFieldAction {SourceOperand: { }} armR:
                         {
-                            parameterList.Add(CoerceAnalyzedOpToParameter(armR.SourceOperand!, parameter));
+                            parameterList.Add(CoerceAnalyzedOpToType(armR.SourceOperand!, parameter.ParameterType));
                             break;
                         }
                         default:
@@ -735,6 +786,51 @@ namespace Cpp2IL.Core
                 customAttribute.ConstructorArguments.Add(arg);
 
             return customAttribute;
+        }
+
+        private static Dictionary<FieldDefinition, PropertyDefinition> GetSimplePropertyFieldMappings<T>(TypeDefinition type, BaseKeyFunctionAddresses keyFunctionAddresses)
+        {
+            if (_simpleFieldToPropertyCache.TryGetValue(type, out var ret))
+                return ret;
+
+            ret = new();
+            foreach (var propertyDefinition in type.Properties.Where(p => p.SetMethod != null))
+            {
+                var analyzer = AnalyzeProperty<T>(propertyDefinition, keyFunctionAddresses);
+
+                if (analyzer.Analysis.Actions.Count(a => a.IsImportant()) > 2)
+                    continue;
+
+                //Hopefully, we just have a field set and a return
+                if (analyzer.Analysis.Actions[0] is not AbstractFieldWriteFromVariableAction<T> fieldWriteAction)
+                    continue;
+
+                if (fieldWriteAction.FieldWritten == null || fieldWriteAction.InstanceBeingSetOn?.ParameterDefinition == null || fieldWriteAction.SourceOperand is not LocalDefinition {ParameterDefinition: { }})
+                    //Instance being set on is not a parameter (want it to be this) or value being set is not a parameter (want it to be the value passed to the setter)
+                    continue;
+
+                var fieldBeingWritten = fieldWriteAction.FieldWritten.GetLast();
+
+                ret[fieldBeingWritten.FinalLoadInChain!] = propertyDefinition;
+            }
+
+            _simpleFieldToPropertyCache[type] = ret;
+            return ret;
+        }
+
+        private static AsmAnalyzerBase<T> AnalyzeProperty<T>(PropertyDefinition propertyDefinition, BaseKeyFunctionAddresses keyFunctionAddresses)
+        {
+            //Need to recalculate
+            var analyzer = (AsmAnalyzerBase<T>) (LibCpp2IlMain.Binary?.InstructionSet switch
+            {
+                InstructionSet.X86_32 or InstructionSet.X86_64 => (object) new AsmAnalyzerX86(propertyDefinition.SetMethod, keyFunctionAddresses),
+                // InstructionSet.ARM32 => (object) new AsmAnalyzerArmV7(attributeGeneratorAddress, FIX_ME, keyFunctionAddresses),
+                InstructionSet.ARM64 => (object) new AsmAnalyzerArmV8A(propertyDefinition.SetMethod, keyFunctionAddresses),
+                _ => throw new UnsupportedInstructionSetException()
+            });
+
+            analyzer.AnalyzeMethod();
+            return analyzer;
         }
 
         private struct FieldToParameterMapping
