@@ -34,6 +34,9 @@ namespace Cpp2IL.Core
             
             Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.MetadataBuilder:GetCustomAttributeSignature...", "Harmony");
             harmony.Patch(AccessTools.Method("Mono.Cecil.MetadataBuilder:GetCustomAttributeSignature"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeGetCustomAttributeSignature)));
+            
+            Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.SignatureWriter:WriteTypeSignature...", "Harmony");
+            harmony.Patch(AccessTools.Method("Mono.Cecil.SignatureWriter:WriteTypeSignature"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeWriteTypeSignature)));
 
             Logger.VerboseNewline("\tDone", "Harmony");
         }
@@ -74,6 +77,14 @@ namespace Cpp2IL.Core
         {
             if (__exception != null)
                 return new CustomAttributeWriteFailedException(attribute, __exception);
+
+            return null;
+        }
+        
+        public static Exception? FinalizeWriteTypeSignature(TypeReference type, Exception? __exception)
+        {
+            if (__exception != null)
+                return new TypeSignatureWriteFailedException(type, __exception);
 
             return null;
         }

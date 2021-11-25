@@ -37,26 +37,28 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
             var ctorToCall = managedConstructorCall.ManagedMethodBeingCalled!;
             
-            if (ctorToCall.DeclaringType.ToString() != TypeCreated.ToString())
-                ctorToCall = TypeCreated?.Resolve()?.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == ctorToCall.Parameters.Count) ?? throw new TaintedInstructionException($"Could not resolve a constructor with {ctorToCall.Parameters.Count} parameters.");
-
-            if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
-                ctorToCall = ctorToCall.MakeMethodOnGenericType(git.GenericArguments.ToArray());
-
-            if (ctorToCall is GenericInstanceMethod gim2 && gim2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
-                ctorToCall = ctorToCall.Resolve();
-            if (ctorToCall is { DeclaringType: GenericInstanceType git2 } && git2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
-                ctorToCall = ctorToCall.Resolve();
-            
-            if (ctorToCall is GenericInstanceMethod gim)
-                ctorToCall = processor.ImportRecursive(gim);
-            else
-                ctorToCall = processor.ImportReference(ctorToCall);
-
-            if (ctorToCall.DeclaringType is GenericInstanceType git3)
-                ctorToCall.DeclaringType = processor.ImportRecursive(git3);
-
-            ctorToCall = processor.ImportParameterTypes(ctorToCall);
+            // if (ctorToCall.DeclaringType.ToString() != TypeCreated.ToString())
+            //     ctorToCall = TypeCreated?.Resolve()?.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == ctorToCall.Parameters.Count) ?? throw new TaintedInstructionException($"Could not resolve a constructor with {ctorToCall.Parameters.Count} parameters.");
+            //
+            // if (ctorToCall.HasGenericParameters && TypeCreated is GenericInstanceType git)
+            //     ctorToCall = ctorToCall.MakeMethodOnGenericType(git.GenericArguments.ToArray());
+            //
+            // if (ctorToCall is GenericInstanceMethod gim2 && gim2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
+            //     ctorToCall = ctorToCall.Resolve();
+            // if (ctorToCall is { DeclaringType: GenericInstanceType git2 } && git2.GenericArguments.Any(g => g is GenericParameter { Position: -1 }))
+            //     ctorToCall = ctorToCall.Resolve();
+            //
+            // if (ctorToCall is GenericInstanceMethod gim)
+            //     ctorToCall = processor.ImportRecursive(gim);
+            // else
+            //     ctorToCall = processor.ImportReference(ctorToCall);
+            //
+            // if (ctorToCall.DeclaringType is GenericInstanceType git3)
+            //     ctorToCall.DeclaringType = processor.ImportRecursive(git3);
+            //
+            // ctorToCall = processor.ImportParameterTypes(ctorToCall);
+            if(context.GetMethodDefinition() is {} contextMethod)
+                ctorToCall = contextMethod.Module.ImportMethodButCleanly(ctorToCall);
 
             result.Add(processor.Create(OpCodes.Newobj, ctorToCall));
             

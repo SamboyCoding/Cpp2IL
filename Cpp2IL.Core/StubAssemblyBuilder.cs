@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using System.Reflection;
 using System.Text;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 using Mono.Cecil;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
@@ -11,8 +11,6 @@ namespace Cpp2IL.Core
 {
     internal static class StubAssemblyBuilder
     {
-        private static readonly FieldInfo _etypeField = typeof(TypeReference).GetField("etype", BindingFlags.NonPublic | BindingFlags.Instance)!;
-
         /// <summary>
         /// Creates all the Assemblies defined in the provided metadata, along with (stub) definitions of all the types contained therein.
         /// </summary>
@@ -98,28 +96,28 @@ namespace Cpp2IL.Core
                     var etype = name switch
                     {
                         //See ElementType in Mono.Cecil.Metadata
-                        "Void" => 1,
-                        nameof(Boolean) => 2,
-                        nameof(Char) => 3,
-                        nameof(SByte) => 4, //I1
-                        nameof(Byte) => 5, //U1
-                        nameof(Int16) => 6, //I2
-                        nameof(UInt16) => 7, //U2
-                        nameof(Int32) => 8, //I4
-                        nameof(UInt32) => 9, //U4
-                        nameof(Int64) => 0xA, //I8
-                        nameof(UInt64) => 0xB, //U8
-                        nameof(Single) => 0xC, //R4
-                        nameof(Double) => 0xD, //R8
-                        nameof(String) => 0xE,
-                        nameof(Object) => 0x1C, //Object
+                        "Void" => CecilEType.Void,
+                        nameof(Boolean) => CecilEType.Boolean,
+                        nameof(Char) => CecilEType.Char,
+                        nameof(SByte) => CecilEType.I1, //I1
+                        nameof(Byte) => CecilEType.U1, //U1
+                        nameof(Int16) => CecilEType.I2, //I2
+                        nameof(UInt16) => CecilEType.U2, //U2
+                        nameof(Int32) => CecilEType.I4, //I4
+                        nameof(UInt32) => CecilEType.U4, //U4
+                        nameof(Int64) => CecilEType.I8, //I8
+                        nameof(UInt64) => CecilEType.U8, //U8
+                        nameof(Single) => CecilEType.R4, //R4
+                        nameof(Double) => CecilEType.R8, //R8
+                        nameof(String) => CecilEType.String,
+                        nameof(Object) => CecilEType.Object, //Object
                         // nameof(IntPtr) => 0xF,
-                        _ => 0x0,
+                        _ => CecilEType.None,
                     };
                     
                     if(etype != 0)
                         //Fixup internaL cecil etypes for (among other things) attribute blobs.
-                        _etypeField.SetValue(definition, (byte) etype);
+                        definition.SetEType(etype);
                 }
 
                 if(!isNestedType)

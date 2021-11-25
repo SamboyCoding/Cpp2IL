@@ -33,7 +33,7 @@ namespace Cpp2IL.Core
             foreach (var typeDefinition in SharedState.AllTypeDefinitions)
             {
                 var il2cppTypeDef = SharedState.ManagedToUnmanagedTypes[typeDefinition];
-                
+
                 //Type generic params.
                 PopulateGenericParamsForType(il2cppTypeDef, typeDefinition);
 
@@ -104,7 +104,7 @@ namespace Cpp2IL.Core
                 MethodAttributes.Public | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName,
                 imageDef.MainModule.ImportReference(TypeDefinitions.Void)
             );
-            
+
             defaultConstructor.Parameters.Add(new("message", ParameterAttributes.None, stringTypeReference));
 
             var exceptionTypeDef = exceptionTypeReference.Resolve();
@@ -120,7 +120,7 @@ namespace Cpp2IL.Core
             }
 
             analysisFailedExceptionType.Methods.Add(defaultConstructor);
-            
+
             imageDef.MainModule.Types.Add(analysisFailedExceptionType);
         }
 
@@ -128,8 +128,8 @@ namespace Cpp2IL.Core
         {
             var firstTypeDefinition = SharedState.TypeDefsByIndex[imageDef.firstTypeIndex];
             var currentAssembly = firstTypeDefinition.Module.Assembly;
-            
-                InjectOurTypes(currentAssembly, suppressAttributes);
+
+            InjectOurTypes(currentAssembly, suppressAttributes);
 
             foreach (var il2CppTypeDefinition in imageDef.Types!)
             {
@@ -200,7 +200,7 @@ namespace Cpp2IL.Core
                     TypeReference? ResolveGenericParameter(string name)
                     {
                         var (type, gParams) = MiscUtils.TryLookupTypeDefByName(name);
-                        if (type == null) 
+                        if (type == null)
                             return GenericInstanceUtils.ResolveGenericParameterType(new GenericParameter(name, baseType), ilTypeDefinition);
 
                         if (gParams.Length > 0)
@@ -209,10 +209,10 @@ namespace Cpp2IL.Core
 
                             if (parameterRefs.Any(gp => gp == null))
                                 return null;
-                            
+
                             return ilTypeDefinition.Module.ImportRecursive(type.MakeGenericInstanceType(parameterRefs));
                         }
-                            
+
                         return type;
                     }
 
@@ -276,9 +276,10 @@ namespace Cpp2IL.Core
 
         private static void PopulateGenericParamsForType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
         {
-            if (cppTypeDefinition.GenericContainer == null) 
+            if (cppTypeDefinition.GenericContainer == null)
                 return;
-            
+
+            var position = 0;
             foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
             {
                 if (!SharedState.GenericParamsByIndex.TryGetValue(param.Index, out var p))
@@ -424,6 +425,7 @@ namespace Cpp2IL.Core
                 }
 
                 //Handle generic parameters.
+                var position = 0;
                 methodDef.GenericContainer?.GenericParameters.ToList()
                     .ForEach(p =>
                     {
@@ -431,7 +433,7 @@ namespace Cpp2IL.Core
                         {
                             if (!methodDefinition.GenericParameters.Contains(gp))
                                 methodDefinition.GenericParameters.Add(gp);
-
+                        
                             return;
                         }
 
@@ -445,7 +447,7 @@ namespace Cpp2IL.Core
                             .ToList()
                             .ForEach(gp.Constraints.Add);
                     });
-                
+
                 if (methodDef.slot < ushort.MaxValue)
                     SharedState.VirtualMethodsBySlot[methodDef.slot] = methodDefinition;
             }

@@ -233,6 +233,8 @@ namespace Cpp2IL
 
         public static int Main(string[] args)
         {
+            Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
+            
             Console.WriteLine("===Cpp2IL by Samboy063===");
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.\n");
 
@@ -327,8 +329,6 @@ namespace Cpp2IL
 
             if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
-
-            Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
 
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 

@@ -412,14 +412,18 @@ namespace Cpp2IL.Core
                 if (reference != null)
                     assembly.MainModule.AssemblyReferences.Remove(reference);
 
+#if !DEBUG
                 try
                 {
-                    assembly.Write(dllPath);
+#endif
+                assembly.Write(dllPath);
+#if !DEBUG
                 }
                 catch (Exception e)
                 {
                     throw new DllSaveException(dllPath, e);
                 }
+#endif
             }
         }
 

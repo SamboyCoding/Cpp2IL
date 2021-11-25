@@ -123,14 +123,14 @@ namespace Cpp2IL.Core.Analysis
 
                     try
                     {
-                        if (varType is GenericInstanceType git2 && git2.HasAnyGenericParams())
-                            varType = git2.Resolve();
-                        if (varType is GenericInstanceType git)
-                            varType = processor.ImportRecursive(git, MethodDefinition);
+                        // if (varType is GenericInstanceType git2 && git2.HasAnyGenericParams())
+                        //     varType = git2.Resolve();
+                        // if (varType is GenericInstanceType git)
+                        //     varType = processor.ImportRecursive(git, MethodDefinition);
                         if (varType is ArrayType arr && MiscUtils.GetUltimateElementType(arr).IsGenericParameter)
                             throw new InvalidOperationException();
 
-                        localDefinition.Variable = new VariableDefinition(processor.ImportReference(varType, MethodDefinition));
+                        localDefinition.Variable = new VariableDefinition(processor.Body.Method.Module.ImportTypeButCleanly(varType));
                         body.Variables.Add(localDefinition.Variable);
                     }
                     catch (InvalidOperationException)

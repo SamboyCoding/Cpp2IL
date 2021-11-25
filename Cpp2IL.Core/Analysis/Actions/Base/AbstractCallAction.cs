@@ -103,10 +103,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
             if (InstanceBeingCalledOn == null && !ManagedMethodBeingCalled.Resolve().IsStatic)
                 throw new TaintedInstructionException("Method is non-static but don't have an instance");
-
-            if (InstanceBeingCalledOn != null && !ManagedMethodBeingCalled.Resolve().IsStatic && !ManagedMethodBeingCalled.DeclaringType.Resolve().IsAssignableFrom(InstanceBeingCalledOn.Type?.Resolve()))
-                throw new TaintedInstructionException($"Mismatched instance parameter. Expecting an instance of {ManagedMethodBeingCalled.DeclaringType.FullName}, actually {InstanceBeingCalledOn}");
-
+            
             if (ManagedMethodBeingCalled.Name == ".ctor")
             {
                 //todo check if calling alternative constructor
@@ -114,28 +111,31 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     return Array.Empty<Mono.Cecil.Cil.Instruction>(); //Ignore ctors that aren't super calls, because we're allocating a new instance.
             }
 
+            if (InstanceBeingCalledOn != null && !ManagedMethodBeingCalled.Resolve().IsStatic && !ManagedMethodBeingCalled.DeclaringType.Resolve().IsAssignableFrom(InstanceBeingCalledOn.Type?.Resolve()))
+                throw new TaintedInstructionException($"Mismatched instance parameter. Expecting an instance of {ManagedMethodBeingCalled.DeclaringType.FullName}, actually {InstanceBeingCalledOn}");
+
             var result = GetILToLoadParams(context, processor);
 
             var toCall = ManagedMethodBeingCalled;
 
-            if (false && context.GetMethodDefinition() is { } contextMethod)
+            if (context.GetMethodDefinition() is { } contextMethod)
                 //TODO Finish this method then re-enable
-                GenericMethodUtils.PrepareGenericMethodForEmissionToBody(toCall, toCall.DeclaringType, contextMethod, contextMethod.Module);
+                toCall = contextMethod.Module.ImportMethodButCleanly(toCall);
 
-            if (ManagedMethodBeingCalled.HasGenericParameters && !ManagedMethodBeingCalled.IsGenericInstance)
-                toCall = ManagedMethodBeingCalled.Resolve();
-            if (ManagedMethodBeingCalled.DeclaringType is GenericInstanceType git && git.HasAnyGenericParams())
-                toCall = ManagedMethodBeingCalled.Resolve();
-            if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter || g is GenericInstanceType git2 && git2.HasAnyGenericParams()))
-                toCall = ManagedMethodBeingCalled.Resolve();
-
-            if (toCall is GenericInstanceMethod gim2)
-                toCall = processor.ImportRecursive(gim2);
-
-            if (toCall.DeclaringType is GenericInstanceType git2)
-                toCall.DeclaringType = processor.ImportRecursive(git2);
-
-            toCall = processor.ImportParameterTypes(toCall);
+            // if (ManagedMethodBeingCalled.HasGenericParameters && !ManagedMethodBeingCalled.IsGenericInstance)
+            //     toCall = ManagedMethodBeingCalled.Resolve();
+            // if (ManagedMethodBeingCalled.DeclaringType is GenericInstanceType git && git.HasAnyGenericParams())
+            //     toCall = ManagedMethodBeingCalled.Resolve();
+            // if (ManagedMethodBeingCalled is GenericInstanceMethod gim && gim.GenericArguments.Any(g => g is GenericParameter || g is GenericInstanceType git2 && git2.HasAnyGenericParams()))
+            //     toCall = ManagedMethodBeingCalled.Resolve();
+            //
+            // if (toCall is GenericInstanceMethod gim2)
+            //     toCall = processor.ImportRecursive(gim2);
+            //
+            // if (toCall.DeclaringType is GenericInstanceType git2)
+            //     toCall.DeclaringType = processor.ImportRecursive(git2);
+            //
+            // toCall = processor.ImportParameterTypes(toCall);
 
             result.Add(processor.Create(ShouldUseCallvirt ? OpCodes.Callvirt : OpCodes.Call, processor.ImportReference(toCall)));
 
