@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -125,6 +126,12 @@ namespace Cpp2IL.Core.Utils
 
         public static GenericInstanceMethod MakeGenericInstanceMethod(this MethodReference methodReference, params TypeReference[] genericArguments)
         {
+            if (methodReference == null)
+                throw new ArgumentNullException(nameof(methodReference), "Method to make generic cannot be null");
+            
+            // if (genericArguments.Any(g => g is null) || genericArguments.Length != methodReference.GenericParameters.Count)
+            //     throw new Exception($"Generic arguments {genericArguments.ToStringEnumerable()}, count {genericArguments.Length} are not suitable for use for generic parameters {methodReference.GenericParameters.ToStringEnumerable()}, length {methodReference.GenericParameters.Count}");
+                    
             var gim = new GenericInstanceMethod(methodReference);
             
             //Cecil sucks major ass and doesn't do this in the constructor above for SOME FUCKING REASON

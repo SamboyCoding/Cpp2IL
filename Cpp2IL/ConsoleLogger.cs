@@ -31,6 +31,16 @@ namespace Cpp2IL
                     Write("Verb", source, message, VERB);
             };
 
+            HarmonyLib.Tools.Logger.MessageReceived += (sender, args) =>
+            {
+                if (args.LogChannel is HarmonyLib.Tools.Logger.LogChannel.Warn)
+                    Logger.WarnNewline(args.Message, "HarmonyInternal");
+                if (args.LogChannel is HarmonyLib.Tools.Logger.LogChannel.Error)
+                    Logger.ErrorNewline(args.Message, "HarmonyInternal");
+            };
+
+            HarmonyLib.Tools.Logger.ChannelFilter = HarmonyLib.Tools.Logger.LogChannel.All;
+
             CheckColorSupport();
         }
 
