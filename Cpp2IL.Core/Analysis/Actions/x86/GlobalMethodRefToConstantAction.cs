@@ -54,9 +54,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86
 
             if (_genericMethodParams.Count > 0)
             {
-                var gMethod = new GenericInstanceMethod(_method);
-                _genericMethodParams.ForEach(gMethod.GenericArguments.Add);
-                _method = gMethod;
+                _method = _method.MakeGenericInstanceMethod(_genericMethodParams.ToArray());
             }
 
             if (instruction.Mnemonic != Mnemonic.Push)

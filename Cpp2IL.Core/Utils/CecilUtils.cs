@@ -87,17 +87,21 @@ namespace Cpp2IL.Core.Utils
         {
             var returnType = module.ImportTypeButCleanly(method.ReturnType);
             var declaringType = module.ImportTypeButCleanly(method.DeclaringType);
+            var gParams = method.GenericParameters.ToList();
             var gArgs = (method as GenericInstanceMethod)?.GenericArguments.Select(module.ImportTypeButCleanly).ToList();
             var methodParams = method.Parameters.Select(module.ImportParameterButCleanly).ToList();
 
             var ret = new MethodReference(method.Name, returnType, declaringType);
+            
+            gParams.ForEach(ret.GenericParameters.Add);
+
             if (gArgs != null)
             {
                 var gMtd = new GenericInstanceMethod(ret);
                 gArgs.ForEach(gMtd.GenericArguments.Add);
                 ret = gMtd;
             }
-
+            
             methodParams.ForEach(ret.Parameters.Add);
 
             return ret;
@@ -118,6 +122,18 @@ namespace Cpp2IL.Core.Utils
         public static void SetEType(this TypeReference tr, CecilEType eType) => EtypeField.SetValue(tr, (byte) eType);
 
         public static CecilEType GetEType(this TypeReference tr) => (CecilEType) (byte) EtypeField.GetValue(tr);
+
+        public static GenericInstanceMethod MakeGenericInstanceMethod(this MethodReference methodReference, params TypeReference[] genericArguments)
+        {
+            var gim = new GenericInstanceMethod(methodReference);
+            
+            //Cecil sucks major ass and doesn't do this in the constructor above for SOME FUCKING REASON
+            methodReference.GenericParameters.ToList().ForEach(gim.GenericParameters.Add);
+            
+            genericArguments.ToList().ForEach(gim.GenericArguments.Add);
+
+            return gim;
+        }
         
         public static void SetPosition(this GenericParameter gp, int position) => PositionField.SetValue(gp, position);
 
