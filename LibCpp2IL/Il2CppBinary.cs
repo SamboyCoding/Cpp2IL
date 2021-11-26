@@ -376,7 +376,7 @@ namespace LibCpp2IL
 
         public ulong GetCustomAttributeGenerator(int index) => customAttributeGenerators![index];
 
-        public ulong[] AllCustomAttributeGenerators => LibCpp2IlMain.MetadataVersion >= 27 ? AllCustomAttributeGeneratorsV27 : customAttributeGenerators!;
+        public ulong[] AllCustomAttributeGenerators => LibCpp2IlMain.MetadataVersion >= 29 ? Array.Empty<ulong>() : LibCpp2IlMain.MetadataVersion >= 27 ? AllCustomAttributeGeneratorsV27 : customAttributeGenerators!;
 
         private ulong[] AllCustomAttributeGeneratorsV27 =>
             LibCpp2IlMain.TheMetadata!.imageDefinitions
