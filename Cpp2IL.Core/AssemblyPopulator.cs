@@ -412,7 +412,10 @@ namespace Cpp2IL.Core
                     if (methodPointer > 0)
                     {
                         customAttribute.Fields.Add(new CustomAttributeNamedArgument("RVA", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.GetRVA(methodPointer):X}")));
-                        customAttribute.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{LibCpp2IlMain.Binary.MapVirtualAddressToRaw(methodPointer):X}")));
+                        if(LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(methodPointer, out var offset))
+                            customAttribute.Fields.Add(new CustomAttributeNamedArgument("Offset", new CustomAttributeArgument(stringType, $"0x{offset:X}")));
+                        else
+                            Logger.WarnNewline($"Couldn't get file offset for method pointer 0x{methodPointer:X} for method {methodDef.HumanReadableSignature}");
                         customAttribute.Fields.Add(new CustomAttributeNamedArgument("VA", new CustomAttributeArgument(stringType, $"0x{methodPointer:X}")));
                     }
 

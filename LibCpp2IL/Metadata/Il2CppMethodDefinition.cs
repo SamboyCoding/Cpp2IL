@@ -73,7 +73,7 @@ namespace LibCpp2IL.Metadata
             }
         }
 
-        public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.MapVirtualAddressToRaw(MethodPointer);
+        public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
 
         public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRVA(MethodPointer);
 

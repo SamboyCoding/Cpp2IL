@@ -83,6 +83,8 @@ namespace LibCpp2IL.Elf
                 var execSegment = _elfProgramHeaderEntries!.First(p => (p.Flags & ElfProgramHeaderFlags.PF_X) != 0);
                 _globalOffset = (long)execSegment.VirtualAddress - (long)execSegment.RawAddress;
             }
+            
+            LibLogger.VerboseNewline($"\tELF global offset is 0x{_globalOffset:X}");
 
             //Get dynamic section.
             if (GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is { } dynamicSegment)
