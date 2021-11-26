@@ -1,5 +1,6 @@
 ﻿using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Utils;
+using Mono.Cecil;
 using Instruction = Iced.Intel.Instruction;
 
 namespace Cpp2IL.Core.Analysis.Actions.x86.Important
@@ -22,6 +23,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             if (ManagedMethodBeingCalled == null) return;
 
             InstanceBeingCalledOn = ManagedMethodBeingCalled.HasThis ? context.GetLocalInReg("rcx") : null;
+            
+            if (ManagedMethodBeingCalled is MethodDefinition && InstanceBeingCalledOn?.Type is GenericInstanceType git)
+            {
+                ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeMethodOnGenericType(git.GenericArguments.ToArray());
+            }
 
             if(!MethodUtils.CheckParameters(instruction, ManagedMethodBeingCalled, context, ManagedMethodBeingCalled.HasThis, out Arguments, InstanceBeingCalledOn?.Type, false))
                 AddComment("Arguments are incorrect?");

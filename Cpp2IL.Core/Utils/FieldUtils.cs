@@ -132,8 +132,8 @@ namespace Cpp2IL.Core.Utils
         /// </summary>
         public class FieldBeingAccessedData
         {
-            public readonly FieldDefinition? ImpliedFieldLoad;
-            public readonly FieldDefinition? FinalLoadInChain;
+            public FieldReference? ImpliedFieldLoad;
+            public FieldReference? FinalLoadInChain;
             public readonly FieldBeingAccessedData? NextChainLink;
 
             private FieldBeingAccessedData(FieldDefinition? impliedFieldLoad, FieldDefinition? finalLoadInChain, FieldBeingAccessedData? nextChainLink)

@@ -11,6 +11,7 @@ using Iced.Intel;
 using LibCpp2IL;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 using Instruction = Mono.Cecil.Cil.Instruction;
 
 namespace Cpp2IL.Core.Analysis.ResultModels
@@ -100,6 +101,10 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             _allInstructions = new(allInstructions);
             EmptyRegConstant = MakeConstant(typeof(int), 0, "0");
 
+            var thisParamType = (TypeReference) method.DeclaringType;
+            if (thisParamType.HasGenericParameters)
+                thisParamType = thisParamType.MakeGenericInstanceType(thisParamType.GenericParameters.Cast<TypeReference>().ToArray());
+
             var args = method.Parameters.ToList();
             var haveHandledMethodInfoArg = false;
             //Set up parameters in registers & as locals.
@@ -121,7 +126,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 if (!method.IsStatic)
                 {
                     method.Body.ThisParameter.Name = "this";
-                    FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this", _parameterDestRegList.RemoveAndReturn(0)).WithParameter(method.Body.ThisParameter));
+                    FunctionArgumentLocals.Add(MakeLocal(thisParamType, "this", _parameterDestRegList.RemoveAndReturn(0)).WithParameter(method.Body.ThisParameter));
                 }
 
                 while (args.Count > 0)
@@ -140,7 +145,7 @@ namespace Cpp2IL.Core.Analysis.ResultModels
             {
                 //x86_32 and wasm are stack based
                 method.Body.ThisParameter.Name = "this";
-                FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this").WithParameter(method.Body.ThisParameter));
+                FunctionArgumentLocals.Add(MakeLocal(thisParamType, "this").WithParameter(method.Body.ThisParameter));
                 Stack.Push(FunctionArgumentLocals.First());
             }
 

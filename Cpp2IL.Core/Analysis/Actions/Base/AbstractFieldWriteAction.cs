@@ -1,7 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Utils;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
 {
@@ -16,6 +19,34 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         protected abstract string? GetValueSummary();
         protected abstract string? GetValuePseudocode();
         protected abstract Instruction[] GetIlToLoadValue(MethodAnalysis<T> context, ILProcessor processor);
+        
+        protected void FixUpFieldRefForAnyPotentialGenericType(MethodAnalysis<T> context)
+        {
+            if(context.GetMethodDefinition() is not {} contextMethod)
+                return;
+            
+            if(FieldWritten == null)
+                return;
+            
+            if(InstanceBeingSetOn?.Type is not {} writtenOnType)
+                return;
+
+            if (writtenOnType is null or TypeDefinition {HasGenericParameters: false})
+                return;
+
+            if (writtenOnType is TypeDefinition)
+                writtenOnType = writtenOnType.MakeGenericInstanceType(writtenOnType.GenericParameters.Cast<TypeReference>().ToArray());
+
+            if (FieldWritten.ImpliedFieldLoad is { } impliedLoad)
+            {
+                var fieldRef = new FieldReference(impliedLoad.Name, impliedLoad.FieldType, writtenOnType);
+                FieldWritten.ImpliedFieldLoad = contextMethod.Module.ImportFieldButCleanly(fieldRef);
+            } else if (FieldWritten.FinalLoadInChain is { } finalLoad)
+            {
+                var fieldRef = new FieldReference(finalLoad.Name, finalLoad.FieldType, writtenOnType);
+                FieldWritten.FinalLoadInChain = contextMethod.Module.ImportFieldButCleanly(fieldRef);
+            }
+        }
         
         public override Instruction[] ToILInstructions(MethodAnalysis<T> context, ILProcessor processor)
         {

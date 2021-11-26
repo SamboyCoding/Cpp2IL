@@ -14,21 +14,20 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
         {
             var sourceRegName = X86Utils.GetRegisterNameNew(instruction.MemoryBase);
             _destRegName = X86Utils.GetRegisterNameNew(instruction.Op0Register);
-            var sourceFieldOffset = instruction.MemoryDisplacement;
+            var sourceFieldOffset = instruction.MemoryDisplacement32;
 
             var readFrom = context.GetOperandInRegister(sourceRegName);
 
-            TypeReference readFromType;
             if (readFrom is ConstantDefinition {Value: NewSafeCastResult<Instruction> result})
             {
-                readFromType = result.castTo;
+                ReadFromType = result.castTo;
                 ReadFrom = result.original;
                 RegisterUsedLocal(ReadFrom, context);
             }
             else if(readFrom is LocalDefinition {IsMethodInfoParam: false} l && l.Type?.Resolve() != null)
             {
                 ReadFrom = l;
-                readFromType = ReadFrom!.Type!;
+                ReadFromType = ReadFrom!.Type!;
                 RegisterUsedLocal(ReadFrom, context);
             } else
             {
@@ -36,11 +35,12 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 return;
             }
 
-            FieldRead = FieldUtils.GetFieldBeingAccessed(readFromType, sourceFieldOffset, false);
+            FieldRead = FieldUtils.GetFieldBeingAccessed(ReadFromType, sourceFieldOffset, false);
             
             if(FieldRead == null) return;
 
             LocalWritten = context.MakeLocal(FieldRead.GetFinalType(), reg: _destRegName);
+            FixUpFieldRefForAnyPotentialGenericType(context);
             RegisterDefinedLocalWithoutSideEffects(LocalWritten);
         }
     }

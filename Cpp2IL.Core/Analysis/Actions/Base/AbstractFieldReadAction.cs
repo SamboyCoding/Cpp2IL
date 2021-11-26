@@ -1,7 +1,10 @@
 ﻿using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Analysis.ResultModels;
 using Cpp2IL.Core.Utils;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
+using Mono.Cecil.Rocks;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
 {
@@ -10,9 +13,35 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         public FieldUtils.FieldBeingAccessedData? FieldRead;
         public LocalDefinition? LocalWritten;
         protected LocalDefinition? ReadFrom;
-        
+        protected TypeReference? ReadFromType;
+
         protected AbstractFieldReadAction(MethodAnalysis<T> context, T instruction) : base(context, instruction)
         {
+        }
+
+        protected void FixUpFieldRefForAnyPotentialGenericType(MethodAnalysis<T> context)
+        {
+            if(context.GetMethodDefinition() is not {} contextMethod)
+                return;
+            
+            if(FieldRead == null)
+                return;
+
+            if (ReadFromType is null or TypeDefinition {HasGenericParameters: false})
+                return;
+
+            if (ReadFromType is TypeDefinition)
+                ReadFromType = ReadFromType.MakeGenericInstanceType(ReadFromType.GenericParameters.Cast<TypeReference>().ToArray());
+
+            if (FieldRead.ImpliedFieldLoad is { } impliedLoad)
+            {
+                var fieldRef = new FieldReference(impliedLoad.Name, impliedLoad.FieldType, ReadFromType);
+                FieldRead.ImpliedFieldLoad = contextMethod.Module.ImportFieldButCleanly(fieldRef);
+            } else if (FieldRead.FinalLoadInChain is { } finalLoad)
+            {
+                var fieldRef = new FieldReference(finalLoad.Name, finalLoad.FieldType, ReadFromType);
+                FieldRead.FinalLoadInChain = contextMethod.Module.ImportFieldButCleanly(fieldRef);
+            }
         }
         
         public override string ToPsuedoCode()

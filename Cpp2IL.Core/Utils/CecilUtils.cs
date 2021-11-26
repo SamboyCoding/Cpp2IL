@@ -103,6 +103,14 @@ namespace Cpp2IL.Core.Utils
             return ret;
         }
 
+        public static FieldReference ImportFieldButCleanly(this ModuleDefinition module, FieldReference field)
+        {
+            var declaringType = module.ImportTypeButCleanly(field.DeclaringType);
+            var fieldType = module.ImportTypeButCleanly(field.FieldType);
+
+            return new(field.Name, fieldType, declaringType);
+        }
+
         public static TypeReference ImportTypeButCleanly(this ILProcessor processor, TypeReference reference) => processor.Body.Method.Module.ImportTypeButCleanly(reference);
         
         public static MethodReference ImportMethodButCleanly(this ILProcessor processor, MethodReference reference) => processor.Body.Method.Module.ImportMethodButCleanly(reference);
