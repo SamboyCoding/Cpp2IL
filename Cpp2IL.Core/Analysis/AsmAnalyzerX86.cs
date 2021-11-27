@@ -14,7 +14,7 @@ using Mono.Collections.Generic;
 
 namespace Cpp2IL.Core.Analysis
 {
-    internal partial class AsmAnalyzerX86 : AsmAnalyzerBase<Instruction>
+    public partial class AsmAnalyzerX86 : AsmAnalyzerBase<Instruction>
     {
         public static int SUCCESSFUL_METHODS = 0;
         public static int FAILED_METHODS = 0;
