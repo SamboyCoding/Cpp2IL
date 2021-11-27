@@ -14,8 +14,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         public IComparisonArgument? ArgumentOne;
         public IComparisonArgument? ArgumentTwo;
         
-        private readonly string? ArgumentOneRegister;
-        private readonly string? ArgumentTwoRegister;
+        protected readonly string? ArgumentOneRegister;
+        protected readonly string? ArgumentTwoRegister;
         
         public bool UnimportantComparison;
         public ulong EndOfLoopAddr;
@@ -42,6 +42,9 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             {
                 ArgumentTwo = ExtractArgument(context, associatedInstruction, 1, out unimportant2, out ArgumentTwoRegister);
 
+                // ReSharper disable once VirtualMemberCallInConstructor
+                OnSecondArgumentExtracted(context);
+                
                 if (ArgumentTwo is ConstantDefinition { Value: UnknownGlobalAddr globalAddr2 } cons2 && ArgumentOne is LocalDefinition { Type: { }, KnownInitialValue: null } loc1)
                 {
                     try
@@ -137,6 +140,8 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
         {
             return ArgumentOneRegister == regName ? ArgumentOne : ArgumentTwoRegister == regName ? ArgumentTwo : null;
         }
+
+        protected virtual void OnSecondArgumentExtracted<T>(MethodAnalysis<T> context) { }
 
         protected abstract bool IsMemoryReferenceAnAbsolutePointer(T instruction, int operandIdx);
 

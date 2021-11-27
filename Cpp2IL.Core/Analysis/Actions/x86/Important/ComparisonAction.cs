@@ -37,5 +37,14 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
 
             return ComparisonOperandType.MEMORY_ADDRESS_OR_OFFSET;
         }
+
+        protected override void OnSecondArgumentExtracted<T>(MethodAnalysis<T> context)
+        {
+            if (AssociatedInstruction.Mnemonic == Mnemonic.Test && ArgumentOneRegister?.Equals(ArgumentTwoRegister) == true)
+            {
+                // test reg, reg is the same thing as doing cmp reg, 0 (just without an immediate)
+                ArgumentTwo = context.MakeConstant(typeof(int), 0);
+            }
+        }
     }
 }
