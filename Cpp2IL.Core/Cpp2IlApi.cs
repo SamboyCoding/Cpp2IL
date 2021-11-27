@@ -23,7 +23,7 @@ namespace Cpp2IL.Core
     public static class Cpp2IlApi
     {
         public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
-        internal static bool IlContinueThroughErrors;
+        public static bool IlContinueThroughErrors;
 
         public static AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name.Name == name);

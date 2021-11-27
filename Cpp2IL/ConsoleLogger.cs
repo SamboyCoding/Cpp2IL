@@ -39,7 +39,7 @@ namespace Cpp2IL
                     Logger.ErrorNewline(args.Message, "HarmonyInternal");
             };
 
-            HarmonyLib.Tools.Logger.ChannelFilter = HarmonyLib.Tools.Logger.LogChannel.All;
+            HarmonyLib.Tools.Logger.ChannelFilter = HarmonyLib.Tools.Logger.LogChannel.Warn | HarmonyLib.Tools.Logger.LogChannel.Error;
 
             CheckColorSupport();
         }
