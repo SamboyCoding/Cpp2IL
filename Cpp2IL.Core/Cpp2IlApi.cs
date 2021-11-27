@@ -560,14 +560,7 @@ namespace Cpp2IL.Core
                             //No body
                             continue;
 
-                        IAsmAnalyzer dumper = LibCpp2IlMain.Binary?.InstructionSet switch
-                        {
-                            InstructionSet.X86_32 or InstructionSet.X86_64 => new AsmAnalyzerX86(methodDefinition, keyFunctionAddresses!),
-                            InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, methodStart, keyFunctionAddresses!),
-                            InstructionSet.ARM64 => new AsmAnalyzerArmV8A(methodDefinition, keyFunctionAddresses!),
-                            InstructionSet.WASM => new AsmAnalyzerWasm(methodDefinition, keyFunctionAddresses!),
-                            _ => throw new UnsupportedInstructionSetException()
-                        };
+                        var dumper = CreateAnalyzerForMethod(methodDefinition, keyFunctionAddresses!);
 
                         try
                         {
@@ -656,6 +649,16 @@ namespace Cpp2IL.Core
                 Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzerX86.SUCCESSFUL_METHODS}) of {total} methods.");
             }
         }
+
+        public static IAsmAnalyzer CreateAnalyzerForMethod(MethodDefinition methodDefinition, BaseKeyFunctionAddresses keyFunctionAddresses) =>
+            LibCpp2IlMain.Binary?.InstructionSet switch
+            {
+                InstructionSet.X86_32 or InstructionSet.X86_64 => new AsmAnalyzerX86(methodDefinition, keyFunctionAddresses!),
+                InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, keyFunctionAddresses!),
+                InstructionSet.ARM64 => new AsmAnalyzerArmV8A(methodDefinition, keyFunctionAddresses!),
+                InstructionSet.WASM => new AsmAnalyzerWasm(methodDefinition, keyFunctionAddresses!),
+                _ => throw new UnsupportedInstructionSetException()
+            };
 
         public static void PopulateConcreteImplementations()
         {

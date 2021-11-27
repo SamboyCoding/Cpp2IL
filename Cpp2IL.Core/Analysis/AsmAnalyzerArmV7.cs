@@ -48,7 +48,7 @@ namespace Cpp2IL.Core.Analysis
         {
         }
 
-        public AsmAnalyzerArmV7(MethodDefinition definition, ulong methodPointer, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : base(definition, methodPointer, DisassembleInstructions(definition), baseKeyFunctionAddresses)
+        public AsmAnalyzerArmV7(MethodDefinition definition, BaseKeyFunctionAddresses baseKeyFunctionAddresses) : base(definition, definition.AsUnmanaged().MethodPointer, DisassembleInstructions(definition), baseKeyFunctionAddresses)
         {
         }
 
