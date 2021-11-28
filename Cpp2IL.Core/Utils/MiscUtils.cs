@@ -637,22 +637,7 @@ namespace Cpp2IL.Core.Utils
             if (desired is null)
                 throw new ArgumentNullException(nameof(desired), "Destination type is null");
             
-            var rawBytes = original switch
-            {
-                bool b => BitConverter.GetBytes(b),
-                char c => BitConverter.GetBytes(c),
-                byte b => BitConverter.GetBytes(b),
-                sbyte sb => BitConverter.GetBytes(sb),
-                ushort us => BitConverter.GetBytes(us),
-                short s => BitConverter.GetBytes(s),
-                uint ui => BitConverter.GetBytes(ui),
-                int i => BitConverter.GetBytes(i),
-                ulong ul => BitConverter.GetBytes(ul),
-                long l => BitConverter.GetBytes(l),
-                float f => BitConverter.GetBytes(f),
-                double d => BitConverter.GetBytes(d),
-                _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
-            };
+            var rawBytes = RawBytes(original);
 
             if (!typeof(IConvertible).IsAssignableFrom(desired))
                 throw new Exception($"ReinterpretBytes: Desired type, {desired}, does not implement IConvertible");
@@ -692,6 +677,24 @@ namespace Cpp2IL.Core.Utils
 
             throw new($"ReinterpretBytes: Cannot convert byte array back to a type of {desired}");
         }
+
+        internal static byte[] RawBytes(IConvertible original) =>
+            original switch
+            {
+                bool b => BitConverter.GetBytes(b),
+                char c => BitConverter.GetBytes(c),
+                byte b => BitConverter.GetBytes(b),
+                sbyte sb => BitConverter.GetBytes(sb),
+                ushort us => BitConverter.GetBytes(us),
+                short s => BitConverter.GetBytes(s),
+                uint ui => BitConverter.GetBytes(ui),
+                int i => BitConverter.GetBytes(i),
+                ulong ul => BitConverter.GetBytes(ul),
+                long l => BitConverter.GetBytes(l),
+                float f => BitConverter.GetBytes(f),
+                double d => BitConverter.GetBytes(d),
+                _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
+            };
 
         private static void InitFunctionStarts()
         {

@@ -2,7 +2,9 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Text;
 using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures;
 using AsmResolver.DotNet.Signatures.Types;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using LibCpp2IL;
@@ -14,61 +16,62 @@ namespace Cpp2IL.Core.Utils
     {
         private static readonly object PointerReadLock = new();
         private static readonly Dictionary<string, (TypeDefinition typeDefinition, string[] genericParams)?> CachedTypeDefsByName = new();
-        
-        public static ITypeDescriptor GetTypeDefFromIl2CppType(Il2CppType il2CppType)
+        private static readonly Dictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
+
+        public static ITypeDescriptor GetTypeDefFromIl2CppType(ReferenceImporter importer, Il2CppType il2CppType)
         {
             var theDll = LibCpp2IlMain.Binary!;
 
             switch (il2CppType.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
-                    return TypeDefinitionsAsmResolver.Object.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Object.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
-                    return TypeDefinitionsAsmResolver.Void.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Void.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-                    return TypeDefinitionsAsmResolver.Boolean.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Boolean.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-                    return TypeDefinitionsAsmResolver.Char.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Char.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-                    return TypeDefinitionsAsmResolver.SByte.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.SByte.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-                    return TypeDefinitionsAsmResolver.Byte.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Byte.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-                    return TypeDefinitionsAsmResolver.Int16.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Int16.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-                    return TypeDefinitionsAsmResolver.UInt16.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.UInt16.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    return TypeDefinitionsAsmResolver.Int32.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Int32.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    return TypeDefinitionsAsmResolver.UInt32.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.UInt32.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I:
-                    return TypeDefinitionsAsmResolver.IntPtr.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.IntPtr.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U:
-                    return TypeDefinitionsAsmResolver.UIntPtr.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.UIntPtr.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-                    return TypeDefinitionsAsmResolver.Int64.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Int64.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-                    return TypeDefinitionsAsmResolver.UInt64.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.UInt64.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-                    return TypeDefinitionsAsmResolver.Single.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Single.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-                    return TypeDefinitionsAsmResolver.Double.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Double.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    return TypeDefinitionsAsmResolver.String.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.String.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                    return TypeDefinitionsAsmResolver.TypedReference.ToTypeReference();
+                    return importer.ImportType(TypeDefinitionsAsmResolver.TypedReference.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
                     var typeDefinition = SharedState.TypeDefsByIndexNew[il2CppType.data.classIndex];
-                    return typeDefinition.ToTypeReference();
+                    return importer.ImportType(typeDefinition.ToTypeReference());
                 }
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 {
                     var arrayType = theDll.ReadClassAtVirtualAddress<Il2CppArrayType>(il2CppType.data.array);
                     var oriType = theDll.GetIl2CppTypeFromPointer(arrayType.etype);
-                    return ((TypeReference) GetTypeDefFromIl2CppType(oriType)).MakeArrayType(arrayType.rank);
+                    return importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, oriType).ToTypeDefOrRef()).MakeArrayType(arrayType.rank);
                 }
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
@@ -85,22 +88,21 @@ namespace Cpp2IL.Core.Utils
                         //V27 - type indexes are pointers now.
                         var type = theDll.ReadClassAtVirtualAddress<Il2CppType>((ulong)genericClass.typeDefinitionIndex);
                         type.Init();
-                        typeDefinition = (TypeDefinition) GetTypeDefFromIl2CppType(type);
+                        typeDefinition = GetTypeDefFromIl2CppType(importer, type).Resolve() ?? throw new Exception("Unable to resolve base type for generic inst");
                     }
                     
-                    var genericInstanceType = new GenericInstanceTypeSignature(typeDefinition.ToTypeReference(), typeDefinition.IsValueType);
+                    var genericInstanceType = new GenericInstanceTypeSignature(importer.ImportType(typeDefinition.ToTypeReference()), typeDefinition.IsValueType);
                     var genericInst = theDll.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     ulong[] pointers;
 
                     lock (PointerReadLock)
                         pointers = theDll.GetPointers(genericInst.pointerStart, (long)genericInst.pointerCount);
 
-                    var index = 0;
                     foreach (var pointer in pointers)
                     {
                         var oriType = theDll.GetIl2CppTypeFromPointer(pointer);
                         if (oriType.type is not Il2CppTypeEnum.IL2CPP_TYPE_VAR and not Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
-                            genericInstanceType.TypeArguments.Add(GetTypeDefFromIl2CppType(oriType).MakeTypeSignature());
+                            genericInstanceType.TypeArguments.Add(importer.ImportTypeSignature(GetTypeDefFromIl2CppType(importer, oriType).MakeTypeSignature()));
                         else
                         {
                             var gpt = oriType.type is Il2CppTypeEnum.IL2CPP_TYPE_MVAR ? GenericParameterType.Method : GenericParameterType.Type;
@@ -116,13 +118,11 @@ namespace Cpp2IL.Core.Utils
                 {
                     var oriType = theDll.GetIl2CppTypeFromPointer(il2CppType.data.type);
                     if(oriType.type is not Il2CppTypeEnum.IL2CPP_TYPE_MVAR and not Il2CppTypeEnum.IL2CPP_TYPE_VAR)
-                        return GetTypeDefFromIl2CppType(oriType).MakeSzArrayType();
-                    else
-                    {
-                        var gp = LibCpp2IlMain.TheMetadata!.genericParameters[oriType.data.genericParameterIndex];
-                        var gpt = oriType.type is Il2CppTypeEnum.IL2CPP_TYPE_MVAR ? GenericParameterType.Method : GenericParameterType.Type;
-                        return new GenericParameterSignature(gpt, gp.genericParameterIndexInOwner).MakeSzArrayType();
-                    }
+                        return importer.ImportType(GetTypeDefFromIl2CppType(importer, oriType).ToTypeDefOrRef()).MakeSzArrayType();
+                    
+                    var gp = LibCpp2IlMain.TheMetadata!.genericParameters[oriType.data.genericParameterIndex];
+                    var gpt = oriType.type is Il2CppTypeEnum.IL2CPP_TYPE_MVAR ? GenericParameterType.Method : GenericParameterType.Type;
+                    return new GenericParameterSignature(gpt, gp.genericParameterIndexInOwner).MakeSzArrayType();
                 }
 
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
@@ -130,35 +130,27 @@ namespace Cpp2IL.Core.Utils
                 {
                     var gp = LibCpp2IlMain.TheMetadata!.genericParameters[il2CppType.data.genericParameterIndex];
                     var gpt = il2CppType.type is Il2CppTypeEnum.IL2CPP_TYPE_MVAR ? GenericParameterType.Method : GenericParameterType.Type;
-                    return new GenericParameterSignature(gpt, gp.genericParameterIndexInOwner);
+                    return new GenericParameterSignature(importer.TargetModule, gpt, gp.genericParameterIndexInOwner);
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
                 {
                     var oriType = theDll.GetIl2CppTypeFromPointer(il2CppType.data.type);
-                    return GetTypeDefFromIl2CppType(oriType).MakePointerType();
+                    return importer.ImportType(GetTypeDefFromIl2CppType(importer, oriType).ToTypeDefOrRef()).MakePointerType();
                 }
 
                 default:
-                    return TypeDefinitionsAsmResolver.Object;
+                    return importer.ImportType(TypeDefinitionsAsmResolver.Object.ToTypeReference());
             }
         }
 
-        public static GenericParameter ImportGenericParameter(Il2CppType il2CppType, bool isMethod)
+        public static GenericParameter ImportGenericParameter(Il2CppType il2CppType, ReferenceImporter importer, bool isMethod)
         {
             switch (il2CppType.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
                 {
                     if (SharedState.GenericParamsByIndexNew.TryGetValue(il2CppType.data.genericParameterIndex, out var genericParameter))
-                    {
-                        // if (importInto is MethodDefinition mDef)
-                        // {
-                        //     mDef.GenericParameters.Add(genericParameter);
-                        //     mDef.DeclaringType.GenericParameters[mDef.DeclaringType.GenericParameters.IndexOf(genericParameter)] = genericParameter;
-                        // }
-
                         return genericParameter;
-                    }
 
                     var param = LibCpp2IlMain.TheMetadata!.genericParameters[il2CppType.data.genericParameterIndex];
                     var genericName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(param.nameIndex);
@@ -169,25 +161,19 @@ namespace Cpp2IL.Core.Utils
                         SharedState.GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
 
                         param.ConstraintTypes!
-                            .Select(c => new GenericParameterConstraint(GetTypeDefFromIl2CppType(c).ToTypeDefOrRef()))
+                            .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
                             .ToList()
                             .ForEach(genericParameter.Constraints.Add);
 
-                        // methodDefinition.GenericParameters.Add(genericParameter);
-                        // methodDefinition.DeclaringType.GenericParameters.Add(genericParameter);
                         return genericParameter;
                     }
-
-                    // var typeDefinition = (TypeDefinition)importInto;
 
                     genericParameter = new GenericParameter(genericName, (GenericParameterAttributes) param.flags);
 
                     SharedState.GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
-
-                    // typeDefinition.GenericParameters.Add(genericParameter);
-
+                    
                     param.ConstraintTypes!
-                        .Select(c => new GenericParameterConstraint(GetTypeDefFromIl2CppType(c).ToTypeDefOrRef()))
+                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
                         .ToList()
                         .ForEach(genericParameter.Constraints.Add);
 
@@ -200,17 +186,14 @@ namespace Cpp2IL.Core.Utils
                         return genericParameter;
                     }
 
-                    // var methodDefinition = (MethodDefinition)importInto;
                     var param = LibCpp2IlMain.TheMetadata!.genericParameters[il2CppType.data.genericParameterIndex];
                     var genericName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(param.nameIndex);
                     genericParameter = new GenericParameter(genericName, (GenericParameterAttributes) param.flags);
 
                     SharedState.GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
 
-                    // methodDefinition.GenericParameters.Add(genericParameter);
-
                     param.ConstraintTypes!
-                        .Select(c => new GenericParameterConstraint(GetTypeDefFromIl2CppType(c).ToTypeDefOrRef()))
+                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
                         .ToList()
                         .ForEach(genericParameter.Constraints.Add);
 
@@ -314,6 +297,46 @@ namespace Cpp2IL.Core.Utils
                 return null;
 
             return new (definedType, genericParams);
+        }
+
+        public static ReferenceImporter GetImporter(this AssemblyDefinition assemblyDefinition)
+        {
+            if (ImportersByAssembly.TryGetValue(assemblyDefinition, out var ret))
+                return ret;
+
+            ImportersByAssembly[assemblyDefinition] = ret = new(assemblyDefinition.Modules[0]);
+
+            return ret;
+        }
+
+        public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type) => type is TypeSpecification {Signature: GenericParameterSignature} gps ? gps : importer.ImportType(type);
+
+        public static ElementType GetElementTypeFromConstant(object? primitive) => primitive is null
+            ? ElementType.Object
+            : primitive switch
+            {
+                sbyte => ElementType.I1,
+                byte => ElementType.U1,
+                bool => ElementType.Boolean,
+                short => ElementType.I2,
+                ushort => ElementType.U2,
+                int => ElementType.I4,
+                uint => ElementType.U4,
+                long => ElementType.I8,
+                ulong => ElementType.U8,
+                float => ElementType.R4,
+                double => ElementType.R8,
+                string => ElementType.String,
+                char => ElementType.Char,
+                _ => throw new($"Can't get a element type for the constant {primitive} of type {primitive.GetType()}"),
+            };
+
+        public static Constant MakeConstant(object from)
+        {
+            if (from is string s)
+                return new(ElementType.String, new(Encoding.Unicode.GetBytes(s)));
+            
+            return new(GetElementTypeFromConstant(from), new DataBlobSignature(MiscUtils.RawBytes((IConvertible) from)));
         }
     }
 }

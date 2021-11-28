@@ -252,6 +252,8 @@ namespace Cpp2IL.Core
             //Configure utils class
             TypeDefinitions.BuildPrimitiveMappings();
             TypeDefinitionsAsmResolver.BuildPrimitiveMappings();
+            
+            SaveAssemblies("./cpp2il_out/newassems", AssembliesNew);
 
             //Set base types and interfaces
             startTwo = DateTime.Now;
@@ -267,9 +269,12 @@ namespace Cpp2IL.Core
                 Logger.Verbose($"\tPopulating {imageDef.Name}...");
 
                 AssemblyPopulator.PopulateStubTypesInAssembly(imageDef, suppressAttributes);
+                AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged(imageDef);
 
                 Logger.VerboseNewline($"Done ({(DateTime.Now - startAssem).TotalMilliseconds}ms)");
             }
+            
+            SaveAssemblies("./cpp2il_out/newassems_populated", AssembliesNew);
 
             Logger.InfoNewline($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
             Logger.InfoNewline("Fixing up explicit overrides. Any warnings you see here aren't errors - they usually indicate improperly stripped or obfuscated types, but this is not a big deal. This should only take a second...");
@@ -427,6 +432,23 @@ namespace Cpp2IL.Core
                     throw new DllSaveException(dllPath, e);
                 }
 #endif
+            }
+        }
+
+        public static void SaveAssemblies(string toWhere, List<AsmResolver.DotNet.AssemblyDefinition> assemblies)
+        {
+            Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
+
+            if (!Directory.Exists(toWhere))
+            {
+                Logger.VerboseNewline($"\tSave directory does not exist. Creating...");
+                Directory.CreateDirectory(toWhere);
+            }
+
+            foreach (var assembly in assemblies)
+            {
+                var dllPath = Path.Combine(toWhere, assembly.Modules[0].Name!);
+                assembly.Write(dllPath);
             }
         }
 

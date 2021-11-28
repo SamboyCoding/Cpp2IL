@@ -11,6 +11,8 @@ namespace Cpp2IL.Core
 {
     public static class AsmResolverStubAssemblyBuilder
     {
+        public static AssemblyDefinition MostRecentCorLib;
+
         private class Il2CppAssemblyResolver : IAssemblyResolver
         {
             internal readonly Dictionary<string, AssemblyDefinition> DummyAssemblies = new();
@@ -51,18 +53,18 @@ namespace Cpp2IL.Core
             var metadataResolver = new DefaultMetadataResolver(assemblyResolver);
             
             var corlib = metadata.AssemblyDefinitions.First(a => a.AssemblyName.Name == "mscorlib");
-            var managedCorlib = BuildStubAssembly(corlib, null, metadataResolver);
-            assemblyResolver.DummyAssemblies.Add(managedCorlib.Name!, managedCorlib);
+            MostRecentCorLib = BuildStubAssembly(corlib, null, metadataResolver);
+            assemblyResolver.DummyAssemblies.Add(MostRecentCorLib.Name!, MostRecentCorLib);
 
             var ret = metadata.AssemblyDefinitions
                 // .AsParallel()
                 .Where(a => a.AssemblyName.Name != "mscorlib")
-                .Select(a => BuildStubAssembly(a, managedCorlib, metadataResolver))
+                .Select(a => BuildStubAssembly(a, MostRecentCorLib, metadataResolver))
                 .ToList();
             
             ret.ForEach(a => assemblyResolver.DummyAssemblies.Add(a.Name!, a));
             
-            ret.Add(managedCorlib);
+            ret.Add(MostRecentCorLib);
 
             return ret;
         }
