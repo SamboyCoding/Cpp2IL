@@ -338,5 +338,9 @@ namespace Cpp2IL.Core.Utils
             
             return new(GetElementTypeFromConstant(from), new DataBlobSignature(MiscUtils.RawBytes((IConvertible) from)));
         }
+
+        public static bool IsManagedMethodWithBody(this MethodDefinition managedMethod) => 
+            managedMethod.Managed && !managedMethod.IsAbstract && !managedMethod.IsPInvokeImpl 
+            && !managedMethod.IsInternalCall && !managedMethod.IsNative && !managedMethod.IsRuntime;
     }
 }

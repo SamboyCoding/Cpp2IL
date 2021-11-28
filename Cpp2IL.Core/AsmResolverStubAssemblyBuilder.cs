@@ -101,7 +101,8 @@ namespace Cpp2IL.Core
 
             foreach (var il2CppTypeDefinition in imageDefinition.Types!.Where(t => t.DeclaringType == null))
             {
-                managedModule.TopLevelTypes.Add(BuildStubType(il2CppTypeDefinition));
+                if(il2CppTypeDefinition.Name != "<Module>")
+                    managedModule.TopLevelTypes.Add(BuildStubType(il2CppTypeDefinition));
             }
 
 

@@ -428,7 +428,6 @@ namespace Cpp2IL.Core
                 }
 
                 //Handle generic parameters.
-                var position = 0;
                 methodDef.GenericContainer?.GenericParameters.ToList()
                     .ForEach(p =>
                     {
