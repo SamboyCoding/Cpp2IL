@@ -44,6 +44,7 @@ namespace Cpp2IL.Core.Utils
         {
             CachedTypeDefsByName.Clear();
             TypeDefinitions.Reset();
+            TypeDefinitionsAsmResolver.Reset();
             CecilExtensions.AssignabilityCache.Clear();
             _allKnownFunctionStarts = null;
         }
@@ -370,7 +371,7 @@ namespace Cpp2IL.Core.Utils
             return new Tuple<TypeDefinition?, string[]>(definedType, genericParams);
         }
 
-        private static string[] GetGenericParams(string input)
+        internal static string[] GetGenericParams(string input)
         {
             if (!input.Contains('<'))
                 return input.Split(',');

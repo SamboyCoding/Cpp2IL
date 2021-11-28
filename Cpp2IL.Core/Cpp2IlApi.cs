@@ -245,16 +245,19 @@ namespace Cpp2IL.Core
             var startTwo = DateTime.Now;
             Logger.Verbose("\tPre-generating stubs...");
             var Assemblies = StubAssemblyBuilder.BuildStubAssemblies(LibCpp2IlMain.TheMetadata!, moduleParams);
+            var AssembliesNew = AsmResolverStubAssemblyBuilder.BuildStubAssemblies(LibCpp2IlMain.TheMetadata!);
             Assemblies.ForEach(resolver.Register);
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Configure utils class
             TypeDefinitions.BuildPrimitiveMappings();
+            TypeDefinitionsAsmResolver.BuildPrimitiveMappings();
 
             //Set base types and interfaces
             startTwo = DateTime.Now;
             Logger.Verbose("\tConfiguring Hierarchy...");
             AssemblyPopulator.ConfigureHierarchy();
+            AsmResolverAssemblyPopulator.ConfigureHierarchy();
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             foreach (var imageDef in LibCpp2IlMain.TheMetadata!.imageDefinitions)

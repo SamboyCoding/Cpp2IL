@@ -19,12 +19,17 @@ namespace Cpp2IL.Core
 
         //Generic params
         internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndex = new();
+        internal static readonly Dictionary<long, AsmResolver.DotNet.GenericParameter> GenericParamsByIndexNew = new();
         
         //Type defs
         internal static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
+        internal static readonly ConcurrentDictionary<long, AsmResolver.DotNet.TypeDefinition> TypeDefsByIndexNew = new();
         internal static readonly List<TypeDefinition> AllTypeDefinitions = new();
+        internal static readonly List<AsmResolver.DotNet.TypeDefinition> AllTypeDefinitionsNew = new();
         internal static readonly ConcurrentDictionary<TypeDefinition, Il2CppTypeDefinition> ManagedToUnmanagedTypes = new();
         internal static readonly ConcurrentDictionary<Il2CppTypeDefinition, TypeDefinition> UnmanagedToManagedTypes = new();
+        internal static readonly ConcurrentDictionary<AsmResolver.DotNet.TypeDefinition, Il2CppTypeDefinition> ManagedToUnmanagedTypesNew = new();
+        internal static readonly ConcurrentDictionary<Il2CppTypeDefinition, AsmResolver.DotNet.TypeDefinition> UnmanagedToManagedTypesNew = new();
 
         internal static readonly Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition> ConcreteImplementations = new();
 

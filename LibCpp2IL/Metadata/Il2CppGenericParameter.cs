@@ -10,7 +10,7 @@ namespace LibCpp2IL.Metadata
         public int nameIndex;
         public short constraintsStart;
         public short constraintsCount;
-        public ushort num;
+        public ushort genericParameterIndexInOwner;
         public ushort flags;
 
         public string? Name => LibCpp2IlMain.TheMetadata?.GetStringFromIndex(nameIndex);
