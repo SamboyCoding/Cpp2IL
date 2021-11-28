@@ -86,6 +86,10 @@ public static class AsmResolverAssemblyPopulator
         CopyFieldsInType(importer, cppTypeDefinition, ilTypeDefinition);
         
         CopyMethodsInType(importer, cppTypeDefinition, ilTypeDefinition);
+
+        CopyPropertiesInType(importer, cppTypeDefinition, ilTypeDefinition);
+        
+        CopyEventsInType(importer, cppTypeDefinition, ilTypeDefinition);
     }
 
     private static void CopyFieldsInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
@@ -125,9 +129,9 @@ public static class AsmResolverAssemblyPopulator
             
             var managedMethod = new MethodDefinition(method.Name, (MethodAttributes) method.Attributes, signature);
             
-            //Add parameter definitions
+            //Add parameter definitions so we get names, defaults, out params, etc
             var paramData = method.Parameters!;
-            var seq = (ushort) (method.IsStatic ? 0 : 1);
+            ushort seq = 1;
             foreach (var param in paramData)
             {
                 var managedParam = new ParameterDefinition(seq++, param.ParameterName, (ParameterAttributes) param.ParameterAttributes);
@@ -162,11 +166,62 @@ public static class AsmResolverAssemblyPopulator
                         .ToList()
                         .ForEach(gp.Constraints.Add);
                 });
-            
+
+            SharedState.UnmanagedToManagedMethodsNew[method] = managedMethod;
+            SharedState.ManagedToUnmanagedMethodsNew[managedMethod] = method;
             ilTypeDefinition.Methods.Add(managedMethod);
         }
     }
+
+    private static void CopyPropertiesInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    {
+        foreach (var property in cppTypeDefinition.Properties!)
+        {
+            var propertyTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, property.RawPropertyType!).ToTypeSignature());
+            var propertySignature = property.IsStatic
+                ? PropertySignature.CreateStatic(propertyTypeSig)
+                : PropertySignature.CreateInstance(propertyTypeSig);
+
+            var managedProperty = new PropertyDefinition(property.Name, (PropertyAttributes) property.attrs, propertySignature);
+
+            var managedGetter = property.Getter == null ? null : SharedState.UnmanagedToManagedMethodsNew[property.Getter];
+            var managedSetter = property.Setter == null ? null : SharedState.UnmanagedToManagedMethodsNew[property.Setter];
+
+            if(managedGetter != null)
+                managedProperty.Semantics.Add(new (managedGetter, MethodSemanticsAttributes.Getter));
+            
+            if(managedSetter != null)
+                managedProperty.Semantics.Add(new(managedSetter, MethodSemanticsAttributes.Setter));
+            
+            ilTypeDefinition.Properties.Add(managedProperty);
+        }
+    }
     
+    private static void CopyEventsInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    {
+        foreach (var eventDef in cppTypeDefinition.Events!)
+        {
+            var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, eventDef.RawType!).ToTypeDefOrRef());
+
+            var managedEvent = new EventDefinition(eventDef.Name, (EventAttributes) eventDef.EventAttributes, eventType);
+
+            var managedAdder = eventDef.Adder == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Adder];
+            var managedRemover = eventDef.Remover == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Remover];
+            var managedInvoker = eventDef.Invoker == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Invoker];
+
+            if(managedAdder != null)
+                managedEvent.Semantics.Add(new (managedAdder, MethodSemanticsAttributes.AddOn));
+            
+            if(managedRemover != null)
+                managedEvent.Semantics.Add(new(managedRemover, MethodSemanticsAttributes.RemoveOn));
+            
+            if(managedInvoker != null)
+                managedEvent.Semantics.Add(new(managedInvoker, MethodSemanticsAttributes.Fire));
+            
+            ilTypeDefinition.Events.Add(managedEvent);
+        }
+    }
+
     private static void FillMethodBodyWithStub(MethodDefinition methodDefinition)
     {
         methodDefinition.CilMethodBody = new(methodDefinition);

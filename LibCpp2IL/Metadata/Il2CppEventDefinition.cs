@@ -44,5 +44,18 @@ namespace LibCpp2IL.Metadata
         public Il2CppMethodDefinition? Remover => LibCpp2IlMain.TheMetadata == null || remove < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + remove];
         
         public Il2CppMethodDefinition? Invoker => LibCpp2IlMain.TheMetadata == null || raise < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + raise];
+
+        public bool IsStatic
+        {
+            get
+            {
+                if (Adder != null)
+                    return Adder.IsStatic;
+                if (Remover != null)
+                    return Remover.IsStatic;
+
+                return Invoker!.IsStatic;
+            }
+        }
     }
 }

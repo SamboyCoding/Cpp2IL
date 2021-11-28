@@ -16,6 +16,8 @@ namespace Cpp2IL.Core
         internal static readonly ConcurrentDictionary<long, MethodDefinition> MethodsByIndex = new();
         internal static readonly ConcurrentDictionary<Il2CppMethodDefinition, MethodDefinition> UnmanagedToManagedMethods = new();
         internal static readonly ConcurrentDictionary<MethodDefinition, Il2CppMethodDefinition> ManagedToUnmanagedMethods = new();
+        internal static readonly ConcurrentDictionary<Il2CppMethodDefinition, AsmResolver.DotNet.MethodDefinition> UnmanagedToManagedMethodsNew = new();
+        internal static readonly ConcurrentDictionary<AsmResolver.DotNet.MethodDefinition, Il2CppMethodDefinition> ManagedToUnmanagedMethodsNew = new();
 
         //Generic params
         internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndex = new();
@@ -56,13 +58,19 @@ namespace Cpp2IL.Core
             MethodsByIndex.Clear();
             UnmanagedToManagedMethods.Clear();
             ManagedToUnmanagedMethods.Clear();
+            UnmanagedToManagedMethodsNew.Clear();
+            ManagedToUnmanagedMethodsNew.Clear();
 
             GenericParamsByIndex.Clear();
+            GenericParamsByIndexNew.Clear();
 
             TypeDefsByIndex.Clear();
+            TypeDefsByIndexNew.Clear();
             AllTypeDefinitions.Clear();
             ManagedToUnmanagedTypes.Clear();
             UnmanagedToManagedTypes.Clear();
+            ManagedToUnmanagedTypesNew.Clear();
+            UnmanagedToManagedTypesNew.Clear();
 
             ConcreteImplementations.Clear();
 
