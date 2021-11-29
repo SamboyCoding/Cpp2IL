@@ -55,7 +55,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             target.FlowControl = InstructionGraphNodeFlowControl.Continue;
             newNode.Neighbors = target.Neighbors;
             
-            target.Neighbors = new Collection<TNode>();
+            target.Neighbors = new ();
 
             return newNode;
         }
@@ -121,7 +121,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
         }
     public TNode Root { get; }
         
-    private List<TNode> nodeSet;
+    private Collection<TNode> nodeSet;
 
     protected void AddDirectedEdge(TNode from, TNode to)
     {
@@ -148,7 +148,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
         }
     }
 
-    protected List<TNode> Nodes => nodeSet;
+    protected Collection<TNode> Nodes => nodeSet;
 
     public int Count => nodeSet.Count;
 }
