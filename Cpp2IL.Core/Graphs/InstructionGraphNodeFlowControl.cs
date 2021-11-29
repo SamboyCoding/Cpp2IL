@@ -1,4 +1,4 @@
-﻿namespace Cpp2IL.Core;
+﻿namespace Cpp2IL.Core.Graphs;
 
 public enum InstructionGraphNodeFlowControl
 {

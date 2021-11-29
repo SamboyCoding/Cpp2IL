@@ -3,14 +3,14 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.Graphs;
 
 public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : InstructionGraphNode<TInstruction>, new()
 {
         protected List<TInstruction> Instructions;
 
         protected TNode  EndNode;
-        private TNode  InterruptNode; // TODO: Remove this, replace with normal end node
+    
         Dictionary<ulong, TInstruction> InstructionsByAddress;
         protected int idCounter = 0;
 
@@ -22,7 +22,6 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
 
             var startNode = new TNode() {ID = idCounter++};
             EndNode = new TNode() {ID = idCounter++};
-            InterruptNode = new TNode() {ID = idCounter++};
             Instructions = instructions;
             InstructionsByAddress = new Dictionary<ulong, TInstruction>();
             Root = startNode;
@@ -53,15 +52,15 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             newNode.Instructions.AddRange(instructions);
             newNode.FlowControl = target.FlowControl;
             target.FlowControl = InstructionGraphNodeFlowControl.Continue;
-            newNode.Neighbors = target.Neighbors;
+            newNode.Successors = target.Successors;
             
-            target.Neighbors = new ();
+            target.Successors = new ();
 
             return newNode;
         }
         
 
-        public void Run()
+        public void Run(bool print = false)
         {
             AddNode(Root);
             if (Instructions.Count == 0)
@@ -72,14 +71,14 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             }
             BuildInitialGraph();
             AddNode(EndNode);
-            AddNode(InterruptNode);
             SegmentGraph();
             ConstructConditions();
-            Print();
-            ExtractFeatures();
+            if(print)
+                Print();
+            DetermineLocals();
         }
 
-        protected virtual void ExtractFeatures()
+        protected virtual void DetermineLocals()
         {
             throw new NotImplementedException();
         }
@@ -125,7 +124,8 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
 
     protected void AddDirectedEdge(TNode from, TNode to)
     {
-        from.Neighbors.Add(to);
+        from.Successors.Add(to);
+        to.Predecessors.Add(from);
     }
 
     protected void AddNode(TNode node) => nodeSet.Add(node);
@@ -136,7 +136,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
         foreach (var node in nodeSet)
         {
             Console.WriteLine("=========================");
-            Console.Write($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Neighbors.Select(i => i.ID))}");
+            Console.Write($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}");
             if(node.IsCondtionalBranch)
                 Console.Write($", Condition: {node.Condition?.ConditionString ?? "Null"}");
             Console.Write("\n");

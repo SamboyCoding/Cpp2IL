@@ -1,7 +1,7 @@
 ﻿using System;
 using Iced.Intel;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.Graphs;
 
 public class X86ControlFlowGraphCondition : Condition<Instruction>
 {

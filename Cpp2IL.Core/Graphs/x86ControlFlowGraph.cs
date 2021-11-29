@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Iced.Intel;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.Graphs;
 
 public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86ControlFlowGraphNode>
 {
@@ -41,9 +41,33 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         }
     }
 
-    protected override void ExtractFeatures()
+    private static HashSet<Register> _volatileRegisters = new()
     {
-        // TODO:
+       Register.RCX,
+       Register.RDX,
+       Register.R8,
+       Register.R9,
+       Register.R10,
+       Register.R11,
+       Register.XMM0,
+       Register.XMM1,
+       Register.XMM2,
+       Register.XMM3,
+       Register.XMM4,
+       Register.XMM5,
+    };
+
+    protected override void DetermineLocals()
+    {
+        TraverseNode(Root);
+    }
+
+    private Dictionary<Register, bool> _registersUsed = new ();
+
+    private Dictionary<Instruction, bool> ShouldCreateLocal = new();
+    private void TraverseNode(X86ControlFlowGraphNode node)
+    {
+        
     }
 
     private InstructionGraphNodeFlowControl GetAbstractControlFlow(FlowControl flowControl)
@@ -64,6 +88,8 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                 return InstructionGraphNodeFlowControl.NoReturn;
             case FlowControl.ConditionalBranch:
                 return InstructionGraphNodeFlowControl.ConditionalJump;
+            case FlowControl.IndirectBranch:
+                return InstructionGraphNodeFlowControl.IndirectJump;
             default:
                 throw new NotImplementedException($"Flow control {flowControl} not supported");
                 
@@ -116,6 +142,9 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                         currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
                         currentNode = newNodeFromInterrupt;
                         break;
+                    case FlowControl.IndirectBranch:
+                        // This could be a part of either 2 things, a jmp to a jump table (switch statement) or a tail call to another function
+                        throw new NotImplementedException("Indirect branch not implemented currently");
                     default:
                         throw new NotImplementedException(Instructions[i].ToString() + " " + Instructions[i].FlowControl);
                 }

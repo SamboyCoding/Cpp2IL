@@ -1,20 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Text;
-using Iced.Intel;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.Graphs;
 
-public class InstructionGraphNodeSet<T> : Collection<InstructionGraphNode<T>>
-{
-    
-}
 public class InstructionGraphNode<T>
 {
     public int ID { get; set; }
 
-    public virtual bool IsCondtionalBranch => _flowControl == InstructionGraphNodeFlowControl.ConditionalJump;
+    public bool IsCondtionalBranch => _flowControl == InstructionGraphNodeFlowControl.ConditionalJump;
 
     public Condition<T>? Condition { get; protected set; }
     public InstructionGraphNode<T>? TrueTarget { get; protected set; }
@@ -23,16 +17,12 @@ public class InstructionGraphNode<T>
     public InstructionGraphNode()
     {
         Instructions = new();
-        _neighbors = new();
+        Successors = new();
+        Predecessors = new();
     }
-        
-    private InstructionGraphNodeSet<T> _neighbors;
-        
-    public InstructionGraphNodeSet<T> Neighbors
-    {
-        get => _neighbors;
-        set => _neighbors = value;
-    }
+
+    public InstructionGraphNodeSet<T> Successors { get; set; }
+    public InstructionGraphNodeSet<T> Predecessors { get; set; }
 
     private InstructionGraphNodeFlowControl? _flowControl;
         
@@ -46,10 +36,10 @@ public class InstructionGraphNode<T>
 
     public void CheckCondition()
     {
-        if (Neighbors.Count != 2)
+        if (Successors.Count != 2)
         {
             // This sometimes happens very rarely where the second successor is M.I.A despite it being a conditional block, pain
-            throw new Exception($"Node didn't have 2 neighbours, instead had {Neighbors.Count}, aborting...\n\nNode Dump:\n{GetTextDump()}");
+            throw new Exception($"Node didn't have 2 neighbours, instead had {Successors.Count}, aborting...\n\nNode Dump:\n{GetTextDump()}");
         }
         if (!ThisNodeHasComparison())
         {
@@ -88,5 +78,5 @@ public class InstructionGraphNode<T>
         throw new NotImplementedException();
     }
 
-    public List<T> Instructions { get; }
+    public List<T> Instructions { get; } = new();
 }

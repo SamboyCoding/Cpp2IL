@@ -1,7 +1,7 @@
 using System.Linq;
 using Iced.Intel;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.Graphs;
 
 public class X86ControlFlowGraphNode : InstructionGraphNode<Instruction>
 {
@@ -23,7 +23,7 @@ public class X86ControlFlowGraphNode : InstructionGraphNode<Instruction>
 
         Condition = new X86ControlFlowGraphCondition(condition, lastInstruction);
             
-        TrueTarget = Neighbors.Single(node => lastInstruction.NearBranch64 == node.Instructions[0].IP);
-        FalseTarget = Neighbors.Single(node => lastInstruction.NearBranch64 != node.Instructions[0].IP);
+        TrueTarget = Successors.Single(node => lastInstruction.NearBranch64 == node.Instructions[0].IP);
+        FalseTarget = Successors.Single(node => lastInstruction.NearBranch64 != node.Instructions[0].IP);
     }
 }
