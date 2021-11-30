@@ -139,6 +139,8 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             Console.Write($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}, Predecessors:{string.Join(",", node.Predecessors.Select(i => i.ID))}");
             if(node.IsCondtionalBranch)
                 Console.Write($", Condition: {node.Condition?.ConditionString ?? "Null"}");
+            if(node.Instructions.Count > 0)
+                Console.Write($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");
             Console.Write("\n");
             foreach (var v in node.Instructions)
             {

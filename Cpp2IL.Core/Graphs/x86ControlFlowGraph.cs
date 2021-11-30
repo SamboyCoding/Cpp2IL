@@ -119,10 +119,11 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     AddNode(newNodeFromJmp);
                     var result = Instructions.Any(instruction => instruction.IP == Instructions[i].NearBranch64);
                     if (!result)
-                        AddDirectedEdge(currentNode,
-                            newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
+                        AddDirectedEdge(currentNode, newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
                     else
                         jmpNodesToCorrect.Add(currentNode);
+                    currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
+                    currentNode = newNodeFromJmp;
                     break;
                 case FlowControl.IndirectCall:
                 case FlowControl.Call:

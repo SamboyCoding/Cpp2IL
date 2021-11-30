@@ -15,13 +15,13 @@ public class X86ControlFlowGraphNode : InstructionGraphNode<Instruction>
         return Instructions.Any(instruction => instruction.Mnemonic == Mnemonic.Cmp || instruction.Mnemonic == Mnemonic.Test);
     }
 
-    public override void CreateCondition()
+    public override Instruction GetLastComparison() => Instructions.Last(instruction => instruction.Mnemonic is Mnemonic.Test or Mnemonic.Cmp);
+
+    public override void CreateCondition(Instruction comparison)
     {
         var lastInstruction = Instructions.Last();
-        
-        var condition = Instructions.Last(instruction => instruction.Mnemonic == Mnemonic.Test || instruction.Mnemonic == Mnemonic.Cmp);
 
-        Condition = new X86ControlFlowGraphCondition(condition, lastInstruction);
+        Condition = new X86ControlFlowGraphCondition(comparison, lastInstruction);
             
         TrueTarget = Successors.Single(node => lastInstruction.NearBranch64 == node.Instructions[0].IP);
         FalseTarget = Successors.Single(node => lastInstruction.NearBranch64 != node.Instructions[0].IP);

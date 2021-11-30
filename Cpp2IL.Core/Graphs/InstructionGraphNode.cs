@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Text;
 
 namespace Cpp2IL.Core.Graphs;
@@ -41,22 +42,20 @@ public class InstructionGraphNode<T>
             // This sometimes happens very rarely where the second successor is M.I.A despite it being a conditional block, pain
             throw new Exception($"Node didn't have 2 neighbours, instead had {Successors.Count}, aborting...\n\nNode Dump:\n{GetTextDump()}");
         }
-        if (!ThisNodeHasComparison())
-        {
-            // TODO: Ideally we would check our predecessors recursively and check if that one has a condition.
-            // If theres two possible ways that the condition could be made from,
-            // say one inside an if block and one inside an else block and our conditional jump
-            // is after those two block we'll need to think of something smart I guess
-            throw new Exception($"Comparison wasn't found in this block, aborting...");
-        }
-        CreateCondition();
+
+        var node = this;
+        while(!node.ThisNodeHasComparison())
+            node = Predecessors.SingleOrDefault() ?? throw new("Don't have a comparison and don't have a single predecessor line to a node which has one");
+
+        CreateCondition(node.GetLastComparison());
     }
 
-    public virtual void CreateCondition()
+    public virtual void CreateCondition(T comparison)
     {
         throw new NotImplementedException();
     }
-        
+
+    public virtual T GetLastComparison() => throw new NotImplementedException();
 
     protected string GetTextDump()
     {
