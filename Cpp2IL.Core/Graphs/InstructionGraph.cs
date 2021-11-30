@@ -37,25 +37,48 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             throw new NotImplementedException();
         }
 
-        protected TNode? SplitAndCreate(TNode target, int index)
+        protected TNode SplitAndCreate(TNode target, int index)
         {
             if(index < 0 || index >= target.Instructions.Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
 
+            // Don't need to split...
             if (index == 0)
-                return null;
+                return target;
 
             var newNode = new TNode(){ID = idCounter++};
             
+            // target split in two
+            // targetFirstPart -> targetSecondPart aka newNode
+            
+            // Take the instructions for the secondPart
             var instructions = target.Instructions.GetRange(index, target.Instructions.Count - index);
             target.Instructions.RemoveRange(index, target.Instructions.Count - index);
+            
+            // Add those to the newNode
             newNode.Instructions.AddRange(instructions);
+            // Transfer control flow
             newNode.FlowControl = target.FlowControl;
             target.FlowControl = InstructionGraphNodeFlowControl.Continue;
-            newNode.Successors = target.Successors;
             
-            target.Successors = new ();
+            // Transfer successors
+            newNode.Successors = target.Successors;
+            target.Successors = new();
 
+            // Correct the predecessors for all the successors
+            foreach (var successor in newNode.Successors)
+            {
+                for (int i = 0; i < successor.Predecessors.Count; i++)
+                {
+                    if (successor.Predecessors[i] == target)
+                        successor.Predecessors[i] = newNode;
+                }
+            }
+            
+            // Add newNode and connect it
+            AddNode(newNode);
+            AddDirectedEdge(target, newNode);
+            
             return newNode;
         }
         
@@ -87,7 +110,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
         {
             foreach (var graphNode in Nodes)
             {
-                if (graphNode.IsCondtionalBranch)
+                if (graphNode.IsConditionalBranch)
                 {
                     graphNode.CheckCondition();
                 }
@@ -137,7 +160,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
         {
             Console.WriteLine("=========================");
             Console.Write($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}, Predecessors:{string.Join(",", node.Predecessors.Select(i => i.ID))}");
-            if(node.IsCondtionalBranch)
+            if(node.IsConditionalBranch)
                 Console.Write($", Condition: {node.Condition?.ConditionString ?? "Null"}");
             if(node.Instructions.Count > 0)
                 Console.Write($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");

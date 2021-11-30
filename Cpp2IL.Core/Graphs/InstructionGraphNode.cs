@@ -9,7 +9,7 @@ public class InstructionGraphNode<T>
 {
     public int ID { get; set; }
 
-    public bool IsCondtionalBranch => _flowControl == InstructionGraphNodeFlowControl.ConditionalJump;
+    public bool IsConditionalBranch => _flowControl == InstructionGraphNodeFlowControl.ConditionalJump;
 
     public Condition<T>? Condition { get; protected set; }
     public InstructionGraphNode<T>? TrueTarget { get; protected set; }
@@ -39,7 +39,6 @@ public class InstructionGraphNode<T>
     {
         if (Successors.Count != 2)
         {
-            // This sometimes happens very rarely where the second successor is M.I.A despite it being a conditional block, pain
             throw new Exception($"Node didn't have 2 neighbours, instead had {Successors.Count}, aborting...\n\nNode Dump:\n{GetTextDump()}");
         }
 
@@ -50,18 +49,18 @@ public class InstructionGraphNode<T>
         CreateCondition(node.GetLastComparison());
     }
 
-    public virtual void CreateCondition(T comparison)
+    protected virtual void CreateCondition(T comparison)
     {
         throw new NotImplementedException();
     }
 
-    public virtual T GetLastComparison() => throw new NotImplementedException();
+    protected virtual T GetLastComparison() => throw new NotImplementedException();
 
     protected string GetTextDump()
     {
         StringBuilder stringBuilder = new();
         stringBuilder.Append($"ID: {ID}, FlowControl: {_flowControl}");
-        if (IsCondtionalBranch)
+        if (IsConditionalBranch)
             stringBuilder.Append($", Condition: {Condition?.ConditionString}");
         stringBuilder.Append('\n');
         foreach (var instruction in Instructions)

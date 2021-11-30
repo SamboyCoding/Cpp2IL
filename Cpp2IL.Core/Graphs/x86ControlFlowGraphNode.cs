@@ -15,9 +15,9 @@ public class X86ControlFlowGraphNode : InstructionGraphNode<Instruction>
         return Instructions.Any(instruction => instruction.Mnemonic == Mnemonic.Cmp || instruction.Mnemonic == Mnemonic.Test);
     }
 
-    public override Instruction GetLastComparison() => Instructions.Last(instruction => instruction.Mnemonic is Mnemonic.Test or Mnemonic.Cmp);
+    protected override Instruction GetLastComparison() => Instructions.Last(instruction => instruction.Mnemonic is Mnemonic.Test or Mnemonic.Cmp);
 
-    public override void CreateCondition(Instruction comparison)
+    protected override void CreateCondition(Instruction comparison)
     {
         var lastInstruction = Instructions.Last();
 

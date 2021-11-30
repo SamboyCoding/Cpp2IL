@@ -18,10 +18,9 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         for (var i = 0; i < Nodes.Count; i++)
         {
             var node = Nodes[i];
+            
             if (node.FlowControl is InstructionGraphNodeFlowControl.ConditionalJump)
-            {
                 FixNode(node);
-            }
         }
     }
 
@@ -36,16 +35,9 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
 
         int index = destination.Instructions.FindIndex(instruction => instruction.IP == jump.NearBranch64);
 
-        var nodeCreated = SplitAndCreate(destination, index);
-
-        if (nodeCreated != null)
-        {
-            AddNode(nodeCreated);
-            AddDirectedEdge(destination, nodeCreated);
-            destination = nodeCreated;
-        }
-
-        AddDirectedEdge(node, destination);
+        var targetNode = SplitAndCreate(destination, index);
+        
+        AddDirectedEdge(node, targetNode);
     }
 
     private static HashSet<Register> _volatileRegisters = new()
@@ -109,7 +101,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         var currentNode = new X86ControlFlowGraphNode() {ID = idCounter++};
         AddNode(currentNode);
         AddDirectedEdge(Root, currentNode);
-        for (int i = 0; i < Instructions.Count; i++)
+        for (var i = 0; i < Instructions.Count; i++)
         {
             switch (Instructions[i].FlowControl)
             {
@@ -168,9 +160,9 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     throw new NotImplementedException(Instructions[i].ToString() + " " + Instructions[i].FlowControl);
             }
         }
-        for (int i = 0; i < jmpNodesToCorrect.Count; i++)
+        foreach (var node in jmpNodesToCorrect)
         {
-            FixNode(jmpNodesToCorrect[i]);
+            FixNode(node);
         }
     }
 }
