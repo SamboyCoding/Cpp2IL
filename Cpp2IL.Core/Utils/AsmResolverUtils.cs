@@ -117,9 +117,9 @@ namespace Cpp2IL.Core.Utils
                 case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
                 {
                     var oriType = theDll.GetIl2CppTypeFromPointer(il2CppType.data.type);
-                    if(oriType.type is not Il2CppTypeEnum.IL2CPP_TYPE_MVAR and not Il2CppTypeEnum.IL2CPP_TYPE_VAR)
-                        return importer.ImportType(GetTypeDefFromIl2CppType(importer, oriType).ToTypeDefOrRef()).MakeSzArrayType();
-                    
+                    if (oriType.type is not Il2CppTypeEnum.IL2CPP_TYPE_MVAR and not Il2CppTypeEnum.IL2CPP_TYPE_VAR)
+                        return importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, oriType).ToTypeDefOrRef()).MakeSzArrayType();
+
                     var gp = LibCpp2IlMain.TheMetadata!.genericParameters[oriType.data.genericParameterIndex];
                     var gpt = oriType.type is Il2CppTypeEnum.IL2CPP_TYPE_MVAR ? GenericParameterType.Method : GenericParameterType.Type;
                     return new GenericParameterSignature(gpt, gp.genericParameterIndexInOwner).MakeSzArrayType();
@@ -309,7 +309,15 @@ namespace Cpp2IL.Core.Utils
             return ret;
         }
 
-        public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type) => type is TypeSpecification {Signature: GenericParameterSignature} gps ? gps : importer.ImportType(type);
+        public static TypeSignature ImportTypeSignatureIfNeeded(this ReferenceImporter importer, TypeSignature signature) => signature is GenericParameterSignature ? signature : importer.ImportTypeSignature(signature);
+
+        public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type)
+        {
+            if (type is TypeSpecification spec)
+                return new TypeSpecification(importer.ImportTypeSignatureIfNeeded(spec.Signature!));
+            
+            return importer.ImportType(type);
+        }
 
         public static ElementType GetElementTypeFromConstant(object? primitive) => primitive is null
             ? ElementType.Object

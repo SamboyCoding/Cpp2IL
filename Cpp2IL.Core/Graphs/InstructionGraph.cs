@@ -136,7 +136,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
         foreach (var node in nodeSet)
         {
             Console.WriteLine("=========================");
-            Console.Write($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}");
+            Console.Write($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}, Predecessors:{string.Join(",", node.Predecessors.Select(i => i.ID))}");
             if(node.IsCondtionalBranch)
                 Console.Write($", Condition: {node.Condition?.ConditionString ?? "Null"}");
             Console.Write("\n");

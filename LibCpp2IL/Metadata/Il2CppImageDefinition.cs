@@ -22,5 +22,10 @@ namespace LibCpp2IL.Metadata
         public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
 
         public Il2CppTypeDefinition[]? Types => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs.Skip(firstTypeIndex).Take((int) typeCount).ToArray();
+
+        public override string ToString()
+        {
+            return $"Il2CppImageDefinition[Name={Name}]";
+        }
     }
 }

@@ -18,11 +18,14 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         for (var i = 0; i < Nodes.Count; i++)
         {
             var node = Nodes[i];
-            if (node.FlowControl != null && node.FlowControl == InstructionGraphNodeFlowControl.ConditionalJump)
+            if (node.FlowControl is InstructionGraphNodeFlowControl.ConditionalJump)
             {
                 var conditionalBranchInstruction = node.Instructions.Last();
                     
                 var destination = FindNodeByAddress(conditionalBranchInstruction.NearBranch64);
+
+                if (destination == null)
+                    throw new($"Couldn't find node at 0x{conditionalBranchInstruction.NearBranch64:X}, flow from 0x{conditionalBranchInstruction.IP:X}");
 
                 int index = destination.Instructions.FindIndex(instruction => instruction.IP == conditionalBranchInstruction.NearBranch64);
 
@@ -32,7 +35,6 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                 {
                     AddNode(nodeCreated);
                     AddDirectedEdge(destination, nodeCreated);
-                    i++;
                     destination = nodeCreated;
                 }
                 AddDirectedEdge(node, destination);

@@ -63,19 +63,23 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var il2CppTypeDefinition in imageDef.Types!)
         {
-            if(il2CppTypeDefinition.Name == "<Module>")
+            if (il2CppTypeDefinition.Name == "<Module>")
                 continue;
-            
+
             var managedType = SharedState.UnmanagedToManagedTypesNew[il2CppTypeDefinition];
 
+#if !DEBUG
             try
             {
-                CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+#endif
+            CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+#if !DEBUG
             }
             catch (Exception e)
             {
                 throw new Exception($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {imageDef.Name}", e);
             }
+#endif
         }
     }
 
@@ -84,11 +88,11 @@ public static class AsmResolverAssemblyPopulator
         var importer = ilTypeDefinition.Module!.Assembly!.GetImporter();
 
         CopyFieldsInType(importer, cppTypeDefinition, ilTypeDefinition);
-        
+
         CopyMethodsInType(importer, cppTypeDefinition, ilTypeDefinition);
 
         CopyPropertiesInType(importer, cppTypeDefinition, ilTypeDefinition);
-        
+
         CopyEventsInType(importer, cppTypeDefinition, ilTypeDefinition);
     }
 
@@ -126,22 +130,22 @@ public static class AsmResolverAssemblyPopulator
                 .ToArray();
 
             var signature = method.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
-            
+
             var managedMethod = new MethodDefinition(method.Name, (MethodAttributes) method.Attributes, signature);
-            
+
             //Add parameter definitions so we get names, defaults, out params, etc
             var paramData = method.Parameters!;
             ushort seq = 1;
             foreach (var param in paramData)
             {
                 var managedParam = new ParameterDefinition(seq++, param.ParameterName, (ParameterAttributes) param.ParameterAttributes);
-                if (managedParam.HasDefault && param.DefaultValue is {} defaultValue)
+                if (managedParam.HasDefault && param.DefaultValue is { } defaultValue)
                     managedParam.Constant = AsmResolverUtils.MakeConstant(defaultValue);
-                
+
                 managedMethod.ParameterDefinitions.Add(managedParam);
             }
-            
-            if(managedMethod.IsManagedMethodWithBody())
+
+            if (managedMethod.IsManagedMethodWithBody())
                 FillMethodBodyWithStub(managedMethod);
 
             //Handle generic parameters.
@@ -152,7 +156,7 @@ public static class AsmResolverAssemblyPopulator
                     {
                         if (!managedMethod.GenericParameters.Contains(gp))
                             managedMethod.GenericParameters.Add(gp);
-                        
+
                         return;
                     }
 
@@ -187,16 +191,16 @@ public static class AsmResolverAssemblyPopulator
             var managedGetter = property.Getter == null ? null : SharedState.UnmanagedToManagedMethodsNew[property.Getter];
             var managedSetter = property.Setter == null ? null : SharedState.UnmanagedToManagedMethodsNew[property.Setter];
 
-            if(managedGetter != null)
-                managedProperty.Semantics.Add(new (managedGetter, MethodSemanticsAttributes.Getter));
-            
-            if(managedSetter != null)
+            if (managedGetter != null)
+                managedProperty.Semantics.Add(new(managedGetter, MethodSemanticsAttributes.Getter));
+
+            if (managedSetter != null)
                 managedProperty.Semantics.Add(new(managedSetter, MethodSemanticsAttributes.Setter));
-            
+
             ilTypeDefinition.Properties.Add(managedProperty);
         }
     }
-    
+
     private static void CopyEventsInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
         foreach (var eventDef in cppTypeDefinition.Events!)
@@ -209,15 +213,15 @@ public static class AsmResolverAssemblyPopulator
             var managedRemover = eventDef.Remover == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Remover];
             var managedInvoker = eventDef.Invoker == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Invoker];
 
-            if(managedAdder != null)
-                managedEvent.Semantics.Add(new (managedAdder, MethodSemanticsAttributes.AddOn));
-            
-            if(managedRemover != null)
+            if (managedAdder != null)
+                managedEvent.Semantics.Add(new(managedAdder, MethodSemanticsAttributes.AddOn));
+
+            if (managedRemover != null)
                 managedEvent.Semantics.Add(new(managedRemover, MethodSemanticsAttributes.RemoveOn));
-            
-            if(managedInvoker != null)
+
+            if (managedInvoker != null)
                 managedEvent.Semantics.Add(new(managedInvoker, MethodSemanticsAttributes.Fire));
-            
+
             ilTypeDefinition.Events.Add(managedEvent);
         }
     }
