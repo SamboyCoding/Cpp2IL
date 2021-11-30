@@ -122,7 +122,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                         AddDirectedEdge(currentNode,
                             newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
                     else
-                        jmpNodesToCorrect.Add(newNodeFromJmp);
+                        jmpNodesToCorrect.Add(currentNode);
                     break;
                 case FlowControl.IndirectCall:
                 case FlowControl.Call:
