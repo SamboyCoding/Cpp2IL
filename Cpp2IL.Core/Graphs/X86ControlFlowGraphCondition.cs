@@ -15,7 +15,7 @@ public class X86ControlFlowGraphCondition : Condition<Instruction>
     {
         if (Comparison.Mnemonic == Mnemonic.Test)
         {
-            if (Comparison.Op0Register == Comparison.Op1Register)
+            if (Comparison.Op0Kind == OpKind.Register && Comparison.Op1Kind == OpKind.Register && Comparison.Op0Register == Comparison.Op1Register)
             {
                 _formatter.FormatOperand(Comparison, _output, 0);
                 return $"{_output.ToStringAndReset()} {GetConditionOperator()} 0";
