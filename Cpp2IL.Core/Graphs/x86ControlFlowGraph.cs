@@ -28,20 +28,24 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
     private void FixNode(X86ControlFlowGraphNode node)
     {
         var jump = node.Instructions.Last();
-                    
+
         var destination = FindNodeByAddress(jump.NearBranch64);
 
-        int index = destination.Instructions.FindIndex(instruction => instruction.IP == jump.NearBranch64);
+                if (destination == null)
+                    throw new($"Couldn't find node at 0x{conditionalBranchInstruction.NearBranch64:X}, flow from 0x{conditionalBranchInstruction.IP:X}");
 
-        var nodeCreated = SplitAndCreate(destination, index);
-                    
-        if (nodeCreated != null)
-        {
-            AddNode(nodeCreated);
-            AddDirectedEdge(destination, nodeCreated);
-            destination = nodeCreated;
-        }
-        AddDirectedEdge(node, destination);
+                int index = destination.Instructions.FindIndex(instruction => instruction.IP == conditionalBranchInstruction.NearBranch64);
+
+                var nodeCreated = SplitAndCreate(destination, index, idCounter++);
+
+                if (nodeCreated != null)
+                {
+                    AddNode(nodeCreated);
+                    AddDirectedEdge(destination, nodeCreated);
+                    destination = nodeCreated;
+                }
+                AddDirectedEdge(node, destination);
+                
     }
 
     private static HashSet<Register> _volatileRegisters = new()
@@ -70,7 +74,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
     private Dictionary<Instruction, bool> ShouldCreateLocal = new();
     private void TraverseNode(X86ControlFlowGraphNode node)
     {
-        
+
     }
 
     private InstructionGraphNodeFlowControl GetAbstractControlFlow(FlowControl flowControl)
@@ -95,7 +99,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                 return InstructionGraphNodeFlowControl.IndirectJump;
             default:
                 throw new NotImplementedException($"Flow control {flowControl} not supported");
-                
+
         }
     }
 

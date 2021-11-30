@@ -51,8 +51,8 @@ namespace Cpp2IL.Core.Utils
 
                 ret = X86Utils.Disassemble(buff.ToArray(), functionStart);
 
-                if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
-                    con = false;
+                // if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
+                //     con = false;
 
                 if (peek && buff.Count > 50)
                     con = false;
@@ -126,6 +126,25 @@ namespace Cpp2IL.Core.Utils
             }
 
             return ret;
+        }
+
+        public static void TrimInt3s(List<Instruction> instructions)
+        {
+            var i = instructions.Count - 1;
+            for (; i >= 0; i--)
+            {
+                if (instructions[i].Mnemonic != Mnemonic.Int3)
+                {
+                    i++;
+                    break;
+                }
+            }
+
+            var toRemove = instructions.Count - i;
+            for (var j = 0; j < toRemove; j++)
+            {
+                instructions.RemoveAt(i);
+            }
         }
     }
 }

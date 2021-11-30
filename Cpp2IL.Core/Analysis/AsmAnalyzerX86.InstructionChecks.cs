@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Analysis.Actions.Base;
 using Cpp2IL.Core.Analysis.Actions.x86;
 using Cpp2IL.Core.Analysis.Actions.x86.Important;
@@ -14,6 +15,8 @@ namespace Cpp2IL.Core.Analysis
 {
     internal partial class AsmAnalyzerX86
     {
+        public static readonly HashSet<Mnemonic> UsedMnemonics = new();
+        
         private void CheckForZeroOpInstruction(Instruction instruction)
         {
             switch (instruction.Mnemonic)
@@ -730,6 +733,8 @@ namespace Cpp2IL.Core.Analysis
 
         protected override void PerformInstructionChecks(Instruction instruction)
         {
+            UsedMnemonics.Add(instruction.Mnemonic);
+        
             var associatedIfFromIfElse = Analysis.GetAddressOfAssociatedIfForThisElse(instruction.IP);
             var associatedElse = Analysis.GetAddressOfElseThisIsTheEndOf(instruction.IP);
             var hasEndedLoop = Analysis.HaveWeExitedALoopOnThisInstruction(instruction.IP);

@@ -328,7 +328,7 @@ namespace LibCpp2IL.Metadata
         {
             if (LibCpp2IlMain.TheMetadata == null) return base.ToString();
 
-            return $"Il2CppTypeDefinition[namespace='{Namespace}', name='{Name}', parentType={BaseType?.ToString() ?? "null"}]";
+            return $"Il2CppTypeDefinition[namespace='{Namespace}', name='{Name}', parentType={BaseType?.ToString() ?? "null"}, assembly={DeclaringAssembly}]";
         }
     }
 }

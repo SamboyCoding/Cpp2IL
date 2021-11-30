@@ -664,6 +664,15 @@ namespace Cpp2IL.Core
             var elapsed = DateTime.Now - startTime;
             Logger.InfoNewline($"Finished processing {numProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} types/sec, {Math.Round(numProcessed / elapsed.TotalSeconds)} methods/sec", "Analyze");
 
+            if (methodOutputDir != null)
+            {
+                var outPath = Path.Combine(methodOutputDir, "mnemonics.txt");
+                Logger.InfoNewline($"Assembly uses {AsmAnalyzerX86.UsedMnemonics.Count} x86 mnemonics. Dumping a list to the method output root as {outPath}");
+                var mnemonics = AsmAnalyzerX86.UsedMnemonics.ToList();
+                mnemonics.Sort();
+                File.WriteAllLines(outPath, mnemonics.Select(s => s.ToString()));
+            }
+
             if (analysisLevel != AnalysisLevel.PSUEDOCODE_ONLY)
             {
                 var total = AsmAnalyzerX86.SUCCESSFUL_METHODS + AsmAnalyzerX86.FAILED_METHODS;
