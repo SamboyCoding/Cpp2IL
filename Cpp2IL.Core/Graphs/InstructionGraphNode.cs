@@ -26,6 +26,8 @@ public class InstructionGraphNode<T>
     public InstructionGraphNodeSet<T> Predecessors { get; set; }
 
     private InstructionGraphNodeFlowControl? _flowControl;
+
+    public bool HasProcessedSuccessors = false;
         
     public InstructionGraphNodeFlowControl? FlowControl
     {
@@ -44,7 +46,7 @@ public class InstructionGraphNode<T>
 
         var node = this;
         while(!node.ThisNodeHasComparison())
-            node = Predecessors.SingleOrDefault() ?? throw new("Don't have a comparison and don't have a single predecessor line to a node which has one");
+            node = node.Predecessors.SingleOrDefault() ?? throw new("Don't have a comparison and don't have a single predecessor line to a node which has one");
 
         CreateCondition(node.GetLastComparison());
     }

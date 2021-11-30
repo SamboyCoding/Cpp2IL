@@ -50,12 +50,14 @@ public class X86ControlFlowGraphCondition : Condition<Instruction>
             case Mnemonic.Jge:
                 return ">=";
             case Mnemonic.Jl:
+            case Mnemonic.Js:
                 return "<";
             case Mnemonic.Jle:
                 return "<=";
             case Mnemonic.Ja:
                 return ">";
             case Mnemonic.Jae:
+            case Mnemonic.Jns:
                 return ">=";
             case Mnemonic.Jb:
                 return "<";

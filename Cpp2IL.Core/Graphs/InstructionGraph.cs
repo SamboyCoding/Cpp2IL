@@ -63,6 +63,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             
             // Transfer successors
             newNode.Successors = target.Successors;
+            newNode.HasProcessedSuccessors = target.HasProcessedSuccessors;
             target.Successors = new();
 
             // Correct the predecessors for all the successors

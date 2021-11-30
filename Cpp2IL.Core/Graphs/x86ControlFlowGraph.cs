@@ -19,8 +19,13 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         {
             var node = Nodes[i];
             
+            if(node.HasProcessedSuccessors)
+                continue;
+            
             if (node.FlowControl is InstructionGraphNodeFlowControl.ConditionalJump)
                 FixNode(node);
+
+            node.HasProcessedSuccessors = true;
         }
     }
 

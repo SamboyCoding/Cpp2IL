@@ -9,6 +9,8 @@ using System.Runtime;
 using System.Runtime.InteropServices;
 using CommandLine;
 using Cpp2IL.Core;
+using Cpp2IL.Core.Graphs;
+using Cpp2IL.Core.Utils;
 #if !DEBUG
 using Cpp2IL.Core.Exceptions;
 #endif
@@ -283,6 +285,41 @@ namespace Cpp2IL
             ConsoleLogger.ShowVerbose = runtimeArgs.EnableVerboseLogging;
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
+
+            var missingSwitchSupport = 0;
+            var allMethodsWithBodies = LibCpp2IlMain.TheMetadata!.methodDefs.Where(m => m.MethodPointer > 0).ToList();
+            Logger.InfoNewline($"About to build graph for {allMethodsWithBodies.Count} methods");
+            var processed = 0;
+            foreach (var m in allMethodsWithBodies)
+            {
+                var body = X86Utils.GetMethodBodyAtVirtAddressNew(m.MethodPointer, false).ToList();
+                X86Utils.TrimInt3s(body);
+                var graph = new X86ControlFlowGraph(body);
+                try
+                {
+                    graph.Run();
+                    processed++;
+                    
+                    if(processed % 10 == 0)
+                        Logger.InfoNewline($"Processed {processed}");
+                }
+                catch (NotImplementedException e) when(e.Message.StartsWith("Indirect branch"))
+                {
+                    missingSwitchSupport++;
+                }
+                catch (Exception e)
+                {
+                    Logger.InfoNewline($"Failed to generate graph for method {m.HumanReadableSignature} in {m.DeclaringType} at 0x{m.MethodPointer:X}");
+                    Logger.InfoNewline($"The error was: {e}");
+                    Logger.InfoNewline("The ASM Dump is:\n" + string.Join("\n", body.Select(i => "\t" + i.IP.ToString("x8") + " " + i)));
+                    Logger.InfoNewline("The graph dump is:");
+                    graph.Print();
+                    Logger.ErrorNewline("Failed to generate graph, dumped.");
+                    return 1;
+                }
+            }
+            
+            Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
 
             Cpp2IlApi.MakeDummyDLLs(runtimeArgs.SuppressAttributes);
 
