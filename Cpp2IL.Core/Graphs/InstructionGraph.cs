@@ -37,7 +37,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             throw new NotImplementedException();
         }
 
-        protected TNode? SplitAndCreate(TNode target, int index, int id)
+        protected TNode? SplitAndCreate(TNode target, int index)
         {
             if(index < 0 || index >= target.Instructions.Count)
                 throw new ArgumentOutOfRangeException(nameof(index));
@@ -45,7 +45,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             if (index == 0)
                 return null;
 
-            var newNode = new TNode(){ID = id};
+            var newNode = new TNode(){ID = idCounter++};
             
             var instructions = target.Instructions.GetRange(index, target.Instructions.Count - index);
             target.Instructions.RemoveRange(index, target.Instructions.Count - index);
