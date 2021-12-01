@@ -64,6 +64,8 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
             // Transfer successors
             newNode.Successors = target.Successors;
             newNode.HasProcessedSuccessors = target.HasProcessedSuccessors;
+            newNode.NeedsCorrectingDueToJump = target.NeedsCorrectingDueToJump;
+            target.NeedsCorrectingDueToJump = false; //We've split, so this no longer ends with a jump
             target.Successors = new();
 
             // Correct the predecessors for all the successors

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Exceptions;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -28,6 +29,8 @@ public class InstructionGraphNode<T>
     private InstructionGraphNodeFlowControl? _flowControl;
 
     public bool HasProcessedSuccessors = false;
+
+    public bool NeedsCorrectingDueToJump = false;
         
     public InstructionGraphNodeFlowControl? FlowControl
     {
@@ -46,7 +49,7 @@ public class InstructionGraphNode<T>
 
         var node = this;
         while(!node.ThisNodeHasComparison())
-            node = node.Predecessors.SingleOrDefault() ?? throw new("Don't have a comparison and don't have a single predecessor line to a node which has one");
+            node = node.Predecessors.Count == 1 ? node.Predecessors.Single() : throw new NodeConditionCalculationException("Don't have a comparison and don't have a single predecessor line to a node which has one");
 
         CreateCondition(node.GetLastComparison());
     }

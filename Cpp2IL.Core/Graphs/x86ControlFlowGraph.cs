@@ -31,18 +31,22 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
 
     private void FixNode(X86ControlFlowGraphNode node)
     {
+        if(node.FlowControl is InstructionGraphNodeFlowControl.Continue)
+            return; //Can happen if we split this node during BuildInitialGraph jumpNodesToCorrect processing.
+
         var jump = node.Instructions.Last();
 
-        var destination = FindNodeByAddress(jump.NearBranch64);
+        var destination = FindNodeByAddress(jump.NearBranchTarget);
 
         if (destination == null)
-            throw new($"Couldn't find node at 0x{jump.NearBranch64:X}, flow from 0x{jump.IP:X}");
+            throw new($"While fixing conditional jump node {node.ID}, couldn't find destination node at 0x{jump.NearBranchTarget:X}, near branch from 0x{jump.IP:X}");
 
-        int index = destination.Instructions.FindIndex(instruction => instruction.IP == jump.NearBranch64);
+        int index = destination.Instructions.FindIndex(instruction => instruction.IP == jump.NearBranchTarget);
 
         var targetNode = SplitAndCreate(destination, index);
         
         AddDirectedEdge(node, targetNode);
+        node.NeedsCorrectingDueToJump = false;
     }
 
     private static HashSet<Register> _volatileRegisters = new()
@@ -102,7 +106,6 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
 
     protected override void BuildInitialGraph()
     {
-        List<X86ControlFlowGraphNode> jmpNodesToCorrect = new List<X86ControlFlowGraphNode>();
         var currentNode = new X86ControlFlowGraphNode() {ID = idCounter++};
         AddNode(currentNode);
         AddDirectedEdge(Root, currentNode);
@@ -118,7 +121,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     if (!result)
                         AddDirectedEdge(currentNode, newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
                     else
-                        jmpNodesToCorrect.Add(currentNode);
+                        currentNode.NeedsCorrectingDueToJump = true;
                     currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
                     currentNode = newNodeFromJmp;
                     break;
@@ -165,9 +168,12 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     throw new NotImplementedException(Instructions[i].ToString() + " " + Instructions[i].FlowControl);
             }
         }
-        foreach (var node in jmpNodesToCorrect)
+
+        for (var index = 0; index < Nodes.Count; index++)
         {
-            FixNode(node);
+            var node = Nodes[index];
+            if (node.NeedsCorrectingDueToJump)
+                FixNode(node);
         }
     }
 }

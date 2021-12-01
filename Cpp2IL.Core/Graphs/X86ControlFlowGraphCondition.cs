@@ -63,6 +63,8 @@ public class X86ControlFlowGraphCondition : Condition<Instruction>
                 return "<";
             case Mnemonic.Jbe:
                 return "<=";
+            case Mnemonic.Jp:
+                return "has parity idk todo"; //"low-order eight bits of result contain an even number of 1 bits"
             default:
                 throw new Exception($"{Jump.Mnemonic} isn't supported currently");
         }

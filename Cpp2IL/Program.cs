@@ -9,6 +9,7 @@ using System.Runtime;
 using System.Runtime.InteropServices;
 using CommandLine;
 using Cpp2IL.Core;
+using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.Utils;
 #if !DEBUG
@@ -287,6 +288,7 @@ namespace Cpp2IL
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
 
             var missingSwitchSupport = 0;
+            var badConditions = 0;
             var allMethodsWithBodies = LibCpp2IlMain.TheMetadata!.methodDefs.Where(m => m.MethodPointer > 0).ToList();
             Logger.InfoNewline($"About to build graph for {allMethodsWithBodies.Count} methods");
             var processed = 0;
@@ -299,13 +301,17 @@ namespace Cpp2IL
                 {
                     graph.Run();
                     processed++;
-                    
-                    if(processed % 10 == 0)
+
+                    if (processed % 10 == 0)
                         Logger.InfoNewline($"Processed {processed}");
                 }
-                catch (NotImplementedException e) when(e.Message.StartsWith("Indirect branch"))
+                catch (NotImplementedException e) when (e.Message.StartsWith("Indirect branch"))
                 {
                     missingSwitchSupport++;
+                }
+                catch (NodeConditionCalculationException)
+                {
+                    badConditions++;
                 }
                 catch (Exception e)
                 {
