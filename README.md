@@ -2,6 +2,12 @@
 
 [![NuGet](https://img.shields.io/nuget/v/Samboy063.Cpp2IL.Core)](https://www.nuget.org/packages/Samboy063.Cpp2IL.Core/)
 
+# Important: Project is being rewritten
+
+Due to, well, very much forseen circumstances, we are in the process of rewriting most of cpp2il from the ground up over in the development branch.
+
+As such, bug fixes, and new updates, are likely to be sparse until the work is done, which I expect to be sometime in January 2022.
+
 ### Need Help? Join [the discord](https://discord.gg/XdggT7XZXm)!
 
 WIP Tool to reverse Unity's IL2CPP build process back to the original managed DLLs.
