@@ -39,7 +39,12 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         var destination = FindNodeByAddress(jump.NearBranchTarget);
 
         if (destination == null)
-            throw new($"While fixing conditional jump node {node.ID}, couldn't find destination node at 0x{jump.NearBranchTarget:X}, near branch from 0x{jump.IP:X}");
+        {
+            //We assume that we're tail calling another method somewhere. Need to verify if this breaks anywhere but it shouldn't in general
+            node.FlowControl = InstructionGraphNodeFlowControl.Call;
+            return;
+            // throw new($"While fixing conditional jump node {node.ID}, couldn't find destination node at 0x{jump.NearBranchTarget:X}, near branch from 0x{jump.IP:X}");
+        }
 
         int index = destination.Instructions.FindIndex(instruction => instruction.IP == jump.NearBranchTarget);
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Text;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -157,23 +158,27 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
     protected void AddNode(TNode node) => nodeSet.Add(node);
     
         
-    public void Print()
+    public string Print()
     {
+        var sb = new StringBuilder();
         foreach (var node in nodeSet)
         {
-            Console.WriteLine("=========================");
-            Console.Write($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}, Predecessors:{string.Join(",", node.Predecessors.Select(i => i.ID))}");
+            sb.Append("=========================\n");
+            sb.Append($"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}, Predecessors:{string.Join(",", node.Predecessors.Select(i => i.ID))}");
             if(node.IsConditionalBranch)
-                Console.Write($", Condition: {node.Condition?.ConditionString ?? "Null"}");
+                sb.Append($", Condition: {node.Condition?.ConditionString ?? "Null"}");
             if(node.Instructions.Count > 0)
-                Console.Write($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");
-            Console.Write("\n");
+                sb.Append($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");
+            sb.Append("\n");
             foreach (var v in node.Instructions)
             {
-                Console.WriteLine(v.ToString());
+                sb.Append(v).Append("\n");
             }
-            Console.WriteLine();
+
+            sb.Append('\n');
         }
+
+        return sb.ToString();
     }
 
     protected Collection<TNode> Nodes => nodeSet;

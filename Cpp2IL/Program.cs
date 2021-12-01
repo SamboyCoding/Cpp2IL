@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime;
 using System.Runtime.InteropServices;
+using System.Text;
 using CommandLine;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Exceptions;
@@ -292,11 +293,11 @@ namespace Cpp2IL
             var allMethodsWithBodies = LibCpp2IlMain.TheMetadata!.methodDefs.Where(m => m.MethodPointer > 0).ToList();
             Logger.InfoNewline($"About to build graph for {allMethodsWithBodies.Count} methods");
             var processed = 0;
+            var startTime = DateTime.Now;
             foreach (var m in allMethodsWithBodies)
             {
-                var body = X86Utils.GetMethodBodyAtVirtAddressNew(m.MethodPointer, false).ToList();
-                X86Utils.TrimInt3s(body);
-                var graph = new X86ControlFlowGraph(body);
+                var body = X86Utils.GetManagedMethodBody(m);
+                var graph = new X86ControlFlowGraph(body.ToList());
                 try
                 {
                     graph.Run();
@@ -315,17 +316,22 @@ namespace Cpp2IL
                 }
                 catch (Exception e)
                 {
-                    Logger.InfoNewline($"Failed to generate graph for method {m.HumanReadableSignature} in {m.DeclaringType} at 0x{m.MethodPointer:X}");
-                    Logger.InfoNewline($"The error was: {e}");
-                    Logger.InfoNewline("The ASM Dump is:\n" + string.Join("\n", body.Select(i => "\t" + i.IP.ToString("x8") + " " + i)));
-                    Logger.InfoNewline("The graph dump is:");
-                    graph.Print();
-                    Logger.ErrorNewline("Failed to generate graph, dumped.");
+                    var errorDump = new StringBuilder($"Failed to generate graph for method {m.HumanReadableSignature} in {m.DeclaringType} at 0x{m.MethodPointer:X}\n");
+                    errorDump.Append($"The error was: {e}\n");
+                    errorDump.Append("The ASM Dump is:\n").Append(string.Join("\n", body.Select(i => "\t" + i.IP.ToString("x8") + " " + i))).Append('\n');
+                    errorDump.Append("The graph dump is:\n");
+                    errorDump.Append(graph.Print());
+                
+                    File.WriteAllText("graphdump.txt", errorDump.ToString());
+                    
+                    Logger.ErrorNewline("Failed to generate graph, dumped to graphdump.txt.");
                     return 1;
                 }
             }
             
+            Logger.InfoNewline($"Finished building graphs in {DateTime.Now - startTime:g}");
             Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
+            Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
 
             Cpp2IlApi.MakeDummyDLLs(runtimeArgs.SuppressAttributes);
 

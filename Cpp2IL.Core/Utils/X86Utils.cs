@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Iced.Intel;
 using LibCpp2IL;
+using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Utils
 {
@@ -25,6 +26,30 @@ namespace Cpp2IL.Core.Utils
                 decoder.Decode(out instructions.AllocUninitializedElement());
 
             return instructions;
+        }
+
+        public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method)
+        {
+            var addr = method.MethodPointer;
+            var rawAddr = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
+            var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(addr);
+
+            InstructionList insns;
+            if (virtStartNextFunc == 0)
+                insns = GetMethodBodyAtVirtAddressNew(addr, false);
+            else
+            {
+
+                var startOfNextFunc = (int) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc);
+
+                var instructionBytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);
+
+                insns = Disassemble(instructionBytes, addr);
+            }
+
+            TrimInt3s(insns);
+
+            return insns;
         }
 
         public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek)
@@ -51,12 +76,12 @@ namespace Cpp2IL.Core.Utils
 
                 ret = X86Utils.Disassemble(buff.ToArray(), functionStart);
 
-                // if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
-                //     con = false;
+                if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
+                    con = false;
 
                 if (peek && buff.Count > 50)
                     con = false;
-                else if (buff.Count > 15000)
+                else if (buff.Count > 50000)
                     con = false; //Sanity breakout.
 
                 addr++;
@@ -128,7 +153,7 @@ namespace Cpp2IL.Core.Utils
             return ret;
         }
 
-        public static void TrimInt3s(List<Instruction> instructions)
+        public static void TrimInt3s(InstructionList instructions)
         {
             var i = instructions.Count - 1;
             for (; i >= 0; i--)
@@ -140,7 +165,7 @@ namespace Cpp2IL.Core.Utils
                 }
             }
 
-            var toRemove = instructions.Count - i;
+            var toRemove = instructions.Count - 1 - i;
             for (var j = 0; j < toRemove; j++)
             {
                 instructions.RemoveAt(i);

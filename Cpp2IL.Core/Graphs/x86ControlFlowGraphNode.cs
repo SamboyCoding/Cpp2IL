@@ -12,7 +12,7 @@ public class X86ControlFlowGraphNode : InstructionGraphNode<Instruction>
 
     public override bool ThisNodeHasComparison()
     {
-        return Instructions.Any(instruction => instruction.Mnemonic == Mnemonic.Cmp || instruction.Mnemonic == Mnemonic.Test);
+        return Instructions.Any(instruction => instruction.Mnemonic is Mnemonic.Cmp or Mnemonic.Test);
     }
 
     protected override Instruction GetLastComparison() => Instructions.Last(instruction => instruction.Mnemonic is Mnemonic.Test or Mnemonic.Cmp);
