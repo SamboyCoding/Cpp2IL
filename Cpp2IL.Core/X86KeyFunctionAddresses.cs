@@ -4,7 +4,6 @@ using System.Linq;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
-using LibCpp2IL.PE;
 
 namespace Cpp2IL.Core
 {

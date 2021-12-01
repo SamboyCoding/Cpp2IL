@@ -15,7 +15,7 @@ namespace Cpp2IL.Core
 
         public Arm64KeyFunctionAddresses()
         {
-            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
+            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary!.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
             disassembler.EnableInstructionDetails = true;
             disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
             disassembler.EnableSkipDataMode = true;
@@ -52,7 +52,7 @@ namespace Cpp2IL.Core
                     //Some games (e.g. Muse Dash APK) contain the il2cpp-ified methods in the .text section instead of their own dedicated one.
                     //That makes this very slow
                     //Try and detect the first function
-                    var methodAddresses = SharedState.MethodsByAddress.Keys.Where(a => a > 0).ToList();
+                    var methodAddresses = new List<ulong>();
                     methodAddresses.SortByExtractedKey(a => a);
 
                     if (methodAddresses[0] < endOfTextSection && LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_new") != 0)
@@ -254,12 +254,12 @@ namespace Cpp2IL.Core
             if (il2cpp_object_new == 0)
             {
                 Logger.Verbose("\tAttempting to use Array GetEnumerator to find il2cpp_codegen_object_new...");
-                if (TypeDefinitions.Array is { } arrayTypeDef)
+                if (LibCpp2IlReflection.GetType("Array", "System") is { } arrayTypeDef)
                 {
-                    if (arrayTypeDef.Methods.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
+                    if (arrayTypeDef.Methods!.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
                     {
-                        var ptr = methodDef.AsUnmanaged().MethodPointer;
-                        var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(ptr, true);
+                        var ptr = methodDef.MethodPointer;
+                        var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(ptr);
 
                         //Looking for adrp, ldr, ldr, bl. Probably more than one - the first will be initializing the method, second will be the constructor call
                         var probableResult = 0L;

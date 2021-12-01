@@ -1,32 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using System.Text;
-using System.Threading;
-using Cpp2IL.Core.Analysis;
-using Cpp2IL.Core.Analysis.Actions.x86.Important;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Utils;
-using Gee.External.Capstone.Arm;
-using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
-using Mono.Cecil;
 
 namespace Cpp2IL.Core
 {
     public static class Cpp2IlApi
     {
-        public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
+        public static List<AsmResolver.DotNet.AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
         public static bool IlContinueThroughErrors;
 
-        public static AssemblyDefinition? GetAssemblyByName(string name) =>
-            SharedState.AssemblyList.Find(a => a.Name.Name == name);
+        public static AsmResolver.DotNet.AssemblyDefinition? GetAssemblyByName(string name) =>
+            SharedState.AssemblyList.Find(a => a.Name!.Value == name);
 
         private static readonly HashSet<string> ForbiddenDirectoryNames = new()
         {
@@ -157,10 +149,6 @@ namespace Cpp2IL.Core
             LibLogger.Writer = new LibLogWriter();
         }
 
-        [Obsolete("Use InitializeLibCpp2Il(string, string, int[], bool) instead as verbose is deprecated", true)]
-        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
-            => InitializeLibCpp2Il(assemblyPath, metadataPath, unityVersion, allowUserToInputAddresses);
-
         public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
@@ -185,10 +173,6 @@ namespace Cpp2IL.Core
             }
 #endif
         }
-
-        [Obsolete("Use InitializeLibCpp2Il(byte[], string, int[], bool) instead as verbose is deprecated", true)]
-        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
-            => InitializeLibCpp2Il(assemblyData, metadataData, unityVersion, allowUserToInputAddresses);
 
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
@@ -217,48 +201,28 @@ namespace Cpp2IL.Core
 
             MiscUtils.Reset();
 
-            AttributeRestorer.Reset();
-
-            AssemblyPopulator.Reset();
-
-            CallExceptionThrowerFunction.Reset();
-
             LibCpp2IlMain.Reset();
         }
 
-        public static List<AssemblyDefinition> MakeDummyDLLs(bool suppressAttributes = false)
+        public static List<AsmResolver.DotNet.AssemblyDefinition> MakeDummyAssemblies(bool suppressAttributes = false)
         {
             CheckLibInitialized();
 
             Logger.InfoNewline("Building assemblies...This may take some time.");
             var start = DateTime.Now;
 
-            var resolver = new RegistryAssemblyResolver();
-            var moduleParams = new ModuleParameters
-            {
-                Kind = ModuleKind.Dll,
-                AssemblyResolver = resolver,
-                MetadataResolver = new MetadataResolver(resolver)
-            };
-
             //Make stub types
             var startTwo = DateTime.Now;
             Logger.Verbose("\tPre-generating stubs...");
-            var Assemblies = StubAssemblyBuilder.BuildStubAssemblies(LibCpp2IlMain.TheMetadata!, moduleParams);
-            var AssembliesNew = AsmResolverStubAssemblyBuilder.BuildStubAssemblies(LibCpp2IlMain.TheMetadata!);
-            Assemblies.ForEach(resolver.Register);
+            var assemblies = AsmResolverStubAssemblyBuilder.BuildStubAssemblies(LibCpp2IlMain.TheMetadata!);
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
             //Configure utils class
-            TypeDefinitions.BuildPrimitiveMappings();
             TypeDefinitionsAsmResolver.BuildPrimitiveMappings();
-            
-            SaveAssemblies("./cpp2il_out/newassems", AssembliesNew);
 
             //Set base types and interfaces
             startTwo = DateTime.Now;
             Logger.Verbose("\tConfiguring Hierarchy...");
-            AssemblyPopulator.ConfigureHierarchy();
             AsmResolverAssemblyPopulator.ConfigureHierarchy();
             Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
 
@@ -268,27 +232,26 @@ namespace Cpp2IL.Core
 
                 Logger.Verbose($"\tPopulating {imageDef.Name}...");
 
-                AssemblyPopulator.PopulateStubTypesInAssembly(imageDef, suppressAttributes);
                 AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged(imageDef);
 
                 Logger.VerboseNewline($"Done ({(DateTime.Now - startAssem).TotalMilliseconds}ms)");
             }
             
-            SaveAssemblies("./cpp2il_out/newassems_populated", AssembliesNew);
+            // SaveAssemblies("./cpp2il_out/newassems_populated", AssembliesNew);
 
             Logger.InfoNewline($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
             Logger.InfoNewline("Fixing up explicit overrides. Any warnings you see here aren't errors - they usually indicate improperly stripped or obfuscated types, but this is not a big deal. This should only take a second...");
             start = DateTime.Now;
 
-            //Fixup explicit overrides.
-            foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions)
-                AssemblyPopulator.FixupExplicitOverridesInAssembly(imageDef);
+            //Fixup explicit overrides. TODO Reimplement on AsmResolver using TypeDefinition#MethodImplementations.
+            // foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions)
+                // AssemblyPopulator.FixupExplicitOverridesInAssembly(imageDef);
 
             Logger.InfoNewline($"Fixup complete ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
 
-            SharedState.AssemblyList.AddRange(Assemblies);
+            SharedState.AssemblyList.AddRange(assemblies);
 
-            return Assemblies;
+            return assemblies;
         }
 
         public static BaseKeyFunctionAddresses ScanForKeyFunctionAddresses()
@@ -309,132 +272,37 @@ namespace Cpp2IL.Core
             return keyFunctionAddresses;
         }
 
-        [SuppressMessage("ReSharper", "ReturnValueOfPureMethodIsNotUsed")]
-        public static void RunAttributeRestorationForAllAssemblies(BaseKeyFunctionAddresses? keyFunctionAddresses = null, bool parallel = true)
-        {
-            CheckLibInitialized();
-
-            if (keyFunctionAddresses?.il2cpp_object_new is 0 && keyFunctionAddresses.il2cpp_type_get_object is 0 && keyFunctionAddresses.il2cpp_string_new is 0)
-            {
-                Logger.WarnNewline("Key function addresses are garbage - binary probably has no export table. They will not be used.", "Attribute Restoration");
-                keyFunctionAddresses = null;
-            }
-
-            var enumerable = (IEnumerable<AssemblyDefinition>) SharedState.AssemblyList;
-
-            if (parallel)
-                enumerable = enumerable.AsParallel();
-
-            enumerable.Select(def =>
-            {
-                if (!parallel && LibCpp2IlMain.MetadataVersion < 29)
-                    Logger.Verbose($"Processing {def.Name.Name}...");
-                RunAttributeRestorationForAssembly(def, keyFunctionAddresses);
-
-                if (LibCpp2IlMain.MetadataVersion < 29)
-                    Logger.VerboseNewline($"Finished processing {def.Name.Name}");
-                return true;
-            }).ToList(); //Force full evaluation
-        }
-
-        public static void RunAttributeRestorationForAssembly(AssemblyDefinition assembly, BaseKeyFunctionAddresses? keyFunctionAddresses = null)
-        {
-            CheckLibInitialized();
-
-            if (LibCpp2IlMain.MetadataVersion >= 29)
-            {
-                //V29: Attributes are stored in metadata. This process becomes a lot simpler.
-                AttributeRestorerPost29.ApplyCustomAttributesToAllTypesInAssembly(assembly);
-                return;
-            }
-
-            switch (LibCpp2IlMain.Binary!.InstructionSet)
-            {
-                case InstructionSet.X86_32:
-                case InstructionSet.X86_64:
-                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<Iced.Intel.Instruction>(assembly, keyFunctionAddresses);
-                    break;
-                case InstructionSet.ARM32:
-                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<ArmInstruction>(assembly, keyFunctionAddresses);
-                    break;
-                case InstructionSet.ARM64:
-                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<Arm64Instruction>(assembly, keyFunctionAddresses);
-                    break;
-                case InstructionSet.WASM:
-                    //TODO
-                    AttributeRestorer.ApplyCustomAttributesToAllTypesInAssembly<object>(assembly, keyFunctionAddresses);
-                    break;
-                default:
-                    throw new UnsupportedInstructionSetException();
-            }
-        }
-
         public static void GenerateMetadataForAllAssemblies(string rootFolder)
         {
             CheckLibInitialized();
 
-            foreach (var assemblyDefinition in SharedState.AssemblyList)
-                GenerateMetadataForAssembly(rootFolder, assemblyDefinition);
+            //TODO decide if we want to reimplement or discard in favour of something else.
+            // foreach (var assemblyDefinition in SharedState.AssemblyList)
+            //     GenerateMetadataForAssembly(rootFolder, assemblyDefinition);
         }
 
-        public static void GenerateMetadataForAssembly(string rootFolder, AssemblyDefinition assemblyDefinition)
-        {
-            foreach (var mainModuleType in assemblyDefinition.MainModule.Types.Where(mainModuleType => mainModuleType.Namespace != AssemblyPopulator.InjectedNamespaceName))
-            {
-                GenerateMetadataForType(rootFolder, mainModuleType);
-            }
-        }
+        // public static void GenerateMetadataForAssembly(string rootFolder, AssemblyDefinition assemblyDefinition)
+        // {
+        //     // foreach (var mainModuleType in assemblyDefinition.MainModule.Types.Where(mainModuleType => mainModuleType.Namespace != AssemblyPopulator.InjectedNamespaceName))
+        //     // {
+        //     //     GenerateMetadataForType(rootFolder, mainModuleType);
+        //     // }
+        // }
 
-        public static void GenerateMetadataForType(string rootFolder, TypeDefinition typeDefinition)
-        {
-            CheckLibInitialized();
-
-            var assemblyPath = Path.Combine(rootFolder, "types", typeDefinition.Module.Assembly.Name.Name);
-            if (!Directory.Exists(assemblyPath))
-                Directory.CreateDirectory(assemblyPath);
-
-            File.WriteAllText(
-                Path.Combine(assemblyPath, typeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"),
-                AssemblyPopulator.BuildWholeMetadataString(typeDefinition)
-            );
-        }
-
-        public static void SaveAssemblies(string toWhere) => SaveAssemblies(toWhere, GeneratedAssemblies);
-
-        public static void SaveAssemblies(string toWhere, List<AssemblyDefinition> assemblies)
-        {
-            Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
-
-            if (!Directory.Exists(toWhere))
-            {
-                Logger.VerboseNewline($"\tSave directory does not exist. Creating...");
-                Directory.CreateDirectory(toWhere);
-            }
-
-            foreach (var assembly in assemblies)
-            {
-                var dllPath = Path.Combine(toWhere, assembly.MainModule.Name);
-
-                //Remove NetCore Dependencies 
-                var reference = assembly.MainModule.AssemblyReferences.FirstOrDefault(a => a.Name == "System.Private.CoreLib");
-                if (reference != null)
-                    assembly.MainModule.AssemblyReferences.Remove(reference);
-
-#if !DEBUG
-                try
-                {
-#endif
-                assembly.Write(dllPath);
-#if !DEBUG
-                }
-                catch (Exception e)
-                {
-                    throw new DllSaveException(dllPath, e);
-                }
-#endif
-            }
-        }
-
+        // public static void GenerateMetadataForType(string rootFolder, TypeDefinition typeDefinition)
+        // {
+        //     CheckLibInitialized();
+        //
+        //     var assemblyPath = Path.Combine(rootFolder, "types", typeDefinition.Module.Assembly.Name.Name);
+        //     if (!Directory.Exists(assemblyPath))
+        //         Directory.CreateDirectory(assemblyPath);
+        //
+        //     File.WriteAllText(
+        //         Path.Combine(assemblyPath, typeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"),
+        //         AssemblyPopulator.BuildWholeMetadataString(typeDefinition)
+        //     );
+        // }
+        
         public static void SaveAssemblies(string toWhere, List<AsmResolver.DotNet.AssemblyDefinition> assemblies)
         {
             Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
@@ -451,248 +319,6 @@ namespace Cpp2IL.Core
                 assembly.Write(dllPath);
             }
         }
-
-        [Obsolete("Use (AnalysisLevel, AssemblyDefinition, BaseKeyFunctionAddresses, string, bool, *bool*)")]
-        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string methodOutputDir, bool parallel) =>
-            AnalyseAssembly(analysisLevel, assembly, keyFunctionAddresses, methodOutputDir, parallel, false);
-
-        /// <summary>
-        /// Analyze the given assembly, populating method bodies within it with IL if restoration succeeds or continueThroughErrors is set.
-        /// </summary>
-        /// <param name="analysisLevel">The level of analysis to save *to the method dump file*. Has no effect if no output directory is provided</param>
-        /// <param name="assembly">The assembly to analyze</param>
-        /// <param name="keyFunctionAddresses">A BaseKeyFunctionAddresses object, populated with the addresses of il2cpp exports, for analysis purposes.</param>
-        /// <param name="methodOutputDir">The directory to create method dumps in. If null, they won't be created.</param>
-        /// <param name="parallel">True to execute analysis in parallel (using all cpu cores), false to run on a single core (much slower)</param>
-        /// <param name="continueThroughErrors">True to try and bruteforce getting as much IL saved to the assembly as possible, false to bail out if any irregularities are detected.</param>
-        /// <exception cref="ArgumentNullException">If assembly or keyFunctionAddresses is null</exception>
-        /// <exception cref="UnsupportedInstructionSetException">If the instruction set of the IL2CPP binary is not supported for analysis yet.</exception>
-        public static void AnalyseAssembly(AnalysisLevel analysisLevel, AssemblyDefinition assembly, BaseKeyFunctionAddresses keyFunctionAddresses, string? methodOutputDir, bool parallel, bool continueThroughErrors)
-        {
-            CheckLibInitialized();
-
-            if (assembly == null)
-                throw new ArgumentNullException(nameof(assembly));
-
-            if (keyFunctionAddresses == null && LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64)
-                throw new ArgumentNullException(nameof(keyFunctionAddresses));
-
-            IlContinueThroughErrors = continueThroughErrors;
-
-            AsmAnalyzerX86.FAILED_METHODS = 0;
-            AsmAnalyzerX86.SUCCESSFUL_METHODS = 0;
-
-            if (methodOutputDir != null)
-            {
-                Logger.InfoNewline("Dumping method bytes to " + methodOutputDir, "Analyze");
-                Directory.CreateDirectory(Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps"));
-            }
-
-            var counter = 0;
-            var toProcess = assembly.MainModule.Types.Where(t => t.Namespace != AssemblyPopulator.InjectedNamespaceName).ToList();
-            toProcess.AddRange(toProcess.SelectMany(t => t.NestedTypes).ToList());
-            //Sort alphabetically by type.
-            toProcess.Sort((a, b) => string.Compare(a.FullName, b.FullName, StringComparison.Ordinal));
-            var thresholds = new[] {10, 20, 30, 40, 50, 60, 70, 80, 90, 100}.ToList();
-            var nextThreshold = thresholds.First();
-
-            Logger.InfoNewline($"This assembly contains {toProcess.Count} types. Assuming an average rate of 20 types per second, this will take approximately {toProcess.Count / 20} seconds, or {toProcess.Count / 20f / 60f:f1} minutes, to process.");
-
-            var numProcessed = 0;
-
-            var startTime = DateTime.Now;
-
-            thresholds.RemoveAt(0);
-
-            void ProcessType(TypeDefinition type)
-            {
-                counter++;
-                var pct = 100 * ((decimal) counter / toProcess.Count);
-                if (pct > nextThreshold)
-                {
-                    lock (thresholds)
-                    {
-                        //Check again to prevent races
-                        if (pct > nextThreshold)
-                        {
-                            var elapsedSoFar = DateTime.Now - startTime;
-                            var rate = counter / elapsedSoFar.TotalSeconds;
-                            var remaining = toProcess.Count - counter;
-                            Logger.InfoNewline($"{nextThreshold}% ({counter} classes in {Math.Round(elapsedSoFar.TotalSeconds)} sec, ~{Math.Round(rate)} classes / sec, {remaining} classes remaining, approx {Math.Round(remaining / rate + 5)} sec remaining)", "Analyze");
-                            nextThreshold = thresholds.First();
-                            thresholds.RemoveAt(0);
-                        }
-                    }
-                }
-
-                string? filename = null;
-                StringBuilder? typeDump = null;
-
-                if (methodOutputDir != null)
-                {
-                    var fileSafeTypeName = type.Name;
-
-                    if (type.DeclaringType != null)
-                        fileSafeTypeName = $"{type.DeclaringType.Name}--NestedType--{fileSafeTypeName}";
-
-                    fileSafeTypeName = fileSafeTypeName
-                        .Replace("<", "_")
-                        .Replace(">", "_")
-                        .Replace("|", "_")
-                        .Replace("{", "_")
-                        .Replace("}", "_");
-
-                    var methodDumpDir = Path.Combine(methodOutputDir, assembly.Name.Name, "method_dumps");
-
-                    var ns = type.Namespace;
-                    if (type.DeclaringType != null)
-                        ns = type.DeclaringType.Namespace;
-
-                    if (!string.IsNullOrEmpty(ns))
-                    {
-                        ns = ns.Replace("<", "_")
-                            .Replace(">", "_")
-                            .Replace("|", "_")
-                            .Replace("{", "_")
-                            .Replace("}", "_");
-
-                        var components = ns.Split('.');
-                        for (var i = 0; i < components.Length; i++)
-                        {
-                            if (ForbiddenDirectoryNames.Contains(components[i]))
-                                components[i] = "__renamed_from_" + components[i];
-                        }
-
-
-                        methodDumpDir = Path.Combine(new[] {methodDumpDir}.Concat(components).ToArray());
-
-                        if (!Directory.Exists(methodDumpDir))
-                            Directory.CreateDirectory(methodDumpDir);
-                    }
-
-                    filename = Path.Combine(methodDumpDir, $"{fileSafeTypeName}_methods.txt");
-
-                    typeDump = new StringBuilder("Type: " + type.Name + "\n\n");
-                }
-
-                foreach (var methodDefinition in type.Methods)
-                {
-                    try
-                    {
-                        var methodStart = methodDefinition.AsUnmanaged().MethodPointer;
-
-                        if (methodStart == 0)
-                            //No body
-                            continue;
-
-                        var dumper = CreateAnalyzerForMethod(methodDefinition, keyFunctionAddresses!);
-
-                        try
-                        {
-                            dumper.AnalyzeMethod();
-                            dumper.RunActionPostProcessors();
-                        }
-                        catch (AnalysisExceptionRaisedException)
-                        {
-                            //ignore, already logged
-                        }
-
-                        switch (analysisLevel)
-                        {
-                            case AnalysisLevel.PRINT_ALL:
-                                dumper.BuildMethodFunctionality();
-
-                                if (typeDump != null)
-                                {
-                                    typeDump.Append(dumper.GetFullDumpNoIL());
-                                    typeDump.Append(dumper.BuildILToString());
-                                }
-
-                                break;
-                            case AnalysisLevel.SKIP_ASM:
-                                dumper.BuildMethodFunctionality();
-
-                                if (typeDump != null)
-                                {
-                                    typeDump.Append(dumper.GetWordyFunctionality());
-                                    typeDump.Append(dumper.GetPseudocode());
-                                    typeDump.Append(dumper.BuildILToString());
-                                }
-
-                                break;
-                            case AnalysisLevel.SKIP_ASM_AND_SYNOPSIS:
-                                if (typeDump != null)
-                                {
-                                    typeDump.Append(dumper.GetPseudocode());
-                                    typeDump.Append(dumper.BuildILToString());
-                                }
-
-                                break;
-                            case AnalysisLevel.PSUEDOCODE_ONLY:
-                                typeDump?.Append(dumper.GetPseudocode());
-                                break;
-                            case AnalysisLevel.IL_ONLY:
-                                var ilString = dumper.BuildILToString(); //Always want to call this so we generate IL
-                                typeDump?.Append(ilString);
-                                break;
-                            case AnalysisLevel.NONE:
-                                break;
-                        }
-
-                        Interlocked.Increment(ref numProcessed);
-                    }
-                    catch (AnalysisExceptionRaisedException)
-                    {
-                        //Ignore, logged already.
-                    }
-                    catch (Exception e)
-                    {
-                        Logger.WarnNewline($"Failed to dump method {methodDefinition.FullName} {e}", "Analyze");
-                    }
-                }
-
-                if (filename is null || typeDump is null) return;
-
-                lock (type) File.WriteAllText(filename, typeDump.ToString());
-            }
-
-            if (parallel)
-                toProcess.AsParallel().ForAll(ProcessType);
-            else
-                toProcess.ForEach(ProcessType);
-
-            var elapsed = DateTime.Now - startTime;
-            Logger.InfoNewline($"Finished processing {numProcessed} methods in {elapsed.Ticks} ticks (about {Math.Round(elapsed.TotalSeconds, 1)} seconds), at an overall rate of about {Math.Round(toProcess.Count / elapsed.TotalSeconds)} types/sec, {Math.Round(numProcessed / elapsed.TotalSeconds)} methods/sec", "Analyze");
-
-            if (methodOutputDir != null)
-            {
-                var outPath = Path.Combine(methodOutputDir, "mnemonics.txt");
-                Logger.InfoNewline($"Assembly uses {AsmAnalyzerX86.UsedMnemonics.Count} x86 mnemonics. Dumping a list to the method output root as {outPath}");
-                var mnemonics = AsmAnalyzerX86.UsedMnemonics.ToList();
-                mnemonics.Sort();
-                File.WriteAllLines(outPath, mnemonics.Select(s => s.ToString()));
-            }
-
-            if (analysisLevel != AnalysisLevel.PSUEDOCODE_ONLY)
-            {
-                var total = AsmAnalyzerX86.SUCCESSFUL_METHODS + AsmAnalyzerX86.FAILED_METHODS;
-                var successPercent = 100;
-                if (total != 0)
-                    successPercent = AsmAnalyzerX86.SUCCESSFUL_METHODS * 100 / total;
-
-                Logger.InfoNewline($"Overall analysis success rate: {successPercent}% ({AsmAnalyzerX86.SUCCESSFUL_METHODS}) of {total} methods.");
-            }
-        }
-
-        public static IAsmAnalyzer CreateAnalyzerForMethod(MethodDefinition methodDefinition, BaseKeyFunctionAddresses keyFunctionAddresses) =>
-            LibCpp2IlMain.Binary?.InstructionSet switch
-            {
-                InstructionSet.X86_32 or InstructionSet.X86_64 => new AsmAnalyzerX86(methodDefinition, keyFunctionAddresses!),
-                InstructionSet.ARM32 => new AsmAnalyzerArmV7(methodDefinition, keyFunctionAddresses!),
-                InstructionSet.ARM64 => new AsmAnalyzerArmV8A(methodDefinition, keyFunctionAddresses!),
-                InstructionSet.WASM => new AsmAnalyzerWasm(methodDefinition, keyFunctionAddresses!),
-                _ => throw new UnsupportedInstructionSetException()
-            };
 
         public static void PopulateConcreteImplementations()
         {
@@ -718,8 +344,6 @@ namespace Cpp2IL.Core
                 }
             }
         }
-
-        public static void HarmonyPatchCecilForBetterExceptions() => Cpp2IlHarmonyPatches.Install();
 
         private static bool IsLibInitialized()
         {
@@ -758,7 +382,7 @@ namespace Cpp2IL.Core
             var loaded = Assembly.LoadFile(capstonePath);
             Logger.InfoNewline("Loaded capstone: " + loaded.FullName);
 
-            AppDomain.CurrentDomain.AssemblyResolve += (sender, args) =>
+            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
             {
                 if (args.Name == loaded.FullName)
                     return loaded;

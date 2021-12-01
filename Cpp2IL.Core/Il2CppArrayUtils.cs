@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using Cpp2IL.Core.Utils;
 using LibCpp2IL;
-using Mono.Cecil;
 
 namespace Cpp2IL.Core
 {
@@ -43,13 +41,6 @@ namespace Cpp2IL.Core
             return offset >= FirstItemOffset;
         }
 
-        public static PropertyDefinition GetLengthProperty()
-        {
-            var arrayType = TypeDefinitions.Array;
-
-            return arrayType!.Properties.First(p => p.Name == nameof(Array.Length));
-        }
-        
         public class UsefulOffset
         {
             public UsefulOffset(string name, uint offset, Type type, bool is32Bit)

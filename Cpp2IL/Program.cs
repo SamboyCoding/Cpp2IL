@@ -17,7 +17,7 @@ using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Exceptions;
 #endif
 using LibCpp2IL;
-using Mono.Cecil;
+using AssemblyDefinition = AsmResolver.DotNet.AssemblyDefinition;
 
 namespace Cpp2IL
 {
@@ -292,7 +292,6 @@ namespace Cpp2IL
             var badConditions = 0;
             var allMethodsWithBodies = LibCpp2IlMain.TheMetadata!.methodDefs.Where(m => m.MethodPointer > 0).ToList();
             Logger.InfoNewline($"About to build graph for {allMethodsWithBodies.Count} methods");
-            var processed = 0;
             var startTime = DateTime.Now;
             foreach (var m in allMethodsWithBodies)
             {
@@ -301,10 +300,6 @@ namespace Cpp2IL
                 try
                 {
                     graph.Run();
-                    processed++;
-
-                    if (processed % 10 == 0)
-                        Logger.InfoNewline($"Processed {processed}");
                 }
                 catch (NotImplementedException e) when (e.Message.StartsWith("Indirect branch"))
                 {
@@ -333,7 +328,7 @@ namespace Cpp2IL
             Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
             Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
 
-            Cpp2IlApi.MakeDummyDLLs(runtimeArgs.SuppressAttributes);
+            Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
 
 #if NET6_0
             //Fix capstone native library loading on non-windows
@@ -370,7 +365,7 @@ namespace Cpp2IL
             Logger.InfoNewline($"Applying type, method, and field attributes for {Cpp2IlApi.GeneratedAssemblies.Count} assemblies...This may take a couple of seconds");
             var start = DateTime.Now;
 
-            Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
+            // Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
 
             Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
@@ -379,7 +374,7 @@ namespace Cpp2IL
             
             // Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
 
-            Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
+            Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory, Cpp2IlApi.GeneratedAssemblies);
 
             if (runtimeArgs.EnableAnalysis)
             {
@@ -387,7 +382,7 @@ namespace Cpp2IL
                 {
                     foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
                     {
-                        DoAnalysisForAssembly(assemblyDefinition.Name.Name, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
+                        DoAnalysisForAssembly(assemblyDefinition.Name.Value, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
                     }
                 }
                 else
@@ -422,11 +417,10 @@ namespace Cpp2IL
 
             Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
 
-            Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
+            // Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
 
             if (doIlToAsm)
             {
-                Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
                 Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
             }
         }

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using AsmResolver.DotNet;
-using AsmResolver.IO;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using LibCpp2IL.Metadata;
 using AssemblyDefinition = AsmResolver.DotNet.AssemblyDefinition;
