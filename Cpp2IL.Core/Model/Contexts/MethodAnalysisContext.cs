@@ -42,7 +42,11 @@ public class MethodAnalysisContext : HasCustomAttributes
     {
         DeclaringType = parent;
         Definition = definition;
-        RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+
+        if (Definition.MethodPointer != 0)
+            RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+        else
+            RawBytes = Array.Empty<byte>();
     }
 
     protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(context)
