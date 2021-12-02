@@ -31,6 +31,8 @@ public class InstructionGraphNode<T> : IControlFlowNode
     public bool HasProcessedSuccessors = false;
 
     public bool NeedsCorrectingDueToJump = false;
+
+    public bool HasProcessedInstructions = false;
         
     public InstructionGraphNodeFlowControl? FlowControl
     {
