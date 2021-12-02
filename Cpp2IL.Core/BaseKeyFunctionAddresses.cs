@@ -62,7 +62,7 @@ namespace Cpp2IL.Core
             var cppAssembly = LibCpp2IlMain.Binary!;
 
             //Try to find System.Exception (should always be there)
-            if(cppAssembly.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64)
+            if(cppAssembly.InstructionSetId == DefaultInstructionSets.X86_32 || cppAssembly.InstructionSetId == DefaultInstructionSets.X86_64)
                 //TODO make this abstract and implement in subclasses.
                 TryGetInitMetadataFromException();
 

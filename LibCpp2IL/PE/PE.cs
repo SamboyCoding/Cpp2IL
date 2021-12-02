@@ -46,14 +46,14 @@ namespace LibCpp2IL.PE
             if (fileHeader.Machine == 0x014c) //Intel 386
             {
                 is32Bit = true;
-                InstructionSet = InstructionSet.X86_32;
+                InstructionSetId = DefaultInstructionSets.X86_32;
                 peOptionalHeader32 = ReadClassAtRawAddr<OptionalHeader>(-1);
                 peOptionalHeader32.DataDirectory = ReadClassArrayAtRawAddr<DataDirectory>(-1, peOptionalHeader32.NumberOfRvaAndSizes);
                 peImageBase = peOptionalHeader32.ImageBase;
             }
             else if (fileHeader.Machine == 0x8664) //AMD64
             {
-                InstructionSet = InstructionSet.X86_64;
+                InstructionSetId = DefaultInstructionSets.X86_64;
                 peOptionalHeader64 = ReadClassAtRawAddr<OptionalHeader64>(-1);
                 peOptionalHeader64.DataDirectory = ReadClassArrayAtRawAddr<DataDirectory>(-1, peOptionalHeader64.NumberOfRvaAndSizes);
                 peImageBase = peOptionalHeader64.ImageBase;

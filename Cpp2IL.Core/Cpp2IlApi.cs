@@ -6,6 +6,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
@@ -16,6 +17,7 @@ namespace Cpp2IL.Core
     {
         public static List<AsmResolver.DotNet.AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
         public static bool IlContinueThroughErrors;
+        public static ApplicationAnalysisContext CurrentAppContext;
 
         public static AsmResolver.DotNet.AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name!.Value == name);
@@ -163,8 +165,6 @@ namespace Cpp2IL.Core
 #endif
             if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVersion))
                 throw new Exception("Initialization with LibCpp2Il failed");
-
-            LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
 #if !DEBUG
             }
             catch (Exception e)
@@ -172,6 +172,7 @@ namespace Cpp2IL.Core
                 throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
             }
 #endif
+            OnLibInitialized();
         }
 
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool allowUserToInputAddresses = false)
@@ -186,13 +187,22 @@ namespace Cpp2IL.Core
             {
                 if (!LibCpp2IlMain.Initialize(assemblyData, metadataData, unityVersion))
                     throw new Exception("Initialization with LibCpp2Il failed");
-
-                LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
             }
             catch (Exception e)
             {
                 throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
             }
+            
+            OnLibInitialized();
+        }
+
+        private static void OnLibInitialized()
+        {
+            LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
+            
+            Logger.Info("Creating application model...");
+            CurrentAppContext = new(LibCpp2IlMain.Binary, LibCpp2IlMain.TheMetadata!);
+            Logger.InfoNewline("Done.");
         }
 
         private static void ResetInternalState()
@@ -258,15 +268,17 @@ namespace Cpp2IL.Core
         {
             CheckLibInitialized();
 
-            BaseKeyFunctionAddresses keyFunctionAddresses = LibCpp2IlMain.Binary!.InstructionSet switch
-            {
-                InstructionSet.X86_32 => new X86KeyFunctionAddresses(),
-                InstructionSet.X86_64 => new X86KeyFunctionAddresses(),
-                InstructionSet.ARM64 => new Arm64KeyFunctionAddresses(),
-                InstructionSet.ARM32 => throw new UnsupportedInstructionSetException(), //todo
-                InstructionSet.WASM => new WasmKeyFunctionAddresses(),
-                _ => throw new ArgumentOutOfRangeException()
-            };
+            BaseKeyFunctionAddresses keyFunctionAddresses;
+            if (LibCpp2IlMain.Binary!.InstructionSetId == DefaultInstructionSets.X86_32 || LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
+                keyFunctionAddresses = new X86KeyFunctionAddresses();
+            else if (LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.ARM_V8)
+                keyFunctionAddresses = new Arm64KeyFunctionAddresses();
+            else if (LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.ARM_V7)
+                throw new UnsupportedInstructionSetException();
+            else if (LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.WASM)
+                keyFunctionAddresses = new WasmKeyFunctionAddresses();
+            else
+                throw new ArgumentOutOfRangeException();
 
             keyFunctionAddresses.Find();
             return keyFunctionAddresses;

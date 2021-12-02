@@ -39,7 +39,6 @@ namespace Cpp2IL.Core.Utils
                 insns = GetMethodBodyAtVirtAddressNew(addr, false);
             else
             {
-
                 var startOfNextFunc = (int) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc);
 
                 var instructionBytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);

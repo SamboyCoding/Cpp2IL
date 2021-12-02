@@ -288,45 +288,45 @@ namespace Cpp2IL
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
 
-            var missingSwitchSupport = 0;
-            var badConditions = 0;
-            var allMethodsWithBodies = LibCpp2IlMain.TheMetadata!.methodDefs.Where(m => m.MethodPointer > 0).ToList();
-            Logger.InfoNewline($"About to build graph for {allMethodsWithBodies.Count} methods");
-            var startTime = DateTime.Now;
-            foreach (var m in allMethodsWithBodies)
-            {
-                var body = X86Utils.GetManagedMethodBody(m);
-                var graph = new X86ControlFlowGraph(body.ToList());
-                try
-                {
-                    graph.Run();
-                }
-                catch (NotImplementedException e) when (e.Message.StartsWith("Indirect branch"))
-                {
-                    missingSwitchSupport++;
-                }
-                catch (NodeConditionCalculationException)
-                {
-                    badConditions++;
-                }
-                catch (Exception e)
-                {
-                    var errorDump = new StringBuilder($"Failed to generate graph for method {m.HumanReadableSignature} in {m.DeclaringType} at 0x{m.MethodPointer:X}\n");
-                    errorDump.Append($"The error was: {e}\n");
-                    errorDump.Append("The ASM Dump is:\n").Append(string.Join("\n", body.Select(i => "\t" + i.IP.ToString("x8") + " " + i))).Append('\n');
-                    errorDump.Append("The graph dump is:\n");
-                    errorDump.Append(graph.Print());
-                
-                    File.WriteAllText("graphdump.txt", errorDump.ToString());
-                    
-                    Logger.ErrorNewline("Failed to generate graph, dumped to graphdump.txt.");
-                    return 1;
-                }
-            }
-            
-            Logger.InfoNewline($"Finished building graphs in {DateTime.Now - startTime:g}");
-            Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
-            Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
+            // var missingSwitchSupport = 0;
+            // var badConditions = 0;
+            // var allMethodsWithBodies = LibCpp2IlMain.TheMetadata!.methodDefs.Where(m => m.MethodPointer > 0).ToList();
+            // Logger.InfoNewline($"About to build graph for {allMethodsWithBodies.Count} methods");
+            // var startTime = DateTime.Now;
+            // foreach (var m in allMethodsWithBodies)
+            // {
+            //     var body = X86Utils.GetManagedMethodBody(m);
+            //     var graph = new X86ControlFlowGraph(body.ToList());
+            //     try
+            //     {
+            //         graph.Run();
+            //     }
+            //     catch (NotImplementedException e) when (e.Message.StartsWith("Indirect branch"))
+            //     {
+            //         missingSwitchSupport++;
+            //     }
+            //     catch (NodeConditionCalculationException)
+            //     {
+            //         badConditions++;
+            //     }
+            //     catch (Exception e)
+            //     {
+            //         var errorDump = new StringBuilder($"Failed to generate graph for method {m.HumanReadableSignature} in {m.DeclaringType} at 0x{m.MethodPointer:X}\n");
+            //         errorDump.Append($"The error was: {e}\n");
+            //         errorDump.Append("The ASM Dump is:\n").Append(string.Join("\n", body.Select(i => "\t" + i.IP.ToString("x8") + " " + i))).Append('\n');
+            //         errorDump.Append("The graph dump is:\n");
+            //         errorDump.Append(graph.Print());
+            //     
+            //         File.WriteAllText("graphdump.txt", errorDump.ToString());
+            //         
+            //         Logger.ErrorNewline("Failed to generate graph, dumped to graphdump.txt.");
+            //         return 1;
+            //     }
+            // }
+            //
+            // Logger.InfoNewline($"Finished building graphs in {DateTime.Now - startTime:g}");
+            // Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
+            // Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
 
             Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
 
@@ -353,7 +353,7 @@ namespace Cpp2IL
             //We need to run key function sweep if we can for attribute restoration
             //or if we want to analyze. But we DON'T need it for restoration on v29
             var attributeRestorationNeedsKfas = LibCpp2IlMain.MetadataVersion < 29 && !runtimeArgs.SimpleAttributeRestoration;
-            var canGetKfas = LibCpp2IlMain.Binary?.InstructionSet is not InstructionSet.ARM32;
+            var canGetKfas = LibCpp2IlMain.Binary?.InstructionSetId != DefaultInstructionSets.ARM_V7;
             if (canGetKfas && (attributeRestorationNeedsKfas || runtimeArgs.EnableAnalysis))
             {
                 Logger.InfoNewline("Running Scan for Known Functions...");

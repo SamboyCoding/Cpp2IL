@@ -6,7 +6,7 @@ using Cpp2IL.Core.Exceptions;
 
 namespace Cpp2IL.Core.Graphs;
 
-public class InstructionGraphNode<T>
+public class InstructionGraphNode<T> : IControlFlowNode
 {
     public int ID { get; set; }
 

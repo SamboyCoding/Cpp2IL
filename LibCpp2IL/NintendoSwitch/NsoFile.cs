@@ -22,7 +22,7 @@ namespace LibCpp2IL.NintendoSwitch
         {
             _raw = input.GetBuffer();
             is32Bit = false;
-            InstructionSet = InstructionSet.ARM64;
+            InstructionSetId = DefaultInstructionSets.ARM_V8;
 
             LibLogger.VerboseNewline("\tReading NSO Early Header...");
             header = new()

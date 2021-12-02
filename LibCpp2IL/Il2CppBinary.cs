@@ -14,7 +14,7 @@ namespace LibCpp2IL
 {
     public abstract class Il2CppBinary : ClassReadingBinaryReader
     {
-        public InstructionSet InstructionSet;
+        public InstructionSetId InstructionSetId;
         
         protected readonly long maxMetadataUsages;
         private Il2CppMetadataRegistration metadataRegistration;

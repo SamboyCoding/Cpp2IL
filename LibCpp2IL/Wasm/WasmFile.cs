@@ -21,7 +21,7 @@ namespace LibCpp2IL.Wasm
         public WasmFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
         {
             is32Bit = true;
-            InstructionSet = InstructionSet.WASM;
+            InstructionSetId = DefaultInstructionSets.WASM;
             _raw = input.GetBuffer();
             var magic = ReadUInt32();
             var version = ReadInt32();

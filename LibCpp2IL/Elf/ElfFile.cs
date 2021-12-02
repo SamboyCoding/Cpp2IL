@@ -46,7 +46,7 @@ namespace LibCpp2IL.Elf
             ReadHeader();
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            LibLogger.VerboseNewline($"\tElf File contains instructions of type {InstructionSet}");
+            LibLogger.VerboseNewline($"\tElf File contains instructions of type {InstructionSetId}");
 
             LibLogger.Verbose("\tReading ELF program header table...");
             start = DateTime.Now;
@@ -132,12 +132,12 @@ namespace LibCpp2IL.Elf
         {
             _elfHeader = ReadClassAtRawAddr<ElfFileHeader>(0x10);
 
-            InstructionSet = _elfHeader.Machine switch
+            InstructionSetId = _elfHeader.Machine switch
             {
-                0x03 => InstructionSet.X86_32,
-                0x3E => InstructionSet.X86_64,
-                0x28 => InstructionSet.ARM32,
-                0xB7 => InstructionSet.ARM64,
+                0x03 => DefaultInstructionSets.X86_32,
+                0x3E => DefaultInstructionSets.X86_64,
+                0x28 => DefaultInstructionSets.ARM_V7,
+                0xB7 => DefaultInstructionSets.ARM_V8,
                 _ => throw new NotImplementedException($"ELF Machine {_elfHeader.Machine} not implemented")
             };
 
@@ -272,31 +272,48 @@ namespace LibCpp2IL.Elf
                     var addend = rel.Addend ?? ReadClassAtRawAddr<ulong>(targetLocation);
 
                     //Adapted from Il2CppInspector. Thanks to djKaty.
-                    (ulong newValue, bool recognized) result = (rel.Type, InstructionSet) switch
+
+                    ulong newValue;
+                    bool recognized;
+                    if (InstructionSetId == DefaultInstructionSets.ARM_V7)
+                        (newValue, recognized) = rel.Type switch
+                        {
+                            ElfRelocationType.R_ARM_ABS32 => (symValue + addend, true), // S + A
+                            ElfRelocationType.R_ARM_REL32 => (symValue + rel.Offset - addend, true), // S - P + A
+                            ElfRelocationType.R_ARM_COPY => (symValue, true), // S
+                            _ => (0UL, false)
+                        };
+                    else if (InstructionSetId == DefaultInstructionSets.ARM_V8)
+                        (newValue, recognized) = rel.Type switch
+                        {
+                            ElfRelocationType.R_AARCH64_ABS64 => (symValue + addend, true), // S + A
+                            ElfRelocationType.R_AARCH64_PREL64 => (symValue + addend - rel.Offset, true), // S + A - P
+                            ElfRelocationType.R_AARCH64_GLOB_DAT => (symValue + addend, true), // S + A
+                            ElfRelocationType.R_AARCH64_JUMP_SLOT => (symValue + addend, true), // S + A
+                            ElfRelocationType.R_AARCH64_RELATIVE => (symValue + addend, true), // Delta(S) + A
+                            _ => (0UL, false)
+                        };
+                    else if (InstructionSetId == DefaultInstructionSets.X86_32)
+                        (newValue, recognized) = rel.Type switch
+                        {
+                            ElfRelocationType.R_386_32 => (symValue + addend, true), // S + A
+                            ElfRelocationType.R_386_PC32 => (symValue + addend - rel.Offset, true), // S + A - P
+                            ElfRelocationType.R_386_GLOB_DAT => (symValue, true), // S
+                            ElfRelocationType.R_386_JMP_SLOT => (symValue, true), // S
+                            _ => (0UL, false)
+                        };
+                    else if (InstructionSetId == DefaultInstructionSets.X86_64)
+                        (newValue, recognized) = rel.Type switch
+                        {
+                            ElfRelocationType.R_AMD64_64 => (symValue + addend, true), // S + A
+                            _ => (0UL, false)
+                        };
+                    else
+                        (newValue, recognized) = (0UL, false);
+
+                    if (recognized)
                     {
-                        (ElfRelocationType.R_ARM_ABS32, InstructionSet.ARM32) => (symValue + addend, true), // S + A
-                        (ElfRelocationType.R_ARM_REL32, InstructionSet.ARM32) => (symValue + rel.Offset - addend, true), // S - P + A
-                        (ElfRelocationType.R_ARM_COPY, InstructionSet.ARM32) => (symValue, true), // S
-
-                        (ElfRelocationType.R_AARCH64_ABS64, InstructionSet.ARM64) => (symValue + addend, true), // S + A
-                        (ElfRelocationType.R_AARCH64_PREL64, InstructionSet.ARM64) => (symValue + addend - rel.Offset, true), // S + A - P
-                        (ElfRelocationType.R_AARCH64_GLOB_DAT, InstructionSet.ARM64) => (symValue + addend, true), // S + A
-                        (ElfRelocationType.R_AARCH64_JUMP_SLOT, InstructionSet.ARM64) => (symValue + addend, true), // S + A
-                        (ElfRelocationType.R_AARCH64_RELATIVE, InstructionSet.ARM64) => (symValue + addend, true), // Delta(S) + A
-
-                        (ElfRelocationType.R_386_32, InstructionSet.X86_32) => (symValue + addend, true), // S + A
-                        (ElfRelocationType.R_386_PC32, InstructionSet.X86_32) => (symValue + addend - rel.Offset, true), // S + A - P
-                        (ElfRelocationType.R_386_GLOB_DAT, InstructionSet.X86_32) => (symValue, true), // S
-                        (ElfRelocationType.R_386_JMP_SLOT, InstructionSet.X86_32) => (symValue, true), // S
-
-                        (ElfRelocationType.R_AMD64_64, InstructionSet.X86_64) => (symValue + addend, true), // S + A
-
-                        _ => (0, false)
-                    };
-
-                    if (result.recognized)
-                    {
-                        WriteWord((int) targetLocation, result.newValue);
+                        WriteWord((int) targetLocation, newValue);
                     }
                 }
             }
@@ -428,12 +445,12 @@ namespace LibCpp2IL.Elf
             LibLogger.VerboseNewline("Didn't find them, scanning binary...");
             
             //Well, that didn't work. Look for the specific initializer function which calls into Il2CppCodegenRegistration.
-            return InstructionSet switch
-            {
-                InstructionSet.ARM32 when LibCpp2IlMain.MetadataVersion < 24.2f => FindCodeAndMetadataRegArm32(),
-                InstructionSet.ARM64 when LibCpp2IlMain.MetadataVersion < 24.2f => FindCodeAndMetadataRegArm64(),
-                _ => FindCodeAndMetadataRegDefaultBehavior(),
-            };
+            if (InstructionSetId == DefaultInstructionSets.ARM_V7 && LibCpp2IlMain.MetadataVersion < 24.2f)
+                return FindCodeAndMetadataRegArm32();
+            if (InstructionSetId == DefaultInstructionSets.ARM_V8 && LibCpp2IlMain.MetadataVersion < 24.2f)
+                return FindCodeAndMetadataRegArm64();
+            
+            return FindCodeAndMetadataRegDefaultBehavior();
         }
 
         private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm32()

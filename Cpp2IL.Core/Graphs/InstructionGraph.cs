@@ -6,7 +6,7 @@ using System.Text;
 
 namespace Cpp2IL.Core.Graphs;
 
-public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : InstructionGraphNode<TInstruction>, new()
+public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph where TNode : InstructionGraphNode<TInstruction>, new()
 {
         protected List<TInstruction> Instructions;
 
@@ -182,6 +182,8 @@ public class AbstractControlFlowGraph<TInstruction, TNode> where TNode : Instruc
     }
 
     protected Collection<TNode> Nodes => nodeSet;
+
+    public List<IControlFlowNode> INodes => Nodes.Cast<IControlFlowNode>().ToList();
 
     public int Count => nodeSet.Count;
 }
