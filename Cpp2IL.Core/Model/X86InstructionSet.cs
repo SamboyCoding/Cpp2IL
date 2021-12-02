@@ -9,7 +9,18 @@ public class X86InstructionSet : BaseInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
-        var methodBody = X86Utils.GetManagedMethodBody(context.Definition);
+        var rawMethodBody = GetRawBytesForMethod(context, context is AttributeGeneratorMethodAnalysisContext);
+        var methodBody = X86Utils.Disassemble(rawMethodBody, context.UnderlyingPointer);
+        
         return new X86ControlFlowGraph(methodBody.ToList());
+    }
+
+    public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
+    {
+        if (!isAttributeGenerator)
+            return X86Utils.GetRawManagedMethodBody(context.Definition!);
+        
+        X86Utils.GetMethodBodyAtVirtAddressNew(context.UnderlyingPointer, false, out var ret);
+        return ret;
     }
 }

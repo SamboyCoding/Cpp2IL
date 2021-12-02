@@ -1,3 +1,4 @@
+using System;
 using Cpp2IL.Core.Graphs;
 using LibCpp2IL.Metadata;
 
@@ -10,13 +11,22 @@ public class MethodAnalysisContext : HasCustomAttributes
 {
     /// <summary>
     /// The underlying metadata for the method.
+    ///
+    /// Nullable iff this is a subclass.
     /// </summary>
-    public readonly Il2CppMethodDefinition Definition;
+    public readonly Il2CppMethodDefinition? Definition;
     
     /// <summary>
     /// The analysis context for the declaring type of this method.
+    ///
+    /// Null iff this is a subclass.
     /// </summary>
-    public readonly TypeAnalysisContext DeclaringType;
+    public readonly TypeAnalysisContext? DeclaringType;
+
+    /// <summary>
+    /// The address of this method as defined in the underlying metadata.
+    /// </summary>
+    public virtual ulong UnderlyingPointer => Definition?.MethodPointer ?? throw new("Subclasses of MethodAnalysisContext should override UnderlyingPointer");
     
     /// <summary>
     /// The raw method body as machine code in the active instruction set.
@@ -32,6 +42,12 @@ public class MethodAnalysisContext : HasCustomAttributes
     {
         DeclaringType = parent;
         Definition = definition;
+        RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+    }
+
+    protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(context)
+    {
+        RawBytes = Array.Empty<byte>();
     }
 
     public void Analyze()

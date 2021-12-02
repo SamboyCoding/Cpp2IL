@@ -14,6 +14,14 @@ public abstract class BaseInstructionSet
     public abstract IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context);
 
     /// <summary>
+    /// Get the raw method body for the given method.
+    /// </summary>
+    /// <param name="context">The method to get the body for</param>
+    /// <param name="isAttributeGenerator">True if this is an attribute generator function, false if it's a managed method</param>
+    /// <returns>A byte array representing the method's body</returns>
+    public abstract byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator);
+
+    /// <summary>
     /// Returns the virtual address from which the given method starts. By default, returns the <see cref="Il2CppMethodDefinition.MethodPointer"/> property, but
     /// can be overridden to provide a different value for instruction sets where this is necessary, for example WASM.
     /// </summary>
