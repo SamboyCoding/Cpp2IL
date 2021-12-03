@@ -198,6 +198,7 @@ namespace Cpp2IL.Core
 
         private static void OnLibInitialized()
         {
+            MiscUtils.Init();
             LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
             
             Logger.Info("Creating application model...");

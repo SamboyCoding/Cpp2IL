@@ -10,28 +10,33 @@ namespace Cpp2IL.Core.Utils
     {
         private static List<ulong>? _allKnownFunctionStarts;
 
-        private static readonly Dictionary<string, ulong> PrimitiveSizes = new(14)
-        {
-            { "Byte", 1 },
-            { "SByte", 1 },
-            { "Boolean", 1 },
-            { "Int16", 2 },
-            { "UInt16", 2 },
-            { "Char", 2 },
-            { "Int32", 4 },
-            { "UInt32", 4 },
-            { "Single", 4 },
-            { "Int64", 8 },
-            { "UInt64", 8 },
-            { "Double", 8 },
-            { "IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
-            { "UIntPtr", LibCpp2IlMain.Binary.is32Bit ? 4UL : 8UL },
-        };
+        private static Dictionary<string, ulong> PrimitiveSizes;
 
         internal static void Reset()
         {
             TypeDefinitionsAsmResolver.Reset();
             _allKnownFunctionStarts = null;
+        }
+
+        internal static void Init()
+        {
+            PrimitiveSizes = new(14)
+            {
+                { "Byte", 1 },
+                { "SByte", 1 },
+                { "Boolean", 1 },
+                { "Int16", 2 },
+                { "UInt16", 2 },
+                { "Char", 2 },
+                { "Int32", 4 },
+                { "UInt32", 4 },
+                { "Single", 4 },
+                { "Int64", 8 },
+                { "UInt64", 8 },
+                { "Double", 8 },
+                { "IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
+                { "UIntPtr", LibCpp2IlMain.Binary.is32Bit ? 4UL : 8UL },
+            };
         }
 
 
