@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -32,7 +33,9 @@ public class InstructionGraphNode<T> : IControlFlowNode
 
     public bool NeedsCorrectingDueToJump = false;
 
-    public bool HasProcessedInstructions = false;
+    public bool Visited = false;
+
+    public BitArray? Dominators;
         
     public InstructionGraphNodeFlowControl? FlowControl
     {

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -239,5 +240,18 @@ namespace Cpp2IL.Core.Utils
 
             return ret;
         }
+
+        public static bool BitsAreEqual(this BitArray first, BitArray second)
+        {
+            if (first.Count != second.Count)
+                return false;
+            
+            bool areDifferent = false;
+            for (int i = 0; i < first.Count && !areDifferent; i++)
+                areDifferent =  first.Get(i) != second.Get(i);
+
+            return !areDifferent;
+        }
+
     }
 }

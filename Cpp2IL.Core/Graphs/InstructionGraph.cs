@@ -1,8 +1,10 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -102,6 +104,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             ConstructConditions();
             if(print)
                 Print();
+            ComputeDominators();
             DetermineLocals();
         }
 
@@ -130,7 +133,48 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         {
             throw new NotImplementedException();
         }
+        
+        // Highly recommend reading https://www.backerstreet.com/decompiler/loop_analysis.php
+        private void ComputeDominators()
+        {
 
+            for (int i = 0; i < nodeSet.Count; i++)
+            {
+                nodeSet[i].Dominators = new BitArray(nodeSet.Count);
+                nodeSet[i].Dominators!.SetAll(true);
+                nodeSet[i].ID = i;
+            }
+
+            Root.Dominators!.SetAll(false);
+           
+            Root.Dominators.Set(Root.ID, true);
+
+            BitArray temp = new BitArray(nodeSet.Count);
+ 
+            bool changed = false;
+            do
+            {
+                changed = false;
+                foreach(var node in nodeSet) {
+
+                    if (node == Root)
+                        continue;
+ 
+                    foreach(var predecessor in node.Predecessors)
+                    {
+                        temp.SetAll(false);
+                        temp.Or(node.Dominators!);
+                        node.Dominators!.And(predecessor.Dominators!);
+                        node.Dominators.Set(node.ID, true);
+                        if (!node.Dominators.BitsAreEqual(temp))
+                            changed = true;
+                    }
+                }
+ 
+            } while (changed);
+        }
+
+    
         protected TNode? FindNodeByAddress(ulong address)
         {
             if (InstructionsByAddress.TryGetValue(address, out var instruction))
