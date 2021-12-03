@@ -2,12 +2,12 @@ using System;
 
 namespace Cpp2IL.Core.Graphs;
 
-public class Condition<T>
+public class InstructionGraphCondition<TInstruction>
 {
-    protected T Comparison;
-    protected T Jump;
+    protected TInstruction Comparison;
+    protected TInstruction Jump;
 
-    public Condition(T comparison, T conditionalJump)
+    public InstructionGraphCondition(TInstruction comparison, TInstruction conditionalJump)
     {
         Comparison = comparison;
         Jump = conditionalJump;

@@ -13,7 +13,7 @@ public class InstructionGraphNode<T> : IControlFlowNode
 
     public bool IsConditionalBranch => _flowControl == InstructionGraphNodeFlowControl.ConditionalJump;
 
-    public Condition<T>? Condition { get; protected set; }
+    public InstructionGraphCondition<T>? Condition { get; protected set; }
     public InstructionGraphNode<T>? TrueTarget { get; protected set; }
     public InstructionGraphNode<T>? FalseTarget { get; protected set; }
 

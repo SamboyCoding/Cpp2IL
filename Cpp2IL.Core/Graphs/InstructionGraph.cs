@@ -191,6 +191,26 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
                     }
                 }
             }
+            identifiedLoops = SortLoops(identifiedLoops); 
+            foreach (var loop in identifiedLoops)
+            {
+                // All loops can be represented as doWhiles for example https://i.imgur.com/fCzStwX.png
+                var doWhileStatement = new InstructionGraphStatement<TInstruction>(InstructionGraphStatementType.DoWhile);
+                doWhileStatement.Expression = loop.Nodes[0].Condition;
+                doWhileStatement.Blocks = loop.Nodes;
+                //doWhileStatement.
+                //TODO: Extract break and continue statement
+            }
+            
+        }
+        
+        
+
+        private List<InstructionGraphLoop<InstructionGraphNode<TInstruction>>> SortLoops(List<InstructionGraphLoop<InstructionGraphNode<TInstruction>>> loops)
+        {
+            // We'll just assume for now theres only one loop
+            // TODO: Return the loops in a list from innermost to outermost
+            return new List<InstructionGraphLoop<InstructionGraphNode<TInstruction>>>();
         }
 
         private InstructionGraphLoop<InstructionGraphNode<TInstruction>> GetLoopForEdge(InstructionGraphNode<TInstruction> header, InstructionGraphNode<TInstruction> tail)

@@ -3,11 +3,11 @@ using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
-public class X86ControlFlowGraphCondition : Condition<Instruction>
+public class X86InstructionGraphCondition : InstructionGraphCondition<Instruction>
 {
     private static MasmFormatter _formatter = new();
     private static StringOutput _output = new();
-    public X86ControlFlowGraphCondition(Instruction comparison, Instruction conditionalJump) : base(comparison, conditionalJump)
+    public X86InstructionGraphCondition(Instruction comparison, Instruction conditionalJump) : base(comparison, conditionalJump)
     {
     }
 
