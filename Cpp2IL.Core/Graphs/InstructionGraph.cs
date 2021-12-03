@@ -5,6 +5,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Utils;
+using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -105,6 +106,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             if(print)
                 Print();
             ComputeDominators();
+            IdentifyLoops();
             DetermineLocals();
         }
 
@@ -172,6 +174,48 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
                 }
  
             } while (changed);
+        }
+
+        private void IdentifyLoops()
+        {
+            List<InstructionGraphLoop<InstructionGraphNode<TInstruction>>> identifiedLoops = new();
+            foreach (var node in nodeSet)
+            {
+                if(node == Root)
+                    continue;
+                foreach (var succ in node.Successors)
+                {
+                    if (node.Dominators!.Get(succ.ID))
+                    {
+                        identifiedLoops.Add(GetLoopForEdge(succ, node));
+                    }
+                }
+            }
+        }
+
+        private InstructionGraphLoop<InstructionGraphNode<TInstruction>> GetLoopForEdge(InstructionGraphNode<TInstruction> header, InstructionGraphNode<TInstruction> tail)
+        {
+            Stack<InstructionGraphNode<TInstruction>> stack = new();
+            InstructionGraphLoop<InstructionGraphNode<TInstruction>> loop = new(header);
+            if (header != tail)
+            {
+                loop.Nodes.Add(tail);
+                stack.Push(tail);
+            }
+
+            while (stack.Count != 0)
+            {
+                var node = stack.Pop();
+                foreach (var predecessor in node.Predecessors)
+                {
+                    if (!loop.Nodes.Contains(predecessor))
+                    {
+                        loop.Nodes.Add(predecessor);
+                        stack.Push(predecessor);
+                    }
+                }
+            }
+            return loop;
         }
 
     
