@@ -1,5 +1,7 @@
+using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Graphs;
+using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 
@@ -22,5 +24,11 @@ public class X86InstructionSet : BaseInstructionSet
         
         X86Utils.GetMethodBodyAtVirtAddressNew(context.UnderlyingPointer, false, out var ret);
         return ret;
+    }
+
+    public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)
+    {
+        //TODO Implement me!
+        return new();
     }
 }

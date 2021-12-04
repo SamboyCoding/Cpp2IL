@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using Cpp2IL.Core.Graphs;
+using Cpp2IL.Core.ISIL;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -37,6 +39,11 @@ public class MethodAnalysisContext : HasCustomAttributes
     /// The control flow graph for this method, if one is built.
     /// </summary>
     public IControlFlowGraph? ControlFlowGraph;
+    
+    /// <summary>
+    /// The first-stage-analyzed nodes containing ISIL instructions.
+    /// </summary>
+    public List<InstructionSetIndependentNode>? InstructionSetIndependentNodes;
 
     public MethodAnalysisContext(Il2CppMethodDefinition definition, TypeAnalysisContext parent) : base(parent.AppContext)
     {

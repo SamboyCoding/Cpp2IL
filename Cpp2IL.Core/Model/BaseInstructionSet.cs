@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Cpp2IL.Core.Graphs;
+using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.Metadata;
 
@@ -28,4 +30,12 @@ public abstract class BaseInstructionSet
     /// <param name="context">The analysis context for the method to return the pointer for.</param>
     /// <returns></returns>
     public virtual ulong GetPointerForMethod(MethodAnalysisContext context) => context.UnderlyingPointer;
+    
+    /// <summary>
+    /// Converts the given control flow graph into a list of ISIL (Instruction Set Independent Language) Nodes.
+    /// </summary>
+    /// <param name="graph">The graph to convert</param>
+    /// <param name="context">The method this graph is for, in case your analysis needs additional context such as the application-level context.</param>
+    /// <returns></returns>
+    public abstract List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context);
 }
