@@ -26,7 +26,7 @@ namespace LibCpp2IL
         public static Il2CppBinary? Binary;
         public static Il2CppMetadata? TheMetadata;
 
-        private static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new();
+        public static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new();
 
         public static void Reset()
         {

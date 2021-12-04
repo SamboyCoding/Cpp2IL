@@ -27,5 +27,5 @@ public abstract class BaseInstructionSet
     /// </summary>
     /// <param name="context">The analysis context for the method to return the pointer for.</param>
     /// <returns></returns>
-    public virtual ulong GetPointerForMethod(MethodAnalysisContext context) => context.Definition.MethodPointer;
+    public virtual ulong GetPointerForMethod(MethodAnalysisContext context) => context.UnderlyingPointer;
 }

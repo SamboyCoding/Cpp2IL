@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -30,6 +31,11 @@ public class ApplicationAnalysisContext
     /// All the managed assemblies contained within the metadata file.
     /// </summary>
     public readonly List<AssemblyAnalysisContext> Assemblies = new();
+    
+    /// <summary>
+    /// A dictionary of method pointers to the corresponding method, which may or may not be generic.
+    /// </summary>
+    public readonly Dictionary<ulong, List<MethodAnalysisContext>> MethodsByAddress = new();
 
     public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata)
     {
@@ -47,8 +53,38 @@ public class ApplicationAnalysisContext
 
         foreach (var assemblyDefinition in Metadata.AssemblyDefinitions) 
             Assemblies.Add(new(assemblyDefinition, this));
+        
+        PopulateMethodsByAddressTable();
     }
-    
+
+    /// <summary>
+    /// Populates the <see cref="MethodsByAddress"/> dictionary with all the methods in the application, including concrete generic ones.
+    /// </summary>
+    private void PopulateMethodsByAddressTable()
+    {
+        Assemblies.SelectMany(a => a.Types).SelectMany(t => t.Methods).ToList().ForEach(m =>
+        {
+            var ptr = InstructionSet.GetPointerForMethod(m);
+
+            if (!MethodsByAddress.ContainsKey(ptr))
+                MethodsByAddress.Add(ptr, new());
+
+            MethodsByAddress[ptr].Add(m);
+        });
+
+        foreach (var methodRef in Binary.ConcreteGenericMethods.Values.SelectMany(v => v))
+        {
+            var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
+
+            var ptr = InstructionSet.GetPointerForMethod(gm);
+
+            if (!MethodsByAddress.ContainsKey(ptr))
+                MethodsByAddress[ptr] = new();
+
+            MethodsByAddress[ptr].Add(gm);
+        }
+    }
+
     /// <summary>
     /// Finds an assembly by its name and returns the analysis context for it.
     /// </summary>

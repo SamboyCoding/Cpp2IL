@@ -22,7 +22,7 @@ namespace LibCpp2IL
 
         private string? _cachedLiteral;
 
-        private Il2CppGenericMethodRef? _cachedGenericMethod;
+        private Cpp2IlMethodRef? _cachedGenericMethod;
 
         public MetadataUsage(MetadataUsageType type, ulong offset, uint value)
         {
@@ -138,7 +138,7 @@ namespace LibCpp2IL
             return _cachedLiteral;
         }
 
-        public Il2CppGenericMethodRef AsGenericMethodRef()
+        public Cpp2IlMethodRef AsGenericMethodRef()
         {
             if (_cachedGenericMethod == null)
             {
@@ -147,7 +147,7 @@ namespace LibCpp2IL
                     case MetadataUsageType.MethodRef: 
                         var methodSpec = LibCpp2IlMain.Binary!.GetMethodSpec((int) _value);
 
-                        _cachedGenericMethod = new Il2CppGenericMethodRef(methodSpec);
+                        _cachedGenericMethod = new Cpp2IlMethodRef(methodSpec);
                         _cachedName = _cachedGenericMethod.ToString();
                         break;
                     default:

@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System;
+using System.Linq;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -7,7 +8,7 @@ using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL
 {
-    public class Il2CppGenericMethodRef
+    public class Cpp2IlMethodRef
     {
         public readonly Il2CppTypeDefinition DeclaringType;
         public readonly Il2CppTypeReflectionData[] TypeGenericParams;
@@ -16,16 +17,16 @@ namespace LibCpp2IL
 
         public ulong GenericVariantPtr;
 
-        public Il2CppGenericMethodRef(Il2CppMethodSpec methodSpec)
+        public Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
         {
-            Il2CppTypeReflectionData[] declaringTypeGenericParams = new Il2CppTypeReflectionData[0];
+            var declaringTypeGenericParams = Array.Empty<Il2CppTypeReflectionData>();
             if (methodSpec.classIndexIndex != -1)
             {
                 var classInst = methodSpec.GenericClassInst;
                 declaringTypeGenericParams = LibCpp2ILUtils.GetGenericTypeParams(classInst!)!;
             }
 
-            Il2CppTypeReflectionData[] genericMethodParameters = new Il2CppTypeReflectionData[0];
+            var genericMethodParameters = Array.Empty<Il2CppTypeReflectionData>();
             if (methodSpec.methodIndexIndex != -1)
             {
                 var methodInst = methodSpec.GenericMethodInst;
@@ -36,6 +37,14 @@ namespace LibCpp2IL
             DeclaringType = methodSpec.MethodDefinition!.DeclaringType!;
             TypeGenericParams = declaringTypeGenericParams;
             MethodGenericParams = genericMethodParameters;
+        }
+
+        public Cpp2IlMethodRef(Il2CppMethodDefinition methodDefinition)
+        {
+            BaseMethod = methodDefinition;
+            DeclaringType = methodDefinition.DeclaringType!;
+            TypeGenericParams = Array.Empty<Il2CppTypeReflectionData>();
+            MethodGenericParams = Array.Empty<Il2CppTypeReflectionData>();
         }
 
         public override string ToString()
