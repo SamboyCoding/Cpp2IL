@@ -88,7 +88,9 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             
             return newNode;
         }
-        
+
+        private static Dictionary<Instruction, InstructionGraphUseDef> UsageAndDefinitions = new ();
+
 
         public void Run(bool print = false)
         {
@@ -107,6 +109,8 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
                 Print();
             ComputeDominators();
             IdentifyLoops();
+            // 
+            CalculateUseDefs();
             DetermineLocals();
         }
 
@@ -124,6 +128,23 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
                     graphNode.CheckCondition();
                 }
             }
+        }
+
+        private void CalculateUseDefs()
+        {
+            foreach (var node in Nodes)
+            {
+                foreach (var instruction in node.Instructions)
+                {
+                    var useDef = new InstructionGraphUseDef();
+                    GetUseDefsForInstruction(instruction, useDef);
+                }
+            }
+        }
+
+        protected virtual void GetUseDefsForInstruction(TInstruction instruction, InstructionGraphUseDef instructionGraphUseDef)
+        {
+            throw new NotImplementedException();
         }
 
         protected virtual void SegmentGraph()
@@ -196,12 +217,18 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             {
                 // All loops can be represented as doWhiles for example https://i.imgur.com/fCzStwX.png
                 var doWhileStatement = new InstructionGraphStatement<TInstruction>(InstructionGraphStatementType.DoWhile);
-                doWhileStatement.Expression = loop.Nodes[0].Condition;
-                doWhileStatement.Blocks = loop.Nodes;
+                if (loop.Nodes.Count == 1)
+                {
+                    doWhileStatement.Expression = loop.Nodes[0].Condition;
+                    //doWhileStatement.Nodes
+                }
+                //doWhileStatement.Expression = loop.Nodes[1].Condition;
+                //doWhileStatement.Nodes = loop.Nodes;
+                //doWhileStatement.ContinueNode = loop.Nodes[1];
                 //doWhileStatement.
+                
                 //TODO: Extract break and continue statement
             }
-            
         }
         
         
@@ -210,7 +237,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         {
             // We'll just assume for now theres only one loop
             // TODO: Return the loops in a list from innermost to outermost
-            return new List<InstructionGraphLoop<InstructionGraphNode<TInstruction>>>();
+            return loops;
         }
 
         private InstructionGraphLoop<InstructionGraphNode<TInstruction>> GetLoopForEdge(InstructionGraphNode<TInstruction> header, InstructionGraphNode<TInstruction> tail)

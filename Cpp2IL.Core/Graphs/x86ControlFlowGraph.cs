@@ -101,7 +101,6 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         for (int i = 0; i < node.Instructions.Count; i++)
         {
             var nodeInstruction = node.Instructions[i];
-            var info = _instructionInfoFactory.GetInfo(nodeInstruction);
             // Crude stack calculation. 
             // if (nodeInstruction.Mnemonic == Mnemonic.Push)
             //    stackOffset -= Is32Bit ? 4u : 8u;
@@ -109,6 +108,31 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
             //    stackOffset += Is32Bit ? 4u : 8u;
             // else if (nodeInstruction.Mnemonic == Mnemonic.Add && nodeInstruction.Op0Register.GetFullRegister() == Register.RSP && nodeInstruction.Op1Kind == // Some Immediate)
             
+        }
+    }
+    
+    protected override void GetUseDefsForInstruction(Instruction instruction, InstructionGraphUseDef instructionGraphUseDef)
+    {
+        var info = _instructionInfoFactory.GetInfo(instruction);
+        foreach (var usedRegister in info.GetUsedRegisters())
+        {
+            switch (usedRegister.Access)
+            {
+                case OpAccess.CondRead:
+                case OpAccess.Read:
+                    instructionGraphUseDef.Uses.Add(usedRegister.Register.GetFullRegister().ToString());
+                    break;
+                case OpAccess.Write:
+                case OpAccess.CondWrite:
+                    instructionGraphUseDef.Definitions.Add(usedRegister.Register.GetFullRegister().ToString());
+                    break;
+                case OpAccess.ReadCondWrite:
+                case OpAccess.ReadWrite:
+                    var item = usedRegister.Register.GetFullRegister().ToString();
+                    instructionGraphUseDef.Uses.Add(item);
+                    instructionGraphUseDef.Definitions.Add(usedRegister.Register.GetFullRegister().ToString());
+                    break;
+            }
         }
     }
 
