@@ -152,7 +152,7 @@ namespace Cpp2IL.Core
         public static bool IsImmediate(this OpKind opKind) => opKind is >= OpKind.Immediate8 and <= OpKind.Immediate32to64;
         
         
-        public static void TrimEndWhile<T>(this IList<T> instructions, Func<T, bool> predicate)
+        public static void TrimEndWhile<T>(this List<T> instructions, Func<T, bool> predicate)
         {
             var i = instructions.Count - 1;
             for (; i >= 0; i--)
@@ -163,12 +163,13 @@ namespace Cpp2IL.Core
                     break;
                 }
             }
-
+            
             var toRemove = instructions.Count - 1 - i;
-            for (var j = 0; j < toRemove; j++)
-            {
-                instructions.RemoveAt(i);
-            }
+            
+            if(toRemove <= 0)
+                return;
+            
+            instructions.RemoveRange(i, toRemove);
         }
     }
 }

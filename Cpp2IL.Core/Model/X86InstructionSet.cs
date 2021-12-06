@@ -22,11 +22,11 @@ public class X86InstructionSet : BaseInstructionSet
 
     public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
-        if (!isAttributeGenerator)
-            return X86Utils.GetRawManagedMethodBody(context.Definition!);
+        // if (!isAttributeGenerator)
+        return X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer);
         
-        X86Utils.GetMethodBodyAtVirtAddressNew(context.UnderlyingPointer, false, out var ret);
-        return ret;
+        // X86Utils.GetMethodBodyAtVirtAddressNew(context.UnderlyingPointer, false, out var ret);
+        // return ret;
     }
 
     public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)

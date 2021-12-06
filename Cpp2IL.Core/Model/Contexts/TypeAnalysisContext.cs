@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -44,14 +45,9 @@ public class TypeAnalysisContext : HasCustomAttributes
         
         InitCustomAttributeData();
         
-        foreach (var il2CppMethodDefinition in Definition.Methods!) 
-            Methods.Add(new(il2CppMethodDefinition, this));
-        
-        foreach (var il2CppPropertyDefinition in Definition.Properties!) 
-            Properties.Add(new(il2CppPropertyDefinition, this));
-        
-        foreach (var il2CppEventDefinition in Definition.Events!) 
-            Events.Add(new(il2CppEventDefinition, this));
+        Methods = Definition.Methods!.Select(m => new MethodAnalysisContext(m, this)).ToList();
+        Properties = Definition.Properties!.Select(p => new PropertyAnalysisContext(p, this)).ToList();
+        Events = Definition.Events!.Select(e => new EventAnalysisContext(e, this)).ToList();
     }
     
     public MethodAnalysisContext? GetMethod(Il2CppMethodDefinition? methodDefinition)

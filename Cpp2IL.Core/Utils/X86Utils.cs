@@ -30,15 +30,14 @@ namespace Cpp2IL.Core.Utils
             return instructions;
         }
 
-        public static byte[] GetRawManagedMethodBody(Il2CppMethodDefinition method)
+        public static byte[] GetRawManagedOrCaCacheGenMethodBody(ulong ptr)
         {
-            var addr = method.MethodPointer;
-            var rawAddr = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
-            var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(addr);
+            var rawAddr = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(ptr);
+            var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr);
 
-            if (virtStartNextFunc == 0)
+            if (virtStartNextFunc == 0 || (virtStartNextFunc - ptr) > 50000)
             {
-                GetMethodBodyAtVirtAddressNew(addr, false, out var ret);
+                GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
                 return ret;
             }
 
@@ -51,14 +50,7 @@ namespace Cpp2IL.Core.Utils
             return retList.ToArray();
         }
 
-        public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method)
-        {
-            var insns = Disassemble(GetRawManagedMethodBody(method), method.MethodPointer);
-
-            TrimInt3s(insns);
-
-            return insns;
-        }
+        public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method) => Disassemble(GetRawManagedOrCaCacheGenMethodBody(method.MethodPointer), method.MethodPointer);
 
         public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek) => GetMethodBodyAtVirtAddressNew(addr, peek, out _);
 
@@ -165,7 +157,5 @@ namespace Cpp2IL.Core.Utils
 
             return ret;
         }
-
-        public static void TrimInt3s(InstructionList instructions) => instructions.TrimEndWhile(i => i.Mnemonic == Mnemonic.Int3);
     }
 }
