@@ -33,13 +33,15 @@ public abstract class HasCustomAttributes : HasToken
 
     /// <summary>
     /// Stores the raw types of the custom attributes on this member.
+    ///
+    /// Null on v29+ (constructors are in the blob), nonnull prior to that
     /// </summary>
-    public List<Il2CppType> AttributeTypes;
+    public List<Il2CppType>? AttributeTypes;
 
     /// <summary>
     /// Prior to v29, stores the analysis context for custom attribute cache generator function.
     ///
-    /// On v29, is null.
+    /// On v29, is null because there is no method, the attribute blob is stored instead, in the metadata file.
     /// </summary>
     public readonly AttributeGeneratorMethodAnalysisContext? CaCacheGeneratorAnalysis;
 
@@ -47,7 +49,7 @@ public abstract class HasCustomAttributes : HasToken
     /// Returns this member's custom attribute index, or -1 if it has no custom attributes.
     /// </summary>
     protected abstract int CustomAttributeIndex { get; }
-    
+
     /// <summary>
     /// Returns this member's assembly context for use in custom attribute reconstruction.
     /// </summary>
@@ -57,13 +59,41 @@ public abstract class HasCustomAttributes : HasToken
     protected HasCustomAttributes(uint token, ApplicationAnalysisContext appContext) : base(token, appContext)
     {
         if (AppContext.MetadataVersion >= 29)
-            throw new("TODO: V29 blob reading");
+        {
+            var target = new Il2CppCustomAttributeDataRange() {token = Token};
+            var caIndex = AppContext.Metadata.AttributeDataRanges.BinarySearch
+            (
+                CustomAttributeAssembly.Definition.Image.customAttributeStart,
+                (int) CustomAttributeAssembly.Definition.Image.customAttributeCount,
+                target,
+                new TokenComparer()
+            );
+
+            if (caIndex < 0)
+            {
+                RawIl2CppCustomAttributeData = Array.Empty<byte>();
+                return;
+            }
+
+            var attributeDataRange = AppContext.Metadata.AttributeDataRanges[caIndex];
+            var next = AppContext.Metadata.AttributeDataRanges[caIndex + 1];
+
+            var blobStart = AppContext.Metadata.metadataHeader.attributeDataOffset + attributeDataRange.startOffset;
+            var blobEnd = AppContext.Metadata.metadataHeader.attributeDataOffset + next.startOffset;
+            RawIl2CppCustomAttributeData = AppContext.Metadata.ReadByteArrayAtRawAddress(blobStart, (int) (blobEnd - blobStart));
+            
+            return;
+        }
 
         AttributeTypeRange = AppContext.Metadata.GetCustomAttributeData(CustomAttributeAssembly.Definition.Image, CustomAttributeIndex, Token);
-        
-        if(AttributeTypeRange == null)
+
+        if (AttributeTypeRange == null)
+        {
+            RawIl2CppCustomAttributeData = Array.Empty<byte>();
+            AttributeTypes = new();
             return; //No attributes
-        
+        }
+
         AttributeTypes = Enumerable.Range(AttributeTypeRange.start, AttributeTypeRange.count)
             .Select(attrIdx => LibCpp2IlMain.TheMetadata!.attributeTypes[attrIdx])
             .Select(typeIdx => LibCpp2IlMain.Binary!.GetType(typeIdx))
@@ -71,7 +101,7 @@ public abstract class HasCustomAttributes : HasToken
 
         var rangeIndex = Array.IndexOf(AppContext.Metadata.attributeTypeRanges, AttributeTypeRange);
         ulong generatorPtr;
-        if(AppContext.MetadataVersion < 27)
+        if (AppContext.MetadataVersion < 27)
             try
             {
                 generatorPtr = AppContext.Binary.GetCustomAttributeGenerator(rangeIndex);
@@ -79,6 +109,7 @@ public abstract class HasCustomAttributes : HasToken
             catch (IndexOutOfRangeException)
             {
                 Logger.WarnNewline("Custom attribute generator out of range for " + this, "CA Restore");
+                RawIl2CppCustomAttributeData = Array.Empty<byte>();
                 return; //Bail out
             }
         else
@@ -87,6 +118,12 @@ public abstract class HasCustomAttributes : HasToken
             var relativeIndex = rangeIndex - CustomAttributeAssembly.Definition.Image.customAttributeStart;
             var ptrToAddress = baseAddress + (ulong) relativeIndex * (AppContext.Binary.is32Bit ? 4ul : 8ul);
             generatorPtr = AppContext.Binary.ReadClassAtVirtualAddress<ulong>(ptrToAddress);
+        }
+
+        if (!AppContext.Binary.TryMapVirtualAddressToRaw(generatorPtr, out _))
+        {
+            RawIl2CppCustomAttributeData = Array.Empty<byte>();
+            return; //Possibly no attributes with params?
         }
 
         CaCacheGeneratorAnalysis = new(generatorPtr, AppContext);
@@ -98,11 +135,11 @@ public abstract class HasCustomAttributes : HasToken
     /// </summary>
     public void AnalyzeCustomAttributeData()
     {
-        if(AppContext.MetadataVersion >= 29)
+        if (AppContext.MetadataVersion >= 29)
             throw new("TODO: V29 blob analysis");
-        
+
         CaCacheGeneratorAnalysis!.Analyze();
-        
+
         //Basically, extract actions from the analysis, and compare with the type list we have to resolve parameters and populate the CustomAttributes list.
     }
 }
