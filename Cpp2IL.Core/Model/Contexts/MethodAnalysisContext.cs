@@ -53,6 +53,8 @@ public class MethodAnalysisContext : HasCustomAttributes
     {
         DeclaringType = parent;
         Definition = definition;
+        
+        InitCustomAttributeData();
 
         if (Definition.MethodPointer != 0)
             RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);

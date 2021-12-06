@@ -113,7 +113,7 @@ namespace LibCpp2IL
             {
                 var cr = _binary.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(va);
 
-                if ((long) cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Length)
+                if ((long) cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count)
                     return va;
             }
 

@@ -18,6 +18,8 @@ public class PropertyAnalysisContext : HasCustomAttributes
     {
         DeclaringType = parent;
         Definition = definition;
+        
+        InitCustomAttributeData();
 
         Getter = parent.GetMethod(definition.Getter);
         Setter = parent.GetMethod(definition.Setter);

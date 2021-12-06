@@ -18,6 +18,8 @@ public class EventAnalysisContext : HasCustomAttributes
     {
         Definition = definition;
         DeclaringType = parent;
+        
+        InitCustomAttributeData();
 
         Adder = parent.GetMethod(definition.Adder);
         Remover = parent.GetMethod(definition.Remover);

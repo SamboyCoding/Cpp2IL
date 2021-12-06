@@ -33,12 +33,15 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
     {
         Definition = assemblyDefinition;
+        
+        if (AppContext.MetadataVersion >= 24.2f)
+            CodeGenModule = AppContext.Binary.GetCodegenModuleByName(Definition.Image.Name!);
+        
+        InitCustomAttributeData();
+        
         foreach (var il2CppTypeDefinition in Definition.Image.Types!)
         {
             Types.Add(new(il2CppTypeDefinition, this));
         }
-
-        if (AppContext.MetadataVersion >= 24.2f)
-            CodeGenModule = AppContext.Binary.GetCodegenModuleByName(Definition.Image.Name!);
     }
 }

@@ -25,5 +25,7 @@ public class FieldAnalysisContext : HasCustomAttributes
     {
         DeclaringType = parent;
         Definition = definition;
+        
+        InitCustomAttributeData();
     }
 }

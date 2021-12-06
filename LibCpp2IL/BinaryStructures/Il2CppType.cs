@@ -1,3 +1,6 @@
+using System;
+using LibCpp2IL.Metadata;
+
 #pragma warning disable 8618
 //Disable null check because this stuff is initialized by reflection
 namespace LibCpp2IL.BinaryStructures
@@ -35,6 +38,14 @@ namespace LibCpp2IL.BinaryStructures
             public ulong array => dummy;
             public long genericParameterIndex => (long) dummy;
             public ulong generic_class => dummy;
+        }
+
+        public Il2CppTypeDefinition AsClass()
+        {
+            if(type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS)
+                throw new Exception("Type is not a class");
+
+            return LibCpp2IlMain.TheMetadata!.typeDefs[data.classIndex];
         }
     }
 }

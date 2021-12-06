@@ -42,6 +42,8 @@ public class TypeAnalysisContext : HasCustomAttributes
         DeclaringAssembly = parent;
         Definition = il2CppTypeDefinition;
         
+        InitCustomAttributeData();
+        
         foreach (var il2CppMethodDefinition in Definition.Methods!) 
             Methods.Add(new(il2CppMethodDefinition, this));
         

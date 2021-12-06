@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cpp2IL.Core.Model.CustomAttributes;
 using LibCpp2IL;
@@ -29,7 +28,7 @@ public abstract class HasCustomAttributes : HasToken
     ///
     /// Null on v29+, nonnull prior to that
     /// </summary>
-    public readonly Il2CppCustomAttributeTypeRange? AttributeTypeRange;
+    public Il2CppCustomAttributeTypeRange? AttributeTypeRange;
 
     /// <summary>
     /// Stores the raw types of the custom attributes on this member.
@@ -43,7 +42,7 @@ public abstract class HasCustomAttributes : HasToken
     ///
     /// On v29, is null because there is no method, the attribute blob is stored instead, in the metadata file.
     /// </summary>
-    public readonly AttributeGeneratorMethodAnalysisContext? CaCacheGeneratorAnalysis;
+    public AttributeGeneratorMethodAnalysisContext? CaCacheGeneratorAnalysis;
 
     /// <summary>
     /// Returns this member's custom attribute index, or -1 if it has no custom attributes.
@@ -55,8 +54,15 @@ public abstract class HasCustomAttributes : HasToken
     /// </summary>
     protected abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
 
-    [SuppressMessage("ReSharper", "VirtualMemberCallInConstructor")]
+    
+#pragma warning disable CS8618 //Non-null member is not initialized.
     protected HasCustomAttributes(uint token, ApplicationAnalysisContext appContext) : base(token, appContext)
+    {
+        
+    }
+#pragma warning restore CS8618
+
+    protected void InitCustomAttributeData()
     {
         if (AppContext.MetadataVersion >= 29)
         {
@@ -99,7 +105,7 @@ public abstract class HasCustomAttributes : HasToken
             .Select(typeIdx => LibCpp2IlMain.Binary!.GetType(typeIdx))
             .ToList();
 
-        var rangeIndex = Array.IndexOf(AppContext.Metadata.attributeTypeRanges, AttributeTypeRange);
+        var rangeIndex = AppContext.Metadata.attributeTypeRanges.IndexOf(AttributeTypeRange);
         ulong generatorPtr;
         if (AppContext.MetadataVersion < 27)
             try
