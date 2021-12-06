@@ -10,7 +10,11 @@ public class EventAnalysisContext : HasCustomAttributes
     public readonly MethodAnalysisContext? Remover;
     public readonly MethodAnalysisContext? Invoker;
 
-    public EventAnalysisContext(Il2CppEventDefinition definition, TypeAnalysisContext parent) : base(parent.AppContext)
+    protected override int CustomAttributeIndex => Definition.customAttributeIndex;
+
+    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
+
+    public EventAnalysisContext(Il2CppEventDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
         Definition = definition;
         DeclaringType = parent;

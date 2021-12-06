@@ -32,8 +32,12 @@ public class TypeAnalysisContext : HasCustomAttributes
     /// The analysis contexts for events contained within this type.
     /// </summary>
     public readonly List<EventAnalysisContext> Events = new();
+    
+    protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 
-    public TypeAnalysisContext(Il2CppTypeDefinition il2CppTypeDefinition, AssemblyAnalysisContext parent) : base(parent.AppContext)
+    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
+
+    public TypeAnalysisContext(Il2CppTypeDefinition il2CppTypeDefinition, AssemblyAnalysisContext parent) : base(il2CppTypeDefinition.token, parent.AppContext)
     {
         DeclaringAssembly = parent;
         Definition = il2CppTypeDefinition;

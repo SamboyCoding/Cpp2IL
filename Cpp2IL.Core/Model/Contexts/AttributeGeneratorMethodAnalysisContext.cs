@@ -6,7 +6,7 @@ public class AttributeGeneratorMethodAnalysisContext : MethodAnalysisContext
 {
     public override ulong UnderlyingPointer { get; }
 
-    protected AttributeGeneratorMethodAnalysisContext(ulong pointer, ApplicationAnalysisContext context) : base(context)
+    public AttributeGeneratorMethodAnalysisContext(ulong pointer, ApplicationAnalysisContext context) : base(context)
     {
         UnderlyingPointer = pointer;
         RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, true);

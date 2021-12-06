@@ -23,6 +23,11 @@ public class ApplicationAnalysisContext
     public Il2CppMetadata Metadata;
 
     /// <summary>
+    /// The version of the IL2CPP metadata file this application was loaded from.
+    /// </summary>
+    public readonly float MetadataVersion;
+
+    /// <summary>
     /// The instruction set helper class associated with the instruction set that this application was compiled with.
     /// </summary>
     public BaseInstructionSet InstructionSet;
@@ -37,10 +42,11 @@ public class ApplicationAnalysisContext
     /// </summary>
     public readonly Dictionary<ulong, List<MethodAnalysisContext>> MethodsByAddress = new();
 
-    public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata)
+    public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata, float metadataVersion)
     {
         Binary = binary;
         Metadata = metadata;
+        MetadataVersion = metadataVersion;
 
         try
         {

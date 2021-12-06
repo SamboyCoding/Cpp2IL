@@ -16,8 +16,12 @@ public class FieldAnalysisContext : HasCustomAttributes
     /// The underlying field metadata.
     /// </summary>
     public readonly Il2CppFieldDefinition Definition;
+    
+    protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 
-    public FieldAnalysisContext(Il2CppFieldDefinition definition, TypeAnalysisContext parent) : base(parent.AppContext)
+    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
+
+    public FieldAnalysisContext(Il2CppFieldDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
         DeclaringType = parent;
         Definition = definition;

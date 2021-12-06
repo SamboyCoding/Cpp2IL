@@ -44,8 +44,12 @@ public class MethodAnalysisContext : HasCustomAttributes
     /// The first-stage-analyzed nodes containing ISIL instructions.
     /// </summary>
     public List<InstructionSetIndependentNode>? InstructionSetIndependentNodes;
+    
+    protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeIndex if they have custom attributes");
 
-    public MethodAnalysisContext(Il2CppMethodDefinition definition, TypeAnalysisContext parent) : base(parent.AppContext)
+    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
+
+    public MethodAnalysisContext(Il2CppMethodDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
         DeclaringType = parent;
         Definition = definition;
@@ -56,7 +60,7 @@ public class MethodAnalysisContext : HasCustomAttributes
             RawBytes = Array.Empty<byte>();
     }
 
-    protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(context)
+    protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(0, context)
     {
         RawBytes = Array.Empty<byte>();
     }

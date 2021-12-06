@@ -10,7 +10,11 @@ public class PropertyAnalysisContext : HasCustomAttributes
     public readonly MethodAnalysisContext? Getter;
     public readonly MethodAnalysisContext? Setter;
     
-    public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(parent.AppContext)
+    protected override int CustomAttributeIndex => Definition.customAttributeIndex;
+
+    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
+
+    public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
         DeclaringType = parent;
         Definition = definition;
