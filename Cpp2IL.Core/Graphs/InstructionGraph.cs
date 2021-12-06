@@ -149,7 +149,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         {
             if (node.Successors[0].Predecessors.Count == 1)
             {
-                var succ = node.Successors[0];
+                var succ = (TNode) node.Successors[0];
                 node.FlowControl = succ.FlowControl;
                 node.Instructions.AddRange(succ.Instructions);
                 DirectedEdgeRemove(node, succ);
