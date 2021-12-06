@@ -11,6 +11,9 @@ public class X86InstructionSet : BaseInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
+        if (context is not AttributeGeneratorMethodAnalysisContext)
+            return new X86ControlFlowGraph(X86Utils.GetManagedMethodBody(context.Definition!).ToList());
+        
         var rawMethodBody = GetRawBytesForMethod(context, context is AttributeGeneratorMethodAnalysisContext);
         var methodBody = X86Utils.Disassemble(rawMethodBody, context.UnderlyingPointer);
         

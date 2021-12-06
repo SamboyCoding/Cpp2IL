@@ -44,7 +44,11 @@ namespace Cpp2IL.Core.Utils
 
             var startOfNextFunc = (int) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc);
 
-            return LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);
+            var retList = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc).ToList();
+            
+            retList.TrimEndWhile(i => i == 0xCC);
+
+            return retList.ToArray();
         }
 
         public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method)
@@ -162,23 +166,6 @@ namespace Cpp2IL.Core.Utils
             return ret;
         }
 
-        public static void TrimInt3s(InstructionList instructions)
-        {
-            var i = instructions.Count - 1;
-            for (; i >= 0; i--)
-            {
-                if (instructions[i].Mnemonic != Mnemonic.Int3)
-                {
-                    i++;
-                    break;
-                }
-            }
-
-            var toRemove = instructions.Count - 1 - i;
-            for (var j = 0; j < toRemove; j++)
-            {
-                instructions.RemoveAt(i);
-            }
-        }
+        public static void TrimInt3s(InstructionList instructions) => instructions.TrimEndWhile(i => i.Mnemonic == Mnemonic.Int3);
     }
 }

@@ -64,5 +64,6 @@ public class MethodAnalysisContext : HasCustomAttributes
     public void Analyze()
     {
         ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
+        ControlFlowGraph.Run();
     }
 }
