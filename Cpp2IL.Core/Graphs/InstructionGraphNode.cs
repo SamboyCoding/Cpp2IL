@@ -14,19 +14,20 @@ public class InstructionGraphNode<TInstruction> : IControlFlowNode
 
     public bool IsConditionalBranch => _flowControl == InstructionGraphNodeFlowControl.ConditionalJump;
 
-    public InstructionGraphCondition<TInstruction>? Condition { get; protected set; }
-    public InstructionGraphNode<TInstruction>? TrueTarget { get; protected set; }
-    public InstructionGraphNode<TInstruction>? FalseTarget { get; protected set; }
+    public InstructionGraphCondition<TInstruction>? Condition { get; protected internal set; }
 
     public InstructionGraphNode()
     {
         Instructions = new();
         Successors = new();
         Predecessors = new();
+        Statements = new();
     }
 
     public InstructionGraphNodeSet<TInstruction> Successors { get; set; }
     public InstructionGraphNodeSet<TInstruction> Predecessors { get; set; }
+    
+    public List<IStatement> Statements { get;}
 
     private InstructionGraphNodeFlowControl? _flowControl;
 

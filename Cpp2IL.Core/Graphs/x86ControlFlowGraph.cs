@@ -265,5 +265,21 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
             if (node.NeedsCorrectingDueToJump)
                 FixNode(node);
         }
+        
+        CleanUp();
+    }
+    
+    private void CleanUp()
+    {
+        var nodesToRemove = new List<X86ControlFlowGraphNode>();
+        foreach (var node in Nodes)
+        {
+            if (node.Successors.Count == 0 && node.Predecessors.Count == 0) 
+                nodesToRemove.Add(node);
+        }
+        foreach (var node in nodesToRemove)
+        {
+            Nodes.Remove(node);
+        }
     }
 }

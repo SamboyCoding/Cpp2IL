@@ -2,6 +2,7 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Data;
 using System.Diagnostics;
 using System.Linq;
 using System.Text;
@@ -111,7 +112,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         ConstructConditions();
         ComputeDominators();
         IdentifyLoops();
-        IdentifyIfs();
+        SquashGraph();
         CalculateUseDefs();
         DetermineLocals();
         if (print)
@@ -119,7 +120,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
     }
 
 
-    private void IdentifyIfs()
+    private void SquashGraph()
     {
         TraverseAndPostExecute(Root, node =>
         {
@@ -131,8 +132,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         });
     }
 
-    private void TraverseAndPostExecute(InstructionGraphNode<TInstruction> node,
-        Action<InstructionGraphNode<TInstruction>> action)
+    private void TraverseAndPostExecute(InstructionGraphNode<TInstruction> node, Action<InstructionGraphNode<TInstruction>> action)
     {
         foreach (var successor in node.Successors)
             TraverseAndPostExecute(successor, action);
@@ -152,25 +152,30 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
                 var succ = (TNode) node.Successors[0];
                 node.FlowControl = succ.FlowControl;
                 node.Instructions.AddRange(succ.Instructions);
-                DirectedEdgeRemove(node, succ);
-                node.Successors.Clear();
                 node.Successors = succ.Successors;
+                foreach (var succSuccessor in succ.Successors)
+                {
+                    succSuccessor.Predecessors.Remove(succ);
+                    succSuccessor.Predecessors.Add(node);
+                }
+                node.Condition = succ.Condition;
+                node.Statements.AddRange(succ.Statements);
+                DirectedEdgeRemove(node, succ);
                 nodeSet.Remove(succ);
                 return true;
             }
         }
         else if (node.Successors.Count == 2)
         {
-            
+            return TrySquashConditional(node);
         }
-
         return false;
     }
     
     protected void DirectedEdgeRemove(InstructionGraphNode<TInstruction> from, InstructionGraphNode<TInstruction> to)
     {
-        from.Successors.Remove(to);
-        to.Predecessors.Remove(from);
+        from.Successors.Remove((TNode)to);
+        to.Predecessors.Remove((TNode)from);
     }
 
     private bool TrySquashConditional(InstructionGraphNode<TInstruction> node)
@@ -178,18 +183,44 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         if (!node.IsConditionalBranch)
             return false;
         var condition = node.Condition;
-        var truePath = node.TrueTarget;
-        var falsePath = node.FalseTarget;
+        var truePath = node.Successors[1];
+        var falsePath = node.Successors[0];
         if (truePath == null || falsePath == null)
             throw new NullReferenceException("True or false path is null, this shouldn't happen ever");
         var truePathSuccessor = GetSingleSucc(truePath);
         var falsePathSuccessor = GetSingleSucc(falsePath);
         if (falsePathSuccessor == truePath)
         {
-            // 
-            // if (node.condition)
-            //   Print false path.
+            var ifstatement = new IfStatement<TInstruction>(condition, falsePath);
+            node.FlowControl = InstructionGraphNodeFlowControl.Continue;
+            node.Condition = null;
+            DirectedEdgeRemove(falsePath, truePath);
+            DirectedEdgeRemove(node, falsePath);
+            Nodes.Remove((TNode)falsePath);
+            node.Statements.Add(ifstatement);
+            return true;
         }
+        else if (truePathSuccessor == falsePath)
+        {
+            //TODO:
+            return false;
+        }
+        else if (truePathSuccessor is not null && falsePathSuccessor is not null && truePathSuccessor == falsePathSuccessor)
+        {
+            var ifstatement = new IfStatement<TInstruction>(condition, falsePath, truePath);
+            node.FlowControl = InstructionGraphNodeFlowControl.Continue;
+            node.Condition = null;
+            DirectedEdgeRemove(node, truePath);
+            DirectedEdgeRemove(node, falsePath);
+            DirectedEdgeRemove(truePath, truePathSuccessor);
+            DirectedEdgeRemove(falsePath, falsePathSuccessor);
+            AddDirectedEdge((TNode)node, (TNode)falsePathSuccessor);
+            Nodes.Remove((TNode)truePath);
+            Nodes.Remove((TNode)falsePath);
+            node.Statements.Add(ifstatement);
+            return true;
+        }
+      
         
         return false;
     }
@@ -400,6 +431,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
                 sb.Append($", Condition: {node.Condition?.ConditionString ?? "Null"}");
             if (node.Instructions.Count > 0)
                 sb.Append($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");
+            sb.Append($", Number of Statements: {node.Statements.Count}");
             sb.Append("\n");
             foreach (var v in node.Instructions)
             {

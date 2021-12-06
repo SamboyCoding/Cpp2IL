@@ -23,8 +23,5 @@ public class X86ControlFlowGraphNode : InstructionGraphNode<Instruction>
 
         Condition = new X86InstructionGraphCondition(comparison, lastInstruction);
         
-        TrueTarget = Successors[1];
-        FalseTarget = Successors[0];
-        
     }
 }
