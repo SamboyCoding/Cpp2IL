@@ -13,10 +13,12 @@ public class InstructionGraphCondition<TInstruction>
         ConditionString = GetCondition();
     }
 
-    public string ConditionString { get; }
+    public string ConditionString { get; set; }
 
-    public virtual string GetCondition() => throw new NotImplementedException();
+    public virtual string GetCondition(bool invert = false) => throw new NotImplementedException();
+
+    public virtual void FlipCondition() => throw new NotImplementedException();
 
 
-    public virtual string GetConditionOperator() => throw new NotImplementedException();
+    public virtual string GetConditionOperator(bool invert = false) => throw new NotImplementedException();
 }

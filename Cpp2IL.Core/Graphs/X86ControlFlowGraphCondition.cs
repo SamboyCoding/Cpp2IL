@@ -11,20 +11,20 @@ public class X86InstructionGraphCondition : InstructionGraphCondition<Instructio
     {
     }
 
-    public override string GetCondition()
+    public override string GetCondition(bool invert = false)
     {
         if (Comparison.Mnemonic == Mnemonic.Test)
         {
             if (Comparison.Op0Kind == OpKind.Register && Comparison.Op1Kind == OpKind.Register && Comparison.Op0Register == Comparison.Op1Register)
             {
                 _formatter.FormatOperand(Comparison, _output, 0);
-                return $"{_output.ToStringAndReset()} {GetConditionOperator()} 0";
+                return $"{_output.ToStringAndReset()} {GetConditionOperator(invert)} 0";
             }
             _formatter.FormatOperand(Comparison, _output, 0);
             var argumentOne = _output.ToStringAndReset();
             _formatter.FormatOperand(Comparison, _output, 1);
             var argumentTwo = _output.ToStringAndReset();
-            return $"({argumentOne} & {argumentTwo}) {GetConditionOperator()} 0";
+            return $"({argumentOne} & {argumentTwo}) {GetConditionOperator(invert)} 0";
         }
         if(Comparison.Mnemonic == Mnemonic.Cmp)
         {
@@ -32,37 +32,42 @@ public class X86InstructionGraphCondition : InstructionGraphCondition<Instructio
             var argumentOne = _output.ToStringAndReset();
             _formatter.FormatOperand(Comparison, _output, 1);
             var argumentTwo = _output.ToStringAndReset();
-            return $"{argumentOne} {GetConditionOperator()} {argumentTwo}";
+            return $"{argumentOne} {GetConditionOperator(invert)} {argumentTwo}";
         }
         throw new Exception($"Don't know what to do with {Comparison.Mnemonic}");
     }
 
-    public override string GetConditionOperator()
+    public override void FlipCondition()
+    {
+        ConditionString = GetCondition(true);
+    }
+
+    public override string GetConditionOperator(bool invert = false)
     {
         switch (Jump.Mnemonic)
         {
             case Mnemonic.Je:
-                return "!=";
+                return invert ? "==": "!=";
             case Mnemonic.Jne:
-                return "==";
+                return invert ? "!=": "==";
             case Mnemonic.Jg:
-                return "<";
+                return invert ? ">": "<";
             case Mnemonic.Jge:
-                return "<=";
+                return invert ? ">=": "<=";
             case Mnemonic.Jl:
             case Mnemonic.Js:
-                return ">";
+                return invert ? "<": ">";
             case Mnemonic.Jle:
-                return ">=";
+                return invert ? "<=": ">=";
             case Mnemonic.Ja:
-                return "<";
+                return invert ? ">": "<";
             case Mnemonic.Jae:
             case Mnemonic.Jns:
-                return "<=";
+                return invert ? ">=": "<=";
             case Mnemonic.Jb:
-                return ">";
+                return invert ? "<": ">";
             case Mnemonic.Jbe:
-                return ">=";
+                return invert ? "<=": ">=";
             case Mnemonic.Jp:
                 return "has parity idk todo"; //"low-order eight bits of result contain an even number of 1 bits"
             default:

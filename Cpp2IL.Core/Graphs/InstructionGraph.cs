@@ -202,8 +202,15 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         }
         else if (truePathSuccessor == falsePath)
         {
-            //TODO:
-            return false;
+            condition!.FlipCondition();
+            var ifstatement = new IfStatement<TInstruction>(condition, truePath);
+            node.FlowControl = InstructionGraphNodeFlowControl.Continue;
+            node.Condition = null;
+            DirectedEdgeRemove(truePath, falsePath);
+            DirectedEdgeRemove(node, truePath);
+            Nodes.Remove((TNode)truePath);
+            node.Statements.Add(ifstatement);
+            return true;
         }
         else if (truePathSuccessor is not null && falsePathSuccessor is not null && truePathSuccessor == falsePathSuccessor)
         {
