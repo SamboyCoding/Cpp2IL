@@ -4,18 +4,19 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.ISIL;
 
 namespace Cpp2IL.Core.Graphs;
 
-public class InstructionGraphNode<T> : IControlFlowNode
+public class InstructionGraphNode<TInstruction> : IControlFlowNode
 {
     public int ID { get; set; }
 
     public bool IsConditionalBranch => _flowControl == InstructionGraphNodeFlowControl.ConditionalJump;
 
-    public InstructionGraphCondition<T>? Condition { get; protected set; }
-    public InstructionGraphNode<T>? TrueTarget { get; protected set; }
-    public InstructionGraphNode<T>? FalseTarget { get; protected set; }
+    public InstructionGraphCondition<TInstruction>? Condition { get; protected set; }
+    public InstructionGraphNode<TInstruction>? TrueTarget { get; protected set; }
+    public InstructionGraphNode<TInstruction>? FalseTarget { get; protected set; }
 
     public InstructionGraphNode()
     {
@@ -24,8 +25,8 @@ public class InstructionGraphNode<T> : IControlFlowNode
         Predecessors = new();
     }
 
-    public InstructionGraphNodeSet<T> Successors { get; set; }
-    public InstructionGraphNodeSet<T> Predecessors { get; set; }
+    public InstructionGraphNodeSet<TInstruction> Successors { get; set; }
+    public InstructionGraphNodeSet<TInstruction> Predecessors { get; set; }
 
     private InstructionGraphNodeFlowControl? _flowControl;
 
@@ -43,7 +44,7 @@ public class InstructionGraphNode<T> : IControlFlowNode
         set => _flowControl = value;
     }
         
-    public void AddInstruction(T instruction) => Instructions.Add(instruction);
+    public void AddInstruction(TInstruction instruction) => Instructions.Add(instruction);
 
     public void CheckCondition()
     {
@@ -56,15 +57,23 @@ public class InstructionGraphNode<T> : IControlFlowNode
         while(!node.ThisNodeHasComparison())
             node = node.Predecessors.Count == 1 ? node.Predecessors.Single() : throw new NodeConditionCalculationException("Don't have a comparison and don't have a single predecessor line to a node which has one");
 
-        CreateCondition(node.GetLastComparison());
+        var lastComparison = node.GetLastComparison();
+        
+        CreateCondition(lastComparison);
+
+        if (Condition is not null)
+        {
+            Instructions.Remove(Condition.Jump);
+            node.Instructions.Remove(lastComparison);
+        }
     }
 
-    protected virtual void CreateCondition(T comparison)
+    protected virtual void CreateCondition(TInstruction comparison)
     {
         throw new NotImplementedException();
     }
 
-    protected virtual T GetLastComparison() => throw new NotImplementedException();
+    protected virtual TInstruction GetLastComparison() => throw new NotImplementedException();
 
     protected string GetTextDump()
     {
@@ -80,11 +89,12 @@ public class InstructionGraphNode<T> : IControlFlowNode
         return stringBuilder.ToString();
     }
 
-    public virtual string GetFormattedInstructionAddress(T instruction) => throw new NotImplementedException();
+    public virtual string GetFormattedInstructionAddress(TInstruction instruction) => throw new NotImplementedException();
     public virtual bool ThisNodeHasComparison()
     {
         throw new NotImplementedException();
     }
 
-    public List<T> Instructions { get; } = new();
+    public List<TInstruction> Instructions { get; } = new();
+    public List<InstructionSetIndependentInstruction> TranslatedInstructions = new();
 }

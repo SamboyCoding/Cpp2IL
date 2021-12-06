@@ -22,8 +22,9 @@ public class X86ControlFlowGraphNode : InstructionGraphNode<Instruction>
         var lastInstruction = Instructions.Last();
 
         Condition = new X86InstructionGraphCondition(comparison, lastInstruction);
-            
-        TrueTarget = Successors.Single(node => lastInstruction.NearBranch64 == node.Instructions[0].IP);
-        FalseTarget = Successors.Single(node => lastInstruction.NearBranch64 != node.Instructions[0].IP);
+        
+        TrueTarget = Successors[1];
+        FalseTarget = Successors[0];
+        
     }
 }

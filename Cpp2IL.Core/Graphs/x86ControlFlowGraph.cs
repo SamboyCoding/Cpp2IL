@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.ISIL;
 using Gee.External.Capstone;
 using Iced.Intel;
 using LibCpp2IL.Metadata;
@@ -78,10 +79,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
     {
         TraverseNode(Root);
     }
-
-    private Dictionary<Register, bool> _registersUsed = new ();
-
-    private Dictionary<Instruction, bool> ShouldCreateLocal = new();
+    
     private static InstructionInfoFactory _instructionInfoFactory = new();
     private void TraverseNode(InstructionGraphNode<Instruction> node)
     {
@@ -101,12 +99,40 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         for (int i = 0; i < node.Instructions.Count; i++)
         {
             var nodeInstruction = node.Instructions[i];
-            // Crude stack calculation. 
-            // if (nodeInstruction.Mnemonic == Mnemonic.Push)
-            //    stackOffset -= Is32Bit ? 4u : 8u;
-            // else if (nodeInstruction.Mnemonic == Mnemonic.Pop)
-            //    stackOffset += Is32Bit ? 4u : 8u;
-            // else if (nodeInstruction.Mnemonic == Mnemonic.Add && nodeInstruction.Op0Register.GetFullRegister() == Register.RSP && nodeInstruction.Op1Kind == // Some Immediate)
+            /*switch (nodeInstruction.Mnemonic)
+            {
+                case Mnemonic.Mov when nodeInstruction.Op0Kind == OpKind.Register && nodeInstruction.Op1Kind == OpKind.Register:
+                    var op0 = InstructionSetIndependentOperand.MakeRegister(nodeInstruction.Op0Register.GetFullRegister().ToString());
+                    var op1 = InstructionSetIndependentOperand.MakeRegister(nodeInstruction.Op1Register.GetFullRegister().ToString());
+                    node.TranslatedInstructions.Add(new InstructionSetIndependentInstruction(InstructionSetIndependentOpCode.Move, op0, op1));
+                    break;
+                case Mnemonic.Mov when nodeInstruction.Op0Kind == OpKind.Register && nodeInstruction.Op1Kind == OpKind.Memory:
+                    var op0Reg = InstructionSetIndependentOperand.MakeRegister(nodeInstruction.Op0Register.GetFullRegister().ToString());
+                    var op1Mem = InstructionSetIndependentOperand.MakeMemory(
+                        new IsilMemoryOperand(
+                            InstructionSetIndependentOperand.MakeRegister(nodeInstruction.MemoryBase.GetFullRegister().ToString()), 
+                            InstructionSetIndependentOperand.MakeRegister(nodeInstruction.MemoryIndex.GetFullRegister().ToString()),
+                            (long)nodeInstruction.MemoryDisplacement64, 
+                            nodeInstruction.MemoryIndexScale
+                            )
+                        );
+                    node.TranslatedInstructions.Add(new InstructionSetIndependentInstruction(InstructionSetIndependentOpCode.Move, op0Reg, op1Mem));
+                    break;
+                case Mnemonic.Mov when nodeInstruction.Op0Kind == OpKind.Memory && nodeInstruction.Op1Kind.IsImmediate():
+                    var op0Mem = InstructionSetIndependentOperand.MakeMemory(
+                        new IsilMemoryOperand(
+                            InstructionSetIndependentOperand.MakeRegister(nodeInstruction.MemoryBase.GetFullRegister().ToString()), 
+                            InstructionSetIndependentOperand.MakeRegister(nodeInstruction.MemoryIndex.GetFullRegister().ToString()),
+                            (long)nodeInstruction.MemoryDisplacement64, 
+                            nodeInstruction.MemoryIndexScale
+                        )
+                    );
+                    node.TranslatedInstructions.Add(new InstructionSetIndependentInstruction(InstructionSetIndependentOpCode.Move, op0Mem, InstructionSetIndependentOperand.MakeImmediate(nodeInstruction.GetImmediate(1))));
+                    break;
+                case Mnemonic.Call:
+                    node.TranslatedInstructions.Add(new InstructionSetIndependentInstruction(InstructionSetIndependentOpCode.Call));
+                    break;
+            }*/
             
         }
     }
@@ -169,15 +195,20 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         AddDirectedEdge(Root, currentNode);
         for (var i = 0; i < Instructions.Count; i++)
         {
+     
+            var isLast = i == Instructions.Count - 1;
             switch (Instructions[i].FlowControl)
             {
                 case FlowControl.UnconditionalBranch:
                     currentNode.AddInstruction(Instructions[i]);
                     var newNodeFromJmp = new X86ControlFlowGraphNode() {ID = idCounter++};
                     AddNode(newNodeFromJmp);
-                    var result = Instructions.Any(instruction => instruction.IP == Instructions[i].NearBranch64);
+                    var result = Instructions.Any(instruction => instruction.IP == Instructions[i].NearBranchTarget);
                     if (!result)
-                        AddDirectedEdge(currentNode, newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
+                    {
+                        //AddDirectedEdge(currentNode, newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
+                        AddDirectedEdge(currentNode, ExitNode);
+                    }
                     else
                         currentNode.NeedsCorrectingDueToJump = true;
                     currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
@@ -199,7 +230,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     currentNode.AddInstruction(Instructions[i]);
                     var newNodeFromReturn = new X86ControlFlowGraphNode() {ID = idCounter++};
                     AddNode(newNodeFromReturn);
-                    AddDirectedEdge(currentNode, EndNode);
+                    AddDirectedEdge(currentNode, ExitNode);
                     currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
                     currentNode = newNodeFromReturn;
                     break;
@@ -215,7 +246,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     currentNode.AddInstruction(Instructions[i]);
                     var newNodeFromInterrupt = new X86ControlFlowGraphNode() {ID = idCounter++};
                     AddNode(newNodeFromInterrupt);
-                    AddDirectedEdge(currentNode, EndNode);
+                    AddDirectedEdge(currentNode, ExitNode);
                     currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
                     currentNode = newNodeFromInterrupt;
                     break;
@@ -226,6 +257,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     throw new NotImplementedException(Instructions[i].ToString() + " " + Instructions[i].FlowControl);
             }
         }
+        
 
         for (var index = 0; index < Nodes.Count; index++)
         {

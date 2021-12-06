@@ -42,27 +42,27 @@ public class X86InstructionGraphCondition : InstructionGraphCondition<Instructio
         switch (Jump.Mnemonic)
         {
             case Mnemonic.Je:
-                return "==";
-            case Mnemonic.Jne:
                 return "!=";
+            case Mnemonic.Jne:
+                return "==";
             case Mnemonic.Jg:
-                return ">";
+                return "<";
             case Mnemonic.Jge:
-                return ">=";
+                return "<=";
             case Mnemonic.Jl:
             case Mnemonic.Js:
-                return "<";
-            case Mnemonic.Jle:
-                return "<=";
-            case Mnemonic.Ja:
                 return ">";
+            case Mnemonic.Jle:
+                return ">=";
+            case Mnemonic.Ja:
+                return "<";
             case Mnemonic.Jae:
             case Mnemonic.Jns:
-                return ">=";
-            case Mnemonic.Jb:
-                return "<";
-            case Mnemonic.Jbe:
                 return "<=";
+            case Mnemonic.Jb:
+                return ">";
+            case Mnemonic.Jbe:
+                return ">=";
             case Mnemonic.Jp:
                 return "has parity idk todo"; //"low-order eight bits of result contain an even number of 1 bits"
             default:
