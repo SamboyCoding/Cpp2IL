@@ -10,4 +10,6 @@ public enum InstructionGraphNodeFlowControl
     IndirectCall,
     Return,
     NoReturn,
+    Entry,
+    Exit,
 }

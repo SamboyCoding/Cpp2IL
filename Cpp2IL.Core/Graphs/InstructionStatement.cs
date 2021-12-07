@@ -9,6 +9,6 @@ public class InstructionStatement<TInstruction> : IStatement
     }
     public string GetTextDump(int indent)
     {
-        return new string(' ', indent) + Instruction;
+        return new string(' ', indent) + Instruction+"\n";
     }
 }

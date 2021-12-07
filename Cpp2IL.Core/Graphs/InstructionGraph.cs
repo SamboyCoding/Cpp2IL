@@ -28,8 +28,8 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
             throw new ArgumentNullException(nameof(instructions));
 
 
-        var startNode = new TNode() {ID = idCounter++};
-        ExitNode = new TNode() {ID = idCounter++};
+        var startNode = new TNode() {ID = idCounter++, FlowControl = InstructionGraphNodeFlowControl.Entry};
+        ExitNode = new TNode() {ID = idCounter++, FlowControl = InstructionGraphNodeFlowControl.Exit};
         Instructions = instructions;
         InstructionsByAddress = new Dictionary<ulong, TInstruction>();
         Root = startNode;
@@ -108,6 +108,8 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
 
         BuildInitialGraph();
         AddNode(ExitNode);
+        Console.WriteLine(Print());
+        Console.WriteLine("Here");
         SegmentGraph();
         ConstructConditions();
         SquashGraph();
@@ -128,6 +130,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
             foreach (var instruction in node.Instructions)
                 node.Statements.Add(new InstructionStatement<TInstruction>(instruction));
         });
+        Console.WriteLine(Print());
         TraverseAndPostExecute(Root, node =>
         {
             bool success = false;
@@ -448,9 +451,9 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
                 sb.Append($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");
             sb.Append($", Number of Statements: {node.Statements.Count}");
             sb.Append("\n");
-            foreach (var v in node.Instructions)
+            foreach (var v in node.Statements)
             {
-                sb.Append(v).Append("\n");
+                sb.Append(v.GetTextDump(0));
             }
 
             sb.Append('\n');

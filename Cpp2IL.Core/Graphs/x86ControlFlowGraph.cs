@@ -201,30 +201,48 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
             {
                 case FlowControl.UnconditionalBranch:
                     currentNode.AddInstruction(Instructions[i]);
-                    var newNodeFromJmp = new X86ControlFlowGraphNode() {ID = idCounter++};
-                    AddNode(newNodeFromJmp);
-                    var result = Instructions.Any(instruction => instruction.IP == Instructions[i].NearBranchTarget);
-                    if (!result)
+                    if (!isLast)
                     {
-                        //AddDirectedEdge(currentNode, newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
-                        AddDirectedEdge(currentNode, ExitNode);
+                        var newNodeFromJmp = new X86ControlFlowGraphNode() {ID = idCounter++};
+                        AddNode(newNodeFromJmp);
+                        var result = Instructions.Any(instruction =>
+                            instruction.IP == Instructions[i].NearBranchTarget);
+                        if (!result)
+                        {
+                            //AddDirectedEdge(currentNode, newNodeFromJmp); // This is a jmp outside of this method, presumably a noreturn method or a tail call probably
+                            AddDirectedEdge(currentNode, ExitNode);
+                        }
+                        else
+                            currentNode.NeedsCorrectingDueToJump = true;
+
+                        currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
+                        currentNode = newNodeFromJmp;
                     }
                     else
+                    {
+                        AddDirectedEdge(currentNode, ExitNode);
                         currentNode.NeedsCorrectingDueToJump = true;
-                    currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
-                    currentNode = newNodeFromJmp;
+                    }
                     break;
                 case FlowControl.IndirectCall:
                 case FlowControl.Call:
                     currentNode.AddInstruction(Instructions[i]);
-                    var newNodeFromCall = new X86ControlFlowGraphNode() {ID = idCounter++};
-                    AddNode(newNodeFromCall);
-                    AddDirectedEdge(currentNode, newNodeFromCall);
-                    currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
-                    currentNode = newNodeFromCall;
+                    if (!isLast)
+                    {
+                        var newNodeFromCall = new X86ControlFlowGraphNode() {ID = idCounter++};
+                        AddNode(newNodeFromCall);
+                        AddDirectedEdge(currentNode, newNodeFromCall);
+                        currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
+                        currentNode = newNodeFromCall;
+                    }
+                    else
+                    {
+                        AddDirectedEdge(currentNode, ExitNode);
+                    }
                     break;
                 case FlowControl.Next:
                     currentNode.AddInstruction(Instructions[i]);
+                    if (isLast) { /* This shouldn't happen */}
                     break;
                 case FlowControl.Return:
                     currentNode.AddInstruction(Instructions[i]);
@@ -236,11 +254,19 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                     break;
                 case FlowControl.ConditionalBranch:
                     currentNode.AddInstruction(Instructions[i]);
-                    var newNodeFromConditionalBranch = new X86ControlFlowGraphNode() {ID = idCounter++};
-                    AddNode(newNodeFromConditionalBranch);
-                    AddDirectedEdge(currentNode, newNodeFromConditionalBranch);
-                    currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
-                    currentNode = newNodeFromConditionalBranch;
+                    if (!isLast)
+                    {
+                        var newNodeFromConditionalBranch = new X86ControlFlowGraphNode() {ID = idCounter++};
+                        AddNode(newNodeFromConditionalBranch);
+                        AddDirectedEdge(currentNode, newNodeFromConditionalBranch);
+                        currentNode.FlowControl = GetAbstractControlFlow(Instructions[i].FlowControl);
+                        currentNode = newNodeFromConditionalBranch;
+                    }
+                    else
+                    {
+                        AddDirectedEdge(currentNode, ExitNode);
+                    }
+
                     break;
                 case FlowControl.Interrupt:
                     currentNode.AddInstruction(Instructions[i]);
@@ -258,6 +284,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
             }
         }
         
+        
 
         for (var index = 0; index < Nodes.Count; index++)
         {
@@ -266,7 +293,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
                 FixNode(node);
         }
         
-        CleanUp();
+        //CleanUp();
     }
     
     private void CleanUp()
