@@ -299,6 +299,7 @@ namespace Cpp2IL.Core
                 throw new ArgumentOutOfRangeException();
 
             keyFunctionAddresses.Find();
+            CurrentAppContext!.KeyFunctionAddresses = keyFunctionAddresses;
             return keyFunctionAddresses;
         }
 

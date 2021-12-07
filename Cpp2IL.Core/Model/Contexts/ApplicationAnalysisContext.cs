@@ -42,6 +42,11 @@ public class ApplicationAnalysisContext
     /// </summary>
     public readonly Dictionary<ulong, List<MethodAnalysisContext>> MethodsByAddress = new();
 
+    /// <summary>
+    /// Key Function Addresses for the binary file. Can be populated via <see cref="Cpp2IlApi.ScanForKeyFunctionAddresses"/>
+    /// </summary>
+    public BaseKeyFunctionAddresses KeyFunctionAddresses { get; internal set; }
+
     public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata, float metadataVersion)
     {
         Binary = binary;
