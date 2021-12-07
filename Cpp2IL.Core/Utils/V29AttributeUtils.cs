@@ -56,9 +56,9 @@ public static class V29AttributeUtils
         {
             var value = ReadBlob(reader, context);
             var propIndex = stream.ReadUnityCompressedInt();
-            var field = ResolveMemberFromIndex(stream, constructor, context, propIndex, t => t.Properties);
+            var property = ResolveMemberFromIndex(stream, constructor, context, propIndex, t => t.Properties);
             
-            ret.Properties.Add(new(field, value));
+            ret.Properties.Add(new(property, value));
         }
 
         return ret;

@@ -7,6 +7,9 @@ public static class StreamExtensions
 {
     public static uint ReadUnityCompressedUint(this Stream stream)
     {
+        if(stream.Position == stream.Length)
+            throw new EndOfStreamException();
+        
         var b = stream.ReadByte();
         if (b < 128)
             return (uint) b;
