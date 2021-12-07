@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using Cpp2IL.Core.Extensions;
 
 namespace Cpp2IL.Core.ISIL;
 

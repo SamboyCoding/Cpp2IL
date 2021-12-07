@@ -5,8 +5,10 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using AsmResolver.DotNet;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Model.CustomAttributes;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
@@ -15,11 +17,11 @@ namespace Cpp2IL.Core
 {
     public static class Cpp2IlApi
     {
-        public static List<AsmResolver.DotNet.AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
+        public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
         public static bool IlContinueThroughErrors;
-        public static ApplicationAnalysisContext CurrentAppContext;
+        public static ApplicationAnalysisContext? CurrentAppContext;
 
-        public static AsmResolver.DotNet.AssemblyDefinition? GetAssemblyByName(string name) =>
+        public static AssemblyDefinition? GetAssemblyByName(string name) =>
             SharedState.AssemblyList.Find(a => a.Name!.Value == name);
 
         private static readonly HashSet<string> ForbiddenDirectoryNames = new()
@@ -215,7 +217,22 @@ namespace Cpp2IL.Core
             LibCpp2IlMain.Reset();
         }
 
-        public static List<AsmResolver.DotNet.AssemblyDefinition> MakeDummyAssemblies(bool suppressAttributes = false)
+        public static void PopulateCustomAttributesForAssembly(AssemblyAnalysisContext assembly)
+        {
+            assembly.AnalyzeCustomAttributeData();
+
+            foreach (var typeAnalysisContext in assembly.Types)
+            {
+                typeAnalysisContext.AnalyzeCustomAttributeData();
+                
+                typeAnalysisContext.Methods.ForEach(m => m.AnalyzeCustomAttributeData());
+                typeAnalysisContext.Fields.ForEach(f => f.AnalyzeCustomAttributeData());
+                typeAnalysisContext.Properties.ForEach(p => p.AnalyzeCustomAttributeData());
+                typeAnalysisContext.Events.ForEach(e => e.AnalyzeCustomAttributeData());
+            }
+        }
+
+        public static List<AssemblyDefinition> MakeDummyAssemblies(bool suppressAttributes = false)
         {
             CheckLibInitialized();
 
@@ -316,7 +333,7 @@ namespace Cpp2IL.Core
         //     );
         // }
         
-        public static void SaveAssemblies(string toWhere, List<AsmResolver.DotNet.AssemblyDefinition> assemblies)
+        public static void SaveAssemblies(string toWhere, List<AssemblyDefinition> assemblies)
         {
             Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
 

@@ -22,17 +22,22 @@ public class TypeAnalysisContext : HasCustomAttributes
     /// <summary>
     /// The analysis contexts for methods contained within this type.
     /// </summary>
-    public readonly List<MethodAnalysisContext> Methods = new();
+    public readonly List<MethodAnalysisContext> Methods;
     
     /// <summary>
     /// The analysis contexts for properties contained within this type.
     /// </summary>
-    public readonly List<PropertyAnalysisContext> Properties = new();
+    public readonly List<PropertyAnalysisContext> Properties;
     
     /// <summary>
     /// The analysis contexts for events contained within this type.
     /// </summary>
-    public readonly List<EventAnalysisContext> Events = new();
+    public readonly List<EventAnalysisContext> Events;
+    
+    /// <summary>
+    /// The analysis contexts for fields contained within this type.
+    /// </summary>
+    public readonly List<FieldAnalysisContext> Fields;
     
     protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 
@@ -48,6 +53,7 @@ public class TypeAnalysisContext : HasCustomAttributes
         Methods = Definition.Methods!.Select(m => new MethodAnalysisContext(m, this)).ToList();
         Properties = Definition.Properties!.Select(p => new PropertyAnalysisContext(p, this)).ToList();
         Events = Definition.Events!.Select(e => new EventAnalysisContext(e, this)).ToList();
+        Fields = Definition.Fields!.Select(f => new FieldAnalysisContext(f, this)).ToList();
     }
     
     public MethodAnalysisContext? GetMethod(Il2CppMethodDefinition? methodDefinition)

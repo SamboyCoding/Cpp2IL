@@ -23,7 +23,7 @@ public class X86InstructionSet : BaseInstructionSet
     public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         // if (!isAttributeGenerator)
-        return X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer);
+        return X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
         
         // X86Utils.GetMethodBodyAtVirtAddressNew(context.UnderlyingPointer, false, out var ret);
         // return ret;

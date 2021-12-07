@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using AsmResolver.DotNet;
+using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.CustomAttributes;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -142,10 +146,59 @@ public abstract class HasCustomAttributes : HasToken
     public void AnalyzeCustomAttributeData()
     {
         if (AppContext.MetadataVersion >= 29)
-            throw new("TODO: V29 blob analysis");
+        {
+            AnalyzeCustomAttributeDataV29();
+            return;
+        }
+        
+        if(RawIl2CppCustomAttributeData.Length == 0)
+            return;
 
-        CaCacheGeneratorAnalysis!.Analyze();
+        try
+        {
+            CaCacheGeneratorAnalysis!.Analyze();
+        } catch (Exception e)
+        {
+            Logger.WarnNewline("Failed to analyze custom attribute cache generator for " + this + " because " + e.Message, "CA Restore");
+            return;
+        }
 
         //Basically, extract actions from the analysis, and compare with the type list we have to resolve parameters and populate the CustomAttributes list.
+        
+        CustomAttributes = new();
+        foreach (var il2CppType in AttributeTypes!) //Assert nonnull because we're pre-29 at this point
+        {
+            var typeDef = il2CppType.AsClass();
+            var attributeTypeContext = AppContext.ResolveContextForType(typeDef) ?? throw new("Unable to find type " + typeDef.FullName);
+            
+            //TODO Rework this to identify exact constructor being called, and use that to resolve parameters, once we have a way to identify the constructor (i.e. analysis).
+            if(attributeTypeContext.Methods.FirstOrDefault(c => c.Definition!.Name == ".ctor" && c.Definition.parameterCount == 0) is { } constructor)
+            {
+                var attribute = new AnalyzedCustomAttribute(constructor);
+                CustomAttributes.Add(attribute);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses the Il2CppCustomAttributeData blob as a v29 metadata attribute blob into custom attributes.
+    /// </summary>
+    private void AnalyzeCustomAttributeDataV29()
+    {
+        if(RawIl2CppCustomAttributeData.Length == 0)
+            return;
+        
+        using var blobStream = new MemoryStream(RawIl2CppCustomAttributeData);
+        var attributeCount = blobStream.ReadUnityCompressedUint();
+        var constructors = V29AttributeUtils.ReadConstructors(blobStream, attributeCount, AppContext);
+        
+        CustomAttributes = new();
+        foreach (var constructor in constructors)
+        {
+            var attributeTypeContext = AppContext.ResolveContextForType(constructor.DeclaringType!) ?? throw new("Unable to find type " + constructor.DeclaringType!.FullName);
+            var attributeMethodContext = attributeTypeContext.GetMethod(constructor) ?? throw new("Unable to find method " + constructor.Name + " in type " + attributeTypeContext.Definition.FullName);
+
+            CustomAttributes.Add(V29AttributeUtils.ReadAttribute(blobStream, attributeMethodContext, AppContext));
+        }
     }
 }

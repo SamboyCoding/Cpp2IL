@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text;
 using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
@@ -36,10 +37,54 @@ public class AnalyzedCustomAttribute
     /// <summary>
     /// Returns true if either the constructor has no parameters or if all of the parameters are assigned values.
     /// </summary>
-    public bool IsSuitableForEmission => !HasAnyParameters || ConstructorParameters.Count == Constructor.Definition.Parameters!.Length;
+    public bool IsSuitableForEmission => !HasAnyParameters || ConstructorParameters.Count == Constructor.Definition!.Parameters!.Length;
 
     public AnalyzedCustomAttribute(MethodAnalysisContext constructor)
     {
         Constructor = constructor;
+    }
+
+    public override string ToString()
+    {
+        var sb = new StringBuilder("[");
+        sb.Append(Constructor.Definition!.DeclaringType!.Name);
+        
+        if (ConstructorParameters.Count + Fields.Count + Properties.Count > 0)
+        {
+            var needComma = false;
+            sb.Append('(');
+            
+            foreach (var param in ConstructorParameters)
+            {
+                if (needComma)
+                    sb.Append(", ");
+                
+                sb.Append(param);
+                needComma = true;
+            }
+
+            foreach (var field in Fields)
+            {
+                if (needComma)
+                    sb.Append(", ");
+                
+                sb.Append(field);
+                needComma = true;
+            }
+            
+            foreach(var prop in Properties)
+            {
+                if (needComma)
+                    sb.Append(", ");
+                
+                sb.Append(prop);
+                needComma = true;
+            }
+
+            sb.Append(')');
+        }
+
+        sb.Append(']');
+        return sb.ToString();
     }
 }

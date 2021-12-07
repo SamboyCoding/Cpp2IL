@@ -98,6 +98,12 @@ public class ApplicationAnalysisContext
     /// <returns>An assembly analysis context if one can be found which matches the given name, else null.</returns>
     public AssemblyAnalysisContext? GetAssemblyByName(string name)
     {
+        if (name[^4] == '.' && name[^3] == 'd')
+            //Trim .dll extension
+            name = name[..^4];
+        
         return Assemblies.Find(assembly => assembly.Definition.AssemblyName.Name == name);
     }
+
+    public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.Types.Find(t => t.Definition == typeDefinition);
 }

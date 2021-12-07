@@ -12,4 +12,9 @@ public class CustomAttributeProperty
         Property = property;
         Value = value;
     }
+
+    public override string ToString()
+    {
+        return $"{Property.Definition.Name} = {Value}";
+    }
 }

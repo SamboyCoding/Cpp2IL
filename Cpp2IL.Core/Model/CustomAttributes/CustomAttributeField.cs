@@ -12,4 +12,9 @@ public class CustomAttributeField
         Field = field;
         Value = value;
     }
+
+    public override string ToString()
+    {
+        return $"{Field.Definition.Name} = {Value}";
+    }
 }

@@ -327,6 +327,8 @@ namespace Cpp2IL
             // Logger.InfoNewline($"Finished building graphs in {DateTime.Now - startTime:g}");
             // Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
             // Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
+            
+            Cpp2IlApi.PopulateCustomAttributesForAssembly(Cpp2IlApi.CurrentAppContext!.GetAssemblyByName("mscorlib"));
 
             Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
 

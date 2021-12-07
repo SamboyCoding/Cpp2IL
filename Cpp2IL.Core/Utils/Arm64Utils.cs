@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Extensions;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;

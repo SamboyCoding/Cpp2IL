@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -18,7 +19,7 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     /// The analysis context objects for types contained within the assembly.
     /// </summary>
     public List<TypeAnalysisContext> Types = new();
-    
+
     /// <summary>
     /// The code gen module for this assembly.
     ///
@@ -44,4 +45,6 @@ public class AssemblyAnalysisContext : HasCustomAttributes
             Types.Add(new(il2CppTypeDefinition, this));
         }
     }
+
+    public TypeAnalysisContext? GetTypeByFullName(string fullName) => Types.Find(t => t.Definition.FullName == fullName);
 }

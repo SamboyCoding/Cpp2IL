@@ -3,6 +3,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Extensions;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils

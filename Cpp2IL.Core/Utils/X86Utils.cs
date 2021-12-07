@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
+using Cpp2IL.Core.Extensions;
 using Gee.External.Capstone;
 using Iced.Intel;
 using LibCpp2IL;
@@ -30,12 +31,12 @@ namespace Cpp2IL.Core.Utils
             return instructions;
         }
 
-        public static byte[] GetRawManagedOrCaCacheGenMethodBody(ulong ptr)
+        public static byte[] GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)
         {
             var rawAddr = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(ptr);
             var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr);
 
-            if (virtStartNextFunc == 0 || (virtStartNextFunc - ptr) > 50000)
+            if (virtStartNextFunc == 0 || (isCaGen && virtStartNextFunc - ptr > 50000))
             {
                 GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
                 return ret;
@@ -50,7 +51,7 @@ namespace Cpp2IL.Core.Utils
             return retList.ToArray();
         }
 
-        public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method) => Disassemble(GetRawManagedOrCaCacheGenMethodBody(method.MethodPointer), method.MethodPointer);
+        public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method) => Disassemble(GetRawManagedOrCaCacheGenMethodBody(method.MethodPointer, false), method.MethodPointer);
 
         public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek) => GetMethodBodyAtVirtAddressNew(addr, peek, out _);
 

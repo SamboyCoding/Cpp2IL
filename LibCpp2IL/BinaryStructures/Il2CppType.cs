@@ -42,7 +42,7 @@ namespace LibCpp2IL.BinaryStructures
 
         public Il2CppTypeDefinition AsClass()
         {
-            if(type != Il2CppTypeEnum.IL2CPP_TYPE_CLASS)
+            if(type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
                 throw new Exception("Type is not a class");
 
             return LibCpp2IlMain.TheMetadata!.typeDefs[data.classIndex];

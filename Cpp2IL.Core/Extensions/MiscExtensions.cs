@@ -8,9 +8,9 @@ using Gee.External.Capstone.Arm64;
 using Iced.Intel;
 using Instruction = Iced.Intel.Instruction;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core.Extensions
 {
-    public static class Extensions
+    public static class MiscExtensions
     {
         public static ulong GetImmediateSafe(this Instruction instruction, int op) => instruction.GetOpKind(op).IsImmediate() ? instruction.GetImmediate(op) : 0;
 
@@ -159,7 +159,6 @@ namespace Cpp2IL.Core
             {
                 if(!predicate(instructions[i]))
                 {
-                    i++;
                     break;
                 }
             }
