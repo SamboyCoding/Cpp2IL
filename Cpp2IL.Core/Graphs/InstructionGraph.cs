@@ -110,9 +110,9 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         AddNode(ExitNode);
         SegmentGraph();
         ConstructConditions();
+        SquashGraph();
         ComputeDominators();
         IdentifyLoops();
-        SquashGraph();
         CalculateUseDefs();
         DetermineLocals();
         if (print)
@@ -122,6 +122,12 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
 
     private void SquashGraph()
     {
+        // We can optimize this later
+        TraverseAndPostExecute(Root, node =>
+        {
+            foreach (var instruction in node.Instructions)
+                node.Statements.Add(new InstructionStatement<TInstruction>(instruction));
+        });
         TraverseAndPostExecute(Root, node =>
         {
             bool success = false;
@@ -150,8 +156,10 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
             if (node.Successors[0].Predecessors.Count == 1)
             {
                 var succ = (TNode) node.Successors[0];
+                if(succ == ExitNode)
+                    return false;
                 node.FlowControl = succ.FlowControl;
-                node.Instructions.AddRange(succ.Instructions);
+                //node.Instructions.AddRange(succ.Instructions);
                 node.Successors = succ.Successors;
                 foreach (var succSuccessor in succ.Successors)
                 {
@@ -191,7 +199,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         var falsePathSuccessor = GetSingleSucc(falsePath);
         if (falsePathSuccessor == truePath)
         {
-            var ifstatement = new IfStatement<TInstruction>(condition, falsePath);
+            var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements);
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
             DirectedEdgeRemove(falsePath, truePath);
@@ -203,7 +211,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         else if (truePathSuccessor == falsePath)
         {
             condition!.FlipCondition();
-            var ifstatement = new IfStatement<TInstruction>(condition, truePath);
+            var ifstatement = new IfStatement<TInstruction>(condition, truePath.Statements);
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
             DirectedEdgeRemove(truePath, falsePath);
@@ -214,7 +222,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         }
         else if (truePathSuccessor is not null && falsePathSuccessor is not null && truePathSuccessor == falsePathSuccessor)
         {
-            var ifstatement = new IfStatement<TInstruction>(condition, falsePath, truePath);
+            var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements, truePath.Statements);
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
             DirectedEdgeRemove(node, truePath);

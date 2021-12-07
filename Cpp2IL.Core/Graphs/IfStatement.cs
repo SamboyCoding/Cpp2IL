@@ -6,17 +6,17 @@ namespace Cpp2IL.Core.Graphs;
 
 public class IfStatement<TInstruction> : IStatement
 {
-    private InstructionGraphNode<TInstruction> IfBlock;
-    private InstructionGraphNode<TInstruction>? ElseBlock;
+    private List<IStatement> IfBlock;
+    private List<IStatement>? ElseBlock;
     private InstructionGraphCondition<TInstruction> Condition;
-    public IfStatement(InstructionGraphCondition<TInstruction> condition, InstructionGraphNode<TInstruction> @if, InstructionGraphNode<TInstruction>? @else)
+    public IfStatement(InstructionGraphCondition<TInstruction> condition, List<IStatement> @if, List<IStatement>? @else)
     {
         Condition = condition;
         IfBlock = @if;
         ElseBlock = @else;
     }
 
-    public IfStatement(InstructionGraphCondition<TInstruction> condition, InstructionGraphNode<TInstruction> @if) : this(condition, @if, null) {}
+    public IfStatement(InstructionGraphCondition<TInstruction> condition, List<IStatement> @if) : this(condition, @if, new List<IStatement>()) {}
     
     public string GetTextDump(int indent)
     {
