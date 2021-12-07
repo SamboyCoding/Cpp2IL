@@ -12,8 +12,9 @@ using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
-public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
-    where TNode : InstructionGraphNode<TInstruction>, new()
+//#define MERGE_DEBUG_PRINTS
+
+public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph where TNode : InstructionGraphNode<TInstruction>, new()
 {
     protected List<TInstruction> Instructions;
 
@@ -109,7 +110,6 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         BuildInitialGraph();
         AddNode(ExitNode);
         SegmentGraph();
-        Console.WriteLine(Print(true));
         ConstructConditions();
         SquashGraph();
         ComputeDominators();
@@ -132,8 +132,6 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
             foreach (var instruction in node.Instructions)
                 node.Statements.Add(new InstructionStatement<TInstruction>(instruction));
         });
-        Console.WriteLine(Print());
-        Debugger.Break();
         foreach (var node in Nodes)
             node.Visited = false;
         TraverseAndPostExecute(Root, node =>
@@ -164,9 +162,15 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         {
             if (node.Successors[0].Predecessors.Count == 1)
             {
+                
                 var succ = (TNode) node.Successors[0];
                 if(succ == ExitNode)
                     return false;
+                
+#if MERGE_DEBUG_PRINTS
+                Console.WriteLine($"Merging sequence node {succ.ID} --> {node.ID}");
+#endif 
+                
                 node.FlowControl = succ.FlowControl;
                 //node.Instructions.AddRange(succ.Instructions);
                 node.Successors = succ.Successors;
@@ -208,7 +212,13 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         var falsePathSuccessor = GetSingleSucc(falsePath);
         if (falsePathSuccessor == truePath)
         {
+            if (falsePath.Predecessors.Count != 1)
+                return false;
             var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements);
+            
+#if MERGE_DEBUG_PRINTS
+            Console.WriteLine($"Merging sequence node {succ.ID} --> {node.ID}");
+#endif 
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
             DirectedEdgeRemove(falsePath, truePath);
@@ -219,8 +229,14 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         }
         else if (truePathSuccessor == falsePath)
         {
+            if (truePath.Predecessors.Count != 1)
+                return false;
             condition!.FlipCondition();
             var ifstatement = new IfStatement<TInstruction>(condition, truePath.Statements);
+            
+#if MERGE_DEBUG_PRINTS
+            Console.WriteLine($"Merging sequence node {succ.ID} --> {node.ID}");
+#endif 
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
             DirectedEdgeRemove(truePath, falsePath);
@@ -231,7 +247,10 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         }
         else if (truePathSuccessor is not null && falsePathSuccessor is not null && truePathSuccessor == falsePathSuccessor)
         {
+            if (falsePath.Predecessors.Count != 1 || truePath.Predecessors.Count != 1)
+                return false;
             var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements, truePath.Statements);
+            Console.WriteLine($"Merging if else block nodes {truePath.ID} and {falsePath.ID} --> {node.ID}");
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
             DirectedEdgeRemove(node, truePath);
