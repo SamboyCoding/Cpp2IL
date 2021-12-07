@@ -108,8 +108,6 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
 
         BuildInitialGraph();
         AddNode(ExitNode);
-        Console.WriteLine(Print());
-        Console.WriteLine("Here");
         SegmentGraph();
         ConstructConditions();
         SquashGraph();
@@ -130,7 +128,6 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
             foreach (var instruction in node.Instructions)
                 node.Statements.Add(new InstructionStatement<TInstruction>(instruction));
         });
-        Console.WriteLine(Print());
         TraverseAndPostExecute(Root, node =>
         {
             bool success = false;
