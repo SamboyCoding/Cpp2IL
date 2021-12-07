@@ -109,6 +109,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
         BuildInitialGraph();
         AddNode(ExitNode);
         SegmentGraph();
+        Console.WriteLine(Print(true));
         ConstructConditions();
         SquashGraph();
         ComputeDominators();
@@ -123,11 +124,18 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
     private void SquashGraph()
     {
         // We can optimize this later
+        foreach (var node in Nodes)
+            node.Visited = false;
+        
         TraverseAndPostExecute(Root, node =>
         {
             foreach (var instruction in node.Instructions)
                 node.Statements.Add(new InstructionStatement<TInstruction>(instruction));
         });
+        Console.WriteLine(Print());
+        Debugger.Break();
+        foreach (var node in Nodes)
+            node.Visited = false;
         TraverseAndPostExecute(Root, node =>
         {
             bool success = false;
@@ -141,8 +149,9 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
     private void TraverseAndPostExecute(InstructionGraphNode<TInstruction> node, Action<InstructionGraphNode<TInstruction>> action)
     {
         foreach (var successor in node.Successors)
-            TraverseAndPostExecute(successor, action);
-
+            if(!successor.Visited)
+                TraverseAndPostExecute(successor, action);
+        node.Visited = true;
         action(node);
     }
 
@@ -434,7 +443,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
     protected void AddNode(TNode node) => nodeSet.Add(node);
 
 
-    public string Print()
+    public string Print(bool instructions = false)
     {
         var sb = new StringBuilder();
         foreach (var node in nodeSet)
@@ -448,10 +457,14 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph
                 sb.Append($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");
             sb.Append($", Number of Statements: {node.Statements.Count}");
             sb.Append("\n");
-            foreach (var v in node.Statements)
-            {
-                sb.Append(v.GetTextDump(0));
-            }
+            if (instructions)
+                foreach (var instruction in node.Instructions)
+                    sb.AppendLine(instruction.ToString());
+            else
+                foreach (var v in node.Statements)
+                    sb.Append(v.GetTextDump(0));
+                
+            
 
             sb.Append('\n');
         }
