@@ -12,7 +12,7 @@ using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
-//#define MERGE_DEBUG_PRINTS
+#define MERGE_DEBUG_PRINTS
 
 public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph where TNode : InstructionGraphNode<TInstruction>, new()
 {
@@ -128,7 +128,6 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         // We can optimize this later
         foreach (var node in Nodes)
             node.Visited = false;
-        
         TraverseAndPostExecute(Root, node =>
         {
             foreach (var instruction in node.Instructions)
@@ -148,10 +147,10 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
 
     private void TraverseAndPostExecute(InstructionGraphNode<TInstruction> node, Action<InstructionGraphNode<TInstruction>> action)
     {
+        node.Visited = true;
         foreach (var successor in node.Successors)
             if(!successor.Visited)
                 TraverseAndPostExecute(successor, action);
-        node.Visited = true;
         action(node);
     }
 
@@ -159,7 +158,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
     {
         if(node == ExitNode || node == Root)
             return false;
-
+        
         if (node.Successors.Count == 1)
         {
             if (node.Successors[0].Predecessors.Count == 1)
@@ -219,7 +218,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements);
             
 #if MERGE_DEBUG_PRINTS
-            Console.WriteLine($"Merging sequence node {succ.ID} --> {node.ID}");
+            Console.WriteLine($"Merging if node {succ.ID} --> {node.ID}");
 #endif 
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
@@ -237,7 +236,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             var ifstatement = new IfStatement<TInstruction>(condition, truePath.Statements);
             
 #if MERGE_DEBUG_PRINTS
-            Console.WriteLine($"Merging sequence node {succ.ID} --> {node.ID}");
+            Console.WriteLine($"Merging if node {succ.ID} --> {node.ID}");
 #endif 
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
@@ -308,8 +307,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         }
     }
 
-    protected virtual void GetUseDefsForInstruction(TInstruction instruction,
-        InstructionGraphUseDef instructionGraphUseDef)
+    protected virtual void GetUseDefsForInstruction(TInstruction instruction, InstructionGraphUseDef instructionGraphUseDef)
     {
         throw new NotImplementedException();
     }

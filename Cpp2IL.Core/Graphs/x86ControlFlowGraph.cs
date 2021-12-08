@@ -34,7 +34,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         }
     }
 
-    private void FixNode(X86ControlFlowGraphNode node)
+    private void FixNode(X86ControlFlowGraphNode node, bool removeJmp = false)
     {
         if(node.FlowControl is InstructionGraphNodeFlowControl.Continue)
             return; //Can happen if we split this node during BuildInitialGraph jumpNodesToCorrect processing.
@@ -56,7 +56,11 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         var targetNode = SplitAndCreate(destination, index);
         
         AddDirectedEdge(node, targetNode);
+        
         node.NeedsCorrectingDueToJump = false;
+
+        if (removeJmp)
+            node.Instructions.Remove(jump);
     }
 
     private static HashSet<Register> _volatileRegisters = new()
@@ -290,7 +294,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
         {
             var node = Nodes[index];
             if (node.NeedsCorrectingDueToJump)
-                FixNode(node);
+                FixNode(node, true);
         }
         
         //CleanUp();
