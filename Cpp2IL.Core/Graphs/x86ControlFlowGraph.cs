@@ -11,7 +11,7 @@ namespace Cpp2IL.Core.Graphs;
 public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86ControlFlowGraphNode>
 {
     public bool Is32Bit;
-    public X86ControlFlowGraph(List<Instruction> instructions, bool is32Bit = false) : base(instructions)
+    public X86ControlFlowGraph(List<Instruction> instructions, bool is32Bit, BaseKeyFunctionAddresses keyFunctionAddresses) : base(instructions, keyFunctionAddresses)
     {
         Is32Bit = is32Bit;
     }

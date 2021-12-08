@@ -4,6 +4,7 @@ using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
+using Iced.Intel;
 
 namespace Cpp2IL.Core.Model;
 
@@ -11,13 +12,17 @@ public class X86InstructionSet : BaseInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
+        List<Instruction> instructions;
+
         if (context is not AttributeGeneratorMethodAnalysisContext)
-            return new X86ControlFlowGraph(X86Utils.GetManagedMethodBody(context.Definition!).ToList());
-        
-        var rawMethodBody = GetRawBytesForMethod(context, context is AttributeGeneratorMethodAnalysisContext);
-        var methodBody = X86Utils.Disassemble(rawMethodBody, context.UnderlyingPointer);
-        
-        return new X86ControlFlowGraph(methodBody.ToList());
+            instructions = X86Utils.GetManagedMethodBody(context.Definition!).ToList();
+        else
+        {
+            var rawMethodBody = GetRawBytesForMethod(context, context is AttributeGeneratorMethodAnalysisContext);
+            instructions = X86Utils.Disassemble(rawMethodBody, context.UnderlyingPointer).ToList();
+        }
+
+        return new X86ControlFlowGraph(instructions, context.AppContext.Binary.is32Bit, context.AppContext.GetOrCreateKeyFunctionAddresses());
     }
 
     public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);

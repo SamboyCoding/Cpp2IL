@@ -17,13 +17,14 @@ namespace Cpp2IL.Core.Graphs;
 public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph where TNode : InstructionGraphNode<TInstruction>, new()
 {
     protected List<TInstruction> Instructions;
+    protected BaseKeyFunctionAddresses KeyFunctionAddresses;
 
     protected TNode ExitNode;
 
     Dictionary<ulong, TInstruction> InstructionsByAddress;
     protected int idCounter = 0;
 
-    protected AbstractControlFlowGraph(List<TInstruction> instructions)
+    protected AbstractControlFlowGraph(List<TInstruction> instructions, BaseKeyFunctionAddresses keyFunctionAddresses)
     {
         if (instructions == null)
             throw new ArgumentNullException(nameof(instructions));
@@ -32,6 +33,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         var startNode = new TNode() {ID = idCounter++, FlowControl = InstructionGraphNodeFlowControl.Entry};
         ExitNode = new TNode() {ID = idCounter++, FlowControl = InstructionGraphNodeFlowControl.Exit};
         Instructions = instructions;
+        KeyFunctionAddresses = keyFunctionAddresses;
         InstructionsByAddress = new Dictionary<ulong, TInstruction>();
         Root = startNode;
         nodeSet = new Collection<TNode>();
