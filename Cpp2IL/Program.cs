@@ -350,20 +350,6 @@ namespace Cpp2IL
             if (runtimeArgs.EnableMetadataGeneration)
                 Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
-            BaseKeyFunctionAddresses? keyFunctionAddresses = null;
-
-            //We need to run key function sweep if we can for attribute restoration
-            //or if we want to analyze. But we DON'T need it for restoration on v29
-            var attributeRestorationNeedsKfas = LibCpp2IlMain.MetadataVersion < 29 && !runtimeArgs.SimpleAttributeRestoration;
-            var canGetKfas = LibCpp2IlMain.Binary?.InstructionSetId != DefaultInstructionSets.ARM_V7;
-            if (canGetKfas && (attributeRestorationNeedsKfas || runtimeArgs.EnableAnalysis))
-            {
-                Logger.InfoNewline("Running Scan for Known Functions...");
-
-                //This part involves decompiling known functions to search for other function calls
-                keyFunctionAddresses = Cpp2IlApi.ScanForKeyFunctionAddresses();
-            }
-
             Logger.InfoNewline($"Applying type, method, and field attributes for {Cpp2IlApi.GeneratedAssemblies.Count} assemblies...This may take a couple of seconds");
             var start = DateTime.Now;
 
@@ -384,12 +370,12 @@ namespace Cpp2IL
                 {
                     foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
                     {
-                        DoAnalysisForAssembly(assemblyDefinition.Name.Value, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
+                        DoAnalysisForAssembly(assemblyDefinition.Name.Value, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
                     }
                 }
                 else
                 {
-                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, keyFunctionAddresses!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
+                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
                 }
             }
 

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
@@ -12,17 +13,17 @@ namespace Cpp2IL.Core
 {
     public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
-        private readonly List<Arm64Instruction> _allInstructions;
+        private List<Arm64Instruction> _allInstructions;
 
-        public Arm64KeyFunctionAddresses()
+        protected override void Init(ApplicationAnalysisContext context)
         {
-            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary!.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
+            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(context.Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
             disassembler.EnableInstructionDetails = true;
             disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
             disassembler.EnableSkipDataMode = true;
 
-            var primaryExecutableSection = LibCpp2IlMain.Binary.GetEntirePrimaryExecutableSection();
-            var primaryExecutableSectionVa = LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection();
+            var primaryExecutableSection = context.Binary.GetEntirePrimaryExecutableSection();
+            var primaryExecutableSectionVa = context.Binary.GetVirtualAddressOfPrimaryExecutableSection();
             var endOfTextSection = primaryExecutableSectionVa + (ulong) primaryExecutableSection.Length;
 
             Logger.InfoNewline("\tRunning entire .text section through Arm64 disassembler, this might take up to several minutes for large games, and may fail on large games if you have <16GB ram...");
@@ -33,7 +34,7 @@ namespace Cpp2IL.Core
 
             if (attributeGeneratorList.Count > 0)
             {
-                if (LibCpp2IlMain.Binary is not NsoFile)
+                if (context.Binary is not NsoFile)
                 {
                     Logger.VerboseNewline($"\tLast attribute generator function is at address 0x{attributeGeneratorList[^1]:X}. Skipping everything before that.");
 
@@ -56,14 +57,14 @@ namespace Cpp2IL.Core
                     var methodAddresses = new List<ulong>();
                     methodAddresses.SortByExtractedKey(a => a);
 
-                    if (methodAddresses[0] < endOfTextSection && LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_new") != 0)
+                    if (methodAddresses[0] < endOfTextSection && context.Binary.GetVirtualAddressOfExportedFunctionByName("il2cpp_object_new") != 0)
                     {
                         var exportAddresses = new[]
                         {
                             "il2cpp_object_new", "il2cpp_value_box", "il2cpp_runtime_class_init", "il2cpp_array_new_specific",
                             "il2cpp_type_get_object", "il2cpp_resolve_icall", "il2cpp_string_new", "il2cpp_string_new_wrapper",
                             "il2cpp_raise_exception"
-                        }.Select(LibCpp2IlMain.Binary.GetVirtualAddressOfExportedFunctionByName).Where(a => a > 0).ToArray();
+                        }.Select(context.Binary.GetVirtualAddressOfExportedFunctionByName).Where(a => a > 0).ToArray();
 
                         var lastExport = exportAddresses.Max();
                         var firstExport = exportAddresses.Min();

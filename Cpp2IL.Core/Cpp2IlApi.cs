@@ -282,27 +282,6 @@ namespace Cpp2IL.Core
             return assemblies;
         }
 
-        public static BaseKeyFunctionAddresses ScanForKeyFunctionAddresses()
-        {
-            CheckLibInitialized();
-
-            BaseKeyFunctionAddresses keyFunctionAddresses;
-            if (LibCpp2IlMain.Binary!.InstructionSetId == DefaultInstructionSets.X86_32 || LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
-                keyFunctionAddresses = new X86KeyFunctionAddresses();
-            else if (LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.ARM_V8)
-                keyFunctionAddresses = new Arm64KeyFunctionAddresses();
-            else if (LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.ARM_V7)
-                throw new UnsupportedInstructionSetException();
-            else if (LibCpp2IlMain.Binary.InstructionSetId == DefaultInstructionSets.WASM)
-                keyFunctionAddresses = new WasmKeyFunctionAddresses();
-            else
-                throw new ArgumentOutOfRangeException();
-
-            keyFunctionAddresses.Find();
-            CurrentAppContext!.KeyFunctionAddresses = keyFunctionAddresses;
-            return keyFunctionAddresses;
-        }
-
         public static void GenerateMetadataForAllAssemblies(string rootFolder)
         {
             CheckLibInitialized();

@@ -38,4 +38,10 @@ public abstract class BaseInstructionSet
     /// <param name="context">The method this graph is for, in case your analysis needs additional context such as the application-level context.</param>
     /// <returns></returns>
     public abstract List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context);
+
+    /// <summary>
+    /// Create and populate a BaseKeyFunctionAddresses object which can then be populated.
+    /// </summary>
+    /// <returns>A subclass of <see cref="BaseKeyFunctionAddresses"/> specific to this instruction set</returns>
+    public abstract BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance();
 }

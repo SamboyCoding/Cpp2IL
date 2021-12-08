@@ -1,6 +1,7 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
+using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
@@ -45,56 +46,56 @@ namespace Cpp2IL.Core
         public ulong il2cpp_vm_object_is_inst; //Not exported, not thunked. Can be located via the Type#IsInstanceOfType icall.
         
         public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
+        
+        private ApplicationAnalysisContext _appContext = null!; //Always initialized before used
 
-        private void FindExport(string name, ref ulong ptr)
+        private void FindExport(string name, out ulong ptr)
         {
             Logger.Verbose($"\tLooking for Exported {name} function...");
-            ptr = LibCpp2IlMain.Binary!.GetVirtualAddressOfExportedFunctionByName(name);
-            
-            if(ptr == 0)
-                Logger.VerboseNewline("Not found");
-            else
-                Logger.VerboseNewline($"Found at 0x{ptr:X}");
+            ptr = _appContext.Binary.GetVirtualAddressOfExportedFunctionByName(name);
+
+            Logger.VerboseNewline(ptr == 0 ? "Not found" : $"Found at 0x{ptr:X}");
         }
 
-        public void Find()
+        public void Find(ApplicationAnalysisContext applicationAnalysisContext)
         {
-            var cppAssembly = LibCpp2IlMain.Binary!;
-
+            _appContext = applicationAnalysisContext;
+            Init(applicationAnalysisContext);
+            
             //Try to find System.Exception (should always be there)
-            if(cppAssembly.InstructionSetId == DefaultInstructionSets.X86_32 || cppAssembly.InstructionSetId == DefaultInstructionSets.X86_64)
+            if(applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_32 || applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
                 //TODO make this abstract and implement in subclasses.
                 TryGetInitMetadataFromException();
 
             //New Object
-            FindExport("il2cpp_object_new", ref il2cpp_object_new);
+            FindExport("il2cpp_object_new", out il2cpp_object_new);
 
             //Type => Object
-            FindExport("il2cpp_type_get_object", ref il2cpp_type_get_object);
+            FindExport("il2cpp_type_get_object", out il2cpp_type_get_object);
 
             //Resolve ICall
-            FindExport("il2cpp_resolve_icall", ref il2cpp_resolve_icall);
+            FindExport("il2cpp_resolve_icall", out il2cpp_resolve_icall);
 
             //New String
-            FindExport("il2cpp_string_new", ref il2cpp_string_new);
+            FindExport("il2cpp_string_new", out il2cpp_string_new);
 
             //New string wrapper
-            FindExport("il2cpp_string_new_wrapper", ref il2cpp_string_new_wrapper);
+            FindExport("il2cpp_string_new_wrapper", out il2cpp_string_new_wrapper);
 
             //Box Value
-            FindExport("il2cpp_value_box", ref il2cpp_value_box);
+            FindExport("il2cpp_value_box", out il2cpp_value_box);
 
             //Unbox Value
-            FindExport("il2cpp_object_unbox", ref il2cpp_object_unbox);
+            FindExport("il2cpp_object_unbox", out il2cpp_object_unbox);
 
             //Raise Exception
-            FindExport("il2cpp_raise_exception", ref il2cpp_raise_exception);
+            FindExport("il2cpp_raise_exception", out il2cpp_raise_exception);
 
             //Class Init
-            FindExport("il2cpp_runtime_class_init", ref il2cpp_runtime_class_init_export);
+            FindExport("il2cpp_runtime_class_init", out il2cpp_runtime_class_init_export);
 
             //New array of fixed size
-            FindExport("il2cpp_array_new_specific", ref il2cpp_array_new_specific);
+            FindExport("il2cpp_array_new_specific", out il2cpp_array_new_specific);
             
             //Object IsInst
             il2cpp_vm_object_is_inst = GetObjectIsInstFromSystemType();
@@ -119,7 +120,7 @@ namespace Cpp2IL.Core
                 var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.MethodPointer, false);
                 var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
 
-                if (LibCpp2IlMain.MetadataVersion < 27)
+                if (_appContext.MetadataVersion < 27)
                 {
                     il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
                     Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_method => 0x{il2cpp_codegen_initialize_method:X}");
@@ -271,5 +272,9 @@ namespace Cpp2IL.Core
         protected abstract ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false);
 
         protected abstract int GetCallerCount(ulong toWhere);
+
+        protected virtual void Init(ApplicationAnalysisContext context)
+        {
+        }
     }
 }

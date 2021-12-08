@@ -20,14 +20,9 @@ public class X86InstructionSet : BaseInstructionSet
         return new X86ControlFlowGraph(methodBody.ToList());
     }
 
-    public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
-    {
-        // if (!isAttributeGenerator)
-        return X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
-        
-        // X86Utils.GetMethodBodyAtVirtAddressNew(context.UnderlyingPointer, false, out var ret);
-        // return ret;
-    }
+    public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
+
+    public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new X86KeyFunctionAddresses();
 
     public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)
     {

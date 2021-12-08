@@ -43,9 +43,9 @@ public class ApplicationAnalysisContext
     public readonly Dictionary<ulong, List<MethodAnalysisContext>> MethodsByAddress = new();
 
     /// <summary>
-    /// Key Function Addresses for the binary file. Can be populated via <see cref="Cpp2IlApi.ScanForKeyFunctionAddresses"/>
+    /// Key Function Addresses for the binary file. Populated on-demand
     /// </summary>
-    public BaseKeyFunctionAddresses KeyFunctionAddresses { get; internal set; }
+    private BaseKeyFunctionAddresses? _keyFunctionAddresses;
 
     public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata, float metadataVersion)
     {
@@ -111,4 +111,12 @@ public class ApplicationAnalysisContext
     }
 
     public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.Types.Find(t => t.Definition == typeDefinition);
+    
+    public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()
+    {
+        if (_keyFunctionAddresses == null) 
+            (_keyFunctionAddresses = InstructionSet.CreateKeyFunctionAddressesInstance()).Find(this);
+
+        return _keyFunctionAddresses;
+    }
 }
