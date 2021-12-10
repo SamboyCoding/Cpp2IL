@@ -16,5 +16,6 @@ public static class InstructionSetRegistry
     {
         RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_32);
         RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_64);
+        RegisterInstructionSet<WasmInstructionSet>(DefaultInstructionSets.WASM);
     }
 }

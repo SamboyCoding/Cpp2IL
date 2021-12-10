@@ -47,7 +47,7 @@ namespace LibCpp2IL.Wasm
 
             _memoryBlock = new(this);
             
-            LibLogger.VerboseNewline($"\tAllocated memory block of {_memoryBlock.Bytes.Length} (0x{_memoryBlock.Bytes.Length:X}) bytes ({_memoryBlock.Bytes.Length / 1024 / 1024:F2}MB). Constructing function table...");
+            LibLogger.VerboseNewline($"\tAllocated memory block of {_memoryBlock.Bytes.Length} (0x{_memoryBlock.Bytes.Length:X}) bytes ({_memoryBlock.Bytes.Length / 1024f / 1024f:F2}MB). Constructing function table...");
             
             foreach (var importSectionEntry in ImportSection.Entries)
             {

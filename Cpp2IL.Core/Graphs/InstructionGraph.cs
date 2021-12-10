@@ -2,17 +2,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Data;
-using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Utils;
-using Gee.External.Capstone;
 using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
-#define MERGE_DEBUG_PRINTS
+// #define MERGE_DEBUG_PRINTS
 
 public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph where TNode : InstructionGraphNode<TInstruction>, new()
 {
@@ -143,6 +140,15 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
                 success = TrySquash(node);
             } while (success);
         });
+    }
+
+    public void TraverseEntireGraphPreOrder(Action<IControlFlowNode> action) => TraversePreOrder(Root, action);
+
+    public void TraversePreOrder(TNode node, Action<TNode> action)
+    {
+        action(node);
+        foreach (var successor in node.Successors)
+            TraversePreOrder((TNode) successor, action);
     }
 
     private void TraverseAndPostExecute(InstructionGraphNode<TInstruction> node, Action<InstructionGraphNode<TInstruction>> action)

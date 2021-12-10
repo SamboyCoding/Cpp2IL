@@ -31,7 +31,17 @@ public class X86InstructionSet : BaseInstructionSet
 
     public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)
     {
-        //TODO Implement me!
+        var ret = new List<InstructionSetIndependentNode>();
+        
+        graph.TraverseEntireGraphPreOrder(node =>
+        {
+            if(node is not X86ControlFlowGraphNode x86Node)
+                throw new("How did we get a non-x86 node?");
+
+            var isilNode = new InstructionSetIndependentNode();
+            
+        });
+        
         return new();
     }
 }

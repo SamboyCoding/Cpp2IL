@@ -328,7 +328,9 @@ namespace Cpp2IL
             // Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
             // Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
             
-            Cpp2IlApi.PopulateCustomAttributesForAssembly(Cpp2IlApi.CurrentAppContext!.GetAssemblyByName("mscorlib"));
+            // Cpp2IlApi.CurrentAppContext!.GetAssemblyByName("mscorlib")!.GetTypeByFullName("<>f__AnonymousType0`1")!.GetConstructors().First().Analyze();
+            
+            Cpp2IlApi.PopulateCustomAttributesForAssembly(Cpp2IlApi.CurrentAppContext!.GetAssemblyByName("mscorlib")!);
 
             Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
 
@@ -350,12 +352,12 @@ namespace Cpp2IL
             if (runtimeArgs.EnableMetadataGeneration)
                 Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
-            Logger.InfoNewline($"Applying type, method, and field attributes for {Cpp2IlApi.GeneratedAssemblies.Count} assemblies...This may take a couple of seconds");
-            var start = DateTime.Now;
+            // Logger.InfoNewline($"Applying type, method, and field attributes for {Cpp2IlApi.GeneratedAssemblies.Count} assemblies...This may take a couple of seconds");
+            // var start = DateTime.Now;
 
             // Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
 
-            Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+            // Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
             if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
@@ -364,20 +366,20 @@ namespace Cpp2IL
 
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory, Cpp2IlApi.GeneratedAssemblies);
 
-            if (runtimeArgs.EnableAnalysis)
-            {
-                if (runtimeArgs.AnalyzeAllAssemblies)
-                {
-                    foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
-                    {
-                        DoAnalysisForAssembly(assemblyDefinition.Name.Value, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
-                    }
-                }
-                else
-                {
-                    DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
-                }
-            }
+            // if (runtimeArgs.EnableAnalysis)
+            // {
+            //     if (runtimeArgs.AnalyzeAllAssemblies)
+            //     {
+            //         foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
+            //         {
+            //             DoAnalysisForAssembly(assemblyDefinition.Name.Value, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
+            //         }
+            //     }
+            //     else
+            //     {
+            //         DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
+            //     }
+            // }
 
             foreach (var p in _pathsToDeleteOnExit)
             {

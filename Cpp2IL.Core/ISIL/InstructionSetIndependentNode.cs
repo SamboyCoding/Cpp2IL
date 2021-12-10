@@ -4,8 +4,10 @@ namespace Cpp2IL.Core.ISIL;
 
 public class InstructionSetIndependentNode
 {
-    public List<InstructionSetIndependentInstruction> Instructions = new();
+    public List<IsilStatement> Statements = new();
+
+    private void AddInstruction(InstructionSetIndependentInstruction instruction) => Statements.Add(new IsilInstructionStatement(instruction));
     
     public void CompareEqual(InstructionSetIndependentOperand left, InstructionSetIndependentOperand right, long jumpToIfTrue) => 
-        Instructions.Add(new(InstructionSetIndependentOpCode.CompareEqual, left, right, InstructionSetIndependentOperand.MakeMemory(new(jumpToIfTrue))));
+        AddInstruction(new(InstructionSetIndependentOpCode.CompareEqual, left, right, InstructionSetIndependentOperand.MakeMemory(new(jumpToIfTrue))));
 }

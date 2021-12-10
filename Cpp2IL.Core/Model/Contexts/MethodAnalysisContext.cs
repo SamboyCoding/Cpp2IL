@@ -71,5 +71,6 @@ public class MethodAnalysisContext : HasCustomAttributes
     {
         ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
         ControlFlowGraph.Run();
+        AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
     }
 }

@@ -63,5 +63,6 @@ public class TypeAnalysisContext : HasCustomAttributes
         
         return Methods.Find(m => m.Definition == methodDefinition);
     }
-    
+
+    public List<MethodAnalysisContext> GetConstructors() => Methods.Where(m => m.Definition!.Name == ".ctor").ToList();
 }
