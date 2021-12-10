@@ -34,14 +34,6 @@ namespace Cpp2IL.Core
             
             Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.MetadataBuilder:GetCustomAttributeSignature...", "Harmony");
             harmony.Patch(AccessTools.Method("Mono.Cecil.MetadataBuilder:GetCustomAttributeSignature"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeGetCustomAttributeSignature)));
-            
-            Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.SignatureWriter:WriteTypeSignature...", "Harmony");
-            harmony.Patch(AccessTools.Method("Mono.Cecil.SignatureWriter:WriteTypeSignature"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeWriteTypeSignature)));
-            
-            Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.Mixin:CompressMetadataToken...", "Harmony");
-            harmony.Patch(AccessTools.Method("Mono.Cecil.Mixin:CompressMetadataToken"), new(typeof(Cpp2IlHarmonyPatches), nameof(PreCompressMetadataToken)), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeCompressMetadataToken)));
-            
-            harmony.Patch(AccessTools.Method("Mono.Cecil.MetadataBuilder+GenericParameterComparer:Compare"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeCompareGenericParams)));
 
             Logger.VerboseNewline("\tDone", "Harmony");
         }
@@ -82,34 +74,6 @@ namespace Cpp2IL.Core
         {
             if (__exception != null)
                 return new CustomAttributeWriteFailedException(attribute, __exception);
-
-            return null;
-        }
-        
-        public static Exception? FinalizeWriteTypeSignature(TypeReference type, Exception? __exception)
-        {
-            if (__exception != null)
-                return new TypeSignatureWriteFailedException(type, __exception);
-
-            return null;
-        }
-        
-        public static void PreCompressMetadataToken(int self, MetadataToken token)
-        {
-        }
-
-        public static Exception? FinalizeCompressMetadataToken(int self, MetadataToken token, Exception? __exception)
-        {
-            if (__exception != null)
-                return new MetadataTokenCompressionException((CecilCodedIndex) self, token, __exception);
-
-            return null;
-        }
-
-        public static Exception? FinalizeCompareGenericParams(GenericParameter a, GenericParameter b, Exception? __exception)
-        {
-            if (__exception != null)
-                return new Exception($"Failed to compare generic params {a} (owned by {a.Owner}) and {b} (owned by {b.Owner}) due to an exception", __exception);
 
             return null;
         }

@@ -311,7 +311,7 @@ namespace Cpp2IL.Core
                     var propertyMappings = GetSimplePropertyFieldMappings<T>(attr, keyFunctionAddresses);
                     foreach (var fieldWriteAction in fieldSets)
                     {
-                        var field = fieldWriteAction.FieldWritten!.GetLast().FinalLoadInChain!.Resolve()!;
+                        var field = fieldWriteAction.FieldWritten!.GetLast().FinalLoadInChain!;
                         if(!propertyMappings.TryGetValue(field, out var prop))
                             //TODO: This may be an actual field set, not a property set - add support
                             continue;
@@ -646,7 +646,7 @@ namespace Cpp2IL.Core
                     return null;
                 }
 
-                ret = fieldWrites!.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!.Resolve(), ((LocalDefinition) f.SourceOperand!).ParameterDefinition!)).ToArray();
+                ret = fieldWrites!.Select(f => new FieldToParameterMapping(f.FieldWritten!.FinalLoadInChain!, ((LocalDefinition) f.SourceOperand!).ParameterDefinition!)).ToArray();
 
                 FieldToParameterMappings.TryAdd(constructor, ret);
                 return ret;
@@ -808,7 +808,7 @@ namespace Cpp2IL.Core
 
                 var fieldBeingWritten = fieldWriteAction.FieldWritten.GetLast();
 
-                ret[fieldBeingWritten.FinalLoadInChain!.Resolve()] = propertyDefinition;
+                ret[fieldBeingWritten.FinalLoadInChain!] = propertyDefinition;
             }
 
             _simpleFieldToPropertyCache[type] = ret;

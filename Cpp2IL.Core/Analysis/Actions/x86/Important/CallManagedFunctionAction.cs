@@ -48,20 +48,11 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                 {
                     MethodReference locatedMethod;
                     if (matchingConstant.Value is MethodReference value)
-                    {
                         locatedMethod = value;
-                        AddComment("Method resolved from concrete implementations at this address, with the help of a nongeneric constant value to identify which concrete implementation.");
-                    }
-                    else
-                    {
-                        var locatedGmr = (GenericMethodReference) matchingConstant.Value;
-                        locatedMethod = locatedGmr.Method;
+                    else 
+                        locatedMethod = ((GenericMethodReference) matchingConstant.Value).Method;
 
-                        if (locatedGmr.Type is GenericInstanceType locatedGit)
-                            locatedMethod = locatedMethod.MakeMethodOnGenericType(locatedGit.GenericArguments.ToArray());
-                        
-                        AddComment("Method resolved from concrete implementations at this address, with the help of a generic constant value to identify which concrete implementation.");
-                    }
+                    AddComment("Method resolved from concrete implementations at this address, with the help of a constant value to identify which concrete implementation.");
 
                     if (locatedMethod.HasThis && LibCpp2IlMain.Binary!.is32Bit && context.Stack.TryPeek(out var op) && op is LocalDefinition local)
                     {
@@ -237,7 +228,6 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
                     ManagedMethodBeingCalled = gmr.Method.MakeMethodOnGenericType(git.GenericArguments.ToArray());
             }
 
-            CacheMethodInfoArg(context);
             HandleReturnType(context);
         }
 

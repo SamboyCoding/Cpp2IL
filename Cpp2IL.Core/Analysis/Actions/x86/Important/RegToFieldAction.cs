@@ -43,8 +43,8 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             }
 
             RegisterUsedLocal(InstanceBeingSetOn, context);
+
             FieldWritten = FieldUtils.GetFieldBeingAccessed(InstanceBeingSetOn.Type, destFieldOffset, false);
-            FixUpFieldRefForAnyPotentialGenericType(context);
         }
 
         internal RegToFieldAction(MethodAnalysis<Instruction> context, Instruction instruction, FieldUtils.FieldBeingAccessedData fieldWritten, LocalDefinition instanceWrittenOn, LocalDefinition readFrom) : base(context, instruction)

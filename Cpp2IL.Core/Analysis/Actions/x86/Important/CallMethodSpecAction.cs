@@ -30,10 +30,9 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             ShouldUseCallvirt = true;
 
             if (methodSpec.classIndexIndex != -1)
-                ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeMethodOnGenericType(methodSpec.GenericClassParams.Select(p => MiscUtils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled, context.GetMethodDefinition())).ToArray()!);
+                ManagedMethodBeingCalled = ManagedMethodBeingCalled.MakeMethodOnGenericType(methodSpec.GenericClassParams.Select(p => MiscUtils.TryResolveTypeReflectionData(p, ManagedMethodBeingCalled)).ToArray()!);
 
             CreateLocalForReturnType(context);
-            CacheMethodInfoArg(context);
             RegisterLocals(context);
         }
     }

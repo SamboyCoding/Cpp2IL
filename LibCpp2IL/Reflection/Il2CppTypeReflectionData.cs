@@ -24,7 +24,6 @@ namespace LibCpp2IL.Reflection
         public Il2CppTypeReflectionData? arrayType;
         public byte arrayRank;
         public string variableGenericParamName;
-        public long variableGenericParamIndex;
         public bool isPointer;
 #pragma warning restore 8618
 

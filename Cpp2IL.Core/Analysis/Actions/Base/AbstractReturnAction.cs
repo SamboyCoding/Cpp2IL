@@ -61,24 +61,27 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
 
         protected void TryCorrectConstant(MethodAnalysis<T> context)
         {
-            if (_isVoid || returnValue is not ConstantDefinition constantDefinition || !typeof(IConvertible).IsAssignableFrom(constantDefinition.Type) || constantDefinition.Type == typeof(string)) 
-                return;
-            
-            if (context.ReturnType.Resolve() is {IsEnum: true} returnTypeDefinition)
+            if (!_isVoid && returnValue is ConstantDefinition constantDefinition && typeof(IConvertible).IsAssignableFrom(constantDefinition.Type) && constantDefinition.Type != typeof(string))
             {
-                var underLyingType = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
-                constantDefinition.Type = underLyingType;
-                constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
-            }
-            else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
-            {
-                var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
-                if (string.IsNullOrEmpty(returnValueType?.FullName) || returnValueType!.IsArray) 
-                    return;
-                if (!TypeDefinitions.IConvertible.IsAssignableFrom(context.ReturnType) || !context.ReturnType.IsPrimitive || context.ReturnType.Name == "String")
-                    return;
-                constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
-                constantDefinition.Type = returnValueType;
+                var returnTypeDefinition = context.ReturnType.Resolve();
+                if (returnTypeDefinition.IsEnum)
+                {
+                    var underLyingType = typeof(int).Module.GetType(returnTypeDefinition.GetEnumUnderlyingType().FullName);
+                    constantDefinition.Type = underLyingType;
+                    constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, underLyingType);
+                }
+                else if (!string.IsNullOrEmpty(context.ReturnType?.FullName))
+                {
+                    var returnValueType = typeof(int).Module.GetType(context.ReturnType!.FullName);
+                    if (!string.IsNullOrEmpty(returnValueType?.FullName) && !returnValueType!.IsArray)
+                    {
+                        if (TypeDefinitions.IConvertible.IsAssignableFrom(context.ReturnType) && context.ReturnType.IsPrimitive && context.ReturnType.Name != "String")
+                        {
+                            constantDefinition.Value = MiscUtils.ReinterpretBytes((IConvertible) constantDefinition.Value, context.ReturnType);
+                            constantDefinition.Type = returnValueType;
+                        }
+                    }
+                }
             }
         }
     }

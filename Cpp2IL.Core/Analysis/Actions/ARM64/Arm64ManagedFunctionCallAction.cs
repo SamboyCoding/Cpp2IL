@@ -52,8 +52,6 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
                 ManagedMethodBeingCalled = possibleTarget.AsManaged();
             else
                 AddComment($"Failed to resolve any matching method (there are {listOfCallableMethods.Count} at this address)");
-
-            CacheMethodInfoArg(context);
             
             HandleReturnType(context);
         }

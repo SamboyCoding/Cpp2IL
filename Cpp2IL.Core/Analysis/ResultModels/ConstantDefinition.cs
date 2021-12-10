@@ -106,20 +106,20 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                 };
 
             if(Type == typeof(MethodReference) && Value is GenericInstanceMethod gim)
-                return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportMethodButCleanly(gim))};
+                return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportRecursive(gim))};
             
             if (Type == typeof(MethodReference) && Value is MethodReference reference)
-                return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportMethodButCleanly(reference))};
+                return new[] {ilProcessor.Create(OpCodes.Ldftn, ilProcessor.ImportReference(reference))};
 
             if(Type == typeof(TypeReference) && Value is GenericInstanceType git)
-                return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportTypeButCleanly(git))};
+                return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportRecursive(git))};
 
             if (Type == typeof(TypeReference) && Value is TypeReference typeReference)
             {
                 if (typeReference is TypeSpecification {ElementType: GenericInstanceType} or GenericInstanceType or GenericParameter)
                     throw new TaintedInstructionException("ConstantDefinition: TypeReference loading not supported for generic types because it's a mess.");
                 
-                return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportTypeButCleanly(typeReference))};
+                return new[] {ilProcessor.Create(OpCodes.Ldtoken, ilProcessor.ImportReference(typeReference))};
             }
 
             if (Type == typeof(FieldDefinition) && Value is FieldDefinition fieldDefinition)

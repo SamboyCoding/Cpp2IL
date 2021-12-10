@@ -327,8 +327,8 @@ namespace Cpp2IL
 
             if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
-            
-            // Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
+
+            Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
 
             Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory);
 
@@ -376,10 +376,7 @@ namespace Cpp2IL
             Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
 
             if (doIlToAsm)
-            {
-                Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
                 Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
-            }
         }
 
 

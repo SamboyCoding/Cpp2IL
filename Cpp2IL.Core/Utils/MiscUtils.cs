@@ -584,16 +584,10 @@ namespace Cpp2IL.Core.Utils
                 if (owner.GenericParameters.FirstOrDefault(a => a.Name == typeData.variableGenericParamName) is { } gp)
                     return gp;
 
-                if (owner is MethodReference mRef && mRef.DeclaringType.GenericParameters.FirstOrDefault(g => g.Name == typeData.variableGenericParamName) is { } gp2)
-                    return gp2;
-
                 foreach (var extraProvider in extra)
                 {
-                    if (extraProvider?.GenericParameters.FirstOrDefault(a => a.Name == typeData.variableGenericParamName) is { } gp3)
-                        return gp3;
-                    
-                    if (extraProvider is MethodReference mRef2 && mRef2.DeclaringType.GenericParameters.FirstOrDefault(g => g.Name == typeData.variableGenericParamName) is { } gp4)
-                        return gp4;
+                    if (extraProvider?.GenericParameters.FirstOrDefault(a => a.Name == typeData.variableGenericParamName) is { } gp2)
+                        return gp2;
                 }
 
                 //Generic parameter
