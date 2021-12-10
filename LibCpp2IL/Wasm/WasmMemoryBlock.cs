@@ -16,7 +16,7 @@ namespace LibCpp2IL.Wasm
                 .Max();
 
             //Add an extra buffer beyond that just to be safe
-            var toAlloc = maxByte + 0x1000;
+            var toAlloc = (maxByte + 0x1000) * 2;
             var memoryBlock = new byte[toAlloc];
             var stream = new MemoryStream(memoryBlock, 0, (int) toAlloc, true, true);
             
