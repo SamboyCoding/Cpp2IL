@@ -2,19 +2,25 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
 
 namespace LibCpp2IL.NintendoSwitch
 {
-    public class NsoFile : Il2CppBinary
+    public sealed class NsoFile : Il2CppBinary
     {
+        private const ulong NSO_GLOBAL_OFFSET = 0;
+        
         private byte[] _raw;
 
         private NsoHeader header;
+        private NsoModHeader _modHeader;
         private bool isTextCompressed;
         private bool isRoDataCompressed;
         private bool isDataCompressed;
         private List<NsoSegmentHeader> segments = new();
+        private List<ElfDynamicEntry> dynamicEntries = new();
+        public ElfDynamicSymbol64[] SymbolTable;
         private bool isCompressed => isTextCompressed || isRoDataCompressed || isDataCompressed;
 
 
@@ -81,7 +87,7 @@ namespace LibCpp2IL.NintendoSwitch
             header.TextCompressedSize = ReadUInt32();
             header.RoDataCompressedSize = ReadUInt32();
             header.DataCompressedSize = ReadUInt32();
-            header.Padding = ReadBytes(0x1C);
+            header.NsoHeaderReserved = ReadBytes(0x1C);
 
             LibLogger.VerboseNewline("\tRead post-segment fields OK. Reading Dynamic section and Api Info offsets...");
 
@@ -111,121 +117,208 @@ namespace LibCpp2IL.NintendoSwitch
 
             if (!isCompressed)
             {
-                LibLogger.VerboseNewline($"\tBinary is not compressed. Reading BSS segment header...");
-
-                Position = header.TextSegment.FileOffset + 4;
-                var modOffset = ReadUInt32();
-                Position = header.TextSegment.FileOffset + modOffset + 4;
-                var dynamicOffset = ReadUInt32();
-                var bssStart = ReadUInt32();
-                var bssEnd = ReadUInt32();
-                header.BssSegment = new()
-                {
-                    FileOffset = bssStart,
-                    MemoryOffset = bssStart,
-                    DecompressedSize = bssEnd - bssStart
-                };
-                var ehFrameHdrStart = ReadUInt32();
-                var ehFrameHdrEnd = ReadUInt32();
+                ReadModHeader();
+                ReadDynamicSection();
+                ReadSymbolTable();
+                ApplyRelocations();
             }
 
             LibLogger.VerboseNewline($"\tNSO Read completed OK.");
         }
 
+        private void ReadModHeader()
+        {
+            LibLogger.VerboseNewline($"\tNSO is decompressed. Reading MOD segment header...");
+            
+            _modHeader = new();
+
+            //Location of real mod header must be at .text + 4
+            //Which allows .text + 0 to be a jump over it
+            Position = header.TextSegment.FileOffset + 4;
+            _modHeader.ModOffset = ReadUInt32();
+
+            //Now we have the real mod header position, go to it and read
+            Position = header.TextSegment.FileOffset + _modHeader.ModOffset + 4;
+            _modHeader.DynamicOffset = ReadUInt32() + _modHeader.ModOffset;
+            _modHeader.BssStart = ReadUInt32();
+            _modHeader.BssEnd = ReadUInt32();
+            
+            //Construct the bss segment information from the fields we just read
+            _modHeader.BssSegment = new()
+            {
+                FileOffset = _modHeader.BssStart,
+                MemoryOffset = _modHeader.BssStart,
+                DecompressedSize = _modHeader.BssEnd - _modHeader.BssStart
+            };
+            
+            _modHeader.EhFrameHdrStart = ReadUInt32();
+            _modHeader.EhFrameHdrEnd = ReadUInt32();
+        }
+
+        private void ReadDynamicSection()
+        {
+            LibLogger.VerboseNewline($"\tReading NSO Dynamic section...");
+            
+            Position = MapVirtualAddressToRaw(_modHeader.DynamicOffset);
+            
+            //This is mostly a sanity check so we don't read the entire damn file 16 bytes at a time
+            //This will be way more than we need in general (like, 100 times more)
+            var endOfData = header.DataSegment.MemoryOffset + header.DataSegment.DecompressedSize;
+            var maxPossibleDynSectionEntryCount = (endOfData - _modHeader.DynamicOffset) / 16; //16 being sizeof(ElfDynamicEntry) on 64-bit
+
+            for (var i = 0; i < maxPossibleDynSectionEntryCount; i++)
+            {
+                var dynEntry = ReadClassAtRawAddr<ElfDynamicEntry>(-1);
+                if (dynEntry.Tag == ElfDynamicType.DT_NULL)
+                    //End of dynamic section
+                    break;
+                dynamicEntries.Add(dynEntry);
+            }
+        }
+
+        private void ReadSymbolTable()
+        {
+            LibLogger.Verbose($"\tReading NSO symbol table...");
+            
+            var hash = GetDynamicEntry(ElfDynamicType.DT_HASH);
+            Position = MapVirtualAddressToRaw(hash.Value);
+            ReadUInt32(); //Ignored
+            var symbolCount = ReadUInt32();
+
+            var symTab = GetDynamicEntry(ElfDynamicType.DT_SYMTAB);
+            SymbolTable = ReadClassArrayAtVirtualAddress<ElfDynamicSymbol64>((ulong) MapVirtualAddressToRaw(symTab.Value), symbolCount);
+            
+            LibLogger.VerboseNewline($"\tGot {SymbolTable.Length} symbols");
+        }
+
+        private void ApplyRelocations()
+        {
+            ElfRelaEntry[] relaEntries;
+
+            try
+            {
+                var dtRela = GetDynamicEntry(ElfDynamicType.DT_RELA);
+                var dtRelaSize = GetDynamicEntry(ElfDynamicType.DT_RELASZ);
+                relaEntries = ReadClassArrayAtVirtualAddress<ElfRelaEntry>(dtRela.Value, (long) (dtRelaSize.Value / 24)); //24 being sizeof(ElfRelaEntry) on 64-bit
+            }
+            catch
+            {
+                //If we don't have relocations, that's fine.
+                return;
+            }
+            
+            LibLogger.VerboseNewline($"\tApplying {relaEntries.Length} relocations from DT_RELA...");
+            
+            foreach (var elfRelaEntry in relaEntries)
+            {
+                switch (elfRelaEntry.Type)
+                {
+                    case ElfRelocationType.R_AARCH64_ABS64:
+                        var symbol = SymbolTable[elfRelaEntry.Symbol];
+                        WriteWord((int) MapVirtualAddressToRaw(elfRelaEntry.Offset), symbol.Value + elfRelaEntry.Addend);
+                        break;
+                    case ElfRelocationType.R_AARCH64_RELATIVE:
+                        WriteWord((int) MapVirtualAddressToRaw(elfRelaEntry.Offset), elfRelaEntry.Addend);
+                        break;
+                }
+            }
+        }
+        
+        public ElfDynamicEntry GetDynamicEntry(ElfDynamicType tag) => dynamicEntries.Find(x => x.Tag == tag);
+
         public NsoFile Decompress()
         {
+            if (!isCompressed)
+                return this;
+            
             LibLogger.InfoNewline("\tDecompressing NSO file...");
-            if (isTextCompressed || isRoDataCompressed || isDataCompressed)
+
+            var unCompressedStream = new MemoryStream();
+            var writer = new BinaryWriter(unCompressedStream);
+            writer.Write(header.Magic);
+            writer.Write(header.Version);
+            writer.Write(header.Reserved);
+            writer.Write(0); //Flags
+            writer.Write(header.TextSegment.FileOffset);
+            writer.Write(header.TextSegment.MemoryOffset);
+            writer.Write(header.TextSegment.DecompressedSize);
+            writer.Write(header.ModuleOffset);
+            var roOffset = header.TextSegment.FileOffset + header.TextSegment.DecompressedSize;
+            writer.Write(roOffset); //header.RoDataSegment.FileOffset
+            writer.Write(header.RoDataSegment.MemoryOffset);
+            writer.Write(header.RoDataSegment.DecompressedSize);
+            writer.Write(header.ModuleFileSize);
+            writer.Write(roOffset + header.RoDataSegment.DecompressedSize); //header.DataSegment.FileOffset
+            writer.Write(header.DataSegment.MemoryOffset);
+            writer.Write(header.DataSegment.DecompressedSize);
+            writer.Write(header.BssSize);
+            writer.Write(header.DigestBuildID);
+            writer.Write(header.TextCompressedSize);
+            writer.Write(header.RoDataCompressedSize);
+            writer.Write(header.DataCompressedSize);
+            writer.Write(header.NsoHeaderReserved);
+            writer.Write(header.APIInfo.RegionRoDataOffset);
+            writer.Write(header.APIInfo.RegionSize);
+            writer.Write(header.DynStr.RegionRoDataOffset);
+            writer.Write(header.DynStr.RegionSize);
+            writer.Write(header.DynSym.RegionRoDataOffset);
+            writer.Write(header.DynSym.RegionSize);
+            writer.Write(header.TextHash);
+            writer.Write(header.RoDataHash);
+            writer.Write(header.DataHash);
+            writer.BaseStream.Position = header.TextSegment.FileOffset;
+            Position = header.TextSegment.FileOffset;
+            var textBytes = ReadBytes((int)header.TextCompressedSize);
+            if (isTextCompressed)
             {
-                var unCompressedStream = new MemoryStream();
-                var writer = new BinaryWriter(unCompressedStream);
-                writer.Write(header.Magic);
-                writer.Write(header.Version);
-                writer.Write(header.Reserved);
-                writer.Write(0); //Flags
-                writer.Write(header.TextSegment.FileOffset);
-                writer.Write(header.TextSegment.MemoryOffset);
-                writer.Write(header.TextSegment.DecompressedSize);
-                writer.Write(header.ModuleOffset);
-                var roOffset = header.TextSegment.FileOffset + header.TextSegment.DecompressedSize;
-                writer.Write(roOffset); //header.RoDataSegment.FileOffset
-                writer.Write(header.RoDataSegment.MemoryOffset);
-                writer.Write(header.RoDataSegment.DecompressedSize);
-                writer.Write(header.ModuleFileSize);
-                writer.Write(roOffset + header.RoDataSegment.DecompressedSize); //header.DataSegment.FileOffset
-                writer.Write(header.DataSegment.MemoryOffset);
-                writer.Write(header.DataSegment.DecompressedSize);
-                writer.Write(header.BssSize);
-                writer.Write(header.DigestBuildID);
-                writer.Write(header.TextCompressedSize);
-                writer.Write(header.RoDataCompressedSize);
-                writer.Write(header.DataCompressedSize);
-                writer.Write(header.Padding);
-                writer.Write(header.APIInfo.RegionRoDataOffset);
-                writer.Write(header.APIInfo.RegionSize);
-                writer.Write(header.DynStr.RegionRoDataOffset);
-                writer.Write(header.DynStr.RegionSize);
-                writer.Write(header.DynSym.RegionRoDataOffset);
-                writer.Write(header.DynSym.RegionSize);
-                writer.Write(header.TextHash);
-                writer.Write(header.RoDataHash);
-                writer.Write(header.DataHash);
-                writer.BaseStream.Position = header.TextSegment.FileOffset;
-                Position = header.TextSegment.FileOffset;
-                var textBytes = ReadBytes((int)header.TextCompressedSize);
-                if (isTextCompressed)
+                var unCompressedData = new byte[header.TextSegment.DecompressedSize];
+                using (var decoder = new Lz4DecodeStream(new MemoryStream(textBytes)))
                 {
-                    var unCompressedData = new byte[header.TextSegment.DecompressedSize];
-                    using (var decoder = new Lz4DecodeStream(new MemoryStream(textBytes)))
-                    {
-                        decoder.Read(unCompressedData, 0, unCompressedData.Length);
-                    }
-
-                    writer.Write(unCompressedData);
-                }
-                else
-                {
-                    writer.Write(textBytes);
+                    decoder.Read(unCompressedData, 0, unCompressedData.Length);
                 }
 
-                var roDataBytes = ReadBytes((int)header.RoDataCompressedSize);
-                if (isRoDataCompressed)
-                {
-                    var unCompressedData = new byte[header.RoDataSegment.DecompressedSize];
-                    using (var decoder = new Lz4DecodeStream(new MemoryStream(roDataBytes)))
-                    {
-                        decoder.Read(unCompressedData, 0, unCompressedData.Length);
-                    }
-
-                    writer.Write(unCompressedData);
-                }
-                else
-                {
-                    writer.Write(roDataBytes);
-                }
-
-                var dataBytes = ReadBytes((int)header.DataCompressedSize);
-                if (isDataCompressed)
-                {
-                    var unCompressedData = new byte[header.DataSegment.DecompressedSize];
-                    using (var decoder = new Lz4DecodeStream(new MemoryStream(dataBytes)))
-                    {
-                        decoder.Read(unCompressedData, 0, unCompressedData.Length);
-                    }
-
-                    writer.Write(unCompressedData);
-                }
-                else
-                {
-                    writer.Write(dataBytes);
-                }
-
-                writer.Flush();
-                unCompressedStream.Position = 0;
-                return new NsoFile(unCompressedStream, maxMetadataUsages);
+                writer.Write(unCompressedData);
+            }
+            else
+            {
+                writer.Write(textBytes);
             }
 
-            return this;
+            var roDataBytes = ReadBytes((int)header.RoDataCompressedSize);
+            if (isRoDataCompressed)
+            {
+                var unCompressedData = new byte[header.RoDataSegment.DecompressedSize];
+                using (var decoder = new Lz4DecodeStream(new MemoryStream(roDataBytes)))
+                {
+                    decoder.Read(unCompressedData, 0, unCompressedData.Length);
+                }
+
+                writer.Write(unCompressedData);
+            }
+            else
+            {
+                writer.Write(roDataBytes);
+            }
+
+            var dataBytes = ReadBytes((int)header.DataCompressedSize);
+            if (isDataCompressed)
+            {
+                var unCompressedData = new byte[header.DataSegment.DecompressedSize];
+                using (var decoder = new Lz4DecodeStream(new MemoryStream(dataBytes)))
+                {
+                    decoder.Read(unCompressedData, 0, unCompressedData.Length);
+                }
+
+                writer.Write(unCompressedData);
+            }
+            else
+            {
+                writer.Write(dataBytes);
+            }
+
+            writer.Flush();
+            unCompressedStream.Position = 0;
+            return new(unCompressedStream, maxMetadataUsages);
         }
 
         public override long RawLength => _raw.Length;
@@ -233,11 +326,11 @@ namespace LibCpp2IL.NintendoSwitch
 
         public override long MapVirtualAddressToRaw(ulong addr)
         {
-            var segment = segments.FirstOrDefault(x => addr >= x.MemoryOffset && addr <= x.MemoryOffset + x.DecompressedSize);
+            var segment = segments.FirstOrDefault(x => addr - NSO_GLOBAL_OFFSET >= x.MemoryOffset && addr - NSO_GLOBAL_OFFSET <= x.MemoryOffset + x.DecompressedSize);
             if (segment == null)
                 throw new InvalidOperationException($"NSO: Address 0x{addr:X} is not present in any of the segments. Known segment ends are (hex) {string.Join(", ", segments.Select(s => (s.MemoryOffset + s.DecompressedSize).ToString("X")))}");
             
-            return (long)(addr - segment.MemoryOffset + segment.FileOffset);
+            return (long)(addr - (segment.MemoryOffset + NSO_GLOBAL_OFFSET) + segment.FileOffset);
         }
 
         public override ulong MapRawAddressToVirtual(uint offset)
@@ -247,7 +340,7 @@ namespace LibCpp2IL.NintendoSwitch
             {
                 return 0;
             }
-            return offset - segment.FileOffset + segment.MemoryOffset;
+            return offset - segment.FileOffset + (NSO_GLOBAL_OFFSET + segment.MemoryOffset);
         }
 
         public override ulong GetRVA(ulong pointer)
