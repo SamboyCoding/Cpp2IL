@@ -160,6 +160,8 @@ namespace LibCpp2IL
 
                         if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
                             pCodegenModules = new();
+                        else
+                            LibLogger.VerboseNewline($"\t\t\tFound valid address for pCodegenModules after a backtrack of {backtrack}, module count is {LibCpp2IlMain.TheMetadata!.imageDefinitions.Length}");
                     }
 
                     pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);

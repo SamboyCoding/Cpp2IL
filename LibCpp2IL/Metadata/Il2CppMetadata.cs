@@ -50,6 +50,8 @@ namespace LibCpp2IL.Metadata
         public Il2CppGenericParameter[] genericParameters;
         public int[] constraintIndices;
 
+        public int[] referencedAssemblies;
+
         private readonly Dictionary<int, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new Dictionary<int, Il2CppFieldDefaultValue>();
         private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue>();
 
@@ -198,6 +200,11 @@ namespace LibCpp2IL.Metadata
             LibLogger.Verbose("\tReading generic parameter constraint indices...");
             start = DateTime.Now;
             constraintIndices = ReadMetadataClassArray<int>(metadataHeader.genericParameterConstraintsOffset, metadataHeader.genericParameterConstraintsCount);
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            LibLogger.Verbose("\tReading referenced assemblies...");
+            start = DateTime.Now;
+            referencedAssemblies = ReadMetadataClassArray<int>(metadataHeader.referencedAssembliesOffset, metadataHeader.referencedAssembliesCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //v17+ fields

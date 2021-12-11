@@ -188,7 +188,7 @@ namespace LibCpp2IL.NintendoSwitch
             var symTab = GetDynamicEntry(ElfDynamicType.DT_SYMTAB);
             SymbolTable = ReadClassArrayAtVirtualAddress<ElfDynamicSymbol64>((ulong) MapVirtualAddressToRaw(symTab.Value), symbolCount);
             
-            LibLogger.VerboseNewline($"\tGot {SymbolTable.Length} symbols");
+            LibLogger.VerboseNewline($"Got {SymbolTable.Length} symbols");
         }
 
         private void ApplyRelocations()
@@ -214,11 +214,15 @@ namespace LibCpp2IL.NintendoSwitch
                 switch (elfRelaEntry.Type)
                 {
                     case ElfRelocationType.R_AARCH64_ABS64:
+                    case ElfRelocationType.R_AARCH64_GLOB_DAT:
                         var symbol = SymbolTable[elfRelaEntry.Symbol];
                         WriteWord((int) MapVirtualAddressToRaw(elfRelaEntry.Offset), symbol.Value + elfRelaEntry.Addend);
                         break;
                     case ElfRelocationType.R_AARCH64_RELATIVE:
                         WriteWord((int) MapVirtualAddressToRaw(elfRelaEntry.Offset), elfRelaEntry.Addend);
+                        break;
+                    default:
+                        LibLogger.WarnNewline($"Unknown relocation type {elfRelaEntry.Type}");
                         break;
                 }
             }

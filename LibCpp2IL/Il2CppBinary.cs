@@ -394,31 +394,26 @@ namespace LibCpp2IL
 
         public (ulong pCodeRegistration, ulong pMetadataRegistration) PlusSearch(int methodCount, int typeDefinitionsCount)
         {
-            ulong pCodeRegistration = 0;
-            ulong pMetadataRegistration;
-
             LibLogger.VerboseNewline("\tAttempting to locate code and metadata registration functions...");
 
             var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount);
 
             LibLogger.VerboseNewline("\t\t-Searching for MetadataReg...");
             
-            pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 24.5f 
+            var pMetadataRegistration = LibCpp2IlMain.MetadataVersion < 24.5f 
                 ? plusSearch.FindMetadataRegistrationPre24_5() 
                 : plusSearch.FindMetadataRegistrationPost24_5();
 
             LibLogger.VerboseNewline("\t\t-Searching for CodeReg...");
 
-            if (pCodeRegistration == 0)
+            ulong pCodeRegistration;
+            if (LibCpp2IlMain.MetadataVersion >= 24.2f)
             {
-                if (LibCpp2IlMain.MetadataVersion >= 24.2f)
-                {
-                    LibLogger.VerboseNewline("\t\t\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
-                    pCodeRegistration = plusSearch.FindCodeRegistrationPost2019();
-                }
-                else
-                    pCodeRegistration = plusSearch.FindCodeRegistrationPre2019();
+                LibLogger.VerboseNewline("\t\t\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
+                pCodeRegistration = plusSearch.FindCodeRegistrationPost2019();
             }
+            else
+                pCodeRegistration = plusSearch.FindCodeRegistrationPre2019();
 
             if (pCodeRegistration == 0 && LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput)
             {
