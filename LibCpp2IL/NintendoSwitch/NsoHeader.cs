@@ -16,14 +16,12 @@
         public uint TextCompressedSize;
         public uint RoDataCompressedSize;
         public uint DataCompressedSize;
-        public byte[] Padding;
+        public byte[] NsoHeaderReserved;
         public NsoRelativeExtent APIInfo;
         public NsoRelativeExtent DynStr;
         public NsoRelativeExtent DynSym;
         public byte[] TextHash;
         public byte[] RoDataHash;
         public byte[] DataHash;
-
-        public NsoSegmentHeader BssSegment;
     }
 }
