@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -227,9 +228,9 @@ namespace LibCpp2IL
                     if (LibCpp2IlMain.MetadataVersion < 29)
                         len = metadata.ReadClassAtRawAddr<int>(pointer);
                     else
-                        len = (int) metadata.ReadUnityCompressedIntAtRawAddr(pointer, out lenLen);
-                    if (len > 1024 * 32)
-                        throw new Exception($"Unreasonable string length {len}");
+                        len = metadata.ReadUnityCompressedIntAtRawAddr(pointer, out lenLen);
+                    if (len > 1024 * 64)
+                        LibLogger.WarnNewline("[GetDefaultValue] String length is really large: " + len);
                     return Encoding.UTF8.GetString(metadata.ReadByteArrayAtRawAddress(pointer + lenLen, len));
                 default:
                     return null;
