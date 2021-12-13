@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace Cpp2IL.Core.ISIL;
 
@@ -14,4 +15,6 @@ public class InstructionSetIndependentInstruction
 
         OpCode.Validate(this);
     }
+
+    public override string ToString() => $"{OpCode} {string.Join(", ", (IEnumerable<InstructionSetIndependentOperand>) Operands)}";
 }

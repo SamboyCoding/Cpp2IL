@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Text;
 
 namespace Cpp2IL.Core.ISIL;
 
@@ -10,14 +11,14 @@ public class IsilMemoryOperand : IsilOperandData
 {
     public readonly InstructionSetIndependentOperand? Base; //Must be literal
     public readonly InstructionSetIndependentOperand? Index;
-    public readonly long Addend;
+    public readonly ulong Addend;
     public readonly int Scale;
 
     /// <summary>
     /// Create a new memory operand representing just a constant address
     /// </summary>
     /// <param name="addend">The constant address which will be represented as the addent</param>
-    public IsilMemoryOperand(long addend)
+    public IsilMemoryOperand(ulong addend)
     {
         Addend = addend;
     }
@@ -38,7 +39,7 @@ public class IsilMemoryOperand : IsilOperandData
     /// </summary>
     /// <param name="base">The base. Should be an operand of type <see cref="InstructionSetIndependentOperand.OperandType.Register"/></param>
     /// <param name="addend">The addend relative to the memory base.</param>
-    public IsilMemoryOperand(InstructionSetIndependentOperand @base, long addend)
+    public IsilMemoryOperand(InstructionSetIndependentOperand @base, ulong addend)
     {
         Debug.Assert(@base.Type == InstructionSetIndependentOperand.OperandType.Register);
         
@@ -70,7 +71,7 @@ public class IsilMemoryOperand : IsilOperandData
     /// <param name="index">The index. Should be an operand of type <see cref="InstructionSetIndependentOperand.OperandType.Register"/></param>
     /// <param name="addend">A constant addend to be added to the memory address after adding the index multiplied by the scale.</param>
     /// <param name="scale">The scale that the index is multiplied by. Should be a positive integer.</param>
-    public IsilMemoryOperand(InstructionSetIndependentOperand @base, InstructionSetIndependentOperand index, long addend, int scale)
+    public IsilMemoryOperand(InstructionSetIndependentOperand @base, InstructionSetIndependentOperand index, ulong addend, int scale)
     {
         Debug.Assert(@base.Type == InstructionSetIndependentOperand.OperandType.Register);
         Debug.Assert(index.Type == InstructionSetIndependentOperand.OperandType.Register);
@@ -80,5 +81,46 @@ public class IsilMemoryOperand : IsilOperandData
         Index = index ?? throw new ArgumentNullException(nameof(index), "Cannot have a null index when using a scale");
         Addend = addend;
         Scale = scale;
+    }
+
+    public override string ToString()
+    {
+        var ret = new StringBuilder("[");
+        var needsPlus = false;
+
+        if (Base != null)
+        {
+            ret.Append(Base);
+            needsPlus = true;
+        }
+        
+        if(Addend > 0)
+        {
+            if (needsPlus)
+                ret.Append("+");
+            
+            if(Addend > 0x10000)
+                ret.AppendFormat("0x{0:X}", Addend);
+            else
+                ret.Append(Addend);
+            needsPlus = true;
+        }
+        
+        if (Index != null)
+        {
+            if (needsPlus)
+                ret.Append("+");
+            ret.Append(Index);
+            
+            if(Scale > 1)
+            {
+                ret.Append("*");
+                ret.Append(Scale);
+            }
+        }
+
+        ret.Append(']');
+
+        return ret.ToString();
     }
 }

@@ -18,6 +18,8 @@ public class InstructionSetIndependentOperand
         Data = data;
     }
 
+    public override string ToString() => Data.ToString();
+
     [Flags]
     public enum OperandType
     {

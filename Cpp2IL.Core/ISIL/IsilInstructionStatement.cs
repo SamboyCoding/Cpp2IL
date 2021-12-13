@@ -8,4 +8,6 @@ public class IsilInstructionStatement : IsilStatement
     {
         Instruction = instruction;
     }
+
+    public override string ToString() => Instruction.ToString();
 }

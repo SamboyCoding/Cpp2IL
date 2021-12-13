@@ -22,4 +22,6 @@ public enum IsilMnemonic
     CompareGreaterThan,
     CompareLessThanOrEqual,
     CompareGreaterThanOrEqual,
+    ShiftStack,
+    Return,
 }

@@ -8,4 +8,6 @@ public class IsilStackOperand : IsilOperandData
     {
         Offset = offset;
     }
+
+    public override string ToString() => $"stack:0x{Offset:X}";
 }

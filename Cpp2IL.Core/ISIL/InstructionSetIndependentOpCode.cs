@@ -6,7 +6,7 @@ namespace Cpp2IL.Core.ISIL;
 
 public class InstructionSetIndependentOpCode
 {
-    public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
+    public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.Memory);
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
@@ -26,6 +26,8 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode CompareGreaterThan = new(IsilMnemonic.CompareGreaterThan, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Memory);
     public static readonly InstructionSetIndependentOpCode CompareLessThanOrEqual = new(IsilMnemonic.CompareLessThanOrEqual, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Memory);
     public static readonly InstructionSetIndependentOpCode CompareGreaterThanOrEqual = new(IsilMnemonic.CompareGreaterThanOrEqual, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Memory);
+    public static readonly InstructionSetIndependentOpCode ShiftStack = new(IsilMnemonic.ShiftStack, 1, InstructionSetIndependentOperand.OperandType.Immediate);
+    public static readonly InstructionSetIndependentOpCode Return = new(IsilMnemonic.Return, 1, InstructionSetIndependentOperand.OperandType.NotStack);
 
     public readonly IsilMnemonic Mnemonic;
     public readonly InstructionSetIndependentOperand.OperandType[] PermittedOperandTypes;
@@ -68,4 +70,6 @@ public class InstructionSetIndependentOpCode
                 throw new($"Operand {operands[i]} at index {i} is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
         }
     }
+
+    public override string ToString() => Mnemonic.ToString();
 }

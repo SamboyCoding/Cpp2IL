@@ -8,4 +8,6 @@ public class IsilRegisterOperand : IsilOperandData
     {
         RegisterName = registerName;
     }
+
+    public override string ToString() => RegisterName;
 }

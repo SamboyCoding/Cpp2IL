@@ -6,9 +6,10 @@ namespace Cpp2IL.Core.Graphs;
 
 public class IfStatement<TInstruction> : IStatement
 {
-    private List<IStatement> IfBlock;
-    private List<IStatement> ElseBlock;
-    private InstructionGraphCondition<TInstruction> Condition;
+    public List<IStatement> IfBlock;
+    public List<IStatement> ElseBlock;
+    public InstructionGraphCondition<TInstruction> Condition;
+    
     public IfStatement(InstructionGraphCondition<TInstruction> condition, List<IStatement> @if, List<IStatement> @else)
     {
         Condition = condition;

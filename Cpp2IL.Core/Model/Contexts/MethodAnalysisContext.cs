@@ -1,8 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -45,6 +47,12 @@ public class MethodAnalysisContext : HasCustomAttributes
     /// </summary>
     public List<InstructionSetIndependentNode>? InstructionSetIndependentNodes;
     
+    public virtual List<Il2CppParameterReflectionData> Parameters => Definition?.Parameters?.ToList() ?? throw new("Subclasses of MethodAnalysisContext should override Parameters");
+
+    public virtual bool IsVoid => Definition?.ReturnType is {isType: true, isGenericType: false, isArray: false} returnType ? returnType.baseType!.FullName == "System.Void" : throw new("Subclasses of MethodAnalysisContext should override IsVoid");
+    
+    public virtual bool IsStatic => Definition?.IsStatic ?? throw new("Subclasses of MethodAnalysisContext should override IsStatic");
+    
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeIndex if they have custom attributes");
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
@@ -71,6 +79,6 @@ public class MethodAnalysisContext : HasCustomAttributes
     {
         ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
         ControlFlowGraph.Run();
-        AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
+        InstructionSetIndependentNodes = AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
     }
 }

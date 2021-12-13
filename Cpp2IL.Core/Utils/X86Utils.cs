@@ -143,7 +143,7 @@ namespace Cpp2IL.Core.Utils
             }
         }
 
-        public static string GetRegisterNameNew(Register register)
+        public static string GetRegisterName(Register register)
         {
             if (register == Register.None) return "";
 

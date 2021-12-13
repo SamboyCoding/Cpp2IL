@@ -2,7 +2,7 @@ using System.Collections.Generic;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class IsilIfStatement
+public class IsilIfStatement : IsilStatement
 {
     public IsilCondition Condition;
     public List<IsilStatement> IfBlock = new();
@@ -12,4 +12,7 @@ public class IsilIfStatement
     {
         Condition = condition;
     }
+
+    public IsilBuilder GetIfBuilder() => new(IfBlock);
+    public IsilBuilder GetElseBuilder() => new(ElseBlock);
 }
