@@ -1,6 +1,6 @@
 namespace Cpp2IL.Core.ISIL;
 
-public class IsilInstructionStatement : IsilStatement
+public struct IsilInstructionStatement : IsilStatement
 {
     public readonly InstructionSetIndependentInstruction Instruction;
 

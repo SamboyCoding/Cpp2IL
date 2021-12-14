@@ -1,8 +1,8 @@
 namespace Cpp2IL.Core.ISIL;
 
-public class IsilRegisterOperand : IsilOperandData
+public readonly struct IsilRegisterOperand : IsilOperandData
 {
-    public string RegisterName;
+    public readonly string RegisterName;
 
     public IsilRegisterOperand(string registerName)
     {

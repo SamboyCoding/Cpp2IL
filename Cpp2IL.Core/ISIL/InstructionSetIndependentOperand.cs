@@ -2,7 +2,7 @@ using System;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class InstructionSetIndependentOperand
+public readonly struct InstructionSetIndependentOperand
 {
     public readonly OperandType Type;
     public readonly IsilOperandData Data;

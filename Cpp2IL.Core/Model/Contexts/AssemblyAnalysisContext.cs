@@ -31,6 +31,8 @@ public class AssemblyAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => this;
 
+    private Dictionary<string, TypeAnalysisContext> TypesByName = new();
+
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
     {
         Definition = assemblyDefinition;
@@ -42,9 +44,11 @@ public class AssemblyAnalysisContext : HasCustomAttributes
         
         foreach (var il2CppTypeDefinition in Definition.Image.Types!)
         {
-            Types.Add(new(il2CppTypeDefinition, this));
+            var typeContext = new TypeAnalysisContext(il2CppTypeDefinition, this);
+            Types.Add(typeContext);
+            TypesByName[il2CppTypeDefinition.FullName!] = typeContext;
         }
     }
 
-    public TypeAnalysisContext? GetTypeByFullName(string fullName) => Types.Find(t => t.Definition.FullName == fullName);
+    public TypeAnalysisContext? GetTypeByFullName(string fullName) => TypesByName.TryGetValue(fullName, out var typeContext) ? typeContext : null;
 }

@@ -18,7 +18,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     public override bool IsVoid => BaseMethodContext.IsVoid;
 
     //TODO do we want to update these two to point at resolved generic types rather than the original generic types? 
-    public override List<Il2CppParameterReflectionData> Parameters => BaseMethodContext.Parameters;
+    public override Il2CppParameterReflectionData[] Parameters => BaseMethodContext.Parameters;
 
 
     public ConcreteGenericMethodAnalysisContext(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context) : base(context)

@@ -3,7 +3,7 @@ using System.Globalization;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class IsilImmediateOperand : IsilOperandData
+public readonly struct IsilImmediateOperand : IsilOperandData
 {
     public readonly IConvertible Value;
 

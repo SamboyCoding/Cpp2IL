@@ -257,7 +257,9 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             if (falsePath.Predecessors.Count != 1 || truePath.Predecessors.Count != 1)
                 return false;
             var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements, truePath.Statements);
+#if MERGE_DEBUG_PRINTS
             Console.WriteLine($"Merging if else block nodes {truePath.ID} and {falsePath.ID} --> {node.ID}");
+#endif
             node.FlowControl = InstructionGraphNodeFlowControl.Continue;
             node.Condition = null;
             DirectedEdgeRemove(node, truePath);

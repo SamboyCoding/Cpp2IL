@@ -202,9 +202,9 @@ namespace LibCpp2IL.Metadata
                     return null;
 
                 if (DeclaringType != null)
-                    return DeclaringType.FullName + "/" + Name;
+                    return $"{DeclaringType.FullName}/{Name}";
 
-                return (string.IsNullOrEmpty(Namespace) ? "" : Namespace + ".") + Name;
+                return $"{(string.IsNullOrEmpty(Namespace) ? "" : $"{Namespace}.")}{Name}";
             }
         }
 

@@ -26,7 +26,7 @@ namespace Cpp2IL.Core.Utils
             var endRip = decoder.IP + (uint)bytes.Length;
 
             while (decoder.IP < endRip)
-                decoder.Decode(out instructions.AllocUninitializedElement());
+                instructions.Add(decoder.Decode());
 
             return instructions;
         }
@@ -147,12 +147,13 @@ namespace Cpp2IL.Core.Utils
         {
             if (register == Register.None) return "";
 
-            if (!register.IsVectorRegister())
-                return register.GetFullRegister().ToString().ToLowerInvariant();
-
             if (!CachedX86RegNamesNew.TryGetValue(register, out var ret))
             {
-                ret = UpscaleRegisters(register.ToString().ToLower());
+                if (!register.IsVectorRegister())
+                    ret = register.GetFullRegister().ToString().ToLowerInvariant();
+                else
+                    ret = UpscaleRegisters(register.ToString().ToLower());
+                
                 CachedX86RegNamesNew[register] = ret;
             }
 

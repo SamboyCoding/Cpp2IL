@@ -13,6 +13,9 @@ public class X86InstructionSet : BaseInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
+        if (context.UnderlyingPointer == 0)
+            return new X86ControlFlowGraph(new(), context.AppContext.Binary.is32Bit, context.AppContext.GetOrCreateKeyFunctionAddresses());
+        
         List<Instruction> instructions;
 
         if (context is not AttributeGeneratorMethodAnalysisContext)
@@ -39,7 +42,11 @@ public class X86InstructionSet : BaseInstructionSet
             if (node is not X86ControlFlowGraphNode x86Node)
                 throw new("How did we get a non-x86 node?");
 
-            var isilNode = new InstructionSetIndependentNode();
+            var isilNode = new InstructionSetIndependentNode
+            {
+                Statements = new((int) (x86Node.Statements.Count * 1.2f)) //Allocate initial capacity of 20% larger than source
+            };
+            
             var builder = isilNode.GetBuilder();
             foreach (var x86NodeStatement in x86Node.Statements)
             {
@@ -162,7 +169,7 @@ public class X86InstructionSet : BaseInstructionSet
                     var possibleMethods = context.AppContext.MethodsByAddress[target];
                     var parameterCounts = possibleMethods.Select(p =>
                     {
-                        var ret = p.Parameters.Count;
+                        var ret = p.Parameters.Length;
                         if (!p.IsStatic)
                             ret++; //This arg
                         

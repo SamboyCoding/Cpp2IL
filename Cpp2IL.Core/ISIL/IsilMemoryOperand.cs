@@ -1,18 +1,19 @@
-using System;
 using System.Diagnostics;
 using System.Text;
 
 namespace Cpp2IL.Core.ISIL;
 
+//Disable this because it's an invalid warning - the values have to be initialized or it's a compiler error in a readonly struct
+// ReSharper disable RedundantDefaultMemberInitializer
 /// <summary>
 /// Represents a memory operand in the format of [Base + Addend + Index * Scale]
 /// </summary>
-public class IsilMemoryOperand : IsilOperandData
+public readonly struct IsilMemoryOperand : IsilOperandData
 {
-    public readonly InstructionSetIndependentOperand? Base; //Must be literal
-    public readonly InstructionSetIndependentOperand? Index;
-    public readonly ulong Addend;
-    public readonly int Scale;
+    public readonly InstructionSetIndependentOperand? Base = null; //Must be literal
+    public readonly InstructionSetIndependentOperand? Index = null;
+    public readonly ulong Addend = 0;
+    public readonly int Scale = 0;
 
     /// <summary>
     /// Create a new memory operand representing just a constant address
@@ -60,7 +61,7 @@ public class IsilMemoryOperand : IsilOperandData
         Debug.Assert(scale > 0);
 
         Base = @base;
-        Index = index ?? throw new ArgumentNullException(nameof(index), "Cannot have a null index when using a scale");
+        Index = index;
         Scale = scale;
     }
 
@@ -78,7 +79,7 @@ public class IsilMemoryOperand : IsilOperandData
         Debug.Assert(scale > 0);
         
         Base = @base;
-        Index = index ?? throw new ArgumentNullException(nameof(index), "Cannot have a null index when using a scale");
+        Index = index;
         Addend = addend;
         Scale = scale;
     }

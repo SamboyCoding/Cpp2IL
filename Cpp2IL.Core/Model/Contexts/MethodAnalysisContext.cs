@@ -47,7 +47,7 @@ public class MethodAnalysisContext : HasCustomAttributes
     /// </summary>
     public List<InstructionSetIndependentNode>? InstructionSetIndependentNodes;
     
-    public virtual List<Il2CppParameterReflectionData> Parameters => Definition?.Parameters?.ToList() ?? throw new("Subclasses of MethodAnalysisContext should override Parameters");
+    public virtual Il2CppParameterReflectionData[] Parameters => Definition?.Parameters ?? throw new("Subclasses of MethodAnalysisContext should override Parameters");
 
     public virtual bool IsVoid => Definition?.ReturnType is {isType: true, isGenericType: false, isArray: false} returnType ? returnType.baseType!.FullName == "System.Void" : throw new("Subclasses of MethodAnalysisContext should override IsVoid");
     
