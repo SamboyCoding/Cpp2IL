@@ -297,7 +297,7 @@ namespace Cpp2IL
             }
             catch (Exception e)
             {
-                Logger.WarnNewline("Unable to hook native library resolving for Capstone. If you're not on windows and analysing an ARM or ARM64 binary, expect this to crash!");
+                Logger.WarnNewline("Unable to hook native library resolving for Capstone. If you're not on windows and analysing an ARM or ARM64 binary, expect this to crash! Caused by " + e);
             }
 #endif
 
