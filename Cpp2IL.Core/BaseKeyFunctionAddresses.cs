@@ -118,6 +118,12 @@ namespace Cpp2IL.Core
 
                 var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.AsUnmanaged().MethodPointer, false);
                 var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
+                
+                if (calls.Count == 0)
+                {
+                    Logger.WarnNewline("Couldn't find any call instructions in the method body. This is not expected. Will not have metadata initialization function.");
+                    return;
+                }
 
                 if (LibCpp2IlMain.MetadataVersion < 27)
                 {
