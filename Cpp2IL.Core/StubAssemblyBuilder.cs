@@ -48,9 +48,11 @@ namespace Cpp2IL.Core
             asmName.HashAlgorithm = (AssemblyHashAlgorithm) assemblyDefinition.AssemblyName.hash_alg;
             asmName.Attributes = (AssemblyAttributes) assemblyDefinition.AssemblyName.flags;
             asmName.Culture = assemblyDefinition.AssemblyName.Culture;
-            asmName.PublicKeyToken = BitConverter.GetBytes(assemblyDefinition.AssemblyName.publicKeyToken);
-            if (assemblyDefinition.AssemblyName.publicKeyToken == 0)
-                asmName.PublicKeyToken = Array.Empty<byte>();
+            
+            //This just causes more pain than it's worth, so we comment it out
+            // asmName.PublicKeyToken = BitConverter.GetBytes(assemblyDefinition.AssemblyName.publicKeyToken);
+            // if (assemblyDefinition.AssemblyName.publicKeyToken == 0)
+            asmName.PublicKeyToken = Array.Empty<byte>();
             // asmName.PublicKey = Encoding.UTF8.GetBytes(assemblyDefinition.AssemblyName.PublicKey); //This seems to be garbage data, e.g. "\x0\x0\x0\x0\x0\x0\x0\x0\x4\x0\x0\x0\x0\x0\x0\x0", so we skip
             asmName.Hash = assemblyDefinition.AssemblyName.hash_len == 0 ? Array.Empty<byte>() : Encoding.UTF8.GetBytes(assemblyDefinition.AssemblyName.HashValue);
             
