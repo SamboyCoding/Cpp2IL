@@ -5,11 +5,11 @@ using System.Runtime.InteropServices;
 // set of attributes. Change these attribute values to modify the information
 // associated with an assembly.
 [assembly: AssemblyDescription("Library for reversing Unity's il2cpp build process")]
-[assembly: AssemblyCopyright("Copyright © Samboy063 2019-2020")]
+[assembly: AssemblyCopyright("Copyright © Samboy063 2019-2022")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
-[assembly: AssemblyVersion("2021.6.1")]
-[assembly: AssemblyFileVersion("2021.6.1")]
+[assembly: AssemblyVersion("2022.0.0")]
+[assembly: AssemblyFileVersion("2022.0.0")]
 
 // Setting ComVisible to false makes the types in this assembly not visible 
 // to COM components.  If you need to access a type in this assembly from 
