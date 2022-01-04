@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -17,6 +18,9 @@ namespace Cpp2IL.Core.Utils
         private static readonly object PointerReadLock = new();
         private static readonly Dictionary<string, (TypeDefinition typeDefinition, string[] genericParams)?> CachedTypeDefsByName = new();
         private static readonly Dictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
+        
+        internal static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
+        internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndexNew = new();
 
         public static ITypeDescriptor GetTypeDefFromIl2CppType(ReferenceImporter importer, Il2CppType il2CppType)
         {
@@ -63,7 +67,7 @@ namespace Cpp2IL.Core.Utils
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {
-                    var typeDefinition = SharedState.TypeDefsByIndexNew[il2CppType.data.classIndex];
+                    var typeDefinition = TypeDefsByIndex[il2CppType.data.classIndex];
                     return importer.ImportType(typeDefinition.ToTypeReference());
                 }
 
@@ -81,7 +85,7 @@ namespace Cpp2IL.Core.Utils
                     TypeDefinition typeDefinition;
                     if (LibCpp2IlMain.MetadataVersion < 27f)
                     {
-                        typeDefinition = SharedState.TypeDefsByIndexNew[genericClass.typeDefinitionIndex];
+                        typeDefinition = TypeDefsByIndex[genericClass.typeDefinitionIndex];
                     }
                     else
                     {
@@ -149,7 +153,7 @@ namespace Cpp2IL.Core.Utils
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
                 {
-                    if (SharedState.GenericParamsByIndexNew.TryGetValue(il2CppType.data.genericParameterIndex, out var genericParameter))
+                    if (GenericParamsByIndexNew.TryGetValue(il2CppType.data.genericParameterIndex, out var genericParameter))
                         return genericParameter;
 
                     var param = LibCpp2IlMain.TheMetadata!.genericParameters[il2CppType.data.genericParameterIndex];
@@ -158,7 +162,7 @@ namespace Cpp2IL.Core.Utils
                     {
                         genericParameter = new GenericParameter(genericName, (GenericParameterAttributes) param.flags);
 
-                        SharedState.GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
+                        GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
 
                         param.ConstraintTypes!
                             .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
@@ -170,7 +174,7 @@ namespace Cpp2IL.Core.Utils
 
                     genericParameter = new GenericParameter(genericName, (GenericParameterAttributes) param.flags);
 
-                    SharedState.GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
+                    GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
                     
                     param.ConstraintTypes!
                         .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
@@ -181,7 +185,7 @@ namespace Cpp2IL.Core.Utils
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_MVAR:
                 {
-                    if (SharedState.GenericParamsByIndexNew.TryGetValue(il2CppType.data.genericParameterIndex, out var genericParameter))
+                    if (GenericParamsByIndexNew.TryGetValue(il2CppType.data.genericParameterIndex, out var genericParameter))
                     {
                         return genericParameter;
                     }
@@ -190,7 +194,7 @@ namespace Cpp2IL.Core.Utils
                     var genericName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(param.nameIndex);
                     genericParameter = new GenericParameter(genericName, (GenericParameterAttributes) param.flags);
 
-                    SharedState.GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
+                    GenericParamsByIndexNew.Add(il2CppType.data.genericParameterIndex, genericParameter);
 
                     param.ConstraintTypes!
                         .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
@@ -246,7 +250,7 @@ namespace Cpp2IL.Core.Utils
             //And during exception helper location, which is always a system type.
             //So really the only remapping we should have to handle is during explicit override restoration.
 
-            var definedType = SharedState.AllTypeDefinitionsNew.Find(t => string.Equals(t?.FullName, name, StringComparison.OrdinalIgnoreCase));
+            var definedType = Cpp2IlApi.CurrentAppContext!.AllTypes.FirstOrDefault(t => string.Equals(t?.Definition.FullName, name, StringComparison.OrdinalIgnoreCase));
 
             if (name.EndsWith("[]"))
             {
@@ -265,38 +269,38 @@ namespace Cpp2IL.Core.Utils
                 if (!name.Contains("`"))
                     name = name + "`" + (genericParams.Length);
 
-                definedType = SharedState.AllTypeDefinitionsNew.Find(t => t.FullName == name);
+                definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => t.Definition.FullName == name);
             }
 
-            if (definedType != null) return (definedType, genericParams);
+            if (definedType != null) return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
 
             //It's possible they didn't specify a `System.` prefix
             var searchString = $"System.{name}";
-            definedType = SharedState.AllTypeDefinitionsNew.Find(t => string.Equals(t.FullName, searchString, StringComparison.OrdinalIgnoreCase));
+            definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => string.Equals(t.Definition.FullName, searchString, StringComparison.OrdinalIgnoreCase));
 
-            if (definedType != null) return (definedType, genericParams);
+            if (definedType != null) return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
-            var matches = SharedState.AllTypeDefinitionsNew.Where(t => string.Equals(t.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+            var matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => string.Equals(t.Definition.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 
             if (definedType != null) 
-                return (definedType, genericParams);
+                return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
 
             if (!name.Contains("."))
                 return null;
 
             searchString = name;
             //Try subclasses
-            matches = SharedState.AllTypeDefinitionsNew.Where(t => t.FullName.Replace('/', '.').EndsWith(searchString)).ToList();
+            matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => t.Definition.FullName!.Replace('/', '.').EndsWith(searchString)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 
             if (definedType == null)
                 return null;
 
-            return new (definedType, genericParams);
+            return new (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
         }
 
         public static ReferenceImporter GetImporter(this AssemblyDefinition assemblyDefinition)
@@ -341,10 +345,10 @@ namespace Cpp2IL.Core.Utils
 
         public static Constant MakeConstant(object from)
         {
-            if (from is string s)
+            if (@from is string s)
                 return new(ElementType.String, new(Encoding.Unicode.GetBytes(s)));
             
-            return new(GetElementTypeFromConstant(from), new DataBlobSignature(MiscUtils.RawBytes((IConvertible) from)));
+            return new(GetElementTypeFromConstant(@from), new DataBlobSignature(MiscUtils.RawBytes((IConvertible) @from)));
         }
 
         public static bool IsManagedMethodWithBody(this MethodDefinition managedMethod) => 

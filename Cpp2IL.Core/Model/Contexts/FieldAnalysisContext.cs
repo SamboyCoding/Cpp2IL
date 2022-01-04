@@ -1,3 +1,4 @@
+using LibCpp2IL;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -15,16 +16,16 @@ public class FieldAnalysisContext : HasCustomAttributes
     /// <summary>
     /// The underlying field metadata.
     /// </summary>
-    public readonly Il2CppFieldDefinition Definition;
+    public readonly Il2CppFieldReflectionData BackingData;
     
-    protected override int CustomAttributeIndex => Definition.customAttributeIndex;
+    protected override int CustomAttributeIndex => BackingData.field.customAttributeIndex;
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public FieldAnalysisContext(Il2CppFieldDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
+    public FieldAnalysisContext(Il2CppFieldReflectionData backingData, TypeAnalysisContext parent) : base(backingData.field.token, parent.AppContext)
     {
         DeclaringType = parent;
-        Definition = definition;
+        BackingData = backingData;
         
         InitCustomAttributeData();
     }

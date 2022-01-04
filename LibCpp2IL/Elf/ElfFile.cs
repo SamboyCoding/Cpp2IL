@@ -423,7 +423,7 @@ namespace LibCpp2IL.Elf
             _initializerPointers = initArray.Select(MapVirtualAddressToRaw).ToList();
         }
 
-        public (ulong codeReg, ulong metaReg) FindCodeAndMetadataReg()
+        public override (ulong pCodeRegistration, ulong pMetadataRegistration) FindCodeAndMetadataReg(int methodCount, int typeDefinitionsCount)
         {
             //Let's just try and be cheap here and find them in the symbol table.
 
@@ -450,7 +450,7 @@ namespace LibCpp2IL.Elf
             if (InstructionSetId == DefaultInstructionSets.ARM_V8 && LibCpp2IlMain.MetadataVersion < 24.2f)
                 return FindCodeAndMetadataRegArm64();
             
-            return FindCodeAndMetadataRegDefaultBehavior();
+            return FindCodeAndMetadataRegDefaultBehavior(methodCount, typeDefinitionsCount);
         }
 
         private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm32()
@@ -604,11 +604,11 @@ namespace LibCpp2IL.Elf
             return (0, 0);
         }
 
-        private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegDefaultBehavior()
+        private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegDefaultBehavior(int methodCount, int typeDefinitionsCount)
         {
             
                 LibLogger.VerboseNewline("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
-                var searcher = new BinarySearcher(this, LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length);
+                var searcher = new BinarySearcher(this, methodCount, typeDefinitionsCount);
                 
                 LibLogger.VerboseNewline("\tLooking for code reg (this might take a while)...");
                 var codeReg = LibCpp2IlMain.MetadataVersion >= 24.2f ? searcher.FindCodeRegistrationPost2019() : searcher.FindCodeRegistrationPre2019();

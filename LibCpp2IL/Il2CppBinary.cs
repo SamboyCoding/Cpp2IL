@@ -1,14 +1,11 @@
 ﻿using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL
 {
@@ -16,6 +13,7 @@ namespace LibCpp2IL
     {
         public InstructionSetId InstructionSetId;
         
+        // ReSharper disable InconsistentNaming
         protected readonly long maxMetadataUsages;
         private Il2CppMetadataRegistration metadataRegistration;
         private Il2CppCodeRegistration codeRegistration;
@@ -38,8 +36,11 @@ namespace LibCpp2IL
         public readonly Dictionary<Il2CppMethodDefinition, List<Cpp2IlMethodRef>> ConcreteGenericMethods = new();
         public readonly Dictionary<ulong, List<Cpp2IlMethodRef>> ConcreteGenericImplementationsByAddress = new();
         public ulong[] TypeDefinitionSizePointers;
+        // ReSharper restore InconsistentNaming
 
+#pragma warning disable CS8618 //Non-nullable field is uninitialized. Consider declaring as nullable.
         protected Il2CppBinary(MemoryStream input, long maxMetadataUsages) : base(input)
+#pragma warning restore CS8618
         {
             this.maxMetadataUsages = maxMetadataUsages;
         }
@@ -198,7 +199,7 @@ namespace LibCpp2IL
                 var genericMethodIndex = table.genericMethodIndex;
                 var genericMethodPointerIndex = table.indices.methodIndex;
 
-                var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex, out _);
+                var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex);
 
                 if (!genericMethodDictionary.ContainsKey(methodDefIndex) && genericMethodPointerIndex < genericMethodPointers.Length)
                 {
@@ -209,8 +210,9 @@ namespace LibCpp2IL
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
 
-        private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex, out Cpp2IlMethodRef? genericMethodRef)
+        private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex)
         {
+            Cpp2IlMethodRef? genericMethodRef;
             var methodSpec = GetMethodSpec(genericMethodIndex);
             var methodDefIndex = methodSpec.methodDefinitionIndex;
             genericMethodRef = new Cpp2IlMethodRef(methodSpec);
@@ -392,7 +394,7 @@ namespace LibCpp2IL
 
         public abstract ulong GetVirtualAddressOfPrimaryExecutableSection();
 
-        public (ulong pCodeRegistration, ulong pMetadataRegistration) PlusSearch(int methodCount, int typeDefinitionsCount)
+        public virtual (ulong pCodeRegistration, ulong pMetadataRegistration) FindCodeAndMetadataReg(int methodCount, int typeDefinitionsCount)
         {
             LibLogger.VerboseNewline("\tAttempting to locate code and metadata registration functions...");
 

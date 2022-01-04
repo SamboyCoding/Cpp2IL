@@ -38,6 +38,11 @@ public class TypeAnalysisContext : HasCustomAttributes
     /// The analysis contexts for fields contained within this type.
     /// </summary>
     public readonly List<FieldAnalysisContext> Fields;
+
+    /// <summary>
+    /// The analysis contexts for nested types within this type.
+    /// </summary>
+    public List<TypeAnalysisContext> NestedTypes { get; internal set; } = new();
     
     protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 
@@ -53,7 +58,7 @@ public class TypeAnalysisContext : HasCustomAttributes
         Methods = Definition.Methods!.Select(m => new MethodAnalysisContext(m, this)).ToList();
         Properties = Definition.Properties!.Select(p => new PropertyAnalysisContext(p, this)).ToList();
         Events = Definition.Events!.Select(e => new EventAnalysisContext(e, this)).ToList();
-        Fields = Definition.Fields!.Select(f => new FieldAnalysisContext(f, this)).ToList();
+        Fields = Definition.FieldInfos!.Select(f => new FieldAnalysisContext(f, this)).ToList();
     }
     
     public MethodAnalysisContext? GetMethod(Il2CppMethodDefinition? methodDefinition)

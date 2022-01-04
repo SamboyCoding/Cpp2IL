@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using Cpp2IL.Core.Model;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.Api;
 
 public static class InstructionSetRegistry
 {
@@ -11,12 +11,4 @@ public static class InstructionSetRegistry
     public static void RegisterInstructionSet<T>(InstructionSetId forId) where T : BaseInstructionSet, new() => _registeredSets.Add(forId, new T());
     
     public static BaseInstructionSet GetInstructionSet(InstructionSetId forId) => _registeredSets[forId];
-
-    static InstructionSetRegistry()
-    {
-        RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_32);
-        RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_64);
-        RegisterInstructionSet<WasmInstructionSet>(DefaultInstructionSets.WASM);
-        RegisterInstructionSet<ArmV7InstructionSet>(DefaultInstructionSets.ARM_V7);
-    }
 }

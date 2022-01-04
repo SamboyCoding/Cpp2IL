@@ -142,54 +142,12 @@ namespace LibCpp2IL
             
             TheMetadata = Il2CppMetadata.ReadFrom(metadataBytes, unityVersion);
             
-            LibLogger.InfoNewline($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
-
             if (TheMetadata == null)
                 return false;
-
-            LibLogger.InfoNewline("Searching Binary for Required Data...");
-            start = DateTime.Now;
-
-            ulong codereg, metareg;
-            if (BitConverter.ToInt16(binaryBytes, 0) == 0x5A4D)
-            {
-                var pe = new PE.PE(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
-                Binary = pe;
-
-                (codereg, metareg) = pe.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
-            } else if (BitConverter.ToInt32(binaryBytes, 0) == 0x464c457f)
-            {
-                var elf = new ElfFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, true, true), TheMetadata.maxMetadataUsages);
-                Binary = elf;
-                (codereg, metareg) = elf.FindCodeAndMetadataReg();
-            }
-            else if (BitConverter.ToInt32(binaryBytes, 0) == 0x304F534E) //NSO0
-            {
-                var nso = new NsoFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
-                nso = nso.Decompress();
-                Binary = nso;
-                (codereg, metareg) = nso.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
-            } else if (BitConverter.ToInt32(binaryBytes, 0) == 0x6D736100) //\0WASM
-            {
-                var wasm = new WasmFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
-                Binary = wasm;
-                (codereg, metareg) = wasm.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
-            }
-            else
-            {
-                throw new Exception("Unknown binary type");
-            }
             
-            if (codereg == 0 || metareg == 0)
-                throw new Exception("Failed to find Binary code or metadata registration");
-                
-            LibLogger.InfoNewline($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.");
-            LibLogger.InfoNewline("Initializing Binary...");
-            start = DateTime.Now;
-                
-            Binary.Init(codereg, metareg);
-            
-            LibLogger.InfoNewline($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+            LibLogger.InfoNewline($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+
+            Binary = LibCpp2IlBinaryRegistry.CreateAndInit(binaryBytes, TheMetadata);
 
             if (!Settings.DisableGlobalResolving && MetadataVersion < 27)
             {

@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using AsmResolver.DotNet;
+using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Exceptions;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -10,7 +12,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Top-level class to represent an individual il2cpp application that has been loaded into cpp2il.
 /// </summary>
-public class ApplicationAnalysisContext
+public class ApplicationAnalysisContext : ContextWithDataStorage
 {
     /// <summary>
     /// The IL2CPP binary file this application was loaded from
@@ -119,4 +121,6 @@ public class ApplicationAnalysisContext
 
         return _keyFunctionAddresses;
     }
+
+    public IEnumerable<TypeAnalysisContext> AllTypes => Assemblies.SelectMany(a => a.Types);
 }

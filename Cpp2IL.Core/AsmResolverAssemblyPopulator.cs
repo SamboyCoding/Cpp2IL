@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
@@ -6,6 +5,7 @@ using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.DotNet.Signatures;
 using AsmResolver.PE.DotNet.Cil;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
+using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 
@@ -13,11 +13,13 @@ namespace Cpp2IL.Core;
 
 public static class AsmResolverAssemblyPopulator
 {
-    public static void ConfigureHierarchy()
+    public static void ConfigureHierarchy(AssemblyAnalysisContext asmCtx)
     {
-        foreach (var typeDefinition in SharedState.AllTypeDefinitionsNew)
+        foreach (var typeCtx in asmCtx.Types)
         {
-            var il2CppTypeDef = SharedState.ManagedToUnmanagedTypesNew[typeDefinition];
+            var il2CppTypeDef = typeCtx.Definition;
+            var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context");
+            
             var importer = typeDefinition.Module!.Assembly!.GetImporter();
 
             //Type generic params.
@@ -42,10 +44,10 @@ public static class AsmResolverAssemblyPopulator
 
         foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
         {
-            if (!SharedState.GenericParamsByIndexNew.TryGetValue(param.Index, out var p))
+            if (!AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(param.Index, out var p))
             {
                 p = new GenericParameter(param.Name, (GenericParameterAttributes) param.flags);
-                SharedState.GenericParamsByIndexNew[param.Index] = p;
+                AsmResolverUtils.GenericParamsByIndexNew[param.Index] = p;
 
                 ilTypeDefinition.GenericParameters.Add(p);
 
@@ -59,20 +61,20 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    public static void CopyDataFromIl2CppToManaged(Il2CppImageDefinition imageDef)
+    public static void CopyDataFromIl2CppToManaged(AssemblyAnalysisContext asmContext)
     {
-        foreach (var il2CppTypeDefinition in imageDef.Types!)
+        foreach (var typeContext in asmContext.Types)
         {
-            if (il2CppTypeDefinition.Name == "<Module>")
+            if (typeContext.Definition.Name == "<Module>")
                 continue;
 
-            var managedType = SharedState.UnmanagedToManagedTypesNew[il2CppTypeDefinition];
+            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context");
 
 #if !DEBUG
             try
             {
 #endif
-            CopyIl2CppDataToManagedType(il2CppTypeDefinition, managedType);
+            CopyIl2CppDataToManagedType(typeContext, managedType);
 #if !DEBUG
             }
             catch (Exception e)
@@ -83,23 +85,25 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void CopyIl2CppDataToManagedType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyIl2CppDataToManagedType(TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
         var importer = ilTypeDefinition.Module!.Assembly!.GetImporter();
 
-        CopyFieldsInType(importer, cppTypeDefinition, ilTypeDefinition);
+        CopyFieldsInType(importer, typeContext, ilTypeDefinition);
 
-        CopyMethodsInType(importer, cppTypeDefinition, ilTypeDefinition);
+        CopyMethodsInType(importer, typeContext, ilTypeDefinition);
 
-        CopyPropertiesInType(importer, cppTypeDefinition, ilTypeDefinition);
+        CopyPropertiesInType(importer, typeContext, ilTypeDefinition);
 
-        CopyEventsInType(importer, cppTypeDefinition, ilTypeDefinition);
+        CopyEventsInType(importer, typeContext, ilTypeDefinition);
     }
 
-    private static void CopyFieldsInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyFieldsInType(ReferenceImporter importer, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
-        foreach (var fieldInfo in cppTypeDefinition.FieldInfos!)
+        foreach (var field in cppTypeDefinition.Fields)
         {
+            var fieldInfo = field.BackingData;
+            
             var fieldTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, fieldInfo.field.RawFieldType!).ToTypeSignature());
             var fieldSignature = (fieldInfo.attributes & System.Reflection.FieldAttributes.Static) != 0
                 ? FieldSignature.CreateStatic(fieldTypeSig)
@@ -119,22 +123,24 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void CopyMethodsInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyMethodsInType(ReferenceImporter importer, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
-        foreach (var method in cppTypeDefinition.Methods!)
+        foreach (var methodCtx in cppTypeDefinition.Methods)
         {
-            var returnType = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, method.RawReturnType!).ToTypeSignature());
-            var parameterTypes = method.InternalParameterData!
+            var methodDef = methodCtx.Definition!;
+            
+            var returnType = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, methodDef.RawReturnType!).ToTypeSignature());
+            var parameterTypes = methodDef.InternalParameterData!
                 .Select(p => AsmResolverUtils.GetTypeDefFromIl2CppType(importer, p.RawType!).ToTypeSignature())
                 .Select(importer.ImportTypeSignature)
                 .ToArray();
 
-            var signature = method.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
+            var signature = methodDef.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
 
-            var managedMethod = new MethodDefinition(method.Name, (MethodAttributes) method.Attributes, signature);
+            var managedMethod = new MethodDefinition(methodDef.Name, (MethodAttributes) methodDef.Attributes, signature);
 
             //Add parameter definitions so we get names, defaults, out params, etc
-            var paramData = method.Parameters!;
+            var paramData = methodDef.Parameters!;
             ushort seq = 1;
             foreach (var param in paramData)
             {
@@ -149,10 +155,10 @@ public static class AsmResolverAssemblyPopulator
                 FillMethodBodyWithStub(managedMethod);
 
             //Handle generic parameters.
-            method.GenericContainer?.GenericParameters.ToList()
+            methodDef.GenericContainer?.GenericParameters.ToList()
                 .ForEach(p =>
                 {
-                    if (SharedState.GenericParamsByIndexNew.TryGetValue(p.Index, out var gp))
+                    if (AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(p.Index, out var gp))
                     {
                         if (!managedMethod.GenericParameters.Contains(gp))
                             managedMethod.GenericParameters.Add(gp);
@@ -171,16 +177,18 @@ public static class AsmResolverAssemblyPopulator
                         .ForEach(gp.Constraints.Add);
                 });
 
-            SharedState.UnmanagedToManagedMethodsNew[method] = managedMethod;
-            SharedState.ManagedToUnmanagedMethodsNew[managedMethod] = method;
+            
+            methodCtx.PutExtraData("AsmResolverMethod", managedMethod);
             ilTypeDefinition.Methods.Add(managedMethod);
         }
     }
 
-    private static void CopyPropertiesInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyPropertiesInType(ReferenceImporter importer, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
-        foreach (var property in cppTypeDefinition.Properties!)
+        foreach (var propertyCtx in cppTypeDefinition.Properties)
         {
+            var property = propertyCtx.Definition;
+            
             var propertyTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, property.RawPropertyType!).ToTypeSignature());
             var propertySignature = property.IsStatic
                 ? PropertySignature.CreateStatic(propertyTypeSig)
@@ -188,8 +196,8 @@ public static class AsmResolverAssemblyPopulator
 
             var managedProperty = new PropertyDefinition(property.Name, (PropertyAttributes) property.attrs, propertySignature);
 
-            var managedGetter = property.Getter == null ? null : SharedState.UnmanagedToManagedMethodsNew[property.Getter];
-            var managedSetter = property.Setter == null ? null : SharedState.UnmanagedToManagedMethodsNew[property.Setter];
+            var managedGetter = propertyCtx.Getter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
+            var managedSetter = propertyCtx.Setter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
 
             if (managedGetter != null)
                 managedProperty.Semantics.Add(new(managedGetter, MethodSemanticsAttributes.Getter));
@@ -201,17 +209,19 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void CopyEventsInType(ReferenceImporter importer, Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyEventsInType(ReferenceImporter importer, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
-        foreach (var eventDef in cppTypeDefinition.Events!)
+        foreach (var eventCtx in cppTypeDefinition.Events)
         {
+            var eventDef = eventCtx.Definition;
+            
             var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, eventDef.RawType!).ToTypeDefOrRef());
 
             var managedEvent = new EventDefinition(eventDef.Name, (EventAttributes) eventDef.EventAttributes, eventType);
-
-            var managedAdder = eventDef.Adder == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Adder];
-            var managedRemover = eventDef.Remover == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Remover];
-            var managedInvoker = eventDef.Invoker == null ? null : SharedState.UnmanagedToManagedMethodsNew[eventDef.Invoker];
+            
+            var managedAdder = eventCtx.Adder?.GetExtraData<MethodDefinition>("AsmResolverMethod");
+            var managedRemover = eventCtx.Remover?.GetExtraData<MethodDefinition>("AsmResolverMethod");
+            var managedInvoker = eventCtx.Invoker?.GetExtraData<MethodDefinition>("AsmResolverMethod");
 
             if (managedAdder != null)
                 managedEvent.Semantics.Add(new(managedAdder, MethodSemanticsAttributes.AddOn));

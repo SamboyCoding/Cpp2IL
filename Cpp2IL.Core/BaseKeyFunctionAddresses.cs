@@ -26,27 +26,27 @@ namespace Cpp2IL.Core
         public ulong il2cpp_vm_reflection_get_type_object; //Thunked from above
         public ulong il2cpp_resolve_icall; //Api function (exported)
         public ulong InternalCalls_Resolve; //Thunked from above.
-        
+
         public ulong il2cpp_string_new; //Api function (exported)
         public ulong il2cpp_vm_string_new; //Thunked from above
         public ulong il2cpp_string_new_wrapper; //Api function
         public ulong il2cpp_vm_string_newWrapper; //Thunked from above
         public ulong il2cpp_codegen_string_new_wrapper; //Not sure if actual name, used in ARM64 attribute gens, thunks TO above.
-        
+
         public ulong il2cpp_value_box; //Api function (exported)
         public ulong il2cpp_vm_object_box; //Thunked from above
 
         public ulong il2cpp_object_unbox; //Api function
         public ulong il2cpp_vm_object_unbox; //Thunked from above
-        
+
         public ulong il2cpp_raise_exception; //Api function (exported)
         public ulong il2cpp_vm_exception_raise; //Thunked from above
         public ulong il2cpp_codegen_raise_exception; //Thunked TO above. don't know real name.
-        
+
         public ulong il2cpp_vm_object_is_inst; //Not exported, not thunked. Can be located via the Type#IsInstanceOfType icall.
-        
+
         public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
-        
+
         private ApplicationAnalysisContext _appContext = null!; //Always initialized before used
 
         private void FindExport(string name, out ulong ptr)
@@ -61,9 +61,9 @@ namespace Cpp2IL.Core
         {
             _appContext = applicationAnalysisContext;
             Init(applicationAnalysisContext);
-            
+
             //Try to find System.Exception (should always be there)
-            if(applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_32 || applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
+            if (applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_32 || applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
                 //TODO make this abstract and implement in subclasses.
                 TryGetInitMetadataFromException();
 
@@ -96,12 +96,12 @@ namespace Cpp2IL.Core
 
             //New array of fixed size
             FindExport("il2cpp_array_new_specific", out il2cpp_array_new_specific);
-            
+
             //Object IsInst
             il2cpp_vm_object_is_inst = GetObjectIsInstFromSystemType();
-            
+
             AttemptInstructionAnalysisToFillGaps();
-            
+
             FindThunks();
         }
 
@@ -120,6 +120,12 @@ namespace Cpp2IL.Core
                 var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.MethodPointer, false);
                 var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
 
+                if (calls.Count == 0)
+                {
+                    Logger.WarnNewline("Couldn't find any call instructions in the method body. This is not expected. Will not have metadata initialization function.");
+                    return;
+                }
+
                 if (_appContext.MetadataVersion < 27)
                 {
                     il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
@@ -135,7 +141,6 @@ namespace Cpp2IL.Core
 
         protected virtual void AttemptInstructionAnalysisToFillGaps()
         {
-            
         }
 
         private void FindThunks()
@@ -150,43 +155,43 @@ namespace Cpp2IL.Core
             if (il2cpp_vm_object_new != 0)
             {
                 Logger.Verbose("\t\tLooking for il2cpp_codegen_object_new as a thunk of vm::Object::New...");
-                
+
                 var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, 16);
-                
+
                 //Sort by caller count in ascending order
                 var list = potentialThunks.Select(ptr => (ptr, count: GetCallerCount(ptr))).ToList();
                 list.SortByExtractedKey(pair => pair.count);
 
                 //Sort in descending order - most called first
                 list.Reverse();
-                
+
                 //Take first as the target
                 il2cpp_codegen_object_new = list.FirstOrDefault().ptr;
-                
+
                 Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_object_new:X}");
             }
-            
+
             if (il2cpp_type_get_object != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
                 il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(il2cpp_type_get_object);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_reflection_get_type_object:X}");
             }
-            
+
             if (il2cpp_resolve_icall != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
                 InternalCalls_Resolve = FindFunctionThisIsAThunkOf(il2cpp_resolve_icall);
                 Logger.VerboseNewline($"Found at 0x{InternalCalls_Resolve:X}");
             }
-            
+
             if (il2cpp_string_new != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_string_new to String::New...");
                 il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(il2cpp_string_new);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_new:X}");
             }
-            
+
             if (il2cpp_string_new_wrapper != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_string_new_wrapper to String::NewWrapper...");
@@ -207,14 +212,14 @@ namespace Cpp2IL.Core
                 il2cpp_vm_object_box = FindFunctionThisIsAThunkOf(il2cpp_value_box);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_box:X}");
             }
-            
+
             if (il2cpp_object_unbox != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_object_unbox to Object::Unbox...");
                 il2cpp_vm_object_unbox = FindFunctionThisIsAThunkOf(il2cpp_object_unbox);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_object_unbox:X}");
             }
-            
+
             if (il2cpp_raise_exception != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_raise_exception to il2cpp::vm::Exception::Raise...");
@@ -228,7 +233,7 @@ namespace Cpp2IL.Core
                 il2cpp_codegen_raise_exception = FindAllThunkFunctions(il2cpp_vm_exception_raise, 4, il2cpp_raise_exception).FirstOrDefault();
                 Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_raise_exception:X}");
             }
-            
+
             if (il2cpp_runtime_class_init_export != 0)
             {
                 Logger.Verbose("\t\tMapping il2cpp_runtime_class_init to il2cpp:vm::Runtime::ClassInit...");

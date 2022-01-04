@@ -7,24 +7,19 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime;
 using System.Runtime.InteropServices;
-using System.Text;
 using CommandLine;
 using Cpp2IL.Core;
-using Cpp2IL.Core.Exceptions;
-using Cpp2IL.Core.Graphs;
-using Cpp2IL.Core.Utils;
 #if !DEBUG
 using Cpp2IL.Core.Exceptions;
 #endif
 using LibCpp2IL;
-using AssemblyDefinition = AsmResolver.DotNet.AssemblyDefinition;
 
 namespace Cpp2IL
 {
     [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
     internal class Program
     {
-        private static readonly List<string> _pathsToDeleteOnExit = new List<string>();
+        private static readonly List<string> PathsToDeleteOnExit = new();
 
         private static readonly string[] BlacklistedExecutableFilenames =
         {
@@ -43,7 +38,7 @@ namespace Cpp2IL
                 //Windows game.
                 args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.dll");
                 var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
-                    .FirstOrDefault(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(bl => f.EndsWith(bl))));
+                    .FirstOrDefault(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
                 exeName = inputExeName ?? exeName;
 
@@ -67,8 +62,8 @@ namespace Cpp2IL
                     Logger.Warn("Could not determine unity version, probably due to not running on windows and not having any assets files to determine it from. Enter unity version, if known, in the format of (xxxx.x.x), else nothing to fail: ");
                     var userInputUv = Console.ReadLine();
                     uv = userInputUv?.Split('.').Select(int.Parse).ToArray();
-                    
-                    if(uv == null)
+
+                    if (uv == null)
                         throw new SoftException("Failed to determine unity version. If you're not running on windows, I need a globalgamemanagers file or a data.unity3d file, or you need to use the force options.");
                 }
 
@@ -126,8 +121,8 @@ namespace Cpp2IL
                 var tempFileBinary = Path.GetTempFileName();
                 var tempFileMeta = Path.GetTempFileName();
 
-                _pathsToDeleteOnExit.Add(tempFileBinary);
-                _pathsToDeleteOnExit.Add(tempFileMeta);
+                PathsToDeleteOnExit.Add(tempFileBinary);
+                PathsToDeleteOnExit.Add(tempFileMeta);
 
                 Logger.InfoNewline($"Extracting APK/{binary.FullName} to {tempFileBinary}", "APK");
                 binary.ExtractToFile(tempFileBinary, true);
@@ -214,7 +209,7 @@ namespace Cpp2IL
                 result.IlToAsmContinueThroughErrors = true;
                 result.EnableMetadataGeneration = false;
             }
-            
+
             if (result.DisableMethodDumps)
                 result.AnalysisLevel = AnalysisLevel.IL_ONLY;
             else
@@ -285,6 +280,8 @@ namespace Cpp2IL
             GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
 
             ConsoleLogger.ShowVerbose = runtimeArgs.EnableVerboseLogging;
+            
+            Cpp2IlApi.Init();
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
 
@@ -327,12 +324,17 @@ namespace Cpp2IL
             // Logger.InfoNewline($"Finished building graphs in {DateTime.Now - startTime:g}");
             // Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
             // Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
-            
+
             // Cpp2IlApi.CurrentAppContext!.GetAssemblyByName("mscorlib")!.GetTypeByFullName("<>f__AnonymousType0`1")!.GetConstructors().First().Analyze();
             
-            Cpp2IlApi.PopulateCustomAttributesForAssembly(Cpp2IlApi.CurrentAppContext!.GetAssemblyByName("mscorlib")!);
+            // DoTheFunny();
+            
+            foreach (var assemblyAnalysisContext in Cpp2IlApi.CurrentAppContext!.Assemblies)
+            {
+                Cpp2IlApi.PopulateCustomAttributesForAssembly(assemblyAnalysisContext);
+            }
 
-            Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
+            // Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
 
 #if NET6_0
             //Fix capstone native library loading on non-windows
@@ -343,7 +345,7 @@ namespace Cpp2IL
                 var arm64InstructionType = allInstructionsField!.FieldType.GenericTypeArguments.First();
                 NativeLibrary.SetDllImportResolver(arm64InstructionType.Assembly, DllImportResolver);
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 Logger.WarnNewline("Unable to hook native library resolving for Capstone. If you're not on windows and analysing an ARM or ARM64 binary, expect this to crash!");
             }
@@ -361,10 +363,10 @@ namespace Cpp2IL
 
             if (runtimeArgs.EnableAnalysis)
                 Cpp2IlApi.PopulateConcreteImplementations();
-            
+
             // Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
 
-            Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory, Cpp2IlApi.GeneratedAssemblies);
+            // Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory, Cpp2IlApi.GeneratedAssemblies);
 
             // if (runtimeArgs.EnableAnalysis)
             // {
@@ -381,7 +383,7 @@ namespace Cpp2IL
             //     }
             // }
 
-            foreach (var p in _pathsToDeleteOnExit)
+            foreach (var p in PathsToDeleteOnExit)
             {
                 try
                 {
@@ -398,22 +400,22 @@ namespace Cpp2IL
             return 0;
         }
 
-        private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors, bool skipDumps)
-        {
-            var targetAssembly = Cpp2IlApi.GetAssemblyByName(assemblyName);
-
-            if (targetAssembly == null)
-                return;
-
-            Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
-
-            // Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
-
-            if (doIlToAsm)
-            {
-                Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
-            }
-        }
+        // private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors, bool skipDumps)
+        // {
+        //     var targetAssembly = Cpp2IlApi.GetAssemblyByName(assemblyName);
+        //
+        //     if (targetAssembly == null)
+        //         return;
+        //
+        //     Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
+        //
+        //     // Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
+        //
+        //     if (doIlToAsm)
+        //     {
+        //         Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
+        //     }
+        // }
 
 
         private static IntPtr DllImportResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)

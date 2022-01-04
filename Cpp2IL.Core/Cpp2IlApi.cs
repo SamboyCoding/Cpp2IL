@@ -5,10 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using AsmResolver.DotNet;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Model.CustomAttributes;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
@@ -17,12 +15,8 @@ namespace Cpp2IL.Core
 {
     public static class Cpp2IlApi
     {
-        public static List<AssemblyDefinition> GeneratedAssemblies => SharedState.AssemblyList.ToList(); //Shallow copy
         public static bool IlContinueThroughErrors;
         public static ApplicationAnalysisContext? CurrentAppContext;
-
-        public static AssemblyDefinition? GetAssemblyByName(string name) =>
-            SharedState.AssemblyList.Find(a => a.Name!.Value == name);
 
         private static readonly HashSet<string> ForbiddenDirectoryNames = new()
         {
@@ -49,6 +43,11 @@ namespace Cpp2IL.Core
             "LPT8",
             "LPT9"
         };
+
+        public static void Init()
+        {
+            Cpp2IlPluginManager.InitAll();
+        }
 
         public static int[]? DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
@@ -232,56 +231,6 @@ namespace Cpp2IL.Core
             }
         }
 
-        public static List<AssemblyDefinition> MakeDummyAssemblies(bool suppressAttributes = false)
-        {
-            CheckLibInitialized();
-
-            Logger.InfoNewline("Building assemblies...This may take some time.");
-            var start = DateTime.Now;
-
-            //Make stub types
-            var startTwo = DateTime.Now;
-            Logger.Verbose("\tPre-generating stubs...");
-            var assemblies = AsmResolverStubAssemblyBuilder.BuildStubAssemblies(LibCpp2IlMain.TheMetadata!);
-            Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
-
-            //Configure utils class
-            TypeDefinitionsAsmResolver.BuildPrimitiveMappings();
-
-            //Set base types and interfaces
-            startTwo = DateTime.Now;
-            Logger.Verbose("\tConfiguring Hierarchy...");
-            AsmResolverAssemblyPopulator.ConfigureHierarchy();
-            Logger.VerboseNewline($"OK ({(DateTime.Now - startTwo).TotalMilliseconds}ms)");
-
-            foreach (var imageDef in LibCpp2IlMain.TheMetadata!.imageDefinitions)
-            {
-                var startAssem = DateTime.Now;
-
-                Logger.Verbose($"\tPopulating {imageDef.Name}...");
-
-                AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged(imageDef);
-
-                Logger.VerboseNewline($"Done ({(DateTime.Now - startAssem).TotalMilliseconds}ms)");
-            }
-            
-            // SaveAssemblies("./cpp2il_out/newassems_populated", AssembliesNew);
-
-            Logger.InfoNewline($"Finished Building Assemblies in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
-            Logger.InfoNewline("Fixing up explicit overrides. Any warnings you see here aren't errors - they usually indicate improperly stripped or obfuscated types, but this is not a big deal. This should only take a second...");
-            start = DateTime.Now;
-
-            //Fixup explicit overrides. TODO Reimplement on AsmResolver using TypeDefinition#MethodImplementations.
-            // foreach (var imageDef in LibCpp2IlMain.TheMetadata.imageDefinitions)
-                // AssemblyPopulator.FixupExplicitOverridesInAssembly(imageDef);
-
-            Logger.InfoNewline($"Fixup complete ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
-
-            SharedState.AssemblyList.AddRange(assemblies);
-
-            return assemblies;
-        }
-
         public static void GenerateMetadataForAllAssemblies(string rootFolder)
         {
             CheckLibInitialized();
@@ -312,23 +261,6 @@ namespace Cpp2IL.Core
         //         AssemblyPopulator.BuildWholeMetadataString(typeDefinition)
         //     );
         // }
-        
-        public static void SaveAssemblies(string toWhere, List<AssemblyDefinition> assemblies)
-        {
-            Logger.InfoNewline($"Saving {assemblies.Count} assembl{(assemblies.Count != 1 ? "ies" : "y")} to " + toWhere + "...");
-
-            if (!Directory.Exists(toWhere))
-            {
-                Logger.VerboseNewline($"\tSave directory does not exist. Creating...");
-                Directory.CreateDirectory(toWhere);
-            }
-
-            foreach (var assembly in assemblies)
-            {
-                var dllPath = Path.Combine(toWhere, assembly.Modules[0].Name!);
-                assembly.Write(dllPath);
-            }
-        }
 
         public static void PopulateConcreteImplementations()
         {
