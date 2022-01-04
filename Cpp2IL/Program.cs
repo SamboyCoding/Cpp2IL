@@ -55,8 +55,10 @@ namespace Cpp2IL
                                             $"\t{unityPlayerPath}\n" +
                                             $"\t{args.PathToMetadata}\n");
 
+                Logger.VerboseNewline($"Found probable windows game at path: {gamePath}. Attempting to get unity version...");
                 var gameDataPath = Path.Combine(gamePath, $"{exeName}_Data");
                 var uv = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, gameDataPath);
+                Logger.VerboseNewline($"First-attempt unity version detection gave: {uv?.ToString() ?? "null"}");
 
                 if (uv == null)
                 {

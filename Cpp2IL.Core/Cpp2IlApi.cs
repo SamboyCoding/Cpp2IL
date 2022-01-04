@@ -59,6 +59,8 @@ namespace Cpp2IL.Core
             if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
             {
                 var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
+                
+                Logger.VerboseNewline($"Running on windows and have unity player, so using file version: {unityVer.FileMajorPart}.{unityVer.FileMinorPart}.{unityVer.FileBuildPart}");
 
                 return new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
             }
@@ -70,7 +72,9 @@ namespace Cpp2IL.Core
                 if (File.Exists(globalgamemanagersPath))
                 {
                     var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
-                    return GetVersionFromGlobalGameManagers(ggmBytes);
+                    var ret = GetVersionFromGlobalGameManagers(ggmBytes);
+                    Logger.VerboseNewline($"Got version {ret} from globalgamemanagers");
+                    return ret;
                 }
 
                 //Data.unity3d
@@ -78,10 +82,13 @@ namespace Cpp2IL.Core
                 if (File.Exists(dataPath))
                 {
                     using var dataStream = File.OpenRead(dataPath);
-                    return GetVersionFromDataUnity3D(dataStream);
+                    var ret = GetVersionFromDataUnity3D(dataStream);
+                    Logger.VerboseNewline($"Got version {ret} from data.unity3d");
+                    return ret;
                 }
             }
 
+            Logger.VerboseNewline($"Could not determine unity version, gameDataPath is {gameDataPath}, unityPlayerPath is {unityPlayerPath}");
             return null;
         }
 
