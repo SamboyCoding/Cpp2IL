@@ -80,6 +80,9 @@ namespace Cpp2IL.Core.Utils
 
             if (value is Il2CppString)
                 throw new Exception("Cannot coerce an Il2CppString. Something has gone wrong here");
+            
+            if (value is UnknownGlobalAddr)
+                throw new Exception("Cannot coerce an UnknownGlobal. Something has gone wrong here");
 
             if (coerceToType.Resolve() is { IsEnum: true } enumType)
                 coerceToType = enumType.GetEnumUnderlyingType();
