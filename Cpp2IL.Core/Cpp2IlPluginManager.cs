@@ -47,6 +47,7 @@ public static class Cpp2IlPluginManager
             try
             {
                 plugin.OnLoad();
+                Logger.InfoNewline($"Using Plugin: {plugin.Name}", "Plugins");
             }
             catch (Exception e)
             {

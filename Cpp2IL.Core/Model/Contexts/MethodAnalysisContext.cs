@@ -81,4 +81,6 @@ public class MethodAnalysisContext : HasCustomAttributes
         ControlFlowGraph.Run();
         InstructionSetIndependentNodes = AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
     }
+    
+    public override string ToString() => $"Method: {Definition?.DeclaringType!.Name}::{Definition?.Name ?? "No definition"}";
 }

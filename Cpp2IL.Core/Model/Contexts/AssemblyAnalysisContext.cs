@@ -60,4 +60,6 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     }
 
     public TypeAnalysisContext? GetTypeByFullName(string fullName) => TypesByName.TryGetValue(fullName, out var typeContext) ? typeContext : null;
+    
+    public override string ToString() => "Assembly: " + Definition.AssemblyName.Name;
 }

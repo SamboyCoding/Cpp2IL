@@ -24,4 +24,6 @@ public class PropertyAnalysisContext : HasCustomAttributes
         Getter = parent.GetMethod(definition.Getter);
         Setter = parent.GetMethod(definition.Setter);
     }
+    
+    public override string ToString() => $"Property:  {Definition.DeclaringType!.Name}::{Definition.Name}";
 }

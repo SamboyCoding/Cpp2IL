@@ -10,7 +10,7 @@ namespace Cpp2IL.Core;
 
 public class Cpp2IlCorePlugin : Cpp2IlPlugin
 {
-    public override string Name => "Cpp2IL Core";
+    public override string Name => "Cpp2IL Built-In";
     
     public override string Description => "Core Cpp2IL plugin containing built-in instruction sets, binaries, and other core functionality.";
     

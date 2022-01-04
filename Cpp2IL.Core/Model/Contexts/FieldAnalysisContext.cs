@@ -29,4 +29,6 @@ public class FieldAnalysisContext : HasCustomAttributes
         
         InitCustomAttributeData();
     }
+    
+    public override string ToString() => $"Field: {DeclaringType.Definition.Name}::{BackingData.field.Name}";
 }

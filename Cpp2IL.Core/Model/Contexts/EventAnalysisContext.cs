@@ -25,4 +25,6 @@ public class EventAnalysisContext : HasCustomAttributes
         Remover = parent.GetMethod(definition.Remover);
         Invoker = parent.GetMethod(definition.Invoker);
     }
+    
+    public override string ToString() => $"Event: {Definition.DeclaringType!.Name}::{Definition.Name}";
 }
