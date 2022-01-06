@@ -10,6 +10,8 @@ namespace LibCpp2IL.Wasm
 {
     public sealed class WasmFile : Il2CppBinary
     {
+        public static Dictionary<string, string>? RemappedDynCallFunctions;
+
         public readonly List<WasmFunctionDefinition> FunctionTable = new();
         
         internal readonly List<WasmSection> Sections = new();
@@ -102,7 +104,20 @@ namespace LibCpp2IL.Wasm
 
         private void CalculateDynCallOffsets()
         {
-            var codeSec = CodeSection;
+            //Remap any exported functions we have remaps for
+
+            if (RemappedDynCallFunctions != null)
+            {
+                foreach (var exportSectionExport in ExportSection.Exports.Where(e => e.Kind == WasmExternalKind.EXT_FUNCTION))
+                {
+                    if (!RemappedDynCallFunctions.TryGetValue(exportSectionExport.Name, out var remappedName))
+                        continue;
+
+                    LibLogger.VerboseNewline($"\t\tRemapped exported function {exportSectionExport.Name} to {remappedName}");
+                    exportSectionExport.Name.Value = remappedName;
+                }
+            }
+
             foreach (var exportedDynCall in ExportSection.Exports.Where(e => e.Kind == WasmExternalKind.EXT_FUNCTION && e.Name.Value.StartsWith("dynCall_")))
             {
                 var signature = exportedDynCall.Name.Value["dynCall_".Length..];
@@ -144,6 +159,17 @@ namespace LibCpp2IL.Wasm
                     
                     andWith = (ulong) relevantInstructions[0].Operands[0];
                     add = (ulong) relevantInstructions[2].Operands[0];
+                } else if (disassembled.All(d => d.Mnemonic is WasmMnemonic.LocalGet or WasmMnemonic.CallIndirect or WasmMnemonic.End))
+                {
+                    //No remapping
+                    andWith = int.MaxValue;
+                    add = 0;
+                } else if (disassembled[^1].Mnemonic == WasmMnemonic.End && disassembled[^2].Mnemonic == WasmMnemonic.CallIndirect && disassembled[^3].Mnemonic == WasmMnemonic.LocalGet && (byte) disassembled[^3].Operands[0] == 0)
+                {
+                    //Tentatively assume we're doing shenanigans only to the params and we don't touch the index
+                    LibLogger.WarnNewline($"\t\tAssuming index is not touched, but couldn't get a proper calculation for dynCall_{signature}. Might cause issues later down the line.");
+                    andWith = int.MaxValue;
+                    add = 0;
                 }
                 else
                 {
