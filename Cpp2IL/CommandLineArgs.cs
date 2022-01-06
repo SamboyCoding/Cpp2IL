@@ -67,6 +67,9 @@ namespace Cpp2IL
         
         [Option("simple-attribute-restoration", HelpText = "Don't use analysis to restore attributes, meaning any attributes with constructor parameters won't be recovered. Has no effect on metadata v29+")]
         public bool SimpleAttributeRestoration { get; set; }
+        
+        [Option("wasm-framework-file", HelpText = "Path to the wasm *.framework.js file. Only needed if your binary is a WASM file. If provided, it can be used to remap obfuscated dynCall function names in order to correct method pointers.")]
+        public string? WasmFrameworkFilePath { get; set; }
 
         internal bool AreForceOptionsValid
         {

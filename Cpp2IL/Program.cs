@@ -9,10 +9,12 @@ using System.Runtime;
 using System.Runtime.InteropServices;
 using CommandLine;
 using Cpp2IL.Core;
+using Cpp2IL.Core.Utils;
 #if !DEBUG
 using Cpp2IL.Core.Exceptions;
 #endif
 using LibCpp2IL;
+using LibCpp2IL.Wasm;
 
 namespace Cpp2IL
 {
@@ -54,8 +56,10 @@ namespace Cpp2IL
                                             $"\t{unityPlayerPath}\n" +
                                             $"\t{args.PathToMetadata}\n");
 
+                Logger.VerboseNewline($"Found probable windows game at path: {gamePath}. Attempting to get unity version...");
                 var gameDataPath = Path.Combine(gamePath, $"{exeName}_Data");
                 var uv = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, gameDataPath);
+                Logger.VerboseNewline($"First-attempt unity version detection gave: {uv?.ToString() ?? "null"}");
 
                 if (uv == null)
                 {
@@ -200,6 +204,7 @@ namespace Cpp2IL
             result.IlToAsmContinueThroughErrors = options.ThrowSafetyOutTheWindow;
             result.DisableMethodDumps = options.DisableMethodDumps;
             result.SimpleAttributeRestoration = options.SimpleAttributeRestoration;
+            result.WasmFrameworkJsFile = options.WasmFrameworkFilePath;
 
             if (options.UserIsImpatient)
             {
@@ -282,6 +287,22 @@ namespace Cpp2IL
             ConsoleLogger.ShowVerbose = runtimeArgs.EnableVerboseLogging;
             
             Cpp2IlApi.Init();
+
+            if (runtimeArgs.WasmFrameworkJsFile != null)
+                try
+                {
+                    var frameworkJs = File.ReadAllText(runtimeArgs.WasmFrameworkJsFile);
+                    var remaps = WasmUtils.ExtractAndParseDynCallRemaps(frameworkJs);
+                    Logger.InfoNewline($"Parsed {remaps.Count} dynCall remaps from {runtimeArgs.WasmFrameworkJsFile}");
+                    WasmFile.RemappedDynCallFunctions = remaps;
+                }
+                catch (Exception e)
+                {
+                    WasmFile.RemappedDynCallFunctions = null;
+                    Logger.WarnNewline($"Failed to parse dynCall remaps from Wasm Framework Javascript File: {e}. They will not be used, so you probably won't get method bodies!");
+                }
+            else
+                WasmFile.RemappedDynCallFunctions = null;
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
 

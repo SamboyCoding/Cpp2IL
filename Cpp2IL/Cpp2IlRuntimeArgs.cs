@@ -14,6 +14,7 @@ namespace Cpp2IL
 
         public string AssemblyToRunAnalysisFor;
         public bool AnalyzeAllAssemblies;
+        public string? WasmFrameworkJsFile;
         
         //Feature flags
         public bool EnableAnalysis;

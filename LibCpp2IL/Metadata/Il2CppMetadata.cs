@@ -55,9 +55,11 @@ namespace LibCpp2IL.Metadata
         private readonly Dictionary<int, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new Dictionary<int, Il2CppFieldDefaultValue>();
         private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue>();
 
+        public static bool HasMetadataHeader(byte[] bytes) => bytes.Length >= 4 && BitConverter.ToUInt32(bytes, 0) == 0xFAB11BAF; 
+
         public static Il2CppMetadata? ReadFrom(byte[] bytes, int[] unityVer)
         {
-            if (BitConverter.ToUInt32(bytes, 0) != 0xFAB11BAF)
+            if (!HasMetadataHeader(bytes))
             {
                 //Magic number is wrong
                 throw new FormatException("Invalid or corrupt metadata (magic number check failed)");

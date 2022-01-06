@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
@@ -11,6 +12,7 @@ namespace Cpp2IL.Core.Utils
     public static class WasmUtils
     {
         internal static readonly Dictionary<int, List<Il2CppMethodDefinition>> MethodDefinitionIndices = new();
+        private static Regex DynCallRemappingRegex = new(@"Module\[\s*[""'](dynCall_[^""']+)[""']\s*\]\s*=\s*Module\[\s*[""']asm[""']\s*\]\[\s*[""']([^""']+)[""']\s*\]\s*\)\.apply", RegexOptions.Compiled);
 
         public static string BuildSignature(Il2CppMethodDefinition definition)
         {
@@ -81,6 +83,31 @@ namespace Cpp2IL.Core.Utils
                 return methodDefinitions;
 
             return null;
+        }
+
+        public static Dictionary<string, string> ExtractAndParseDynCallRemaps(string frameworkJsFile)
+        {
+            //At least one WASM binary found in the wild had the exported function names obfuscated.
+            //However, the framework.js file has mappings to the correct names.
+            /*e.g.
+             var dynCall_viffiiii = Module["dynCall_viffiiii"] = function() {
+                return (dynCall_viffiiii = Module["dynCall_viffiiii"] = Module["asm"]["Wo"]).apply(null, arguments)
+             }
+            */
+            
+            var ret = new Dictionary<string, string>();
+            var matches = DynCallRemappingRegex.Matches(frameworkJsFile);
+            foreach (Match match in matches)
+            {
+                //Group 1 is the original method name, e.g. dynCall_viffiiii
+                //Group 2 is the remapped name, e.g Wo
+                var origName = match.Groups[1];
+                var remappedName = match.Groups[2];
+                
+                ret[remappedName.Value] = origName.Value;
+            }
+
+            return ret;
         }
     }
 }

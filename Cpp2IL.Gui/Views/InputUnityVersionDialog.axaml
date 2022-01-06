@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Cpp2IL.Gui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="200" d:DesignHeight="80"
+        Width="200"
+        Height="80"
+        x:Class="Cpp2IL.Gui.Views.InputUnityVersionDialog"
+        Title="Input Unity Version">
+
+    <Design.DataContext>
+        <vm:InputUnityVersionViewModel />
+    </Design.DataContext>
+
+    <Grid RowDefinitions="40, 40" Margin="10,0">
+
+        <TextBox Grid.Row="0"
+                 Watermark="2021.4.3"
+                 VerticalAlignment="Center"
+                 Text="{Binding Version, Mode=TwoWay}" />
+
+        <Button Grid.Row="1" HorizontalAlignment="Center" Click="OkClick">
+            OK
+        </Button>
+    </Grid>
+</Window>

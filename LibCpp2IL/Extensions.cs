@@ -88,7 +88,11 @@ namespace LibCpp2IL
         
         public static int ParseDigit(this char c)
         {
-            return c - '0';
+            var ret = c - '0';
+            if(ret > 9)
+                throw new($"Invalid digit {c}");
+
+            return ret;
         }
     }
 }

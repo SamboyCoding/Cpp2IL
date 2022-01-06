@@ -1,0 +1,48 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="using:Cpp2IL.Gui.ViewModels"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:tv="clr-namespace:ICSharpCode.TreeView;assembly=SharpTreeView"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Cpp2IL.Gui.Views.MainWindow"
+        Icon="/Assets/avalonia-logo.ico"
+        Title="Cpp2IL"
+        DragDrop.AllowDrop="True">
+
+    <Design.DataContext>
+        <vm:MainWindowViewModel />
+    </Design.DataContext>
+
+    <Grid>
+        <TextBlock Text="{Binding StatusText}"
+                   PointerPressed="OnClickDropPrompt"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Center"
+                   IsVisible="{Binding !HasGame}" />
+        <Grid IsVisible="{Binding HasGame}">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="0.4*"
+                                  MinWidth="100" />
+                <ColumnDefinition Width="3" />
+                <ColumnDefinition Width="0.6*"
+                                  MinWidth="100" />
+            </Grid.ColumnDefinitions>
+            <tv:SharpTreeView
+                Grid.Column="0"
+                Padding="16"
+                VerticalAlignment="Stretch"
+                HorizontalAlignment="Stretch"
+                ShowRoot="False"
+                Root="{Binding RootNode}" />
+            <GridSplitter Grid.Column="1"
+                          HorizontalAlignment="Center"
+                          VerticalAlignment="Stretch" />
+            <Grid Grid.Column="2">
+                <!--Right side file viewer etc-->
+                <TextBlock>Hi</TextBlock>
+            </Grid>
+        </Grid>
+    </Grid>
+
+</Window>

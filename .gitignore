@@ -24,6 +24,9 @@ Il2CppBinaryAnalyzer/bin/
 WasmDisassembler/obj/
 WasmDisassembler/bin/
 
+SharpTreeView/bin/
+SharpTreeView/obj/
+
 .vs
 
 *.user
