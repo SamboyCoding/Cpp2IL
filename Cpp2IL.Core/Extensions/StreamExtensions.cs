@@ -1,5 +1,7 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
+using System.Text;
 
 namespace Cpp2IL.Core.Extensions;
 
@@ -57,5 +59,27 @@ public static class StreamExtensions
             return -(int) (unsigned + 1);
 
         return (int) unsigned;
+    }
+
+    public static string ReadUnicodeString(this BinaryReader reader)
+    {
+        List<byte> bytes = new();
+        var continueReading = true;
+        var lastWasNull = false;
+        while (continueReading)
+        {
+            var b = reader.ReadByte();
+
+            if (b == 0 && lastWasNull)
+                //Double null is a terminator for unicode strings
+                continueReading = false;
+
+            lastWasNull = b == 0;
+            bytes.Add(b);
+        }
+        
+        bytes.Add(reader.ReadByte()); //Last byte of null terminator will always be skipped - unskip it
+
+        return Encoding.Unicode.GetString(bytes.ToArray()).TrimEnd('\0');
     }
 }

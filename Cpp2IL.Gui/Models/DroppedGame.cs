@@ -13,6 +13,9 @@ namespace Cpp2IL.Gui.Models
             if (LooseFilesDroppedGame.TryGet(paths) is { } lfdg)
                 return lfdg;
 
+            if (DroppedWindowsGame.TryGet(paths) is { } dwg)
+                return dwg;
+
             return null;
         }
         

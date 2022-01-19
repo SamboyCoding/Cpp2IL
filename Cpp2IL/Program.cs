@@ -23,16 +23,6 @@ namespace Cpp2IL
     {
         private static readonly List<string> PathsToDeleteOnExit = new();
 
-        private static readonly string[] BlacklistedExecutableFilenames =
-        {
-            "UnityCrashHandler.exe",
-            "UnityCrashHandler32.exe",
-            "UnityCrashHandler64.exe",
-            "install.exe",
-            "launch.exe",
-            "MelonLoader.Installer.exe"
-        };
-
         private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
         {
             if (Directory.Exists(gamePath))
@@ -40,7 +30,7 @@ namespace Cpp2IL
                 //Windows game.
                 args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.dll");
                 var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
-                    .FirstOrDefault(f => f.EndsWith(".exe") && !BlacklistedExecutableFilenames.Any(f.EndsWith)));
+                    .FirstOrDefault(f => f.EndsWith(".exe") && !MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
                 exeName = inputExeName ?? exeName;
 
