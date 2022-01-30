@@ -181,8 +181,17 @@ namespace Cpp2IL.Core
                 var targetParameters = currentlyFixingUp.Parameters.Select(p => p.ParameterType.FullName).ToArray();
                 MethodReference? baseRef;
                 if (genericParamNames.Length == 0)
-                    baseRef = baseType.Methods.SingleOrDefault(m =>
-                        m.Name == baseMethodName && m.Parameters.Count == currentlyFixingUp.Parameters.Count && m.ReturnType.FullName == currentlyFixingUp.ReturnType.FullName && m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(targetParameters));
+                    try
+                    {
+                        baseRef = baseType.Methods.SingleOrDefault(m =>
+                            m.Name == baseMethodName && m.Parameters.Count == currentlyFixingUp.Parameters.Count && m.ReturnType.FullName == currentlyFixingUp.ReturnType.FullName && m.Parameters.Select(p => p.ParameterType.FullName).SequenceEqual(targetParameters));
+                    }
+                    catch (InvalidOperationException)
+                    {
+                        //More than one match - log a warning and skip
+                        Logger.WarnNewline($"\tMore than one potential base method for base type \"{baseType.FullName}\", method name \"{baseMethodName}\", parameter types {targetParameters.ToStringEnumerable()}, while considering explicit override {currentlyFixingUp.FullName}");
+                        continue;
+                    }
                 else
                 {
                     MethodDefinition nonGenericRef;
