@@ -143,9 +143,6 @@ namespace Cpp2IL.Core
         public static List<CustomAttribute> GetCustomAttributesByAttributeIndex<T>(Il2CppImageDefinition imageDef, int attributeIndex, uint token, ModuleDefinition module, BaseKeyFunctionAddresses? keyFunctionAddresses, string warningName)
         {
             var attributes = new List<CustomAttribute>();
-            
-            if(warningName == "RingOfPainTwitchCommon.RestEntities.DrawingModerationRequest")
-                Debugger.Break();
 
             //Get attributes and look for the serialize field attribute.
             var attributeTypeRange = LibCpp2IlMain.TheMetadata!.GetCustomAttributeData(imageDef, attributeIndex, token);
