@@ -1,4 +1,4 @@
-<Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
         <Nullable>enable</Nullable>
@@ -20,6 +20,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+      <PackageReference Include="AssetRipper.VersionUtilities" Version="1.0.0" />
       <PackageReference Include="IndexRange" Version="1.0.0" />
     </ItemGroup>
 

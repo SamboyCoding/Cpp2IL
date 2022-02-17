@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core;
+﻿using AssetRipper.VersionUtilities;
+using Cpp2IL.Core;
 
 namespace Cpp2IL
 {
@@ -8,7 +9,7 @@ namespace Cpp2IL
         public bool Valid;
         
         //Core variables
-        public int[] UnityVersion;
+        public UnityVersion UnityVersion;
         public string PathToAssembly;
         public string PathToMetadata;
 
