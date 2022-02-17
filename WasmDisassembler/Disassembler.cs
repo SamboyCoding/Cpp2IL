@@ -34,7 +34,10 @@ public static class Disassembler
 
         var opTypes = mnemonic.GetOperandTypes();
         if (opTypes.Length == 0)
+        {
+            ret.Operands = Array.Empty<object>();
             return ret;
+        }
 
         ret.Operands = opTypes.Select(reader.ReadPrimitive).ToArray();
 
