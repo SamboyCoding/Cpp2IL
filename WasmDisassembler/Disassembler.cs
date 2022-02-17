@@ -27,18 +27,12 @@ public static class Disassembler
 
     private static WasmInstruction ReadInstruction(this BinaryReader reader, WasmMnemonic mnemonic)
     {
-        var ret = new WasmInstruction
+        var opTypes = mnemonic.GetOperandTypes();
+        return new WasmInstruction
         {
             Mnemonic = mnemonic,
+            Operands = opTypes.Length == 0 ? Array.Empty<object>() : opTypes.Select(reader.ReadPrimitive).ToArray(),
         };
-
-        var opTypes = mnemonic.GetOperandTypes();
-        if (opTypes.Length == 0)
-            return ret;
-
-        ret.Operands = opTypes.Select(reader.ReadPrimitive).ToArray();
-
-        return ret;
     }
 
     private static Type[] GetOperandTypes(this WasmMnemonic mnemonic)

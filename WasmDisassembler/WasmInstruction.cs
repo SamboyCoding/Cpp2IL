@@ -5,7 +5,7 @@ public struct WasmInstruction
     public uint Ip;
     public uint NextIp;
     public WasmMnemonic Mnemonic;
-    public object[] Operands = Array.Empty<object>();
+    public object[] Operands;
 
     public override string ToString()
     {
