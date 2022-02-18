@@ -20,8 +20,8 @@ namespace LibCpp2IL.Metadata
         public int parentIndex;
         public int elementTypeIndex; // we can probably remove this one. Only used for enums
 
-        [Version(Max = 24.1f)] public int rgctxStartIndex;
-        [Version(Max = 24.1f)] public int rgctxCount;
+        [Version(Max = 24.15f)] public int rgctxStartIndex;
+        [Version(Max = 24.15f)] public int rgctxCount;
 
         public int genericContainerIndex;
 

@@ -95,6 +95,8 @@ namespace LibCpp2IL.Metadata
                     actualVersion = 24.3f; //2019.3.7 introduces v24.3
                 else if (unityVersion.IsGreaterEqual(2019))
                     actualVersion = 24.2f; //2019.1.0 introduces v24.2
+                else if (unityVersion.IsGreaterEqual(2018, 4, 34))
+                    actualVersion = 24.15f; //2018.4.34 made a tiny little change which just removes HashValueIndex from AssemblyNameDefinition
                 else if (unityVersion.IsGreaterEqual(2018, 3))
                     actualVersion = 24.1f; //2018.3.0 introduces v24.1
                 else
