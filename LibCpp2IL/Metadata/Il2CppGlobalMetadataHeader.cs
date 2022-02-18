@@ -44,8 +44,8 @@ namespace LibCpp2IL.Metadata
         public int interfaceOffsetsCount;
         public int typeDefinitionsOffset; // Il2CppTypeDefinition
         public int typeDefinitionsCount;
-        [Version(Max = 24.1f)] public int rgctxEntriesOffset; // Il2CppRGCTXDefinition
-        [Version(Max = 24.1f)] public int rgctxEntriesCount;
+        [Version(Max = 24.15f)] public int rgctxEntriesOffset; // Il2CppRGCTXDefinition
+        [Version(Max = 24.15f)] public int rgctxEntriesCount;
         public int imagesOffset; // Il2CppImageDefinition
         public int imagesCount;
         public int assembliesOffset; // Il2CppAssemblyDefinition

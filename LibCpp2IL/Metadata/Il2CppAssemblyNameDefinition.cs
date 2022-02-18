@@ -7,7 +7,9 @@ namespace LibCpp2IL.Metadata
     {
         public int nameIndex;
         public int cultureIndex;
-        [Version(Max = 24.3f)] public int hashValueIndex;
+        [Version(Max = 24.1f)]
+        [Version(Min = 24.2f, Max=24.3f)] //Not present in 24.15
+        public int hashValueIndex;
         public int publicKeyIndex;
         public uint hash_alg;
         public int hash_len;

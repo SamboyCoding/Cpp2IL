@@ -3,8 +3,8 @@ namespace LibCpp2IL.BinaryStructures
     
         public class Il2CppCodeRegistration
         {
-            [Version(Max = 24.1f)] public ulong methodPointersCount;
-            [Version(Max = 24.1f)] public ulong methodPointers;
+            [Version(Max = 24.15f)] public ulong methodPointersCount;
+            [Version(Max = 24.15f)] public ulong methodPointers;
             
             public ulong reversePInvokeWrapperCount;
             public ulong reversePInvokeWrappers;
