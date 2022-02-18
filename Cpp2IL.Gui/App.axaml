@@ -7,7 +7,8 @@
     </Application.DataTemplates>
 
     <Application.Styles>
+        <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" />
         <StyleInclude Source="avares://SharpTreeView/Themes/TreeView.xaml" />
-        <FluentTheme Mode="Light"/>
+        <FluentTheme Mode="Dark"/>
     </Application.Styles>
 </Application>

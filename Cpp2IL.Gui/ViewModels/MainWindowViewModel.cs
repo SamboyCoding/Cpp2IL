@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Threading;
 using Avalonia.Threading;
+using AvaloniaEdit.Document;
 using Cpp2IL.Core;
 using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.Views;
@@ -16,6 +17,7 @@ namespace Cpp2IL.Gui.ViewModels
         private string _statusText = "Drop an IL2CPP game on this window to start, or click here to open a file browser.";
         private bool _hasGame = false;
         private FileTreeEntry _rootNode;
+        private TextDocument _editorText = new TextDocument("Select a class to open");
 
         public string StatusText
         {
@@ -33,6 +35,12 @@ namespace Cpp2IL.Gui.ViewModels
         {
             get => _rootNode;
             set => this.RaiseAndSetIfChanged(ref _rootNode, value);
+        }
+        
+        public TextDocument EditorText
+        {
+            get => _editorText;
+            set => this.RaiseAndSetIfChanged(ref _editorText, value);
         }
 
         public async void OnDropped(string[]? droppedFiles)

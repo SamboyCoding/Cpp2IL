@@ -9,7 +9,7 @@
         <TrimMode>link</TrimMode>
         <PublishSingleFile Condition="'$(TargetFramework)' != 'net472'">true</PublishSingleFile>
         <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net472'">true</IncludeNativeLibrariesForSelfExtract>
-        <TargetFrameworks>net472;net6.0</TargetFrameworks>
+        <TargetFramework>net6.0</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>

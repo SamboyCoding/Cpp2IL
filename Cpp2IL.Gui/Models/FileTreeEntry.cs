@@ -1,10 +1,13 @@
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Avalonia;
 using Avalonia.Media;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Gui.Images;
 using ICSharpCode.TreeView;
+using LibCpp2IL;
 
 namespace Cpp2IL.Gui.Models;
 
@@ -17,13 +20,19 @@ public class FileTreeEntry : SharpTreeNode
     {
         Context = null;
         NamespaceName = "Root";
+
+        var assemblies = context.Assemblies.ToList();
+        assemblies.SortByExtractedKey(a => a.Definition.AssemblyName.Name);
         
-        foreach (var assemblyAnalysisContext in context.Assemblies) 
+        foreach (var assemblyAnalysisContext in assemblies) 
             Children.Add(new FileTreeEntry(assemblyAnalysisContext));
     }
 
     private FileTreeEntry(AssemblyAnalysisContext context) : this((HasApplicationContext) context)
     {
+        if(context.Definition.AssemblyName.Name == "UnityEngine.TerrainModule")
+            Debugger.Break();
+        
         var uniqueNamespaces = context.Types.Select(t => t.Definition.Namespace!).Distinct();
         
         //Top-level namespaces only
@@ -50,10 +59,21 @@ public class FileTreeEntry : SharpTreeNode
         if (namespaceName != string.Empty)
         {
             //Add sub-namespaces first
-            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition.Namespace!.StartsWith(namespaceName)).ToList();
-            var uniqueSubNamespaces = allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition.Namespace != namespaceName).Select(t => t.Definition.Namespace![(namespaceName.Length + 1)..]).Distinct();
+            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition.Namespace! == namespaceName || t.Definition.Namespace!.StartsWith(namespaceName + ".")).ToList();
+            var uniqueSubNamespaces = allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition.Namespace != namespaceName).Select(t => t.Definition.Namespace![(namespaceName.Length + 1)..]).Distinct().ToList();
             foreach (var subNs in uniqueSubNamespaces)
+            {
+                if (subNs.Contains('.'))
+                {
+                    var directChildNs = subNs[..subNs.IndexOf('.')];
+                    if(!uniqueSubNamespaces.Contains(directChildNs))
+                        Children.Add(new FileTreeEntry(parentCtx, namespaceName + "." + directChildNs));
+                    
+                    continue; //Skip deeper-nested namespaces
+                }
+
                 Children.Add(new FileTreeEntry(parentCtx, namespaceName + "." + subNs));
+            }
         }
         else
         {

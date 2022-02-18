@@ -1,6 +1,6 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <OutputType>WinExe</OutputType>
+        <OutputType>Exe</OutputType>
         <TargetFramework>net6.0</TargetFramework>
         <Nullable>enable</Nullable>
     </PropertyGroup>
@@ -10,11 +10,14 @@
         <None Remove=".gitignore" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="0.10.11" />
-        <PackageReference Include="Avalonia.Desktop" Version="0.10.11" />
+        <PackageReference Include="Avalonia" Version="0.10.12" />
+        <PackageReference Include="Avalonia.AvaloniaEdit" Version="0.10.12.1" />
+        <PackageReference Include="Avalonia.Desktop" Version="0.10.12" />
+        <PackageReference Include="Avalonia.Diagnostics" Version="0.10.12" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="0.10.11" />
-        <PackageReference Include="Avalonia.ReactiveUI" Version="0.10.11" />
+        <PackageReference Include="Avalonia.ReactiveUI" Version="0.10.12" />
+        <PackageReference Include="AvaloniaEdit.TextMate" Version="0.10.12.1" />
+        <PackageReference Include="AvaloniaEdit.TextMate.Grammars" Version="0.10.12.1" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
