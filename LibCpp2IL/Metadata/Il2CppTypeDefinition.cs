@@ -71,6 +71,8 @@ namespace LibCpp2IL.Metadata
         public uint SpecifiedPackingSize => ((Il2CppPackingSizeEnum)(bitfield >> 12 & 0xF)).NumericalValue();
         public bool IsByRefLike => (bitfield >> 16 & 0x1) == 1;
 
+        public TypeAttributes Attributes => (TypeAttributes) flags;
+
         public Il2CppTypeDefinitionSizes RawSizes
         {
             get
