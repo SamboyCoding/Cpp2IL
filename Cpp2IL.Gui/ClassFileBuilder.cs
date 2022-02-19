@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -75,8 +76,15 @@ public static class ClassFileBuilder
             sb.Append(GetMethodParameterString(method));
             sb.AppendLine(")\n\t{");
 
-            method.Analyze();
-            sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes!));
+            try
+            {
+                method.Analyze();
+                sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes!));
+            }
+            catch (Exception e)
+            {
+                sb.AppendLine("\t\t// Error Analysing method: " + e.ToString().Replace("\n", "\n\t\t//"));
+            }
 
             sb.AppendLine("\t}\n");
         }
@@ -96,8 +104,15 @@ public static class ClassFileBuilder
             sb.Append(GetMethodParameterString(method));
             sb.AppendLine(")\n\t{");
 
-            method.Analyze();
-            sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes!));
+            try
+            {
+                method.Analyze();
+                sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes!));
+            }
+            catch (Exception e)
+            {
+                sb.AppendLine("\t\t// Error Analysing method: " + e.ToString().Replace("\n", "\n\t\t//"));
+            }
 
             sb.AppendLine("\t}\n");
         }
@@ -121,11 +136,11 @@ public static class ClassFileBuilder
                     
                     sb.Append('\t', 2).AppendLine("// True branch");
                     var tempBlock = new InstructionSetIndependentNode() {Statements = ifStatement.IfBlock};
-                    sb.Append(GetMethodBodyISIL(new() {tempBlock})).AppendLine();
+                    sb.Append(GetMethodBodyISIL(new() {tempBlock}));
 
                     if ((ifStatement.ElseBlock?.Count ?? 0) > 0)
                     {
-                        sb.Append('\t', 2).AppendLine("// False branch");
+                        sb.Append('\n').Append('\t', 2).AppendLine("// False branch");
                         tempBlock = new() {Statements = ifStatement.ElseBlock!};
                         sb.Append(GetMethodBodyISIL(new() {tempBlock}));
                     }
