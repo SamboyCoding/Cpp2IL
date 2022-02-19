@@ -77,14 +77,16 @@ public class X86InstructionSet : BaseInstructionSet
     {
         var conditionLeft = ConvertOperand(ifStatement.Condition.Comparison, 0);
         var conditionRight = ConvertOperand(ifStatement.Condition.Comparison, 1);
+        
+        //Need to INVERT comparison opcodes here rather than later. It's easier that way.
         var comparisonOpcode = ifStatement.Condition.Jump.Mnemonic switch
         {
-            Mnemonic.Jge => InstructionSetIndependentOpCode.CompareGreaterThanOrEqual,
-            Mnemonic.Jg => InstructionSetIndependentOpCode.CompareGreaterThan,
-            Mnemonic.Jle => InstructionSetIndependentOpCode.CompareLessThanOrEqual,
-            Mnemonic.Jl => InstructionSetIndependentOpCode.CompareLessThan,
-            Mnemonic.Jne => InstructionSetIndependentOpCode.CompareNotEqual,
-            Mnemonic.Je => InstructionSetIndependentOpCode.CompareEqual,
+            Mnemonic.Jge => InstructionSetIndependentOpCode.CompareLessThan,
+            Mnemonic.Jg => InstructionSetIndependentOpCode.CompareLessThanOrEqual,
+            Mnemonic.Jle => InstructionSetIndependentOpCode.CompareGreaterThan,
+            Mnemonic.Jl => InstructionSetIndependentOpCode.CompareGreaterThanOrEqual,
+            Mnemonic.Jne => InstructionSetIndependentOpCode.CompareEqual,
+            Mnemonic.Je => InstructionSetIndependentOpCode.CompareNotEqual,
             _ => throw new("Unknown comparison opcode"),
         };
 

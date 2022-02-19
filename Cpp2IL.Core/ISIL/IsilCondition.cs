@@ -20,4 +20,9 @@ public class IsilCondition
         IsAnd = true;        
         return this;
     }
+
+    public override string ToString()
+    {
+        return $"{OpCode} {Left},{Right}";
+    }
 }
