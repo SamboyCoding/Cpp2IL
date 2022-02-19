@@ -3,6 +3,7 @@ using System.Threading;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using Cpp2IL.Core;
+using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.Views;
 using LibCpp2IL;
@@ -115,6 +116,14 @@ namespace Cpp2IL.Gui.ViewModels
                 Name = "Game Loader",
                 IsBackground = true
             }.Start();
+        }
+
+        public void OnItemSelected(FileTreeEntry fileTreeEntry)
+        {
+            if(fileTreeEntry.Context is not TypeAnalysisContext type)
+                return;
+            
+            EditorText = new(ClassFileBuilder.BuildCsFileForType(type));
         }
     }
 }

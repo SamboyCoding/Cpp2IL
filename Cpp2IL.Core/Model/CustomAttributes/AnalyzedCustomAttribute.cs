@@ -47,7 +47,14 @@ public class AnalyzedCustomAttribute
     public override string ToString()
     {
         var sb = new StringBuilder("[");
-        sb.Append(Constructor.Definition!.DeclaringType!.Name);
+
+        var attributeTypeName = Constructor.Definition!.DeclaringType!.Name!;
+
+        const string suffix = "Attribute";
+        if(attributeTypeName.EndsWith(suffix))
+            attributeTypeName = attributeTypeName[..^suffix.Length];
+        
+        sb.Append(attributeTypeName);
         
         if (ConstructorParameters.Count + Fields.Count + Properties.Count > 0)
         {

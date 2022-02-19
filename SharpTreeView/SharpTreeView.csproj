@@ -4,6 +4,8 @@
     <GenerateAssemblyInfo>False</GenerateAssemblyInfo>
     <EnableDefaultItems>false</EnableDefaultItems>
     <RootNamespace>ICSharpCode.TreeView</RootNamespace>
+    <Configurations>Debug;Release;DebugDevelopment</Configurations>
+    <Platforms>AnyCPU;x64</Platforms>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <DebugType>full</DebugType>

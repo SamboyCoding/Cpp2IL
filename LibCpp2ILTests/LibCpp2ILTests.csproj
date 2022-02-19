@@ -4,6 +4,10 @@
         <TargetFramework>net6.0</TargetFramework>
 
         <IsPackable>false</IsPackable>
+
+        <Configurations>Debug;Release;DebugDevelopment</Configurations>
+
+        <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
 
     <ItemGroup>

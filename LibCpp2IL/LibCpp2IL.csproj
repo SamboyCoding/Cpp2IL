@@ -4,7 +4,7 @@
         <Nullable>enable</Nullable>
         <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64</RuntimeIdentifiers>
         <LangVersion>9</LangVersion>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <PackageId>Samboy063.LibCpp2IL</PackageId>
         <Version>2021.6.1</Version>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -13,10 +13,18 @@
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Library for interacting with IL2CPP metadata and binaries</Description>
+        <Configurations>Debug;Release;DebugDevelopment</Configurations>
+        <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
 
     <PropertyGroup>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugDevelopment' ">
+        <DefineDebug>true</DefineDebug>
+        <PlatformTarget>x64</PlatformTarget>
+        <TargetFramework>netstandard2.1</TargetFramework>
     </PropertyGroup>
 
     <ItemGroup>

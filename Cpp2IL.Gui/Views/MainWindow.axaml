@@ -36,13 +36,14 @@
                 VerticalAlignment="Stretch"
                 HorizontalAlignment="Stretch"
                 ShowRoot="False"
-                Root="{Binding RootNode}" />
+                Root="{Binding RootNode}"
+                SelectionChanged="SelectingItemsControl_OnSelectionChanged"/>
             <GridSplitter Grid.Column="1"
                           HorizontalAlignment="Center"
                           VerticalAlignment="Stretch" />
             <Grid Grid.Column="2">
                 <!--Right side file viewer etc-->
-                <edit:TextEditor Name="CodeView" IsReadOnly="True" ShowLineNumbers="True">
+                <edit:TextEditor Name="CodeView" IsReadOnly="True" ShowLineNumbers="True" Document="{Binding EditorText}" FontFamily="Consolas">
                     <edit:TextEditor.Options>
                         <edit:TextEditorOptions
                             IndentationSize="4" />

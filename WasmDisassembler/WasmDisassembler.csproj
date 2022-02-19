@@ -1,10 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
+        <Configurations>Debug;Release;DebugDevelopment</Configurations>
+        <Platforms>AnyCPU;x64</Platforms>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugDevelopment' ">
+        <DefineDebug>true</DefineDebug>
+        <PlatformTarget>x64</PlatformTarget>
+        <TargetFramework>netstandard2.1</TargetFramework>
     </PropertyGroup>
 
 </Project>

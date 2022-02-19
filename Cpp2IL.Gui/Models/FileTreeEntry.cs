@@ -30,9 +30,6 @@ public class FileTreeEntry : SharpTreeNode
 
     private FileTreeEntry(AssemblyAnalysisContext context) : this((HasApplicationContext) context)
     {
-        if(context.Definition.AssemblyName.Name == "UnityEngine.TerrainModule")
-            Debugger.Break();
-        
         var uniqueNamespaces = context.Types.Select(t => t.Definition.Namespace!).Distinct();
         
         //Top-level namespaces only
@@ -80,6 +77,8 @@ public class FileTreeEntry : SharpTreeNode
             //Empty namespace cannot have sub namespaces
             allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition.Namespace == namespaceName).ToList();
         }
+        
+        allTypesInThisNamespaceAndSubNamespaces.SortByExtractedKey(t => t.Definition.Name!);
 
         //Add types in this namespace
         foreach (var type in allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition.Namespace == namespaceName))

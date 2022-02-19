@@ -9,6 +9,14 @@
         <TrimMode>link</TrimMode>
         <PublishSingleFile Condition="'$(TargetFramework)' != 'net472'">true</PublishSingleFile>
         <IncludeNativeLibrariesForSelfExtract Condition="'$(TargetFramework)' != 'net472'">true</IncludeNativeLibrariesForSelfExtract>
+        <TargetFrameworks>net6.0;net472</TargetFrameworks>
+        <Configurations>Debug;Release;DebugDevelopment</Configurations>
+        <Platforms>AnyCPU;x64</Platforms>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(Configuration)' == 'DebugDevelopment' ">
+        <DefineDebug>true</DefineDebug>
+        <PlatformTarget>x64</PlatformTarget>
         <TargetFramework>net6.0</TargetFramework>
     </PropertyGroup>
 

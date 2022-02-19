@@ -3,6 +3,8 @@
         <OutputType>Exe</OutputType>
         <TargetFramework>net6.0</TargetFramework>
         <Nullable>enable</Nullable>
+        <Configurations>Debug;Release;DebugDevelopment</Configurations>
+        <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
     <ItemGroup>
         <Folder Include="Models\" />

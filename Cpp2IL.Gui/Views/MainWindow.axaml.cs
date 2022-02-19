@@ -7,6 +7,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.TextMate;
 using AvaloniaEdit.TextMate.Grammars;
+using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.ViewModels;
 
 namespace Cpp2IL.Gui.Views
@@ -32,8 +33,6 @@ namespace Cpp2IL.Gui.Views
             var textMateInstallation = textEditor.InstallTextMate(registryOptions);
             textMateInstallation.SetGrammar(registryOptions.GetScopeByLanguageId(registryOptions.GetLanguageByExtension(".cs").Id));
 
-            textEditor.Document = new TextDocument(vm.EditorText);
-            
             AddHandler(DragDrop.DropEvent, (sender, args) => vm.OnDropped(args.Data.GetFileNames()?.ToArray()));
         }
 
@@ -51,6 +50,17 @@ namespace Cpp2IL.Gui.Views
         private void InitializeComponent()
         {
             AvaloniaXamlLoader.Load(this);
+        }
+
+        private void SelectingItemsControl_OnSelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if(e.AddedItems.Count < 1)
+                return;
+            
+            if(e.AddedItems[0] is not FileTreeEntry fte)
+                return;
+
+            ((MainWindowViewModel) DataContext!).OnItemSelected(fte);
         }
     }
 }

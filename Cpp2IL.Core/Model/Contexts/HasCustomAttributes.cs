@@ -17,6 +17,8 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// </summary>
 public abstract class HasCustomAttributes : HasToken
 {
+    private bool _hasAnalyzedCustomAttributeData;
+    
     /// <summary>
     /// On V29, stores the custom attribute blob. Pre-29, stores the bytes for the custom attribute generator function.
     /// </summary>
@@ -145,13 +147,20 @@ public abstract class HasCustomAttributes : HasToken
     /// </summary>
     public void AnalyzeCustomAttributeData()
     {
+        if(_hasAnalyzedCustomAttributeData)
+            return;
+
+        _hasAnalyzedCustomAttributeData = true;
+        
+        CustomAttributes = new();
+        
         if (AppContext.MetadataVersion >= 29)
         {
             AnalyzeCustomAttributeDataV29();
             return;
         }
-        
-        if(RawIl2CppCustomAttributeData.Length == 0)
+
+        if (RawIl2CppCustomAttributeData.Length == 0)
             return;
 
         try
@@ -165,7 +174,6 @@ public abstract class HasCustomAttributes : HasToken
 
         //Basically, extract actions from the analysis, and compare with the type list we have to resolve parameters and populate the CustomAttributes list.
         
-        CustomAttributes = new();
         foreach (var il2CppType in AttributeTypes!) //Assert nonnull because we're pre-29 at this point
         {
             var typeDef = il2CppType.AsClass();
