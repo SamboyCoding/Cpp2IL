@@ -18,14 +18,17 @@ namespace Cpp2IL.Gui.ViewModels
         private string _statusText = "Drop an IL2CPP game on this window to start, or click here to open a file browser.";
         private bool _hasGame = false;
         private FileTreeEntry _rootNode;
+        private MethodBodyMode _methodBodyMode = MethodBodyMode.Isil;
         private TextDocument _editorText = new TextDocument("Select a class to open");
+
+        public TypeAnalysisContext LastSelectedType { get; set; }
 
         public string StatusText
         {
             get => _statusText;
             set => this.RaiseAndSetIfChanged(ref _statusText, value);
         }
-        
+
         public bool HasGame
         {
             get => _hasGame;
@@ -37,7 +40,18 @@ namespace Cpp2IL.Gui.ViewModels
             get => _rootNode;
             set => this.RaiseAndSetIfChanged(ref _rootNode, value);
         }
-        
+
+        public MethodBodyMode MethodBodyMode
+        {
+            get => _methodBodyMode;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _methodBodyMode, value); 
+                Console.WriteLine($"MethodBodyMode changed to {value}");
+                UpdateEditor();
+            }
+        }
+
         public TextDocument EditorText
         {
             get => _editorText;
@@ -122,8 +136,14 @@ namespace Cpp2IL.Gui.ViewModels
         {
             if(fileTreeEntry.Context is not TypeAnalysisContext type)
                 return;
-            
-            EditorText = new(ClassFileBuilder.BuildCsFileForType(type));
+
+            LastSelectedType = type;
+            UpdateEditor();
+        }
+
+        private void UpdateEditor()
+        {
+            EditorText = new(ClassFileBuilder.BuildCsFileForType(LastSelectedType, MethodBodyMode));
         }
     }
 }

@@ -111,7 +111,9 @@ public abstract class HasCustomAttributes : HasToken
             .Select(typeIdx => LibCpp2IlMain.Binary!.GetType(typeIdx))
             .ToList();
 
+        //TODO Investigate replacing this with a binary search, big performance hit on this one line (like, 2/3rds of the time to create app context)
         var rangeIndex = AppContext.Metadata.attributeTypeRanges.IndexOf(AttributeTypeRange);
+        
         ulong generatorPtr;
         if (AppContext.MetadataVersion < 27)
             try

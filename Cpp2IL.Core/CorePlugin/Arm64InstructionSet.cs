@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Graphs;
@@ -9,7 +9,7 @@ using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.CorePlugin;
 
-public class ArmV7InstructionSet : BaseInstructionSet
+public class Arm64InstructionSet : BaseInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
@@ -18,10 +18,7 @@ public class ArmV7InstructionSet : BaseInstructionSet
 
     public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
-        if (ArmV7Utils.TryGetMethodBodyBytesFast(context.UnderlyingPointer, context is AttributeGeneratorMethodAnalysisContext) is { } ret)
-            return ret;
-        
-        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
         return instructions.SelectMany(i => i.Bytes).ToArray();
     }
@@ -31,17 +28,13 @@ public class ArmV7InstructionSet : BaseInstructionSet
         return new();
     }
 
-    public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()
-    {
-        //TODO Fix
-        return new Arm64KeyFunctionAddresses();
-    }
+    public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new Arm64KeyFunctionAddresses();
 
     public override string PrintAssembly(MethodAnalysisContext context)
     {
         var sb = new StringBuilder();
         
-        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
         var first = true;
         foreach (var instruction in instructions)

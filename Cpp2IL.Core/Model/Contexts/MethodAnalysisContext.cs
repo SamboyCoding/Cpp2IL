@@ -78,6 +78,10 @@ public class MethodAnalysisContext : HasCustomAttributes
     public void Analyze()
     {
         ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
+        
+        if(ControlFlowGraph == null)
+            return;
+        
         ControlFlowGraph.Run();
         InstructionSetIndependentNodes = AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
     }

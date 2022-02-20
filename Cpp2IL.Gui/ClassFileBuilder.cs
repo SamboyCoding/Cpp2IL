@@ -10,7 +10,7 @@ namespace Cpp2IL.Gui;
 
 public static class ClassFileBuilder
 {
-    public static string BuildCsFileForType(TypeAnalysisContext type)
+    public static string BuildCsFileForType(TypeAnalysisContext type, MethodBodyMode methodBodyMode)
     {
         var sb = new StringBuilder();
 
@@ -109,7 +109,7 @@ public static class ClassFileBuilder
                 sb.Append(GetMethodParameterString(method));
                 sb.Append(')');
 
-                sb.Append(GetMethodBodyIfPresent(method, MethodBodyMode.Isil));
+                sb.Append(GetMethodBodyIfPresent(method, methodBodyMode));
             }
 
             //Methods
@@ -128,7 +128,7 @@ public static class ClassFileBuilder
                 sb.Append(GetMethodParameterString(method));
                 sb.Append(')');
 
-                sb.Append(GetMethodBodyIfPresent(method, MethodBodyMode.Isil));
+                sb.Append(GetMethodBodyIfPresent(method, methodBodyMode));
             }
         }
 
@@ -154,10 +154,40 @@ public static class ClassFileBuilder
         {
             method.Analyze();
 
-            if (mode == MethodBodyMode.Isil)
+            switch (mode)
             {
-                sb.AppendLine("\t\t// Method body (Instruction-Set-Independent Machine Code Representation)");
-                sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes!));
+                case MethodBodyMode.Isil:
+                {
+                    sb.AppendLine("\t\t// Method body (Instruction-Set-Independent Machine Code Representation)");
+
+                    if (method.InstructionSetIndependentNodes == null)
+                    {
+                        sb.AppendLine();
+                        sb.AppendLine($"\t\t// ERROR: No ISIL was generated, which probably means the {method.AppContext.InstructionSet.GetType().Name}\n\t\t// is not fully implemented and so does not generate control flow graphs.");
+                    } else
+                        sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes));
+
+                    break;
+                }
+                case MethodBodyMode.RawAsm:
+                {
+                    var rawBytes = method.AppContext.InstructionSet.GetRawBytesForMethod(method, false);
+                    
+                    sb.AppendLine($"\t\t// Method body (Raw Machine Code, {rawBytes.Length} bytes)").AppendLine();
+                    
+                    sb.Append("\t\t// ");
+                    sb.Append(method.AppContext.InstructionSet.PrintAssembly(method).Replace("\n", "\n\t\t// ")).AppendLine();
+                    
+                    break;
+                }
+                case MethodBodyMode.Pseudocode:
+                {
+                    sb.AppendLine("\t\t// Method body (Generated C#-Like Decompilation)").AppendLine();
+
+                    sb.AppendLine("// TODO: Implement C#-like decompilation");
+
+                    break;
+                }
             }
         }
         catch (Exception e)

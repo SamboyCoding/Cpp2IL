@@ -15,6 +15,7 @@ namespace Cpp2IL.Gui
         public static void Main(string[] args)
         {
             Cpp2IlApi.Init();
+            SimpleConsoleLogger.Initialize();
             // Trace.Listeners.Add(new TextWriterTraceListener(Console.Out));
             
             BuildAvaloniaApp()

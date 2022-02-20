@@ -44,4 +44,11 @@ public abstract class BaseInstructionSet
     /// </summary>
     /// <returns>A subclass of <see cref="BaseKeyFunctionAddresses"/> specific to this instruction set</returns>
     public abstract BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance();
+    
+    /// <summary>
+    /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available. 
+    /// </summary>
+    /// <param name="context">The method context to disassemble.</param>
+    /// <returns>A string containing one instruction per line.</returns>
+    public abstract string PrintAssembly(MethodAnalysisContext context);
 }

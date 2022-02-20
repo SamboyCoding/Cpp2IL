@@ -8,7 +8,7 @@ using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils
 {
-    public class Arm64Utils
+    public static class Arm64Utils
     {
         private static readonly ConcurrentDictionary<Arm64RegisterId, string> CachedArm64RegNamesNew = new();
         private static CapstoneArm64Disassembler? _arm64Disassembler;
@@ -134,7 +134,7 @@ namespace Cpp2IL.Core.Utils
             var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
             var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
             List<Arm64Instruction> ret = new();
-
+            
             while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
             {
                 //All arm64 instructions are 4 bytes

@@ -3,6 +3,7 @@
         xmlns:vm="using:Cpp2IL.Gui.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:Cpp2IL.Gui"
         xmlns:tv="clr-namespace:ICSharpCode.TreeView;assembly=SharpTreeView"
         xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
@@ -22,7 +23,7 @@
                    HorizontalAlignment="Center"
                    VerticalAlignment="Center"
                    IsVisible="{Binding !HasGame}" />
-        <Grid IsVisible="{Binding HasGame}">
+        <Grid IsVisible="{Binding HasGame}" RowDefinitions="60, *">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="0.4*"
                                   MinWidth="100" />
@@ -30,20 +31,35 @@
                 <ColumnDefinition Width="0.6*"
                                   MinWidth="100" />
             </Grid.ColumnDefinitions>
+            <ListBox Name="ToolBar" BorderThickness="0" Padding="2">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" Spacing="4" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock VerticalAlignment="Center" Padding="0, 0, 8, 0">Method Body Format: </TextBlock>
+                    <ComboBox Name="MethodBodyTypeBox" Width="160" Items="{x:Static local:MethodBodyModes.AllModes}" SelectedItem="{Binding MethodBodyMode, Mode=TwoWay}"></ComboBox>
+                </StackPanel>
+            </ListBox>
             <tv:SharpTreeView
+                Grid.Row="1"
                 Grid.Column="0"
                 Padding="16"
                 VerticalAlignment="Stretch"
                 HorizontalAlignment="Stretch"
                 ShowRoot="False"
                 Root="{Binding RootNode}"
-                SelectionChanged="SelectingItemsControl_OnSelectionChanged"/>
-            <GridSplitter Grid.Column="1"
-                          HorizontalAlignment="Center"
-                          VerticalAlignment="Stretch" />
-            <Grid Grid.Column="2">
+                SelectionChanged="SelectingItemsControl_OnSelectionChanged" />
+            <GridSplitter
+                Grid.Row="1"
+                Grid.Column="1"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Stretch" />
+            <Grid Grid.Row="1" Grid.Column="2">
                 <!--Right side file viewer etc-->
-                <edit:TextEditor Name="CodeView" IsReadOnly="True" ShowLineNumbers="True" Document="{Binding EditorText}" FontFamily="Consolas">
+                <edit:TextEditor Name="CodeView" IsReadOnly="True" ShowLineNumbers="True"
+                                 Document="{Binding EditorText}" FontFamily="Consolas">
                     <edit:TextEditor.Options>
                         <edit:TextEditorOptions
                             IndentationSize="4" />

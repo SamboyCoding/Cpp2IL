@@ -60,6 +60,13 @@ public class X86InstructionSet : BaseInstructionSet
         return ret;
     }
 
+    public override string PrintAssembly(MethodAnalysisContext context)
+    {
+        var insns = X86Utils.Disassemble(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
+
+        return string.Join("\n", insns);
+    }
+
     private void ConvertStatement(IStatement statement, IsilBuilder builder, MethodAnalysisContext context)
     {
         if (statement is IfStatement<Instruction> ifStatement)

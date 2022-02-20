@@ -56,7 +56,8 @@ public class FileTreeEntry : SharpTreeNode
         if (namespaceName != string.Empty)
         {
             //Add sub-namespaces first
-            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition.Namespace! == namespaceName || t.Definition.Namespace!.StartsWith(namespaceName + ".")).ToList();
+            var namespaceDot = $"{namespaceName}.";
+            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition.Namespace! == namespaceName || t.Definition.Namespace!.StartsWith(namespaceDot)).ToList();
             var uniqueSubNamespaces = allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition.Namespace != namespaceName).Select(t => t.Definition.Namespace![(namespaceName.Length + 1)..]).Distinct().ToList();
             foreach (var subNs in uniqueSubNamespaces)
             {
@@ -64,12 +65,12 @@ public class FileTreeEntry : SharpTreeNode
                 {
                     var directChildNs = subNs[..subNs.IndexOf('.')];
                     if(!uniqueSubNamespaces.Contains(directChildNs))
-                        Children.Add(new FileTreeEntry(parentCtx, namespaceName + "." + directChildNs));
+                        Children.Add(new FileTreeEntry(parentCtx, $"{namespaceDot}{directChildNs}"));
                     
                     continue; //Skip deeper-nested namespaces
                 }
 
-                Children.Add(new FileTreeEntry(parentCtx, namespaceName + "." + subNs));
+                Children.Add(new FileTreeEntry(parentCtx, $"{namespaceDot}{subNs}"));
             }
         }
         else

@@ -143,7 +143,6 @@ namespace ICSharpCode.TreeView
 				foreach (SharpTreeNode node in e.OldItems) {
 					Debug.Assert(node.modelParent == this);
 					node.modelParent = null;
-					Trace.WriteLine($"Removing {node} from {this}");
 					SharpTreeNode removeEnd = node;
 					while (removeEnd.modelChildren != null && removeEnd.modelChildren.Count > 0)
 						removeEnd = removeEnd.modelChildren.Last();
@@ -174,7 +173,6 @@ namespace ICSharpCode.TreeView
 					Debug.Assert(node.modelParent == null);
 					node.modelParent = this;
 					node.UpdateIsVisible(isVisible && isExpanded, false);
-					Trace.WriteLine($"Inserting {node} after {insertionPos}");
 					
 					while (insertionPos is {modelChildren: { }} && insertionPos.modelChildren.Count > 0) {
 						insertionPos = insertionPos.modelChildren.Last();

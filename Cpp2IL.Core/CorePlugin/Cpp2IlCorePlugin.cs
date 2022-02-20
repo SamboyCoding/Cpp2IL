@@ -25,6 +25,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         InstructionSetRegistry.RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_64);
         InstructionSetRegistry.RegisterInstructionSet<WasmInstructionSet>(DefaultInstructionSets.WASM);
         InstructionSetRegistry.RegisterInstructionSet<ArmV7InstructionSet>(DefaultInstructionSets.ARM_V7);
+        InstructionSetRegistry.RegisterInstructionSet<Arm64InstructionSet>(DefaultInstructionSets.ARM_V8);
         
         Logger.VerboseNewline("\tRegistering built-in binary parsers...", "Core Plugin");
         
