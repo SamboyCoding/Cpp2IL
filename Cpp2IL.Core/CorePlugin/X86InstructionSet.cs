@@ -3,11 +3,12 @@ using System.Linq;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Model;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 
-namespace Cpp2IL.Core.Model;
+namespace Cpp2IL.Core.CorePlugin;
 
 public class X86InstructionSet : BaseInstructionSet
 {

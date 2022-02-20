@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 
-namespace Cpp2IL.Core.OutputFormats;
+namespace Cpp2IL.Core.CorePlugin;
 
 public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 {

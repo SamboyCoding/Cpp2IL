@@ -1,11 +1,12 @@
 using System.Collections.Generic;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Model;
 using Cpp2IL.Core.Model.Contexts;
 
-namespace Cpp2IL.Core.Model;
+namespace Cpp2IL.Core.CorePlugin;
 
-public class ArmV7InstructionSet : BaseInstructionSet
+public class WasmInstructionSet : BaseInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
@@ -24,7 +25,6 @@ public class ArmV7InstructionSet : BaseInstructionSet
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()
     {
-        //TODO Fix
-        return new Arm64KeyFunctionAddresses();
+        return new WasmKeyFunctionAddresses();
     }
 }
