@@ -32,6 +32,8 @@ public class AssemblyAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => this;
 
+    public override string CustomAttributeOwnerName => Definition.AssemblyName.Name; 
+
     private Dictionary<string, TypeAnalysisContext> TypesByName = new();
 
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)

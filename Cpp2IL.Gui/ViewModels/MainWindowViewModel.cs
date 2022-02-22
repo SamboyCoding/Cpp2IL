@@ -19,6 +19,7 @@ namespace Cpp2IL.Gui.ViewModels
         private bool _hasGame = false;
         private FileTreeEntry _rootNode;
         private MethodBodyMode _methodBodyMode = MethodBodyMode.Isil;
+        private bool _showAttributeGenerators = false;
         private TextDocument _editorText = new TextDocument("Select a class to open");
 
         public TypeAnalysisContext LastSelectedType { get; set; }
@@ -46,8 +47,17 @@ namespace Cpp2IL.Gui.ViewModels
             get => _methodBodyMode;
             set
             {
-                this.RaiseAndSetIfChanged(ref _methodBodyMode, value); 
-                Console.WriteLine($"MethodBodyMode changed to {value}");
+                this.RaiseAndSetIfChanged(ref _methodBodyMode, value);
+                UpdateEditor();
+            }
+        }
+        
+        public bool ShowAttributeGenerators
+        {
+            get => _showAttributeGenerators;
+            set
+            {
+                this.RaiseAndSetIfChanged(ref _showAttributeGenerators, value);
                 UpdateEditor();
             }
         }
@@ -143,7 +153,7 @@ namespace Cpp2IL.Gui.ViewModels
 
         private void UpdateEditor()
         {
-            EditorText = new(ClassFileBuilder.BuildCsFileForType(LastSelectedType, MethodBodyMode));
+            EditorText = new(ClassFileBuilder.BuildCsFileForType(LastSelectedType, MethodBodyMode, ShowAttributeGenerators));
         }
     }
 }

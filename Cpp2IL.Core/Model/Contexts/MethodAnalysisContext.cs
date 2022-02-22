@@ -57,6 +57,8 @@ public class MethodAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
 
+    public override string CustomAttributeOwnerName => Definition?.Name ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeOwnerName if they have custom attributes");
+
     public MethodAnalysisContext(Il2CppMethodDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
         DeclaringType = parent;

@@ -48,6 +48,8 @@ public class TypeAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
 
+    public override string CustomAttributeOwnerName => Definition.Name!;
+
     public TypeAnalysisContext(Il2CppTypeDefinition il2CppTypeDefinition, AssemblyAnalysisContext parent) : base(il2CppTypeDefinition.token, parent.AppContext)
     {
         DeclaringAssembly = parent;

@@ -14,6 +14,8 @@ public class PropertyAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
+    public override string CustomAttributeOwnerName => Definition.Name!;
+
     public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
         DeclaringType = parent;

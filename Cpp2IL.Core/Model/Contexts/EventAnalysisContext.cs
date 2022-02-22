@@ -14,6 +14,8 @@ public class EventAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
+    public override string CustomAttributeOwnerName => Definition.Name!;
+
     public EventAnalysisContext(Il2CppEventDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
         Definition = definition;

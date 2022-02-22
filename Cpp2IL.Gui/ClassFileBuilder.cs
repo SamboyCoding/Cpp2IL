@@ -5,12 +5,14 @@ using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Gui;
 
 public static class ClassFileBuilder
 {
-    public static string BuildCsFileForType(TypeAnalysisContext type, MethodBodyMode methodBodyMode)
+    public static string BuildCsFileForType(TypeAnalysisContext type, MethodBodyMode methodBodyMode, bool includeAttributeGenerators)
     {
         var sb = new StringBuilder();
 
@@ -112,6 +114,23 @@ public static class ClassFileBuilder
                 sb.Append(GetMethodBodyIfPresent(method, methodBodyMode));
             }
 
+            //Properties
+            foreach (var prop in type.Properties)
+            {
+                prop.AnalyzeCustomAttributeData();
+
+                //TODO
+                // sb.Append(GetCustomAttributeStrings(prop, 1));
+                //
+                // sb.Append('\t').Append(GetKeyWordsForProperty(prop));
+                // sb.Append(GetTypeName(prop.Definition.PropertyType!.ToString())).Append(' ');
+                // sb.Append(prop.Definition.Name!);
+                //
+                // sb.Append(' ').Append(GetMethodParameterString(prop));
+                //
+                // sb.Append(GetMethodBodyIfPresent(prop, methodBodyMode));
+            }
+
             //Methods
             foreach (var method in type.Methods)
             {
@@ -130,6 +149,45 @@ public static class ClassFileBuilder
 
                 sb.Append(GetMethodBodyIfPresent(method, methodBodyMode));
             }
+
+            //Attribute generators, if enabled and available
+            if (includeAttributeGenerators && type.AppContext.MetadataVersion < 29f)
+            {
+                var membersWithGenerators = type.Methods.Cast<HasCustomAttributes>().Concat(type.Fields).Concat(type.Properties).Append(type).ToList();
+
+                foreach (var memberWithGenerator in membersWithGenerators)
+                {
+                    if (memberWithGenerator.RawIl2CppCustomAttributeData.Length == 0)
+                        continue;
+
+                    sb.Append("\t// Custom attribute generator at address 0x").Append(memberWithGenerator.CaCacheGeneratorAnalysis!.UnderlyingPointer.ToString("X")).AppendLine();
+                    sb.AppendLine("\t// Expected custom attribute types (parameter+ptr contains an array of these): ");
+
+                    foreach (var il2CppType in memberWithGenerator.AttributeTypes!)
+                    {
+                        sb.Append("\t//\t");
+                        
+                        if (il2CppType.type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+                            sb.Append(GetTypeName(il2CppType.AsClass().FullName!));
+                        else
+                            sb.Append(GetTypeName(LibCpp2ILUtils.GetTypeReflectionData(il2CppType).ToString()));
+                        
+                        sb.AppendLine();
+                    }
+
+                    sb.Append("\tpublic static void GenerateCustomAttributesFor_");
+                    sb.Append(memberWithGenerator switch
+                    {
+                        MethodAnalysisContext => "Method",
+                        FieldAnalysisContext => "Field",
+                        PropertyAnalysisContext => "Property",
+                        TypeAnalysisContext => "Type",
+                    });
+                    sb.Append('_').Append(memberWithGenerator.CustomAttributeOwnerName).Append("(Il2CppCustomAttributeCache customAttributes)");
+
+                    sb.Append(GetMethodBodyIfPresent(memberWithGenerator.CaCacheGeneratorAnalysis, methodBodyMode));
+                }
+            }
         }
 
         sb.AppendLine("}"); //Close class
@@ -144,7 +202,7 @@ public static class ClassFileBuilder
     {
         var sb = new StringBuilder();
 
-        if (method.Definition!.Attributes.HasFlag(MethodAttributes.Abstract))
+        if (method.Definition?.Attributes.HasFlag(MethodAttributes.Abstract) ?? false)
             return ";\n\n";
 
         sb.AppendLine();
@@ -152,7 +210,8 @@ public static class ClassFileBuilder
 
         try
         {
-            method.Analyze();
+            if (mode != MethodBodyMode.RawAsm)
+                method.Analyze();
 
             switch (mode)
             {
@@ -164,7 +223,8 @@ public static class ClassFileBuilder
                     {
                         sb.AppendLine();
                         sb.AppendLine($"\t\t// ERROR: No ISIL was generated, which probably means the {method.AppContext.InstructionSet.GetType().Name}\n\t\t// is not fully implemented and so does not generate control flow graphs.");
-                    } else
+                    }
+                    else
                         sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes));
 
                     break;
@@ -172,19 +232,19 @@ public static class ClassFileBuilder
                 case MethodBodyMode.RawAsm:
                 {
                     var rawBytes = method.AppContext.InstructionSet.GetRawBytesForMethod(method, false);
-                    
+
                     sb.AppendLine($"\t\t// Method body (Raw Machine Code, {rawBytes.Length} bytes)").AppendLine();
-                    
+
                     sb.Append("\t\t// ");
                     sb.Append(method.AppContext.InstructionSet.PrintAssembly(method).Replace("\n", "\n\t\t// ")).AppendLine();
-                    
+
                     break;
                 }
                 case MethodBodyMode.Pseudocode:
                 {
                     sb.AppendLine("\t\t// Method body (Generated C#-Like Decompilation)").AppendLine();
 
-                    sb.AppendLine("// TODO: Implement C#-like decompilation");
+                    sb.AppendLine("\t\t// TODO: Implement C#-like decompilation");
 
                     break;
                 }
@@ -306,7 +366,7 @@ public static class ClassFileBuilder
         {
             if (attributes.HasFlag(FieldAttributes.Static))
                 sb.Append("static ");
-            
+
             if (attributes.HasFlag(FieldAttributes.InitOnly))
                 sb.Append("readonly ");
         }

@@ -22,6 +22,8 @@ public class FieldAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
+    public override string CustomAttributeOwnerName => BackingData.field.Name!;
+
     public FieldAnalysisContext(Il2CppFieldReflectionData backingData, TypeAnalysisContext parent) : base(backingData.field.token, parent.AppContext)
     {
         DeclaringType = parent;
