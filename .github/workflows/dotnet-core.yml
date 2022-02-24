@@ -52,7 +52,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Netframework472-Windows
-        path: ./Cpp2IL/bin/Release/net472/publish/
+        path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
     - name: Upload Ubuntu x64 Artifact
       uses: actions/upload-artifact@v2
       with:
