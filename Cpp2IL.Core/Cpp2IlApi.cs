@@ -171,7 +171,7 @@ namespace Cpp2IL.Core
         public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
-                ResetInternalState();
+                DisposeAndCleanupAll();
 
             ConfigureLib(allowUserToInputAddresses);
 
@@ -199,7 +199,7 @@ namespace Cpp2IL.Core
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
-                ResetInternalState();
+                DisposeAndCleanupAll();
 
             ConfigureLib(allowUserToInputAddresses);
 
@@ -216,7 +216,10 @@ namespace Cpp2IL.Core
             }
         }
 
-        private static void ResetInternalState()
+        /// <summary>
+        /// Clears all internal caches, lists, references, etc, disposes of the MemoryStream for the binary and metadata, and resets the state of the library.
+        /// </summary>
+        public static void DisposeAndCleanupAll()
         {
             SharedState.Clear();
 

@@ -33,6 +33,12 @@ namespace LibCpp2IL
             LibCpp2IlGlobalMapper.Reset();
             LibCpp2ILUtils.Reset();
             MethodsByPtr.Clear();
+
+            MetadataVersion = 0f;
+            Binary?.Dispose();
+            TheMetadata?.Dispose();
+            Binary = null;
+            TheMetadata = null;
         }
 
         public static List<Il2CppMethodDefinition>? GetManagedMethodImplementationsAtAddress(ulong addr)
