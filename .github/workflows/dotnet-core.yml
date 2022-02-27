@@ -66,9 +66,9 @@ jobs:
         with:
           dotnet-version: 6.x
       - name: Install dependencies
-        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}_${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
       - name: Run Tests
-        run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}_${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
       - name: Publish WasmDisassembler
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./WasmDisassembler/bin/Release/*.nupkg
       - name: Publish LibCpp2IL
