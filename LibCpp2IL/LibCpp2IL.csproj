@@ -10,7 +10,7 @@
         <Authors>Samboy063</Authors>
         <Copyright>Copyright © Samboy063 2019-2022</Copyright>
         <Company>Samboy063</Company>
-        <Version>2022.0.2</Version>
+        <VersionPrefix>2022.0.2</VersionPrefix>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
@@ -18,7 +18,6 @@
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Library for interacting with IL2CPP metadata and binaries</Description>
         <Configurations>Debug;Release</Configurations>
-        <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
 
     <ItemGroup>
