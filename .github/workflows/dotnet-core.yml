@@ -68,6 +68,10 @@ jobs:
         with:
           script: |
             core.setOutput("NUGET_KEY", "${{ secrets.NUGET_KEY }}");
+            
+            if(secrets.NUGET_KEY !== "") {
+              core.setOutput("HAS_KEY", true);
+            }
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
@@ -77,21 +81,21 @@ jobs:
         run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}_${{ steps.set-vars.outputs.git_hash }}
       - name: Publish WasmDisassembler
         uses: EasyDesk/action-nuget-push@v1
-        if: steps.set-nuget-vars.NUGET_KEY != ""
+        if: steps.set-nuget-vars.HAS_KEY
         with:
           nuget-api-key: ${{ steps.set-nuget-vars.NUGET_KEY }}
           nuget-url: 'https://nuget.samboy.dev/v3/index.json'
           publish-dir: './WasmDisassembler/bin/Release/'
       - name: Publish LibCpp2IL
         uses: EasyDesk/action-nuget-push@v1
-        if: steps.set-nuget-vars.NUGET_KEY != ""
+        if: steps.set-nuget-vars.HAS_KEY
         with:
           nuget-api-key: ${{ steps.set-nuget-vars.NUGET_KEY }}
           nuget-url: 'https://nuget.samboy.dev/v3/index.json'
           publish-dir: './LibCpp2IL/bin/Release/'
       - name: Publish Cpp2IL.Core
         uses: EasyDesk/action-nuget-push@v1
-        if: steps.set-nuget-vars.NUGET_KEY != ""
+        if: steps.set-nuget-vars.HAS_KEY
         with:
           nuget-api-key: ${{ steps.set-nuget-vars.NUGET_KEY }}
           nuget-url: 'https://nuget.samboy.dev/v3/index.json'
