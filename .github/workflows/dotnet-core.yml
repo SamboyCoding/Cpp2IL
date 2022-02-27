@@ -7,64 +7,56 @@ on:
     branches: [ new-analysis, development ]
 
 jobs:
-  release:
-    name: Build CI Artifacts
+  release-net6:
+    strategy:     
+      matrix:
+        runtimeIdentifier: [linux-x64, osx-x64, win-x64]
+    name: Build Single-File Artifact - {{ matrix.runtimeIdentifier }}    
     runs-on: ubuntu-latest
     steps:
+      - id: set-vars
+      uses: actions/github-script@v5
+      with:
+        script: |
+          core.setOutput("extension", "${{ matrix.runtimeIdentifier}}" === "win-x64" ? ".exe" : "");
     - uses: actions/checkout@v2
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
+    - uses: actions/setup-dotnet@v1
       with:
         dotnet-version: 6.x
-    - name: Install dependencies
+    - name: Restore
       run: dotnet restore
-    - name: Build - Common Lib
-      run: dotnet publish /p:Configuration=Release --no-restore
-      working-directory: ./LibCpp2IL/
-    - name: Build - Windows x64
+    - name: Build
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r win-x64
-    - name: Build - Net Framework 4.8, Windows
-      working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore -r win-x64
-    - name: Build - Ubuntu x64
-      working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r ubuntu-x64
-    - name: Build - OSX x64
-      working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r osx-x64
-    - name: Upload Common Lib Files
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r {{ matrix.runtimeIdentifier }}
+    - name: Upload Executable
       uses: actions/upload-artifact@v2
       with:
-        name: LibCpp2IL
-        path: ./LibCpp2IL/bin/Release/netstandard2.0/publish/LibCpp2IL*
-    - name: Upload Win x64 Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: Cpp2IL-Windows
-        path: ./Cpp2IL/bin/Release/net6.0/win-x64/publish/Cpp2IL.exe
-    - name: Upload Netframework Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: Cpp2IL-Netframework472-Windows
-        path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
-    - name: Upload Ubuntu x64 Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: Cpp2IL-Linux
-        path: ./Cpp2IL/bin/Release/net6.0/ubuntu-x64/publish/Cpp2IL
-    - name: Upload OSX x64 Artifact
-      uses: actions/upload-artifact@v2
-      with:
-        name: Cpp2IL-Mac
-        path: ./Cpp2IL/bin/Release/net6.0/osx-x64/publish/Cpp2IL
+        name: Cpp2IL-net6-{{ matrix.runtimeIdentifier }}
+        path: ./Cpp2IL/bin/Release/net6.0/{{ matrix.runtimeIdentifier }}/publish/Cpp2IL${{ steps.set-vars.outputs.extension }}
+  release-netframework:
+    name: Build - Windows .NET Framework Zip
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.x
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Build
+        working-directory: ./Cpp2IL/
+        run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore -r win-x64
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: Cpp2IL-Netframework472-Windows
+          path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
   tests:
     name: Run Tests
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Setup .NET Core
-        uses: actions/setup-dotnet@v1
+      - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
       - name: Install dependencies
