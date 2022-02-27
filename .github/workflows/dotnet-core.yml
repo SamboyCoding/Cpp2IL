@@ -66,6 +66,28 @@ jobs:
         with:
           dotnet-version: 6.x
       - name: Install dependencies
-        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}_${{ steps.set-vars.outputs.git_hash }}
       - name: Run Tests
-        run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}_${{ steps.set-vars.outputs.git_hash }}
+      - name: Publish WasmDisassembler
+        uses: EasyDesk/action-nuget-push@v1
+        if: secrets.NUGET_KEY != ""
+        with:
+          nuget-api-key: ${{ secrets.NUGET_KEY }}
+          nuget-url: 'https://nuget.samboy.dev/v3/index.json'
+          publish-dir: './WasmDisassembler/bin/Release/'
+      - name: Publish LibCpp2IL
+        uses: EasyDesk/action-nuget-push@v1
+        if: secrets.NUGET_KEY != ""
+        with:
+          nuget-api-key: ${{ secrets.NUGET_KEY }}
+          nuget-url: 'https://nuget.samboy.dev/v3/index.json'
+          publish-dir: './LibCpp2IL/bin/Release/'
+      - name: Publish Cpp2IL.Core
+        uses: EasyDesk/action-nuget-push@v1
+        if: secrets.NUGET_KEY != ""
+        with:
+          nuget-api-key: ${{ secrets.NUGET_KEY }}
+          nuget-url: 'https://nuget.samboy.dev/v3/index.json'
+          publish-dir: './Cpp2IL.Core/bin/Release/'
+      

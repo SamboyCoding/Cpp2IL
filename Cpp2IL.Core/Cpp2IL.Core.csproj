@@ -1,5 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
+        <Authors>Samboy063</Authors>
         <Company>Samboy063</Company>
         <Copyright>Copyright © Samboy063 2019-2022</Copyright>
         <Description>Reverses Unity's IL2CPP Build Process</Description>
