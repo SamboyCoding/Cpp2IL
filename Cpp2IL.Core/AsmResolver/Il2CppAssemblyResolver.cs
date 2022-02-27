@@ -1,7 +1,7 @@
 using System.Collections.Generic;
 using AsmResolver.DotNet;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.AsmResolver;
 
 internal class Il2CppAssemblyResolver : IAssemblyResolver
 {

@@ -5,6 +5,7 @@ using System.Linq;
 using AsmResolver.DotNet;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Api;
+using Cpp2IL.Core.AsmResolver;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;

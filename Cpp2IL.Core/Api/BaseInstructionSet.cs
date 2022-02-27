@@ -5,7 +5,7 @@ using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.Metadata;
 
-namespace Cpp2IL.Core.Model;
+namespace Cpp2IL.Core.Api;
 
 public abstract class BaseInstructionSet
 {
