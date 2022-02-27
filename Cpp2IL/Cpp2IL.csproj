@@ -1,9 +1,8 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+﻿ <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <LangVersion>10</LangVersion>
         <Nullable>enable</Nullable>
         <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
-        <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64;win7-x64</RuntimeIdentifiers>
         <OutputType>Exe</OutputType>
         <PublishTrimmed Condition="'$(TargetFramework)' != 'net472'">true</PublishTrimmed>
         <TrimMode>link</TrimMode>
