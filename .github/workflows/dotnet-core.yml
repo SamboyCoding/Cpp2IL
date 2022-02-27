@@ -24,7 +24,7 @@ jobs:
         with:
           dotnet-version: 6.x
       - name: Restore
-        run: dotnet restore
+        run: dotnet restore -r ${{ matrix.runtimeIdentifier }}
       - name: Build
         working-directory: ./Cpp2IL/
         run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r ${{ matrix.runtimeIdentifier }}
@@ -42,7 +42,7 @@ jobs:
         with:
           dotnet-version: 6.x
       - name: Install dependencies
-        run: dotnet restore
+        run: dotnet restore -r win-x64
       - name: Build
         working-directory: ./Cpp2IL/
         run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore -r win-x64
