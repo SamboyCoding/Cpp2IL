@@ -2,13 +2,14 @@ name: .NET Core - Release
 
 on:
   push:
-    branches: [ master, new-analysis ]
+    branches: [ new-analysis, development ]
+  pull_request:
+    branches: [ new-analysis, development ]
 
 jobs:
   release:
-
+    name: Build CI Artifacts
     runs-on: ubuntu-latest
-    if: contains(github.event.head_commit.message, '[skip ci]') == false
     steps:
     - uses: actions/checkout@v2
     - name: Setup .NET Core
@@ -32,10 +33,6 @@ jobs:
     - name: Build - OSX x64
       working-directory: ./Cpp2IL/
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r osx-x64
-    - name: Run Tests
-      run: |
-        dotnet build
-        dotnet test -v=n --no-build
     - name: Upload Common Lib Files
       uses: actions/upload-artifact@v2
       with:
@@ -61,43 +58,16 @@ jobs:
       with:
         name: Cpp2IL-Mac
         path: ./Cpp2IL/bin/Release/net6.0/osx-x64/publish/Cpp2IL
-#    - name: Create Release
-#      id: create_release
-#      uses: actions/create-release@v1
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#      with:
-#        tag_name: commit_${{ github.sha }}
-#        release_name: Commit ${{ github.sha }}
-#        draft: false
-#        prerelease: true
-#    - name: Release Windows Build
-#      id: release-win
-#      uses: actions/upload-release-asset@v1
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#      with:
-#        upload_url: ${{ steps.create_release.outputs.upload_url }}
-#        asset_path: ./Cpp2IL/bin/Release/net5.0/win-x64/publish/Cpp2IL.exe
-#        asset_name: Cpp2IL-Win.exe
-#        asset_content_type: application/octet-stream
-#    - name: Release Linux Build
-#      id: release-linux
-#      uses: actions/upload-release-asset@v1
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#      with:
-#        upload_url: ${{ steps.create_release.outputs.upload_url }}
-#        asset_path: ./Cpp2IL/bin/Release/net5.0/ubuntu-x64/publish/Cpp2IL
-#        asset_name: Cpp2IL-Linux
-#        asset_content_type: application/octet-stream
-#    - name: Release OSX Build
-#      id: release-osx
-#      uses: actions/upload-release-asset@v1
-#      env:
-#        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-#      with:
-#        upload_url: ${{ steps.create_release.outputs.upload_url }}
-#        asset_path: ./Cpp2IL/bin/Release/net5.0/osx-x64/publish/Cpp2IL
-#        asset_name: Cpp2IL-OSX
-#        asset_content_type: application/octet-stream
+  tests:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 6.x
+      - name: Install dependencies
+        run: dotnet restore
+      - name: Run Tests
+        run: dotnet test
