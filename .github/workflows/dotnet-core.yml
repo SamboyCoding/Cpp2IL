@@ -27,7 +27,7 @@ jobs:
         run: dotnet restore -r ${{ matrix.runtimeIdentifier }}
       - name: Build
         working-directory: ./Cpp2IL/
-        run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore --self-contained -r ${{ matrix.runtimeIdentifier }}
+        run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishgSingleFile=true /p:TrimMode=link --no-restore --self-contained -r ${{ matrix.runtimeIdentifier }}
       - name: Upload Executable
         uses: actions/upload-artifact@v2
         with:
