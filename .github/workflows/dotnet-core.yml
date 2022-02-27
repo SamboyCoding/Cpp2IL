@@ -27,7 +27,7 @@ jobs:
         run: dotnet restore -r ${{ matrix.runtimeIdentifier }}
       - name: Build
         working-directory: ./Cpp2IL/
-        run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishgSingleFile=true /p:TrimMode=link --no-restore --self-contained -r ${{ matrix.runtimeIdentifier }}
+        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:TrimMode=link --no-restore --self-contained
       - name: Upload Executable
         uses: actions/upload-artifact@v2
         with:
@@ -45,7 +45,7 @@ jobs:
         run: dotnet restore -r win-x64
       - name: Build
         working-directory: ./Cpp2IL/
-        run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore -r win-x64
+        run: dotnet publish -c Release -f net472 --no-restore -r win-x64
       - name: Upload
         uses: actions/upload-artifact@v2
         with:
@@ -66,9 +66,9 @@ jobs:
         with:
           dotnet-version: 6.x
       - name: Install dependencies
-        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.set-vars.outputs.git_hash }}
       - name: Run Tests
-        run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.set-vars.outputs.git_hash }}
       - name: Publish WasmDisassembler
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./WasmDisassembler/bin/Release/*.nupkg
       - name: Publish LibCpp2IL
