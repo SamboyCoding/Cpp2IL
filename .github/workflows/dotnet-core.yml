@@ -52,14 +52,26 @@ jobs:
           name: Cpp2IL-Netframework472-Windows
           path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
   tests:
-    name: Run Tests
+    name: Run Tests & Publish Dev Package
     runs-on: ubuntu-latest
     steps:
+      - id: set-vars
+        uses: actions/github-script@v5
+        with:
+          script: |
+            const gitHash = "$(git rev-parse --short "$GITHUB_SHA")";
+            const gitBranch = "${GITHUB_REF#refs/heads/}";
+            
+            console.log(`Git Hash: ${gitHash}`);
+            console.log(`Git Branch: ${gitBranch}`);
+            
+            core.setOutput("git_hash", gitHash);
+            core.setOutput("git_branch", gitBranch);
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
       - name: Install dependencies
-        run: dotnet restore
+        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
       - name: Run Tests
-        run: dotnet test
+        run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}-${{ steps.set-vars.outputs.git_hash }}
