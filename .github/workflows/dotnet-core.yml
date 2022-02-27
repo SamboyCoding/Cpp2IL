@@ -56,17 +56,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - id: set-vars
-        uses: actions/github-script@v5
-        with:
-          script: |
-            const gitHash = "$(git rev-parse --short "$GITHUB_SHA")";
-            const gitBranch = "${GITHUB_REF#refs/heads/}";
-            
-            console.log(`Git Hash: ${gitHash}`);
-            console.log(`Git Branch: ${gitBranch}`);
-            
-            core.setOutput("git_hash", gitHash);
-            core.setOutput("git_branch", gitBranch);
+        shell: bash
+        run: |
+          echo "##[set-output name=git_branch;]$(echo ${GITHUB_REF#refs/heads/})"
+          echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
