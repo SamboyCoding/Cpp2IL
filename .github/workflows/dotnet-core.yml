@@ -26,7 +26,7 @@ jobs:
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r win-x64
     - name: Build - Net Framework 4.8, Windows
       working-directory: ./Cpp2IL/
-      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore
+      run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore -r win-x64
     - name: Build - Ubuntu x64
       working-directory: ./Cpp2IL/
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r ubuntu-x64
@@ -47,7 +47,7 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: Cpp2IL-Netframework472-Windows
-        path: ./Cpp2IL/bin/Release/net472/publish/
+        path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
     - name: Upload Ubuntu x64 Artifact
       uses: actions/upload-artifact@v2
       with:
