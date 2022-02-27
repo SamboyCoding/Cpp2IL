@@ -4,6 +4,7 @@ using System.Linq;
 using AsmResolver.DotNet;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Il2CppApiFunctions;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 

@@ -9,7 +9,7 @@ using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using LibCpp2IL.NintendoSwitch;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core.Il2CppApiFunctions
 {
     public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
     {

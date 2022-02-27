@@ -212,7 +212,7 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppType? RawBaseType => parentIndex == -1 ? null : LibCpp2IlMain.Binary!.GetType(parentIndex);
 
-        public Il2CppTypeReflectionData? BaseType => parentIndex == -1 ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(parentIndex));
+        public Il2CppTypeReflectionData? BaseType => parentIndex == -1 || LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(parentIndex));
 
         public Il2CppFieldDefinition[]? Fields
         {

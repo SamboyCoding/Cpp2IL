@@ -5,7 +5,7 @@ using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core.Il2CppApiFunctions
 {
     public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     {

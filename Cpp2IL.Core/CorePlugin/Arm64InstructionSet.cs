@@ -2,6 +2,7 @@
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Graphs;
+using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model;
 using Cpp2IL.Core.Model.Contexts;

@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using Cpp2IL.Core.Graphs;
+using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.Metadata;

@@ -9,6 +9,7 @@ using System.Runtime;
 using System.Runtime.InteropServices;
 using CommandLine;
 using Cpp2IL.Core;
+using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.Utils;
 #if !DEBUG
 using Cpp2IL.Core.Exceptions;

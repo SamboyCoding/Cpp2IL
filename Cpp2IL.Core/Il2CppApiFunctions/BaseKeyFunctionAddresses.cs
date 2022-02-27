@@ -6,7 +6,7 @@ using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core.Il2CppApiFunctions
 {
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     public abstract class BaseKeyFunctionAddresses
