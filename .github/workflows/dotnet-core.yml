@@ -11,7 +11,7 @@ jobs:
     strategy:     
       matrix:
         runtimeIdentifier: [linux-x64, osx-x64, win-x64]
-    name: Build Single-File Artifact - {{ matrix.runtimeIdentifier }}    
+    name: Build Single-File Artifact
     runs-on: ubuntu-latest
     steps:
       - id: set-vars
@@ -27,12 +27,12 @@ jobs:
         run: dotnet restore
       - name: Build
         working-directory: ./Cpp2IL/
-        run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r {{ matrix.runtimeIdentifier }}
+        run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r ${{ matrix.runtimeIdentifier }}
       - name: Upload Executable
         uses: actions/upload-artifact@v2
         with:
-          name: Cpp2IL-net6-{{ matrix.runtimeIdentifier }}
-          path: ./Cpp2IL/bin/Release/net6.0/{{ matrix.runtimeIdentifier }}/publish/Cpp2IL${{ steps.set-vars.outputs.extension }}
+          name: Cpp2IL-net6-${{ matrix.runtimeIdentifier }}
+          path: ./Cpp2IL/bin/Release/net6.0/${{ matrix.runtimeIdentifier }}/publish/Cpp2IL${{ steps.set-vars.outputs.extension }}
   release-netframework:
     name: Build - Windows .NET Framework Zip
     runs-on: ubuntu-latest
