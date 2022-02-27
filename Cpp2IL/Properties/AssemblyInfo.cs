@@ -9,7 +9,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Samboy063")]
 [assembly: AssemblyProduct("Cpp2IL")]
-[assembly: AssemblyCopyright("Copyright © Samboy063 2019-2021")]
+[assembly: AssemblyCopyright("Copyright © Samboy063 2019-2022")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -20,16 +20,3 @@ using System.Runtime.InteropServices;
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
 [assembly: Guid("E8BA3E8E-3CDC-4562-AE61-CA48ECA270DE")]
-
-// Version information for an assembly consists of the following four values:
-//
-//      Major Version
-//      Minor Version 
-//      Build Number
-//      Revision
-//
-// You can specify all the values or you can default the Build and Revision Numbers 
-// by using the '*' as shown below:
-// [assembly: AssemblyVersion("1.0.*")]
-[assembly: AssemblyVersion("2021.6.1")]
-[assembly: AssemblyFileVersion("2021.6.1")]

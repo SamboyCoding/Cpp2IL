@@ -3,7 +3,8 @@
         <OutputType>Exe</OutputType>
         <TargetFramework>net6.0</TargetFramework>
         <Nullable>enable</Nullable>
-        <Configurations>Debug;Release;DebugDevelopment</Configurations>
+        <Version>2022.1.0.0001</Version>
+        <Configurations>Debug;Release</Configurations>
         <Platforms>AnyCPU;x64</Platforms>
     </PropertyGroup>
     <ItemGroup>

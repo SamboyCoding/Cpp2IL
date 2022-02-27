@@ -348,21 +348,6 @@ namespace Cpp2IL
 
             // Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
 
-#if NET6_0
-            //Fix capstone native library loading on non-windows
-
-            try
-            {
-                var allInstructionsField = typeof(Arm64KeyFunctionAddresses).GetField("_allInstructions", BindingFlags.Instance | BindingFlags.NonPublic);
-                var arm64InstructionType = allInstructionsField!.FieldType.GenericTypeArguments.First();
-                NativeLibrary.SetDllImportResolver(arm64InstructionType.Assembly, DllImportResolver);
-            }
-            catch (Exception)
-            {
-                Logger.WarnNewline("Unable to hook native library resolving for Capstone. If you're not on windows and analysing an ARM or ARM64 binary, expect this to crash!");
-            }
-#endif
-
             if (runtimeArgs.EnableMetadataGeneration)
                 Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
@@ -428,23 +413,5 @@ namespace Cpp2IL
         //         Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
         //     }
         // }
-
-
-        private static IntPtr DllImportResolver(string libraryName, Assembly assembly, DllImportSearchPath? searchPath)
-        {
-            if (libraryName == "capstone")
-            {
-                // On linux, try .so.4
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-#if NET6_0
-                    return NativeLibrary.Load("lib" + libraryName + ".so.4", assembly, searchPath);
-#endif
-                }
-            }
-
-            // Otherwise, fallback to default import resolver.
-            return IntPtr.Zero;
-        }
     }
 }

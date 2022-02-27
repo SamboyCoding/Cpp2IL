@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Model.Contexts;
@@ -158,7 +157,6 @@ namespace Cpp2IL.Core
                 ResetInternalState();
 
             ConfigureLib(allowUserToInputAddresses);
-            FixCapstoneLib();
 
 #if !DEBUG
             try
@@ -182,7 +180,6 @@ namespace Cpp2IL.Core
                 ResetInternalState();
 
             ConfigureLib(allowUserToInputAddresses);
-            FixCapstoneLib();
 
             try
             {
@@ -296,41 +293,6 @@ namespace Cpp2IL.Core
         {
             if (!IsLibInitialized())
                 throw new LibraryNotInitializedException();
-        }
-
-        private static void FixCapstoneLib()
-        {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT)
-                return;
-
-            //Capstone is super stupid and randomly fails to load on non-windows platforms. Fix it.
-            var runningFrom = AppContext.BaseDirectory;
-            var capstonePath = Path.Combine(runningFrom, "Gee.External.Capstone.dll");
-
-            if (!File.Exists(capstonePath))
-            {
-                Logger.InfoNewline("Detected that Capstone's Managed assembly is missing. Attempting to copy the windows one...");
-                var fallbackPath = Path.Combine(runningFrom, "runtimes", "win-x64", "lib", "netstandard2.0", "Gee.External.Capstone.dll");
-
-                if (!File.Exists(fallbackPath))
-                {
-                    Logger.WarnNewline($"Couldn't find it at {fallbackPath}. Your application will probably now throw an exception due to it being missing.");
-                    return;
-                }
-
-                File.Copy(fallbackPath, capstonePath);
-            }
-
-            var loaded = Assembly.LoadFile(capstonePath);
-            Logger.InfoNewline("Loaded capstone: " + loaded.FullName);
-
-            AppDomain.CurrentDomain.AssemblyResolve += (_, args) =>
-            {
-                if (args.Name == loaded.FullName)
-                    return loaded;
-
-                return null;
-            };
         }
     }
 }

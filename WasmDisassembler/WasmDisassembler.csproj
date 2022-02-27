@@ -5,14 +5,14 @@
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
-        <Configurations>Debug;Release;DebugDevelopment</Configurations>
-        <Platforms>AnyCPU;x64</Platforms>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)' == 'DebugDevelopment' ">
-        <DefineDebug>true</DefineDebug>
-        <PlatformTarget>x64</PlatformTarget>
-        <TargetFramework>netstandard2.1</TargetFramework>
+        <PackageId>Samboy063.WasmDisassembler</PackageId>
+        <Version>2022.1.0.0001</Version>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <Description>Simple, zero-dependency disassembler for WebAssembly bytecode</Description>
     </PropertyGroup>
 
 </Project>
