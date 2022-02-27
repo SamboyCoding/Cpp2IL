@@ -62,6 +62,12 @@ jobs:
         run: |
           echo "##[set-output name=git_branch;]$(echo ${GITHUB_REF#refs/heads/})"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
+      - id: set-nuget-vars
+        name: Set NuGet variables
+        uses: actions/github-script@v6
+        with:
+          script: |
+            core.setOutput("NUGET_KEY", "${{ secrets.NUGET_KEY }}");
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
@@ -71,23 +77,23 @@ jobs:
         run: dotnet test /p:Configuration=Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}_${{ steps.set-vars.outputs.git_hash }}
       - name: Publish WasmDisassembler
         uses: EasyDesk/action-nuget-push@v1
-        if: secrets.NUGET_KEY != ""
+        if: steps.set-nuget-vars.NUGET_KEY != ""
         with:
-          nuget-api-key: ${{ secrets.NUGET_KEY }}
+          nuget-api-key: ${{ steps.set-nuget-vars.NUGET_KEY }}
           nuget-url: 'https://nuget.samboy.dev/v3/index.json'
           publish-dir: './WasmDisassembler/bin/Release/'
       - name: Publish LibCpp2IL
         uses: EasyDesk/action-nuget-push@v1
-        if: secrets.NUGET_KEY != ""
+        if: steps.set-nuget-vars.NUGET_KEY != ""
         with:
-          nuget-api-key: ${{ secrets.NUGET_KEY }}
+          nuget-api-key: ${{ steps.set-nuget-vars.NUGET_KEY }}
           nuget-url: 'https://nuget.samboy.dev/v3/index.json'
           publish-dir: './LibCpp2IL/bin/Release/'
       - name: Publish Cpp2IL.Core
         uses: EasyDesk/action-nuget-push@v1
-        if: secrets.NUGET_KEY != ""
+        if: steps.set-nuget-vars.NUGET_KEY != ""
         with:
-          nuget-api-key: ${{ secrets.NUGET_KEY }}
+          nuget-api-key: ${{ steps.set-nuget-vars.NUGET_KEY }}
           nuget-url: 'https://nuget.samboy.dev/v3/index.json'
           publish-dir: './Cpp2IL.Core/bin/Release/'
       
