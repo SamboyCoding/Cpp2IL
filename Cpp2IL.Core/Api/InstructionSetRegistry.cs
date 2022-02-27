@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using Cpp2IL.Core.Model;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Api;

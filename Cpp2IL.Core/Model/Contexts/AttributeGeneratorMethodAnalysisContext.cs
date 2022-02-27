@@ -1,5 +1,3 @@
-using System;
-
 namespace Cpp2IL.Core.Model.Contexts;
 
 public class AttributeGeneratorMethodAnalysisContext : MethodAnalysisContext

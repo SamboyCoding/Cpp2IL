@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using LibCpp2IL;
 using LibCpp2IL.Reflection;
 

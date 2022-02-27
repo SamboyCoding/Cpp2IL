@@ -1,5 +1,4 @@
 using LibCpp2IL;
-using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
 

@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using AsmResolver.DotNet;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.CustomAttributes;
 using Cpp2IL.Core.Utils;

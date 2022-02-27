@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Linq;
-using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
