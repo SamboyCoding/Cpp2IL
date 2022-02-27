@@ -55,12 +55,13 @@ jobs:
     name: Run Tests & Publish Dev Package
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - id: set-vars
+        name: Set up environment
         shell: bash
         run: |
           echo "##[set-output name=git_branch;]$(echo ${GITHUB_REF#refs/heads/})"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
-      - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
