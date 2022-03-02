@@ -32,6 +32,8 @@ namespace Cpp2IL.Core
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
 
         private static readonly ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?> FieldToParameterMappings = new ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?>();
+        private static List<Il2CppCustomAttributeTypeRange> _sortedTypeRangeList;
+        private static Dictionary<ModuleDefinition, MethodDefinition> _attributeAttributeCtorsByModule = new();
 
         static AttributeRestorer() => Initialize();
 
@@ -68,6 +70,9 @@ namespace Cpp2IL.Core
             };
 
             SharedState.FieldsByType[DummyTypeDefForAttributeList] = new List<FieldInType>();
+            
+            _sortedTypeRangeList = LibCpp2IlMain.TheMetadata!.attributeTypeRanges.ToList();
+            _sortedTypeRangeList.SortByExtractedKey(r => r.token);
         }
 
         /// <summary>
@@ -86,6 +91,10 @@ namespace Cpp2IL.Core
             }
 
             _simpleFieldToPropertyCache.Clear();
+            
+            _sortedTypeRangeList.Clear();
+            
+            _attributeAttributeCtorsByModule.Clear();
 
             Initialize();
         }
@@ -120,7 +129,7 @@ namespace Cpp2IL.Core
             {
                 var methodDefinition = methodDef.AsManaged();
 
-                GetCustomAttributesByAttributeIndex<T>(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDefinition.FullName)
+                GetCustomAttributesByAttributeIndex<T>(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDef.DeclaringType!.FullName + "::" + methodDefinition.FullName)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
             }
 
@@ -147,7 +156,7 @@ namespace Cpp2IL.Core
             //Get attributes and look for the serialize field attribute.
             var attributeTypeRange = LibCpp2IlMain.TheMetadata!.GetCustomAttributeData(imageDef, attributeIndex, token);
 
-            if (attributeTypeRange == null)
+            if (attributeTypeRange == null || attributeTypeRange.count == 0)
                 return attributes;
 
             //This exists only as a guideline for if we should run analysis or not, and a fallback in case we cannot.
@@ -164,7 +173,7 @@ namespace Cpp2IL.Core
 #else
 
             var mustRunAnalysis = attributeConstructors.Any(c => c.HasParameters);
-
+            
             //Grab generator for this context - be it field, type, method, etc.
             var attributeGeneratorAddress = GetAddressOfAttributeGeneratorFunction(imageDef, attributeTypeRange);
 
@@ -368,12 +377,15 @@ namespace Cpp2IL.Core
 
         private static CustomAttribute? GenerateFallbackAttribute(MethodReference constructor, ModuleDefinition module, ulong generatorPtr)
         {
-            var attributeType = module.Types.SingleOrDefault(t => t.Namespace == AssemblyPopulator.InjectedNamespaceName && t.Name == "AttributeAttribute");
+            if (!_attributeAttributeCtorsByModule.TryGetValue(module, out var attributeCtor))
+            {
+                var attributeType = module.Types.SingleOrDefault(t => t.Namespace == AssemblyPopulator.InjectedNamespaceName && t.Name == "AttributeAttribute");
 
-            if (attributeType == null)
-                return null;
+                if (attributeType == null)
+                    return null;
 
-            var attributeCtor = attributeType.GetConstructors().First();
+                attributeCtor = _attributeAttributeCtorsByModule[module] = attributeType.GetConstructors().First();
+            }
 
             var ca = new CustomAttribute(attributeCtor);
             var name = new CustomAttributeNamedArgument("Name", new(module.ImportReference(TypeDefinitions.String), constructor.DeclaringType.Name));
@@ -429,7 +441,7 @@ namespace Cpp2IL.Core
 
         private static ulong GetAddressOfAttributeGeneratorFunction(Il2CppImageDefinition imageDef, Il2CppCustomAttributeTypeRange attributeTypeRange)
         {
-            var rangeIndex = Array.IndexOf(LibCpp2IlMain.TheMetadata!.attributeTypeRanges, attributeTypeRange);
+            var rangeIndex = _sortedTypeRangeList.BinarySearch(attributeTypeRange, new TokenComparer());
 
             if (rangeIndex < 0)
             {

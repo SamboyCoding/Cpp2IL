@@ -521,14 +521,5 @@ namespace Cpp2IL.Core
             Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => TypeDefinitions.Type.AsUnmanaged(),
             _ => throw new ArgumentOutOfRangeException(nameof(typeEnum), typeEnum, null)
         };
-
-        public class TokenComparer : IComparer<Il2CppCustomAttributeDataRange>
-        {
-            public int Compare(Il2CppCustomAttributeDataRange x, Il2CppCustomAttributeDataRange y)
-            {
-                if (ReferenceEquals(x, y)) return 0;
-                return x.token.CompareTo(y.token);
-            }
-        }
     }
 }
