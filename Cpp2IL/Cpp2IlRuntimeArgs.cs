@@ -3,7 +3,7 @@ using Cpp2IL.Core.Api;
 
 namespace Cpp2IL
 {
-    public struct Cpp2IlRuntimeArgs
+    public class Cpp2IlRuntimeArgs
     {
         //To determine easily if this struct is the default one or not.
         public bool Valid;
