@@ -8,6 +8,10 @@ using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.Metadata;
 
+#if !DEBUG
+using System;
+#endif
+
 namespace Cpp2IL.Core.Utils;
 
 public static class AsmResolverAssemblyPopulator
