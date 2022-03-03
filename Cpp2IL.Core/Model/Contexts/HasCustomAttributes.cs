@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.CustomAttributes;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;

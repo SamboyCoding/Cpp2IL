@@ -1,4 +1,6 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using CommandLine;
 
@@ -8,66 +10,48 @@ namespace Cpp2IL
     [SuppressMessage("ReSharper", "UnusedAutoPropertyAccessor.Global")]
     public class CommandLineArgs
     {
-        [Option("game-path", Required = true, HelpText = "Specify path to the game folder (containing the exe)")]
+        [Option("game-path", HelpText = "Specify path to the game folder (containing the exe)")]
         public string GamePath { get; set; } = null!; //Suppressed because it's set by CommandLineParser.
 
-        [Option("exe-name", Required = false, HelpText = "Specify an override for the unity executable name in case the auto-detection doesn't work.")]
+        [Option("exe-name", HelpText = "Specify an override for the unity executable name in case the auto-detection doesn't work.")]
         public string? ExeName { get; set; }
         
-        [Option("analysis-level", Required = false, HelpText = "Specify a detail level for analysis. 0 prints everything and is the default. 1 omits the ASM, but still prints textual analysis, pseudocode, and IL. 2 omits ASM and textual analysis, but prints pseudocode and IL. 3 only prints IL. 4 only prints pseudocode.")]
-        public int AnalysisLevel { get; set; }
+        //Force options
 
-        [Option("skip-analysis", Required = false, HelpText = "Skip the analysis section and stop once DummyDLLs have been generated.")]
-        public bool SkipAnalysis { get; set; }
-
-        [Option("skip-metadata-txts", Required = false, HelpText = "Skip the generation of [classname]_metadata.txt files.")]
-        public bool SkipMetadataTextFiles { get; set; }
-
-        [Option("disable-registration-prompts", Required = false, HelpText = "Disable the prompt if Code or Metadata Registration function addresses cannot be located.")]
-        public bool DisableRegistrationPrompts { get; set; }
-            
-        [Option("force-binary-path", Required = false, HelpText = "Force the path to the il2cpp binary. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
+        [Option("force-binary-path", HelpText = "Force the path to the il2cpp binary. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
         public string? ForcedBinaryPath { get; set; }
             
-        [Option("force-metadata-path", Required = false, HelpText = "Force the path to the il2cpp metadata file. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
+        [Option("force-metadata-path", HelpText = "Force the path to the il2cpp metadata file. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
         public string? ForcedMetadataPath { get; set; }
             
-        [Option("force-unity-version", Required = false, HelpText = "Override the unity version detection. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
+        [Option("force-unity-version", HelpText = "Override the unity version detection. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
         public string? ForcedUnityVersion { get; set; }
+        
+        //Processor options
+        
+        [Option("use-processor", HelpText = "Specify the ID of a processing layer to use. This argument can appear more than once, in which case layers will be executed in the order they are specified.")]
+        public IEnumerable<string> ProcessorsToUse { get; set; } = new List<string>();
+        
+        [Option("processor-config", HelpText = "Specify a configuration option for one of the processors you have selected to use, in the format key=value. This argument can appear more than once for specifying multiple keys. The configuration options are used as needed by the selected processors.")]
+        public IEnumerable<string> ProcessorConfigOptions { get; set; } = new List<string>();
+        
+        //Output options
+        
+        //FUTURE: Allow multiple of these?
+        [Option("output-as", HelpText = "Specify the ID of the output format you wish to use.")]
+        public string? OutputFormatId { get; set; }
+        
+        [Option("output-to", HelpText = "Root directory to output to. Defaults to cpp2il_out in the current working directory.")]
+        public string OutputRootDir { get; set; } = Path.GetFullPath("cpp2il_out");
 
-        [Option("verbose", Required = false, HelpText = "Enable Verbose Logging.")]
+        //Flags
+
+        [Option("verbose", HelpText = "Enable Verbose Logging.")]
         public bool Verbose { get; set; }
-        
-        [Option("experimental-enable-il-to-assembly-please", HelpText = "Attempt to emit IL to the assembly saved to the output directory.")]
-        public bool EnableIlToAsm { get; set; }
-        
-        [Option("suppress-attributes", HelpText = "Suppress generation of Cpp2ILInjected attributes.")]
-        public bool SuppressAttributes { get; set; }
 
         [Option("run-analysis-for-assembly", HelpText = "Specify the name of the assembly (without .dll) to run analysis for.")]
         public string RunAnalysisForAssembly { get; set; } = "Assembly-CSharp";
 
-        [Option("parallel", HelpText = "Run analysis in parallel. Might break things.")]
-        public bool Parallel { get; set; }
-
-        [Option("output-root", HelpText = "Root directory to output to. Defaults to cpp2il_out in the current working directory.")]
-        public string OutputRootDir { get; set; } = Path.GetFullPath("cpp2il_out");
-        
-        [Option("throw-safety-out-the-window", HelpText = "Throw safety out the window, and try and push all the IL we can to the DLL, *even if it might break things*. Only has an effect if IL-to-file is enabled.")]
-        public bool ThrowSafetyOutTheWindow { get; set; }
-        
-        [Option("analyze-all", HelpText = "Analyze every single assembly in the application. Probably very slow, might break.")]
-        public bool AnalyzeAllAssemblies { get; set; }
-        
-        [Option("skip-method-dumps", HelpText = "Disable method dump files.")]
-        public bool DisableMethodDumps { get; set; }
-
-        [Option("just-give-me-dlls-asap-dammit", HelpText = "Shorthand for --parallel --skip-method-dumps --experimental-enable-il-to-assembly-please --throw-safety-out-the-window --skip-metadata-txts")]
-        public bool UserIsImpatient { get; set; }
-        
-        [Option("simple-attribute-restoration", HelpText = "Don't use analysis to restore attributes, meaning any attributes with constructor parameters won't be recovered. Has no effect on metadata v29+")]
-        public bool SimpleAttributeRestoration { get; set; }
-        
         [Option("wasm-framework-file", HelpText = "Path to the wasm *.framework.js file. Only needed if your binary is a WASM file. If provided, it can be used to remap obfuscated dynCall function names in order to correct method pointers.")]
         public string? WasmFrameworkFilePath { get; set; }
 

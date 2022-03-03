@@ -3,6 +3,7 @@ using System.Diagnostics;
 using Avalonia;
 using Avalonia.ReactiveUI;
 using Cpp2IL.Core;
+using Cpp2IL.Core.Logging;
 
 namespace Cpp2IL.Gui
 {

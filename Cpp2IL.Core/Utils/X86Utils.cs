@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Logging;
 using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;

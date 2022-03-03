@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL
 {
     public class SoftException : Exception
     {

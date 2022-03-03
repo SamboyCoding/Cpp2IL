@@ -1,6 +1,6 @@
 ﻿using LibCpp2IL.Logging;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core.Logging
 {
     public class LibLogWriter : LogWriter
     {

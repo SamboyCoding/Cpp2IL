@@ -8,5 +8,7 @@
         {
             Name = name;
         }
+
+        public override string ToString() => Name;
     }
 }

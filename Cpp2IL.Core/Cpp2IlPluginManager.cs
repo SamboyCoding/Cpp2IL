@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Attributes;
+using Cpp2IL.Core.Logging;
 
 namespace Cpp2IL.Core;
 

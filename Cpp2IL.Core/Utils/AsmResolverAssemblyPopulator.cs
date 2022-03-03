@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
@@ -7,10 +6,9 @@ using AsmResolver.DotNet.Signatures;
 using AsmResolver.PE.DotNet.Cil;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 
-namespace Cpp2IL.Core;
+namespace Cpp2IL.Core.Utils;
 
 public static class AsmResolverAssemblyPopulator
 {
@@ -18,8 +16,11 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var typeCtx in asmCtx.Types)
         {
+            if(typeCtx.Definition.Name == "<Module>")
+                continue;
+
             var il2CppTypeDef = typeCtx.Definition;
-            var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context");
+            var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context for " + typeCtx.Definition.FullName);
             
             var importer = typeDefinition.Module!.Assembly!.GetImporter();
 
@@ -69,7 +70,7 @@ public static class AsmResolverAssemblyPopulator
             if (typeContext.Definition.Name == "<Module>")
                 continue;
 
-            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context");
+            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context for " + typeContext.Definition.FullName);
 
 #if !DEBUG
             try

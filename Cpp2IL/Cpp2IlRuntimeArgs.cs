@@ -1,4 +1,5 @@
-﻿using Cpp2IL.Core;
+﻿using System.Collections.Generic;
+using Cpp2IL.Core.Api;
 
 namespace Cpp2IL
 {
@@ -13,24 +14,12 @@ namespace Cpp2IL
         public string PathToMetadata;
 
         public string AssemblyToRunAnalysisFor;
-        public bool AnalyzeAllAssemblies;
         public string? WasmFrameworkJsFile;
+
+        public List<Cpp2IlProcessingLayer> ProcessingLayersToRun = new();
+        public Dictionary<string, string> ProcessingLayerConfigurationOptions = new();
         
-        //Feature flags
-        public bool EnableAnalysis;
-        public bool EnableMetadataGeneration;
-        public bool EnableRegistrationPrompts;
-        public bool EnableIlToAsm;
-        public bool IlToAsmContinueThroughErrors;
-        public bool SuppressAttributes;
-        public bool Parallel;
-        public bool SimpleAttributeRestoration;
-        public bool DisableMethodDumps;
-
-        public bool EnableVerboseLogging;
-
-        public AnalysisLevel AnalysisLevel;
-
+        public Cpp2IlOutputFormat OutputFormat;
         public string OutputRootDirectory;
     }
 }

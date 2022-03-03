@@ -6,6 +6,7 @@ using AsmResolver.DotNet;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.AsmResolver;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
@@ -15,21 +16,31 @@ namespace Cpp2IL.Core.CorePlugin;
 public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 {
     public override string OutputFormatId => "dummydll";
+    
+    public override string OutputFormatName => "Stub (\"Dummy\") DLL Files";
 
     private AssemblyDefinition? MostRecentCorLib { get; set; }
 
     public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         //Build the stub assemblies
+        Logger.VerboseNewline("Building stub assemblies...", "DummyDllOutput");
         var ret = BuildStubAssemblies(context);
+
+        TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
 
         //Populate them
         foreach (var asmCtx in context.Assemblies)
         {
+            Logger.VerboseNewline($"Populating {asmCtx.Definition.AssemblyName.Name}...", "DummyDllOutput");
+            
             AsmResolverAssemblyPopulator.ConfigureHierarchy(asmCtx);
             AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged(asmCtx);
         }
         
+        TypeDefinitionsAsmResolver.Reset();
+        
+        Logger.VerboseNewline("Saving assemblies...", "DummyDllOutput");
         //Save them
         foreach (var assembly in ret)
         {

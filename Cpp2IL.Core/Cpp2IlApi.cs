@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Exceptions;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
@@ -14,7 +15,6 @@ namespace Cpp2IL.Core
 {
     public static class Cpp2IlApi
     {
-        public static bool IlContinueThroughErrors;
         public static ApplicationAnalysisContext? CurrentAppContext;
 
         private static readonly HashSet<string> ForbiddenDirectoryNames = new()
@@ -212,87 +212,35 @@ namespace Cpp2IL.Core
 
             LibCpp2IlMain.Reset();
         }
-
-        public static void PopulateCustomAttributesForAssembly(AssemblyAnalysisContext assembly)
-        {
-            assembly.AnalyzeCustomAttributeData();
-
-            foreach (var typeAnalysisContext in assembly.Types)
-            {
-                typeAnalysisContext.AnalyzeCustomAttributeData();
-                
-                typeAnalysisContext.Methods.ForEach(m => m.AnalyzeCustomAttributeData());
-                typeAnalysisContext.Fields.ForEach(f => f.AnalyzeCustomAttributeData());
-                typeAnalysisContext.Properties.ForEach(p => p.AnalyzeCustomAttributeData());
-                typeAnalysisContext.Events.ForEach(e => e.AnalyzeCustomAttributeData());
-            }
-        }
-
-        public static void GenerateMetadataForAllAssemblies(string rootFolder)
-        {
-            CheckLibInitialized();
-
-            //TODO decide if we want to reimplement or discard in favour of something else.
-            // foreach (var assemblyDefinition in SharedState.AssemblyList)
-            //     GenerateMetadataForAssembly(rootFolder, assemblyDefinition);
-        }
-
-        // public static void GenerateMetadataForAssembly(string rootFolder, AssemblyDefinition assemblyDefinition)
-        // {
-        //     // foreach (var mainModuleType in assemblyDefinition.MainModule.Types.Where(mainModuleType => mainModuleType.Namespace != AssemblyPopulator.InjectedNamespaceName))
-        //     // {
-        //     //     GenerateMetadataForType(rootFolder, mainModuleType);
-        //     // }
-        // }
-
-        // public static void GenerateMetadataForType(string rootFolder, TypeDefinition typeDefinition)
+        
+        // public static void PopulateConcreteImplementations()
         // {
         //     CheckLibInitialized();
         //
-        //     var assemblyPath = Path.Combine(rootFolder, "types", typeDefinition.Module.Assembly.Name.Name);
-        //     if (!Directory.Exists(assemblyPath))
-        //         Directory.CreateDirectory(assemblyPath);
+        //     Logger.InfoNewline("Populating Concrete Implementation Table...");
         //
-        //     File.WriteAllText(
-        //         Path.Combine(assemblyPath, typeDefinition.Name.Replace("<", "_").Replace(">", "_").Replace("|", "_") + "_metadata.txt"),
-        //         AssemblyPopulator.BuildWholeMetadataString(typeDefinition)
-        //     );
+        //     foreach (var def in LibCpp2IlMain.TheMetadata!.typeDefs)
+        //     {
+        //         if (def.IsAbstract)
+        //             continue;
+        //
+        //         var baseTypeReflectionData = def.BaseType;
+        //         while (baseTypeReflectionData != null)
+        //         {
+        //             if (baseTypeReflectionData.baseType == null)
+        //                 break;
+        //
+        //             if (baseTypeReflectionData.isType && baseTypeReflectionData.baseType.IsAbstract && !SharedState.ConcreteImplementations.ContainsKey(baseTypeReflectionData.baseType))
+        //                 SharedState.ConcreteImplementations[baseTypeReflectionData.baseType] = def;
+        //
+        //             baseTypeReflectionData = baseTypeReflectionData.baseType.BaseType;
+        //         }
+        //     }
         // }
-
-        public static void PopulateConcreteImplementations()
-        {
-            CheckLibInitialized();
-
-            Logger.InfoNewline("Populating Concrete Implementation Table...");
-
-            foreach (var def in LibCpp2IlMain.TheMetadata!.typeDefs)
-            {
-                if (def.IsAbstract)
-                    continue;
-
-                var baseTypeReflectionData = def.BaseType;
-                while (baseTypeReflectionData != null)
-                {
-                    if (baseTypeReflectionData.baseType == null)
-                        break;
-
-                    if (baseTypeReflectionData.isType && baseTypeReflectionData.baseType.IsAbstract && !SharedState.ConcreteImplementations.ContainsKey(baseTypeReflectionData.baseType))
-                        SharedState.ConcreteImplementations[baseTypeReflectionData.baseType] = def;
-
-                    baseTypeReflectionData = baseTypeReflectionData.baseType.BaseType;
-                }
-            }
-        }
 
         private static bool IsLibInitialized()
         {
             return LibCpp2IlMain.Binary != null && LibCpp2IlMain.TheMetadata != null;
-        }
-
-        private static void CheckLibInitialized()
-        {
-            if (!IsLibInitialized())
-                throw new LibraryNotInitializedException();
         }
     }
 }

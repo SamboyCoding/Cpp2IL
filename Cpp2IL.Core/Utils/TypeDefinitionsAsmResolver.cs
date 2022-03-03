@@ -52,7 +52,7 @@ namespace Cpp2IL.Core.Utils
             return null;
         }
         
-        internal static void BuildPrimitiveMappings()
+        internal static void CacheNeededTypeDefinitions()
         {
             Object = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Object")!;
             ValueType = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.ValueType")!;

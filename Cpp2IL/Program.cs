@@ -4,12 +4,11 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Reflection;
 using System.Runtime;
-using System.Runtime.InteropServices;
 using CommandLine;
 using Cpp2IL.Core;
-using Cpp2IL.Core.Il2CppApiFunctions;
+using Cpp2IL.Core.Api;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 #if !DEBUG
 using Cpp2IL.Core.Exceptions;
@@ -26,6 +25,9 @@ namespace Cpp2IL
 
         private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
         {
+            if(string.IsNullOrEmpty(gamePath))
+                throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
+            
             if (Directory.Exists(gamePath))
             {
                 //Windows game.
@@ -158,11 +160,11 @@ namespace Cpp2IL
         {
             var parserResult = Parser.Default.ParseArguments<CommandLineArgs>(commandLine);
 
-            if (parserResult is NotParsed<CommandLineArgs> notParsed && notParsed.Errors.Count() == 1 && notParsed.Errors.All(e => e.Tag == ErrorType.VersionRequestedError || e.Tag == ErrorType.HelpRequestedError))
+            if (parserResult is NotParsed<CommandLineArgs> notParsed && notParsed.Errors.Count() == 1 && notParsed.Errors.All(e => e.Tag is ErrorType.VersionRequestedError or ErrorType.HelpRequestedError))
                 //Version or help requested
                 Environment.Exit(0);
 
-            if (!(parserResult is Parsed<CommandLineArgs> {Value: { } options}))
+            if (parserResult is not Parsed<CommandLineArgs> {Value: { } options})
                 throw new SoftException("Failed to parse command line arguments");
 
             if (!options.AreForceOptionsValid)
@@ -183,45 +185,48 @@ namespace Cpp2IL
                 result.Valid = true;
             }
 
-            result.EnableAnalysis = !options.SkipAnalysis;
-            result.EnableMetadataGeneration = !options.SkipMetadataTextFiles;
-            result.EnableRegistrationPrompts = !options.DisableRegistrationPrompts;
-            result.EnableVerboseLogging = options.Verbose;
-            result.EnableIlToAsm = options.EnableIlToAsm;
-            result.SuppressAttributes = options.SuppressAttributes;
-            result.Parallel = options.Parallel;
+            ConsoleLogger.ShowVerbose = options.Verbose;
             result.AssemblyToRunAnalysisFor = options.RunAnalysisForAssembly;
-            result.AnalyzeAllAssemblies = options.AnalyzeAllAssemblies;
-            result.IlToAsmContinueThroughErrors = options.ThrowSafetyOutTheWindow;
-            result.DisableMethodDumps = options.DisableMethodDumps;
-            result.SimpleAttributeRestoration = options.SimpleAttributeRestoration;
             result.WasmFrameworkJsFile = options.WasmFrameworkFilePath;
 
-            if (options.UserIsImpatient)
-            {
-                result.Parallel = true;
-                result.DisableMethodDumps = true;
-                result.EnableIlToAsm = true;
-                result.IlToAsmContinueThroughErrors = true;
-                result.EnableMetadataGeneration = false;
-            }
-
-            if (result.DisableMethodDumps)
-                result.AnalysisLevel = AnalysisLevel.IL_ONLY;
-            else
-                result.AnalysisLevel = (AnalysisLevel) options.AnalysisLevel;
-
-            if (result.EnableIlToAsm)
-            {
-                Logger.WarnNewline("!!!!!!!!!!You have enabled IL-To-ASM. If this breaks, it breaks.!!!!!!!!!!");
-            }
-
-            if (result.IlToAsmContinueThroughErrors)
-            {
-                Logger.ErrorNewline("!!!!!!!!!!Throwing safety out the window, as you requested! Forget \"If this breaks, it breaks\", this probably WILL break!!!!!!!!!!");
-            }
-
             result.OutputRootDirectory = options.OutputRootDir;
+            
+            if(string.IsNullOrEmpty(options.OutputFormatId)) 
+                throw new SoftException("No output format specified, so nothing to do!");
+            
+            Cpp2IlApi.Init();
+
+            try
+            {
+                result.OutputFormat = OutputFormatRegistry.GetFormat(options.OutputFormatId);
+                Logger.VerboseNewline($"Selected output format: {result.OutputFormat.OutputFormatName}");
+            }
+            catch (Exception e)
+            {
+                throw new SoftException(e.Message);
+            }
+
+            try
+            {
+                result.ProcessingLayersToRun = options.ProcessorsToUse.Select(ProcessingLayerRegistry.GetById).ToList();
+                if(result.ProcessingLayersToRun.Count > 0)
+                    Logger.VerboseNewline($"Selected processing layers: {string.Join(", ", result.ProcessingLayersToRun.Select(l => l.Name))}");
+                else
+                    Logger.VerboseNewline("No processing layers requested");
+            }
+            catch (Exception e)
+            {
+                throw new SoftException(e.Message);
+            }
+
+            try
+            {
+                options.ProcessorConfigOptions.Select(c => c.Split('=')).ToList().ForEach(s => result.ProcessingLayerConfigurationOptions.Add(s[0], s[1]));
+            }
+            catch (IndexOutOfRangeException)
+            {
+                throw new SoftException("Processor config options must be in the format 'key=value'");
+            }
 
             return result;
         }
@@ -235,15 +240,18 @@ namespace Cpp2IL
 
             Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
 
-#if !DEBUG
             try
             {
-#endif
-            var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
+                var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
 
-            return MainWithArgs(runtimeArgs);
-#if !DEBUG
+                return MainWithArgs(runtimeArgs);
             }
+            catch (SoftException e)
+            {
+                Logger.ErrorNewline($"Execution Failed: {e.Message}");
+                return -1;
+            }
+#if !DEBUG
             catch (DllSaveException e)
             {
                 Logger.ErrorNewline(e.ToString());
@@ -260,11 +268,6 @@ namespace Cpp2IL
                 Console.ReadLine();
                 return -1;
             }
-            catch (SoftException e)
-            {
-                Logger.ErrorNewline($"Execution Failed: {e.Message}");
-                return -1;
-            }
 #endif
         }
 
@@ -274,10 +277,6 @@ namespace Cpp2IL
                 throw new SoftException("Arguments have Valid = false");
 
             GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
-
-            ConsoleLogger.ShowVerbose = runtimeArgs.EnableVerboseLogging;
-            
-            Cpp2IlApi.Init();
 
             if (runtimeArgs.WasmFrameworkJsFile != null)
                 try
@@ -295,91 +294,38 @@ namespace Cpp2IL
             else
                 WasmFile.RemappedDynCallFunctions = null;
 
-            Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion, runtimeArgs.EnableRegistrationPrompts);
+            Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
 
-            // var missingSwitchSupport = 0;
-            // var badConditions = 0;
-            // var allMethodsWithBodies = LibCpp2IlMain.TheMetadata!.methodDefs.Where(m => m.MethodPointer > 0).ToList();
-            // Logger.InfoNewline($"About to build graph for {allMethodsWithBodies.Count} methods");
-            // var startTime = DateTime.Now;
-            // foreach (var m in allMethodsWithBodies)
-            // {
-            //     var body = X86Utils.GetManagedMethodBody(m);
-            //     var graph = new X86ControlFlowGraph(body.ToList());
-            //     try
-            //     {
-            //         graph.Run();
-            //     }
-            //     catch (NotImplementedException e) when (e.Message.StartsWith("Indirect branch"))
-            //     {
-            //         missingSwitchSupport++;
-            //     }
-            //     catch (NodeConditionCalculationException)
-            //     {
-            //         badConditions++;
-            //     }
-            //     catch (Exception e)
-            //     {
-            //         var errorDump = new StringBuilder($"Failed to generate graph for method {m.HumanReadableSignature} in {m.DeclaringType} at 0x{m.MethodPointer:X}\n");
-            //         errorDump.Append($"The error was: {e}\n");
-            //         errorDump.Append("The ASM Dump is:\n").Append(string.Join("\n", body.Select(i => "\t" + i.IP.ToString("x8") + " " + i))).Append('\n');
-            //         errorDump.Append("The graph dump is:\n");
-            //         errorDump.Append(graph.Print());
-            //     
-            //         File.WriteAllText("graphdump.txt", errorDump.ToString());
-            //         
-            //         Logger.ErrorNewline("Failed to generate graph, dumped to graphdump.txt.");
-            //         return 1;
-            //     }
-            // }
-            //
-            // Logger.InfoNewline($"Finished building graphs in {DateTime.Now - startTime:g}");
-            // Logger.WarnNewline($"Failed to build graph for {missingSwitchSupport} methods due to a lack of switch support");
-            // Logger.WarnNewline($"Failed to build graph for {badConditions} methods due to an inability to get the condition");
-
-            // Cpp2IlApi.CurrentAppContext!.GetAssemblyByName("mscorlib")!.GetTypeByFullName("<>f__AnonymousType0`1")!.GetConstructors().First().Analyze();
-            
-            // DoTheFunny();
-            
-            foreach (var assemblyAnalysisContext in Cpp2IlApi.CurrentAppContext!.Assemblies)
+            foreach (var processingLayer in runtimeArgs.ProcessingLayersToRun)
             {
-                Cpp2IlApi.PopulateCustomAttributesForAssembly(assemblyAnalysisContext);
+                var processorStart = DateTime.Now;
+                
+                Logger.InfoNewline($"Running processor {processingLayer.Name}...");
+                processingLayer.Process(Cpp2IlApi.CurrentAppContext!);
+                
+                Logger.InfoNewline($"Processor {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
             }
 
-            // Cpp2IlApi.MakeDummyAssemblies(runtimeArgs.SuppressAttributes);
-
-            if (runtimeArgs.EnableMetadataGeneration)
-                Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
-
-            // Logger.InfoNewline($"Applying type, method, and field attributes for {Cpp2IlApi.GeneratedAssemblies.Count} assemblies...This may take a couple of seconds");
-            // var start = DateTime.Now;
-
-            // Cpp2IlApi.RunAttributeRestorationForAllAssemblies(keyFunctionAddresses, parallel: LibCpp2IlMain.MetadataVersion >= 29 || LibCpp2IlMain.Binary!.InstructionSet is InstructionSet.X86_32 or InstructionSet.X86_64);
-
-            // Logger.InfoNewline($"Finished Applying Attributes in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
-
-            if (runtimeArgs.EnableAnalysis)
-                Cpp2IlApi.PopulateConcreteImplementations();
-
-            // Cpp2IlApi.HarmonyPatchCecilForBetterExceptions();
-
-            // Cpp2IlApi.SaveAssemblies(runtimeArgs.OutputRootDirectory, Cpp2IlApi.GeneratedAssemblies);
+            var outputStart = DateTime.Now;
+            
+            Logger.InfoNewline($"Outputting as {runtimeArgs.OutputFormat.OutputFormatName} to {runtimeArgs.OutputRootDirectory}...");
+            runtimeArgs.OutputFormat.DoOutput(Cpp2IlApi.CurrentAppContext!, runtimeArgs.OutputRootDirectory);
+            Logger.InfoNewline($"Finished outputting in {(DateTime.Now - outputStart).TotalMilliseconds}ms");
+            
+            // if (runtimeArgs.EnableMetadataGeneration)
+                // Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
             // if (runtimeArgs.EnableAnalysis)
-            // {
-            //     if (runtimeArgs.AnalyzeAllAssemblies)
-            //     {
-            //         foreach (var assemblyDefinition in Cpp2IlApi.GeneratedAssemblies)
-            //         {
-            //             DoAnalysisForAssembly(assemblyDefinition.Name.Value, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
-            //         }
-            //     }
-            //     else
-            //     {
-            //         DoAnalysisForAssembly(runtimeArgs.AssemblyToRunAnalysisFor, runtimeArgs.AnalysisLevel, runtimeArgs.OutputRootDirectory, null!, runtimeArgs.EnableIlToAsm, runtimeArgs.Parallel, runtimeArgs.IlToAsmContinueThroughErrors, runtimeArgs.DisableMethodDumps);
-            //     }
-            // }
+                // Cpp2IlApi.PopulateConcreteImplementations();
 
+            CleanupExtractedFiles();
+
+            Logger.InfoNewline("Done.");
+            return 0;
+        }
+
+        private static void CleanupExtractedFiles()
+        {
             foreach (var p in PathsToDeleteOnExit)
             {
                 try
@@ -392,26 +338,6 @@ namespace Cpp2IL
                     //Ignore
                 }
             }
-
-            Logger.InfoNewline("Done.");
-            return 0;
         }
-
-        // private static void DoAnalysisForAssembly(string assemblyName, AnalysisLevel analysisLevel, string rootDir, BaseKeyFunctionAddresses keyFunctionAddresses, bool doIlToAsm, bool parallel, bool continueThroughErrors, bool skipDumps)
-        // {
-        //     var targetAssembly = Cpp2IlApi.GetAssemblyByName(assemblyName);
-        //
-        //     if (targetAssembly == null)
-        //         return;
-        //
-        //     Logger.InfoNewline($"Running Analysis for {assemblyName}.dll...");
-        //
-        //     // Cpp2IlApi.AnalyseAssembly(analysisLevel, targetAssembly, keyFunctionAddresses, skipDumps ? null : Path.Combine(rootDir, "types"), parallel, continueThroughErrors);
-        //
-        //     if (doIlToAsm)
-        //     {
-        //         Cpp2IlApi.SaveAssemblies(rootDir, new List<AssemblyDefinition> {targetAssembly});
-        //     }
-        // }
     }
 }

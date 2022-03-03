@@ -1,7 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.IO;
-using Cpp2IL.Core;
+using Cpp2IL.Core.Logging;
 using Pastel;
 
 namespace Cpp2IL

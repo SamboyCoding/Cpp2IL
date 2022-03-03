@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;

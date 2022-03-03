@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace Cpp2IL.Core
+namespace Cpp2IL.Core.Logging
 {
     public static class Logger
     {

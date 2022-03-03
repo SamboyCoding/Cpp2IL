@@ -1,7 +1,8 @@
 using System;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Attributes;
-using Cpp2IL.Core.CorePlugin; //Need this for the assembly attribute definition below.
+using Cpp2IL.Core.CorePlugin;
+using Cpp2IL.Core.Logging; //Need this for the assembly attribute definition below.
 using LibCpp2IL;
 
 [assembly: RegisterCpp2IlPlugin(typeof(Cpp2IlCorePlugin))]
@@ -30,6 +31,14 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         Logger.VerboseNewline("\tRegistering built-in binary parsers...", "Core Plugin");
         
         LibCpp2IlBinaryRegistry.RegisterBuiltInBinarySupport();
+        
+        Logger.VerboseNewline("\tRegistering built-in output formats...", "Core Plugin");
+        
+        OutputFormatRegistry.Register<AsmResolverDummyDllOutputFormat>();
+        
+        Logger.VerboseNewline("\tRegistering built-in processing layers", "Core Plugin");
+        
+        ProcessingLayerRegistry.Register<AttributeAnalysisProcessingLayer>();
 
         var elapsed = DateTime.Now - start;
         Logger.VerboseNewline($"Core plugin loaded in {elapsed.Ticks} ticks ({elapsed.TotalMilliseconds}ms)", "Core Plugin");
