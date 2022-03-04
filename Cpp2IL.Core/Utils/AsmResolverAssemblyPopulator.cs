@@ -110,6 +110,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var fieldInfo = field.BackingData;
             
+            //TODO Perf: Again, like in CopyMethodsInType, make a variant which returns TypeSignatures directly. (Though this is only 3% of execution time)
             var fieldTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, fieldInfo.field.RawFieldType!).ToTypeSignature());
             var fieldSignature = (fieldInfo.attributes & System.Reflection.FieldAttributes.Static) != 0
                 ? FieldSignature.CreateStatic(fieldTypeSig)
@@ -136,6 +137,9 @@ public static class AsmResolverAssemblyPopulator
             var methodDef = methodCtx.Definition!;
             
             var returnType = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, methodDef.RawReturnType!).ToTypeSignature());
+            
+            //TODO Perf: make a variant of GetTypeDefFromIl2CppType that directly returns a TypeSignature instead of TypeReferences where possible - making then resolving a TypeReference is slow.
+            //TODO Perf: This one Select query (the first) takes 10.4% of total execution time. 
             var parameterTypes = methodDef.InternalParameterData!
                 .Select(p => AsmResolverUtils.GetTypeDefFromIl2CppType(importer, p.RawType!).ToTypeSignature())
                 .Select(importer.ImportTypeSignature)

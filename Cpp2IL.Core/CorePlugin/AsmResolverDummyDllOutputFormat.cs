@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using AsmResolver.DotNet;
+using AsmResolver.DotNet.Builder;
+using AsmResolver.PE.DotNet.Builder;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.AsmResolver;
@@ -41,11 +43,16 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         TypeDefinitionsAsmResolver.Reset();
         
         Logger.VerboseNewline("Saving assemblies...", "DummyDllOutput");
+
+        //Convert assembly definitions to PE files
+        var peImagesToWrite = ret.AsParallel().Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!)).ToList();
+        
         //Save them
-        foreach (var assembly in ret)
+        var fileBuilder = new ManagedPEFileBuilder();
+        foreach (var (image, name) in peImagesToWrite)
         {
-            var dllPath = Path.Combine(outputRoot, assembly.Modules[0].Name!);
-            assembly.Write(dllPath);
+            var dllPath = Path.Combine(outputRoot, name);
+            fileBuilder.CreateFile(image).Write(dllPath);
         }
     }
 
