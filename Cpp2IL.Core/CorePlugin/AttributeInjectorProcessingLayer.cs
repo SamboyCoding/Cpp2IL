@@ -8,11 +8,13 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 {
     public override string Name => "Attribute Injector";
     public override string Id => "attributeinjector";
+
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)
     {
-        foreach (var assemblyAnalysisContext in appContext.Assemblies)
-        {
-            assemblyAnalysisContext.InjectType("Cpp2ILInjected", "AnalysisFailedException");
-        }
+        var stringType = appContext.GetAssemblyByName("mscorlib")?.GetTypeByFullName("System.String") ?? throw new("Failed to get System.String");
+        var voidType = appContext.GetAssemblyByName("mscorlib")?.GetTypeByFullName("System.Void") ?? throw new("Failed to get System.Void");
+
+        appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "AnalysisFailedException")
+            .InjectMethod(".ctor", false, voidType, stringType); //TODO Make specialname | rtspecialname
     }
 }

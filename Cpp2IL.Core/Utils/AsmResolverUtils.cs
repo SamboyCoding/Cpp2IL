@@ -24,6 +24,9 @@ namespace Cpp2IL.Core.Utils
 
         public static ITypeDescriptor GetTypeDefFromIl2CppType(ReferenceImporter importer, Il2CppType il2CppType)
         {
+            if(il2CppType == null)
+                throw new ArgumentNullException(nameof(il2CppType));
+            
             var theDll = LibCpp2IlMain.Binary!;
 
             switch (il2CppType.type)

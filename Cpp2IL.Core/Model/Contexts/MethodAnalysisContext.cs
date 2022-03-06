@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using LibCpp2IL.Metadata;
@@ -58,17 +59,24 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
 
     public override string DefaultName => Definition?.Name ?? throw new("Subclasses of MethodAnalysisContext should override DefaultName");
 
-    public MethodAnalysisContext(Il2CppMethodDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
+    public TypeAnalysisContext[]? InjectedParameterTypes { get; set; }
+    
+    public TypeAnalysisContext? InjectedReturnType { get; set; }
+
+    public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
     {
         DeclaringType = parent;
         Definition = definition;
 
-        InitCustomAttributeData();
+        if (Definition != null)
+        {
+            InitCustomAttributeData();
 
-        if (Definition.MethodPointer != 0)
-            RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
-        else
-            RawBytes = Array.Empty<byte>();
+            if (Definition.MethodPointer != 0)
+                RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+            else
+                RawBytes = Array.Empty<byte>();
+        }
     }
 
     protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(0, context)

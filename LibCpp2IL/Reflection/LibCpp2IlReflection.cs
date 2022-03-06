@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
 namespace LibCpp2IL
@@ -157,6 +158,37 @@ namespace LibCpp2IL
             }
 
             return _propertyIndices[propertyDefinition];
+        }
+
+        public static Il2CppType? GetTypeFromDefinition(Il2CppTypeDefinition definition)
+        {
+            if (LibCpp2IlMain.Binary == null)
+                return null;
+
+            var fullName = definition.FullName;
+
+            switch (fullName)
+            {
+                case "System.String":
+                    return LibCpp2IlMain.Binary.AllTypes.First(t => t.type == Il2CppTypeEnum.IL2CPP_TYPE_STRING);
+                case "System.Void":
+                    return LibCpp2IlMain.Binary.AllTypes.First(t => t.type == Il2CppTypeEnum.IL2CPP_TYPE_VOID);
+            }
+
+            var index = definition.TypeIndex;
+
+            foreach (var type in LibCpp2IlMain.Binary.AllTypes)
+            {
+                if (type.type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE) 
+                    continue;
+                
+                if (type.data.classIndex == index)
+                {
+                    return type;
+                }
+            }
+
+            return null;
         }
     }
 }

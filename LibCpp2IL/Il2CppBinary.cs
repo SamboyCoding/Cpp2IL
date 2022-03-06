@@ -48,6 +48,8 @@ namespace LibCpp2IL
         public abstract long RawLength { get; }
         public int NumTypes => types.Length;
 
+        public Il2CppType[] AllTypes => types;
+
         public void Init(ulong pCodeRegistration, ulong pMetadataRegistration)
         {
             codeRegistration = ReadClassAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration);

@@ -3,9 +3,11 @@ using AsmResolver;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.DotNet.Signatures;
+using AsmResolver.DotNet.Signatures.Types;
 using AsmResolver.PE.DotNet.Cil;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Model.Contexts;
+using LibCpp2IL;
 using LibCpp2IL.Metadata;
 
 #if !DEBUG
@@ -20,16 +22,16 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var typeCtx in asmCtx.Types)
         {
-            if(typeCtx.Name == "<Module>")
+            if (typeCtx.Name == "<Module>")
                 continue;
 
             var il2CppTypeDef = typeCtx.Definition;
             var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context for " + typeCtx.Definition.FullName);
-            
+
             var importer = typeDefinition.Module!.Assembly!.GetImporter();
 
             //Type generic params.
-            if(il2CppTypeDef != null)
+            if (il2CppTypeDef != null)
                 PopulateGenericParamsForType(il2CppTypeDef, typeDefinition);
 
             //Set base type
@@ -37,7 +39,7 @@ public static class AsmResolverAssemblyPopulator
                 typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, parent).ToTypeDefOrRef());
 
             //Set interfaces
-            if(il2CppTypeDef != null)
+            if (il2CppTypeDef != null)
                 foreach (var interfaceType in il2CppTypeDef.RawInterfaces)
                     typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, interfaceType).ToTypeDefOrRef())));
         }
@@ -111,7 +113,7 @@ public static class AsmResolverAssemblyPopulator
         foreach (var field in cppTypeDefinition.Fields)
         {
             var fieldInfo = field.BackingData;
-            
+
             //TODO Perf: Again, like in CopyMethodsInType, make a variant which returns TypeSignatures directly. (Though this is only 3% of execution time)
             var fieldTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, fieldInfo.field.RawFieldType!).ToTypeSignature());
             var fieldSignature = (fieldInfo.attributes & System.Reflection.FieldAttributes.Static) != 0
@@ -136,60 +138,81 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var methodCtx in cppTypeDefinition.Methods)
         {
-            var methodDef = methodCtx.Definition!;
-            
-            var returnType = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, methodDef.RawReturnType!).ToTypeSignature());
-            
-            //TODO Perf: make a variant of GetTypeDefFromIl2CppType that directly returns a TypeSignature instead of TypeReferences where possible - making then resolving a TypeReference is slow.
-            //TODO Perf: This one Select query (the first) takes 10.4% of total execution time. 
-            var parameterTypes = methodDef.InternalParameterData!
-                .Select(p => AsmResolverUtils.GetTypeDefFromIl2CppType(importer, p.RawType!).ToTypeSignature())
-                .Select(importer.ImportTypeSignature)
-                .ToArray();
+            var methodDef = methodCtx.Definition;
 
-            var signature = methodDef.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
+            var rawReturnType = methodDef != null ? methodDef.RawReturnType! : LibCpp2IlReflection.GetTypeFromDefinition(methodCtx.InjectedReturnType!.Definition ?? throw new("Injected methods with injected return types not supported at the moment."))!;
+            var returnType = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, rawReturnType).ToTypeSignature());
 
-            var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) methodDef.Attributes, signature);
-
-            //Add parameter definitions so we get names, defaults, out params, etc
-            var paramData = methodDef.Parameters!;
-            ushort seq = 1;
-            foreach (var param in paramData)
+            TypeSignature[] parameterTypes;
+            if (methodDef != null)
             {
-                var managedParam = new ParameterDefinition(seq++, param.ParameterName, (ParameterAttributes) param.ParameterAttributes);
-                if (managedParam.HasDefault && param.DefaultValue is { } defaultValue)
-                    managedParam.Constant = AsmResolverUtils.MakeConstant(defaultValue);
+                //TODO Perf: make a variant of GetTypeDefFromIl2CppType that directly returns a TypeSignature instead of TypeReferences where possible - making then resolving a TypeReference is slow.
+                //TODO Perf: This one Select query (the first) takes 10.4% of total execution time. 
+                parameterTypes = methodDef.InternalParameterData!
+                    .Select(p => AsmResolverUtils.GetTypeDefFromIl2CppType(importer, p.RawType!).ToTypeSignature())
+                    .Select(importer.ImportTypeSignature)
+                    .ToArray();
+            }
+            else
+            {
+                parameterTypes = methodCtx.InjectedParameterTypes!.Select(p =>
+                    p.Definition == null
+                        ? throw new("Injected methods with injected parameter types aren't supported at the moment")
+                        : AsmResolverUtils.GetTypeDefFromIl2CppType(importer, LibCpp2IlReflection.GetTypeFromDefinition(p.Definition)!).ToTypeSignature()
+                ).ToArray();
+            }
 
-                managedMethod.ParameterDefinitions.Add(managedParam);
+            var signature = methodCtx.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
+
+            const int defaultAttributes = (int) System.Reflection.MethodAttributes.Public;
+
+            var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) (methodDef?.Attributes == null ? defaultAttributes : (int) methodDef.Attributes), signature);
+
+            if (methodDef != null)
+            {
+                //Add parameter definitions so we get names, defaults, out params, etc
+                var paramData = methodDef.Parameters!;
+                ushort seq = 1;
+                foreach (var param in paramData)
+                {
+                    var managedParam = new ParameterDefinition(seq++, param.ParameterName, (ParameterAttributes) param.ParameterAttributes);
+                    if (managedParam.HasDefault && param.DefaultValue is { } defaultValue)
+                        managedParam.Constant = AsmResolverUtils.MakeConstant(defaultValue);
+
+                    managedMethod.ParameterDefinitions.Add(managedParam);
+                }
             }
 
             if (managedMethod.IsManagedMethodWithBody())
                 FillMethodBodyWithStub(managedMethod);
 
-            //Handle generic parameters.
-            methodDef.GenericContainer?.GenericParameters.ToList()
-                .ForEach(p =>
-                {
-                    if (AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(p.Index, out var gp))
+            if (methodDef != null)
+            {
+                //Handle generic parameters.
+                methodDef.GenericContainer?.GenericParameters.ToList()
+                    .ForEach(p =>
                     {
+                        if (AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(p.Index, out var gp))
+                        {
+                            if (!managedMethod.GenericParameters.Contains(gp))
+                                managedMethod.GenericParameters.Add(gp);
+
+                            return;
+                        }
+
+                        gp = new(p.Name, (GenericParameterAttributes) p.flags);
+
                         if (!managedMethod.GenericParameters.Contains(gp))
                             managedMethod.GenericParameters.Add(gp);
 
-                        return;
-                    }
+                        p.ConstraintTypes!
+                            .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
+                            .ToList()
+                            .ForEach(gp.Constraints.Add);
+                    });
+            }
 
-                    gp = new(p.Name, (GenericParameterAttributes) p.flags);
 
-                    if (!managedMethod.GenericParameters.Contains(gp))
-                        managedMethod.GenericParameters.Add(gp);
-
-                    p.ConstraintTypes!
-                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
-                        .ToList()
-                        .ForEach(gp.Constraints.Add);
-                });
-
-            
             methodCtx.PutExtraData("AsmResolverMethod", managedMethod);
             ilTypeDefinition.Methods.Add(managedMethod);
         }
@@ -200,7 +223,7 @@ public static class AsmResolverAssemblyPopulator
         foreach (var propertyCtx in cppTypeDefinition.Properties)
         {
             var propertyDef = propertyCtx.Definition;
-            
+
             var propertyTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, propertyDef.RawPropertyType!).ToTypeSignature());
             var propertySignature = propertyDef.IsStatic
                 ? PropertySignature.CreateStatic(propertyTypeSig)
@@ -226,11 +249,11 @@ public static class AsmResolverAssemblyPopulator
         foreach (var eventCtx in cppTypeDefinition.Events)
         {
             var eventDef = eventCtx.Definition;
-            
+
             var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, eventDef.RawType!).ToTypeDefOrRef());
 
             var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes) eventDef.EventAttributes, eventType);
-            
+
             var managedAdder = eventCtx.Adder?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedRemover = eventCtx.Remover?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedInvoker = eventCtx.Invoker?.GetExtraData<MethodDefinition>("AsmResolverMethod");
