@@ -3,8 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using AsmResolver.DotNet;
-using AsmResolver.DotNet.Builder;
-using AsmResolver.PE.DotNet.Builder;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.AsmResolver;
@@ -44,16 +42,22 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         
         Logger.VerboseNewline("Saving assemblies...", "DummyDllOutput");
 
-        //Convert assembly definitions to PE files
-        var peImagesToWrite = ret.AsParallel().Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!)).ToList();
-        
-        //Save them
-        var fileBuilder = new ManagedPEFileBuilder();
-        foreach (var (image, name) in peImagesToWrite)
+        foreach (var assemblyDefinition in ret)
         {
-            var dllPath = Path.Combine(outputRoot, name);
-            fileBuilder.CreateFile(image).Write(dllPath);
+            var dllPath = Path.Combine(outputRoot, assemblyDefinition.ManifestModule.Name);
+            assemblyDefinition.Write(dllPath);
         }
+        
+        //Convert assembly definitions to PE files
+        // var peImagesToWrite = ret.AsParallel().Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!)).ToList();
+        //
+        // //Save them
+        // var fileBuilder = new ManagedPEFileBuilder();
+        // foreach (var (image, name) in peImagesToWrite)
+        // {
+        //     var dllPath = Path.Combine(outputRoot, name);
+        //     fileBuilder.CreateFile(image).Write(dllPath);
+        // }
     }
 
     private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)
@@ -109,9 +113,9 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         }; 
         ourAssembly.Modules.Add(managedModule);
 
-        foreach (var il2CppTypeDefinition in assemblyContext.Types.Where(t => t.Definition.DeclaringType == null))
+        foreach (var il2CppTypeDefinition in assemblyContext.Types.Where(t => t.Definition?.DeclaringType == null))
         {
-            if(il2CppTypeDefinition.Definition.Name != "<Module>")
+            if(il2CppTypeDefinition.Name != "<Module>")
                 //We skip module because I've never come across an il2cpp assembly with any top-level functions, and it's simpler to skip it as AsmResolver adds one by default.
                 managedModule.TopLevelTypes.Add(BuildStubType(il2CppTypeDefinition));
         }
@@ -126,11 +130,14 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
     {
         var typeDef = typeContext.Definition;
         
+        const int defaultAttributes = (int) (TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
+        
         //Initialize an empty type definition
-        var ret = new TypeDefinition(typeDef.Namespace, typeDef.Name, (TypeAttributes) typeDef.flags);
+        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes) (typeDef?.flags ?? defaultAttributes));
 
         //Set up its layout
-        ConfigureTypeSize(typeDef, ret);
+        if(typeDef != null)
+            ConfigureTypeSize(typeDef, ret);
 
         //Create nested types
         foreach (var cppNestedType in typeContext.NestedTypes) 
@@ -140,7 +147,8 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         typeContext.PutExtraData("AsmResolverType", ret);
         
         //Add to the lookup-by-id table used by the resolver
-        AsmResolverUtils.TypeDefsByIndex[typeDef.TypeIndex] = ret;
+        if(typeDef != null)
+            AsmResolverUtils.TypeDefsByIndex[typeDef.TypeIndex] = ret;
         
         return ret;
     }

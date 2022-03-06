@@ -5,7 +5,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents a field in a managed type.
 /// </summary>
-public class FieldAnalysisContext : HasCustomAttributes
+public class FieldAnalysisContext : HasCustomAttributesAndName
 {
     /// <summary>
     /// The analysis context for the type that this field belongs to.
@@ -21,7 +21,7 @@ public class FieldAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public override string CustomAttributeOwnerName => BackingData.field.Name!;
+    public override string DefaultName => BackingData.field.Name!;
 
     public FieldAnalysisContext(Il2CppFieldReflectionData backingData, TypeAnalysisContext parent) : base(backingData.field.token, parent.AppContext)
     {

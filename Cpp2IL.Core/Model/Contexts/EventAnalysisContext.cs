@@ -2,7 +2,7 @@ using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class EventAnalysisContext : HasCustomAttributes
+public class EventAnalysisContext : HasCustomAttributesAndName
 {
     public readonly TypeAnalysisContext DeclaringType;
     public readonly Il2CppEventDefinition Definition;
@@ -14,7 +14,7 @@ public class EventAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public override string CustomAttributeOwnerName => Definition.Name!;
+    public override string DefaultName => Definition.Name!;
 
     public EventAnalysisContext(Il2CppEventDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {

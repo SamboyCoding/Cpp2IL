@@ -250,7 +250,7 @@ namespace Cpp2IL.Core.Utils
             //And during exception helper location, which is always a system type.
             //So really the only remapping we should have to handle is during explicit override restoration.
 
-            var definedType = Cpp2IlApi.CurrentAppContext!.AllTypes.FirstOrDefault(t => string.Equals(t?.Definition.FullName, name, StringComparison.OrdinalIgnoreCase));
+            var definedType = Cpp2IlApi.CurrentAppContext!.AllTypes.FirstOrDefault(t => t.Definition != null && string.Equals(t.Definition.FullName, name, StringComparison.OrdinalIgnoreCase));
 
             if (name.EndsWith("[]"))
             {
@@ -269,19 +269,19 @@ namespace Cpp2IL.Core.Utils
                 if (!name.Contains("`"))
                     name = name + "`" + (genericParams.Length);
 
-                definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => t.Definition.FullName == name);
+                definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => t.Definition?.FullName == name);
             }
 
             if (definedType != null) return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
 
             //It's possible they didn't specify a `System.` prefix
             var searchString = $"System.{name}";
-            definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => string.Equals(t.Definition.FullName, searchString, StringComparison.OrdinalIgnoreCase));
+            definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => string.Equals(t.Definition?.FullName, searchString, StringComparison.OrdinalIgnoreCase));
 
             if (definedType != null) return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
 
             //Still not got one? Ok, is there only one match for non FQN?
-            var matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => string.Equals(t.Definition.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
+            var matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => string.Equals(t.Definition?.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 
@@ -293,7 +293,7 @@ namespace Cpp2IL.Core.Utils
 
             searchString = name;
             //Try subclasses
-            matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => t.Definition.FullName!.Replace('/', '.').EndsWith(searchString)).ToList();
+            matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => t.Definition != null && t.Definition.FullName!.Replace('/', '.').EndsWith(searchString)).ToList();
             if (matches.Count == 1)
                 definedType = matches.First();
 

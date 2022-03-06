@@ -20,7 +20,7 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var typeCtx in asmCtx.Types)
         {
-            if(typeCtx.Definition.Name == "<Module>")
+            if(typeCtx.Name == "<Module>")
                 continue;
 
             var il2CppTypeDef = typeCtx.Definition;
@@ -29,15 +29,17 @@ public static class AsmResolverAssemblyPopulator
             var importer = typeDefinition.Module!.Assembly!.GetImporter();
 
             //Type generic params.
-            PopulateGenericParamsForType(il2CppTypeDef, typeDefinition);
+            if(il2CppTypeDef != null)
+                PopulateGenericParamsForType(il2CppTypeDef, typeDefinition);
 
             //Set base type
-            if (il2CppTypeDef.RawBaseType is { } parent)
+            if (il2CppTypeDef?.RawBaseType is { } parent)
                 typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, parent).ToTypeDefOrRef());
 
             //Set interfaces
-            foreach (var interfaceType in il2CppTypeDef.RawInterfaces)
-                typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, interfaceType).ToTypeDefOrRef())));
+            if(il2CppTypeDef != null)
+                foreach (var interfaceType in il2CppTypeDef.RawInterfaces)
+                    typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, interfaceType).ToTypeDefOrRef())));
         }
     }
 
@@ -71,7 +73,7 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var typeContext in asmContext.Types)
         {
-            if (typeContext.Definition.Name == "<Module>")
+            if (typeContext.Name == "<Module>")
                 continue;
 
             var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context for " + typeContext.Definition.FullName);
@@ -116,7 +118,7 @@ public static class AsmResolverAssemblyPopulator
                 ? FieldSignature.CreateStatic(fieldTypeSig)
                 : FieldSignature.CreateInstance(fieldTypeSig);
 
-            var managedField = new FieldDefinition(fieldInfo.field.Name, (FieldAttributes) fieldInfo.attributes, fieldSignature);
+            var managedField = new FieldDefinition(field.Name, (FieldAttributes) fieldInfo.attributes, fieldSignature);
 
             //Field default values
             if (managedField.HasDefault && fieldInfo.field.DefaultValue?.Value is { } constVal)
@@ -147,7 +149,7 @@ public static class AsmResolverAssemblyPopulator
 
             var signature = methodDef.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
 
-            var managedMethod = new MethodDefinition(methodDef.Name, (MethodAttributes) methodDef.Attributes, signature);
+            var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) methodDef.Attributes, signature);
 
             //Add parameter definitions so we get names, defaults, out params, etc
             var paramData = methodDef.Parameters!;
@@ -197,14 +199,14 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var propertyCtx in cppTypeDefinition.Properties)
         {
-            var property = propertyCtx.Definition;
+            var propertyDef = propertyCtx.Definition;
             
-            var propertyTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, property.RawPropertyType!).ToTypeSignature());
-            var propertySignature = property.IsStatic
+            var propertyTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, propertyDef.RawPropertyType!).ToTypeSignature());
+            var propertySignature = propertyDef.IsStatic
                 ? PropertySignature.CreateStatic(propertyTypeSig)
                 : PropertySignature.CreateInstance(propertyTypeSig);
 
-            var managedProperty = new PropertyDefinition(property.Name, (PropertyAttributes) property.attrs, propertySignature);
+            var managedProperty = new PropertyDefinition(propertyCtx.Name, (PropertyAttributes) propertyDef.attrs, propertySignature);
 
             var managedGetter = propertyCtx.Getter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedSetter = propertyCtx.Setter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
@@ -227,7 +229,7 @@ public static class AsmResolverAssemblyPopulator
             
             var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, eventDef.RawType!).ToTypeDefOrRef());
 
-            var managedEvent = new EventDefinition(eventDef.Name, (EventAttributes) eventDef.EventAttributes, eventType);
+            var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes) eventDef.EventAttributes, eventType);
             
             var managedAdder = eventCtx.Adder?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedRemover = eventCtx.Remover?.GetExtraData<MethodDefinition>("AsmResolverMethod");

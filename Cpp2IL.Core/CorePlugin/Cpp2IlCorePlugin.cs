@@ -39,6 +39,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         Logger.VerboseNewline("\tRegistering built-in processing layers", "Core Plugin");
         
         ProcessingLayerRegistry.Register<AttributeAnalysisProcessingLayer>();
+        ProcessingLayerRegistry.Register<AttributeInjectorProcessingLayer>();
 
         var elapsed = DateTime.Now - start;
         Logger.VerboseNewline($"Core plugin loaded in {elapsed.Ticks} ticks ({elapsed.TotalMilliseconds}ms)", "Core Plugin");

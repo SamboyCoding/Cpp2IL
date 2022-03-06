@@ -2,7 +2,7 @@ using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class PropertyAnalysisContext : HasCustomAttributes
+public class PropertyAnalysisContext : HasCustomAttributesAndName
 {
     public readonly TypeAnalysisContext DeclaringType;
     public readonly Il2CppPropertyDefinition Definition;
@@ -14,7 +14,7 @@ public class PropertyAnalysisContext : HasCustomAttributes
 
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public override string CustomAttributeOwnerName => Definition.Name!;
+    public override string DefaultName => Definition.Name!;
 
     public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {

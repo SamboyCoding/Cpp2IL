@@ -60,6 +60,13 @@ public class AssemblyAnalysisContext : HasCustomAttributes
         }
     }
 
+    public TypeAnalysisContext InjectType(string ns, string name)
+    {
+        var ret = new InjectedTypeAnalysisContext(this, name, ns);
+        Types.Add(ret);
+        return ret;
+    }
+
     public TypeAnalysisContext? GetTypeByFullName(string fullName) => TypesByName.TryGetValue(fullName, out var typeContext) ? typeContext : null;
     
     public override string ToString() => "Assembly: " + Definition.AssemblyName.Name;
