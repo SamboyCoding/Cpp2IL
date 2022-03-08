@@ -191,8 +191,8 @@ namespace Cpp2IL
 
             result.OutputRootDirectory = options.OutputRootDir;
             
-            if(string.IsNullOrEmpty(options.OutputFormatId)) 
-                throw new SoftException("No output format specified, so nothing to do!");
+            // if(string.IsNullOrEmpty(options.OutputFormatId)) 
+                // throw new SoftException("No output format specified, so nothing to do!");
             
             Cpp2IlApi.Init();
 
@@ -307,11 +307,18 @@ namespace Cpp2IL
             }
 
             var outputStart = DateTime.Now;
-            
-            Logger.InfoNewline($"Outputting as {runtimeArgs.OutputFormat.OutputFormatName} to {runtimeArgs.OutputRootDirectory}...");
-            runtimeArgs.OutputFormat.DoOutput(Cpp2IlApi.CurrentAppContext!, runtimeArgs.OutputRootDirectory);
-            Logger.InfoNewline($"Finished outputting in {(DateTime.Now - outputStart).TotalMilliseconds}ms");
-            
+
+            if (runtimeArgs.OutputFormat != null)
+            {
+                Logger.InfoNewline($"Outputting as {runtimeArgs.OutputFormat.OutputFormatName} to {runtimeArgs.OutputRootDirectory}...");
+                runtimeArgs.OutputFormat.DoOutput(Cpp2IlApi.CurrentAppContext!, runtimeArgs.OutputRootDirectory);
+                Logger.InfoNewline($"Finished outputting in {(DateTime.Now - outputStart).TotalMilliseconds}ms");
+            }
+            else
+            {
+                Logger.WarnNewline("No output format requested, so not outputting anything. The il2cpp game loaded properly though! (Hint: You probably want to specify an output format, try --output-as)");
+            }
+
             // if (runtimeArgs.EnableMetadataGeneration)
                 // Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 

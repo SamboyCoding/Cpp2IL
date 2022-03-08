@@ -195,7 +195,7 @@ namespace LibCpp2IL.Wasm
             // }
 
             if (uiAddr > (ulong) (_memoryBlock.Bytes.Length + _raw.Length))
-                throw new("Way out of bounds");
+                throw new($"Way out of bounds! Requested 0x{uiAddr:X}, memory block + raw length = 0x{_memoryBlock.Bytes.Length + _raw.Length:X}");
             
             return (long) uiAddr;
         }
