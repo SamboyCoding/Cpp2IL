@@ -196,14 +196,17 @@ namespace Cpp2IL
             
             Cpp2IlApi.Init();
 
-            try
+            if(!string.IsNullOrEmpty(options.OutputFormatId)) 
             {
-                result.OutputFormat = OutputFormatRegistry.GetFormat(options.OutputFormatId);
-                Logger.VerboseNewline($"Selected output format: {result.OutputFormat.OutputFormatName}");
-            }
-            catch (Exception e)
-            {
-                throw new SoftException(e.Message);
+                try
+                {
+                    result.OutputFormat = OutputFormatRegistry.GetFormat(options.OutputFormatId);
+                    Logger.VerboseNewline($"Selected output format: {result.OutputFormat.OutputFormatName}");
+                }
+                catch (Exception e)
+                {
+                    throw new SoftException(e.Message);
+                }
             }
 
             try
