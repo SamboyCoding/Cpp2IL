@@ -175,7 +175,7 @@ public static class AsmResolverAssemblyPopulator
                 ushort seq = 1;
                 foreach (var param in paramData)
                 {
-                    var managedParam = new ParameterDefinition(seq++, param.ParameterName, (ParameterAttributes) param.ParameterAttributes);
+                    var managedParam = new ParameterDefinition(seq++, param.ParameterName, (ParameterAttributes) param.Attributes);
                     if (managedParam.HasDefault && param.DefaultValue is { } defaultValue)
                         managedParam.Constant = AsmResolverUtils.MakeConstant(defaultValue);
 

@@ -21,29 +21,31 @@ namespace Cpp2IL.Core.Utils
             
             if (definition.Attributes.HasFlag(MethodAttributes.PinvokeImpl))
                 //It appears pinvokeimpl doesn't have a method info argument.
-                return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => p.Type).Select(GetSignatureLetter))}";
+                return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.Type, p.IsRefOrOut)))}";
             
-            //TODO Look into how out params (esp. out doubles) work, because i don't think they're stored as d, or they don't have a method info arg, or something.
-            //TODO e.g. Double#TryParse(string, numberstyles (which is int), IFormatProvider, out double) with a return type of bool is NOT iiiidi
-            return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => p.Type).Select(GetSignatureLetter))}i"; //Add an extra i on the end for the method info param
+            return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.Type, p.IsRefOrOut)))}i"; //Add an extra i on the end for the method info param
         }
 
-        private static char GetSignatureLetter(Il2CppTypeReflectionData type)
+        private static char GetSignatureLetter(Il2CppTypeReflectionData type, bool isRefOrOut = false)
         {
-            var typeDefinition = type.baseType ?? LibCpp2IlReflection.GetType("Int32", "System")!;
-            
-            if (typeDefinition.Name == "Void")
-                return 'v';
-            if (typeDefinition.Name == "Int32")
+            if(isRefOrOut)
+                //ref/out params are passed as pointers 
                 return 'i';
-            if (typeDefinition.Name == "Int64")
-                return 'j';
-            if (typeDefinition.Name == "Single")
-                return 'f';
-            if (typeDefinition.Name == "Double")
-                return 'd';
 
-            return 'i'; //Everything else is passed as an int32
+            if (type.isPointer)
+                //Pointers are ints
+                return 'i';
+
+            var typeDefinition = type.baseType ?? LibCpp2IlReflection.GetType("Int32", "System")!;
+
+            return typeDefinition.Name switch
+            {
+                "Void" => 'v',
+                "Int64" => 'j',
+                "Single" => 'f',
+                "Double" => 'd',
+                _ => 'i' //Including Int32
+            };
         }
 
         public static string GetGhidraFunctionName(WasmFunctionDefinition functionDefinition)

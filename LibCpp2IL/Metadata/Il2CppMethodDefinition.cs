@@ -121,7 +121,7 @@ namespace LibCpp2IL.Metadata
                             {
                                 Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
                                 ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
-                                ParameterAttributes = paramFlags,
+                                Attributes = paramFlags,
                                 RawType = paramType,
                                 DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex),
                             };

@@ -307,7 +307,7 @@ public static class ClassFileBuilder
 
             sb.Append(GetTypeName(paramData.Type.ToString())).Append(' ').Append(paramData.ParameterName);
 
-            if (paramData.ParameterAttributes.HasFlag(ParameterAttributes.HasDefault))
+            if (paramData.Attributes.HasFlag(ParameterAttributes.HasDefault))
                 sb.Append(" = ").Append(paramData.DefaultValue);
         }
 
