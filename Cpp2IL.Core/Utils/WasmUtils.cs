@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text.RegularExpressions;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
@@ -17,6 +18,13 @@ namespace Cpp2IL.Core.Utils
         public static string BuildSignature(Il2CppMethodDefinition definition)
         {
             var instanceParam = definition.IsStatic ? "" : "i";
+            
+            if (definition.Attributes.HasFlag(MethodAttributes.PinvokeImpl))
+                //It appears pinvokeimpl doesn't have a method info argument.
+                return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => p.Type).Select(GetSignatureLetter))}";
+            
+            //TODO Look into how out params (esp. out doubles) work, because i don't think they're stored as d, or they don't have a method info arg, or something.
+            //TODO e.g. Double#TryParse(string, numberstyles (which is int), IFormatProvider, out double) with a return type of bool is NOT iiiidi
             return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => p.Type).Select(GetSignatureLetter))}i"; //Add an extra i on the end for the method info param
         }
 
@@ -44,11 +52,30 @@ namespace Cpp2IL.Core.Utils
             return $"unnamed_function_{index}";
         }
 
+        public static WasmFunctionDefinition? TryGetWasmDefinition(Il2CppMethodDefinition definition)
+        {
+            try
+            {
+                return GetWasmDefinition(definition);
+            }
+            catch
+            {
+                return null;
+            }
+        }
+
         public static WasmFunctionDefinition GetWasmDefinition(Il2CppMethodDefinition definition)
         {
             //First, we have to calculate the signature
-            var signature = WasmUtils.BuildSignature(definition);
-            return ((WasmFile) LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(definition.MethodPointer, signature);
+            var signature = BuildSignature(definition);
+            try
+            {
+                return ((WasmFile) LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(definition.MethodPointer, signature);
+            }
+            catch (Exception e)
+            {
+                throw new($"Failed to find wasm definition for {definition}\nwhich has params {definition.Parameters?.ToStringEnumerable()}", e);
+            }
         }
 
         private static void CalculateAllMethodDefinitionIndices()

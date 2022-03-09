@@ -201,7 +201,7 @@ namespace LibCpp2IL
                     return address;
                 }
             }
-            
+
             return 0;
         }
 
@@ -307,12 +307,12 @@ namespace LibCpp2IL
                         else
                         {
                             ok = _binary.TryMapVirtualAddressToRaw((ulong) mrWords[i], out _); //Can be mapped successfully to the binary.
-                            if(!ok)
+                            if (!ok)
                                 LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i}, which is 0x{mrWords[i]:X}, can't be mapped to the binary.");
                         }
                     }
-                    
-                    if(!ok)
+
+                    if (!ok)
                         break;
                 }
 
@@ -328,13 +328,20 @@ namespace LibCpp2IL
 
                     if (metaReg.typeDefinitionsSizesCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
                     {
-                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.typeDefinitionsSizesCount} type def sizes, while we have {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.typeDefinitionsSizesCount} type def sizes, while metadata file defines {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                        continue;
+                    }
+
+                    if (metaReg.numTypes < LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                    {
+                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.numTypes} types, which is less than metadata-file-defined type def count of {LibCpp2IlMain.TheMetadata!.typeDefs.Length}");
                         continue;
                     }
                     
-                    if (metaReg.numTypes < LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                    if (metaReg.fieldOffsetsCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
                     {
-                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.numTypes} types, while we have {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                        //If we see any cases of failing to find meta reg and this line is in verbose log, maybe the assumption (num field offsets == num type defs) is wrong.
+                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.fieldOffsetsCount} field offsets, while metadata file defines {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
                         continue;
                     }
 

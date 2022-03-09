@@ -38,12 +38,13 @@ namespace LibCpp2IL.Metadata
         public string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
         public Il2CppType? RawReturnType => LibCpp2IlMain.Binary?.GetType(returnTypeIdx);
-        
+
         public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary.GetType(returnTypeIdx));
 
         public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
         private ulong? _methodPointer = null;
+
         public ulong MethodPointer
         {
             get
@@ -65,7 +66,7 @@ namespace LibCpp2IL.Metadata
                     {
                         asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
                     }
-                    
+
                     _methodPointer = LibCpp2IlMain.Binary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
                 }
 
@@ -137,7 +138,8 @@ namespace LibCpp2IL.Metadata
         {
             if (LibCpp2IlMain.TheMetadata == null) return base.ToString();
 
-            return $"Il2CppMethodDefinition[Name='{Name}']";
+
+            return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
         }
     }
 }

@@ -41,6 +41,9 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         TypeDefinitionsAsmResolver.Reset();
         
         Logger.VerboseNewline("Saving assemblies...", "DummyDllOutput");
+        
+        if (!Directory.Exists(outputRoot))
+            Directory.CreateDirectory(outputRoot);
 
         foreach (var assemblyDefinition in ret)
         {
