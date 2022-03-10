@@ -28,20 +28,12 @@
     </ItemGroup>
     <ItemGroup>
       <None Remove="Images\Assembly.png" />
-      <Content Include="Images\Assembly.png">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
+      <EmbeddedResource Include="Images\Assembly.png" />
       <None Remove="Images\Class.png" />
-      <Content Include="Images\Class.png">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
+      <EmbeddedResource Include="Images\Class.png" />
       <None Remove="Images\NameSpace.png" />
-      <Content Include="Images\NameSpace.png">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
+      <EmbeddedResource Include="Images\NameSpace.png" />
       <None Remove="Images\Method.png" />
-      <Content Include="Images\Method.png">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </Content>
+      <EmbeddedResource Include="Images\Method.png" />
     </ItemGroup>
 </Project>

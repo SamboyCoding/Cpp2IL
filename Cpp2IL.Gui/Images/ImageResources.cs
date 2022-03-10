@@ -4,7 +4,7 @@ namespace Cpp2IL.Gui.Images;
 
 public class ImageResources
 {
-    static IBitmap LoadBitmap(string name) => new Bitmap("Images/" + name + ".png");
+    static IBitmap LoadBitmap(string name) => new Bitmap(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream($"Cpp2IL.Gui.Images.{name}.png"));
     
     public static readonly IBitmap Assembly = LoadBitmap("Assembly");
     public static readonly IBitmap Namespace = LoadBitmap("NameSpace");
