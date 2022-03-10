@@ -11,6 +11,7 @@ jobs:
     strategy:     
       matrix:
         runtimeIdentifier: [linux-x64, osx-x64, win-x64]
+        project: [Cpp2IL, Cpp2IL.Gui]
     name: Build Single-File Artifact
     runs-on: ubuntu-latest
     steps:
@@ -26,13 +27,13 @@ jobs:
       - name: Restore
         run: dotnet restore -r ${{ matrix.runtimeIdentifier }}
       - name: Build
-        working-directory: ./Cpp2IL/
+        working-directory: ./${{ matrix.project }}/
         run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:TrimMode=link --no-restore --self-contained
       - name: Upload Executable
         uses: actions/upload-artifact@v2
         with:
-          name: Cpp2IL-net6-${{ matrix.runtimeIdentifier }}
-          path: ./Cpp2IL/bin/Release/net6.0/${{ matrix.runtimeIdentifier }}/publish/Cpp2IL${{ steps.set-vars.outputs.extension }}
+          name: ${{ matrix.project }}-net6-${{ matrix.runtimeIdentifier }}
+          path: ./${{ matrix.project }}/bin/Release/net6.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
   release-netframework:
     name: Build - Windows .NET Framework Zip
     runs-on: ubuntu-latest

@@ -2,6 +2,7 @@
 
 public enum MethodBodyMode
 {
+    Stubs,
     RawAsm,
     Isil,
     Pseudocode,

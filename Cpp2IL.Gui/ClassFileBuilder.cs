@@ -208,51 +208,54 @@ public static class ClassFileBuilder
         sb.AppendLine();
         sb.AppendLine("\t{");
 
-        try
+        if (mode != MethodBodyMode.Stubs)
         {
-            if (mode != MethodBodyMode.RawAsm)
-                method.Analyze();
-
-            switch (mode)
+            try
             {
-                case MethodBodyMode.Isil:
-                {
-                    sb.AppendLine("\t\t// Method body (Instruction-Set-Independent Machine Code Representation)");
+                if (mode != MethodBodyMode.RawAsm)
+                    method.Analyze();
 
-                    if (method.InstructionSetIndependentNodes == null)
+                switch (mode)
+                {
+                    case MethodBodyMode.Isil:
                     {
-                        sb.AppendLine();
-                        sb.AppendLine($"\t\t// ERROR: No ISIL was generated, which probably means the {method.AppContext.InstructionSet.GetType().Name}\n\t\t// is not fully implemented and so does not generate control flow graphs.");
+                        sb.AppendLine("\t\t// Method body (Instruction-Set-Independent Machine Code Representation)");
+
+                        if (method.InstructionSetIndependentNodes == null)
+                        {
+                            sb.AppendLine();
+                            sb.AppendLine($"\t\t// ERROR: No ISIL was generated, which probably means the {method.AppContext.InstructionSet.GetType().Name}\n\t\t// is not fully implemented and so does not generate control flow graphs.");
+                        }
+                        else
+                            sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes));
+
+                        break;
                     }
-                    else
-                        sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes));
+                    case MethodBodyMode.RawAsm:
+                    {
+                        var rawBytes = method.AppContext.InstructionSet.GetRawBytesForMethod(method, false);
 
-                    break;
-                }
-                case MethodBodyMode.RawAsm:
-                {
-                    var rawBytes = method.AppContext.InstructionSet.GetRawBytesForMethod(method, false);
+                        sb.AppendLine($"\t\t// Method body (Raw Machine Code, {rawBytes.Length} bytes)").AppendLine();
 
-                    sb.AppendLine($"\t\t// Method body (Raw Machine Code, {rawBytes.Length} bytes)").AppendLine();
+                        sb.Append("\t\t// ");
+                        sb.Append(method.AppContext.InstructionSet.PrintAssembly(method).Replace("\n", "\n\t\t// ")).AppendLine();
 
-                    sb.Append("\t\t// ");
-                    sb.Append(method.AppContext.InstructionSet.PrintAssembly(method).Replace("\n", "\n\t\t// ")).AppendLine();
+                        break;
+                    }
+                    case MethodBodyMode.Pseudocode:
+                    {
+                        sb.AppendLine("\t\t// Method body (Generated C#-Like Decompilation)").AppendLine();
 
-                    break;
-                }
-                case MethodBodyMode.Pseudocode:
-                {
-                    sb.AppendLine("\t\t// Method body (Generated C#-Like Decompilation)").AppendLine();
+                        sb.AppendLine("\t\t// TODO: Implement C#-like decompilation");
 
-                    sb.AppendLine("\t\t// TODO: Implement C#-like decompilation");
-
-                    break;
+                        break;
+                    }
                 }
             }
-        }
-        catch (Exception e)
-        {
-            sb.AppendLine("\t\t// Error Analysing method: " + e.ToString().Replace("\n", "\n\t\t//"));
+            catch (Exception e)
+            {
+                sb.AppendLine("\t\t// Error Analysing method: " + e.ToString().Replace("\n", "\n\t\t//"));
+            }
         }
 
         sb.AppendLine("\t}\n");
