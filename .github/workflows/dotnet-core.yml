@@ -20,6 +20,7 @@ jobs:
         with:
           script: |
             core.setOutput("extension", "${{ matrix.runtimeIdentifier}}" === "win-x64" ? ".exe" : "");
+            core.setOutput("extraArgs", "${{ matrix.project}}" === "Cpp2IL.Gui" ? "/p:BuiltInComInteropSupport=true" : "");
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
         with:
@@ -28,7 +29,7 @@ jobs:
         run: dotnet restore -r ${{ matrix.runtimeIdentifier }}
       - name: Build
         working-directory: ./${{ matrix.project }}/
-        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:TrimMode=link --no-restore --self-contained
+        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true ${{ steps.set-vars.outputs.extraArgs }} /p:TrimMode=link --no-restore --self-contained
       - name: Upload Executable
         uses: actions/upload-artifact@v2
         with:
