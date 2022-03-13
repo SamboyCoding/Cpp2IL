@@ -60,9 +60,9 @@ public class AssemblyAnalysisContext : HasCustomAttributes
         }
     }
 
-    public TypeAnalysisContext InjectType(string ns, string name)
+    public TypeAnalysisContext InjectType(string ns, string name, TypeAnalysisContext? baseType)
     {
-        var ret = new InjectedTypeAnalysisContext(this, name, ns);
+        var ret = new InjectedTypeAnalysisContext(this, name, ns, baseType);
         Types.Add(ret);
         return ret;
     }

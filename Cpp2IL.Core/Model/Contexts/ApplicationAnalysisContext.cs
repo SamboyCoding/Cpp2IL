@@ -35,6 +35,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     public BaseInstructionSet InstructionSet;
     
     /// <summary>
+    /// Contains references to some commonly-used System types.
+    /// </summary>
+    public SystemTypesContext SystemTypes;
+    
+    /// <summary>
     /// All the managed assemblies contained within the metadata file.
     /// </summary>
     public readonly List<AssemblyAnalysisContext> Assemblies = new();
@@ -66,6 +71,8 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
         foreach (var assemblyDefinition in Metadata.AssemblyDefinitions) 
             Assemblies.Add(new(assemblyDefinition, this));
+
+        SystemTypes = new(this);
         
         PopulateMethodsByAddressTable();
     }
@@ -122,9 +129,9 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return _keyFunctionAddresses;
     }
 
-    public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name)
+    public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext baseType)
     {
-        var types = Assemblies.Select(a => (InjectedTypeAnalysisContext) a.InjectType(ns, name)).ToArray();
+        var types = Assemblies.Select(a => (InjectedTypeAnalysisContext) a.InjectType(ns, name, baseType)).ToArray();
         
         return new(types);
     }

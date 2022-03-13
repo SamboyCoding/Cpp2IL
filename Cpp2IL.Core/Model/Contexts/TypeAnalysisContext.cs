@@ -56,9 +56,11 @@ public class TypeAnalysisContext : HasCustomAttributesAndName
 
     public string Namespace => OverrideNs ?? DefaultNs;
 
-    public TypeAnalysisContext(Il2CppTypeDefinition? il2CppTypeDefinition, AssemblyAnalysisContext parent) : base(il2CppTypeDefinition?.token ?? 0, parent.AppContext)
+    public TypeAnalysisContext? OverrideBaseType { get; protected set; }
+
+    public TypeAnalysisContext(Il2CppTypeDefinition? il2CppTypeDefinition, AssemblyAnalysisContext containingAssembly) : base(il2CppTypeDefinition?.token ?? 0, containingAssembly.AppContext)
     {
-        DeclaringAssembly = parent;
+        DeclaringAssembly = containingAssembly;
         Definition = il2CppTypeDefinition;
 
         if (Definition != null)

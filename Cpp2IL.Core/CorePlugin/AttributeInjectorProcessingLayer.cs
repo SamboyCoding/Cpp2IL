@@ -11,10 +11,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)
     {
-        var stringType = appContext.GetAssemblyByName("mscorlib")?.GetTypeByFullName("System.String") ?? throw new("Failed to get System.String");
-        var voidType = appContext.GetAssemblyByName("mscorlib")?.GetTypeByFullName("System.Void") ?? throw new("Failed to get System.Void");
-
-        appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "AnalysisFailedException")
-            .InjectMethod(".ctor", false, voidType, stringType); //TODO Make specialname | rtspecialname
+        appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "AnalysisFailedException", appContext.SystemTypes.SystemExceptionType)
+            .InjectConstructor( false, appContext.SystemTypes.SystemStringType);
     }
 }

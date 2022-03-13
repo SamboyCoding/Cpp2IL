@@ -35,7 +35,12 @@ public static class AsmResolverAssemblyPopulator
                 PopulateGenericParamsForType(il2CppTypeDef, typeDefinition);
 
             //Set base type
-            if (il2CppTypeDef?.RawBaseType is { } parent)
+            if(typeCtx.OverrideBaseType is {} overrideBaseType)
+            {
+                var baseTypeDef = overrideBaseType.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"{typeCtx} declares override base type {overrideBaseType} which has not had an AsmResolver type generated for it.");
+                typeDefinition.BaseType = importer.ImportType(baseTypeDef);
+            }
+            else if (il2CppTypeDef?.RawBaseType is { } parent)
                 typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, parent).ToTypeDefOrRef());
 
             //Set interfaces
@@ -164,9 +169,7 @@ public static class AsmResolverAssemblyPopulator
 
             var signature = methodCtx.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
 
-            const int defaultAttributes = (int) System.Reflection.MethodAttributes.Public;
-
-            var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) (methodDef?.Attributes == null ? defaultAttributes : (int) methodDef.Attributes), signature);
+            var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) methodCtx.Attributes, signature);
 
             if (methodDef != null)
             {

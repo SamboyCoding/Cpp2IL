@@ -58,6 +58,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
 
     public override string DefaultName => Definition?.Name ?? throw new("Subclasses of MethodAnalysisContext should override DefaultName");
+    
+    public virtual MethodAttributes Attributes => Definition?.Attributes ?? throw new("Subclasses of MethodAnalysisContext should override Attributes");
 
     public TypeAnalysisContext[]? InjectedParameterTypes { get; set; }
     
