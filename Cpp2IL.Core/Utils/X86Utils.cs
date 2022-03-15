@@ -33,6 +33,8 @@ namespace Cpp2IL.Core.Utils
 
         public static byte[] GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)
         {
+
+            
             var rawAddr = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(ptr);
             var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr);
 
@@ -44,11 +46,51 @@ namespace Cpp2IL.Core.Utils
 
             var startOfNextFunc = (int) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc);
 
-            var retList = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc).ToList();
-            
+            var retBytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);
+
+
+            List<byte> retList = new List<byte>(retBytes);
+
+            if (TryFindJumpTableStart(retBytes, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
+            {
+                // TODO: Figure out what to do with jumpTableElements, how do we handle returning it from this function?
+                // we might need to return the address it was found at in TryFindJumpTableStart function too 
+                // Should clean up the way we handle the bytes array too
+                /*
+                foreach (var element in jumpTableElements)
+                {
+                    //Logger.InfoNewline($"Jump table element: 0x{element:x8}.");
+                }
+                */
+                retList = retList.Take(startIndex).ToList();
+            }
+
             retList.TrimEndWhile(i => i == 0xCC);
 
             return retList.ToArray();
+        }
+
+        private static bool TryFindJumpTableStart(byte[] methodBytes, ulong methodPtr, ulong nextMethodPtr, out int startIndex, out List<ulong> jumpTableElements)
+        {
+            bool foundTable = false;
+            startIndex = 0;
+            jumpTableElements = new List<ulong>();
+            for (int i = (int) (methodPtr % 4); i < methodBytes.Length; i+=4)
+            {
+                var result = (ulong)BitConverter.ToUInt32(methodBytes, i);
+                var possibleJumpAddress = result + 0x180000000; // image base
+                if (possibleJumpAddress > methodPtr && possibleJumpAddress < nextMethodPtr)
+                {
+                    // Sound the alarms, we've more than likely ran into a jump table  
+                    if (!foundTable)
+                    {
+                        startIndex = i;
+                        foundTable = true;
+                    } 
+                    jumpTableElements.Add(result);
+                }
+            }
+            return foundTable;
         }
 
         public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method) => Disassemble(GetRawManagedOrCaCacheGenMethodBody(method.MethodPointer, false), method.MethodPointer);
