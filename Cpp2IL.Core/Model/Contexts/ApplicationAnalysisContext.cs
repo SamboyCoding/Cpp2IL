@@ -32,7 +32,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// <summary>
     /// The instruction set helper class associated with the instruction set that this application was compiled with.
     /// </summary>
-    public BaseInstructionSet InstructionSet;
+    public Cpp2IlInstructionSet InstructionSet;
     
     /// <summary>
     /// Contains references to some commonly-used System types.

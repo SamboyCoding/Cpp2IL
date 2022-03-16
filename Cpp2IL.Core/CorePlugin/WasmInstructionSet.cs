@@ -11,7 +11,7 @@ using WasmDisassembler;
 
 namespace Cpp2IL.Core.CorePlugin;
 
-public class WasmInstructionSet : BaseInstructionSet
+public class WasmInstructionSet : Cpp2IlInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
@@ -34,6 +34,11 @@ public class WasmInstructionSet : BaseInstructionSet
         }
 
         return Array.Empty<byte>();
+    }
+    
+    public override IsilInstructionStatement[] GetIsilFromMethod(MethodAnalysisContext context)
+    {
+        return Array.Empty<IsilInstructionStatement>();
     }
 
     public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)

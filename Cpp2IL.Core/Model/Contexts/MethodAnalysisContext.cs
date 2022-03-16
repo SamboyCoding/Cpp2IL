@@ -88,13 +88,20 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
 
     public void Analyze()
     {
-        ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
+        var isil = AppContext.InstructionSet.GetIsilFromMethod(this);
+        
+        if(isil.Length == 0)
+            return; //Nothing to do, empty function
+        
+        //TODO Build control flow graph from ISIL
 
-        if (ControlFlowGraph == null)
-            return;
-
-        ControlFlowGraph.Run();
-        InstructionSetIndependentNodes = AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
+        // ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
+        //
+        // if (ControlFlowGraph == null)
+        //     return;
+        //
+        // ControlFlowGraph.Run();
+        // InstructionSetIndependentNodes = AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
     }
 
     public override string ToString() => $"Method: {Definition?.DeclaringType!.Name}::{Definition?.Name ?? "No definition"}";

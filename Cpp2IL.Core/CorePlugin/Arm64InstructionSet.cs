@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Api;
@@ -10,7 +11,7 @@ using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.CorePlugin;
 
-public class Arm64InstructionSet : BaseInstructionSet
+public class Arm64InstructionSet : Cpp2IlInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
@@ -22,6 +23,11 @@ public class Arm64InstructionSet : BaseInstructionSet
         var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
         return instructions.SelectMany(i => i.Bytes).ToArray();
+    }
+
+    public override IsilInstructionStatement[] GetIsilFromMethod(MethodAnalysisContext context)
+    {
+        return Array.Empty<IsilInstructionStatement>();
     }
 
     public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)

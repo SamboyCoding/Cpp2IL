@@ -7,7 +7,7 @@ using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Api;
 
-public abstract class BaseInstructionSet
+public abstract class Cpp2IlInstructionSet
 {
     /// <summary>
     /// Build a Control Flow Graph from the given method. The raw method body can be accessed via the <see cref="MethodAnalysisContext.RawBytes"/> property.
@@ -31,6 +31,15 @@ public abstract class BaseInstructionSet
     /// <param name="context">The analysis context for the method to return the pointer for.</param>
     /// <returns></returns>
     public virtual ulong GetPointerForMethod(MethodAnalysisContext context) => context.UnderlyingPointer;
+    
+    /// <summary>
+    /// Returns the ISIL representation of the given method. You should convert all native machine code instructions to their equivalent
+    /// ISIL form, and then return the resulting instruction list. From there, a control flow graph will be built and the method will be
+    /// analyzed.
+    /// </summary>
+    /// <param name="context">The method to convert to ISIL</param>
+    /// <returns>An array of <see cref="IsilInstructionStatement"/> structs representing the functionality of this method in an instruction-set-independent manner.</returns>
+    public abstract IsilInstructionStatement[] GetIsilFromMethod(MethodAnalysisContext context);
     
     /// <summary>
     /// Converts the given control flow graph into a list of ISIL (Instruction Set Independent Language) Nodes.

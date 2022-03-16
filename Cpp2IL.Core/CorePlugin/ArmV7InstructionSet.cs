@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,7 +11,7 @@ using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.CorePlugin;
 
-public class ArmV7InstructionSet : BaseInstructionSet
+public class ArmV7InstructionSet : Cpp2IlInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
@@ -30,6 +31,11 @@ public class ArmV7InstructionSet : BaseInstructionSet
     public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)
     {
         return new();
+    }
+    
+    public override IsilInstructionStatement[] GetIsilFromMethod(MethodAnalysisContext context)
+    {
+        return Array.Empty<IsilInstructionStatement>();
     }
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()

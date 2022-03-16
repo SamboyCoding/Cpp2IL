@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Api;
@@ -11,7 +12,7 @@ using Iced.Intel;
 
 namespace Cpp2IL.Core.CorePlugin;
 
-public class X86InstructionSet : BaseInstructionSet
+public class X86InstructionSet : Cpp2IlInstructionSet
 {
     public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
@@ -66,6 +67,11 @@ public class X86InstructionSet : BaseInstructionSet
         var insns = X86Utils.Disassemble(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
 
         return string.Join("\n", insns);
+    }
+    
+    public override IsilInstructionStatement[] GetIsilFromMethod(MethodAnalysisContext context)
+    {
+        return Array.Empty<IsilInstructionStatement>();
     }
 
     private void ConvertStatement(IStatement statement, IsilBuilder builder, MethodAnalysisContext context)
