@@ -19,7 +19,7 @@ namespace Cpp2IL
         public List<Cpp2IlProcessingLayer> ProcessingLayersToRun = new();
         public Dictionary<string, string> ProcessingLayerConfigurationOptions = new();
         
-        public Cpp2IlOutputFormat OutputFormat;
+        public Cpp2IlOutputFormat? OutputFormat;
         public string OutputRootDirectory;
     }
 }
