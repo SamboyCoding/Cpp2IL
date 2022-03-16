@@ -49,7 +49,7 @@ namespace Cpp2IL.Core.Utils
             var retBytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);
 
 
-            List<byte> retList = new List<byte>(retBytes);
+            var retList = new List<byte>(retBytes);
 
             if (TryFindJumpTableStart(retBytes, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
             {
@@ -62,7 +62,7 @@ namespace Cpp2IL.Core.Utils
                     //Logger.InfoNewline($"Jump table element: 0x{element:x8}.");
                 }
                 */
-                retList = retList.Take(startIndex).ToList();
+                retList = retList.GetRange(0, startIndex);
             }
 
             retList.TrimEndWhile(i => i == 0xCC);
