@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Text;
 using LibCpp2IL.Metadata;
@@ -17,9 +18,9 @@ namespace LibCpp2IL.BinaryStructures
         
         public Il2CppGenericInst? GenericMethodInst => LibCpp2IlMain.Binary?.GetGenericInst(methodIndexIndex);
 
-        public Il2CppTypeReflectionData[] GenericClassParams => LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
+        public Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex == -1 ? Array.Empty<Il2CppTypeReflectionData>() : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
         
-        public Il2CppTypeReflectionData[] GenericMethodParams => LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
+        public Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex == -1 ? Array.Empty<Il2CppTypeReflectionData>() : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
 
         public override string ToString()
         {

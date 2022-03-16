@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using AsmResolver.DotNet;
+using AsmResolver.DotNet.Builder;
+using AsmResolver.PE.DotNet.Builder;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.AsmResolver;
@@ -56,22 +58,16 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         if (!Directory.Exists(outputRoot))
             Directory.CreateDirectory(outputRoot);
 
-        foreach (var assemblyDefinition in ret)
-        {
-            var dllPath = Path.Combine(outputRoot, assemblyDefinition.ManifestModule.Name);
-            assemblyDefinition.Write(dllPath);
-        }
-        
         //Convert assembly definitions to PE files
-        // var peImagesToWrite = ret.AsParallel().Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!)).ToList();
-        //
-        // //Save them
-        // var fileBuilder = new ManagedPEFileBuilder();
-        // foreach (var (image, name) in peImagesToWrite)
-        // {
-        //     var dllPath = Path.Combine(outputRoot, name);
-        //     fileBuilder.CreateFile(image).Write(dllPath);
-        // }
+        var peImagesToWrite = ret.AsParallel().Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!)).ToList();
+        
+        //Save them
+        var fileBuilder = new ManagedPEFileBuilder();
+        foreach (var (image, name) in peImagesToWrite)
+        {
+            var dllPath = Path.Combine(outputRoot, name);
+            fileBuilder.CreateFile(image).Write(dllPath);
+        }
     }
 
     private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)

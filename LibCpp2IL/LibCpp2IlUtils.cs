@@ -98,25 +98,25 @@ namespace LibCpp2IL
         {
             if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null) return null;
 
-            var types = new List<Il2CppTypeReflectionData>();
+            var types = new Il2CppTypeReflectionData[genericInst.pointerCount];
             var pointers = LibCpp2IlMain.Binary.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
             for (uint i = 0; i < genericInst.pointerCount; ++i)
             {
                 var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointers[i]);
-                types.Add(GetTypeReflectionData(oriType)!);
+                types[i] = GetTypeReflectionData(oriType)!;
             }
 
-            return types.ToArray();
+            return types;
         }
 
         internal static string GetGenericTypeParamNames(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppGenericInst genericInst)
         {
-            var typeNames = new List<string>();
+            var typeNames = new string[genericInst.pointerCount];
             var pointers = cppAssembly.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
             for (uint i = 0; i < genericInst.pointerCount; ++i)
             {
                 var oriType = cppAssembly.GetIl2CppTypeFromPointer(pointers[i]);
-                typeNames.Add(GetTypeName(metadata, cppAssembly, oriType));
+                typeNames[i] = GetTypeName(metadata, cppAssembly, oriType);
             }
 
             return $"<{string.Join(", ", typeNames)}>";

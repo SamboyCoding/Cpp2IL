@@ -1,6 +1,7 @@
 ﻿using System.Reflection;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 

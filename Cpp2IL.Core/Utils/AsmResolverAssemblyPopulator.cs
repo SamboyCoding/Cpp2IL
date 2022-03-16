@@ -12,6 +12,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.Reflection;
 
 #if !DEBUG
 using System;
@@ -44,12 +45,12 @@ public static class AsmResolverAssemblyPopulator
                 typeDefinition.BaseType = importer.ImportType(baseTypeDef);
             }
             else if (il2CppTypeDef?.RawBaseType is { } parent)
-                typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, parent).ToTypeDefOrRef());
+                typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, parent));
 
             //Set interfaces
             if (il2CppTypeDef != null)
                 foreach (var interfaceType in il2CppTypeDef.RawInterfaces)
-                    typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, interfaceType).ToTypeDefOrRef())));
+                    typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, interfaceType))));
         }
     }
 
@@ -70,7 +71,7 @@ public static class AsmResolverAssemblyPopulator
                 ilTypeDefinition.GenericParameters.Add(p);
 
                 param.ConstraintTypes!
-                    .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
+                    .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c))))
                     .ToList()
                     .ForEach(p.Constraints.Add);
             }
@@ -83,7 +84,7 @@ public static class AsmResolverAssemblyPopulator
         parameter switch
         {
             CustomAttributePrimitiveParameter primitiveParameter => AsmResolverUtils.GetPrimitiveTypeDef(primitiveParameter.PrimitiveType).ToTypeSignature(),
-            CustomAttributeEnumParameter enumParameter => AsmResolverUtils.GetTypeDefFromIl2CppType(parentAssembly.GetImporter(), enumParameter.EnumType).ToTypeSignature(),
+            CustomAttributeEnumParameter enumParameter => AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, enumParameter.EnumType),
             CustomAttributeTypeParameter => TypeDefinitionsAsmResolver.Type.ToTypeSignature(),
             CustomAttributeArrayParameter arrayParameter => AsmResolverUtils.GetPrimitiveTypeDef(arrayParameter.ArrType).ToTypeSignature().MakeSzArrayType(),
             _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
@@ -105,7 +106,7 @@ public static class AsmResolverAssemblyPopulator
         {
             CustomAttributePrimitiveParameter primitiveParameter => new(GetTypeSigFromAttributeArg(parentAssembly, primitiveParameter), primitiveParameter.PrimitiveValue),
             CustomAttributeEnumParameter enumParameter => new(GetTypeSigFromAttributeArg(parentAssembly, enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue),
-            CustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), AsmResolverUtils.GetTypeDefFromIl2CppType(parentAssembly.GetImporter(), typeParameter.Type!).ToTypeSignature()),
+            CustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, typeParameter.Type!)),
             CustomAttributeArrayParameter arrayParameter => BuildArrayArgument(parentAssembly, arrayParameter),
             _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
         };
@@ -288,7 +289,7 @@ public static class AsmResolverAssemblyPopulator
                 parameterTypes = methodCtx.InjectedParameterTypes!.Select(p =>
                     p.Definition == null
                         ? throw new("Injected methods with injected parameter types aren't supported at the moment")
-                        : AsmResolverUtils.GetTypeDefFromIl2CppType(importer, LibCpp2IlReflection.GetTypeFromDefinition(p.Definition)!).ToTypeSignature()
+                        : AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, LibCpp2IlReflection.GetTypeFromDefinition(p.Definition)!)
                 ).ToArray();
             }
 
@@ -323,7 +324,7 @@ public static class AsmResolverAssemblyPopulator
                         managedMethod.GenericParameters.Add(gp);
 
                     p.ConstraintTypes!
-                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
+                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c))))
                         .ToList()
                         .ForEach(gp.Constraints.Add);
                 });
@@ -368,7 +369,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var eventDef = eventCtx.Definition;
 
-            var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, eventDef.RawType!).ToTypeDefOrRef());
+            var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, eventDef.RawType!));
 
             var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes) eventDef.EventAttributes, eventType);
 

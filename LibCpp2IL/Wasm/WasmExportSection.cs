@@ -14,8 +14,8 @@ namespace LibCpp2IL.Wasm
             for (var i = 0UL; i < ExportCount; i++)
             {
                 var export = new WasmExportEntry(file);
-                if(export.Kind == WasmExternalKind.EXT_FUNCTION)
-                    LibLogger.VerboseNewline($"\t\t\t- Found exported function {export.Name}");
+                // if(export.Kind == WasmExternalKind.EXT_FUNCTION)
+                    // LibLogger.VerboseNewline($"\t\t\t- Found exported function {export.Name}");
                 Exports.Add(export);
             }
             LibLogger.VerboseNewline($"\t\tRead {Exports.Count} exported functions");

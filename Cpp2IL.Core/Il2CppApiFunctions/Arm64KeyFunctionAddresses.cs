@@ -9,6 +9,7 @@ using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using LibCpp2IL.NintendoSwitch;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Il2CppApiFunctions
 {

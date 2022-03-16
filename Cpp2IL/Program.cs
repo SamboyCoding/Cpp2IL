@@ -279,6 +279,8 @@ namespace Cpp2IL
             if (!runtimeArgs.Valid)
                 throw new SoftException("Arguments have Valid = false");
 
+            var executionStart = DateTime.Now;
+
             GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
 
             if (runtimeArgs.WasmFrameworkJsFile != null)
@@ -330,7 +332,7 @@ namespace Cpp2IL
 
             CleanupExtractedFiles();
 
-            Logger.InfoNewline("Done.");
+            Logger.InfoNewline($"Done. Total execution time: {(DateTime.Now - executionStart).TotalMilliseconds}ms");
             return 0;
         }
 

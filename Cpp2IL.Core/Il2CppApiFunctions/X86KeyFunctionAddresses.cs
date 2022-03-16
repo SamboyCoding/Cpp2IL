@@ -5,6 +5,7 @@ using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Il2CppApiFunctions
 {

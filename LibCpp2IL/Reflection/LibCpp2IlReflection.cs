@@ -3,59 +3,72 @@ using System.Linq;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
-namespace LibCpp2IL
+namespace LibCpp2IL.Reflection
 {
     public static class LibCpp2IlReflection
     {
-        private static readonly Dictionary<(string, string?), Il2CppTypeDefinition> _cachedTypes = new();
-        private static readonly Dictionary<string, Il2CppTypeDefinition> _cachedTypesByFullName = new();
+        private static readonly Dictionary<(string, string?), Il2CppTypeDefinition> CachedTypes = new();
+        private static readonly Dictionary<string, Il2CppTypeDefinition> CachedTypesByFullName = new();
         
-        private static readonly Dictionary<Il2CppTypeDefinition, int> _typeIndices = new();
-        private static readonly Dictionary<Il2CppMethodDefinition, int> _methodIndices = new();
-        private static readonly Dictionary<Il2CppFieldDefinition, int> _fieldIndices = new();
-        private static readonly Dictionary<Il2CppPropertyDefinition, int> _propertyIndices = new();
+        private static readonly Dictionary<Il2CppTypeDefinition, int> TypeIndices = new();
+        private static readonly Dictionary<Il2CppMethodDefinition, int> MethodIndices = new();
+        private static readonly Dictionary<Il2CppFieldDefinition, int> FieldIndices = new();
+        private static readonly Dictionary<Il2CppPropertyDefinition, int> PropertyIndices = new();
+
+        private static readonly Dictionary<Il2CppTypeEnum, Il2CppType> PrimitiveTypeCache = new();
 
         internal static void ResetCaches()
         {
-            _cachedTypes.Clear();
-            _cachedTypesByFullName.Clear();
+            CachedTypes.Clear();
+            CachedTypesByFullName.Clear();
             
-            _typeIndices.Clear();
-            _methodIndices.Clear();
-            _fieldIndices.Clear();
-            _propertyIndices.Clear();
+            lock (TypeIndices)
+                TypeIndices.Clear();
+            
+            MethodIndices.Clear();
+            FieldIndices.Clear();
+            PropertyIndices.Clear();
+            PrimitiveTypeCache.Clear();
         }
+
+        internal static void InitPrimitiveCache()
+        {
+            for (var e = Il2CppTypeEnum.IL2CPP_TYPE_VOID; e <= Il2CppTypeEnum.IL2CPP_TYPE_STRING; e++)
+            {
+                PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.type == e);
+            }
+        } 
 
         public static Il2CppTypeDefinition? GetType(string name, string? @namespace = null)
         {
             if (LibCpp2IlMain.TheMetadata == null) return null;
 
             var key = (name, @namespace);
-            if (!_cachedTypes.ContainsKey(key))
+            if (!CachedTypes.ContainsKey(key))
             {
                 var typeDef = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(td =>
                     td.Name == name &&
                     (@namespace == null || @namespace == td.Namespace)
                 );
-                _cachedTypes[key] = typeDef;
+                CachedTypes[key] = typeDef;
             }
 
-            return _cachedTypes[key];
+            return CachedTypes[key];
         }
 
         public static Il2CppTypeDefinition? GetTypeByFullName(string fullName)
         {
             if (LibCpp2IlMain.TheMetadata == null) return null;
 
-            if (!_cachedTypesByFullName.ContainsKey(fullName))
+            if (!CachedTypesByFullName.ContainsKey(fullName))
             {
                 var typeDef = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(td =>
                     td.FullName == fullName
                 );
-                _cachedTypesByFullName[fullName] = typeDef;
+                CachedTypesByFullName[fullName] = typeDef;
             }
 
-            return _cachedTypesByFullName[fullName];
+            return CachedTypesByFullName[fullName];
         }
 
 
@@ -74,20 +87,20 @@ namespace LibCpp2IL
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            lock (_typeIndices)
+            lock (TypeIndices)
             {
-                if (!_typeIndices.ContainsKey(typeDefinition))
+                if (!TypeIndices.ContainsKey(typeDefinition))
                 {
                     for (var i = 0; i < LibCpp2IlMain.TheMetadata.typeDefs.Length; i++)
                     {
                         if (LibCpp2IlMain.TheMetadata.typeDefs[i] == typeDefinition)
                         {
-                            _typeIndices[typeDefinition] = i;
+                            TypeIndices[typeDefinition] = i;
                         }
                     }
                 }
 
-                return _typeIndices.GetValueOrDefault(typeDefinition, -1);
+                return TypeIndices.GetValueOrDefault(typeDefinition, -1);
             }
         }
 
@@ -96,23 +109,23 @@ namespace LibCpp2IL
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            if (_methodIndices.Count == 0)
+            if (MethodIndices.Count == 0)
             {
-                lock (_methodIndices)
+                lock (MethodIndices)
                 {
-                    if (_methodIndices.Count == 0)
+                    if (MethodIndices.Count == 0)
                     {
                         //Check again inside lock
                         for (var i = 0; i < LibCpp2IlMain.TheMetadata.methodDefs.Length; i++)
                         {
                             var def = LibCpp2IlMain.TheMetadata.methodDefs[i];
-                            _methodIndices[def] = i;
+                            MethodIndices[def] = i;
                         }
                     }
                 }
             }
 
-            return _methodIndices.GetValueOrDefault(methodDefinition, -1);
+            return MethodIndices.GetValueOrDefault(methodDefinition, -1);
         }
 
         // ReSharper disable InconsistentlySynchronizedField
@@ -120,44 +133,44 @@ namespace LibCpp2IL
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            if (_fieldIndices.Count == 0)
+            if (FieldIndices.Count == 0)
             {
-                lock (_fieldIndices)
+                lock (FieldIndices)
                 {
-                    if (_fieldIndices.Count == 0)
+                    if (FieldIndices.Count == 0)
                     {
                         for (var i = 0; i < LibCpp2IlMain.TheMetadata.fieldDefs.Length; i++)
                         {
                             var def = LibCpp2IlMain.TheMetadata.fieldDefs[i];
-                            _fieldIndices[def] = i;
+                            FieldIndices[def] = i;
                         }
                     }
                 }
             }
 
-            return _fieldIndices[fieldDefinition];
+            return FieldIndices[fieldDefinition];
         }
         
         public static int GetPropertyIndexFromProperty(Il2CppPropertyDefinition propertyDefinition)
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            if (_propertyIndices.Count == 0)
+            if (PropertyIndices.Count == 0)
             {
-                lock (_propertyIndices)
+                lock (PropertyIndices)
                 {
-                    if (_propertyIndices.Count == 0)
+                    if (PropertyIndices.Count == 0)
                     {
                         for (var i = 0; i < LibCpp2IlMain.TheMetadata.propertyDefs.Length; i++)
                         {
                             var def = LibCpp2IlMain.TheMetadata.propertyDefs[i];
-                            _propertyIndices[def] = i;
+                            PropertyIndices[def] = i;
                         }
                     }
                 }
             }
 
-            return _propertyIndices[propertyDefinition];
+            return PropertyIndices[propertyDefinition];
         }
 
         public static Il2CppType? GetTypeFromDefinition(Il2CppTypeDefinition definition)
@@ -170,9 +183,9 @@ namespace LibCpp2IL
             switch (fullName)
             {
                 case "System.String":
-                    return LibCpp2IlMain.Binary.AllTypes.First(t => t.type == Il2CppTypeEnum.IL2CPP_TYPE_STRING);
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_STRING];
                 case "System.Void":
-                    return LibCpp2IlMain.Binary.AllTypes.First(t => t.type == Il2CppTypeEnum.IL2CPP_TYPE_VOID);
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_VOID];
             }
 
             var index = definition.TypeIndex;
