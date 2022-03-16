@@ -10,5 +10,7 @@ namespace LibCpp2IL.Metadata
         public int typeIndex;
 
         public Il2CppType? RawType => LibCpp2IlMain.Binary?.GetType(typeIndex);
+
+        public string? Name => LibCpp2IlMain.TheMetadata?.GetStringFromIndex(nameIndex);
     }
 }

@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using AsmResolver.DotNet;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Api;
@@ -29,12 +30,15 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 
         TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
 
+        Logger.VerboseNewline("Configuring hierarchy...", "DummyDllOutput");
+        
+        context.Assemblies.ForEach(AsmResolverAssemblyPopulator.ConfigureHierarchy);
+        // Parallel.ForEach(context.Assemblies, AsmResolverAssemblyPopulator.ConfigureHierarchy); //TODO Re-enable if/when AsmResolver issue #269 gets fixed
+
         //Populate them
         foreach (var asmCtx in context.Assemblies)
         {
             Logger.VerboseNewline($"Populating {asmCtx.Definition.AssemblyName.Name}...", "DummyDllOutput");
-            
-            AsmResolverAssemblyPopulator.ConfigureHierarchy(asmCtx);
             AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged(asmCtx);
         }
         
