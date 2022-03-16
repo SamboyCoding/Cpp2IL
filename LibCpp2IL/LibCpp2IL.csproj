@@ -4,7 +4,7 @@
         <Nullable>enable</Nullable>
         <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64</RuntimeIdentifiers>
         <LangVersion>9</LangVersion>
-        <TargetFramework>netstandard2.0</TargetFramework>
+        <DebugType>embedded</DebugType>
         <PackageId>Samboy063.LibCpp2IL</PackageId>
         <Title>LibCpp2IL</Title>
         <Authors>Samboy063</Authors>
@@ -18,6 +18,7 @@
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Library for interacting with IL2CPP metadata and binaries</Description>
         <Configurations>Debug;Release</Configurations>
+        <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
     </PropertyGroup>
 
     <ItemGroup>

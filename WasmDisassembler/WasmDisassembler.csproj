@@ -3,7 +3,7 @@
     <PropertyGroup>
         <Authors>Samboy063</Authors>
         <Company>Samboy063</Company>
-        <TargetFramework>netstandard2.0</TargetFramework>
+        <DebugType>embedded</DebugType>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
         <LangVersion>10</LangVersion>
@@ -15,6 +15,7 @@
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Simple, zero-dependency disassembler for WebAssembly bytecode</Description>
+        <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
     </PropertyGroup>
 
 </Project>

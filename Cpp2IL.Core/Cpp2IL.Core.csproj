@@ -3,6 +3,7 @@
         <Authors>Samboy063</Authors>
         <Company>Samboy063</Company>
         <Copyright>Copyright © Samboy063 2019-2022</Copyright>
+        <DebugType>embedded</DebugType>
         <Description>Reverses Unity's IL2CPP Build Process</Description>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <LangVersion>10</LangVersion>
@@ -12,8 +13,8 @@
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
         <RepositoryType>git</RepositoryType>
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
-        <TargetFramework>netstandard2.0</TargetFramework>
         <VersionPrefix>2022.1.0</VersionPrefix>
+        <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
     </PropertyGroup>
 
     <ItemGroup>
