@@ -253,7 +253,7 @@ namespace LibCpp2IL.Metadata
                 var defaults = FieldDefaults;
 
                 return fields?
-                    .Select((t, i) => new Il2CppFieldReflectionData { attributes = attributes![i], field = t, defaultValue = defaults![i] })
+                    .Select((t, i) => new Il2CppFieldReflectionData { attributes = attributes![i], field = t, defaultValue = defaults![i], indexInParent = i})
                     .ToArray();
             }
         }

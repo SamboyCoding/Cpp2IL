@@ -8,5 +8,6 @@ namespace LibCpp2IL.Reflection
         public Il2CppFieldDefinition field;
         public FieldAttributes attributes;
         public object? defaultValue;
+        public int indexInParent;
     }
 }

@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -70,7 +71,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName
             Methods = Definition.Methods!.Select(m => new MethodAnalysisContext(m, this)).ToList();
             Properties = Definition.Properties!.Select(p => new PropertyAnalysisContext(p, this)).ToList();
             Events = Definition.Events!.Select(e => new EventAnalysisContext(e, this)).ToList();
-            Fields = Definition.FieldInfos!.Select(f => new FieldAnalysisContext(f, this)).ToList();
+            Fields = Definition.FieldInfos!.ToList().Select(f => new FieldAnalysisContext(f, this)).ToList();
         }
         else
         {

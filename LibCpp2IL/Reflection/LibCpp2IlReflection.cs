@@ -1,4 +1,6 @@
-﻿using System.Collections.Generic;
+﻿using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -7,9 +9,9 @@ namespace LibCpp2IL.Reflection
 {
     public static class LibCpp2IlReflection
     {
-        private static readonly Dictionary<(string, string?), Il2CppTypeDefinition> CachedTypes = new();
-        private static readonly Dictionary<string, Il2CppTypeDefinition> CachedTypesByFullName = new();
-        
+        private static readonly ConcurrentDictionary<(string, string?), Il2CppTypeDefinition> CachedTypes = new();
+        private static readonly ConcurrentDictionary<string, Il2CppTypeDefinition> CachedTypesByFullName = new();
+
         private static readonly Dictionary<Il2CppTypeDefinition, int> TypeIndices = new();
         private static readonly Dictionary<Il2CppMethodDefinition, int> MethodIndices = new();
         private static readonly Dictionary<Il2CppFieldDefinition, int> FieldIndices = new();
@@ -21,23 +23,30 @@ namespace LibCpp2IL.Reflection
         {
             CachedTypes.Clear();
             CachedTypesByFullName.Clear();
-            
+
             lock (TypeIndices)
                 TypeIndices.Clear();
-            
+
             MethodIndices.Clear();
             FieldIndices.Clear();
             PropertyIndices.Clear();
             PrimitiveTypeCache.Clear();
         }
 
-        internal static void InitPrimitiveCache()
+        internal static void InitCaches()
         {
             for (var e = Il2CppTypeEnum.IL2CPP_TYPE_VOID; e <= Il2CppTypeEnum.IL2CPP_TYPE_STRING; e++)
             {
                 PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.type == e);
             }
-        } 
+
+            for (var i = 0; i < LibCpp2IlMain.TheMetadata!.typeDefs.Length; i++)
+            {
+                var typeDefinition = LibCpp2IlMain.TheMetadata.typeDefs[i];
+
+                TypeIndices[typeDefinition] = i;
+            }
+        }
 
         public static Il2CppTypeDefinition? GetType(string name, string? @namespace = null)
         {
@@ -83,25 +92,12 @@ namespace LibCpp2IL.Reflection
             return LibCpp2IlMain.TheMetadata.typeDefs[type.data.classIndex];
         }
 
+        [SuppressMessage("ReSharper", "InconsistentlySynchronizedField")]
         public static int GetTypeIndexFromType(Il2CppTypeDefinition typeDefinition)
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            lock (TypeIndices)
-            {
-                if (!TypeIndices.ContainsKey(typeDefinition))
-                {
-                    for (var i = 0; i < LibCpp2IlMain.TheMetadata.typeDefs.Length; i++)
-                    {
-                        if (LibCpp2IlMain.TheMetadata.typeDefs[i] == typeDefinition)
-                        {
-                            TypeIndices[typeDefinition] = i;
-                        }
-                    }
-                }
-
-                return TypeIndices.GetValueOrDefault(typeDefinition, -1);
-            }
+            return TypeIndices.GetValueOrDefault(typeDefinition, -1);
         }
 
         // ReSharper disable InconsistentlySynchronizedField
@@ -150,7 +146,7 @@ namespace LibCpp2IL.Reflection
 
             return FieldIndices[fieldDefinition];
         }
-        
+
         public static int GetPropertyIndexFromProperty(Il2CppPropertyDefinition propertyDefinition)
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
@@ -192,9 +188,9 @@ namespace LibCpp2IL.Reflection
 
             foreach (var type in LibCpp2IlMain.Binary.AllTypes)
             {
-                if (type.type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE) 
+                if (type.type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
                     continue;
-                
+
                 if (type.data.classIndex == index)
                 {
                     return type;

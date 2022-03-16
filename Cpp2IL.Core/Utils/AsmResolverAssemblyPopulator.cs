@@ -176,6 +176,9 @@ public static class AsmResolverAssemblyPopulator
             
             foreach (var property in type.Properties)
                 CopyCustomAttributes(property, property.GetExtraData<PropertyDefinition>("AsmResolverProperty")!.CustomAttributes);
+            
+            foreach (var eventDefinition in type.Events)
+                CopyCustomAttributes(eventDefinition, eventDefinition.GetExtraData<EventDefinition>("AsmResolverEvent")!.CustomAttributes);
         }
     }
 
@@ -385,6 +388,8 @@ public static class AsmResolverAssemblyPopulator
 
             if (managedInvoker != null)
                 managedEvent.Semantics.Add(new(managedInvoker, MethodSemanticsAttributes.Fire));
+            
+            eventCtx.PutExtraData("AsmResolverEvent", managedEvent);
 
             ilTypeDefinition.Events.Add(managedEvent);
         }

@@ -29,6 +29,11 @@ public class FieldAnalysisContext : HasCustomAttributesAndName
     public virtual Il2CppType FieldType => BackingData!.field.RawFieldType!;
     
     public virtual FieldAttributes Attributes => BackingData!.attributes;
+    
+    public bool IsStatic => Attributes.HasFlag(FieldAttributes.Static);
+
+    public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.indexInParent, BackingData.field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
+    
 
     public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.field.token ?? 0, parent.AppContext)
     {
