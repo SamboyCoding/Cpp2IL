@@ -10,23 +10,23 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 /// </summary>
 public class CustomAttributeTypeParameter : BaseCustomAttributeParameter
 {
-    private Il2CppType? _type;
+    public Il2CppType? Type;
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context)
     {
         var typeIndex = reader.BaseStream.ReadUnityCompressedInt();
         if (typeIndex == -1)
-            _type = null;
+            Type = null;
         else
         {
-            _type = context.Binary.GetType(typeIndex);
+            Type = context.Binary.GetType(typeIndex);
         }
     }
 
     public override string ToString()
     {
-        if(_type == null)
+        if(Type == null)
             return "(Type) null";
         
-        return $"typeof({_type.AsClass().Name})";
+        return $"typeof({Type.AsClass().Name})";
     }
 }

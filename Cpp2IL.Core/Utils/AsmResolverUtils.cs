@@ -22,6 +22,51 @@ namespace Cpp2IL.Core.Utils
         internal static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
         internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndexNew = new();
 
+        public static TypeDefinition GetPrimitiveType(Il2CppTypeEnum type)
+        {
+            switch (type)
+            {
+                case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
+                    return TypeDefinitionsAsmResolver.Object;
+                case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
+                    return TypeDefinitionsAsmResolver.Void;
+                case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
+                    return TypeDefinitionsAsmResolver.Boolean;
+                case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
+                    return TypeDefinitionsAsmResolver.Char;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I1:
+                    return TypeDefinitionsAsmResolver.SByte;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U1:
+                    return TypeDefinitionsAsmResolver.Byte;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I2:
+                    return TypeDefinitionsAsmResolver.Int16;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U2:
+                    return TypeDefinitionsAsmResolver.UInt16;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I4:
+                    return TypeDefinitionsAsmResolver.Int32;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U4:
+                    return TypeDefinitionsAsmResolver.UInt32;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I:
+                    return TypeDefinitionsAsmResolver.IntPtr;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U:
+                    return TypeDefinitionsAsmResolver.UIntPtr;
+                case Il2CppTypeEnum.IL2CPP_TYPE_I8:
+                    return TypeDefinitionsAsmResolver.Int64;
+                case Il2CppTypeEnum.IL2CPP_TYPE_U8:
+                    return TypeDefinitionsAsmResolver.UInt64;
+                case Il2CppTypeEnum.IL2CPP_TYPE_R4:
+                    return TypeDefinitionsAsmResolver.Single;
+                case Il2CppTypeEnum.IL2CPP_TYPE_R8:
+                    return TypeDefinitionsAsmResolver.Double;
+                case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
+                    return TypeDefinitionsAsmResolver.String;
+                case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
+                    return TypeDefinitionsAsmResolver.TypedReference;
+                default:
+                    throw new ArgumentException("Type is not a primitive", nameof(type));
+            }
+        }
+
         public static ITypeDescriptor GetTypeDefFromIl2CppType(ReferenceImporter importer, Il2CppType il2CppType)
         {
             if(il2CppType == null)
@@ -32,41 +77,24 @@ namespace Cpp2IL.Core.Utils
             switch (il2CppType.type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Object.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Void.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Boolean.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Char.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.SByte.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Byte.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Int16.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.UInt16.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Int32.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.UInt32.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.IntPtr.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.UIntPtr.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Int64.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.UInt64.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Single.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.Double.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.String.ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                    return importer.ImportType(TypeDefinitionsAsmResolver.TypedReference.ToTypeReference());
+                    return importer.ImportType(GetPrimitiveType(il2CppType.type).ToTypeReference());
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
                 {

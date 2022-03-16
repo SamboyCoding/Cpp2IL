@@ -12,7 +12,7 @@ public class EventAnalysisContext : HasCustomAttributesAndName
 
     protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 
-    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
+    protected internal  override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
     public override string DefaultName => Definition.Name!;
 

@@ -364,14 +364,16 @@ namespace LibCpp2IL.Metadata
             return _cachedStrings[index];
         }
 
-        public Il2CppCustomAttributeTypeRange? GetCustomAttributeData(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token)
+        public Il2CppCustomAttributeTypeRange? GetCustomAttributeData(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token, out int idx)
         {
+            idx = -1;
+            
             if (LibCpp2IlMain.MetadataVersion <= 24f)
                 return attributeTypeRanges[customAttributeIndex];
 
             var target = new Il2CppCustomAttributeTypeRange {token = token};
 
-            var idx = attributeTypeRanges.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, target, new TokenComparer());
+            idx = attributeTypeRanges.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, target, new TokenComparer());
 
             return idx < 0 ? null : attributeTypeRanges[idx];
         }

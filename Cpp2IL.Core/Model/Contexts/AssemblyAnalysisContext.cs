@@ -29,7 +29,7 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     
     protected override int CustomAttributeIndex => Definition.CustomAttributeIndex;
 
-    protected override AssemblyAnalysisContext CustomAttributeAssembly => this;
+    protected internal override AssemblyAnalysisContext CustomAttributeAssembly => this;
 
     public override string CustomAttributeOwnerName => Definition.AssemblyName.Name; 
 

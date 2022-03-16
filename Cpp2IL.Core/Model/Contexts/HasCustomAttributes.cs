@@ -22,7 +22,7 @@ public abstract class HasCustomAttributes : HasToken
     /// <summary>
     /// On V29, stores the custom attribute blob. Pre-29, stores the bytes for the custom attribute generator function.
     /// </summary>
-    public byte[] RawIl2CppCustomAttributeData;
+    public byte[] RawIl2CppCustomAttributeData = Array.Empty<byte>();
 
     /// <summary>
     /// Stores the analyzed custom attribute data once analysis has actually run.
@@ -58,7 +58,7 @@ public abstract class HasCustomAttributes : HasToken
     /// <summary>
     /// Returns this member's assembly context for use in custom attribute reconstruction.
     /// </summary>
-    protected abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
+    protected internal abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
     
     public abstract string CustomAttributeOwnerName { get; }
 
@@ -99,7 +99,7 @@ public abstract class HasCustomAttributes : HasToken
             return;
         }
 
-        AttributeTypeRange = AppContext.Metadata.GetCustomAttributeData(CustomAttributeAssembly.Definition.Image, CustomAttributeIndex, Token);
+        AttributeTypeRange = AppContext.Metadata.GetCustomAttributeData(CustomAttributeAssembly.Definition.Image, CustomAttributeIndex, Token, out var rangeIndex);
 
         if (AttributeTypeRange == null)
         {
@@ -113,9 +113,6 @@ public abstract class HasCustomAttributes : HasToken
             .Select(typeIdx => LibCpp2IlMain.Binary!.GetType(typeIdx))
             .ToList();
 
-        //TODO Investigate replacing this with a binary search, big performance hit on this one line (like, 2/3rds of the time to create app context)
-        var rangeIndex = AppContext.Metadata.attributeTypeRanges.IndexOf(AttributeTypeRange);
-        
         ulong generatorPtr;
         if (AppContext.MetadataVersion < 27)
             try
@@ -132,7 +129,7 @@ public abstract class HasCustomAttributes : HasToken
         {
             var baseAddress = CustomAttributeAssembly.CodeGenModule!.customAttributeCacheGenerator;
             var relativeIndex = rangeIndex - CustomAttributeAssembly.Definition.Image.customAttributeStart;
-            var ptrToAddress = baseAddress + (ulong) relativeIndex * (AppContext.Binary.is32Bit ? 4ul : 8ul);
+            var ptrToAddress = baseAddress + (ulong) relativeIndex * AppContext.Binary.PointerSize;
             generatorPtr = AppContext.Binary.ReadClassAtVirtualAddress<ulong>(ptrToAddress);
         }
 
@@ -183,12 +180,21 @@ public abstract class HasCustomAttributes : HasToken
             var typeDef = il2CppType.AsClass();
             var attributeTypeContext = AppContext.ResolveContextForType(typeDef) ?? throw new("Unable to find type " + typeDef.FullName);
             
-            //TODO Rework this to identify exact constructor being called, and use that to resolve parameters, once we have a way to identify the constructor (i.e. analysis).
-            if(attributeTypeContext.Methods.FirstOrDefault(c => c.Definition!.Name == ".ctor" && c.Definition.parameterCount == 0) is { } constructor)
+            AnalyzedCustomAttribute attribute;
+            if(attributeTypeContext.Methods.FirstOrDefault(c => c.Name == ".ctor" && c.Definition!.parameterCount == 0) is { } constructor)
             {
-                var attribute = new AnalyzedCustomAttribute(constructor);
-                CustomAttributes.Add(attribute);
+                attribute = new(constructor);
             }
+            else if(attributeTypeContext.Methods.FirstOrDefault(c => c.Name == ".ctor") is {} anyConstructor)
+            {
+                //TODO change this to actual constructor w/ params once anaylsis is available
+                attribute = new(anyConstructor);
+            } else 
+                //No constructor - shouldn't happen?
+                continue;
+            
+            //Add the attribute, even if we don't have constructor params, so it can be read regardless
+            CustomAttributes.Add(attribute);
         }
     }
 

@@ -16,12 +16,21 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
         OverrideBaseType = baseType;
     }
 
-    public void InjectMethodContext(string methodName, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
+    public InjectedMethodAnalysisContext InjectMethodContext(string methodName, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
     {
         if (args.Any(a => a.Definition == null))
             throw new("Cannot inject a method using injected types as parameters, yet.");
 
         var method = new InjectedMethodAnalysisContext(this, methodName, isStatic, returnType, attributes, args);
         Methods.Add(method);
+
+        return method;
+    }
+
+    public InjectedFieldAnalysisContext InjectFieldContext(string fieldName, TypeAnalysisContext fieldType, FieldAttributes attributes)
+    {
+        var field = new InjectedFieldAnalysisContext(fieldName, fieldType, attributes, this);
+        Fields.Add(field);
+        return field;
     }
 }

@@ -32,12 +32,12 @@ public class AnalyzedCustomAttribute
     /// <summary>
     /// Returns true if this custom attribute's constructor has any parameters.
     /// </summary>
-    public bool HasAnyParameters => Constructor.Definition.Parameters!.Length > 0;
+    public bool HasAnyParameters => Constructor.ParameterCount > 0;
 
     /// <summary>
     /// Returns true if either the constructor has no parameters or if all of the parameters are assigned values.
     /// </summary>
-    public bool IsSuitableForEmission => !HasAnyParameters || ConstructorParameters.Count == Constructor.Definition!.Parameters!.Length;
+    public bool IsSuitableForEmission => !HasAnyParameters || ConstructorParameters.Count == Constructor.ParameterCount;
 
     public AnalyzedCustomAttribute(MethodAnalysisContext constructor)
     {

@@ -38,6 +38,13 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
             AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged(asmCtx);
         }
         
+        //Populate custom attributes
+        Logger.VerboseNewline("Populating custom attributes...", "DummyDllOutput");
+        foreach (var asmCtx in context.Assemblies)
+        {
+            AsmResolverAssemblyPopulator.PopulateCustomAttributes(asmCtx);
+        }
+
         TypeDefinitionsAsmResolver.Reset();
         
         Logger.VerboseNewline("Saving assemblies...", "DummyDllOutput");

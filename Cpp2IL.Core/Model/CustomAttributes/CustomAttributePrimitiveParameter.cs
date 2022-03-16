@@ -13,17 +13,40 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 /// </summary>
 public class CustomAttributePrimitiveParameter : BaseCustomAttributeParameter
 {
-    private readonly Il2CppTypeEnum _primitiveType;
+    public readonly Il2CppTypeEnum PrimitiveType;
     public IConvertible? PrimitiveValue;
 
     public CustomAttributePrimitiveParameter(Il2CppTypeEnum primitiveType)
     {
-        _primitiveType = primitiveType;
+        PrimitiveType = primitiveType;
+    }
+
+    public CustomAttributePrimitiveParameter(IConvertible value)
+    {
+        PrimitiveValue = value;
+
+        PrimitiveType = value switch
+        {
+            string => Il2CppTypeEnum.IL2CPP_TYPE_STRING,
+            bool => Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN,
+            char => Il2CppTypeEnum.IL2CPP_TYPE_CHAR,
+            sbyte _ => Il2CppTypeEnum.IL2CPP_TYPE_I1,
+            byte _ => Il2CppTypeEnum.IL2CPP_TYPE_U1,
+            short _ => Il2CppTypeEnum.IL2CPP_TYPE_I2,
+            ushort _ => Il2CppTypeEnum.IL2CPP_TYPE_U2,
+            int _ => Il2CppTypeEnum.IL2CPP_TYPE_I4,
+            uint _ => Il2CppTypeEnum.IL2CPP_TYPE_U4,
+            long _ => Il2CppTypeEnum.IL2CPP_TYPE_I8,
+            ulong _ => Il2CppTypeEnum.IL2CPP_TYPE_U8,
+            float _ => Il2CppTypeEnum.IL2CPP_TYPE_R4,
+            double _ => Il2CppTypeEnum.IL2CPP_TYPE_R8,
+            _ => throw new ArgumentException("Unsupported primitive type")
+        };
     }
 
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context)
     {
-        switch (_primitiveType)
+        switch (PrimitiveType)
         {
             case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
                 PrimitiveValue = reader.ReadBoolean();
@@ -66,7 +89,7 @@ public class CustomAttributePrimitiveParameter : BaseCustomAttributeParameter
                 PrimitiveValue = strLength > 0 ? Encoding.UTF8.GetString(reader.ReadBytes(strLength)) : null;
                 break;
             default:
-                throw new Exception("CustomAttributePrimitiveParameter constructed with a non-primitive type: " + _primitiveType);
+                throw new Exception("CustomAttributePrimitiveParameter constructed with a non-primitive type: " + PrimitiveType);
         }
     }
 

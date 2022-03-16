@@ -11,6 +11,7 @@ public class SystemTypesContext
     public TypeAnalysisContext SystemBooleanType { get; }
     public TypeAnalysisContext SystemVoidType { get; }
     public TypeAnalysisContext SystemExceptionType { get; }
+    public TypeAnalysisContext SystemAttributeType { get; }
 
     public SystemTypesContext(ApplicationAnalysisContext appContext)
     {
@@ -25,5 +26,6 @@ public class SystemTypesContext
         SystemBooleanType = systemAssembly.GetTypeByFullName("System.Boolean")!;
         SystemVoidType = systemAssembly.GetTypeByFullName("System.Void")!;
         SystemExceptionType = systemAssembly.GetTypeByFullName("System.Exception")!;
+        SystemAttributeType = systemAssembly.GetTypeByFullName("System.Attribute")!;
     }
 }

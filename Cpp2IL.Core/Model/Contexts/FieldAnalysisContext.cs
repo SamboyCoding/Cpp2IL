@@ -1,4 +1,7 @@
+using System.Reflection;
 using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -15,20 +18,25 @@ public class FieldAnalysisContext : HasCustomAttributesAndName
     /// <summary>
     /// The underlying field metadata.
     /// </summary>
-    public readonly Il2CppFieldReflectionData BackingData;
+    public readonly Il2CppFieldReflectionData? BackingData;
     
-    protected override int CustomAttributeIndex => BackingData.field.customAttributeIndex;
+    protected override int CustomAttributeIndex => BackingData?.field.customAttributeIndex ?? -1;
 
-    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
+    protected internal  override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public override string DefaultName => BackingData.field.Name!;
+    public override string DefaultName => BackingData?.field.Name!;
 
-    public FieldAnalysisContext(Il2CppFieldReflectionData backingData, TypeAnalysisContext parent) : base(backingData.field.token, parent.AppContext)
+    public virtual Il2CppType FieldType => BackingData!.field.RawFieldType!;
+    
+    public virtual FieldAttributes Attributes => BackingData!.attributes;
+
+    public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.field.token ?? 0, parent.AppContext)
     {
         DeclaringType = parent;
         BackingData = backingData;
         
-        InitCustomAttributeData();
+        if(BackingData != null)
+            InitCustomAttributeData();
     }
     
     public override string ToString() => $"Field: {DeclaringType.Definition.Name}::{BackingData.field.Name}";

@@ -1,9 +1,9 @@
 ﻿using System.Reflection;
 using LibCpp2IL.Metadata;
 
-namespace LibCpp2IL
+namespace LibCpp2IL.Reflection
 {
-    public struct Il2CppFieldReflectionData
+    public class Il2CppFieldReflectionData
     {
         public Il2CppFieldDefinition field;
         public FieldAttributes attributes;

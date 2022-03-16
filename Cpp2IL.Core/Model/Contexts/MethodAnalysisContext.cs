@@ -55,7 +55,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
 
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeIndex if they have custom attributes");
 
-    protected override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
+    protected internal override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
 
     public override string DefaultName => Definition?.Name ?? throw new("Subclasses of MethodAnalysisContext should override DefaultName");
     
@@ -64,6 +64,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     public TypeAnalysisContext[]? InjectedParameterTypes { get; set; }
     
     public TypeAnalysisContext? InjectedReturnType { get; set; }
+
+    public int ParameterCount => InjectedParameterTypes?.Length ?? Parameters.Length;
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
     {

@@ -1,4 +1,5 @@
-﻿using System.Linq;
+﻿using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Model.Contexts;
 
@@ -13,14 +14,12 @@ public class MultiAssemblyInjectedType
         InjectedTypes = injectedTypes;
     }
 
-    public void InjectMethod(string name, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
-    {
-        foreach (var injectedTypeAnalysisContext in InjectedTypes)
-        {
-            injectedTypeAnalysisContext.InjectMethodContext(name, isStatic, returnType, attributes, args);
-        }
-    }
+    public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectMethodToAllAssemblies(string name, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args) 
+        => InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t => t.InjectMethodContext(name, isStatic, returnType, attributes, args));
+
+    public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectConstructor(bool isStatic, params TypeAnalysisContext[] args) 
+        => InjectMethodToAllAssemblies(isStatic ? ".ctor" : ".cctor", isStatic, InjectedTypes.First().AppContext.SystemTypes.SystemVoidType, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName, args);
     
-    public void InjectConstructor(bool isStatic, params TypeAnalysisContext[] args) 
-        => InjectMethod(isStatic ? ".ctor" : ".cctor", isStatic, InjectedTypes.First().AppContext.SystemTypes.SystemVoidType, MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName, args);
+    public Dictionary<AssemblyAnalysisContext, InjectedFieldAnalysisContext> InjectFieldToAllAssemblies(string name, TypeAnalysisContext fieldType, FieldAttributes attributes) 
+        => InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t => t.InjectFieldContext(name, fieldType, attributes));
 }

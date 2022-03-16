@@ -18,6 +18,8 @@ namespace LibCpp2IL
         public bool is32Bit;
         private MemoryStream _memoryStream;
 
+        public ulong PointerSize => is32Bit ? 4ul : 8ul;
+
 
         public ClassReadingBinaryReader(MemoryStream input) : base(input)
         {

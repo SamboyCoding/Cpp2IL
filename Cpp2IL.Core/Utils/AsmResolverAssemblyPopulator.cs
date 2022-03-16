@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
@@ -7,6 +9,7 @@ using AsmResolver.DotNet.Signatures.Types;
 using AsmResolver.PE.DotNet.Cil;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Model.CustomAttributes;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 
@@ -35,7 +38,7 @@ public static class AsmResolverAssemblyPopulator
                 PopulateGenericParamsForType(il2CppTypeDef, typeDefinition);
 
             //Set base type
-            if(typeCtx.OverrideBaseType is {} overrideBaseType)
+            if (typeCtx.OverrideBaseType is { } overrideBaseType)
             {
                 var baseTypeDef = overrideBaseType.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"{typeCtx} declares override base type {overrideBaseType} which has not had an AsmResolver type generated for it.");
                 typeDefinition.BaseType = importer.ImportType(baseTypeDef);
@@ -76,14 +79,116 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
+    private static TypeSignature GetTypeSigFromAttributeArg(AssemblyDefinition parentAssembly, BaseCustomAttributeParameter parameter) =>
+        parameter switch
+        {
+            CustomAttributePrimitiveParameter primitiveParameter => AsmResolverUtils.GetPrimitiveType(primitiveParameter.PrimitiveType).ToTypeSignature(),
+            CustomAttributeEnumParameter enumParameter => AsmResolverUtils.GetTypeDefFromIl2CppType(parentAssembly.GetImporter(), enumParameter.EnumType).ToTypeSignature(),
+            CustomAttributeTypeParameter => TypeDefinitionsAsmResolver.Type.ToTypeSignature(),
+            CustomAttributeArrayParameter arrayParameter => AsmResolverUtils.GetPrimitiveType(arrayParameter.ArrType).ToTypeSignature().MakeSzArrayType(),
+            _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
+        };
+
+    private static CustomAttributeArgument BuildArrayArgument(AssemblyDefinition parentAssembly, CustomAttributeArrayParameter arrayParameter)
+    {
+        var typeSig = GetTypeSigFromAttributeArg(parentAssembly, arrayParameter);
+
+        if (arrayParameter.IsNullArray)
+            return new(typeSig);
+
+        return new(typeSig, arrayParameter.ArrayElements.Select(e => (object) FromAnalyzedAttributeArgument(parentAssembly, e)).ToArray());
+    }
+
+    private static CustomAttributeArgument FromAnalyzedAttributeArgument(AssemblyDefinition parentAssembly, BaseCustomAttributeParameter parameter)
+    {
+        return parameter switch
+        {
+            CustomAttributePrimitiveParameter primitiveParameter => new(GetTypeSigFromAttributeArg(parentAssembly, primitiveParameter), primitiveParameter.PrimitiveValue),
+            CustomAttributeEnumParameter enumParameter => new(GetTypeSigFromAttributeArg(parentAssembly, enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue),
+            CustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), AsmResolverUtils.GetTypeDefFromIl2CppType(parentAssembly.GetImporter(), typeParameter.Type!).ToTypeSignature()),
+            CustomAttributeArrayParameter arrayParameter => BuildArrayArgument(parentAssembly, arrayParameter),
+            _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
+        };
+    }
+
+    private static CustomAttributeNamedArgument FromAnalyzedAttributeField(AssemblyDefinition parentAssembly, CustomAttributeField field)
+        => new(CustomAttributeArgumentMemberType.Field, field.Field.Name, GetTypeSigFromAttributeArg(parentAssembly, field.Value), FromAnalyzedAttributeArgument(parentAssembly, field.Value));
+
+    private static CustomAttributeNamedArgument FromAnalyzedAttributeProperty(AssemblyDefinition parentAssembly, CustomAttributeProperty property)
+        => new(CustomAttributeArgumentMemberType.Property, property.Property.Name, GetTypeSigFromAttributeArg(parentAssembly, property.Value), FromAnalyzedAttributeArgument(parentAssembly, property.Value));
+
+    private static void CopyCustomAttributes(HasCustomAttributes source, IList<CustomAttribute> destination)
+    {
+        if (source.CustomAttributes == null)
+            return;
+
+        var assemblyDefinition = source.CustomAttributeAssembly.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + source.CustomAttributeAssembly);
+
+        foreach (var analyzedCustomAttribute in source.CustomAttributes)
+        {
+            var ctor = analyzedCustomAttribute.Constructor.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"{source} has a custom attribute with no AsmResolver constructor.");
+
+            CustomAttributeSignature signature;
+            var numNamedArgs = analyzedCustomAttribute.Fields.Count + analyzedCustomAttribute.Properties.Count;
+            if (!analyzedCustomAttribute.HasAnyParameters && numNamedArgs == 0)
+                signature = new();
+            else if (numNamedArgs == 0)
+            {
+                //Only fixed arguments.
+                signature = new(analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)));
+            }
+            else
+            {
+                //Has named arguments.
+                signature = new(
+                    analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)),
+                    analyzedCustomAttribute.Fields
+                        .Select(f => FromAnalyzedAttributeField(assemblyDefinition, f))
+                        .Concat(analyzedCustomAttribute.Properties.Select(p => FromAnalyzedAttributeProperty(assemblyDefinition, p)))
+                );
+            }
+
+            var importedCtor = assemblyDefinition.GetImporter().ImportMethod(ctor);
+
+            var newAttribute = new CustomAttribute((ICustomAttributeType) importedCtor, signature);
+            
+            destination.Add(newAttribute);
+        }
+    }
+    
+    public static void PopulateCustomAttributes(AssemblyAnalysisContext asmContext)
+    {
+        CopyCustomAttributes(asmContext, asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly")!.CustomAttributes);
+
+        foreach (var type in asmContext.Types)
+        {
+            if(type.Name == "<Module>")
+                continue;
+
+            CopyCustomAttributes(type, type.GetExtraData<TypeDefinition>("AsmResolverType")!.CustomAttributes);
+            
+            foreach (var method in type.Methods)
+                CopyCustomAttributes(method, method.GetExtraData<MethodDefinition>("AsmResolverMethod")!.CustomAttributes);
+            
+            foreach (var field in type.Fields)
+                CopyCustomAttributes(field, field.GetExtraData<FieldDefinition>("AsmResolverField")!.CustomAttributes);
+            
+            foreach (var property in type.Properties)
+                CopyCustomAttributes(property, property.GetExtraData<PropertyDefinition>("AsmResolverProperty")!.CustomAttributes);
+        }
+    }
+
     public static void CopyDataFromIl2CppToManaged(AssemblyAnalysisContext asmContext)
     {
+        var managedAssembly = asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + asmContext);
+
         foreach (var typeContext in asmContext.Types)
         {
             if (typeContext.Name == "<Module>")
                 continue;
 
             var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context for " + typeContext.Definition.FullName);
+            // CopyCustomAttributes(typeContext, managedType.CustomAttributes);
 
 #if !DEBUG
             try
@@ -113,27 +218,29 @@ public static class AsmResolverAssemblyPopulator
         CopyEventsInType(importer, typeContext, ilTypeDefinition);
     }
 
-    private static void CopyFieldsInType(ReferenceImporter importer, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyFieldsInType(ReferenceImporter importer, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
-        foreach (var field in cppTypeDefinition.Fields)
+        foreach (var fieldContext in typeContext.Fields)
         {
-            var fieldInfo = field.BackingData;
+            var fieldInfo = fieldContext.BackingData;
 
             //TODO Perf: Again, like in CopyMethodsInType, make a variant which returns TypeSignatures directly. (Though this is only 3% of execution time)
-            var fieldTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, fieldInfo.field.RawFieldType!).ToTypeSignature());
-            var fieldSignature = (fieldInfo.attributes & System.Reflection.FieldAttributes.Static) != 0
-                ? FieldSignature.CreateStatic(fieldTypeSig)
-                : FieldSignature.CreateInstance(fieldTypeSig);
+            var fieldTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, fieldContext.FieldType).ToTypeSignature());
 
-            var managedField = new FieldDefinition(field.Name, (FieldAttributes) fieldInfo.attributes, fieldSignature);
+            var managedField = new FieldDefinition(fieldContext.Name, (FieldAttributes) fieldContext.Attributes, fieldTypeSig);
 
-            //Field default values
-            if (managedField.HasDefault && fieldInfo.field.DefaultValue?.Value is { } constVal)
-                managedField.Constant = AsmResolverUtils.MakeConstant(constVal);
+            if (fieldInfo != null)
+            {
+                //Field default values
+                if (managedField.HasDefault && fieldInfo.field.DefaultValue?.Value is { } constVal)
+                    managedField.Constant = AsmResolverUtils.MakeConstant(constVal);
 
-            //Field Initial Values (used for allocation of Array Literals)
-            if (managedField.HasFieldRva)
-                managedField.FieldRva = new DataSegment(fieldInfo.field.StaticArrayInitialValue);
+                //Field Initial Values (used for allocation of Array Literals)
+                if (managedField.HasFieldRva)
+                    managedField.FieldRva = new DataSegment(fieldInfo.field.StaticArrayInitialValue);
+            }
+            
+            fieldContext.PutExtraData("AsmResolverField", managedField);
 
             ilTypeDefinition.Fields.Add(managedField);
         }
@@ -189,31 +296,28 @@ public static class AsmResolverAssemblyPopulator
             if (managedMethod.IsManagedMethodWithBody())
                 FillMethodBodyWithStub(managedMethod);
 
-            if (methodDef != null)
-            {
-                //Handle generic parameters.
-                methodDef.GenericContainer?.GenericParameters.ToList()
-                    .ForEach(p =>
+            //Handle generic parameters.
+            methodDef?.GenericContainer?.GenericParameters.ToList()
+                .ForEach(p =>
+                {
+                    if (AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(p.Index, out var gp))
                     {
-                        if (AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(p.Index, out var gp))
-                        {
-                            if (!managedMethod.GenericParameters.Contains(gp))
-                                managedMethod.GenericParameters.Add(gp);
-
-                            return;
-                        }
-
-                        gp = new(p.Name, (GenericParameterAttributes) p.flags);
-
                         if (!managedMethod.GenericParameters.Contains(gp))
                             managedMethod.GenericParameters.Add(gp);
 
-                        p.ConstraintTypes!
-                            .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
-                            .ToList()
-                            .ForEach(gp.Constraints.Add);
-                    });
-            }
+                        return;
+                    }
+
+                    gp = new(p.Name, (GenericParameterAttributes) p.flags);
+
+                    if (!managedMethod.GenericParameters.Contains(gp))
+                        managedMethod.GenericParameters.Add(gp);
+
+                    p.ConstraintTypes!
+                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c).ToTypeDefOrRef())))
+                        .ToList()
+                        .ForEach(gp.Constraints.Add);
+                });
 
 
             methodCtx.PutExtraData("AsmResolverMethod", managedMethod);
@@ -221,9 +325,9 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void CopyPropertiesInType(ReferenceImporter importer, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyPropertiesInType(ReferenceImporter importer, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
-        foreach (var propertyCtx in cppTypeDefinition.Properties)
+        foreach (var propertyCtx in typeContext.Properties)
         {
             var propertyDef = propertyCtx.Definition;
 
@@ -243,6 +347,8 @@ public static class AsmResolverAssemblyPopulator
             if (managedSetter != null)
                 managedProperty.Semantics.Add(new(managedSetter, MethodSemanticsAttributes.Setter));
 
+            propertyCtx.PutExtraData("AsmResolverProperty", managedProperty);
+            
             ilTypeDefinition.Properties.Add(managedProperty);
         }
     }
