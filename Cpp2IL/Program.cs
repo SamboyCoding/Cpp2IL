@@ -4,6 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
+using System.Reflection;
 using System.Runtime;
 using CommandLine;
 using Cpp2IL.Core;
@@ -22,6 +23,8 @@ namespace Cpp2IL
     internal class Program
     {
         private static readonly List<string> PathsToDeleteOnExit = new();
+        
+        public static readonly string Cpp2ILVersionString = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
 
         private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
         {
@@ -253,7 +256,8 @@ namespace Cpp2IL
         public static int Main(string[] args)
         {
             Console.WriteLine("===Cpp2IL by Samboy063===");
-            Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.\n");
+            Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
+            Console.WriteLine($"Version {Cpp2ILVersionString}\n");
 
             ConsoleLogger.Initialize();
 

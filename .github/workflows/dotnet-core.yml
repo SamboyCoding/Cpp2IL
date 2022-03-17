@@ -15,21 +15,27 @@ jobs:
     name: Build Single-File Artifact
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v2
       - id: set-vars
         uses: actions/github-script@v5
         with:
           script: |
             core.setOutput("extension", "${{ matrix.runtimeIdentifier}}" === "win-x64" ? ".exe" : "");
             core.setOutput("extraArgs", "${{ matrix.project}}" === "Cpp2IL.Gui" ? "/p:BuiltInComInteropSupport=true" : "");
-      - uses: actions/checkout@v2
+      - id: git-vars
+        name: Get git branch information
+        shell: bash
+        run: |
+          echo "##[set-output name=git_branch;]$(echo ${GITHUB_REF#refs/heads/})"
+          echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
       - name: Restore
-        run: dotnet restore -r ${{ matrix.runtimeIdentifier }}
+        run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.git-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.git-vars.outputs.git_hash }}
       - name: Build
         working-directory: ./${{ matrix.project }}/
-        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true ${{ steps.set-vars.outputs.extraArgs }} /p:TrimMode=link --no-restore --self-contained
+        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:EnableCompressionInSingleFile=true ${{ steps.set-vars.outputs.extraArgs }} /p:TrimMode=link /p:VersionSuffix=${{ steps.git-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.git-vars.outputs.git_hash }} --no-restore --self-contained
       - name: Upload Executable
         uses: actions/upload-artifact@v2
         with:
