@@ -86,10 +86,10 @@ The release files can be downloaded from the Actions tab if you are signed into 
 which always point to the latest successful CI build. Note that the .NET Framework build is provided for compatibility with 
 wine/proton.
 
-- [Windows Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Windows.zip)
-- [Linux Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Linux.zip)
-- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Mac.zip)
-- [.NET Framework 4.7.2 Windows Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/new-analysis/Cpp2IL-Netframework472-Windows.zip)
+- [Windows Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net6-win-x64.zip)
+- [Linux Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net6-linux-x64.zip)
+- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net6-osx-x64.zip)
+- [.NET Framework 4.7.2 Windows Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-Netframework472-Windows.zip)
 
 
 On top of this, I manually release "milestone" release builds whenever I think a major set of improvements have been made. These
