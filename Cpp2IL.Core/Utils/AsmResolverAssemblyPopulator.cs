@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
@@ -10,7 +11,6 @@ using AsmResolver.PE.DotNet.Cil;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
-using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -45,12 +45,12 @@ public static class AsmResolverAssemblyPopulator
                 typeDefinition.BaseType = importer.ImportType(baseTypeDef);
             }
             else if (il2CppTypeDef?.RawBaseType is { } parent)
-                typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, parent));
+                typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.ImportReferenceFromIl2CppType(importer, parent));
 
             //Set interfaces
             if (il2CppTypeDef != null)
                 foreach (var interfaceType in il2CppTypeDef.RawInterfaces)
-                    typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, interfaceType))));
+                    typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.ImportReferenceFromIl2CppType(importer, interfaceType))));
         }
     }
 
@@ -71,7 +71,7 @@ public static class AsmResolverAssemblyPopulator
                 ilTypeDefinition.GenericParameters.Add(p);
 
                 param.ConstraintTypes!
-                    .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c))))
+                    .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.ImportReferenceFromIl2CppType(importer, c))))
                     .ToList()
                     .ForEach(p.Constraints.Add);
             }
@@ -276,7 +276,7 @@ public static class AsmResolverAssemblyPopulator
                     
                     //Handle Parameter Definition (name, attrs, default values)
                     var attrs = (ParameterAttributes) il2CppParameterDefinition.RawType!.attrs;
-                    parameterDefinitions[i] = new((ushort) i, il2CppParameterDefinition.Name!, attrs);
+                    parameterDefinitions[i] = new((ushort) (i + 1), il2CppParameterDefinition.Name!, attrs); //Have to add one to the index because the first parameter is the this pointer
 
                     if (attrs.HasFlag(ParameterAttributes.HasDefault))
                     {
@@ -327,7 +327,7 @@ public static class AsmResolverAssemblyPopulator
                         managedMethod.GenericParameters.Add(gp);
 
                     p.ConstraintTypes!
-                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, c))))
+                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.ImportReferenceFromIl2CppType(importer, c))))
                         .ToList()
                         .ForEach(gp.Constraints.Add);
                 });
@@ -372,7 +372,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var eventDef = eventCtx.Definition;
 
-            var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.GetTypeDefFromIl2CppType(importer, eventDef.RawType!));
+            var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.ImportReferenceFromIl2CppType(importer, eventDef.RawType!));
 
             var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes) eventDef.EventAttributes, eventType);
 

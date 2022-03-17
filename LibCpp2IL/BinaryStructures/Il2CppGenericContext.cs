@@ -7,5 +7,8 @@ namespace LibCpp2IL.BinaryStructures
 
         /* The instantiation corresponding to the method generic parameters */
         public ulong method_inst;
+
+        public Il2CppGenericInst ClassInst => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppGenericInst>(class_inst);
+        public Il2CppGenericInst MethodInst => LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppGenericInst>(method_inst);
     }
 }

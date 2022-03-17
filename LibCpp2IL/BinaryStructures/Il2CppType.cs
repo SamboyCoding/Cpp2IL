@@ -47,5 +47,41 @@ namespace LibCpp2IL.BinaryStructures
 
             return LibCpp2IlMain.TheMetadata!.typeDefs[data.classIndex];
         }
+
+        public Il2CppType GetEncapsulatedType()
+        {
+            if(type is not Il2CppTypeEnum.IL2CPP_TYPE_PTR and not Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)
+                throw new Exception("Type does not have a encapsulated type - it is not a pointer or an szarray");
+
+            return LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(data.type);
+        }
+
+        public Il2CppArrayType GetArrayType()
+        {
+            if(type is not Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
+                throw new Exception("Type is not an array");
+            
+            return LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppArrayType>(data.array);
+        }
+
+        public Il2CppType GetArrayElementType() => LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(GetArrayType().etype);
+        
+        public int GetArrayRank() => GetArrayType().rank;
+
+        public Il2CppGenericParameter GetGenericParameterDef()
+        {
+            if(type is not Il2CppTypeEnum.IL2CPP_TYPE_VAR and not Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
+                throw new Exception("Type is not a generic parameter");
+            
+            return LibCpp2IlMain.TheMetadata!.genericParameters[data.genericParameterIndex];
+        }
+
+        public Il2CppGenericClass GetGenericClass()
+        {
+            if(type is not Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
+                throw new Exception("Type is not a generic class");
+            
+            return LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppGenericClass>(data.generic_class);
+        }
     }
 }
