@@ -38,7 +38,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
             foreach(var f in assemblyAnalysisContext.Types.SelectMany(t => t.Fields))
             {
                 if (f.CustomAttributes == null || f.BackingData == null || f.IsStatic)
-                    return;
+                    continue;
 
                 var newAttribute = new AnalyzedCustomAttribute(fieldOffsetConstructor);
 
