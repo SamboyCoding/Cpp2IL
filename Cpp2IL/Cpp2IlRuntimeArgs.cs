@@ -13,7 +13,6 @@ namespace Cpp2IL
         public string PathToAssembly;
         public string PathToMetadata;
 
-        public string AssemblyToRunAnalysisFor;
         public string? WasmFrameworkJsFile;
 
         public List<Cpp2IlProcessingLayer> ProcessingLayersToRun = new();

@@ -29,6 +29,9 @@ namespace Cpp2IL
         
         //Processor options
         
+        [Option("list-processors", HelpText = "List the available processing layers and exit.")]
+        public bool ListProcessors { get; set; }
+        
         [Option("use-processor", HelpText = "Specify the ID of a processing layer to use. This argument can appear more than once, in which case layers will be executed in the order they are specified.")]
         public IEnumerable<string> ProcessorsToUse { get; set; } = new List<string>();
         
@@ -36,6 +39,9 @@ namespace Cpp2IL
         public IEnumerable<string> ProcessorConfigOptions { get; set; } = new List<string>();
         
         //Output options
+        
+        [Option("list-output-formats", HelpText = "List the available output formats and exit.")]
+        public bool ListOutputFormats { get; set; }
         
         //FUTURE: Allow multiple of these?
         [Option("output-as", HelpText = "Specify the ID of the output format you wish to use.")]
@@ -48,9 +54,6 @@ namespace Cpp2IL
 
         [Option("verbose", HelpText = "Enable Verbose Logging.")]
         public bool Verbose { get; set; }
-
-        [Option("run-analysis-for-assembly", HelpText = "Specify the name of the assembly (without .dll) to run analysis for.")]
-        public string RunAnalysisForAssembly { get; set; } = "Assembly-CSharp";
 
         [Option("wasm-framework-file", HelpText = "Path to the wasm *.framework.js file. Only needed if your binary is a WASM file. If provided, it can be used to remap obfuscated dynCall function names in order to correct method pointers.")]
         public string? WasmFrameworkFilePath { get; set; }

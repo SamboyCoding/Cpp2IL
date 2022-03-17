@@ -25,9 +25,9 @@ namespace Cpp2IL
 
         private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
         {
-            if(string.IsNullOrEmpty(gamePath))
+            if (string.IsNullOrEmpty(gamePath))
                 throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
-            
+
             if (Directory.Exists(gamePath))
             {
                 //Windows game.
@@ -166,6 +166,26 @@ namespace Cpp2IL
 
             if (parserResult is not Parsed<CommandLineArgs> {Value: { } options})
                 throw new SoftException("Failed to parse command line arguments");
+            
+            ConsoleLogger.ShowVerbose = options.Verbose;
+            
+            Cpp2IlApi.Init();
+
+            if (options.ListProcessors)
+            {
+                Logger.InfoNewline("Available processors:");
+                foreach (var cpp2IlProcessingLayer in ProcessingLayerRegistry.AllProcessingLayers)
+                    Console.WriteLine($"  ID: {cpp2IlProcessingLayer.Id}   Name: {cpp2IlProcessingLayer.Name}");
+                Environment.Exit(0);
+            }
+
+            if (options.ListOutputFormats)
+            {
+                Logger.InfoNewline("Available output formats:");
+                foreach (var cpp2IlOutputFormat in OutputFormatRegistry.AllOutputFormats)
+                    Console.WriteLine($"  ID: {cpp2IlOutputFormat.OutputFormatId}   Name: {cpp2IlOutputFormat.OutputFormatName}");
+                Environment.Exit(0);
+            }
 
             if (!options.AreForceOptionsValid)
                 throw new SoftException("Invalid force option configuration");
@@ -184,19 +204,15 @@ namespace Cpp2IL
                 result.UnityVersion = options.ForcedUnityVersion!.Split('.').Select(int.Parse).ToArray();
                 result.Valid = true;
             }
-
-            ConsoleLogger.ShowVerbose = options.Verbose;
-            result.AssemblyToRunAnalysisFor = options.RunAnalysisForAssembly;
+            
             result.WasmFrameworkJsFile = options.WasmFrameworkFilePath;
 
             result.OutputRootDirectory = options.OutputRootDir;
-            
-            // if(string.IsNullOrEmpty(options.OutputFormatId)) 
-                // throw new SoftException("No output format specified, so nothing to do!");
-            
-            Cpp2IlApi.Init();
 
-            if(!string.IsNullOrEmpty(options.OutputFormatId)) 
+            // if(string.IsNullOrEmpty(options.OutputFormatId)) 
+            // throw new SoftException("No output format specified, so nothing to do!");
+
+            if (!string.IsNullOrEmpty(options.OutputFormatId))
             {
                 try
                 {
@@ -212,7 +228,7 @@ namespace Cpp2IL
             try
             {
                 result.ProcessingLayersToRun = options.ProcessorsToUse.Select(ProcessingLayerRegistry.GetById).ToList();
-                if(result.ProcessingLayersToRun.Count > 0)
+                if (result.ProcessingLayersToRun.Count > 0)
                     Logger.VerboseNewline($"Selected processing layers: {string.Join(", ", result.ProcessingLayersToRun.Select(l => l.Name))}");
                 else
                     Logger.VerboseNewline("No processing layers requested");
@@ -304,10 +320,10 @@ namespace Cpp2IL
             foreach (var processingLayer in runtimeArgs.ProcessingLayersToRun)
             {
                 var processorStart = DateTime.Now;
-                
+
                 Logger.InfoNewline($"Running processor {processingLayer.Name}...");
                 processingLayer.Process(Cpp2IlApi.CurrentAppContext!);
-                
+
                 Logger.InfoNewline($"Processor {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
             }
 
@@ -325,10 +341,10 @@ namespace Cpp2IL
             }
 
             // if (runtimeArgs.EnableMetadataGeneration)
-                // Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
+            // Cpp2IlApi.GenerateMetadataForAllAssemblies(runtimeArgs.OutputRootDirectory);
 
             // if (runtimeArgs.EnableAnalysis)
-                // Cpp2IlApi.PopulateConcreteImplementations();
+            // Cpp2IlApi.PopulateConcreteImplementations();
 
             CleanupExtractedFiles();
 

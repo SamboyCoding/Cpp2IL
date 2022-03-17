@@ -1,11 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace Cpp2IL.Core.Api;
 
 public static class ProcessingLayerRegistry
 {
     private static readonly Dictionary<string, Cpp2IlProcessingLayer> _processingLayersById = new();
+    
+    public static IReadOnlyList<Cpp2IlProcessingLayer> AllProcessingLayers => _processingLayersById.Values.ToList();
 
     public static void Register<T>() where T : Cpp2IlProcessingLayer, new()
     {

@@ -14,6 +14,40 @@ Uses [LibCpp2IL](LibCpp2IL) for the initial parsing and loading of metadata stru
 build artifacts if you want to do something yourself with IL2CPP metadata, and is released under the MIT license. The
 link above will take you to the documentation for LibCpp2IL.
 
+### Development Branch Notes
+
+Cpp2IL is currently undergoing a major rewrite. This branch represents work in progress, and is subject to change.
+
+CI builds for developers can be obtained from [My Nuget Feed](https://nuget.samboy.dev/). 
+
+The command-line interface has been simplified, going from a lot of command line options to a concept of output formats
+and processing layers. However, a lot of these formats and layers are not yet implemented, so functionality is limited
+compared to the previously released versions.
+
+#### Obvious Changes:
+
+Many options, such as `--analysis-level`, `--skip-analysis`, etc, have been removed. Ignoring the fact that analysis is not yet implemented, these options will not be coming back.
+Analysis will be off by default, and will be enabled via the usage of a processing layer. 
+
+Equally, options like `--supress-attributes`, which previously suppressed the Cpp2ILInjected attributes, have been replaced with a process layer - this one is actually implemented,
+and is called `attributeinjector`. You can enable this layer using the `--use-processor` option, and you can list other options using `--list-processors`. 
+
+Metadata dumps and method dumps will be their own output format too, instead of both being default-on, and controlled via a dedicated option. Currently this means you'll need to run
+Cpp2IL multiple times if you want both dumps, though this may change in the future if we add support for outputting to multiple formats simultaneously. Like processing layers,
+output formats can be listed via the `--list-output-formats` option, and are selected via the `--output-as` option.
+
+#### Less obvious changes:
+
+Under the hood, the application has been almost completely rewritten. Primarily, this was necessary due to the degree Cpp2IL was dependent on the Mono.Cecil library, which had some
+limitations. When we looked into switching, we realised how reliant we were on the library. This is no longer the case - the application is written around LibCpp2IL types and 
+the new Analysis Context objects, and the Mono.Cecil library is no longer used, having been replaced with AsmResolver.DotNet. 
+
+On top of that, we are currently in the process of reimplementing analysis based around an intermediate representation called ISIL (Instruction-Set-Independent Language), which
+will allow for much easier support of new instruction sets. The ISIL is then converted into a Control Flow Graph, which can be analysed more intelligently than a raw disassembly.
+
+We're also working on a Plugin system which will allow third-party developers to write plugins to add support for custom instruction sets, binary formats, and eventually load 
+obfuscated or encrypted metadata or binary files. 
+
 ## Command Line Options
 
 ### Basic Usage
@@ -28,26 +62,18 @@ same argument as above but pass in the path to the APK, and cpp2il will extract 
 
 ### Supported Command Line Option Listing
 
-|                   Option                    |                                                                 Argument Example                                                                  |                                                                                                                     Description                                                                                                                     |
-|:-------------------------------------------:|:-------------------------------------------------------------------------------------------------------------------------------------------------:|:---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
-|                 --game-path                 |                                                                  C:\Path\To\Game                                                                  |                                                                                                   Specify the path to the game folder. Required.                                                                                                    |
-|                 --exe-name                  |                                                                     TestGame                                                                      |                                                           Specify the name of the game's exe file in case auto detection fails (because there are other exe files in the game directory)                                                            |
-|              --analysis-level               | 0 = Everything<br>1 = Skip Instruction Dump<br>2 = Skip Instruction Dump and Synopsis<br>3 = Print Only Generated IL<br>4 = Print Only Pseudocode |                                                                                Specify what is saved to the `cpp2il_out/types/[Assembly]/typename_methods.txt` file.                                                                                |
-|               --skip-analysis               |                                                                     &lt;None>                                                                     |                                                                              Flag to skip analysis entirely, only generating Dummy DLLs and optionally metadata dumps                                                                               |
-|            --skip-metadata-txts             |                                                                     &lt;None>                                                                     |                                                                                  Flag to skip metadata dumps (`cpp2il_out/types/[Assembly]/typename_metadata.txt`)                                                                                  | 
-|       --disable-registration-prompts        |                                                                     &lt;None>                                                                     |                                                                              Flag to prevent asking for the user to input addresses in STDIN if they can't be detected                                                                              |
-|                  --verbose                  |                                                                     &lt;None>                                                                     |                                                                                                    Log more information about what we are doing                                                                                                     |
-| --experimental-enable-il-to-assembly-please |                                                                     &lt;None>                                                                     |                                                                                   Attempt to save generated IL to the DLL file where possible. MAY BREAK THINGS.                                                                                    |
-|            --suppress-attributes            |                                                                     &lt;None>                                                                     |                                                               Prevents generated DLLs from containing attributes providing il2cpp-specific metadata, such as function pointers, etc.                                                                |
-|                 --parallel                  |                                                                     &lt;None>                                                                     |                                                       Run analysis in parallel. Usually much faster, but may be unstable. Also puts your CPU under a lot of strain (100% usage is targeted).                                                        |
-|         --run-analysis-for-assembly         |                                                                     mscorlib                                                                      |                                                                                    Run analysis for the specified assembly. Do not specify the `.dll` extension.                                                                                    |
-|                --output-root                |                                                                    cpp2il_out                                                                     |                                                          Root directory to output to. Dummy DLLs will be put directly in here, and analysis results will be put in a types folder inside.                                                           |
-|        --throw-safety-out-the-window        |                                                                     &lt;None>                                                                     | When paired with `--experimental-enable-il-to-assembly-please`, do not abort attempting to generate IL for a method if an error occurs. Instead, continue on with the next action, skipping only the one which errored. WILL PROBABLY BREAK THINGS. |
-|                --analyze-all                |                                                                     &lt;None>                                                                     |                                                                                                      Analyze all assemblies in the application                                                                                                      |
-|             --skip-method-dumps             |                                                                     &lt;None>                                                                     |                                                                                Suppress creation of method_dumps folder and files, if you don't intend to use them.                                                                                 |
-|       --just-give-me-dlls-asap-dammit       |                                                                     &lt;None>                                                                     |          Shorthand for `--parallel --skip-method-dumps --experimental-enable-il-to-assembly-please --throw-safety-out-the-window --skip-metadata-txts`, if you don't want to type that much, but still want fast, complete, IL generation           |
-|       --simple-attribute-restoration        |                                                                     &lt;None>                                                                     |                                                   Don't use analysis to restore attributes, meaning any attributes with constructor parameters won't be recovered. Has no effect on metadata v29+                                                   |
-|            --wasm-framework-file            |                                                           C:\Path\To\webgl.framework.js                                                           |                            Only used in conjunction with WASM binaries. Some of these have obfuscated exports but they can be recovered via a framework.js file, which you can provide the path to using this argument.                             |
+|        Option         |       Argument Example        |                                                                                         Description                                                                                          |
+|:---------------------:|:-----------------------------:|:--------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------:|
+|      --game-path      |        C:\Path\To\Game        |                                                                        Specify the path to the game folder. Required.                                                                        |
+|      --exe-name       |           TestGame            |                                Specify the name of the game's exe file in case auto detection fails (because there are other exe files in the game directory)                                |
+|       --verbose       |           &lt;None>           |                                                                         Log more information about what we are doing                                                                         |
+|   --list-processors   |           &lt;None>           |                                                                         List available processing layers, then exit.                                                                         |
+|    --use-processor    |       attributeinjector       |                                 Select a processing layer to use, which can change the raw data prior to outputting. This option can appear multiple times.                                  |
+|  --processor-config   |           key=value           |                           Provide configuration options to the selected processing layers. These will be documented by the plugin which adds the processing layer.                           |
+| --list-output-formats |           &lt;None>           |                                                                          List available output formats, then exit.                                                                           |
+|      --output-as      |           dummydll            |                                                                          Specify the output format you wish to use.                                                                          |
+|      --output-to      |          cpp2il_out           |                     Root directory to output to. This path will be passed to the selected output format, which may then create subdirectories etc. within this location.                     |
+| --wasm-framework-file | C:\Path\To\webgl.framework.js | Only used in conjunction with WASM binaries. Some of these have obfuscated exports but they can be recovered via a framework.js file, which you can provide the path to using this argument. |
 
 ## Release Structure
 
@@ -84,80 +110,9 @@ could report issues with this flag enabled. For normal operation, they shouldn't
 
 If you do not wish for the output to be coloured, set the Environment Variable `NO_COLOR=true`.
 
-## What Works (Features)
-
-- [x] Loading of Metadata and Binaries using LibCpp2IL for IL2CPP versions 24 through 29 (unity 2018 to present-day)
-- [x] "Dummy DLL" (Stub Assembly) generation, suitable for use
-  with [Il2CppAssemblyUnhollower](https://github.com/knah/Il2CppAssemblyUnhollower/), for PE, ELF, and NSO binaries, x86 and
-  ARM instruction sets
-- [x] Restoration of explicit override methods in managed types. This data is not explicitly saved to the Il2Cpp
-  metadata, but is useful for Unhollower.
-- [x] Il2CPP Api Function Detection
-- [x] Flagship analysis of both x86_32 and x86_64 instruction sets.
-- [x] Analysis for ARMv8/ARM64 machine code for a more limited set of operations than x86 (see the table below)
-- [x] A framework for ARMv7 support, albeit with no operations supported yet.
-- [x] Able to save generated IL to the actual function body in the Assembly, allowing decompilation using dnSpy/ILSpy.
-- [x] Significantly faster than both Il2CppDumper and Il2CppInspector (for DummyDLL Generation)
-
-## Supported File Extensions / Instruction sets
-
-| File Extension | x86 | x86_64 | ArmV7 | ArmV8 | Other/Comments |
-| :------------: | :-: | :----: | :---: | :---: | :------------: |
-| PE (DLL files, Windows) | ✔️ | ✔️ | ❌ | ❌ | N/A |
-| ELF (SO files, Linux) | ✔️ | ✔️ | ✔️ | ✔️ | N/A |
-| NSO (Switch)   | N/A | N/A | N/A | ✔️ | Switch is ArmV8, that is the only supported instruction set. Compression supported. |
-| APK (Android)  | ✔ | ❌ | ✔️ | ✔️ | Unpacks the APK, then delegates to ELF loader. |
-| WASM (WebAssembly) | N/A | N/A | N/A | N/A | WASM is its own instruction set, which **is** supported for dumps but not analyzed yet |
-| Mach-O (Mac OS)| ❌ | ❌ | N/A? | ❌ | Not supported yet, but planned |
-
-
-## Supported Analysis Features Table
-
-|                       Feature                       | Supported in x86 | Supported in ARMv8 | Supported in ARMv7 | Supported in WASM |
-|:---------------------------------------------------:|:----------------:|:------------------:|:------------------:|:-----------------:|
-|               Simple Method Calls[^1]               |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|        Virtual function calls (via vftable)         |        ✔️        |         ❌          |         ❌          |         ❌         |
-|   Interface function calls (via interfaceOffsets)   |        ✔️        |         ❌          |         ❌          |         ❌         |
-|       Argument resolution for function calls        |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|                Object Instantiation                 |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|         Unmanaged String Literal Detection          |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|                Instance field reads                 |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|                Instance field writes                |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|                 Static field reads                  |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|                 Static field writes                 |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|       IL2CPP "Exception Helper" functions[^2]       |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|          IL2CPP MetadataUsage parsing[^3]           |        ✔️        |         ✔️         |         ❌          |         ❌         |
-|                 Array instantiation                 |        ✔️        |         ❌          |         ❌          |         ❌         |
-|                 Array offset reads                  |        ✔️        |         ❌          |         ❌          |         ❌         |
-|                 Array offset writes                 |        ✔️        |         ❌          |         ❌          |         ❌         |
-|                  Array length read                  |        ✔️        |         ❌          |         ❌          |         ❌         |
-|           If/While/for/else if detection            |        ✔️        |    Partial[^4]     |         ❌          |         ❌         |
-|               Mathematical operations               |   Partial[^5]    |         ❌          |         ❌          |         ❌         |
-|         Floating point coprocessor support          |        ✔️        |        N/A         |        N/A         |        N/A        |
-|                  RGCTX[^6] Support                  |        ✔️        |         ❌          |         ❌          |         ❌         |
-| Return statements, including return value detection |        ✔️        |         ✔️         |         ❌          |         ❌         |
-
-[^1]: A simple function call is one that is non-virtual, and not defined in an interface. This includes both static and instance functions.
-[^2]: An exception helper is a function call which throws an exception, halting the execution of the current function. These are used for checks which are implicit in the .NET runtime, such as throwing NullReferenceExceptions if something is null and a field is accessed on it.
-[^3]: A MetadataUsage is a reference to a type, field, method, generic instance method, or managed string literal.
-[^4]: Analysis of ARMv8 binaries supports the following conditions in conditional statements: greater than, greater than or equal to, less than or equal to, not equal to null, not equal to, equal to null, equal to.
-[^5]: x86 has a lot of opcodes for mathematical operations. Some are supported: Addition, subtraction, some multiplication (but not all), integer division.
-[^6]: RGCTX stands for Runtime Generic ConTeXt, and is used to provide information about generic methods during runtime.
-
-## What's work in progress (Roadmap)
-
-(Subject to change)
-
-- [ ] Ongoing: Wider support for actions to improve analysis accuracy. Some key points:
-    - [ ] Wider support for x86 multiplication (IMUL instructions) as well as mathematical operations in general.
-    - [ ] Possibly more x86 floating-point-related instructions.
-    - [ ] Feature parity for Arm64 with X86. Most importantly: static fields, full range of conditions, managed array
-      support, virtual functions, mathematical operations
-- [ ] ARMv7 analysis. A template is present, but nothing specific runs.
-
 ## Credits
 
-This application is built using .NET 5.0.
+This application is built primarily using .NET 6.0, but a .NET Framework 4.7.2 build is also published for legacy purposes.
 
 It uses the following libraries, for which I am very thankful:
 
@@ -165,15 +120,22 @@ It uses the following libraries, for which I am very thankful:
 
 - [iced](https://github.com/icedland/iced) disassembler for x86
 - [Capstone.NET](https://github.com/9ee1/Capstone.NET) for ARMv8 and ARMv7 disassembly.
+- My own WasmDisassembler library for WebAssembly disassembly. This can be found in the `WasmDisassembler` subdirectory.
 - [Pastel](https://github.com/silkfire/Pastel) for the console colours.
 - [CommandLineParser](https://github.com/commandlineparser/commandline) so I didn't need to write one myself.
-- [Mono.Cecil](https://github.com/jbevain/cecil/) to create and save the Dummy DLLs, and generate IL.
-- [HarmonyX](https://github.com/BepInEx/HarmonyX) to fix some of cecil's annoyingly vague error messages.
+- [AsmResolver](https://github.com/Washi1337/AsmResolver) for any output formats which produce managed .NET assemblies.
 - [xUnit](https://github.com/xunit/xunit) for the unit tests.
+- [IndexRange](https://github.com/bgrainger/IndexRange) to port System.Index and System.Range back to netstandard2.0.
+- [Nullable](https://github.com/manuelroemer/Nullable) to port nullable attributes back to netstandard2.0.
+
+In addition to the above, the GUI Project uses:
+- [Avalonia](https://github.com/AvaloniaUI/Avalonia) as a GUI framework.
+- [AvaloniaEdit](https://github.com/AvaloniaUI/AvaloniaEdit/) for the text editor.
+- [TextMateSharp](https://github.com/danipen/TextMateSharp) for the syntax highlighting.
 
 It's (very loosely, at this point) based off of [Il2CppDumper](https://github.com/Perfare/Il2CppDumper), which I forked
 in 2018 and removed a lot of code, rewrote a lot, and added a lot more. But at its core, it's still got some dumper left
-in it.
+in it, mostly in LibCpp2IL.
 
 It contains bits and pieces from [Il2CppInspector](https://github.com/djkaty/Il2CppInspector/), taken with permission
 from djKaty, and I'd like to express my gratitude to her here for her invaluable help.
