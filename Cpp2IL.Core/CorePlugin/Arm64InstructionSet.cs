@@ -25,12 +25,7 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
         return instructions.SelectMany(i => i.Bytes).ToArray();
     }
 
-    public override IsilInstructionStatement[] GetIsilFromMethod(MethodAnalysisContext context)
-    {
-        return Array.Empty<IsilInstructionStatement>();
-    }
-
-    public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)
+    public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
         return new();
     }

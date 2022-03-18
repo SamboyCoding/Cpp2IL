@@ -5,16 +5,19 @@ namespace Cpp2IL.Core.ISIL;
 
 public class IsilBuilder
 {
-    public List<IsilStatement> BackingStatementList;
+    public List<InstructionSetIndependentInstruction> BackingStatementList;
 
-    public IsilBuilder(List<IsilStatement> backingStatementList)
+    public IsilBuilder()
+    {
+        BackingStatementList = new();
+    }
+    
+    public IsilBuilder(List<InstructionSetIndependentInstruction> backingStatementList)
     {
         BackingStatementList = backingStatementList;
     }
 
-    private void AddInstruction(InstructionSetIndependentInstruction instruction) => BackingStatementList.Add(new IsilInstructionStatement(instruction));
-
-    public void AppendIf(IsilIfStatement ifStatement) => BackingStatementList.Add(ifStatement);
+    private void AddInstruction(InstructionSetIndependentInstruction instruction) => BackingStatementList.Add(instruction);
 
     public void Move(InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move, dest, src));
 

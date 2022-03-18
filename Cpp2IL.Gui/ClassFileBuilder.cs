@@ -221,13 +221,13 @@ public static class ClassFileBuilder
                     {
                         sb.AppendLine("\t\t// Method body (Instruction-Set-Independent Machine Code Representation)");
 
-                        if (method.InstructionSetIndependentNodes == null)
+                        if (method.ConvertedIsil == null)
                         {
                             sb.AppendLine();
                             sb.AppendLine($"\t\t// ERROR: No ISIL was generated, which probably means the {method.AppContext.InstructionSet.GetType().Name}\n\t\t// is not fully implemented and so does not generate control flow graphs.");
                         }
                         else
-                            sb.Append(GetMethodBodyISIL(method.InstructionSetIndependentNodes));
+                            sb.Append(GetMethodBodyISIL(method.ConvertedIsil));
 
                         break;
                     }
@@ -264,34 +264,34 @@ public static class ClassFileBuilder
     }
 
     // ReSharper disable once InconsistentNaming
-    private static string GetMethodBodyISIL(List<InstructionSetIndependentNode> method)
+    private static string GetMethodBodyISIL(List<InstructionSetIndependentInstruction> method)
     {
         var sb = new StringBuilder();
 
-        foreach (var node in method)
+        foreach (var instruction in method)
         {
-            foreach (var nodeStatement in node.Statements)
-            {
-                if (nodeStatement is IsilIfStatement ifStatement)
-                {
-                    sb.AppendLine().Append('\t', 2).Append(ifStatement.Condition).AppendLine(";\n");
-
-                    sb.Append('\t', 2).AppendLine("// True branch");
-                    var tempBlock = new InstructionSetIndependentNode() {Statements = ifStatement.IfBlock};
-                    sb.Append(GetMethodBodyISIL(new() {tempBlock}));
-
-                    if ((ifStatement.ElseBlock?.Count ?? 0) > 0)
-                    {
-                        sb.Append('\n').Append('\t', 2).AppendLine("// False branch");
-                        tempBlock = new() {Statements = ifStatement.ElseBlock!};
-                        sb.Append(GetMethodBodyISIL(new() {tempBlock}));
-                    }
-
-                    sb.Append('\t', 2).AppendLine("// End of if\n");
-                }
-                else
-                    sb.Append('\t', 2).Append(nodeStatement).AppendLine(";");
-            }
+            // foreach (var nodeStatement in node.Statements)
+            // {
+                // if (nodeStatement is IsilIfStatement ifStatement)
+                // {
+                //     sb.AppendLine().Append('\t', 2).Append(ifStatement.Condition).AppendLine(";\n");
+                //
+                //     sb.Append('\t', 2).AppendLine("// True branch");
+                //     var tempBlock = new InstructionSetIndependentNode() {Statements = ifStatement.IfBlock};
+                //     sb.Append(GetMethodBodyISIL(new() {tempBlock}));
+                //
+                //     if ((ifStatement.ElseBlock?.Count ?? 0) > 0)
+                //     {
+                //         sb.Append('\n').Append('\t', 2).AppendLine("// False branch");
+                //         tempBlock = new() {Statements = ifStatement.ElseBlock!};
+                //         sb.Append(GetMethodBodyISIL(new() {tempBlock}));
+                //     }
+                //
+                //     sb.Append('\t', 2).AppendLine("// End of if\n");
+                // }
+                // else
+                    sb.Append('\t', 2).Append(instruction).AppendLine(";");
+            // }
         }
 
         return sb.ToString();

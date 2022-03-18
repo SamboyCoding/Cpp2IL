@@ -36,32 +36,6 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new X86KeyFunctionAddresses();
 
-    public override List<InstructionSetIndependentNode> ControlFlowGraphToISIL(IControlFlowGraph graph, MethodAnalysisContext context)
-    {
-        var ret = new List<InstructionSetIndependentNode>();
-
-        graph.TraverseEntireGraphPreOrder(node =>
-        {
-            if (node is not X86ControlFlowGraphNode x86Node)
-                throw new("How did we get a non-x86 node?");
-
-            var isilNode = new InstructionSetIndependentNode
-            {
-                Statements = new((int) (x86Node.Statements.Count * 1.2f)) //Allocate initial capacity of 20% larger than source
-            };
-            
-            var builder = isilNode.GetBuilder();
-            foreach (var x86NodeStatement in x86Node.Statements)
-            {
-                ConvertStatement(x86NodeStatement, builder, context);
-            }
-
-            ret.Add(isilNode);
-        });
-
-        return ret;
-    }
-
     public override string PrintAssembly(MethodAnalysisContext context)
     {
         var insns = X86Utils.Disassemble(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
@@ -69,63 +43,23 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return string.Join("\n", insns);
     }
     
-    public override IsilInstructionStatement[] GetIsilFromMethod(MethodAnalysisContext context)
+    public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        return Array.Empty<IsilInstructionStatement>();
-    }
+        var insns = X86Utils.Disassemble(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
 
-    private void ConvertStatement(IStatement statement, IsilBuilder builder, MethodAnalysisContext context)
-    {
-        if (statement is IfStatement<Instruction> ifStatement)
+        var builder = new IsilBuilder();
+        
+        foreach (var instruction in insns)
         {
-            ConvertIfStatement(ifStatement, builder, context);
-            return;
+            ConvertInstructionStatement(instruction, builder, context);
         }
 
-        if (statement is not InstructionStatement<Instruction> instructionStatement)
-            throw new("How did we get a non-instruction, non-if statement?");
-
-        ConvertInstructionStatement(instructionStatement, builder, context);
+        return builder.BackingStatementList;
     }
 
-    private void ConvertIfStatement(IfStatement<Instruction> ifStatement, IsilBuilder builder, MethodAnalysisContext context)
+
+    private void ConvertInstructionStatement(Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
-        var conditionLeft = ConvertOperand(ifStatement.Condition.Comparison, 0);
-        var conditionRight = ConvertOperand(ifStatement.Condition.Comparison, 1);
-        
-        //Need to INVERT comparison opcodes here rather than later. It's easier that way.
-        var comparisonOpcode = ifStatement.Condition.Jump.Mnemonic switch
-        {
-            Mnemonic.Jge => InstructionSetIndependentOpCode.CompareLessThan,
-            Mnemonic.Jg => InstructionSetIndependentOpCode.CompareLessThanOrEqual,
-            Mnemonic.Jle => InstructionSetIndependentOpCode.CompareGreaterThan,
-            Mnemonic.Jl => InstructionSetIndependentOpCode.CompareGreaterThanOrEqual,
-            Mnemonic.Jne => InstructionSetIndependentOpCode.CompareEqual,
-            Mnemonic.Je => InstructionSetIndependentOpCode.CompareNotEqual,
-            _ => throw new("Unknown comparison opcode"),
-        };
-
-        var condition = new IsilCondition(conditionLeft, conditionRight, comparisonOpcode);
-        if (ifStatement.Condition.Comparison.Mnemonic == Mnemonic.Test)
-            condition = condition.MarkAsAnd();
-
-        var ret = new IsilIfStatement(condition);
-
-        var ifBuilder = ret.GetIfBuilder();
-        foreach (var statement in ifStatement.IfBlock) 
-            ConvertStatement(statement, ifBuilder, context);
-        
-        var elseBuilder = ret.GetElseBuilder();
-        foreach (var statement in ifStatement.ElseBlock) 
-            ConvertStatement(statement, elseBuilder, context);
-
-        builder.AppendIf(ret);
-    }
-
-    private void ConvertInstructionStatement(InstructionStatement<Instruction> instructionStatement, IsilBuilder builder, MethodAnalysisContext context)
-    {
-        var instruction = instructionStatement.Instruction;
-
         switch (instruction.Mnemonic)
         {
             case Mnemonic.Mov:
@@ -199,10 +133,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     
                     var parameterCount = parameterCounts.Max();
                     var registerParams = new[] {"rcx", "rdx", "r8", "r9"}.Select(InstructionSetIndependentOperand.MakeRegister).ToList();
-                    
-                    if(context.AppContext.Binary.is32Bit)
-                        registerParams.Clear(); //Nothing pushed in registers on 32-bit
-                    
+
                     if (parameterCount <= registerParams.Count)
                     {
                         builder.Call(target, registerParams.GetRange(0, parameterCount).ToArray());
@@ -213,7 +144,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     parameterCount -= registerParams.Count; //Subtract the 4 params we can fit in registers
 
                     //Generate and append stack operands
-                    var ptrSize = context.AppContext.Binary.is32Bit ? 4 : 8;
+                    var ptrSize = (int) context.AppContext.Binary.PointerSize;
                     registerParams = registerParams.Concat(Enumerable.Range(0, parameterCount).Select(p => p * ptrSize).Select(InstructionSetIndependentOperand.MakeStack)).ToList();
                     
                     builder.Call(target, registerParams.ToArray());
@@ -224,8 +155,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 else
                 {
                     //This isn't a managed method, so for now we don't know its parameter count.
-                    //Add all four of the registers, I guess
-                    //TODO Store data on number of parameters each KFA takes, and use that. Also, 32-bit doesn't use these registers
+                    //Add all four of the registers, I guess. If there are any functions that take more than 4 params,
+                    //we'll have to do something else here.
+                    //These can be converted to dedicated ISIL instructions for specific API functions at a later stage. (by a post-processing step)
                     var paramRegisters = new[] {"rcx", "rdx", "r8", "r9"}.Select(InstructionSetIndependentOperand.MakeRegister).ToArray();
                     builder.Call(target, paramRegisters);
                 }

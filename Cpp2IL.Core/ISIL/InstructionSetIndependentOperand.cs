@@ -28,6 +28,7 @@ public readonly struct InstructionSetIndependentOperand
         Register = 4,
         Memory = 8,
         
+        MemoryOrStack = Memory | StackOffset,
         NotStack = Immediate | Register | Memory,
         Any = Immediate | StackOffset | Register | Memory
     }

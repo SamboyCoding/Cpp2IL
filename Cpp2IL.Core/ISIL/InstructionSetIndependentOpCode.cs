@@ -7,7 +7,7 @@ namespace Cpp2IL.Core.ISIL;
 public class InstructionSetIndependentOpCode
 {
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.Memory);
+    public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.MemoryOrStack);
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
     public static readonly InstructionSetIndependentOpCode Add = new(IsilMnemonic.Add, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
@@ -67,7 +67,7 @@ public class InstructionSetIndependentOpCode
         for (var i = 0; i < operands.Length; i++)
         {
             if ((operands[i].Type & PermittedOperandTypes[i]) == 0)
-                throw new($"Operand {operands[i]} at index {i} is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
+                throw new($"Instruction {instruction}: Operand {operands[i]} at index {i} (0-based) is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
         }
     }
 

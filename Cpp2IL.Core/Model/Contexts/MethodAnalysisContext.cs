@@ -38,14 +38,14 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     public byte[] RawBytes;
 
     /// <summary>
+    /// The first-stage-analyzed Instruction-Set-Independent Language Instructions.
+    /// </summary>
+    public List<InstructionSetIndependentInstruction>? ConvertedIsil;
+
+    /// <summary>
     /// The control flow graph for this method, if one is built.
     /// </summary>
     public IControlFlowGraph? ControlFlowGraph;
-
-    /// <summary>
-    /// The first-stage-analyzed nodes containing ISIL instructions.
-    /// </summary>
-    public List<InstructionSetIndependentNode>? InstructionSetIndependentNodes;
 
     public virtual Il2CppParameterReflectionData[] Parameters => Definition?.Parameters ?? throw new("Subclasses of MethodAnalysisContext should override Parameters");
 
@@ -81,6 +81,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
             else
                 RawBytes = Array.Empty<byte>();
         }
+        else
+            RawBytes = Array.Empty<byte>();
     }
 
     protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(0, context)
@@ -90,9 +92,9 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
 
     public void Analyze()
     {
-        var isil = AppContext.InstructionSet.GetIsilFromMethod(this);
+        ConvertedIsil = AppContext.InstructionSet.GetIsilFromMethod(this);
         
-        if(isil.Length == 0)
+        if(ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
         
         //TODO Build control flow graph from ISIL
