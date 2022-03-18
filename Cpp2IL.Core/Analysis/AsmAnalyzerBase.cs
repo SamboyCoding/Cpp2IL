@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Analysis.ResultModels;
@@ -129,7 +130,9 @@ namespace Cpp2IL.Core.Analysis
                             varType = processor.ImportRecursive(git, MethodDefinition);
                         if (varType is ArrayType arr && MiscUtils.GetUltimateElementType(arr).IsGenericParameter)
                             throw new InvalidOperationException();
-
+                        if(varType is ArrayType { ElementType: GenericInstanceType git3})
+                            varType = processor.ImportRecursive(git3, MethodDefinition).MakeArrayType();
+                        
                         localDefinition.Variable = new VariableDefinition(processor.ImportReference(varType, MethodDefinition));
                         body.Variables.Add(localDefinition.Variable);
                     }
