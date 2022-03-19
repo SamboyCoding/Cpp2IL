@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading;
+using AssetRipper.VersionUtilities;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using Cpp2IL.Core;
@@ -118,15 +119,13 @@ namespace Cpp2IL.Gui.ViewModels
 
         private void ContinueLoading(DroppedGame droppedGame, UnityVersion version)
         {
-            var versionArray = new[]{version.Major, version.Minor, version.Build};
-         
             StatusText = "Loading game...";
 
             new Thread(() =>
             {
                 try
                 {
-                    Cpp2IlApi.InitializeLibCpp2Il(droppedGame.BinaryBytes, droppedGame.MetadataBytes, versionArray);
+                    Cpp2IlApi.InitializeLibCpp2Il(droppedGame.BinaryBytes, droppedGame.MetadataBytes, version);
                 }
                 catch (Exception e)
                 {

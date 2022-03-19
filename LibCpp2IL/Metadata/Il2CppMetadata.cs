@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using AssetRipper.VersionUtilities;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
 
@@ -55,9 +56,16 @@ namespace LibCpp2IL.Metadata
         private readonly Dictionary<int, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new Dictionary<int, Il2CppFieldDefaultValue>();
         private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue>();
 
-        public static bool HasMetadataHeader(byte[] bytes) => bytes.Length >= 4 && BitConverter.ToUInt32(bytes, 0) == 0xFAB11BAF; 
+        public static bool HasMetadataHeader(byte[] bytes) => bytes.Length >= 4 && BitConverter.ToUInt32(bytes, 0) == 0xFAB11BAF;
 
+        [Obsolete("Use ReadFrom(byte[], UnityVersion) instead as unityVer is depreciated", true)]
         public static Il2CppMetadata? ReadFrom(byte[] bytes, int[] unityVer)
+        {
+            var unityVersion = UnityVersion.Parse(string.Join(".", unityVer));
+            return ReadFrom(bytes, unityVersion);
+        }
+
+        public static Il2CppMetadata? ReadFrom(byte[] bytes, UnityVersion unityVersion)
         {
             if (!HasMetadataHeader(bytes))
             {
@@ -73,7 +81,6 @@ namespace LibCpp2IL.Metadata
 
             LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
 
-            var unityVersion = UnityVersion.Parse(string.Join(".", unityVer));
             float actualVersion;
             if (version == 27)
             {
