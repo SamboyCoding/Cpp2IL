@@ -19,7 +19,7 @@ namespace Cpp2IL.Core.Utils
         private static readonly ConcurrentDictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
 
         internal static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
-        internal static readonly Dictionary<long, GenericParameter> GenericParamsByIndexNew = new();
+        internal static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
 
         public static TypeDefinition GetPrimitiveTypeDef(Il2CppTypeEnum type) =>
             type switch
@@ -114,16 +114,14 @@ namespace Cpp2IL.Core.Utils
                         typeDefinition = GetTypeSignatureFromIl2CppType(module, type).Resolve() ?? throw new Exception("Unable to resolve base type for generic inst");
                     }
 
-                    var importer = module.Assembly!.GetImporter();
-
-                    var genericInstanceType = new GenericInstanceTypeSignature(importer.ImportType(typeDefinition!), typeDefinition!.IsValueType);
+                    var genericInstanceType = new GenericInstanceTypeSignature(typeDefinition!, typeDefinition!.IsValueType);
 
                     //Get generic arguments
                     var genericArgumentTypes = genericClass.context.ClassInst.Types;
 
                     //Add arguments to generic instance
                     foreach (var type in genericArgumentTypes) 
-                        genericInstanceType.TypeArguments.Add(importer.ImportTypeSignature(GetTypeSignatureFromIl2CppType(module, type)));
+                        genericInstanceType.TypeArguments.Add(GetTypeSignatureFromIl2CppType(module, type));
 
                     ret = genericInstanceType;
                     break;
@@ -144,7 +142,7 @@ namespace Cpp2IL.Core.Utils
         /// Prefer <see cref="GetTypeSignatureFromIl2CppType"/> where possible, only use this where an actual type reference is needed.
         /// Such cases would include generic parameter constraints, base types/interfaces, and event types.
         /// </summary>
-        public static ITypeDefOrRef ImportReferenceFromIl2CppType(ReferenceImporter importer, Il2CppType il2CppType)
+        public static ITypeDefOrRef ImportReferenceFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)
         {
             if (il2CppType == null)
                 throw new ArgumentNullException(nameof(il2CppType));
@@ -170,11 +168,10 @@ namespace Cpp2IL.Core.Utils
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
                 case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
                     //This case, and the one below, are faster to go this way rather than delegating to type signature creation, because we can go straight from def -> ref.
-                    return importer.ImportType(GetPrimitiveTypeDef(il2CppType.type).ToTypeReference());
+                    return GetPrimitiveTypeDef(il2CppType.type);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
-                    var typeDefinition = TypeDefsByIndex[il2CppType.data.classIndex];
-                    return importer.ImportType(typeDefinition.ToTypeReference());
+                    return TypeDefsByIndex[il2CppType.data.classIndex];
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
@@ -182,7 +179,7 @@ namespace Cpp2IL.Core.Utils
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
                 case Il2CppTypeEnum.IL2CPP_TYPE_MVAR:
                     //For the rest of these, we have to make a type signature first anyway, so just delegate to signature getter
-                    return importer.ImportTypeSignature(GetTypeSignatureFromIl2CppType(importer.TargetModule, il2CppType)).ToTypeDefOrRef();
+                    return GetTypeSignatureFromIl2CppType(module, il2CppType).ToTypeDefOrRef();
                 default:
                     throw new("Don't know how to import a type reference from an il2cpp type of type " + il2CppType.type);
             }

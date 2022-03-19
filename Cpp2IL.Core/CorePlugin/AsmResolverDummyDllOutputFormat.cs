@@ -34,32 +34,28 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 
         Logger.VerboseNewline("Configuring hierarchy...", "DummyDllOutput");
         
-        context.Assemblies.ForEach(AsmResolverAssemblyPopulator.ConfigureHierarchy);
-        // Parallel.ForEach(context.Assemblies, AsmResolverAssemblyPopulator.ConfigureHierarchy); //TODO Re-enable if/when AsmResolver issue #269 gets fixed
+        Parallel.ForEach(context.Assemblies, AsmResolverAssemblyPopulator.ConfigureHierarchy);
 
         //Populate them
-        foreach (var asmCtx in context.Assemblies)
-        {
-            Logger.VerboseNewline($"Populating {asmCtx.Definition.AssemblyName.Name}...", "DummyDllOutput");
-            AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged(asmCtx);
-        }
+        Logger.VerboseNewline("Populating assemblies...", "DummyDllOutput");
+
+        MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
         
         //Populate custom attributes
         Logger.VerboseNewline("Populating custom attributes...", "DummyDllOutput");
-        foreach (var asmCtx in context.Assemblies)
-        {
-            AsmResolverAssemblyPopulator.PopulateCustomAttributes(asmCtx);
-        }
+        MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.PopulateCustomAttributes);
 
         TypeDefinitionsAsmResolver.Reset();
         
-        Logger.VerboseNewline("Saving assemblies...", "DummyDllOutput");
+        Logger.VerboseNewline("Generating assemblies...", "DummyDllOutput");
         
         if (!Directory.Exists(outputRoot))
             Directory.CreateDirectory(outputRoot);
 
         //Convert assembly definitions to PE files
         var peImagesToWrite = ret.AsParallel().Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!)).ToList();
+        
+        Logger.VerboseNewline("Writing generated assemblies to disk...", "DummyDllOutput");
         
         //Save them
         var fileBuilder = new ManagedPEFileBuilder();

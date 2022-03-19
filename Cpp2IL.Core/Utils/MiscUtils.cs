@@ -254,6 +254,16 @@ namespace Cpp2IL.Core.Utils
             return !areDifferent;
         }
 
+        public static void ExecuteParallel<T>(IEnumerable<T> enumerable, Action<T> what)
+        {
+            var f2 = (T t) =>
+            {
+                what(t);
+                return true;
+            };
+            enumerable.AsParallel().Select(f2).ToList();
+        }
+
         public static readonly string[] BlacklistedExecutableFilenames =
         {
             "UnityCrashHandler.exe",
