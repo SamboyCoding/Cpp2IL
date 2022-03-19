@@ -68,7 +68,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
             foreach(var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
                 if (m.CustomAttributes == null || m.Definition == null)
-                    return;
+                    continue;
 
                 var newAttribute = new AnalyzedCustomAttribute(addressConstructor);
                 newAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{m.Definition.Rva:X}")));
