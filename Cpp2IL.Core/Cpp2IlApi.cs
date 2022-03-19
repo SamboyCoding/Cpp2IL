@@ -152,20 +152,6 @@ namespace Cpp2IL.Core
             LibLogger.Writer = new LibLogWriter();
         }
 
-        [Obsolete("Use InitializeLibCpp2Il(string, string, UnityVersion, bool) instead as verbose is deprecated", true)]
-        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool verbose = false, bool allowUserToInputAddresses = false)
-        {
-            var unityVersionStruct = UnityVersion.Parse(string.Join(".", unityVersion));
-            InitializeLibCpp2Il(assemblyPath, metadataPath, unityVersionStruct, allowUserToInputAddresses);
-        }
-
-        [Obsolete("Use InitializeLibCpp2Il(string, string, UnityVersion, bool) instead", true)]
-        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool allowUserToInputAddresses = false)
-        {
-            var unityVersionStruct = UnityVersion.Parse(string.Join(".", unityVersion));
-            InitializeLibCpp2Il(assemblyPath, metadataPath, unityVersionStruct, allowUserToInputAddresses);
-        }
-
         public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, UnityVersion unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
@@ -187,13 +173,6 @@ namespace Cpp2IL.Core
             }
 #endif
             OnLibInitialized();
-        }
-
-        [Obsolete("Use InitializeLibCpp2Il(byte[], byte[], UnityVersion, bool) instead", true)]
-        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool allowUserToInputAddresses = false)
-        {
-            var unityVersionStruct = UnityVersion.Parse(string.Join(".", unityVersion));
-            InitializeLibCpp2Il(assemblyData, metadataData, unityVersionStruct, allowUserToInputAddresses);
         }
 
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, UnityVersion unityVersion, bool allowUserToInputAddresses = false)

@@ -58,13 +58,6 @@ namespace LibCpp2IL.Metadata
 
         public static bool HasMetadataHeader(byte[] bytes) => bytes.Length >= 4 && BitConverter.ToUInt32(bytes, 0) == 0xFAB11BAF;
 
-        [Obsolete("Use ReadFrom(byte[], UnityVersion) instead as unityVer is depreciated", true)]
-        public static Il2CppMetadata? ReadFrom(byte[] bytes, int[] unityVer)
-        {
-            var unityVersion = UnityVersion.Parse(string.Join(".", unityVer));
-            return ReadFrom(bytes, unityVersion);
-        }
-
         public static Il2CppMetadata? ReadFrom(byte[] bytes, UnityVersion unityVersion)
         {
             if (!HasMetadataHeader(bytes))
