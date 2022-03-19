@@ -2,6 +2,7 @@ using System;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using AssetRipper.VersionUtilities;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 

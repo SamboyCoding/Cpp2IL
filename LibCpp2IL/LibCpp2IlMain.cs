@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using AssetRipper.VersionUtilities;
 using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
@@ -128,11 +129,11 @@ namespace LibCpp2IL
         /// </summary>
         /// <param name="binaryBytes">The content of the GameAssembly.dll file.</param>
         /// <param name="metadataBytes">The content of the global-metadata.dat file</param>
-        /// <param name="unityVersion">The unity version, split on periods, with the patch version (e.g. f1) stripped out. For example, [2018, 2, 0]</param>
+        /// <param name="unityVersion">The unity version</param>
         /// <returns>True if the initialize succeeded, else false</returns>
         /// <throws><see cref="System.FormatException"/> if the metadata is invalid (bad magic number, bad version), or if the PE is invalid (bad header signature, bad magic number)<br/></throws>
         /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
-        public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, int[] unityVersion)
+        public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, UnityVersion unityVersion)
         {
             LibCpp2IlReflection.ResetCaches();
             
@@ -188,7 +189,7 @@ namespace LibCpp2IL
         /// <returns>True if the initialize succeeded, else false</returns>
         /// <throws><see cref="System.FormatException"/> if the metadata is invalid (bad magic number, bad version), or if the PE is invalid (bad header signature, bad magic number)<br/></throws>
         /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
-        public static bool LoadFromFile(string pePath, string metadataPath, int[] unityVersion)
+        public static bool LoadFromFile(string pePath, string metadataPath, UnityVersion unityVersion)
         {
             var metadataBytes = File.ReadAllBytes(metadataPath);
             var peBytes = File.ReadAllBytes(pePath);

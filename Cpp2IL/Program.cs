@@ -16,6 +16,7 @@ using Cpp2IL.Core.Exceptions;
 #endif
 using LibCpp2IL;
 using LibCpp2IL.Wasm;
+using AssetRipper.VersionUtilities;
 
 namespace Cpp2IL
 {
@@ -55,23 +56,23 @@ namespace Cpp2IL
                 Logger.VerboseNewline($"Found probable windows game at path: {gamePath}. Attempting to get unity version...");
                 var gameDataPath = Path.Combine(gamePath, $"{exeName}_Data");
                 var uv = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, gameDataPath);
-                Logger.VerboseNewline($"First-attempt unity version detection gave: {uv?.ToString() ?? "null"}");
+                Logger.VerboseNewline($"First-attempt unity version detection gave: {uv}");
 
-                if (uv == null)
+                if (uv == default)
                 {
                     Logger.Warn("Could not determine unity version, probably due to not running on windows and not having any assets files to determine it from. Enter unity version, if known, in the format of (xxxx.x.x), else nothing to fail: ");
                     var userInputUv = Console.ReadLine();
-                    uv = userInputUv?.Split('.').Select(int.Parse).ToArray();
+                    uv = UnityVersion.Parse(userInputUv);
 
-                    if (uv == null)
+                    if (uv == default)
                         throw new SoftException("Failed to determine unity version. If you're not running on windows, I need a globalgamemanagers file or a data.unity3d file, or you need to use the force options.");
                 }
 
                 args.UnityVersion = uv;
 
-                if (args.UnityVersion[0] < 4)
+                if (args.UnityVersion.Major < 4)
                 {
-                    Logger.WarnNewline($"Fail once: Unity version of provided executable is {args.UnityVersion.ToStringEnumerable()}. This is probably not the correct version. Retrying with alternative method...");
+                    Logger.WarnNewline($"Fail once: Unity version of provided executable is {args.UnityVersion}. This is probably not the correct version. Retrying with alternative method...");
 
                     var readUnityVersionFrom = Path.Combine(gameDataPath, "globalgamemanagers");
                     if (File.Exists(readUnityVersionFrom))
@@ -85,10 +86,10 @@ namespace Cpp2IL
                     }
                 }
 
-                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}");
+                Logger.InfoNewline($"Determined game's unity version to be {args.UnityVersion}");
 
-                if (args.UnityVersion[0] <= 4)
-                    throw new SoftException($"Unable to determine a valid unity version (got {args.UnityVersion.ToStringEnumerable()})");
+                if (args.UnityVersion.Major <= 4)
+                    throw new SoftException($"Unable to determine a valid unity version (got {args.UnityVersion})");
 
                 args.Valid = true;
             }
@@ -149,7 +150,7 @@ namespace Cpp2IL
                     args.UnityVersion = Cpp2IlApi.GetVersionFromDataUnity3D(du3dStream);
                 }
 
-                Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}", "APK");
+                Logger.InfoNewline($"Determined game's unity version to be {args.UnityVersion}", "APK");
 
                 args.Valid = true;
             }
@@ -204,7 +205,7 @@ namespace Cpp2IL
                 Logger.WarnNewline("Using force options, I sure hope you know what you're doing!");
                 result.PathToAssembly = options.ForcedBinaryPath!;
                 result.PathToMetadata = options.ForcedMetadataPath!;
-                result.UnityVersion = options.ForcedUnityVersion!.Split('.').Select(int.Parse).ToArray();
+                result.UnityVersion = UnityVersion.Parse(options.ForcedUnityVersion!);
                 result.Valid = true;
             }
             

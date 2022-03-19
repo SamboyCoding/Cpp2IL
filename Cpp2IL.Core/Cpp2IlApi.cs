@@ -4,6 +4,8 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
+using AssetRipper.VersionUtilities;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
@@ -15,6 +17,7 @@ namespace Cpp2IL.Core
 {
     public static class Cpp2IlApi
     {
+        private static Regex unityVersionRegex = new Regex(@"^[0-9]+\.[0-9]+\.[0-9]+[abcfx][0-9]+$", RegexOptions.Compiled);
         public static ApplicationAnalysisContext? CurrentAppContext;
 
         private static readonly HashSet<string> ForbiddenDirectoryNames = new()
@@ -48,13 +51,13 @@ namespace Cpp2IL.Core
             Cpp2IlPluginManager.InitAll();
         }
 
-        public static int[]? DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
+        public static UnityVersion DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
         {
             if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
             {
                 var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
 
-                return new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
+                return new UnityVersion((ushort)unityVer.FileMajorPart, (ushort)unityVer.FileMinorPart, (ushort)unityVer.FileBuildPart);
             }
 
             if (!string.IsNullOrEmpty(gameDataPath))
@@ -76,10 +79,10 @@ namespace Cpp2IL.Core
                 }
             }
 
-            return null;
+            return default;
         }
 
-        public static int[] GetVersionFromGlobalGameManagers(byte[] ggmBytes)
+        public static UnityVersion GetVersionFromGlobalGameManagers(byte[] ggmBytes)
         {
             var verString = new StringBuilder();
             var idx = 0x14;
@@ -89,9 +92,9 @@ namespace Cpp2IL.Core
                 idx++;
             }
 
-            var unityVer = verString.ToString();
+            string unityVer = verString.ToString();
 
-            if (!unityVer.Contains("f"))
+            if (!unityVersionRegex.IsMatch(unityVer))
             {
                 idx = 0x30;
                 verString = new StringBuilder();
@@ -101,14 +104,13 @@ namespace Cpp2IL.Core
                     idx++;
                 }
 
-                unityVer = verString.ToString();
+                unityVer = verString.ToString().Trim();
             }
 
-            unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
-            return unityVer.Split('.').Select(int.Parse).ToArray();
+            return UnityVersion.Parse(unityVer);
         }
 
-        public static int[] GetVersionFromDataUnity3D(Stream fileStream)
+        public static UnityVersion GetVersionFromDataUnity3D(Stream fileStream)
         {
             //data.unity3d is a bundle file and it's used on later unity versions.
             //These files are usually really large and we only want the first couple bytes, so it's done via a stream.
@@ -134,10 +136,9 @@ namespace Cpp2IL.Core
                 verString.Append(Convert.ToChar(read));
             }
 
-            var unityVer = verString.ToString();
+            var unityVer = verString.ToString().Trim();
 
-            unityVer = unityVer[..unityVer.IndexOf("f", StringComparison.Ordinal)];
-            return unityVer.Split('.').Select(int.Parse).ToArray();
+            return UnityVersion.Parse(unityVer);
         }
 
         private static void ConfigureLib(bool allowUserToInputAddresses)
@@ -151,7 +152,7 @@ namespace Cpp2IL.Core
             LibLogger.Writer = new LibLogWriter();
         }
 
-        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, int[] unityVersion, bool allowUserToInputAddresses = false)
+        public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, UnityVersion unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
                 ResetInternalState();
@@ -174,7 +175,7 @@ namespace Cpp2IL.Core
             OnLibInitialized();
         }
 
-        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, int[] unityVersion, bool allowUserToInputAddresses = false)
+        public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, UnityVersion unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
                 ResetInternalState();
