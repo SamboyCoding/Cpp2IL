@@ -142,7 +142,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes) (typeDef?.flags ?? defaultAttributes));
 
         //Set up its layout
-        if(typeDef != null)
+        if(typeDef != null && typeDef.BaseType?.ToString() != "System.Enum")
             ConfigureTypeSize(typeDef, ret);
 
         //Create nested types
