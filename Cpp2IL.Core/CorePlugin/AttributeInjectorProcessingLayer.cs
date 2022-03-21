@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
+using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.CorePlugin;
 
@@ -136,8 +137,8 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
                     .Concat(ctx.Properties)
                     .Append(ctx))
                 .Append(assemblyAnalysisContext);
-
-            Parallel.ForEach(toProcess, c => ProcessCustomAttributesForContext(c, nameField, rvaField, offsetField, attributeConstructor));
+            
+            MiscUtils.ExecuteParallel(toProcess, c => ProcessCustomAttributesForContext(c, nameField, rvaField, offsetField, attributeConstructor));
         }
     }
 

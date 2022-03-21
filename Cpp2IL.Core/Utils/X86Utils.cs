@@ -7,7 +7,6 @@ using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Logging;
 using Iced.Intel;
 using LibCpp2IL;
-using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Utils
 {
@@ -16,14 +15,18 @@ namespace Cpp2IL.Core.Utils
         private static readonly Regex UpscaleRegex = new Regex("(?:^|([^a-zA-Z]))e([a-z]{2})", RegexOptions.Compiled);
         private static readonly ConcurrentDictionary<string, string> CachedUpscaledRegisters = new();
         private static readonly ConcurrentDictionary<Register, string> CachedX86RegNamesNew = new();
-        
+
+        //TODO Consider implementing a CodeReader for Memory
+        public static InstructionList Disassemble(Memory<byte> bytes, ulong methodBase)
+            => Disassemble(bytes.ToArray(), methodBase);
+
         public static InstructionList Disassemble(byte[] bytes, ulong methodBase)
         {
             var codeReader = new ByteArrayCodeReader(bytes);
             var decoder = Decoder.Create(LibCpp2IlMain.Binary!.is32Bit ? 32 : 64, codeReader);
             decoder.IP = methodBase;
             var instructions = new InstructionList();
-            var endRip = decoder.IP + (uint)bytes.Length;
+            var endRip = decoder.IP + (uint) bytes.Length;
 
             while (decoder.IP < endRip)
                 instructions.Add(decoder.Decode());
@@ -31,10 +34,8 @@ namespace Cpp2IL.Core.Utils
             return instructions;
         }
 
-        public static byte[] GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)
+        public static Memory<byte> GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)
         {
-
-            
             var rawAddr = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(ptr);
             var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr);
 
@@ -46,28 +47,39 @@ namespace Cpp2IL.Core.Utils
 
             var startOfNextFunc = (int) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc);
 
-            var retBytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);
-
-
-            var retList = new List<byte>(retBytes);
-
-            if (TryFindJumpTableStart(retBytes, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
+            if (startOfNextFunc < rawAddr)
             {
-                // TODO: Figure out what to do with jumpTableElements, how do we handle returning it from this function?
-                // we might need to return the address it was found at in TryFindJumpTableStart function too 
-                // Should clean up the way we handle the bytes array too
-                /*
-                foreach (var element in jumpTableElements)
-                {
-                    //Logger.InfoNewline($"Jump table element: 0x{element:x8}.");
-                }
-                */
-                retList = retList.GetRange(0, startIndex);
+                Logger.WarnNewline($"StartOfNextFunc returned va 0x{virtStartNextFunc:X}, raw address 0x{startOfNextFunc:X}, for raw address 0x{rawAddr:X}. It should be more than raw address. Falling back to manual, slow, decompiler-based approach.");
+                GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
+                return ret;
             }
 
-            retList.TrimEndWhile(i => i == 0xCC);
+            var rawArray = LibCpp2IlMain.Binary.GetRawBinaryContent();
+            var lastPos = startOfNextFunc - 1;
+            while (rawArray[lastPos] == 0xCC && lastPos > rawAddr)
+                lastPos--;
 
-            return retList.ToArray();
+            return rawArray.AsMemory(rawAddr, lastPos - rawAddr + 1);
+
+            // var retBytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);
+            //
+            // var retList = new List<byte>(retBytes);
+            //
+            // if (TryFindJumpTableStart(retBytes, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
+            // {
+            //     // TODO: Figure out what to do with jumpTableElements, how do we handle returning it from this function?
+            //     // we might need to return the address it was found at in TryFindJumpTableStart function too 
+            //     // Should clean up the way we handle the bytes array too
+            //     /*
+            //     foreach (var element in jumpTableElements)
+            //     {
+            //         //Logger.InfoNewline($"Jump table element: 0x{element:x8}.");
+            //     }
+            //     */
+            //     retList = retList.GetRange(0, startIndex);
+            // }
+            //
+            // return retList.ToArray();
         }
 
         private static bool TryFindJumpTableStart(byte[] methodBytes, ulong methodPtr, ulong nextMethodPtr, out int startIndex, out List<ulong> jumpTableElements)
@@ -75,9 +87,9 @@ namespace Cpp2IL.Core.Utils
             bool foundTable = false;
             startIndex = 0;
             jumpTableElements = new List<ulong>();
-            for (int i = (int) (methodPtr % 4); i < methodBytes.Length; i+=4)
+            for (int i = (int) (methodPtr % 4); i < methodBytes.Length; i += 4)
             {
-                var result = (ulong)BitConverter.ToUInt32(methodBytes, i);
+                var result = (ulong) BitConverter.ToUInt32(methodBytes, i);
                 var possibleJumpAddress = result + 0x180000000; // image base
                 if (possibleJumpAddress > methodPtr && possibleJumpAddress < nextMethodPtr)
                 {
@@ -86,14 +98,14 @@ namespace Cpp2IL.Core.Utils
                     {
                         startIndex = i;
                         foundTable = true;
-                    } 
+                    }
+
                     jumpTableElements.Add(result);
                 }
             }
+
             return foundTable;
         }
-
-        public static InstructionList GetManagedMethodBody(Il2CppMethodDefinition method) => Disassemble(GetRawManagedOrCaCacheGenMethodBody(method.MethodPointer, false), method.MethodPointer);
 
         public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek) => GetMethodBodyAtVirtAddressNew(addr, peek, out _);
 
@@ -117,8 +129,8 @@ namespace Cpp2IL.Core.Utils
             {
                 if (addr >= startOfNextFunc)
                     break;
-                
-                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong)rawAddr));
+
+                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong) rawAddr));
 
                 ret = X86Utils.Disassemble(buff.ToArray(), functionStart);
 
@@ -195,7 +207,7 @@ namespace Cpp2IL.Core.Utils
                     ret = register.GetFullRegister().ToString().ToLowerInvariant();
                 else
                     ret = UpscaleRegisters(register.ToString().ToLower());
-                
+
                 CachedX86RegNamesNew[register] = ret;
             }
 

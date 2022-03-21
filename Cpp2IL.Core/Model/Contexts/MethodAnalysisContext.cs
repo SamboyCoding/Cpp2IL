@@ -35,7 +35,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     /// <summary>
     /// The raw method body as machine code in the active instruction set.
     /// </summary>
-    public byte[] RawBytes;
+    public Memory<byte> RawBytes;
 
     /// <summary>
     /// The first-stage-analyzed Instruction-Set-Independent Language Instructions.

@@ -22,7 +22,7 @@ public abstract class HasCustomAttributes : HasToken
     /// <summary>
     /// On V29, stores the custom attribute blob. Pre-29, stores the bytes for the custom attribute generator function.
     /// </summary>
-    public byte[] RawIl2CppCustomAttributeData = Array.Empty<byte>();
+    public Memory<byte> RawIl2CppCustomAttributeData = Memory<byte>.Empty;
 
     /// <summary>
     /// Stores the analyzed custom attribute data once analysis has actually run.
@@ -206,7 +206,7 @@ public abstract class HasCustomAttributes : HasToken
         if(RawIl2CppCustomAttributeData.Length == 0)
             return;
         
-        using var blobStream = new MemoryStream(RawIl2CppCustomAttributeData);
+        using var blobStream = new MemoryStream(RawIl2CppCustomAttributeData.ToArray());
         var attributeCount = blobStream.ReadUnityCompressedUint();
         var constructors = V29AttributeUtils.ReadConstructors(blobStream, attributeCount, AppContext);
         

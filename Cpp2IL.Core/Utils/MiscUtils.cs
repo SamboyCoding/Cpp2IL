@@ -261,7 +261,11 @@ namespace Cpp2IL.Core.Utils
                 what(t);
                 return true;
             };
-            enumerable.AsParallel().Select(f2).ToList();
+            
+            enumerable
+                // .AsParallel()
+                .Select(f2)
+                .ToList();
         }
 
         public static readonly string[] BlacklistedExecutableFilenames =

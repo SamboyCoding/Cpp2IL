@@ -13,12 +13,12 @@ namespace Cpp2IL.Core.CorePlugin;
 
 public class Arm64InstructionSet : Cpp2IlInstructionSet
 {
-    public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
+    public virtual IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
         return null;
     }
 
-    public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
+    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 

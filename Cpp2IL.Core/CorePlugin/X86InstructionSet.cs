@@ -14,25 +14,7 @@ namespace Cpp2IL.Core.CorePlugin;
 
 public class X86InstructionSet : Cpp2IlInstructionSet
 {
-    public override IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
-    {
-        if (context.UnderlyingPointer == 0)
-            return new X86ControlFlowGraph(new(), context.AppContext.Binary.is32Bit, context.AppContext.GetOrCreateKeyFunctionAddresses());
-        
-        List<Instruction> instructions;
-
-        if (context is not AttributeGeneratorMethodAnalysisContext)
-            instructions = X86Utils.GetManagedMethodBody(context.Definition!).ToList();
-        else
-        {
-            var rawMethodBody = GetRawBytesForMethod(context, context is AttributeGeneratorMethodAnalysisContext);
-            instructions = X86Utils.Disassemble(rawMethodBody, context.UnderlyingPointer).ToList();
-        }
-
-        return new X86ControlFlowGraph(instructions, context.AppContext.Binary.is32Bit, context.AppContext.GetOrCreateKeyFunctionAddresses());
-    }
-
-    public override byte[] GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
+    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new X86KeyFunctionAddresses();
 
@@ -45,7 +27,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        var insns = X86Utils.Disassemble(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
+        var insns = X86Utils.Disassemble(context.RawBytes, context.UnderlyingPointer);
 
         var builder = new IsilBuilder();
         
@@ -111,6 +93,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.Add(left, right);
                 
                 break;
+            //TODO jumps to other functions (i.e. non-returning calls)
             case Mnemonic.Call:
                 //We don't try and resolve which method is being called, but we do need to know how many parameters it has
                 //I would hope that all of these methods have the same number of arguments, else how can they be inlined?

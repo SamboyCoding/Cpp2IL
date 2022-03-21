@@ -109,6 +109,10 @@ namespace Cpp2IL.Core.Extensions
 
         public static T[] SubArray<T>(this T[] source, Range range)
         {
+            if(!range.Start.IsFromEnd && !range.End.IsFromEnd)
+                if(range.Start.Value > range.End.Value)
+                    throw new Exception($"Range {range} - Start must be less than end, when both are fixed offsets");
+            
             var (offset, len) = range.GetOffsetAndLength(source.Length);
             var dest = new T[len];
             
