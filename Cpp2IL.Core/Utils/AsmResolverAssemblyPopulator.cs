@@ -84,7 +84,7 @@ public static class AsmResolverAssemblyPopulator
         parameter switch
         {
             CustomAttributePrimitiveParameter primitiveParameter => AsmResolverUtils.GetPrimitiveTypeDef(primitiveParameter.PrimitiveType).ToTypeSignature(),
-            CustomAttributeEnumParameter enumParameter => AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, enumParameter.EnumType),
+            CustomAttributeEnumParameter enumParameter => AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, enumParameter.EnumType ?? throw new("Enum type not found for " + enumParameter)),
             CustomAttributeTypeParameter => TypeDefinitionsAsmResolver.Type.ToTypeSignature(),
             CustomAttributeArrayParameter arrayParameter => AsmResolverUtils.GetPrimitiveTypeDef(arrayParameter.ArrType).ToTypeSignature().MakeSzArrayType(),
             _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
@@ -97,7 +97,13 @@ public static class AsmResolverAssemblyPopulator
         if (arrayParameter.IsNullArray)
             return new(typeSig);
 
-        return new(typeSig, arrayParameter.ArrayElements.Select(e => (object) FromAnalyzedAttributeArgument(parentAssembly, e)).ToArray());
+        return new(typeSig, arrayParameter.ArrayElements.Select(e => e switch
+        {
+            CustomAttributePrimitiveParameter primitiveParameter =>  primitiveParameter.PrimitiveValue,
+            CustomAttributeEnumParameter enumParameter => enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue,
+            CustomAttributeTypeParameter type => (object) AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, type.Type!),
+            _ => throw new("Not supported array element type: " + e.GetType().FullName)
+        }).ToArray());
     }
 
     private static CustomAttributeArgument FromAnalyzedAttributeArgument(AssemblyDefinition parentAssembly, BaseCustomAttributeParameter parameter)

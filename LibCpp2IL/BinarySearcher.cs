@@ -149,7 +149,13 @@ namespace LibCpp2IL
                 //but in v27 it's close to the LAST codegen module (winrt.dll is an exception), so we need to work back until we find an xref.
                 var sanityCheckNumberOfModules = 200;
                 var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList.AsEnumerable();
-                for (var backtrack = 0; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
+                var numModuleDefs = LibCpp2IlMain.TheMetadata!.imageDefinitions.Length;
+                var initialBacktrack = numModuleDefs - 5;
+
+                pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize * (ulong) initialBacktrack);
+                
+                //Slightly experimental, but we're gonna try backtracking most of the way through the number of modules. Not all the way because we don't want to overshoot.
+                for (var backtrack = initialBacktrack; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
                 {
                     pCodegenModules = FindAllMappedWords(pSomewhereInCodegenModules).ToList();
 
