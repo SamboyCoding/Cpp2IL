@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures;
 using AsmResolver.DotNet.Signatures.Types;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using LibCpp2IL;
@@ -311,7 +312,13 @@ namespace Cpp2IL.Core.Utils
                     _ => throw new($"Can't get a element type for the constant {primitive} of type {primitive.GetType()}"),
                 };
 
-        public static Constant MakeConstant(object from)
+        public static Constant MakeNullConstant()
+        {
+            //As per ISO 23271:2012(E) § II.22.9, the definition of a null constant is one of type class with a four-byte 0 value.
+            return new(ElementType.Class, new(new byte[] {0, 0, 0, 0}));
+        }
+        
+        public static Constant MakeConstant(object? from)
         {
             if (from is string s)
                 return new(ElementType.String, new(Encoding.Unicode.GetBytes(s)));
