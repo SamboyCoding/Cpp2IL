@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
@@ -13,12 +12,11 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
-
 #if !DEBUG
 using System;
 #endif
 
-namespace Cpp2IL.Core.Utils;
+namespace Cpp2IL.Core.Utils.AsmResolver;
 
 public static class AsmResolverAssemblyPopulator
 {
@@ -243,7 +241,7 @@ public static class AsmResolverAssemblyPopulator
             {
                 //Field default values
                 if (managedField.HasDefault && fieldInfo.field.DefaultValue?.Value is { } constVal)
-                    managedField.Constant = AsmResolverUtils.MakeConstant(constVal);
+                    managedField.Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
 
                 //Field Initial Values (used for allocation of Array Literals)
                 if (managedField.HasFieldRva)
@@ -289,11 +287,11 @@ public static class AsmResolverAssemblyPopulator
                         var defaultValueData = typeContext.AppContext.Metadata.GetParameterDefaultValueFromIndex(methodDef.parameterStart + i);
 
                         if (defaultValueData?.ContainedDefaultValue is {} constVal)
-                            parameterDefinitions[i].Constant = AsmResolverUtils.MakeConstant(constVal);
+                            parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
                         else if (defaultValueData is {dataIndex: -1})
                         {
                             //Literal null
-                            parameterDefinitions[i].Constant = AsmResolverUtils.MakeNullConstant();
+                            parameterDefinitions[i].Constant = AsmResolverConstants.Null;
                         }
                     }
                 }

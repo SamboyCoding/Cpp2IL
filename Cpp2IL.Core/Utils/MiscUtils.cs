@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils

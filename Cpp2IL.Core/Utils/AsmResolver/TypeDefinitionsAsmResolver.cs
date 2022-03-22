@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using AsmResolver.DotNet;
 
-namespace Cpp2IL.Core.Utils
+namespace Cpp2IL.Core.Utils.AsmResolver
 {
     [SuppressMessage("ReSharper", "InconsistentNaming")]
     public static class TypeDefinitionsAsmResolver

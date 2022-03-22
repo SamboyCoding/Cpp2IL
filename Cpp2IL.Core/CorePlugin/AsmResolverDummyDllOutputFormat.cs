@@ -12,6 +12,7 @@ using Cpp2IL.Core.AsmResolver;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
+using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.CorePlugin;

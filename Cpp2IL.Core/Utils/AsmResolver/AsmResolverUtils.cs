@@ -5,17 +5,15 @@ using System.Globalization;
 using System.Linq;
 using System.Text;
 using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures;
 using AsmResolver.DotNet.Signatures.Types;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 
-namespace Cpp2IL.Core.Utils
+namespace Cpp2IL.Core.Utils.AsmResolver
 {
     public static class AsmResolverUtils
     {
-        private static readonly object PointerReadLock = new();
         private static readonly Dictionary<string, (TypeDefinition typeDefinition, string[] genericParams)?> CachedTypeDefsByName = new();
         private static readonly ConcurrentDictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
 
@@ -53,8 +51,6 @@ namespace Cpp2IL.Core.Utils
             if (il2CppType == null)
                 throw new ArgumentNullException(nameof(il2CppType));
 
-            var theDll = LibCpp2IlMain.Binary!;
-
             TypeSignature ret;
             switch (il2CppType.type)
             {
@@ -85,7 +81,7 @@ namespace Cpp2IL.Core.Utils
                         .ToTypeSignature();
                     break;
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
-                    return GetTypeSignatureFromIl2CppType(module, il2CppType.GetArrayElementType())
+                    ret = GetTypeSignatureFromIl2CppType(module, il2CppType.GetArrayElementType())
                         .MakeArrayType(il2CppType.GetArrayRank());
                     break;
                 case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
@@ -111,7 +107,7 @@ namespace Cpp2IL.Core.Utils
                     if (LibCpp2IlMain.MetadataVersion >= 27f)
                     {
                         //V27 - type indexes are pointers now.
-                        var type = theDll.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
+                        var type = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
                         type.Init();
                         typeDefinition = GetTypeSignatureFromIl2CppType(module, type).Resolve() ?? throw new Exception("Unable to resolve base type for generic inst");
                     }
@@ -289,41 +285,6 @@ namespace Cpp2IL.Core.Utils
                 return new TypeSpecification(importer.ImportTypeSignatureIfNeeded(spec.Signature!));
 
             return importer.ImportType(type);
-        }
-
-        public static ElementType GetElementTypeFromConstant(object? primitive)
-            => primitive is null
-                ? ElementType.Object
-                : primitive switch
-                {
-                    sbyte => ElementType.I1,
-                    byte => ElementType.U1,
-                    bool => ElementType.Boolean,
-                    short => ElementType.I2,
-                    ushort => ElementType.U2,
-                    int => ElementType.I4,
-                    uint => ElementType.U4,
-                    long => ElementType.I8,
-                    ulong => ElementType.U8,
-                    float => ElementType.R4,
-                    double => ElementType.R8,
-                    string => ElementType.String,
-                    char => ElementType.Char,
-                    _ => throw new($"Can't get a element type for the constant {primitive} of type {primitive.GetType()}"),
-                };
-
-        public static Constant MakeNullConstant()
-        {
-            //As per ISO 23271:2012(E) § II.22.9, the definition of a null constant is one of type class with a four-byte 0 value.
-            return new(ElementType.Class, new(new byte[] {0, 0, 0, 0}));
-        }
-        
-        public static Constant MakeConstant(object? from)
-        {
-            if (from is string s)
-                return new(ElementType.String, new(Encoding.Unicode.GetBytes(s)));
-
-            return new(GetElementTypeFromConstant(from), new(MiscUtils.RawBytes((IConvertible) from)));
         }
 
         public static bool IsManagedMethodWithBody(this MethodDefinition managedMethod) =>
