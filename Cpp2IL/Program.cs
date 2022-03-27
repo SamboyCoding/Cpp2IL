@@ -327,7 +327,16 @@ namespace Cpp2IL
                 var processorStart = DateTime.Now;
 
                 Logger.InfoNewline($"Running processor {processingLayer.Name}...");
-                processingLayer.Process(Cpp2IlApi.CurrentAppContext!);
+
+                try
+                {
+                    processingLayer.Process(Cpp2IlApi.CurrentAppContext!);
+                }
+                catch (Exception e)
+                {
+                    Logger.ErrorNewline($"Processing layer {processingLayer.Id} threw an exception: {e}");
+                    Environment.Exit(1);
+                }
 
                 Logger.InfoNewline($"Processor {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
             }
