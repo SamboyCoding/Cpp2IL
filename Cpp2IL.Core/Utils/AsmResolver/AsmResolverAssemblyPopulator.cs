@@ -110,7 +110,7 @@ public static class AsmResolverAssemblyPopulator
         {
             CustomAttributePrimitiveParameter primitiveParameter => new(GetTypeSigFromAttributeArg(parentAssembly, primitiveParameter), primitiveParameter.PrimitiveValue),
             CustomAttributeEnumParameter enumParameter => new(GetTypeSigFromAttributeArg(parentAssembly, enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue),
-            CustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, typeParameter.Type!)),
+            CustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), typeParameter.Type == null ? null : AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, typeParameter.Type!)),
             CustomAttributeArrayParameter arrayParameter => BuildArrayArgument(parentAssembly, arrayParameter),
             _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
         };
