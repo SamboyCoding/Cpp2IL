@@ -46,7 +46,8 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
             EnumType = context.Binary.GetType(enumTypeIndex);
             
             //We read as the primitive underlying type.
-            ArrType = EnumType.type;
+            var enumClass = EnumType.AsClass();
+            ArrType = enumClass.EnumUnderlyingType.type;
         }
 
         var arrayElementsAreTypePrefixed = reader.ReadBoolean();
@@ -79,8 +80,8 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
         
         var arrType = ArrType.ToString();
         if (EnumType != null)
-            arrType = EnumType.ToString();
+            arrType = EnumType.AsClass().ToString();
         
-        return $"({arrType}) [{string.Join(", ", ArrayElements.Select(x => x.ToString()))}]";
+        return $"new {arrType}[] {{{string.Join(", ", ArrayElements.Select(x => x.ToString()))}}}]";
     }
 }

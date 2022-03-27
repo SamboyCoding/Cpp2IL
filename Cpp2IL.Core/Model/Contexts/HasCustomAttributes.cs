@@ -74,26 +74,12 @@ public abstract class HasCustomAttributes : HasToken
     {
         if (AppContext.MetadataVersion >= 29)
         {
-            var target = new Il2CppCustomAttributeDataRange() {token = Token};
-            var caIndex = AppContext.Metadata.AttributeDataRanges.BinarySearch
-            (
-                CustomAttributeAssembly.Definition.Image.customAttributeStart,
-                (int) CustomAttributeAssembly.Definition.Image.customAttributeCount,
-                target,
-                new TokenComparer()
-            );
-
-            if (caIndex < 0)
-            {
-                RawIl2CppCustomAttributeData = Array.Empty<byte>();
+            var offsets = GetV29BlobOffsets();
+            
+            if(!offsets.HasValue)
                 return;
-            }
 
-            var attributeDataRange = AppContext.Metadata.AttributeDataRanges[caIndex];
-            var next = AppContext.Metadata.AttributeDataRanges[caIndex + 1];
-
-            var blobStart = AppContext.Metadata.metadataHeader.attributeDataOffset + attributeDataRange.startOffset;
-            var blobEnd = AppContext.Metadata.metadataHeader.attributeDataOffset + next.startOffset;
+            var (blobStart, blobEnd) = offsets.Value;
             RawIl2CppCustomAttributeData = AppContext.Metadata.ReadByteArrayAtRawAddress(blobStart, (int) (blobEnd - blobStart));
             
             return;
@@ -141,6 +127,31 @@ public abstract class HasCustomAttributes : HasToken
 
         CaCacheGeneratorAnalysis = new(generatorPtr, AppContext);
         RawIl2CppCustomAttributeData = CaCacheGeneratorAnalysis.RawBytes;
+    }
+
+    private (long blobStart, long blobEnd)? GetV29BlobOffsets()
+    {
+        var target = new Il2CppCustomAttributeDataRange() {token = Token};
+        var caIndex = AppContext.Metadata.AttributeDataRanges.BinarySearch
+        (
+            CustomAttributeAssembly.Definition.Image.customAttributeStart,
+            (int) CustomAttributeAssembly.Definition.Image.customAttributeCount,
+            target,
+            new TokenComparer()
+        );
+
+        if (caIndex < 0)
+        {
+            RawIl2CppCustomAttributeData = Array.Empty<byte>();
+            return null;
+        }
+
+        var attributeDataRange = AppContext.Metadata.AttributeDataRanges[caIndex];
+        var next = AppContext.Metadata.AttributeDataRanges[caIndex + 1];
+
+        var blobStart = AppContext.Metadata.metadataHeader.attributeDataOffset + attributeDataRange.startOffset;
+        var blobEnd = AppContext.Metadata.metadataHeader.attributeDataOffset + next.startOffset;
+        return (blobStart, blobEnd);
     }
 
     /// <summary>
@@ -209,14 +220,33 @@ public abstract class HasCustomAttributes : HasToken
         using var blobStream = new MemoryStream(RawIl2CppCustomAttributeData.ToArray());
         var attributeCount = blobStream.ReadUnityCompressedUint();
         var constructors = V29AttributeUtils.ReadConstructors(blobStream, attributeCount, AppContext);
-        
+
+        //Diagnostic data
+        var startOfData = blobStream.Position;
+        var perAttributeStartOffsets = new Dictionary<Il2CppMethodDefinition, long>();
+
         CustomAttributes = new();
         foreach (var constructor in constructors)
         {
+            perAttributeStartOffsets[constructor] = blobStream.Position;
+            
             var attributeTypeContext = AppContext.ResolveContextForType(constructor.DeclaringType!) ?? throw new("Unable to find type " + constructor.DeclaringType!.FullName);
             var attributeMethodContext = attributeTypeContext.GetMethod(constructor) ?? throw new("Unable to find method " + constructor.Name + " in type " + attributeTypeContext.Definition.FullName);
 
-            CustomAttributes.Add(V29AttributeUtils.ReadAttribute(blobStream, attributeMethodContext, AppContext));
+            try
+            {
+                CustomAttributes.Add(V29AttributeUtils.ReadAttribute(blobStream, attributeMethodContext, AppContext));
+            }
+            catch (Exception e)
+            {
+                Logger.ErrorNewline($"Failed to read attribute data for {constructor}, which has parameters {string.Join(", ", constructor.Parameters.Select(p => p.Type))}", "CA Restore");
+                Logger.ErrorNewline($"This member ({ToString()}) has {RawIl2CppCustomAttributeData.Length} bytes of data starting at 0x{GetV29BlobOffsets()!.Value.blobStart:X}", "CA Restore");
+                Logger.ErrorNewline($"The post-constructor data started at 0x{startOfData:X} bytes into our blob", "CA Restore");
+                Logger.ErrorNewline($"Data for this constructor started at 0x{perAttributeStartOffsets[constructor]:X} bytes into our blob, we are now 0x{blobStream.Position:X} bytes into the blob", "CA Restore");
+                Logger.ErrorNewline($"The exception message was {e.Message}", "CA Restore");
+
+                throw;
+            } 
         }
     }
 }

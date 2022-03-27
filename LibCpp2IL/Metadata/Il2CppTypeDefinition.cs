@@ -326,6 +326,8 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
 
+        public Il2CppType EnumUnderlyingType => IsEnumType ? LibCpp2IlMain.Binary!.GetType(elementTypeIndex) : throw new InvalidOperationException("Cannot get the underlying type of a non-enum type.");
+
         public override string ToString()
         {
             if (LibCpp2IlMain.TheMetadata == null) return base.ToString();

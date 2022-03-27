@@ -15,7 +15,7 @@ public class CustomAttributeEnumParameter : BaseCustomAttributeParameter
     {
         EnumType = enumType;
         var enumTypeDef = EnumType.AsClass();
-        UnderlyingPrimitiveType = context.Binary.GetType(enumTypeDef.elementTypeIndex);
+        UnderlyingPrimitiveType = enumTypeDef.EnumUnderlyingType;
         UnderlyingPrimitiveParameter = new(UnderlyingPrimitiveType.type);
     }
 
