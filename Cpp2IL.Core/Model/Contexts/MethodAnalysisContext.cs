@@ -49,7 +49,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
 
     public virtual Il2CppParameterReflectionData[] Parameters => Definition?.Parameters ?? throw new("Subclasses of MethodAnalysisContext should override Parameters");
 
-    public virtual bool IsVoid => Definition?.ReturnType is {isType: true, isGenericType: false, isArray: false} returnType ? returnType.baseType!.FullName == "System.Void" : throw new("Subclasses of MethodAnalysisContext should override IsVoid");
+    public virtual bool IsVoid => (Definition?.ReturnType?.ToString() ?? throw new("Subclasses of MethodAnalysisContext should override IsVoid")) == "System.Void";
 
     public virtual bool IsStatic => Definition?.IsStatic ?? throw new("Subclasses of MethodAnalysisContext should override IsStatic");
 

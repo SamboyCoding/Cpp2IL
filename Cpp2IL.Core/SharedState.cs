@@ -16,6 +16,8 @@ namespace Cpp2IL.Core
             AsmResolverUtils.GenericParamsByIndexNew.Clear();
 
             AsmResolverUtils.TypeDefsByIndex.Clear();
+            
+            TypeDefinitionsAsmResolver.Reset();
 
             ConcreteImplementations.Clear();
 

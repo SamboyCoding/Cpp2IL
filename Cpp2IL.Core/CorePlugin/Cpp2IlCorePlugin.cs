@@ -35,6 +35,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         Logger.VerboseNewline("\tRegistering built-in output formats...", "Core Plugin");
         
         OutputFormatRegistry.Register<AsmResolverDummyDllOutputFormat>();
+        OutputFormatRegistry.Register<IsilDumpOutputFormat>();
         
         Logger.VerboseNewline("\tRegistering built-in processing layers", "Core Plugin");
         

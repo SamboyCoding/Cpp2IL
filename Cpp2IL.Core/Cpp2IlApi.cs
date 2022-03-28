@@ -20,32 +20,6 @@ namespace Cpp2IL.Core
         private static Regex unityVersionRegex = new Regex(@"^[0-9]+\.[0-9]+\.[0-9]+[abcfx][0-9]+$", RegexOptions.Compiled);
         public static ApplicationAnalysisContext? CurrentAppContext;
 
-        private static readonly HashSet<string> ForbiddenDirectoryNames = new()
-        {
-            "CON",
-            "PRN",
-            "AUX",
-            "NUL",
-            "COM1",
-            "COM2",
-            "COM3",
-            "COM4",
-            "COM5",
-            "COM6",
-            "COM7",
-            "COM8",
-            "COM9",
-            "LPT1",
-            "LPT2",
-            "LPT3",
-            "LPT4",
-            "LPT5",
-            "LPT6",
-            "LPT7",
-            "LPT8",
-            "LPT9"
-        };
-
         public static void Init()
         {
             Cpp2IlPluginManager.InitAll();

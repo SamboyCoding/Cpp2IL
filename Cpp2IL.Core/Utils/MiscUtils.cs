@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Extensions;
-using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils
@@ -15,9 +14,39 @@ namespace Cpp2IL.Core.Utils
 
         private static Dictionary<string, ulong> PrimitiveSizes;
 
+        public static readonly List<char> InvalidPathChars = new()
+        {
+            '<', '>', ':', '"', '/', '\\', '|', '?', '*'
+        };
+
+        public static readonly HashSet<string> InvalidPathElements = new()
+        {
+            "CON",
+            "PRN",
+            "AUX",
+            "NUL",
+            "COM1",
+            "COM2",
+            "COM3",
+            "COM4",
+            "COM5",
+            "COM6",
+            "COM7",
+            "COM8",
+            "COM9",
+            "LPT1",
+            "LPT2",
+            "LPT3",
+            "LPT4",
+            "LPT5",
+            "LPT6",
+            "LPT7",
+            "LPT8",
+            "LPT9"
+        };
+
         internal static void Reset()
         {
-            TypeDefinitionsAsmResolver.Reset();
             _allKnownFunctionStarts = null;
         }
 
@@ -264,7 +293,7 @@ namespace Cpp2IL.Core.Utils
             };
             
             enumerable
-                // .AsParallel()
+                .AsParallel()
                 .Select(f2)
                 .ToList();
         }
