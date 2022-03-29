@@ -32,7 +32,12 @@ namespace Cpp2IL.Gui.Views
             var registryOptions = new RegistryOptions(ThemeName.DarkPlus);
             var textMateInstallation = textEditor.InstallTextMate(registryOptions);
             textMateInstallation.SetGrammar(registryOptions.GetScopeByLanguageId(registryOptions.GetLanguageByExtension(".cs").Id));
-
+            
+            // This assumes nothing else is passed to the command line as it is a GUI build!
+            var commandLine = System.Environment.GetCommandLineArgs();
+            if (commandLine != null && commandLine.Length > 1) {
+                vm.OnDropped(commandLine.Skip(1).ToArray());
+            }
             AddHandler(DragDrop.DropEvent, (sender, args) => vm.OnDropped(args.Data.GetFileNames()?.ToArray()));
         }
 
