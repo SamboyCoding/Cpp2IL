@@ -39,7 +39,7 @@ jobs:
             console.log("rawGitRef: " + rawGitRef);
             let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
             if(gitRef.indexOf("refs/pull/") === 0) {
-              gitRef = "pr-" + gitRef.substring(11, gitRef.lastIndexOf("/"));
+              gitRef = "pr-" + gitRef.substring(10, gitRef.lastIndexOf("/"));
             }
             var versString = `${gitRef}.${runNumber}+${gitHash}`;
             console.log(versString);
@@ -102,7 +102,7 @@ jobs:
             console.log("rawGitRef: " + rawGitRef);
             let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
             if(gitRef.indexOf("refs/pull/") === 0) {
-              gitRef = "pr-" + gitRef.substring(11, gitRef.lastIndexOf("/"));
+              gitRef = "pr-" + gitRef.substring(10, gitRef.lastIndexOf("/"));
             }
             var versString = `${gitRef}.${runNumber}+${gitHash}`;
             console.log(versString);
