@@ -24,7 +24,7 @@ jobs:
         shell: bash
         run: |
           dotnet nuget add source https://nuget.samboy.dev/v3/index.json -n "Samboy Nuget"
-          echo "##[set-output name=git_branch;]$(echo GITHUB_REF)"
+          echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
       - id: set-vars
         uses: actions/github-script@v5
@@ -36,11 +36,14 @@ jobs:
             let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
             let runNumber = "${{ github.run_number }}"; 
             let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
+            console.log("rawGitRef: " + rawGitRef);
             let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
             if(gitRef.indexOf("refs/pull/") === 0) {
               gitRef = "pr-" + gitRef.substring(11, gitRef.lastIndexOf("/"));
             }
-            core.setOutput("versionString", `${gitRef}.${runNumber}+${gitHash}`);
+            var versString = `${gitRef}.${runNumber}+${gitHash}`;
+            console.log(versString);
+            core.setOutput("versionString", versString);
       - name: Restore
         run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Build
@@ -87,7 +90,7 @@ jobs:
         shell: bash
         run: |
           dotnet nuget add source https://nuget.samboy.dev/v3/index.json -n "Samboy Nuget"
-          echo "##[set-output name=git_branch;]$(echo ${${GITHUB_REF#refs/heads/}//\//-})"
+          echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
       - id: set-vars
         uses: actions/github-script@v5
@@ -96,11 +99,14 @@ jobs:
             let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
             let runNumber = "${{ github.run_number }}"; 
             let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
+            console.log("rawGitRef: " + rawGitRef);
             let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
             if(gitRef.indexOf("refs/pull/") === 0) {
               gitRef = "pr-" + gitRef.substring(11, gitRef.lastIndexOf("/"));
             }
-            core.setOutput("versionString", `${gitRef}.${runNumber}+${gitHash}`);
+            var versString = `${gitRef}.${runNumber}+${gitHash}`;
+            console.log(versString);
+            core.setOutput("versionString", versString);
       - name: Install dependencies
         run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Run Tests
