@@ -20,8 +20,9 @@ namespace Cpp2IL.Core
         private static Regex unityVersionRegex = new Regex(@"^[0-9]+\.[0-9]+\.[0-9]+[abcfx][0-9]+$", RegexOptions.Compiled);
         public static ApplicationAnalysisContext? CurrentAppContext;
 
-        public static void Init()
+        public static void Init(string pluginsDir = "Plugins")
         {
+            Cpp2IlPluginManager.LoadFromDirectory(Path.Combine(Environment.CurrentDirectory, pluginsDir));
             Cpp2IlPluginManager.InitAll();
         }
 

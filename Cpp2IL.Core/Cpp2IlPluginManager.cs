@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Api;
@@ -11,6 +12,22 @@ namespace Cpp2IL.Core;
 public static class Cpp2IlPluginManager
 {
     private static List<Cpp2IlPlugin> _loadedPlugins = new();
+
+    internal static void LoadFromDirectory(string pluginsDir)
+    {
+        if(!Directory.Exists(pluginsDir))
+            return;
+        
+        Logger.InfoNewline($"Loading plugins from {pluginsDir}...", "Plugins");
+        foreach (var file in Directory.EnumerateFiles(pluginsDir))
+        {
+            if (Path.GetExtension(file) == ".dll")
+            {
+                Logger.VerboseNewline($"\tLoading {Path.GetFileName(file)}...", "Plugins");
+                Assembly.LoadFrom(file);
+            }
+        }
+    }
     
     internal static void InitAll()
     {
