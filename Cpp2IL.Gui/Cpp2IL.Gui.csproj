@@ -14,7 +14,7 @@
     </ItemGroup>
     <ItemGroup>
         <PackageReference Include="Avalonia" Version="0.10.13" />
-        <PackageReference Include="Avalonia.AvaloniaEdit" Version="0.10.12.1" />
+        <PackageReference Include="Avalonia.AvaloniaEdit" Version="0.10.12.2" />
         <PackageReference Include="Avalonia.Desktop" Version="0.10.12" />
         <PackageReference Include="Avalonia.Diagnostics" Version="0.10.12" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
