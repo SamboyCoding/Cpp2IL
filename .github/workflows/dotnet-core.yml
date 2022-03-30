@@ -16,12 +16,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - id: set-vars
-        uses: actions/github-script@v5
-        with:
-          script: |
-            core.setOutput("extension", "${{ matrix.runtimeIdentifier}}" === "win-x64" ? ".exe" : "");
-            core.setOutput("extraArgs", "${{ matrix.project}}" === "Cpp2IL.Gui" ? "/p:BuiltInComInteropSupport=true" : "");
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
@@ -30,13 +24,28 @@ jobs:
         shell: bash
         run: |
           dotnet nuget add source https://nuget.samboy.dev/v3/index.json -n "Samboy Nuget"
-          echo "##[set-output name=git_branch;]$(echo ${${GITHUB_REF#refs/heads/}//\//-})"
+          echo "##[set-output name=git_branch;]$(echo GITHUB_REF)"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
+      - id: set-vars
+        uses: actions/github-script@v5
+        with:
+          script: |
+            core.setOutput("extension", "${{ matrix.runtimeIdentifier }}" === "win-x64" ? ".exe" : "");
+            core.setOutput("extraArgs", "${{ matrix.project}}" === "Cpp2IL.Gui" ? "/p:BuiltInComInteropSupport=true" : "");
+            
+            let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
+            let runNumber = "${{ github.run_number }}"; 
+            let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
+            let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
+            if(gitRef.indexOf("refs/pull/") === 0) {
+              gitRef = "pr-" + gitRef.substring(11, gitRef.lastIndexOf("/"));
+            }
+            core.setOutput("versionString", `${gitRef}.${runNumber}+${gitHash}`);
       - name: Restore
-        run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.git-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.git-vars.outputs.git_hash }}
+        run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Build
         working-directory: ./${{ matrix.project }}/
-        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:EnableCompressionInSingleFile=true ${{ steps.set-vars.outputs.extraArgs }} /p:TrimMode=link /p:VersionSuffix=${{ steps.git-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.git-vars.outputs.git_hash }} --no-restore --self-contained
+        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:EnableCompressionInSingleFile=true ${{ steps.set-vars.outputs.extraArgs }} /p:TrimMode=link /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
       - name: Upload Executable
         uses: actions/upload-artifact@v2
         with:
@@ -73,17 +82,29 @@ jobs:
       - uses: actions/setup-dotnet@v1
         with:
           dotnet-version: 6.x
-      - id: set-vars
+      - id: git-vars
         name: Set up environment
         shell: bash
         run: |
           dotnet nuget add source https://nuget.samboy.dev/v3/index.json -n "Samboy Nuget"
           echo "##[set-output name=git_branch;]$(echo ${${GITHUB_REF#refs/heads/}//\//-})"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
+      - id: set-vars
+        uses: actions/github-script@v5
+        with:
+          script: |
+            let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
+            let runNumber = "${{ github.run_number }}"; 
+            let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
+            let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
+            if(gitRef.indexOf("refs/pull/") === 0) {
+              gitRef = "pr-" + gitRef.substring(11, gitRef.lastIndexOf("/"));
+            }
+            core.setOutput("versionString", `${gitRef}.${runNumber}+${gitHash}`);
       - name: Install dependencies
-        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Run Tests
-        run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.set-vars.outputs.git_hash }}
+        run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Publish WasmDisassembler
         if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./WasmDisassembler/bin/Release/*.nupkg
