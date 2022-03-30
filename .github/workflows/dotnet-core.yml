@@ -67,6 +67,7 @@ jobs:
   tests:
     name: Run Tests & Publish Dev Package
     runs-on: ubuntu-latest
+    if: github.repository == 'SamboyCoding/Cpp2IL'
     steps:
       - uses: actions/checkout@v2
       - uses: actions/setup-dotnet@v1
@@ -84,9 +85,12 @@ jobs:
       - name: Run Tests
         run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.git_branch }}.${{ github.run_number }}+${{ steps.set-vars.outputs.git_hash }}
       - name: Publish WasmDisassembler
+        if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./WasmDisassembler/bin/Release/*.nupkg
       - name: Publish LibCpp2IL
+        if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./LibCpp2IL/bin/Release/*.nupkg
       - name: Publish Cpp2IL.Core
+        if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Core/bin/Release/*.nupkg
       
