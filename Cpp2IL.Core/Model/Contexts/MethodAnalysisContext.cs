@@ -76,7 +76,9 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
         {
             InitCustomAttributeData();
 
-            if (Definition.MethodPointer != 0)
+            //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't supprot default interface methods so idk what's going on here.
+            //E.g. UnityEngine.Purchasing.AppleCore.dll: UnityEngine.Purchasing.INativeAppleStore::SetUnityPurchasingCallback on among us (itch.io build)
+            if (Definition.MethodPointer != 0 && !Definition.Attributes.HasFlag(MethodAttributes.Abstract))
                 RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
             else
                 RawBytes = Array.Empty<byte>();
