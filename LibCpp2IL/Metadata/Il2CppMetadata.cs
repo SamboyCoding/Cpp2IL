@@ -374,6 +374,11 @@ namespace LibCpp2IL.Metadata
                 return attributeTypeRanges[customAttributeIndex];
 
             var target = new Il2CppCustomAttributeTypeRange {token = token};
+            
+            if(imageDef.customAttributeStart < 0)
+                throw new("Image has customAttributeStart < 0");
+            if(imageDef.customAttributeStart + imageDef.customAttributeCount > attributeTypeRanges.Count)
+                throw new($"Image has customAttributeStart + customAttributeCount > attributeTypeRanges.Count ({imageDef.customAttributeStart + imageDef.customAttributeCount} > {attributeTypeRanges.Count})");
 
             idx = attributeTypeRanges.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, target, new TokenComparer());
 

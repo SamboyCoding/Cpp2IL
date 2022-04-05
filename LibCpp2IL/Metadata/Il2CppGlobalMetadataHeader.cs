@@ -50,38 +50,37 @@ namespace LibCpp2IL.Metadata
         public int imagesCount;
         public int assembliesOffset; // Il2CppAssemblyDefinition
         public int assembliesCount;
-        [Version(Max=24.5f)] public int metadataUsageListsOffset; // Il2CppMetadataUsageList, Removed in v27
-        [Version(Max=24.5f)] public int metadataUsageListsCount; //Removed in v27
-        [Version(Max=24.5f)] public int metadataUsagePairsOffset; // Il2CppMetadataUsagePair, Removed in v27
-        [Version(Max=24.5f)] public int metadataUsagePairsCount; //Removed in v27
+        [Version(Max = 24.5f)] public int metadataUsageListsOffset; // Il2CppMetadataUsageList, Removed in v27
+        [Version(Max = 24.5f)] public int metadataUsageListsCount; //Removed in v27
+        [Version(Max = 24.5f)] public int metadataUsagePairsOffset; // Il2CppMetadataUsagePair, Removed in v27
+        [Version(Max = 24.5f)] public int metadataUsagePairsCount; //Removed in v27
         public int fieldRefsOffset; // Il2CppFieldRef
         public int fieldRefsCount;
         public int referencedAssembliesOffset; // int32_t
         public int referencedAssembliesCount;
-        
+
         //Pre-29 attribute data
-        [Version(Max=27.1f)]public int attributesInfoOffset; // Il2CppCustomAttributeTypeRange
-        [Version(Max=27.1f)]public int attributesInfoCount;
-        [Version(Max=27.1f)] public int attributeTypesOffset; // TypeIndex
-        [Version(Max=27.1f)] public int attributeTypesCount;
-        
+        [Version(Max = 27.9f)] public int attributesInfoOffset; // Il2CppCustomAttributeTypeRange
+        [Version(Max = 27.9f)] public int attributesInfoCount;
+        [Version(Max = 27.9f)] public int attributeTypesOffset; // TypeIndex
+        [Version(Max = 27.9f)] public int attributeTypesCount;
+
         //Post-29 attribute data
-        [Version(Min = 27.1f)] public int attributeDataOffset; //uint8_t
-        [Version(Min = 27.1f)] public int attributeDataCount;
-        [Version(Min = 27.1f)] public int attributeDataRangeOffset; //Il2CppCustomAttributeDataRange
-        [Version(Min = 27.1f)] public int attributeDataRangeCount; 
+        [Version(Min = 27.9f)] public int attributeDataOffset; //uint8_t
+        [Version(Min = 27.9f)] public int attributeDataCount;
+        [Version(Min = 27.9f)] public int attributeDataRangeOffset; //Il2CppCustomAttributeDataRange
+        [Version(Min = 27.9f)] public int attributeDataRangeCount;
+
         public int unresolvedVirtualCallParameterTypesOffset; // TypeIndex
         public int unresolvedVirtualCallParameterTypesCount;
         public int unresolvedVirtualCallParameterRangesOffset; // Il2CppRange
         public int unresolvedVirtualCallParameterRangesCount;
         public int windowsRuntimeTypeNamesOffset; // Il2CppWindowsRuntimeTypeNamePair
         public int windowsRuntimeTypeNamesSize;
-        
-        [Version(Min = 27)]
-        public int windowsRuntimeStringsOffset; // const char*
-        [Version(Min = 27)]
-        public int windowsRuntimeStringsSize;
-        
+
+        [Version(Min = 27)] public int windowsRuntimeStringsOffset; // const char*
+        [Version(Min = 27)] public int windowsRuntimeStringsSize;
+
         public int exportedTypeDefinitionsOffset; // TypeDefinitionIndex
         public int exportedTypeDefinitionsCount;
     }
