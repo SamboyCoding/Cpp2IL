@@ -23,6 +23,7 @@ namespace LibCpp2IL
 
         public static readonly LibCpp2IlSettings Settings = new();
 
+        public static bool Il2CppTypeHasNumMods5Bits;
         public static float MetadataVersion = 24f;
         public static Il2CppBinary? Binary;
         public static Il2CppMetadata? TheMetadata;
@@ -142,6 +143,8 @@ namespace LibCpp2IL
             LibLogger.InfoNewline("Initializing Metadata...");
             
             TheMetadata = Il2CppMetadata.ReadFrom(metadataBytes, unityVersion);
+
+            Il2CppTypeHasNumMods5Bits = MetadataVersion >= 27.2f;
             
             if (TheMetadata == null)
                 return false;

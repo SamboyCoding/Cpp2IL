@@ -77,6 +77,8 @@ namespace LibCpp2IL.Metadata
             float actualVersion;
             if (version == 27)
             {
+                if (unityVersion.IsGreaterEqual(2020, 1))
+                    actualVersion = 27.2f; //2020.1 and up is v27.2, which just changes Il2CppType to have one new bit
                 if (unityVersion.IsGreaterEqual(2020, 2, 4))
                     actualVersion = 27.1f; //2020.2.4 and above is v27.1
                 else
