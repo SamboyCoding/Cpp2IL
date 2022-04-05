@@ -384,9 +384,9 @@ namespace LibCpp2IL
 
         private ulong[] AllCustomAttributeGeneratorsV27 =>
             LibCpp2IlMain.TheMetadata!.imageDefinitions
-                .Select(i => (image: i, cgm: GetCodegenModuleByName(i.Name!)!, ptrSize: is32Bit ? 4UL : 8UL))
-                .SelectMany(tuple => LibCpp2ILUtils.Range(0, (int) tuple.image.customAttributeCount).Select(o => tuple.cgm.customAttributeCacheGenerator + (ulong) o * tuple.ptrSize))
-                .Select(p => ReadClassAtVirtualAddress<ulong>(p))
+                .Select(i => (image: i, cgm: GetCodegenModuleByName(i.Name!)!))
+                .SelectMany(tuple => LibCpp2ILUtils.Range(0, (int) tuple.image.customAttributeCount).Select(o => tuple.cgm.customAttributeCacheGenerator + (ulong) o * PointerSize))
+                .Select(ReadClassAtVirtualAddress<ulong>)
                 .ToArray();
 
         public abstract byte[] GetRawBinaryContent();

@@ -24,7 +24,7 @@ namespace LibCpp2IL.BinaryStructures
         public ulong rgctxs;
         public ulong debuggerMetadata;
 
-        [Version(Min = 27, Max = 27.1f)] public ulong customAttributeCacheGenerator;
+        [Version(Min = 27, Max = 27.9f)] public ulong customAttributeCacheGenerator; //Removed in v29
         [Version(Min = 27)] public ulong moduleInitializer;
         [Version(Min = 27)] public ulong staticConstructorTypeIndices;
         [Version(Min = 27)] public ulong metadataRegistration; //Per-assembly mode only

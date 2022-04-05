@@ -4,7 +4,7 @@ namespace LibCpp2IL.Metadata
     {
         [Version(Min = 24.1f)] public uint token;
         public int start;
-        [Version(Max = 27.1f)] public int count;
+        [Version(Max = 27.9f)] public int count; //Removed in v29
         
         public uint Token => token;
     }
