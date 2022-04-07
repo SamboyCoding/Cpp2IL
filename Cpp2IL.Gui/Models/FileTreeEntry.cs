@@ -106,7 +106,7 @@ public class FileTreeEntry : SharpTreeNode
         {
             TypeAnalysisContext tac => tac.Definition.Name,
             AssemblyAnalysisContext aac => aac.Definition.AssemblyName.Name,
-            MethodAnalysisContext mac => $"{mac.Definition!.Name}({string.Join(", ", mac.Parameters.Select(p => p.Type))})",
+            MethodAnalysisContext mac => $"{mac.Definition!.Name}({string.Join(", ", mac.Parameters.Select(p => p.ReadableTypeName))})",
             null => NamespaceName!.Contains('.') ? NamespaceName[(NamespaceName.LastIndexOf('.') + 1)..] : NamespaceName
         };
 

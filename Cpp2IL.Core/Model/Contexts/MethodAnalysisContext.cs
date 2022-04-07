@@ -47,7 +47,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     /// </summary>
     public IControlFlowGraph? ControlFlowGraph;
 
-    public virtual Il2CppParameterReflectionData[] Parameters => Definition?.Parameters ?? throw new("Subclasses of MethodAnalysisContext should override Parameters");
+    public List<ParameterAnalysisContext> Parameters = new();
 
     public virtual bool IsVoid => (Definition?.ReturnType?.ToString() ?? throw new("Subclasses of MethodAnalysisContext should override IsVoid")) == "System.Void";
 
@@ -61,11 +61,9 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     
     public virtual MethodAttributes Attributes => Definition?.Attributes ?? throw new("Subclasses of MethodAnalysisContext should override Attributes");
 
-    public TypeAnalysisContext[]? InjectedParameterTypes { get; set; }
-    
     public TypeAnalysisContext? InjectedReturnType { get; set; }
 
-    public int ParameterCount => InjectedParameterTypes?.Length ?? Parameters.Length;
+    public int ParameterCount => Parameters.Count;
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
     {
@@ -76,12 +74,18 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
         {
             InitCustomAttributeData();
 
-            //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't supprot default interface methods so idk what's going on here.
+            //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't support default interface methods so idk what's going on here.
             //E.g. UnityEngine.Purchasing.AppleCore.dll: UnityEngine.Purchasing.INativeAppleStore::SetUnityPurchasingCallback on among us (itch.io build)
             if (Definition.MethodPointer != 0 && !Definition.Attributes.HasFlag(MethodAttributes.Abstract))
                 RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
             else
                 RawBytes = Array.Empty<byte>();
+
+            for (var i = 0; i < Definition.InternalParameterData!.Length; i++)
+            {
+                var parameterDefinition = Definition.InternalParameterData![i];
+                Parameters.Add(new(parameterDefinition, i, this));
+            }
         }
         else
             RawBytes = Array.Empty<byte>();

@@ -103,7 +103,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     var possibleMethods = context.AppContext.MethodsByAddress[target];
                     var parameterCounts = possibleMethods.Select(p =>
                     {
-                        var ret = p.Parameters.Length;
+                        var ret = p.Parameters.Count;
                         if (!p.IsStatic)
                             ret++; //This arg
                         

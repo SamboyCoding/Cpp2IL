@@ -37,7 +37,7 @@ namespace LibCpp2IL.Reflection
         {
             for (var e = Il2CppTypeEnum.IL2CPP_TYPE_VOID; e <= Il2CppTypeEnum.IL2CPP_TYPE_STRING; e++)
             {
-                PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.type == e);
+                PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.type == e && t.byref == 0);
             }
 
             for (var i = 0; i < LibCpp2IlMain.TheMetadata!.typeDefs.Length; i++)
@@ -191,7 +191,7 @@ namespace LibCpp2IL.Reflection
                 if (type.type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
                     continue;
 
-                if (type.data.classIndex == index)
+                if (type.data.classIndex == index && type.byref == 0)
                 {
                     return type;
                 }

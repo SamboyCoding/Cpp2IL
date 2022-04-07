@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
@@ -171,10 +172,19 @@ public static class AsmResolverAssemblyPopulator
                 continue;
 
             CopyCustomAttributes(type, type.GetExtraData<TypeDefinition>("AsmResolverType")!.CustomAttributes);
-            
+
             foreach (var method in type.Methods)
-                CopyCustomAttributes(method, method.GetExtraData<MethodDefinition>("AsmResolverMethod")!.CustomAttributes);
-            
+            {
+                var methodDef = method.GetExtraData<MethodDefinition>("AsmResolverMethod")!;
+                CopyCustomAttributes(method, methodDef.CustomAttributes);
+
+                var parameterDefinitions = methodDef.ParameterDefinitions;
+                foreach (var parameterAnalysisContext in method.Parameters)
+                {
+                    CopyCustomAttributes(parameterAnalysisContext, parameterDefinitions[parameterAnalysisContext.ParamIndex].CustomAttributes);
+                }
+            }
+
             foreach (var field in type.Fields)
                 CopyCustomAttributes(field, field.GetExtraData<FieldDefinition>("AsmResolverField")!.CustomAttributes);
             
@@ -265,46 +275,31 @@ public static class AsmResolverAssemblyPopulator
 
             TypeSignature[] parameterTypes;
             var parameterDefinitions = Array.Empty<ParameterDefinition>();
-            if (methodDef != null)
+            
+            var paramData = methodCtx.Parameters;
+            parameterTypes = new TypeSignature[paramData.Count];
+            parameterDefinitions = new ParameterDefinition[paramData.Count];
+            foreach (var parameterAnalysisContext in methodCtx.Parameters)
             {
-                var paramData = methodDef.InternalParameterData!;
-                parameterTypes = new TypeSignature[paramData.Length];
-                parameterDefinitions = new ParameterDefinition[paramData.Length];
+                var i = parameterAnalysisContext.ParamIndex; 
+                parameterTypes[i] = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, parameterAnalysisContext.ParameterType));
                 
-                for (var i = 0; i < paramData.Length; i++)
+                var sequence = (ushort) (i + 1); //Add one because sequence 0 is the return type
+                parameterDefinitions[i] = new(sequence, parameterAnalysisContext.Name, (ParameterAttributes) parameterAnalysisContext.ParameterAttributes);
+
+                if (parameterAnalysisContext.DefaultValue is not { } defaultValueData) 
+                    continue;
+                
+                if (defaultValueData?.ContainedDefaultValue is {} constVal)
+                    parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
+                else if (defaultValueData is {dataIndex: -1})
                 {
-                    var il2CppParameterDefinition = paramData[i];
-                    
-                    //Handle Parameter type
-                    parameterTypes[i] = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule,il2CppParameterDefinition.RawType!));
-                    
-                    //Handle Parameter Definition (name, attrs, default values)
-                    var attrs = (ParameterAttributes) il2CppParameterDefinition.RawType!.attrs;
-                    parameterDefinitions[i] = new((ushort) (i + 1), il2CppParameterDefinition.Name!, attrs); //Have to add one to the index because the first parameter is the this pointer
-
-                    if (attrs.HasFlag(ParameterAttributes.HasDefault))
-                    {
-                        var defaultValueData = typeContext.AppContext.Metadata.GetParameterDefaultValueFromIndex(methodDef.parameterStart + i);
-
-                        if (defaultValueData?.ContainedDefaultValue is {} constVal)
-                            parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
-                        else if (defaultValueData is {dataIndex: -1})
-                        {
-                            //Literal null
-                            parameterDefinitions[i].Constant = AsmResolverConstants.Null;
-                        }
-                    }
+                    //Literal null
+                    parameterDefinitions[i].Constant = AsmResolverConstants.Null;
                 }
             }
-            else
-            {
-                parameterTypes = methodCtx.InjectedParameterTypes!.Select(p =>
-                    p.Definition == null
-                        ? throw new("Injected methods with injected parameter types aren't supported at the moment")
-                        : AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, LibCpp2IlReflection.GetTypeFromDefinition(p.Definition)!)
-                ).ToArray();
-            }
-
+            
+           
             var signature = methodCtx.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
 
             var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) methodCtx.Attributes, signature);

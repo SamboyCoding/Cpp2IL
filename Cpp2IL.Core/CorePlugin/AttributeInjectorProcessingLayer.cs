@@ -35,8 +35,8 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
             var offsetField = offsetFields[assemblyAnalysisContext];
 
             var fieldOffsetConstructor = fieldOffsetConstructors[assemblyAnalysisContext];
-            
-            foreach(var f in assemblyAnalysisContext.Types.SelectMany(t => t.Fields))
+
+            foreach (var f in assemblyAnalysisContext.Types.SelectMany(t => t.Fields))
             {
                 if (f.CustomAttributes == null || f.BackingData == null || f.IsStatic)
                     continue;
@@ -56,7 +56,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
         var rvaFields = addressAttributes.InjectFieldToAllAssemblies("RVA", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
         var offsetFields = addressAttributes.InjectFieldToAllAssemblies("Offset", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
-        
+
         var addressConstructors = addressAttributes.InjectConstructor(false);
 
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
@@ -66,14 +66,14 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             var addressConstructor = addressConstructors[assemblyAnalysisContext];
 
-            foreach(var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
+            foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
                 if (m.CustomAttributes == null || m.Definition == null)
                     continue;
 
                 var newAttribute = new AnalyzedCustomAttribute(addressConstructor);
                 newAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{m.Definition.Rva:X}")));
-                if(appContext.Binary.TryMapVirtualAddressToRaw(m.UnderlyingPointer, out var offset))
+                if (appContext.Binary.TryMapVirtualAddressToRaw(m.UnderlyingPointer, out var offset))
                     newAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offset:X}")));
                 m.CustomAttributes.Add(newAttribute);
             }
@@ -85,9 +85,9 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
         var tokenAttributes = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "TokenAttribute", appContext.SystemTypes.SystemAttributeType);
 
         var tokenFields = tokenAttributes.InjectFieldToAllAssemblies("Token", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
-        
+
         var tokenConstructors = tokenAttributes.InjectConstructor(false);
-        
+
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
         {
             var tokenField = tokenFields[assemblyAnalysisContext];
@@ -103,9 +103,9 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             Parallel.ForEach(toProcess, context =>
             {
-                if (context.CustomAttributes == null)
+                if (context.CustomAttributes == null || context.Token == 0)
                     return;
-                
+
                 var newAttribute = new AnalyzedCustomAttribute(tokenConstructor);
                 newAttribute.Fields.Add(new(tokenField, new CustomAttributePrimitiveParameter($"0x{context.Token:X}")));
                 context.CustomAttributes.Add(newAttribute);
@@ -131,13 +131,14 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             var attributeConstructor = attributeConstructors[assemblyAnalysisContext];
 
-            var toProcess = assemblyAnalysisContext.Types.SelectMany(ctx => ctx.Methods.Cast<HasCustomAttributes>()
+            var toProcess = assemblyAnalysisContext.Types
+                .SelectMany(ctx => ctx.Methods.SelectMany(m => m.Parameters.Cast<HasCustomAttributes>().Append(m))
                     .Concat(ctx.Fields)
                     .Concat(ctx.Events)
                     .Concat(ctx.Properties)
                     .Append(ctx))
                 .Append(assemblyAnalysisContext);
-            
+
             MiscUtils.ExecuteParallel(toProcess, c => ProcessCustomAttributesForContext(c, nameField, rvaField, offsetField, attributeConstructor));
         }
     }
