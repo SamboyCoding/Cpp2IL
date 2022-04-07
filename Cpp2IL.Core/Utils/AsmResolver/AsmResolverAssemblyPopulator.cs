@@ -303,6 +303,9 @@ public static class AsmResolverAssemblyPopulator
             var signature = methodCtx.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
 
             var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) methodCtx.Attributes, signature);
+
+            if (methodCtx.Definition != null)
+                managedMethod.ImplAttributes = (MethodImplAttributes) methodCtx.Definition.iflags;
             
             //Add parameter definitions if we have them so we get names, defaults, out params, etc
             foreach (var parameterDefinition in parameterDefinitions)
