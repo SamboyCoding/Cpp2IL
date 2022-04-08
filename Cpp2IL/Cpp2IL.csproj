@@ -30,4 +30,19 @@
     <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
         <Reference Include="System.IO.Compression" />
     </ItemGroup>
+
+    <ItemGroup>
+      <None Remove="bin\**" />
+      <None Remove="obj\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <Compile Remove="bin\**" />
+      <Compile Remove="obj\**" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <EmbeddedResource Remove="bin\**" />
+      <EmbeddedResource Remove="obj\**" />
+    </ItemGroup>
 </Project>

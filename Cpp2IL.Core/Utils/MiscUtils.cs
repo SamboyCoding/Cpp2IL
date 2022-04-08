@@ -286,15 +286,15 @@ namespace Cpp2IL.Core.Utils
 
         public static void ExecuteParallel<T>(IEnumerable<T> enumerable, Action<T> what)
         {
-            var f2 = (T t) =>
+            bool F2(T t)
             {
                 what(t);
                 return true;
-            };
-            
+            }
+
             enumerable
                 .AsParallel()
-                .Select(f2)
+                .Select((Func<T, bool>) F2)
                 .ToList();
         }
 

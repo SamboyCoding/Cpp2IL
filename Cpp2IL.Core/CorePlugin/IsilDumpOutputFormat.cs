@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -32,6 +33,9 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
             MiscUtils.ExecuteParallel(assembly.Types, type =>
             {
                 if (type is InjectedTypeAnalysisContext)
+                    return;
+                
+                if(type.Methods.Count == 0)
                     return;
 
                 var typeDump = new StringBuilder();
@@ -68,25 +72,62 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
                     }
                 }
 
-                var namespaceSplit = type.Namespace.Split('.');
-                namespaceSplit = namespaceSplit
-                    .Peek(n => MiscUtils.InvalidPathChars.ForEach(c => n = n.Replace(c, '_')))
-                    .Select(n => MiscUtils.InvalidPathElements.Contains(n) ? $"__illegalwin32name_{n}__" : n)
-                    .ToArray();
-
-                var directory = Path.Combine(new[] {outputRoot, assemblyNameClean}.Concat(namespaceSplit).ToArray());
-                if (!Directory.Exists(directory))
-                    Directory.CreateDirectory(directory);
-
-                var typeName = type.Name;
-                if(type.Definition.DeclaringType != null)
-                    typeName = type.Definition.DeclaringType.Name + '_' + typeName;
-                
-                MiscUtils.InvalidPathChars.ForEach(c => typeName = typeName.Replace(c, '_'));
-
-                var file = Path.Combine(directory, $"{typeName}.txt");
-                File.WriteAllText(file, typeDump.ToString());
+                WriteTypeDump(outputRoot, type, typeDump.ToString(), assemblyNameClean);
             });
         }
+    }
+    
+    private static string GetFilePathForType(string outputRoot, TypeAnalysisContext type, string assemblyNameClean)
+    {
+        //Get root assembly directory
+        var assemblyDir = Path.Combine(outputRoot, assemblyNameClean);
+
+        //If type is nested, we should use namespace of ultimate declaring type, which could be an arbitrary depth
+        //E.g. rewired has a type Rewired.Data.Mapping.HardwareJoystickMap, which contains a nested class Platform_Linux_Base, which contains MatchingCriteria, which contains ElementCount.
+        var ultimateDeclaringType = type.Definition!;
+        while (ultimateDeclaringType.DeclaringType != null)
+            ultimateDeclaringType = ultimateDeclaringType.DeclaringType;
+
+        var namespaceSplit = ultimateDeclaringType.Namespace!.Split('.');
+        namespaceSplit = namespaceSplit
+            .Peek(n => MiscUtils.InvalidPathChars.ForEach(c => n = n.Replace(c, '_')))
+            .Select(n => MiscUtils.InvalidPathElements.Contains(n) ? $"__illegalwin32name_{n}__" : n)
+            .ToArray();
+        
+        //Ok so we have the namespace directory. Now we need to join all the declaring type hierarchy together for a filename.
+        var declaringTypeHierarchy = new List<string>();
+        var declaringType = type.Definition!.DeclaringType;
+        while (declaringType != null)
+        {
+            declaringTypeHierarchy.Add(declaringType.Name!);
+            declaringType = declaringType.DeclaringType;
+        }
+
+        //Reverse so we have top-level type first.
+        declaringTypeHierarchy.Reverse();
+
+        //Join the hierarchy together with _NestedType_ separators
+        string filename;
+        if(declaringTypeHierarchy.Count > 0)
+            filename = $"{string.Join("_NestedType_", declaringTypeHierarchy)}_NestedType_{type.Definition!.Name}.txt";
+        else
+            filename = $"{type.Definition!.Name}.txt";
+
+        //Get directory from assembly root + namespace
+        var directory = Path.Combine(namespaceSplit.Prepend(assemblyDir).ToArray());
+        if (!Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+
+        //Clean up the filename
+        MiscUtils.InvalidPathChars.ForEach(c => filename = filename.Replace(c, '_'));
+
+        //Combine the directory and filename
+        return Path.Combine(directory, filename);
+    }
+
+    private static void WriteTypeDump(string outputRoot, TypeAnalysisContext type, string typeDump, string assemblyNameClean)
+    {
+        var file = GetFilePathForType(outputRoot, type, assemblyNameClean);
+        File.WriteAllText(file, typeDump);
     }
 }
