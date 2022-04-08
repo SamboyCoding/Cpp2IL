@@ -50,7 +50,7 @@ jobs:
         working-directory: ./${{ matrix.project }}/
         run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:EnableCompressionInSingleFile=true ${{ steps.set-vars.outputs.extraArgs }} /p:TrimMode=link /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
       - name: Upload Executable
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.project }}-net6-${{ matrix.runtimeIdentifier }}
           path: ./${{ matrix.project }}/bin/Release/net6.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
@@ -72,7 +72,7 @@ jobs:
         working-directory: ./Cpp2IL/
         run: dotnet publish -c Release -f net472 --no-restore -r win-x64
       - name: Upload
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v3
         with:
           name: Cpp2IL-Netframework472-Windows
           path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
