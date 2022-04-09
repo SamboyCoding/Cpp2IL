@@ -92,6 +92,7 @@ public static class ClassFileBuilder
                 }
 
                 sb.AppendLine();
+                sb.AppendLine();
             }
 
             if (type.Methods.Count > 0)

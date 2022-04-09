@@ -23,7 +23,6 @@ jobs:
         name: Get git branch information
         shell: bash
         run: |
-          dotnet nuget add source https://nuget.samboy.dev/v3/index.json -n "Samboy Nuget"
           echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
       - id: set-vars
@@ -62,10 +61,6 @@ jobs:
       - uses: actions/setup-dotnet@v2
         with:
           dotnet-version: 6.x
-      - name: Configure nuget repo
-        shell: bash
-        run: |
-          dotnet nuget add source https://nuget.samboy.dev/v3/index.json -n "Samboy Nuget"
       - name: Install dependencies
         run: dotnet restore -r win-x64
       - name: Build
@@ -89,7 +84,6 @@ jobs:
         name: Set up environment
         shell: bash
         run: |
-          dotnet nuget add source https://nuget.samboy.dev/v3/index.json -n "Samboy Nuget"
           echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
           echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
       - id: set-vars
