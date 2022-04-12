@@ -34,6 +34,8 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     public override string CustomAttributeOwnerName => Definition.AssemblyName.Name; 
 
     private Dictionary<string, TypeAnalysisContext> TypesByName = new();
+    
+    public readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
 
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
     {
@@ -49,11 +51,12 @@ public class AssemblyAnalysisContext : HasCustomAttributes
             var typeContext = new TypeAnalysisContext(il2CppTypeDefinition, this);
             Types.Add(typeContext);
             TypesByName[il2CppTypeDefinition.FullName!] = typeContext;
+            TypesByDefinition[il2CppTypeDefinition] = typeContext;
         }
 
         foreach (var type in Types)
         {
-            if(type.Definition.nested_type_count < 1)
+            if(type.Definition.NestedTypeCount < 1)
                 continue;
             
             type.NestedTypes = type.Definition.NestedTypes!.Select(n => GetTypeByFullName(n.FullName!) ?? throw new($"Unable to find nested type by name {n.FullName}")).ToList();

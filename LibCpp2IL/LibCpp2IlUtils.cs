@@ -71,24 +71,24 @@ namespace LibCpp2IL
                 }
             }
 
-            if (typeDef.declaringTypeIndex != -1)
+            if (typeDef.DeclaringTypeIndex != -1)
             {
-                ret += GetTypeName(metadata, cppAssembly, cppAssembly.GetType(typeDef.declaringTypeIndex)) + ".";
+                ret += GetTypeName(metadata, cppAssembly, cppAssembly.GetType(typeDef.DeclaringTypeIndex)) + ".";
             }
 
-            ret += metadata.GetStringFromIndex(typeDef.nameIndex);
+            ret += metadata.GetStringFromIndex(typeDef.NameIndex);
             var names = new List<string>();
-            if (typeDef.genericContainerIndex < 0) return ret;
+            if (typeDef.GenericContainerIndex < 0) return ret;
 
-            var genericContainer = metadata.genericContainers[typeDef.genericContainerIndex];
-            for (var i = 0; i < genericContainer.type_argc; i++)
+            var genericContainer = metadata.genericContainers[typeDef.GenericContainerIndex];
+            for (var i = 0; i < genericContainer.genericParameterCount; i++)
             {
                 var genericParameterIndex = genericContainer.genericParameterStart + i;
                 var param = metadata.genericParameters[genericParameterIndex];
                 names.Add(metadata.GetStringFromIndex(param.nameIndex));
             }
 
-            ret = ret.Replace($"`{genericContainer.type_argc}", "");
+            ret = ret.Replace($"`{genericContainer.genericParameterCount}", "");
             ret += $"<{string.Join(", ", names)}>";
 
             return ret;
@@ -138,10 +138,10 @@ namespace LibCpp2IL
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 {
-                    var genericClass = cppAssembly.ReadClassAtVirtualAddress<Il2CppGenericClass>(type.data.generic_class);
+                    var genericClass = cppAssembly.ReadReadableAtVirtualAddress<Il2CppGenericClass>(type.data.generic_class);
                     var typeDef = metadata.typeDefs[genericClass.typeDefinitionIndex];
-                    ret = metadata.GetStringFromIndex(typeDef.nameIndex);
-                    var genericInst = cppAssembly.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
+                    ret = metadata.GetStringFromIndex(typeDef.NameIndex);
+                    var genericInst = cppAssembly.ReadReadableAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     ret = ret.Replace($"`{genericInst.pointerCount}", "");
                     ret += GetGenericTypeParamNames(metadata, cppAssembly, genericInst);
                     break;
@@ -155,7 +155,7 @@ namespace LibCpp2IL
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 {
-                    var arrayType = cppAssembly.ReadClassAtVirtualAddress<Il2CppArrayType>(type.data.array);
+                    var arrayType = cppAssembly.ReadReadableAtVirtualAddress<Il2CppArrayType>(type.data.array);
                     var oriType = cppAssembly.GetIl2CppTypeFromPointer(arrayType.etype);
                     ret = $"{GetTypeName(metadata, cppAssembly, oriType)}[{new string(',', arrayType.rank - 1)}]";
                     break;
@@ -304,7 +304,7 @@ namespace LibCpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 {
                     //Generic type
-                    var genericClass = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppGenericClass>(forWhat.data.generic_class);
+                    var genericClass = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppGenericClass>(forWhat.data.generic_class);
 
                     //CHANGED IN v27: typeDefinitionIndex is a ptr to the type in the file.
                     Il2CppTypeDefinition typeDefinition;
@@ -313,12 +313,11 @@ namespace LibCpp2IL
                     else
                     {
                         //This is slightly annoying, because we will have already read this type, but we have to re-read it. TODO FUTURE: Make a mapping of type definition addr => type def?
-                        var type = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
-                        type.Init();
+                        var type = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
                         typeDefinition = LibCpp2IlMain.TheMetadata!.typeDefs[type.data.classIndex];
                     }
 
-                    var genericInst = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
+                    var genericInst = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppGenericInst>(genericClass.context.class_inst);
                     var pointers = LibCpp2IlMain.Binary.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
                     var genericParams = pointers
                         .Select(pointer => LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointer))
@@ -365,7 +364,7 @@ namespace LibCpp2IL
                 }
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 {
-                    var arrayType = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppArrayType>(forWhat.data.array);
+                    var arrayType = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppArrayType>(forWhat.data.array);
                     var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(arrayType.etype);
                     return new Il2CppTypeReflectionData
                     {

@@ -29,7 +29,7 @@ namespace LibCpp2IL.PE
 
         //Pointers
 
-        public PE(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
+        public PE(MemoryStream input) : base(input)
         {
             raw = input.GetBuffer();
             LibLogger.Verbose("\tReading PE File Header...");

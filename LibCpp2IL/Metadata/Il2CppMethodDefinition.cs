@@ -8,7 +8,7 @@ using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata
 {
-    public class Il2CppMethodDefinition
+    public class Il2CppMethodDefinition : ReadableClass
     {
         public int nameIndex;
         public int declaringTypeIdx;
@@ -32,8 +32,8 @@ namespace LibCpp2IL.Metadata
         public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
 
         public int MethodIndex => LibCpp2IlReflection.GetMethodIndexFromMethod(this);
-
-        public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+        
+        public string? Name { get;private set; }
 
         public string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
@@ -140,6 +140,41 @@ namespace LibCpp2IL.Metadata
 
 
             return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
+        }
+
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            nameIndex = reader.ReadInt32();
+            
+            //Cache name now
+            var pos = reader.Position;
+            Name = ((Il2CppMetadata) reader).ReadStringFromIndexNoReadLock(nameIndex);
+            reader.Position = pos;
+            
+            declaringTypeIdx = reader.ReadInt32();
+            returnTypeIdx = reader.ReadInt32();
+            parameterStart = reader.ReadInt32();
+
+            if (IsAtMost(24))
+                customAttributeIndex = reader.ReadInt32();
+
+            genericContainerIndex = reader.ReadInt32();
+
+            if (IsAtMost(24.15f))
+            {
+                methodIndex = reader.ReadInt32();
+                invokerIndex = reader.ReadInt32();
+                delegateWrapperIndex = reader.ReadInt32();
+                rgctxStartIndex = reader.ReadInt32();
+                rgctxCount = reader.ReadInt32();
+            }
+
+            token = reader.ReadUInt32();
+
+            flags = reader.ReadUInt16();
+            iflags = reader.ReadUInt16();
+            slot = reader.ReadUInt16();
+            parameterCount = reader.ReadUInt16();
         }
     }
 }

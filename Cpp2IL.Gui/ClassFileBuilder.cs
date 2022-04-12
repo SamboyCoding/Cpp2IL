@@ -455,5 +455,5 @@ public static class ClassFileBuilder
     }
 
     private static bool IsEnum(TypeAnalysisContext type)
-        => ((TypeAttributes) type.Definition.flags).HasFlag(TypeAttributes.Sealed) && type.Fields.Any(f => f.BackingData.field.Name == "value__");
+        => ((TypeAttributes) type.Definition.Flags).HasFlag(TypeAttributes.Sealed) && type.Fields.Any(f => f.BackingData.field.Name == "value__");
 }

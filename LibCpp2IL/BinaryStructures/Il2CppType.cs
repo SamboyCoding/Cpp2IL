@@ -1,11 +1,9 @@
 using System;
 using LibCpp2IL.Metadata;
 
-#pragma warning disable 8618
-//Disable null check because this stuff is initialized by reflection
 namespace LibCpp2IL.BinaryStructures
 {
-    public class Il2CppType
+    public class Il2CppType : ReadableClass
     {
         public ulong datapoint;
         public uint bits;
@@ -17,7 +15,7 @@ namespace LibCpp2IL.BinaryStructures
         public uint pinned { get; set; }
         public uint valuetype { get; set; }
 
-        public void Init()
+        private void InitUnionAndFlags()
         {
             attrs = bits & 0b1111_1111_1111_1111; //Lowest 16 bits
             type = (Il2CppTypeEnum) ((bits >> 16) & 0b1111_1111); //Bits 16-23
@@ -73,7 +71,7 @@ namespace LibCpp2IL.BinaryStructures
             if(type is not Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
                 throw new Exception("Type is not an array");
             
-            return LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppArrayType>(data.array);
+            return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppArrayType>(data.array);
         }
 
         public Il2CppType GetArrayElementType() => LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(GetArrayType().etype);
@@ -93,7 +91,15 @@ namespace LibCpp2IL.BinaryStructures
             if(type is not Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
                 throw new Exception("Type is not a generic class");
             
-            return LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppGenericClass>(data.generic_class);
+            return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppGenericClass>(data.generic_class);
+        }
+
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            datapoint = reader.ReadNUint();
+            bits = reader.ReadUInt32();
+            
+            InitUnionAndFlags();
         }
     }
 }

@@ -107,8 +107,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                     if (LibCpp2IlMain.MetadataVersion >= 27f)
                     {
                         //V27 - type indexes are pointers now.
-                        var type = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
-                        type.Init();
+                        var type = LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
                         typeDefinition = GetTypeSignatureFromIl2CppType(module, type).Resolve() ?? throw new Exception("Unable to resolve base type for generic inst");
                     }
 

@@ -6,7 +6,7 @@ using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata
 {
-    public class Il2CppEventDefinition
+    public class Il2CppEventDefinition : ReadableClass
     {
         public int nameIndex;
         public int typeIndex;
@@ -31,19 +31,19 @@ namespace LibCpp2IL.Metadata
             internal set => _type = value;
         }
 
-        public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+        public string? Name { get; private set; }
 
         public Il2CppType? RawType => LibCpp2IlMain.Binary?.GetType(typeIndex);
-        
+
         public Il2CppTypeReflectionData? EventType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
 
         public EventAttributes EventAttributes => (EventAttributes) RawType!.attrs;
 
-        public Il2CppMethodDefinition? Adder => LibCpp2IlMain.TheMetadata == null || add < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + add];
-        
-        public Il2CppMethodDefinition? Remover => LibCpp2IlMain.TheMetadata == null || remove < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + remove];
-        
-        public Il2CppMethodDefinition? Invoker => LibCpp2IlMain.TheMetadata == null || raise < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.firstMethodIdx + raise];
+        public Il2CppMethodDefinition? Adder => LibCpp2IlMain.TheMetadata == null || add < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.FirstMethodIdx + add];
+
+        public Il2CppMethodDefinition? Remover => LibCpp2IlMain.TheMetadata == null || remove < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.FirstMethodIdx + remove];
+
+        public Il2CppMethodDefinition? Invoker => LibCpp2IlMain.TheMetadata == null || raise < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.FirstMethodIdx + raise];
 
         public bool IsStatic
         {
@@ -56,6 +56,24 @@ namespace LibCpp2IL.Metadata
 
                 return Invoker!.IsStatic;
             }
+        }
+
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            nameIndex = reader.ReadInt32();
+
+            //Cache name now
+            var pos = reader.Position;
+            Name = ((Il2CppMetadata) reader).ReadStringFromIndexNoReadLock(nameIndex);
+            reader.Position = pos;
+
+            typeIndex = reader.ReadInt32();
+            add = reader.ReadInt32();
+            remove = reader.ReadInt32();
+            raise = reader.ReadInt32();
+            if (IsAtMost(24f))
+                customAttributeIndex = reader.ReadInt32();
+            token = reader.ReadUInt32();
         }
     }
 }

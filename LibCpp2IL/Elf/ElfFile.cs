@@ -23,7 +23,7 @@ namespace LibCpp2IL.Elf
 
         private long _globalOffset;
 
-        public ElfFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
+        public ElfFile(MemoryStream input) : base(input)
         {
             _raw = input.GetBuffer();
 

@@ -139,7 +139,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         const int defaultAttributes = (int) (TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
         
         //Initialize an empty type definition
-        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes) (typeDef?.flags ?? defaultAttributes));
+        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes) (typeDef?.Flags ?? defaultAttributes));
 
         //Set up its layout
         if(typeDef != null && typeDef.BaseType?.ToString() != "System.Enum")

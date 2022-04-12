@@ -6,7 +6,7 @@ using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.BinaryStructures
 {
-    public class Il2CppMethodSpec
+    public class Il2CppMethodSpec : ReadableClass
     {
         public int methodDefinitionIndex;
         public int classIndexIndex;
@@ -39,6 +39,13 @@ namespace LibCpp2IL.BinaryStructures
                 sb.Append("<").Append(string.Join(", ", GenericMethodParams.AsEnumerable())).Append(">");
 
             return sb.ToString();
+        }
+
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            methodDefinitionIndex = reader.ReadInt32();
+            classIndexIndex = reader.ReadInt32();
+            methodIndexIndex = reader.ReadInt32();
         }
     };
 }

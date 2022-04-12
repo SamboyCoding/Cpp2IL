@@ -2,7 +2,7 @@
 
 namespace LibCpp2IL.Metadata
 {
-    public class Il2CppInterfaceOffset
+    public class Il2CppInterfaceOffset : ReadableClass
     {
         public int typeIndex;
         public int offset;
@@ -12,6 +12,12 @@ namespace LibCpp2IL.Metadata
         public override string ToString()
         {
             return $"InterfaceOffsetPair({typeIndex}/{type?.ToString() ?? "unknown type"} => {offset})";
+        }
+
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            typeIndex = reader.ReadInt32();
+            offset = reader.ReadInt32();
         }
     }
 }

@@ -29,7 +29,7 @@ namespace LibCpp2IL
         public long Position
         {
             get => BaseStream.Position;
-            protected set => BaseStream.Position = value;
+            protected internal set => BaseStream.Position = value;
         }
 
         internal virtual object? ReadPrimitive(Type type, bool overrideArchCheck = false)
@@ -77,17 +77,12 @@ namespace LibCpp2IL
 
         public T ReadClassAtRawAddr<T>(long offset, bool overrideArchCheck = false) where T : new()
         {
-            var obtained = false;
-            PositionShiftLock.Enter(ref obtained);
-
-            if (!obtained)
-                throw new Exception("Failed to obtain lock");
+            GetLockOrThrow();
 
             try
             {
                 if (offset >= 0)
                     Position = offset;
-
 
                 return InternalReadClass<T>(overrideArchCheck);
             }
@@ -99,11 +94,7 @@ namespace LibCpp2IL
 
         public uint ReadUnityCompressedUIntAtRawAddr(long offset, out int bytesRead)
         {
-            var obtained = false;
-            PositionShiftLock.Enter(ref obtained);
-
-            if (!obtained)
-                throw new Exception("Failed to obtain lock");
+            GetLockOrThrow();
 
             try
             {
@@ -173,6 +164,13 @@ namespace LibCpp2IL
             return (T) InternalReadClass(typeof(T), overrideArchCheck);
         }
 
+        private T InternalReadReadableClass<T>() where T : ReadableClass, new()
+        {
+            var t = new T();
+            t.Read(this);
+            return t;
+        }
+
         private object InternalReadClass(Type type, bool overrideArchCheck = false)
         {
             var t = Activator.CreateInstance(type);
@@ -239,11 +237,7 @@ namespace LibCpp2IL
         {
             var t = new T[count];
 
-            var obtained = false;
-            PositionShiftLock.Enter(ref obtained);
-
-            if (!obtained)
-                throw new Exception("Failed to obtain lock");
+            GetLockOrThrow();
 
             try
             {
@@ -268,21 +262,11 @@ namespace LibCpp2IL
         {
             var builder = new List<byte>();
 
-            var obtained = false;
-            PositionShiftLock.Enter(ref obtained);
-
-            if (!obtained)
-                throw new Exception("Failed to obtain lock");
+            GetLockOrThrow();
 
             try
             {
-                Position = offset;
-                byte b;
-                while ((b = (byte) _memoryStream.ReadByte()) != 0)
-                    builder.Add(b);
-
-
-                return Encoding.UTF8.GetString(builder.ToArray());
+                return ReadStringToNullNoLock(offset);
             }
             finally
             {
@@ -290,13 +274,21 @@ namespace LibCpp2IL
             }
         }
 
+        internal string ReadStringToNullNoLock(long offset)
+        {
+            var builder = new List<byte>();
+
+            Position = offset;
+            byte b;
+            while ((b = (byte) _memoryStream.ReadByte()) != 0)
+                builder.Add(b);
+            
+            return Encoding.UTF8.GetString(builder.ToArray());
+        }
+
         public byte[] ReadByteArrayAtRawAddress(long offset, int count)
         {
-            var obtained = false;
-            PositionShiftLock.Enter(ref obtained);
-
-            if (!obtained)
-                throw new Exception("Failed to obtain lock");
+            GetLockOrThrow();
 
             try
             {
@@ -312,6 +304,53 @@ namespace LibCpp2IL
             }
         }
 
+        protected void GetLockOrThrow()
+        {
+            var obtained = false;
+            PositionShiftLock.Enter(ref obtained);
+
+            if (!obtained)
+                throw new Exception("Failed to obtain lock");
+        }
+
+        protected void ReleaseLock()
+        {
+            PositionShiftLock.Exit();
+        }
+
+        public ulong[] ReadNUintArrayAtRawAddress(long offset, int count)
+        {
+            GetLockOrThrow();
+
+            try
+            {
+                Position = offset;
+                var ret = new ulong[count];
+                
+                for (var i = 0; i < count; i++)
+                {
+                    ret[i] = ReadNUint();
+                }
+
+                return ret;
+            }
+            finally
+            {
+                PositionShiftLock.Exit();
+            }
+        }
+
+
+        /// <summary>
+        /// Read a native-sized integer (i.e. 32 or 64 bit, depending on platform) at the current position
+        /// </summary>
+        public long ReadNInt() => is32Bit ? ReadInt32() : ReadInt64();
+        
+        /// <summary>
+        /// Read a native-sized unsigned integer (i.e. 32 or 64 bit, depending on platform) at the current position
+        /// </summary>
+        public ulong ReadNUint() => is32Bit ? ReadUInt32() : ReadUInt64();
+
         protected void WriteWord(int position, ulong word) => WriteWord(position, (long) word);
 
         /// <summary>
@@ -319,11 +358,7 @@ namespace LibCpp2IL
         /// </summary>
         protected void WriteWord(int position, long word)
         {
-            var obtained = false;
-            PositionShiftLock.Enter(ref obtained);
-
-            if (!obtained)
-                throw new Exception("Failed to obtain lock");
+            GetLockOrThrow();
 
             try
             {
@@ -375,6 +410,48 @@ namespace LibCpp2IL
 
             CachedFields[t] = ret = t.GetFields();
             return ret;
+        }
+
+        public T ReadReadableHereNoLock<T>() where T : ReadableClass, new() => InternalReadReadableClass<T>();
+
+        public T ReadReadable<T>(long offset = -1) where T : ReadableClass, new()
+        {
+            GetLockOrThrow();
+
+            if (offset >= 0)
+                Position = offset;
+
+            try
+            {
+                return InternalReadReadableClass<T>();
+            }
+            finally
+            {
+                PositionShiftLock.Exit();
+            }
+        }
+        
+        public T[] ReadReadableArrayAtRawAddr<T>(long offset, long count) where T : ReadableClass, new()
+        {
+            var t = new T[count];
+
+            GetLockOrThrow();
+
+            try
+            {
+                if (offset != -1) Position = offset;
+
+                for (var i = 0; i < count; i++)
+                {
+                    t[i] = InternalReadReadableClass<T>();
+                }
+
+                return t;
+            }
+            finally
+            {
+                PositionShiftLock.Exit();
+            }
         }
     }
 }

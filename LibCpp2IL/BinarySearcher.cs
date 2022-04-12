@@ -11,42 +11,46 @@ namespace LibCpp2IL
 {
     public class BinarySearcher
     {
-        private static readonly byte[] FeatureBytes2019 = {0x6D, 0x73, 0x63, 0x6F, 0x72, 0x6C, 0x69, 0x62, 0x2E, 0x64, 0x6C, 0x6C, 0x00};
-
-        private class Section
-        {
-            public ulong RawStartAddress;
-            public ulong RawEndAddress;
-            public ulong VirtualStartAddress;
-        }
-
         private readonly Il2CppBinary _binary;
-        private readonly byte[] binaryBytes;
-        private readonly int methodCount;
-        private readonly int typeDefinitionsCount;
+        private readonly byte[] _binaryBytes;
+        private readonly int _methodCount; //Used for codereg location pre-2019
+        private readonly int _typeDefinitionsCount; //Used for metadata reg location in 24.5+
 
         public BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefinitionsCount)
         {
             _binary = binary;
-            binaryBytes = binary.GetRawBinaryContent();
-            this.methodCount = methodCount;
-            this.typeDefinitionsCount = typeDefinitionsCount;
+            _binaryBytes = binary.GetRawBinaryContent();
+            _methodCount = methodCount;
+            _typeDefinitionsCount = typeDefinitionsCount;
         }
 
-        private int FindBytes(byte[] blob, byte[] signature, int requiredAlignment = 1, int startOffset = 0)
+        private static int FindSequence(byte[] haystack, byte[] needle, int requiredAlignment = 1, int startOffset = 0)
         {
-            var firstMatchByte = Array.IndexOf(blob, signature[0], startOffset);
-            var test = new byte[signature.Length];
+            //Convert needle to a span now, rather than in the loop (implicitly as call to SequenceEqual)
+            var needleSpan = new ReadOnlySpan<byte>(needle);
 
-            while (firstMatchByte >= 0 && firstMatchByte <= blob.Length - signature.Length)
+            //Find the first occurrence of the first byte of the needle
+            var nextMatchIdx = Array.IndexOf(haystack, needle[0], startOffset);
+
+            var needleLength = needleSpan.Length;
+            var endIdx = haystack.Length - needleLength;
+            var checkAlignment = requiredAlignment > 1;
+            
+            while (0 <= nextMatchIdx && nextMatchIdx <= endIdx)
             {
-                Buffer.BlockCopy(blob, firstMatchByte, test, 0, signature.Length);
-                if (firstMatchByte % requiredAlignment == 0 && test.SequenceEqual(signature))
-                    return firstMatchByte;
+                //If we're not aligned, skip this match
+                if (!checkAlignment || nextMatchIdx % requiredAlignment == 0)
+                {
+                    //Take a slice of the array at this position and the length of the needle, and compare
+                    if (haystack.AsSpan(nextMatchIdx, needleLength).SequenceEqual(needleSpan))
+                        return nextMatchIdx;
+                }
 
-                firstMatchByte = Array.IndexOf(blob, signature[0], firstMatchByte + 1);
+                //Find the next occurrence of the first byte of the needle
+                nextMatchIdx = Array.IndexOf(haystack, needle[0], nextMatchIdx + 1);
             }
 
+            //No match found
             return -1;
         }
 
@@ -58,7 +62,7 @@ namespace LibCpp2IL
             var ptrSize = _binary.is32Bit ? 4 : 8;
             while (offset != -1)
             {
-                offset = FindBytes(binaryBytes, signature, alignment != 0 ? alignment : ptrSize, offset);
+                offset = FindSequence(_binaryBytes, signature, alignment != 0 ? alignment : ptrSize, offset);
                 if (offset != -1)
                 {
                     yield return (uint) offset;
@@ -90,7 +94,7 @@ namespace LibCpp2IL
         // Find all valid virtual address pointers to a virtual address
         private IEnumerable<ulong> FindAllMappedWords(ulong word)
         {
-            var fileOffsets = FindAllWords(word);
+            var fileOffsets = FindAllWords(word).ToList();
             return MapOffsetsToVirt(fileOffsets);
         }
 
@@ -102,9 +106,9 @@ namespace LibCpp2IL
         public ulong FindCodeRegistrationPre2019()
         {
             //First item in the CodeRegistration is the number of methods.
-            var vas = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(methodCount), 1)).ToList();
+            var vas = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(_methodCount), 1)).ToList();
 
-            LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong) methodCount).Select(x => $"0x{x:X}"))}");
+            LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {_methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong) _methodCount).Select(x => $"0x{x:X}"))}");
 
             if (vas.Count == 0)
                 return 0;
@@ -139,10 +143,14 @@ namespace LibCpp2IL
             var ptrSize = (_binary.is32Bit ? 4u : 8u);
 
             List<ulong>? pCodegenModules = null;
-            if (!(LibCpp2IlMain.MetadataVersion >= 27f))
+            if (LibCpp2IlMain.MetadataVersion < 27f)
             {
                 //Pre-v27, mscorlib is the first codegen module, so *MscorlibCodegenEntryInCodegenModulesList == g_CodegenModules, so we can just find a pointer to this.
-                pCodegenModules = FindAllMappedWords(pMscorlibCodegenEntryInCodegenModulesList).ToList();
+                if (pMscorlibCodegenEntryInCodegenModulesList.Count == 1)
+                    //Small optimisation in the case of only one ptr
+                    pCodegenModules = FindAllMappedWords(pMscorlibCodegenEntryInCodegenModulesList[0]).ToList();
+                else
+                    pCodegenModules = FindAllMappedWords(pMscorlibCodegenEntryInCodegenModulesList).ToList();
             }
             else
             {
@@ -280,8 +288,8 @@ namespace LibCpp2IL
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
             var sizeOfMr = (uint) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
 
-            LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{typeDefinitionsCount:X}");
-            var ptrsToNumberOfTypes = FindAllMappedWords((ulong) typeDefinitionsCount).ToList();
+            LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{_typeDefinitionsCount:X}");
+            var ptrsToNumberOfTypes = FindAllMappedWords((ulong) _typeDefinitionsCount).ToList();
 
             LibLogger.VerboseNewline($"\t\t\tFound {ptrsToNumberOfTypes.Count} instances of the number of type definitions: [{string.Join(", ", ptrsToNumberOfTypes.Select(p => p.ToString("X")))}]");
             var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4).ToList();

@@ -45,7 +45,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName
     /// </summary>
     public List<TypeAnalysisContext> NestedTypes { get; internal set; } = new();
 
-    protected override int CustomAttributeIndex => Definition!.customAttributeIndex;
+    protected override int CustomAttributeIndex => Definition!.CustomAttributeIndex;
 
     protected internal  override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
 
@@ -59,7 +59,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName
 
     public TypeAnalysisContext? OverrideBaseType { get; protected set; }
 
-    public TypeAnalysisContext(Il2CppTypeDefinition? il2CppTypeDefinition, AssemblyAnalysisContext containingAssembly) : base(il2CppTypeDefinition?.token ?? 0, containingAssembly.AppContext)
+    public TypeAnalysisContext(Il2CppTypeDefinition? il2CppTypeDefinition, AssemblyAnalysisContext containingAssembly) : base(il2CppTypeDefinition?.Token ?? 0, containingAssembly.AppContext)
     {
         DeclaringAssembly = containingAssembly;
         Definition = il2CppTypeDefinition;

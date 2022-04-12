@@ -20,7 +20,9 @@ namespace LibCpp2IL.Wasm
         private WasmMemoryBlock _memoryBlock;
         private readonly Dictionary<string, WasmDynCallCoefficients> DynCallCoefficients = new();
 
-        public WasmFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
+        public override ClassReadingBinaryReader Reader => _memoryBlock;
+
+        public WasmFile(MemoryStream input) : base(input)
         {
             is32Bit = true;
             InstructionSetId = DefaultInstructionSets.WASM;

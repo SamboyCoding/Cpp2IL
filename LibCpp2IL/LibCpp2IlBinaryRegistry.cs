@@ -18,22 +18,22 @@ namespace LibCpp2IL
         {
             Register("Portable Executable", "LibCpp2IL",
                 bytes => BitConverter.ToInt16(bytes, 0) == 0x5A4D, //MZ
-                (memStream, maxUsages) => new PE.PE(memStream, maxUsages));
+                (memStream) => new PE.PE(memStream));
             
             Register("ELF", "LibCpp2IL",
                 bytes => BitConverter.ToInt32(bytes, 0) == 0x464c457f, //0x7F ELF
-                (memStream, maxUsages) => new ElfFile(memStream, maxUsages));
+                (memStream) => new ElfFile(memStream));
             
             Register("Nintendo Switch Object", "LibCpp2IL",
                 bytes => BitConverter.ToInt32(bytes, 0) == 0x304F534E, //NSO0
-                (memStream, maxUsages) => new NsoFile(memStream, maxUsages).Decompress());
+                (memStream) => new NsoFile(memStream).Decompress());
             
             Register("WebAssembly File", "LibCpp2IL",
                 bytes => BitConverter.ToInt32(bytes, 0) == 0x6D736100, //\0WASM
-                (memStream, maxUsages) => new WasmFile(memStream, maxUsages));
+                (memStream) => new WasmFile(memStream));
         } 
         
-        public static void Register<T>(string name, string source, Func<byte[], bool> isValid, Func<MemoryStream, long, T> factory) where T : Il2CppBinary
+        public static void Register<T>(string name, string source, Func<byte[], bool> isValid, Func<MemoryStream, T> factory) where T : Il2CppBinary
         {
             _binaries.Add(new(name, source, isValid, factory));
         }
@@ -55,7 +55,7 @@ namespace LibCpp2IL
             LibLogger.InfoNewline("Searching Binary for Required Data...");
             var start = DateTime.Now;
             
-            var binary =  match.FactoryFunc(memStream, metadata.maxMetadataUsages);
+            var binary =  match.FactoryFunc(memStream);
 
             LibCpp2IlMain.Binary = binary;
 
@@ -80,9 +80,9 @@ namespace LibCpp2IL
             public string Name;
             public string Source;
             public Func<byte[], bool> IsValid;
-            public Func<MemoryStream, long, Il2CppBinary> FactoryFunc;
+            public Func<MemoryStream, Il2CppBinary> FactoryFunc;
 
-            public RegisteredBinary(string name, string source, Func<byte[], bool> verificationFunc, Func<MemoryStream, long, Il2CppBinary> factoryFunc)
+            public RegisteredBinary(string name, string source, Func<byte[], bool> verificationFunc, Func<MemoryStream, Il2CppBinary> factoryFunc)
             {
                 Source = source;
                 Name = name;

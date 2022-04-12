@@ -4,7 +4,7 @@ using LibCpp2IL.BinaryStructures;
 
 namespace LibCpp2IL.Metadata
 {
-    public class Il2CppGenericParameter
+    public class Il2CppGenericParameter : ReadableClass
     {
         public int ownerIndex; /* Type or method this parameter was defined in. */
         public int nameIndex;
@@ -24,5 +24,15 @@ namespace LibCpp2IL.Metadata
                 .ToArray();
         
         public int Index { get; internal set; }
+        
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            ownerIndex = reader.ReadInt32();
+            nameIndex = reader.ReadInt32();
+            constraintsStart = reader.ReadInt16();
+            constraintsCount = reader.ReadInt16();
+            genericParameterIndexInOwner = reader.ReadUInt16();
+            flags = reader.ReadUInt16();
+        }
     }
 }

@@ -32,18 +32,17 @@ namespace LibCpp2IL.Metadata
         public Il2CppMetadataUsageList[] metadataUsageLists;
         private Il2CppMetadataUsagePair[] metadataUsagePairs;
         public Il2CppRGCTXDefinition[] RgctxDefinitions; //Moved to binary in v24.2
-        
+
         //Pre-29
         public int[] attributeTypes;
         public int[] interfaceIndices;
-        
+
         //Post-29
         public List<Il2CppCustomAttributeDataRange> AttributeDataRanges;
 
         //Moved to binary in v27.
-        public Dictionary<uint, SortedDictionary<uint, uint>> metadataUsageDic;
+        public Dictionary<uint, SortedDictionary<uint, uint>>? metadataUsageDic;
 
-        public long maxMetadataUsages;
         public int[] nestedTypeIndices;
         public Il2CppEventDefinition[] eventDefs;
         public Il2CppGenericContainer[] genericContainers;
@@ -83,7 +82,8 @@ namespace LibCpp2IL.Metadata
                     actualVersion = 27.1f; //2020.2.4 and above is v27.1
                 else
                     actualVersion = version; //2020.2 and above is v27
-            } else if (version == 24)
+            }
+            else if (version == 24)
             {
                 if (unityVersion.IsGreaterEqual(2020, 1, 11))
                     actualVersion = 24.4f; //2020.1.11-17 were released prior to 2019.4.21, so are still on 24.4
@@ -115,7 +115,7 @@ namespace LibCpp2IL.Metadata
 
         private Il2CppMetadata(MemoryStream stream) : base(stream)
         {
-            metadataHeader = ReadClassAtRawAddr<Il2CppGlobalMetadataHeader>(-1);
+            metadataHeader = ReadReadable<Il2CppGlobalMetadataHeader>();
             if (metadataHeader.magicNumber != 0xFAB11BAF)
             {
                 throw new Exception("ERROR: Magic number mismatch. Expecting " + 0xFAB11BAF + " but got " + metadataHeader.magicNumber);
@@ -127,7 +127,7 @@ namespace LibCpp2IL.Metadata
             var start = DateTime.Now;
             imageDefinitions = ReadMetadataClassArray<Il2CppImageDefinition>(metadataHeader.imagesOffset, metadataHeader.imagesCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             LibLogger.Verbose("\tReading assembly definitions...");
             start = DateTime.Now;
             AssemblyDefinitions = ReadMetadataClassArray<Il2CppAssemblyDefinition>(metadataHeader.assembliesOffset, metadataHeader.assembliesCount);
@@ -145,7 +145,7 @@ namespace LibCpp2IL.Metadata
 
             LibLogger.Verbose("\tReading vtable indices...");
             start = DateTime.Now;
-            VTableMethodIndices = ReadMetadataClassArray<uint>(metadataHeader.vtableMethodsOffset, metadataHeader.vtableMethodsCount);
+            VTableMethodIndices = ReadClassArrayAtRawAddr<uint>(metadataHeader.vtableMethodsOffset, metadataHeader.vtableMethodsCount / sizeof(uint));
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             LibLogger.Verbose("\tReading method definitions...");
@@ -202,15 +202,15 @@ namespace LibCpp2IL.Metadata
             start = DateTime.Now;
             genericParameters = ReadMetadataClassArray<Il2CppGenericParameter>(metadataHeader.genericParametersOffset, metadataHeader.genericParametersCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             LibLogger.Verbose("\tReading generic parameter constraint indices...");
             start = DateTime.Now;
-            constraintIndices = ReadMetadataClassArray<int>(metadataHeader.genericParameterConstraintsOffset, metadataHeader.genericParameterConstraintsCount);
+            constraintIndices = ReadClassArrayAtRawAddr<int>(metadataHeader.genericParameterConstraintsOffset, metadataHeader.genericParameterConstraintsCount / sizeof(int));
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-            
+
             LibLogger.Verbose("\tReading referenced assemblies...");
             start = DateTime.Now;
-            referencedAssemblies = ReadMetadataClassArray<int>(metadataHeader.referencedAssembliesOffset, metadataHeader.referencedAssembliesCount);
+            referencedAssemblies = ReadClassArrayAtRawAddr<int>(metadataHeader.referencedAssembliesOffset, metadataHeader.referencedAssembliesCount / sizeof(int));
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //v17+ fields
@@ -247,7 +247,7 @@ namespace LibCpp2IL.Metadata
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             //v21+ fields
-            
+
             if (LibCpp2IlMain.MetadataVersion < 29)
             {
                 //Removed in v29
@@ -262,9 +262,9 @@ namespace LibCpp2IL.Metadata
                 //Since v29
                 LibLogger.Verbose("\tReading Attribute data...");
                 start = DateTime.Now;
-                
+
                 //Pointer array
-                AttributeDataRanges = ReadClassArrayAtRawAddr<Il2CppCustomAttributeDataRange>(metadataHeader.attributeDataRangeOffset, metadataHeader.attributeDataRangeCount / 8).ToList();
+                AttributeDataRanges = ReadReadableArrayAtRawAddr<Il2CppCustomAttributeDataRange>(metadataHeader.attributeDataRangeOffset, metadataHeader.attributeDataRangeCount / 8).ToList();
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
@@ -280,17 +280,17 @@ namespace LibCpp2IL.Metadata
         }
 #pragma warning restore 8618
 
-        private T[] ReadMetadataClassArray<T>(int offset, int length) where T : new()
+        private T[] ReadMetadataClassArray<T>(int offset, int length) where T : ReadableClass, new()
         {
-            return ReadClassArrayAtRawAddr<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T), downsize: false));
+            return ReadReadableArrayAtRawAddr<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T), downsize: false));
         }
 
         private void DecipherMetadataUsage()
         {
-            metadataUsageDic = new Dictionary<uint, SortedDictionary<uint, uint>>();
+            metadataUsageDic = new();
             for (var i = 1u; i <= 6u; i++)
             {
-                metadataUsageDic[i] = new SortedDictionary<uint, uint>();
+                metadataUsageDic[i] = new();
             }
 
             foreach (var metadataUsageList in metadataUsageLists)
@@ -304,8 +304,15 @@ namespace LibCpp2IL.Metadata
                     metadataUsageDic[usage][metadataUsagePair.destinationIndex] = decodedIndex;
                 }
             }
+        }
 
-            maxMetadataUsages = metadataUsageDic.Max(x => x.Value.Max(y => y.Key)) + 1;
+        public uint GetMaxMetadataUsages()
+        {
+            if (metadataUsageDic == null)
+                //V27+
+                return 0;
+            
+            return metadataUsageDic.Max(x => x.Value.Max(y => y.Key)) + 1;
         }
 
         private uint GetEncodedIndexType(uint index)
@@ -360,24 +367,36 @@ namespace LibCpp2IL.Metadata
 
         public string GetStringFromIndex(int index)
         {
-            if (!_cachedStrings.ContainsKey(index))
-                _cachedStrings[index] = ReadStringToNull(metadataHeader.stringOffset + index);
+            GetLockOrThrow();
+            try
+            {
+                return ReadStringFromIndexNoReadLock(index);
+            }
+            finally
+            {
+                ReleaseLock();
+            }
+        }
 
+        internal string ReadStringFromIndexNoReadLock(int index)
+        {
+            if (!_cachedStrings.ContainsKey(index))
+                _cachedStrings[index] = ReadStringToNullNoLock(metadataHeader.stringOffset + index);
             return _cachedStrings[index];
         }
 
         public Il2CppCustomAttributeTypeRange? GetCustomAttributeData(Il2CppImageDefinition imageDef, int customAttributeIndex, uint token, out int idx)
         {
             idx = -1;
-            
+
             if (LibCpp2IlMain.MetadataVersion <= 24f)
                 return attributeTypeRanges[customAttributeIndex];
 
             var target = new Il2CppCustomAttributeTypeRange {token = token};
-            
-            if(imageDef.customAttributeStart < 0)
+
+            if (imageDef.customAttributeStart < 0)
                 throw new("Image has customAttributeStart < 0");
-            if(imageDef.customAttributeStart + imageDef.customAttributeCount > attributeTypeRanges.Count)
+            if (imageDef.customAttributeStart + imageDef.customAttributeCount > attributeTypeRanges.Count)
                 throw new($"Image has customAttributeStart + customAttributeCount > attributeTypeRanges.Count ({imageDef.customAttributeStart + imageDef.customAttributeCount} > {attributeTypeRanges.Count})");
 
             idx = attributeTypeRanges.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, target, new TokenComparer());

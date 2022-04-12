@@ -6,44 +6,44 @@ using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata
 {
-    public class Il2CppTypeDefinition
+    public class Il2CppTypeDefinition : ReadableClass
     {
-        public int nameIndex;
-        public int namespaceIndex;
-        [Version(Max = 24)] public int customAttributeIndex;
-        public int byvalTypeIndex;
+        public int NameIndex;
+        public int NamespaceIndex;
+        [Version(Max = 24)] public int CustomAttributeIndex;
+        public int ByvalTypeIndex;
 
         [Version(Max = 24.5f)] //Removed in v27 
-        public int byrefTypeIndex;
+        public int ByrefTypeIndex;
 
-        public int declaringTypeIndex;
-        public int parentIndex;
-        public int elementTypeIndex; // we can probably remove this one. Only used for enums
+        public int DeclaringTypeIndex;
+        public int ParentIndex;
+        public int ElementTypeIndex; // we can probably remove this one. Only used for enums
 
-        [Version(Max = 24.15f)] public int rgctxStartIndex;
-        [Version(Max = 24.15f)] public int rgctxCount;
+        [Version(Max = 24.15f)] public int RgctxStartIndex;
+        [Version(Max = 24.15f)] public int RgctxCount;
 
-        public int genericContainerIndex;
+        public int GenericContainerIndex;
 
-        public uint flags;
+        public uint Flags;
 
-        public int firstFieldIdx;
-        public int firstMethodIdx;
-        public int firstEventId;
-        public int firstPropertyId;
-        public int nestedTypesStart;
-        public int interfacesStart;
-        public int vtableStart;
-        public int interfaceOffsetsStart;
+        public int FirstFieldIdx;
+        public int FirstMethodIdx;
+        public int FirstEventId;
+        public int FirstPropertyId;
+        public int NestedTypesStart;
+        public int InterfacesStart;
+        public int VtableStart;
+        public int InterfaceOffsetsStart;
 
-        public ushort method_count;
-        public ushort propertyCount;
-        public ushort field_count;
-        public ushort eventCount;
-        public ushort nested_type_count;
-        public ushort vtable_count;
-        public ushort interfaces_count;
-        public ushort interface_offsets_count;
+        public ushort MethodCount;
+        public ushort PropertyCount;
+        public ushort FieldCount;
+        public ushort EventCount;
+        public ushort NestedTypeCount;
+        public ushort VtableCount;
+        public ushort InterfacesCount;
+        public ushort InterfaceOffsetsCount;
 
         // bitfield to portably encode boolean values as single bits
         // 01 - valuetype;
@@ -56,29 +56,29 @@ namespace LibCpp2IL.Metadata
         // 11 - PackingSize is default
         // 12 - ClassSize is default
         // 13-16 - One of nine possible PackingSize values (0, 1, 2, 4, 8, 16, 32, 64, or 128) - the specified packing size (even for explicit layouts)
-        public uint bitfield;
-        public uint token;
+        public uint Bitfield;
+        public uint Token;
 
-        public bool IsValueType => (bitfield >> 0 & 0x1) == 1;
-        public bool IsEnumType => (bitfield >> 1 & 0x1) == 1;
-        public bool HasFinalizer => (bitfield >> 2 & 0x1) == 1;
-        public bool HasCctor => (bitfield >> 3 & 0x1) == 1;
-        public bool IsBlittable => (bitfield >> 4 & 0x1) == 1;
-        public bool IsImportOrWindowsRuntime => (bitfield >> 5 & 0x1) == 1;
-        public uint PackingSize => ((Il2CppPackingSizeEnum)(bitfield >> 6 & 0xF)).NumericalValue();
-        public bool PackingSizeIsDefault => (bitfield >> 10 & 0x1) == 1;
-        public bool ClassSizeIsDefault => (bitfield >> 11 & 0x1) == 1;
-        public uint SpecifiedPackingSize => ((Il2CppPackingSizeEnum)(bitfield >> 12 & 0xF)).NumericalValue();
-        public bool IsByRefLike => (bitfield >> 16 & 0x1) == 1;
+        public bool IsValueType => (Bitfield >> 0 & 0x1) == 1;
+        public bool IsEnumType => (Bitfield >> 1 & 0x1) == 1;
+        public bool HasFinalizer => (Bitfield >> 2 & 0x1) == 1;
+        public bool HasCctor => (Bitfield >> 3 & 0x1) == 1;
+        public bool IsBlittable => (Bitfield >> 4 & 0x1) == 1;
+        public bool IsImportOrWindowsRuntime => (Bitfield >> 5 & 0x1) == 1;
+        public uint PackingSize => ((Il2CppPackingSizeEnum) (Bitfield >> 6 & 0xF)).NumericalValue();
+        public bool PackingSizeIsDefault => (Bitfield >> 10 & 0x1) == 1;
+        public bool ClassSizeIsDefault => (Bitfield >> 11 & 0x1) == 1;
+        public uint SpecifiedPackingSize => ((Il2CppPackingSizeEnum) (Bitfield >> 12 & 0xF)).NumericalValue();
+        public bool IsByRefLike => (Bitfield >> 16 & 0x1) == 1;
 
-        public TypeAttributes Attributes => (TypeAttributes) flags;
+        public TypeAttributes Attributes => (TypeAttributes) Flags;
 
         public Il2CppTypeDefinitionSizes RawSizes
         {
             get
             {
                 var sizePtr = LibCpp2IlMain.Binary!.TypeDefinitionSizePointers[TypeIndex];
-                return LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<Il2CppTypeDefinitionSizes>(sizePtr);
+                return LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppTypeDefinitionSizes>(sizePtr);
             }
         }
 
@@ -88,9 +88,9 @@ namespace LibCpp2IL.Metadata
         {
             get
             {
-                if (interfaceOffsetsStart < 0) return new Il2CppInterfaceOffset[0];
+                if (InterfaceOffsetsStart < 0) return new Il2CppInterfaceOffset[0];
 
-                return LibCpp2IlMain.TheMetadata!.interfaceOffsets.SubArray(interfaceOffsetsStart, interface_offsets_count);
+                return LibCpp2IlMain.TheMetadata!.interfaceOffsets.SubArray(InterfaceOffsetsStart, InterfaceOffsetsCount);
             }
         }
 
@@ -98,15 +98,15 @@ namespace LibCpp2IL.Metadata
         {
             get
             {
-                if (vtableStart < 0) return new MetadataUsage[0];
+                if (VtableStart < 0) return new MetadataUsage[0];
 
-                return LibCpp2IlMain.TheMetadata!.VTableMethodIndices.SubArray(vtableStart, vtable_count).Select(v => MetadataUsage.DecodeMetadataUsage(v, 0)).ToArray();
+                return LibCpp2IlMain.TheMetadata!.VTableMethodIndices.SubArray(VtableStart, VtableCount).Select(v => MetadataUsage.DecodeMetadataUsage(v, 0)).ToArray();
             }
         }
 
         public int TypeIndex => LibCpp2IlReflection.GetTypeIndexFromType(this);
 
-        public bool IsAbstract => ((TypeAttributes)flags & TypeAttributes.Abstract) != 0;
+        public bool IsAbstract => ((TypeAttributes) Flags & TypeAttributes.Abstract) != 0;
 
         private Il2CppImageDefinition? _cachedDeclaringAssembly;
 
@@ -128,14 +128,14 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppCodeGenModule? CodeGenModule => LibCpp2IlMain.Binary == null ? null : LibCpp2IlMain.Binary.GetCodegenModuleByName(DeclaringAssembly!.Name!);
 
-        public Il2CppRGCTXDefinition[] RGCTXs
+        public Il2CppRGCTXDefinition[] RgctXs
         {
             get
             {
                 if (LibCpp2IlMain.MetadataVersion < 24.2f)
                 {
                     //No codegen modules here.
-                    return LibCpp2IlMain.TheMetadata!.RgctxDefinitions.Skip(rgctxStartIndex).Take(rgctxCount).ToArray();
+                    return LibCpp2IlMain.TheMetadata!.RgctxDefinitions.Skip(RgctxStartIndex).Take(RgctxCount).ToArray();
                 }
 
                 var cgm = CodeGenModule;
@@ -143,7 +143,7 @@ namespace LibCpp2IL.Metadata
                 if (cgm == null)
                     return new Il2CppRGCTXDefinition[0];
 
-                var rangePair = cgm.RGCTXRanges.FirstOrDefault(r => r.token == token);
+                var rangePair = cgm.RGCTXRanges.FirstOrDefault(r => r.token == Token);
 
                 if (rangePair == null)
                     return new Il2CppRGCTXDefinition[0];
@@ -152,7 +152,7 @@ namespace LibCpp2IL.Metadata
             }
         }
 
-        public ulong[] RGCTXMethodPointers
+        public ulong[] RgctxMethodPointers
         {
             get
             {
@@ -163,7 +163,7 @@ namespace LibCpp2IL.Metadata
 
                 var pointers = LibCpp2IlMain.Binary!.GetCodegenModuleMethodPointers(index);
 
-                return RGCTXs
+                return RgctXs
                     .Where(r => r.type == Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_METHOD)
                     .Select(r => pointers[r.MethodIndex])
                     .ToArray();
@@ -177,7 +177,7 @@ namespace LibCpp2IL.Metadata
             get
             {
                 if (_cachedNamespace == null)
-                    _cachedNamespace = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(namespaceIndex);
+                    _cachedNamespace = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(NamespaceIndex);
 
                 return _cachedNamespace;
             }
@@ -190,7 +190,7 @@ namespace LibCpp2IL.Metadata
             get
             {
                 if (_cachedName == null)
-                    _cachedName = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+                    _cachedName = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(NameIndex);
 
                 return _cachedName;
             }
@@ -210,9 +210,9 @@ namespace LibCpp2IL.Metadata
             }
         }
 
-        public Il2CppType? RawBaseType => parentIndex == -1 ? null : LibCpp2IlMain.Binary!.GetType(parentIndex);
+        public Il2CppType? RawBaseType => ParentIndex == -1 ? null : LibCpp2IlMain.Binary!.GetType(ParentIndex);
 
-        public Il2CppTypeReflectionData? BaseType => parentIndex == -1 || LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(parentIndex));
+        public Il2CppTypeReflectionData? BaseType => ParentIndex == -1 || LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(ParentIndex));
 
         public Il2CppFieldDefinition[]? Fields
         {
@@ -220,13 +220,13 @@ namespace LibCpp2IL.Metadata
             {
                 if (LibCpp2IlMain.TheMetadata == null)
                     return null;
-                
-                if (firstFieldIdx < 0 || field_count == 0)
+
+                if (FirstFieldIdx < 0 || FieldCount == 0)
                     return Array.Empty<Il2CppFieldDefinition>();
 
-                var ret = new Il2CppFieldDefinition[field_count];
+                var ret = new Il2CppFieldDefinition[FieldCount];
 
-                Array.Copy(LibCpp2IlMain.TheMetadata.fieldDefs, firstFieldIdx, ret, 0, field_count);
+                Array.Copy(LibCpp2IlMain.TheMetadata.fieldDefs, FirstFieldIdx, ret, 0, FieldCount);
 
                 return ret;
             }
@@ -235,7 +235,7 @@ namespace LibCpp2IL.Metadata
         public FieldAttributes[]? FieldAttributes => Fields?
             .Select(f => f.typeIndex)
             .Select(idx => LibCpp2IlMain.Binary!.GetType(idx))
-            .Select(t => (FieldAttributes)t.attrs)
+            .Select(t => (FieldAttributes) t.attrs)
             .ToArray();
 
         public object?[]? FieldDefaults => Fields?
@@ -253,7 +253,7 @@ namespace LibCpp2IL.Metadata
                 var defaults = FieldDefaults;
 
                 return fields?
-                    .Select((t, i) => new Il2CppFieldReflectionData { attributes = attributes![i], field = t, defaultValue = defaults![i], indexInParent = i})
+                    .Select((t, i) => new Il2CppFieldReflectionData {attributes = attributes![i], field = t, defaultValue = defaults![i], indexInParent = i})
                     .ToArray();
             }
         }
@@ -264,13 +264,13 @@ namespace LibCpp2IL.Metadata
             {
                 if (LibCpp2IlMain.TheMetadata == null)
                     return null;
-                
-                if (firstMethodIdx < 0 || method_count == 0)
+
+                if (FirstMethodIdx < 0 || MethodCount == 0)
                     return Array.Empty<Il2CppMethodDefinition>();
 
-                var ret = new Il2CppMethodDefinition[method_count];
+                var ret = new Il2CppMethodDefinition[MethodCount];
 
-                Array.Copy(LibCpp2IlMain.TheMetadata.methodDefs, firstMethodIdx, ret, 0, method_count);
+                Array.Copy(LibCpp2IlMain.TheMetadata.methodDefs, FirstMethodIdx, ret, 0, MethodCount);
 
                 return ret;
             }
@@ -282,14 +282,14 @@ namespace LibCpp2IL.Metadata
             {
                 if (LibCpp2IlMain.TheMetadata == null)
                     return null;
-                
-                if (firstPropertyId < 0 || propertyCount == 0)
+
+                if (FirstPropertyId < 0 || PropertyCount == 0)
                     return Array.Empty<Il2CppPropertyDefinition>();
 
-                var ret = new Il2CppPropertyDefinition[propertyCount];
+                var ret = new Il2CppPropertyDefinition[PropertyCount];
 
-                Array.Copy(LibCpp2IlMain.TheMetadata.propertyDefs, firstPropertyId, ret, 0, propertyCount);
-                
+                Array.Copy(LibCpp2IlMain.TheMetadata.propertyDefs, FirstPropertyId, ret, 0, PropertyCount);
+
                 return ret.Select(p =>
                 {
                     p.DeclaringType = this;
@@ -300,19 +300,19 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppEventDefinition[]? Events => LibCpp2IlMain.TheMetadata == null
             ? null
-            : LibCpp2IlMain.TheMetadata.eventDefs.Skip(firstEventId).Take(eventCount).Select(e =>
+            : LibCpp2IlMain.TheMetadata.eventDefs.Skip(FirstEventId).Take(EventCount).Select(e =>
             {
                 e.DeclaringType = this;
                 return e;
             }).ToArray();
 
-        public Il2CppTypeDefinition[]? NestedTypes => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.nestedTypeIndices.Skip(nestedTypesStart).Take(nested_type_count).Select(idx => LibCpp2IlMain.TheMetadata.typeDefs[idx]).ToArray();
+        public Il2CppTypeDefinition[]? NestedTypes => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.nestedTypeIndices.Skip(NestedTypesStart).Take(NestedTypeCount).Select(idx => LibCpp2IlMain.TheMetadata.typeDefs[idx]).ToArray();
 
         public Il2CppType[] RawInterfaces => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null
             ? Array.Empty<Il2CppType>()
             : LibCpp2IlMain.TheMetadata.interfaceIndices
-                .Skip(interfacesStart)
-                .Take(interfaces_count)
+                .Skip(InterfacesStart)
+                .Take(InterfacesCount)
                 .Select(idx => LibCpp2IlMain.Binary.GetType(idx))
                 .ToArray();
 
@@ -322,17 +322,65 @@ namespace LibCpp2IL.Metadata
                 .Select(LibCpp2ILUtils.GetTypeReflectionData)
                 .ToArray();
 
-        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || declaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(declaringTypeIndex).data.classIndex];
+        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || DeclaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(DeclaringTypeIndex).data.classIndex];
 
-        public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
+        public Il2CppGenericContainer? GenericContainer => GenericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[GenericContainerIndex];
 
-        public Il2CppType EnumUnderlyingType => IsEnumType ? LibCpp2IlMain.Binary!.GetType(elementTypeIndex) : throw new InvalidOperationException("Cannot get the underlying type of a non-enum type.");
+        public Il2CppType EnumUnderlyingType => IsEnumType ? LibCpp2IlMain.Binary!.GetType(ElementTypeIndex) : throw new InvalidOperationException("Cannot get the underlying type of a non-enum type.");
 
         public override string ToString()
         {
             if (LibCpp2IlMain.TheMetadata == null) return base.ToString();
 
             return $"Il2CppTypeDefinition[namespace='{Namespace}', name='{Name}', parentType={BaseType?.ToString() ?? "null"}, assembly={DeclaringAssembly}]";
+        }
+
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            NameIndex = reader.ReadInt32();
+            NamespaceIndex = reader.ReadInt32();
+
+            if (IsAtMost(24f))
+                CustomAttributeIndex = reader.ReadInt32();
+
+            ByvalTypeIndex = reader.ReadInt32();
+
+            if (IsLessThan(27f))
+                ByrefTypeIndex = reader.ReadInt32();
+
+            DeclaringTypeIndex = reader.ReadInt32();
+            ParentIndex = reader.ReadInt32();
+            ElementTypeIndex = reader.ReadInt32();
+
+            if (IsAtMost(24.15f))
+            {
+                RgctxStartIndex = reader.ReadInt32();
+                RgctxCount = reader.ReadInt32();
+            }
+
+            GenericContainerIndex = reader.ReadInt32();
+            Flags = reader.ReadUInt32();
+
+            FirstFieldIdx = reader.ReadInt32();
+            FirstMethodIdx = reader.ReadInt32();
+            FirstEventId = reader.ReadInt32();
+            FirstPropertyId = reader.ReadInt32();
+            NestedTypesStart = reader.ReadInt32();
+            InterfacesStart = reader.ReadInt32();
+            VtableStart = reader.ReadInt32();
+            InterfaceOffsetsStart = reader.ReadInt32();
+
+            MethodCount = reader.ReadUInt16();
+            PropertyCount = reader.ReadUInt16();
+            FieldCount = reader.ReadUInt16();
+            EventCount = reader.ReadUInt16();
+            NestedTypeCount = reader.ReadUInt16();
+            VtableCount = reader.ReadUInt16();
+            InterfacesCount = reader.ReadUInt16();
+            InterfaceOffsetsCount = reader.ReadUInt16();
+
+            Bitfield = reader.ReadUInt32();
+            Token = reader.ReadUInt32();
         }
     }
 }

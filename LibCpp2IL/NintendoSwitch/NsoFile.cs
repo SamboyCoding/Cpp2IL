@@ -24,7 +24,7 @@ namespace LibCpp2IL.NintendoSwitch
         private bool isCompressed => isTextCompressed || isRoDataCompressed || isDataCompressed;
 
 
-        public NsoFile(MemoryStream input, long maxMetadataUsages) : base(input, maxMetadataUsages)
+        public NsoFile(MemoryStream input) : base(input)
         {
             _raw = input.GetBuffer();
             is32Bit = false;
@@ -322,7 +322,7 @@ namespace LibCpp2IL.NintendoSwitch
 
             writer.Flush();
             unCompressedStream.Position = 0;
-            return new(unCompressedStream, maxMetadataUsages);
+            return new(unCompressedStream);
         }
 
         public override long RawLength => _raw.Length;
