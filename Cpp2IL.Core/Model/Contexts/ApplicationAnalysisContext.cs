@@ -43,7 +43,12 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// All the managed assemblies contained within the metadata file.
     /// </summary>
     public readonly List<AssemblyAnalysisContext> Assemblies = new();
-    
+
+    /// <summary>
+    /// A dictionary of all the managed assemblies, by their name.
+    /// </summary>
+    public readonly Dictionary<string, AssemblyAnalysisContext> AssembliesByName = new();
+
     /// <summary>
     /// A dictionary of method pointers to the corresponding method, which may or may not be generic.
     /// </summary>
@@ -69,8 +74,12 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             throw new InstructionSetHandlerNotRegisteredException(binary.InstructionSetId);
         }
 
-        foreach (var assemblyDefinition in Metadata.AssemblyDefinitions) 
-            Assemblies.Add(new(assemblyDefinition, this));
+        foreach (var assemblyDefinition in Metadata.AssemblyDefinitions)
+        {
+            var aac = new AssemblyAnalysisContext(assemblyDefinition, this);
+            Assemblies.Add(aac);
+            AssembliesByName[assemblyDefinition.AssemblyName.Name] = aac;
+        }
 
         SystemTypes = new(this);
         
@@ -115,11 +124,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         if (name[^4] == '.' && name[^3] == 'd')
             //Trim .dll extension
             name = name[..^4];
-        
-        return Assemblies.Find(assembly => assembly.Definition.AssemblyName.Name == name);
+
+        return AssembliesByName[name];
     }
 
-    public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.Types.Find(t => t.Definition == typeDefinition);
+    public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.TypesByDefinition[typeDefinition];
     
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()
     {

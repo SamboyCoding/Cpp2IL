@@ -6,6 +6,7 @@ using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
 using Cpp2IL.Core.Utils;
+using LibCpp2IL;
 
 namespace Cpp2IL.Core.CorePlugin;
 
@@ -115,6 +116,10 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
     private static void InjectAttributeAttribute(ApplicationAnalysisContext appContext)
     {
+        if(LibCpp2IlMain.MetadataVersion >= 29f)
+            //All attributes should be fully serializable anyway, as they're stored in metadata
+            return;
+        
         var attributeAttributes = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "AttributeAttribute", appContext.SystemTypes.SystemAttributeType);
 
         var attributeNameFields = attributeAttributes.InjectFieldToAllAssemblies("Name", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
