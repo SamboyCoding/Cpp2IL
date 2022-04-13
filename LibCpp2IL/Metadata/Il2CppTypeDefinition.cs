@@ -268,9 +268,7 @@ namespace LibCpp2IL.Metadata
                     };
                 }
 
-                return fields?
-                    .Select((t, i) => new Il2CppFieldReflectionData {})
-                    .ToArray();
+                return ret;
             }
         }
 
