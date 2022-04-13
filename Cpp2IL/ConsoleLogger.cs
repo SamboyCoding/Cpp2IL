@@ -39,7 +39,7 @@ namespace Cpp2IL
             if (!LastNoNewline)
                 WritePrelude(level, source, color);
 
-            LastNoNewline = !message.EndsWith("\n");
+            LastNoNewline = message[^1] != '\n';
 
             if (!DisableColor)
                 message = message.Pastel(color);
@@ -73,6 +73,11 @@ namespace Cpp2IL
             {
                 DisableColor = true; //Just manually set this, even though Pastel respects the environment variable
                 Logger.WarnNewline("NO_COLOR set, disabling ANSI color codes as you requested.");
+            }
+            else
+            {
+                //Ensure we run the cctor for Pastel now.
+                ConsoleExtensions.Enable();
             }
         }
     }

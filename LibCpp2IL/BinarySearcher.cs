@@ -28,9 +28,11 @@ namespace LibCpp2IL
         {
             //Convert needle to a span now, rather than in the loop (implicitly as call to SequenceEqual)
             var needleSpan = new ReadOnlySpan<byte>(needle);
+            var haystackSpan = haystack.AsSpan();
+            var firstByte = needleSpan[0];
 
             //Find the first occurrence of the first byte of the needle
-            var nextMatchIdx = Array.IndexOf(haystack, needle[0], startOffset);
+            var nextMatchIdx = Array.IndexOf(haystack, firstByte, startOffset);
 
             var needleLength = needleSpan.Length;
             var endIdx = haystack.Length - needleLength;
@@ -42,12 +44,12 @@ namespace LibCpp2IL
                 if (!checkAlignment || nextMatchIdx % requiredAlignment == 0)
                 {
                     //Take a slice of the array at this position and the length of the needle, and compare
-                    if (haystack.AsSpan(nextMatchIdx, needleLength).SequenceEqual(needleSpan))
+                    if (haystackSpan.Slice(nextMatchIdx, needleLength).SequenceEqual(needleSpan))
                         return nextMatchIdx;
                 }
 
                 //Find the next occurrence of the first byte of the needle
-                nextMatchIdx = Array.IndexOf(haystack, needle[0], nextMatchIdx + 1);
+                nextMatchIdx = Array.IndexOf(haystack, firstByte, nextMatchIdx + 1);
             }
 
             //No match found

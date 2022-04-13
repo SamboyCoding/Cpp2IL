@@ -9,5 +9,6 @@ namespace LibCpp2IL.Reflection
         public FieldAttributes attributes;
         public object? defaultValue;
         public int indexInParent;
+        public int fieldOffset;
     }
 }

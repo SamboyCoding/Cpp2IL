@@ -252,8 +252,24 @@ namespace LibCpp2IL.Metadata
                 var attributes = FieldAttributes;
                 var defaults = FieldDefaults;
 
+                if (fields == null || attributes == null || defaults == null)
+                    return null;
+
+                var ret = new Il2CppFieldReflectionData[FieldCount];
+                for (var i = 0; i < FieldCount; i++)
+                {
+                    ret[i] = new()
+                    {
+                        attributes = attributes![i],
+                        field = fields[i],
+                        defaultValue = defaults![i],
+                        indexInParent = i,
+                        fieldOffset = LibCpp2IlMain.Binary!.GetFieldOffsetFromIndex(TypeIndex, i, fields[i].FieldIndex, IsValueType, attributes[i].HasFlag(System.Reflection.FieldAttributes.Static))
+                    };
+                }
+
                 return fields?
-                    .Select((t, i) => new Il2CppFieldReflectionData {attributes = attributes![i], field = t, defaultValue = defaults![i], indexInParent = i})
+                    .Select((t, i) => new Il2CppFieldReflectionData {})
                     .ToArray();
             }
         }
