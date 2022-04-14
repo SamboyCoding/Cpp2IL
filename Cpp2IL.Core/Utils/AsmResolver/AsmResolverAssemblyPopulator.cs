@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
@@ -13,9 +12,6 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
-#if !DEBUG
-using System;
-#endif
 
 namespace Cpp2IL.Core.Utils.AsmResolver;
 
@@ -29,7 +25,7 @@ public static class AsmResolverAssemblyPopulator
                 continue;
 
             var il2CppTypeDef = typeCtx.Definition;
-            var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context for " + typeCtx.Definition.FullName);
+            var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeCtx.Definition?.FullName}");
 
             var importer = typeDefinition.Module!.Assembly!.GetImporter();
 
@@ -205,7 +201,7 @@ public static class AsmResolverAssemblyPopulator
             if (typeContext.Name == "<Module>")
                 continue;
 
-            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new("AsmResolver type not found in type analysis context for " + typeContext.Definition.FullName);
+            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
             // CopyCustomAttributes(typeContext, managedType.CustomAttributes);
 
 #if !DEBUG
@@ -250,12 +246,12 @@ public static class AsmResolverAssemblyPopulator
             if (fieldInfo != null)
             {
                 //Field default values
-                if (managedField.HasDefault && fieldInfo.field.DefaultValue?.Value is { } constVal)
+                if (managedField.HasDefault && fieldInfo.Field.DefaultValue?.Value is { } constVal)
                     managedField.Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
 
                 //Field Initial Values (used for allocation of Array Literals)
                 if (managedField.HasFieldRva)
-                    managedField.FieldRva = new DataSegment(fieldInfo.field.StaticArrayInitialValue);
+                    managedField.FieldRva = new DataSegment(fieldInfo.Field.StaticArrayInitialValue);
             }
             
             fieldContext.PutExtraData("AsmResolverField", managedField);

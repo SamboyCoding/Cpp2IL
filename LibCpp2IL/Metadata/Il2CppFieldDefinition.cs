@@ -20,9 +20,10 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppFieldDefaultValue? DefaultValue => LibCpp2IlMain.TheMetadata?.GetFieldDefaultValue(this);
 
-        public override string ToString()
+        public override string? ToString()
         {
-            if (LibCpp2IlMain.TheMetadata == null) return base.ToString();
+            if (LibCpp2IlMain.TheMetadata == null) 
+                return base.ToString();
 
             return $"Il2CppFieldDefinition[Name={Name}, FieldType={FieldType}]";
         }

@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Avalonia;
 using Avalonia.Media;
@@ -30,7 +29,7 @@ public class FileTreeEntry : SharpTreeNode
 
     private FileTreeEntry(AssemblyAnalysisContext context) : this((HasApplicationContext) context)
     {
-        var uniqueNamespaces = context.Types.Select(t => t.Definition.Namespace!).Distinct();
+        var uniqueNamespaces = context.Types.Select(t => t.Definition!.Namespace!).Distinct();
         
         //Top-level namespaces only
         foreach (var ns in uniqueNamespaces.Where(n => !n.Contains('.'))) 
@@ -57,8 +56,8 @@ public class FileTreeEntry : SharpTreeNode
         {
             //Add sub-namespaces first
             var namespaceDot = $"{namespaceName}.";
-            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition.Namespace! == namespaceName || t.Definition.Namespace!.StartsWith(namespaceDot)).ToList();
-            var uniqueSubNamespaces = allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition.Namespace != namespaceName).Select(t => t.Definition.Namespace![(namespaceName.Length + 1)..]).Distinct().ToList();
+            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition!.Namespace! == namespaceName || t.Definition.Namespace!.StartsWith(namespaceDot)).ToList();
+            var uniqueSubNamespaces = allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition!.Namespace != namespaceName).Select(t => t.Definition!.Namespace![(namespaceName.Length + 1)..]).Distinct().ToList();
             foreach (var subNs in uniqueSubNamespaces)
             {
                 if (subNs.Contains('.'))
@@ -76,13 +75,13 @@ public class FileTreeEntry : SharpTreeNode
         else
         {
             //Empty namespace cannot have sub namespaces
-            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition.Namespace == namespaceName).ToList();
+            allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition!.Namespace == namespaceName).ToList();
         }
         
-        allTypesInThisNamespaceAndSubNamespaces.SortByExtractedKey(t => t.Definition.Name!);
+        allTypesInThisNamespaceAndSubNamespaces.SortByExtractedKey(t => t.Definition!.Name!);
 
         //Add types in this namespace
-        foreach (var type in allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition.Namespace == namespaceName))
+        foreach (var type in allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition!.Namespace == namespaceName))
             Children.Add(new FileTreeEntry(type));
     }
 
@@ -92,6 +91,7 @@ public class FileTreeEntry : SharpTreeNode
         MethodAnalysisContext => EntryType.Method,
         AssemblyAnalysisContext => EntryType.Assembly,
         null => EntryType.Namespace,
+        _ => throw new ArgumentOutOfRangeException()
     };
 
     public bool ShouldHaveChildren => Type switch
@@ -100,14 +100,16 @@ public class FileTreeEntry : SharpTreeNode
         EntryType.Assembly => true,
         EntryType.Namespace => true,
         EntryType.Type => ((TypeAnalysisContext) Context!).Methods.Count > 0,
+        _ => throw new ArgumentOutOfRangeException()
     };
 
     public string DisplayName => Context switch
         {
-            TypeAnalysisContext tac => tac.Definition.Name,
+            TypeAnalysisContext tac => tac.Definition!.Name!,
             AssemblyAnalysisContext aac => aac.Definition.AssemblyName.Name,
             MethodAnalysisContext mac => $"{mac.Definition!.Name}({string.Join(", ", mac.Parameters.Select(p => p.ReadableTypeName))})",
-            null => NamespaceName!.Contains('.') ? NamespaceName[(NamespaceName.LastIndexOf('.') + 1)..] : NamespaceName
+            null => NamespaceName!.Contains('.') ? NamespaceName[(NamespaceName.LastIndexOf('.') + 1)..] : NamespaceName,
+            _ => throw new ArgumentOutOfRangeException()
         };
 
     public override string ToString() => $"FileTreeEntry: DisplayName = {DisplayName}, Type = {Type}, Context = {Context}";
@@ -124,6 +126,7 @@ public class FileTreeEntry : SharpTreeNode
         EntryType.Namespace => ImageResources.Namespace,
         EntryType.Type => ImageResources.Class,
         EntryType.Method => ImageResources.Method,
+        _ => throw new ArgumentOutOfRangeException()
     };
 
     public override IBrush Foreground => IsSelected ? SystemColors.HighlightBrush : Brushes.Transparent;

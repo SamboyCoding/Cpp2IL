@@ -9,6 +9,6 @@
         public uint EhFrameHdrStart;
         public uint EhFrameHdrEnd;
         
-        public NsoSegmentHeader BssSegment;
+        public NsoSegmentHeader BssSegment = null!;
     }
 }

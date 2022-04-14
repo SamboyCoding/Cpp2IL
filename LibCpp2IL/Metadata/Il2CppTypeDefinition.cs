@@ -148,7 +148,7 @@ namespace LibCpp2IL.Metadata
                 if (rangePair == null)
                     return new Il2CppRGCTXDefinition[0];
 
-                return LibCpp2IlMain.Binary!.GetRGCTXDataForPair(cgm, rangePair);
+                return LibCpp2IlMain.Binary!.GetRgctxDataForPair(cgm, rangePair);
             }
         }
 
@@ -235,7 +235,7 @@ namespace LibCpp2IL.Metadata
         public FieldAttributes[]? FieldAttributes => Fields?
             .Select(f => f.typeIndex)
             .Select(idx => LibCpp2IlMain.Binary!.GetType(idx))
-            .Select(t => (FieldAttributes) t.attrs)
+            .Select(t => (FieldAttributes) t.Attrs)
             .ToArray();
 
         public object?[]? FieldDefaults => Fields?
@@ -258,14 +258,13 @@ namespace LibCpp2IL.Metadata
                 var ret = new Il2CppFieldReflectionData[FieldCount];
                 for (var i = 0; i < FieldCount; i++)
                 {
-                    ret[i] = new()
-                    {
-                        attributes = attributes![i],
-                        field = fields[i],
-                        defaultValue = defaults![i],
-                        indexInParent = i,
-                        fieldOffset = LibCpp2IlMain.Binary!.GetFieldOffsetFromIndex(TypeIndex, i, fields[i].FieldIndex, IsValueType, attributes[i].HasFlag(System.Reflection.FieldAttributes.Static))
-                    };
+                    ret[i] = new(
+                        fields[i],
+                        attributes![i],
+                        defaults![i],
+                        i,
+                        LibCpp2IlMain.Binary!.GetFieldOffsetFromIndex(TypeIndex, i, fields[i].FieldIndex, IsValueType, attributes[i].HasFlag(System.Reflection.FieldAttributes.Static))
+                    );
                 }
 
                 return ret;
@@ -336,15 +335,16 @@ namespace LibCpp2IL.Metadata
                 .Select(LibCpp2ILUtils.GetTypeReflectionData)
                 .ToArray();
 
-        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || DeclaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(DeclaringTypeIndex).data.classIndex];
+        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || DeclaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(DeclaringTypeIndex).Data.ClassIndex];
 
         public Il2CppGenericContainer? GenericContainer => GenericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[GenericContainerIndex];
 
         public Il2CppType EnumUnderlyingType => IsEnumType ? LibCpp2IlMain.Binary!.GetType(ElementTypeIndex) : throw new InvalidOperationException("Cannot get the underlying type of a non-enum type.");
 
-        public override string ToString()
+        public override string? ToString()
         {
-            if (LibCpp2IlMain.TheMetadata == null) return base.ToString();
+            if (LibCpp2IlMain.TheMetadata == null) 
+                return base.ToString();
 
             return $"Il2CppTypeDefinition[namespace='{Namespace}', name='{Name}', parentType={BaseType?.ToString() ?? "null"}, assembly={DeclaringAssembly}]";
         }

@@ -46,10 +46,7 @@ namespace LibCpp2IL
                 throw new ArgumentNullException(nameof(dictionary));
             }
 
-            TValue value;
-            if (dictionary.TryGetValue(key, out value))
-                return value;
-            return defaultValue;
+            return dictionary.TryGetValue(key, out var value) ? value : defaultValue;
         }
         
         public static TValue? GetValueOrDefault<TKey, TValue>(this IDictionary<TKey, TValue> dictionary, TKey key) => dictionary.GetValueOrDefault(key, default);
@@ -62,7 +59,7 @@ namespace LibCpp2IL
 
         public static uint Bits(this uint x, int low, int count) => (x >> low) & (uint) ((1 << count) - 1);
 
-        public static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value)
+        public static bool TryAdd<TKey, TValue>(this Dictionary<TKey, TValue> dictionary, TKey key, TValue value) where TKey : notnull
         {
             if (dictionary.ContainsKey(key))
                 return false;

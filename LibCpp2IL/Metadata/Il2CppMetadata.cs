@@ -340,7 +340,7 @@ namespace LibCpp2IL.Metadata
         {
             var fieldDef = fieldDefs[fieldIdx];
             var fieldType = LibCpp2IlMain.Binary!.GetType(fieldDef.typeIndex);
-            if ((fieldType.attrs & (int) FieldAttributes.HasFieldRVA) != 0)
+            if ((fieldType.Attrs & (int) FieldAttributes.HasFieldRVA) != 0)
             {
                 var fieldDefault = GetFieldDefaultValueFromIndex(fieldIdx);
 

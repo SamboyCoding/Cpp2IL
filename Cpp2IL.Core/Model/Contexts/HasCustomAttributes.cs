@@ -230,8 +230,8 @@ public abstract class HasCustomAttributes : HasToken
         {
             perAttributeStartOffsets[constructor] = blobStream.Position;
             
-            var attributeTypeContext = AppContext.ResolveContextForType(constructor.DeclaringType!) ?? throw new("Unable to find type " + constructor.DeclaringType!.FullName);
-            var attributeMethodContext = attributeTypeContext.GetMethod(constructor) ?? throw new("Unable to find method " + constructor.Name + " in type " + attributeTypeContext.Definition.FullName);
+            var attributeTypeContext = AppContext.ResolveContextForType(constructor.DeclaringType!) ?? throw new($"Unable to find type {constructor.DeclaringType!.FullName}");
+            var attributeMethodContext = attributeTypeContext.GetMethod(constructor) ?? throw new($"Unable to find method {constructor.Name} in type {attributeTypeContext.Definition?.FullName}");
 
             try
             {
@@ -239,7 +239,7 @@ public abstract class HasCustomAttributes : HasToken
             }
             catch (Exception e)
             {
-                Logger.ErrorNewline($"Failed to read attribute data for {constructor}, which has parameters {string.Join(", ", constructor.Parameters.Select(p => p.Type))}", "CA Restore");
+                Logger.ErrorNewline($"Failed to read attribute data for {constructor}, which has parameters {string.Join(", ", constructor.Parameters!.Select(p => p.Type))}", "CA Restore");
                 Logger.ErrorNewline($"This member ({ToString()}) has {RawIl2CppCustomAttributeData.Length} bytes of data starting at 0x{GetV29BlobOffsets()!.Value.blobStart:X}", "CA Restore");
                 Logger.ErrorNewline($"The post-constructor data started at 0x{startOfData:X} bytes into our blob", "CA Restore");
                 Logger.ErrorNewline($"Data for this constructor started at 0x{perAttributeStartOffsets[constructor]:X} bytes into our blob, we are now 0x{blobStream.Position:X} bytes into the blob", "CA Restore");

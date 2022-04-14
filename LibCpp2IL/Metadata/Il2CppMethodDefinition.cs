@@ -76,7 +76,7 @@ namespace LibCpp2IL.Metadata
 
         public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
 
-        public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRVA(MethodPointer);
+        public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRva(MethodPointer);
 
         public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
 
@@ -115,7 +115,7 @@ namespace LibCpp2IL.Metadata
                         .Select((paramDef, idx) =>
                         {
                             var paramType = LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex);
-                            var paramFlags = (ParameterAttributes) paramType.attrs;
+                            var paramFlags = (ParameterAttributes) paramType.Attrs;
                             var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(parameterStart + idx) : null;
                             return new Il2CppParameterReflectionData
                             {
@@ -134,10 +134,10 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
 
-        public override string ToString()
+        public override string? ToString()
         {
-            if (LibCpp2IlMain.TheMetadata == null) return base.ToString();
-
+            if (LibCpp2IlMain.TheMetadata == null) 
+                return base.ToString();
 
             return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
         }

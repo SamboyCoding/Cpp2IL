@@ -13,7 +13,7 @@ namespace LibCpp2IL.Reflection
         public ParameterAttributes Attributes;
         public object? DefaultValue;
 
-        public bool IsRefOrOut => Attributes.HasFlag(ParameterAttributes.Out) || RawType.byref == 1;
+        public bool IsRefOrOut => Attributes.HasFlag(ParameterAttributes.Out) || RawType.Byref == 1;
 
         public override string ToString()
         {

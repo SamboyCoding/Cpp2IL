@@ -1,6 +1,7 @@
 ﻿// Copyright (c) AlphaSierraPapa for the SharpDevelop Team (for details please see \doc\copyright.txt)
 // This code is distributed under the GNU LGPL (for details please see \doc\license.txt)
 
+using System;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
 using Avalonia.Input;
@@ -14,6 +15,7 @@ namespace ICSharpCode.TreeView
 
 		public SharpTreeNode Node => Item.Node;
 
+		[Obsolete]
 		protected override void OnTemplateApplied(TemplateAppliedEventArgs e)
 		{
 			base.OnTemplateApplied(e);
@@ -27,7 +29,7 @@ namespace ICSharpCode.TreeView
 			SelectAll();
 		}
 
-		void SelectAll()
+		new void SelectAll()
 		{
 			SelectionStart = 0;
 			SelectionEnd = Text.Length;

@@ -15,7 +15,7 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
 {
     public virtual IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
-        return null;
+        return null!;
     }
 
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)

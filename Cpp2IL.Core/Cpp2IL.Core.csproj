@@ -15,6 +15,7 @@
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+        <IsTrimmable>false</IsTrimmable> <!--Plugins make this non-trimmable-->
     </PropertyGroup>
 
     <ItemGroup>

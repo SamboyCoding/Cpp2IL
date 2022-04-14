@@ -168,7 +168,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             //Get ptr, and from it, rva and offset
             var generatorPtr = context.CaCacheGeneratorAnalysis!.UnderlyingPointer;
-            var generatorRva = context.AppContext.Binary.GetRVA(generatorPtr);
+            var generatorRva = context.AppContext.Binary.GetRva(generatorPtr);
             if (!context.AppContext.Binary.TryMapVirtualAddressToRaw(generatorPtr, out var offsetInBinary))
                 offsetInBinary = 0;
 

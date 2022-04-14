@@ -7,23 +7,22 @@ using Cpp2IL.Core;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.Views;
-using LibCpp2IL;
 using ReactiveUI;
 
 namespace Cpp2IL.Gui.ViewModels
 {
     public class MainWindowViewModel : ViewModelBase
     {
-        public MainWindow Window;
+        public MainWindow Window = null!;
         
         private string _statusText = "Drop an IL2CPP game on this window to start, or click here to open a file browser.";
-        private bool _hasGame = false;
-        private FileTreeEntry _rootNode;
+        private bool _hasGame;
+        private FileTreeEntry? _rootNode;
         private MethodBodyMode _methodBodyMode = MethodBodyMode.Isil;
-        private bool _showAttributeGenerators = false;
+        private bool _showAttributeGenerators;
         private TextDocument _editorText = new TextDocument("Select a class to open");
 
-        public TypeAnalysisContext LastSelectedType { get; set; }
+        public TypeAnalysisContext? LastSelectedType { get; set; }
 
         public string StatusText
         {
@@ -37,7 +36,7 @@ namespace Cpp2IL.Gui.ViewModels
             set => this.RaiseAndSetIfChanged(ref _hasGame, value);
         }
 
-        public FileTreeEntry RootNode
+        public FileTreeEntry? RootNode
         {
             get => _rootNode;
             set => this.RaiseAndSetIfChanged(ref _rootNode, value);
@@ -152,6 +151,9 @@ namespace Cpp2IL.Gui.ViewModels
 
         private void UpdateEditor()
         {
+            if(LastSelectedType == null)
+                return;
+            
             EditorText = new(ClassFileBuilder.BuildCsFileForType(LastSelectedType, MethodBodyMode, ShowAttributeGenerators));
         }
     }

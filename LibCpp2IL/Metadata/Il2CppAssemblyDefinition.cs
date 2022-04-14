@@ -10,7 +10,7 @@ namespace LibCpp2IL.Metadata
         [Version(Max = 24.0f)] public int CustomAttributeIndex;
         public int ReferencedAssemblyStart;
         public int ReferencedAssemblyCount;
-        public Il2CppAssemblyNameDefinition AssemblyName;
+        public Il2CppAssemblyNameDefinition AssemblyName = null!; //Late-read
 
         public Il2CppImageDefinition Image => LibCpp2IlMain.TheMetadata!.imageDefinitions[ImageIndex];
 

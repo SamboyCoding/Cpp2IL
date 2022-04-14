@@ -53,7 +53,7 @@ namespace ICSharpCode.TreeView
 				base.OnPointerPressed(e);
 			}
 
-			if (e.MouseButton == MouseButton.Left) {
+			if (e.GetCurrentPoint(this).Properties.IsLeftButtonPressed) {
 				startPoint = e.GetPosition(this);
 				e.Pointer.Capture(this);
 

@@ -6,14 +6,8 @@
     <RootNamespace>ICSharpCode.TreeView</RootNamespace>
     <Configurations>Debug;Release</Configurations>
     <Platforms>AnyCPU;x64</Platforms>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
-    <DebugType>full</DebugType>
-    <DebugSymbols>true</DebugSymbols>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <DebugType>pdbonly</DebugType>
-    <DebugSymbols>true</DebugSymbols>
+    <DebugType>embedded</DebugType>
+    <IsTrimmable>true</IsTrimmable>
   </PropertyGroup>
   <ItemGroup>
     <AvaloniaResource Include="Themes\TreeView.xaml" />

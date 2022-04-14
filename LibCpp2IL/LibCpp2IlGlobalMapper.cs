@@ -51,7 +51,9 @@ namespace LibCpp2IL
             //Type 6 => MethodRef
             
             //Type references
-            TypeRefs = metadata.metadataUsageDic[(uint) MetadataUsageType.TypeInfo]
+            
+            //We non-null assert here because this function is only called pre-27, when this is guaranteed to be non-null
+            TypeRefs = metadata.metadataUsageDic![(uint) MetadataUsageType.TypeInfo]
                 .Select(kvp => new MetadataUsage(MetadataUsageType.Type, cppAssembly.GetRawMetadataUsage(kvp.Key), kvp.Value))
                 .ToList();
 

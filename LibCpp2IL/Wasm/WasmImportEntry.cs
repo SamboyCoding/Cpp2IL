@@ -9,9 +9,9 @@ namespace LibCpp2IL.Wasm
         public WasmExternalKind Kind;
 
         public ulong FunctionEntry;
-        public WasmTableType TableEntry;
-        public WasmResizableLimits MemoryEntry;
-        public WasmGlobalType GlobalEntry;
+        public WasmTableType? TableEntry;
+        public WasmResizableLimits? MemoryEntry;
+        public WasmGlobalType? GlobalEntry;
 
         public long StartOffset;
         public long EndOffset;

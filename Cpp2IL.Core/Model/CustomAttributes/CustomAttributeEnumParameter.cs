@@ -16,10 +16,10 @@ public class CustomAttributeEnumParameter : BaseCustomAttributeParameter
         EnumType = enumType;
         var enumTypeDef = EnumType.AsClass();
         UnderlyingPrimitiveType = enumTypeDef.EnumUnderlyingType;
-        UnderlyingPrimitiveParameter = new(UnderlyingPrimitiveType.type);
+        UnderlyingPrimitiveParameter = new(UnderlyingPrimitiveType.Type);
     }
 
-    public Il2CppTypeEnum GetTypeByte() => UnderlyingPrimitiveType.type;
+    public Il2CppTypeEnum GetTypeByte() => UnderlyingPrimitiveType.Type;
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context) => UnderlyingPrimitiveParameter.ReadFromV29Blob(reader, context);
 
     public override string ToString()

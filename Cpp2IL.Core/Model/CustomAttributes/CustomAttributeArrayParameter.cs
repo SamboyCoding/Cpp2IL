@@ -25,7 +25,7 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
     public bool IsNullArray;
     public Il2CppType? EnumType;
     public Il2CppTypeEnum ArrType;
-    public List<BaseCustomAttributeParameter> ArrayElements;
+    public List<BaseCustomAttributeParameter> ArrayElements = new();
 
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context)
     {
@@ -47,16 +47,14 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
             
             //We read as the primitive underlying type.
             var enumClass = EnumType.AsClass();
-            ArrType = enumClass.EnumUnderlyingType.type;
+            ArrType = enumClass.EnumUnderlyingType.Type;
         }
 
         var arrayElementsAreTypePrefixed = reader.ReadBoolean();
         
         if(arrayElementsAreTypePrefixed && ArrType != Il2CppTypeEnum.IL2CPP_TYPE_OBJECT)
             throw new("Array elements are type-prefixed, but the array type is not object");
-        
-        ArrayElements = new();
-        
+
         for (var i = 0; i < arrLength; i++)
         {
             var thisType = ArrType;

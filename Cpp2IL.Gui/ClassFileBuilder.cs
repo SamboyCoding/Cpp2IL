@@ -16,7 +16,7 @@ public static class ClassFileBuilder
     {
         var sb = new StringBuilder();
 
-        if (!string.IsNullOrEmpty(type.Definition.Namespace))
+        if (!string.IsNullOrEmpty(type.Definition!.Namespace))
         {
             sb.Append("namespace ").AppendLine(type.Definition.Namespace).AppendLine("{");
             sb.AppendLine();
@@ -62,9 +62,9 @@ public static class ClassFileBuilder
             //no methods, no props, no events
             foreach (var field in type.Fields)
             {
-                if (field.BackingData.attributes.HasFlag(FieldAttributes.Literal))
+                if (field.BackingData!.Attributes.HasFlag(FieldAttributes.Literal))
                 {
-                    sb.Append('\t').Append(field.BackingData.field.Name).Append(" = ").Append(field.BackingData.defaultValue).AppendLine(",");
+                    sb.Append('\t').Append(field.BackingData.Field.Name).Append(" = ").Append(field.BackingData.DefaultValue).AppendLine(",");
                 }
             }
         }
@@ -76,18 +76,18 @@ public static class ClassFileBuilder
                 sb.Append(GetCustomAttributeStrings(field, 1));
 
                 sb.Append('\t').Append(GetKeyWordsForField(field));
-                sb.Append(GetTypeName(field.BackingData.field.FieldType!.ToString())).Append(' ');
-                sb.Append(field.BackingData.field.Name!);
+                sb.Append(GetTypeName(field.BackingData!.Field.FieldType!.ToString())).Append(' ');
+                sb.Append(field.BackingData.Field.Name!);
 
-                var isConst = field.BackingData.attributes.HasFlag(FieldAttributes.Literal);
+                var isConst = field.BackingData.Attributes.HasFlag(FieldAttributes.Literal);
                 if (isConst)
-                    sb.Append(" = ").Append(field.BackingData.defaultValue);
+                    sb.Append(" = ").Append(field.BackingData.DefaultValue);
 
                 sb.Append(';');
 
                 if (!isConst)
                 {
-                    var offset = type.AppContext.Binary.GetFieldOffsetFromIndex(type.Definition.TypeIndex, type.Fields.IndexOf(field), field.BackingData.field.FieldIndex, type.Definition.IsValueType, field.BackingData.attributes.HasFlag(FieldAttributes.Static));
+                    var offset = type.AppContext.Binary.GetFieldOffsetFromIndex(type.Definition.TypeIndex, type.Fields.IndexOf(field), field.BackingData.Field.FieldIndex, type.Definition.IsValueType, field.BackingData.Attributes.HasFlag(FieldAttributes.Static));
                     sb.Append(" // C++ Field Offset: ").Append(offset).Append(" (0x").Append(offset.ToString("X")).Append(')');
                 }
 
@@ -168,7 +168,7 @@ public static class ClassFileBuilder
                     {
                         sb.Append("\t//\t");
                         
-                        if (il2CppType.type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+                        if (il2CppType.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
                             sb.Append(GetTypeName(il2CppType.AsClass().FullName!));
                         else
                             sb.Append(GetTypeName(LibCpp2ILUtils.GetTypeReflectionData(il2CppType).ToString()));
@@ -183,6 +183,7 @@ public static class ClassFileBuilder
                         FieldAnalysisContext => "Field",
                         PropertyAnalysisContext => "Property",
                         TypeAnalysisContext => "Type",
+                        _ => throw new ArgumentOutOfRangeException()
                     });
                     sb.Append('_').Append(memberWithGenerator.CustomAttributeOwnerName).Append("(Il2CppCustomAttributeCache customAttributes)");
 
@@ -321,7 +322,7 @@ public static class ClassFileBuilder
     private static string GetKeyWordsForType(TypeAnalysisContext type)
     {
         var sb = new StringBuilder();
-        var attributes = type.Definition.Attributes;
+        var attributes = type.Definition!.Attributes;
 
         if (attributes.HasFlag(TypeAttributes.Public))
             sb.Append("public ");
@@ -353,7 +354,7 @@ public static class ClassFileBuilder
     private static string GetKeyWordsForField(FieldAnalysisContext field)
     {
         var sb = new StringBuilder();
-        var attributes = field.BackingData.attributes;
+        var attributes = field.BackingData!.Attributes;
 
         if (attributes.HasFlag(FieldAttributes.Public))
             sb.Append("public ");
@@ -394,7 +395,7 @@ public static class ClassFileBuilder
         if (attributes.HasFlag(MethodAttributes.Static))
             sb.Append("static ");
 
-        if (method.DeclaringType!.Definition.Attributes.HasFlag(TypeAttributes.Interface))
+        if (method.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface))
         {
             //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
         }
@@ -455,5 +456,5 @@ public static class ClassFileBuilder
     }
 
     private static bool IsEnum(TypeAnalysisContext type)
-        => ((TypeAttributes) type.Definition.Flags).HasFlag(TypeAttributes.Sealed) && type.Fields.Any(f => f.BackingData.field.Name == "value__");
+        => ((TypeAttributes) type.Definition!.Flags).HasFlag(TypeAttributes.Sealed) && type.Fields.Any(f => f.BackingData!.Field.Name == "value__");
 }

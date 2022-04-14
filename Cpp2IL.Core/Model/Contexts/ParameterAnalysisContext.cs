@@ -44,12 +44,12 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName
     /// <summary>
     /// The ParameterAttributes of this parameter.
     /// </summary>
-    public ParameterAttributes ParameterAttributes => (ParameterAttributes) ParameterType.attrs;
+    public ParameterAttributes ParameterAttributes => (ParameterAttributes) ParameterType.Attrs;
 
     /// <summary>
     /// True if this parameter is passed by reference.
     /// </summary>
-    public virtual bool IsRef => ParameterType.byref == 1 || ParameterAttributes.HasFlag(ParameterAttributes.Out);
+    public virtual bool IsRef => ParameterType.Byref == 1 || ParameterAttributes.HasFlag(ParameterAttributes.Out);
     
     /// <summary>
     /// The default value data for this parameter. Null if, and only if, the parameter has no default value. If it has a default value of literally null, this will be non-null and have a data index of -1.

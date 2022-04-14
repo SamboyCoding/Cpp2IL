@@ -226,7 +226,7 @@ namespace LibCpp2IL
             var success = true;
             foreach (var keyValuePair in fieldsByName)
             {
-                var fieldValue = (ulong) keyValuePair.Value.GetValue(codeReg);
+                var fieldValue = (ulong) keyValuePair.Value.GetValue(codeReg)!;
 
                 if (fieldValue == 0)
                     continue; //Allow zeroes
@@ -243,7 +243,7 @@ namespace LibCpp2IL
                 else
                 {
                     //Pointer
-                    if (!LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(fieldValue, out _))
+                    if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(fieldValue, out _))
                     {
                         LibLogger.VerboseNewline($"Rejected due to invalid pointer 0x{fieldValue:X} for field {keyValuePair.Key}");
                         success = false;

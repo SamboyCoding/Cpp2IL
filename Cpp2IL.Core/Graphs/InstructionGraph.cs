@@ -222,7 +222,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         {
             if (falsePath.Predecessors.Count != 1)
                 return false;
-            var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements);
+            var ifstatement = new IfStatement<TInstruction>(condition!, falsePath.Statements);
             
 #if MERGE_DEBUG_PRINTS
             Console.WriteLine($"Merging if node {succ.ID} --> {node.ID}");
@@ -235,46 +235,50 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             node.Statements.Add(ifstatement);
             return true;
         }
-        else if (truePathSuccessor == falsePath)
+        else
         {
-            if (truePath.Predecessors.Count != 1)
-                return false;
-            condition!.FlipCondition();
-            var ifstatement = new IfStatement<TInstruction>(condition, truePath.Statements);
+            if (truePathSuccessor == falsePath)
+            {
+                if (truePath.Predecessors.Count != 1)
+                    return false;
+                condition!.FlipCondition();
+                var ifstatement = new IfStatement<TInstruction>(condition, truePath.Statements);
             
 #if MERGE_DEBUG_PRINTS
             Console.WriteLine($"Merging if node {succ.ID} --> {node.ID}");
 #endif 
-            node.FlowControl = InstructionGraphNodeFlowControl.Continue;
-            node.Condition = null;
-            DirectedEdgeRemove(truePath, falsePath);
-            DirectedEdgeRemove(node, truePath);
-            Nodes.Remove((TNode)truePath);
-            node.Statements.Add(ifstatement);
-            return true;
-        }
-        else if (truePathSuccessor is not null && falsePathSuccessor is not null && truePathSuccessor == falsePathSuccessor)
-        {
-            if (falsePath.Predecessors.Count != 1 || truePath.Predecessors.Count != 1)
-                return false;
-            var ifstatement = new IfStatement<TInstruction>(condition, falsePath.Statements, truePath.Statements);
+                node.FlowControl = InstructionGraphNodeFlowControl.Continue;
+                node.Condition = null;
+                DirectedEdgeRemove(truePath, falsePath);
+                DirectedEdgeRemove(node, truePath);
+                Nodes.Remove((TNode)truePath);
+                node.Statements.Add(ifstatement);
+                return true;
+            }
+            if (truePathSuccessor is not null && falsePathSuccessor is not null && truePathSuccessor == falsePathSuccessor)
+            {
+                if (falsePath.Predecessors.Count != 1 || truePath.Predecessors.Count != 1)
+                    return false;
+                
+                var ifstatement = new IfStatement<TInstruction>(condition!, falsePath.Statements, truePath.Statements);
 #if MERGE_DEBUG_PRINTS
             Console.WriteLine($"Merging if else block nodes {truePath.ID} and {falsePath.ID} --> {node.ID}");
 #endif
-            node.FlowControl = InstructionGraphNodeFlowControl.Continue;
-            node.Condition = null;
-            DirectedEdgeRemove(node, truePath);
-            DirectedEdgeRemove(node, falsePath);
-            DirectedEdgeRemove(truePath, truePathSuccessor);
-            DirectedEdgeRemove(falsePath, falsePathSuccessor);
-            AddDirectedEdge((TNode)node, (TNode)falsePathSuccessor);
-            Nodes.Remove((TNode)truePath);
-            Nodes.Remove((TNode)falsePath);
-            node.Statements.Add(ifstatement);
-            return true;
+                node.FlowControl = InstructionGraphNodeFlowControl.Continue;
+                node.Condition = null;
+                DirectedEdgeRemove(node, truePath);
+                DirectedEdgeRemove(node, falsePath);
+                DirectedEdgeRemove(truePath, truePathSuccessor);
+                DirectedEdgeRemove(falsePath, falsePathSuccessor);
+                AddDirectedEdge((TNode)node, (TNode)falsePathSuccessor);
+                Nodes.Remove((TNode)truePath);
+                Nodes.Remove((TNode)falsePath);
+                node.Statements.Add(ifstatement);
+                return true;
+            }
         }
-      
-        
+
+
         return false;
     }
 
@@ -390,12 +394,12 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         {
             // All loops can be represented as doWhiles for example https://i.imgur.com/fCzStwX.png
             throw new NotImplementedException("Loops aren't currently implemented");
-            var doWhileStatement = new InstructionGraphStatement<TInstruction>(InstructionGraphStatementType.DoWhile);
-            if (loop.Nodes.Count == 1)
-            {
-                doWhileStatement.Expression = loop.Nodes[0].Condition;
-                //doWhileStatement.Nodes
-            }
+            // var doWhileStatement = new InstructionGraphStatement<TInstruction>(InstructionGraphStatementType.DoWhile);
+            // if (loop.Nodes.Count == 1)
+            // {
+            //     doWhileStatement.Expression = loop.Nodes[0].Condition;
+            //     //doWhileStatement.Nodes
+            // }
             //doWhileStatement.Expression = loop.Nodes[1].Condition;
             //doWhileStatement.Nodes = loop.Nodes;
             //doWhileStatement.ContinueNode = loop.Nodes[1];
@@ -487,7 +491,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
             sb.Append("\n");
             if (instructions)
                 foreach (var instruction in node.Instructions)
-                    sb.AppendLine(instruction.ToString());
+                    sb.AppendLine(instruction?.ToString());
             else
                 foreach (var v in node.Statements)
                     sb.Append(v.GetTextDump(0));

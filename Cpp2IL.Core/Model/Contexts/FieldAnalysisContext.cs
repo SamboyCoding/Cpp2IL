@@ -20,22 +20,22 @@ public class FieldAnalysisContext : HasCustomAttributesAndName
     /// </summary>
     public readonly Il2CppFieldReflectionData? BackingData;
     
-    protected override int CustomAttributeIndex => BackingData?.field.customAttributeIndex ?? -1;
+    protected override int CustomAttributeIndex => BackingData?.Field.customAttributeIndex ?? -1;
 
     protected internal  override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public override string DefaultName => BackingData?.field.Name!;
+    public override string DefaultName => BackingData?.Field.Name!;
 
-    public virtual Il2CppType FieldType => BackingData!.field.RawFieldType!;
+    public virtual Il2CppType FieldType => BackingData!.Field.RawFieldType!;
     
-    public virtual FieldAttributes Attributes => BackingData!.attributes;
+    public virtual FieldAttributes Attributes => BackingData!.Attributes;
     
     public bool IsStatic => Attributes.HasFlag(FieldAttributes.Static);
 
-    public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.indexInParent, BackingData.field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
+    public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.IndexInParent, BackingData.Field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
     
 
-    public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.field.token ?? 0, parent.AppContext)
+    public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.Field.token ?? 0, parent.AppContext)
     {
         DeclaringType = parent;
         BackingData = backingData;
@@ -44,5 +44,5 @@ public class FieldAnalysisContext : HasCustomAttributesAndName
             InitCustomAttributeData();
     }
     
-    public override string ToString() => $"Field: {DeclaringType.Definition.Name}::{BackingData.field.Name}";
+    public override string ToString() => $"Field: {DeclaringType.Definition?.Name}::{BackingData?.Field.Name}";
 }

@@ -391,10 +391,10 @@ namespace LibCpp2IL.Elf
                         continue;
                     }
 
-                    var usefulType = symbol.Shndx == 0 ? ElfSymbolTableEntry.ElfSymbolEntryType.IMPORT
-                        : symbol.Type == ElfDynamicSymbolType.STT_FUNC ? ElfSymbolTableEntry.ElfSymbolEntryType.FUNCTION
-                        : symbol.Type == ElfDynamicSymbolType.STT_OBJECT || symbol.Type == ElfDynamicSymbolType.STT_COMMON ? ElfSymbolTableEntry.ElfSymbolEntryType.NAME
-                        : ElfSymbolTableEntry.ElfSymbolEntryType.UNKNOWN;
+                    var usefulType = symbol.Shndx == 0 ? ElfSymbolTableEntry.ElfSymbolEntryType.Import
+                        : symbol.Type == ElfDynamicSymbolType.STT_FUNC ? ElfSymbolTableEntry.ElfSymbolEntryType.Function
+                        : symbol.Type == ElfDynamicSymbolType.STT_OBJECT || symbol.Type == ElfDynamicSymbolType.STT_COMMON ? ElfSymbolTableEntry.ElfSymbolEntryType.Name
+                        : ElfSymbolTableEntry.ElfSymbolEntryType.Unknown;
 
                     var virtualAddress = symbol.Value;
 
@@ -646,7 +646,7 @@ namespace LibCpp2IL.Elf
 
         public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-        public override ulong GetRVA(ulong pointer) => (ulong) ((long) pointer - _globalOffset);
+        public override ulong GetRva(ulong pointer) => (ulong) ((long) pointer - _globalOffset);
 
         public override byte[] GetRawBinaryContent() => _raw;
 

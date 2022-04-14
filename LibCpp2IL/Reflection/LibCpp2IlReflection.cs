@@ -9,8 +9,8 @@ namespace LibCpp2IL.Reflection
 {
     public static class LibCpp2IlReflection
     {
-        private static readonly ConcurrentDictionary<(string, string?), Il2CppTypeDefinition> CachedTypes = new();
-        private static readonly ConcurrentDictionary<string, Il2CppTypeDefinition> CachedTypesByFullName = new();
+        private static readonly ConcurrentDictionary<(string, string?), Il2CppTypeDefinition?> CachedTypes = new();
+        private static readonly ConcurrentDictionary<string, Il2CppTypeDefinition?> CachedTypesByFullName = new();
 
         private static readonly Dictionary<Il2CppTypeDefinition, int> TypeIndices = new();
         private static readonly Dictionary<Il2CppMethodDefinition, int> MethodIndices = new();
@@ -37,7 +37,7 @@ namespace LibCpp2IL.Reflection
         {
             for (var e = Il2CppTypeEnum.IL2CPP_TYPE_VOID; e <= Il2CppTypeEnum.IL2CPP_TYPE_STRING; e++)
             {
-                PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.type == e && t.byref == 0);
+                PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == e && t.Byref == 0);
             }
 
             for (var i = 0; i < LibCpp2IlMain.TheMetadata!.typeDefs.Length; i++)
@@ -89,7 +89,7 @@ namespace LibCpp2IL.Reflection
 
             var type = LibCpp2IlMain.Binary.GetType(index);
 
-            return LibCpp2IlMain.TheMetadata.typeDefs[type.data.classIndex];
+            return LibCpp2IlMain.TheMetadata.typeDefs[type.Data.ClassIndex];
         }
 
         [SuppressMessage("ReSharper", "InconsistentlySynchronizedField")]
@@ -188,10 +188,10 @@ namespace LibCpp2IL.Reflection
 
             foreach (var type in LibCpp2IlMain.Binary.AllTypes)
             {
-                if (type.type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+                if (type.Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
                     continue;
 
-                if (type.data.classIndex == index && type.byref == 0)
+                if (type.Data.ClassIndex == index && type.Byref == 0)
                 {
                     return type;
                 }

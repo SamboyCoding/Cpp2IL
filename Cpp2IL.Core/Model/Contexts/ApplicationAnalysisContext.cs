@@ -69,7 +69,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         {
             InstructionSet = InstructionSetRegistry.GetInstructionSet(binary.InstructionSetId);
         }
-        catch (Exception e)
+        catch (Exception)
         {
             throw new InstructionSetHandlerNotRegisteredException(binary.InstructionSetId);
         }

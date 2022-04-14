@@ -15,7 +15,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
 {
     public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
-        private List<Arm64Instruction> _allInstructions;
+        private List<Arm64Instruction> _allInstructions = new();
 
         protected override void Init(ApplicationAnalysisContext context)
         {

@@ -12,7 +12,7 @@ namespace Cpp2IL.Core.Utils
     {
         private static List<ulong>? _allKnownFunctionStarts;
 
-        private static Dictionary<string, ulong> PrimitiveSizes;
+        private static Dictionary<string, ulong> _primitiveSizes = new();
 
         public static readonly List<char> InvalidPathChars = new()
         {
@@ -52,7 +52,7 @@ namespace Cpp2IL.Core.Utils
 
         internal static void Init()
         {
-            PrimitiveSizes = new(14)
+            _primitiveSizes = new(14)
             {
                 { "Byte", 1 },
                 { "SByte", 1 },

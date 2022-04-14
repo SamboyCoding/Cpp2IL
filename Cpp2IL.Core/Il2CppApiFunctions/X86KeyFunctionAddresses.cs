@@ -37,13 +37,13 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
                 if (addressesToIgnore.Contains(matchingJmp.IP)) continue;
 
                 //Find this instruction in the raw file
-                var offsetInPe = (ulong) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(matchingJmp.IP);
+                var offsetInPe = (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(matchingJmp.IP);
                 if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.Binary!.RawLength - 1))
                     continue;
 
                 //get next and previous bytes
-                var previousByte = LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - 1);
-                var nextByte = LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe + (ulong) matchingJmp.Length);
+                var previousByte = LibCpp2IlMain.Binary.GetByteAtRawAddress(offsetInPe - 1);
+                var nextByte = LibCpp2IlMain.Binary.GetByteAtRawAddress(offsetInPe + (ulong) matchingJmp.Length);
 
                 //Double-cc = thunk
                 if (previousByte == 0xCC && nextByte == 0xCC)

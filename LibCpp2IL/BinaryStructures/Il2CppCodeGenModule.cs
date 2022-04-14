@@ -43,7 +43,7 @@ namespace LibCpp2IL.BinaryStructures
             }
         }
 
-        public Il2CppTokenRangePair[] RGCTXRanges => LibCpp2IlMain.Binary!.GetRGCTXRangePairsForModule(this);
+        public Il2CppTokenRangePair[] RGCTXRanges => LibCpp2IlMain.Binary!.GetRgctxRangePairsForModule(this);
         
         public override void Read(ClassReadingBinaryReader reader)
         {

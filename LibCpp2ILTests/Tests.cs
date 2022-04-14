@@ -1,4 +1,5 @@
 using System.Net;
+using System.Net.Http;
 using AssetRipper.VersionUtilities;
 using LibCpp2IL;
 using Xunit;
@@ -15,15 +16,15 @@ namespace LibCpp2ILTests
             _outputHelper = outputHelper;
         }
 
-        private static WebClient client = new();
-        private void CheckFiles(string metadataUrl, string binaryUrl, UnityVersion unityVer)
+        private static HttpClient client = new();
+        private async void CheckFiles(string metadataUrl, string binaryUrl, UnityVersion unityVer)
         {
             _outputHelper.WriteLine($"Downloading: {metadataUrl}...");
-            var metadataBytes = client.DownloadData(metadataUrl);
+            var metadataBytes = await client.GetByteArrayAsync(metadataUrl);
             _outputHelper.WriteLine($"Got {metadataBytes.Length / 1024 / 1024} MB metadata file.");
             
             _outputHelper.WriteLine($"Downloading: {binaryUrl}...");
-            var binaryBytes = client.DownloadData(binaryUrl);
+            var binaryBytes = await client.GetByteArrayAsync(binaryUrl);
             _outputHelper.WriteLine($"Got {binaryBytes.Length / 1024 / 1024} MB binary file.");
 
             //Configure the lib.

@@ -62,7 +62,9 @@ namespace Cpp2IL
                 {
                     Logger.Warn("Could not determine unity version, probably due to not running on windows and not having any assets files to determine it from. Enter unity version, if known, in the format of (xxxx.x.x), else nothing to fail: ");
                     var userInputUv = Console.ReadLine();
-                    uv = UnityVersion.Parse(userInputUv);
+                    
+                    if(!string.IsNullOrEmpty(userInputUv))
+                        uv = UnityVersion.Parse(userInputUv);
 
                     if (uv == default)
                         throw new SoftException("Failed to determine unity version. If you're not running on windows, I need a globalgamemanagers file or a data.unity3d file, or you need to use the force options.");
@@ -220,7 +222,7 @@ namespace Cpp2IL
             {
                 try
                 {
-                    result.OutputFormat = OutputFormatRegistry.GetFormat(options.OutputFormatId);
+                    result.OutputFormat = OutputFormatRegistry.GetFormat(options.OutputFormatId!);
                     Logger.VerboseNewline($"Selected output format: {result.OutputFormat.OutputFormatName}");
                 }
                 catch (Exception e)

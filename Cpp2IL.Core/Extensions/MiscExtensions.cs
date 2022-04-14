@@ -74,11 +74,9 @@ namespace Cpp2IL.Core.Extensions
             return new List<T>(arr);
         }
         
-        public static Dictionary<T1, T2> Clone<T1, T2>(this Dictionary<T1, T2> original)
-        {
-            return new Dictionary<T1, T2>(original);
-        }
-        
+        public static Dictionary<T1, T2> Clone<T1, T2>(this Dictionary<T1, T2> original) where T1 : notnull 
+            => new(original);
+
         public static T[] SubArray<T>(this T[] data, int index, int length) => data.SubArray(index..(index + length));
 
         public static T RemoveAndReturn<T>(this List<T> data, int index)

@@ -86,8 +86,7 @@ public class X86ControlFlowGraph : AbstractControlFlowGraph<Instruction, X86Cont
     private void TraverseNode(InstructionGraphNode<Instruction> node)
     {
         node.Visited = true;
-        uint stackOffset = 0;
-        
+
         // Pre visit
         
         foreach (var succ in node.Successors)

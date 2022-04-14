@@ -85,7 +85,7 @@ public class InstructionGraphNode<TInstruction> : IControlFlowNode
         stringBuilder.Append('\n');
         foreach (var instruction in Instructions)
         {
-            stringBuilder.AppendLine(GetFormattedInstructionAddress(instruction) + " " + instruction.ToString());
+            stringBuilder.AppendLine(GetFormattedInstructionAddress(instruction) + " " + instruction);
         }
         return stringBuilder.ToString();
     }

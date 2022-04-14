@@ -4,13 +4,13 @@
     {
         public enum ElfSymbolEntryType
         {
-            FUNCTION,
-            NAME,
-            IMPORT,
-            UNKNOWN
+            Function,
+            Name,
+            Import,
+            Unknown
         }
 
-        public string Name;
+        public string Name = null!;
         public ElfSymbolEntryType Type;
         public ulong VirtualAddress;
     }

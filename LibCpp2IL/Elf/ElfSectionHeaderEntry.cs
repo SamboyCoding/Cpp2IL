@@ -13,6 +13,6 @@
         public long Alignment;
         public long EntrySize;
         
-        public string Name { get; set; }
+        public string? Name { get; set; }
     }
 }

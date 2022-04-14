@@ -47,7 +47,7 @@ public static class Cpp2IlPluginManager
                 try
                 {
                     Logger.VerboseNewline($"\tLoading plugin {registerCpp2IlPluginAttribute.PluginType.FullName} from assembly: {assembly.GetName().Name}.dll", "Plugins");
-                    plugin = (Cpp2IlPlugin) Activator.CreateInstance(registerCpp2IlPluginAttribute.PluginType);
+                    plugin = (Cpp2IlPlugin) Activator.CreateInstance(registerCpp2IlPluginAttribute.PluginType)!;
                 }
                 catch (Exception e)
                 {

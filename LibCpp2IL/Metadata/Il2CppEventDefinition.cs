@@ -37,7 +37,7 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppTypeReflectionData? EventType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
 
-        public EventAttributes EventAttributes => (EventAttributes) RawType!.attrs;
+        public EventAttributes EventAttributes => (EventAttributes) RawType!.Attrs;
 
         public Il2CppMethodDefinition? Adder => LibCpp2IlMain.TheMetadata == null || add < 0 || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.methodDefs[DeclaringType.FirstMethodIdx + add];
 

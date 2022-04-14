@@ -11,15 +11,15 @@ namespace Cpp2IL
         
         //Core variables
         public UnityVersion UnityVersion;
-        public string PathToAssembly;
-        public string PathToMetadata;
+        public string PathToAssembly = null!;
+        public string PathToMetadata = null!;
 
         public string? WasmFrameworkJsFile;
 
         public List<Cpp2IlProcessingLayer> ProcessingLayersToRun = new();
-        public Dictionary<string, string> ProcessingLayerConfigurationOptions = new();
+        public readonly Dictionary<string, string> ProcessingLayerConfigurationOptions = new();
         
         public Cpp2IlOutputFormat? OutputFormat;
-        public string OutputRootDirectory;
+        public string OutputRootDirectory = null!;
     }
 }

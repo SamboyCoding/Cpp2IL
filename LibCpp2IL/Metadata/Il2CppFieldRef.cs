@@ -12,7 +12,7 @@ namespace LibCpp2IL.Metadata
 
         public Il2CppType? DeclaringType => LibCpp2IlMain.Binary?.GetType(typeIndex);
 
-        public Il2CppTypeDefinition? DeclaringTypeDefinition => LibCpp2IlMain.TheMetadata?.typeDefs[DeclaringType!.data.classIndex];
+        public Il2CppTypeDefinition? DeclaringTypeDefinition => LibCpp2IlMain.TheMetadata?.typeDefs[DeclaringType!.Data.ClassIndex];
 
         public Il2CppFieldDefinition? FieldDefinition => LibCpp2IlMain.TheMetadata?.fieldDefs[DeclaringTypeDefinition!.FirstFieldIdx + fieldIndex];
         

@@ -52,7 +52,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                 throw new ArgumentNullException(nameof(il2CppType));
 
             TypeSignature ret;
-            switch (il2CppType.type)
+            switch (il2CppType.Type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
@@ -72,12 +72,12 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                 case Il2CppTypeEnum.IL2CPP_TYPE_R8:
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
                 case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                    ret = GetPrimitiveTypeDef(il2CppType.type)
+                    ret = GetPrimitiveTypeDef(il2CppType.Type)
                         .ToTypeSignature();
                     break;
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
-                    ret = TypeDefsByIndex[il2CppType.data.classIndex]
+                    ret = TypeDefsByIndex[il2CppType.Data.ClassIndex]
                         .ToTypeSignature();
                     break;
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
@@ -103,18 +103,18 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                     var genericClass = il2CppType.GetGenericClass();
                     
                     //Get base type
-                    TypeDefsByIndex.TryGetValue(genericClass.typeDefinitionIndex, out var typeDefinition);
+                    TypeDefsByIndex.TryGetValue(genericClass.TypeDefinitionIndex, out var typeDefinition);
                     if (LibCpp2IlMain.MetadataVersion >= 27f)
                     {
                         //V27 - type indexes are pointers now.
-                        var type = LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppType>((ulong) genericClass.typeDefinitionIndex);
+                        var type = LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppType>((ulong) genericClass.TypeDefinitionIndex);
                         typeDefinition = GetTypeSignatureFromIl2CppType(module, type).Resolve() ?? throw new Exception("Unable to resolve base type for generic inst");
                     }
 
                     var genericInstanceType = new GenericInstanceTypeSignature(typeDefinition!, typeDefinition!.IsValueType);
 
                     //Get generic arguments
-                    var genericArgumentTypes = genericClass.context.ClassInst.Types;
+                    var genericArgumentTypes = genericClass.Context.ClassInst.Types;
 
                     //Add arguments to generic instance
                     foreach (var type in genericArgumentTypes) 
@@ -124,10 +124,10 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                     break;
                 }
                 default:
-                    throw new("Don't know how to make a type signature from " + il2CppType.type);
+                    throw new("Don't know how to make a type signature from " + il2CppType.Type);
             }
 
-            if (il2CppType.byref == 1)
+            if (il2CppType.Byref == 1)
                 ret = ret.MakeByReferenceType();
 
             return ret;
@@ -144,7 +144,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             if (il2CppType == null)
                 throw new ArgumentNullException(nameof(il2CppType));
 
-            switch (il2CppType.type)
+            switch (il2CppType.Type)
             {
                 case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
@@ -165,10 +165,10 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
                 case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
                     //This case, and the one below, are faster to go this way rather than delegating to type signature creation, because we can go straight from def -> ref.
-                    return GetPrimitiveTypeDef(il2CppType.type);
+                    return GetPrimitiveTypeDef(il2CppType.Type);
                 case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
                 case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
-                    return TypeDefsByIndex[il2CppType.data.classIndex];
+                    return TypeDefsByIndex[il2CppType.Data.ClassIndex];
                 case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
@@ -178,7 +178,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                     //For the rest of these, we have to make a type signature first anyway, so just delegate to signature getter
                     return GetTypeSignatureFromIl2CppType(module, il2CppType).ToTypeDefOrRef();
                 default:
-                    throw new("Don't know how to import a type reference from an il2cpp type of type " + il2CppType.type);
+                    throw new("Don't know how to import a type reference from an il2cpp type of type " + il2CppType.Type);
             }
         }
 

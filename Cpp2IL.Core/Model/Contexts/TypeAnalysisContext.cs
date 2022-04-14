@@ -92,5 +92,5 @@ public class TypeAnalysisContext : HasCustomAttributesAndName
 
     public List<MethodAnalysisContext> GetConstructors() => Methods.Where(m => m.Definition!.Name == ".ctor").ToList();
 
-    public override string ToString() => "Type: " + Definition.FullName;
+    public override string ToString() => $"Type: {Definition?.FullName}";
 }

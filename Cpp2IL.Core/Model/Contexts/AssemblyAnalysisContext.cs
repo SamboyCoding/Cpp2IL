@@ -56,7 +56,7 @@ public class AssemblyAnalysisContext : HasCustomAttributes
 
         foreach (var type in Types)
         {
-            if(type.Definition.NestedTypeCount < 1)
+            if(type.Definition!.NestedTypeCount < 1)
                 continue;
             
             type.NestedTypes = type.Definition.NestedTypes!.Select(n => GetTypeByFullName(n.FullName!) ?? throw new($"Unable to find nested type by name {n.FullName}")).ToList();
