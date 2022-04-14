@@ -23,7 +23,7 @@
 
     <ItemGroup>
         <PackageReference Include="AssetRipper.VersionUtilities" Version="1.2.1" />
-        <PackageReference Include="IndexRange" Version="1.0.1" />
+        <PackageReference Include="IndexRange" Version="1.0.2" />
         <PackageReference Include="System.Memory" Version="4.5.4" />
     </ItemGroup>
 
