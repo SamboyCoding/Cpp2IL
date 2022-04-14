@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -171,10 +172,16 @@ namespace LibCpp2IL
             return t;
         }
 
-        private object InternalReadClass(Type type, bool overrideArchCheck = false)
+        private object InternalReadClass(
+#if NET6_0
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
+#endif
+            Type type,
+            bool overrideArchCheck = false
+        )
         {
             var t = Activator.CreateInstance(type)!;
-            
+
             if (type.IsPrimitive)
             {
                 return ReadAndConvertPrimitive(overrideArchCheck, type);
@@ -207,9 +214,9 @@ namespace LibCpp2IL
 
         private void ReadClassFieldwise<T>(bool overrideArchCheck, T t) where T : new()
         {
-            if (t == null) 
+            if (t == null)
                 throw new ArgumentNullException(nameof(t));
-            
+
             foreach (var field in GetFieldsCached(t.GetType()))
             {
                 if (!_cachedNoSerialize.ContainsKey(field))
@@ -282,7 +289,7 @@ namespace LibCpp2IL
             byte b;
             while ((b = (byte) _memoryStream.ReadByte()) != 0)
                 builder.Add(b);
-            
+
             return Encoding.UTF8.GetString(builder.ToArray());
         }
 
@@ -326,7 +333,7 @@ namespace LibCpp2IL
             {
                 Position = offset;
                 var ret = new ulong[count];
-                
+
                 for (var i = 0; i < count; i++)
                 {
                     ret[i] = ReadNUint();
@@ -345,7 +352,7 @@ namespace LibCpp2IL
         /// Read a native-sized integer (i.e. 32 or 64 bit, depending on platform) at the current position
         /// </summary>
         public long ReadNInt() => is32Bit ? ReadInt32() : ReadInt64();
-        
+
         /// <summary>
         /// Read a native-sized unsigned integer (i.e. 32 or 64 bit, depending on platform) at the current position
         /// </summary>
@@ -403,7 +410,12 @@ namespace LibCpp2IL
             }
         }
 
-        private static FieldInfo[] GetFieldsCached(Type t)
+        private static FieldInfo[] GetFieldsCached(
+#if NET6_0
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)]
+#endif
+            Type t
+        )
         {
             if (CachedFields.TryGetValue(t, out var ret))
                 return ret;
@@ -430,7 +442,7 @@ namespace LibCpp2IL
                 PositionShiftLock.Exit();
             }
         }
-        
+
         public T[] ReadReadableArrayAtRawAddr<T>(long offset, long count) where T : ReadableClass, new()
         {
             var t = new T[count];
