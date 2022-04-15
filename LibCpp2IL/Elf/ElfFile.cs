@@ -59,7 +59,7 @@ namespace LibCpp2IL.Elf
             start = DateTime.Now;
 
             //Non-null assertion reason: The elf header has already been checked while reading the program header.
-            _elfSectionHeaderEntries = ReadClassArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader!.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
+            _elfSectionHeaderEntries = ReadReadableArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader!.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
 
             if (_elfHeader.SectionNameSectionOffset >= 0 && _elfHeader.SectionNameSectionOffset < _elfSectionHeaderEntries.Count)
             {
@@ -88,7 +88,7 @@ namespace LibCpp2IL.Elf
 
             //Get dynamic section.
             if (GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is { } dynamicSegment)
-                _dynamicSection = ReadClassArrayAtRawAddr<ElfDynamicEntry>(dynamicSegment.RawAddress, dynamicSegment.RawSize / (is32Bit ? 8ul : 16ul)).ToList();
+                _dynamicSection = ReadReadableArrayAtRawAddr<ElfDynamicEntry>((long) dynamicSegment.RawAddress, (int) dynamicSegment.RawSize / (is32Bit ? 8 : 16)).ToList();
 
             LibLogger.VerboseNewline("\tFinding Relocations...");
             start = DateTime.Now;
@@ -114,7 +114,7 @@ namespace LibCpp2IL.Elf
 
         private void ReadAndValidateIdent()
         {
-            _elfFileIdent = ReadClassAtRawAddr<ElfFileIdent>(0);
+            _elfFileIdent = ReadReadable<ElfFileIdent>(0);
 
             if (_elfFileIdent.Magic != 0x464c457f) //Magic number
                 throw new FormatException("ERROR: Magic number mismatch.");
@@ -130,7 +130,7 @@ namespace LibCpp2IL.Elf
 
         private void ReadHeader()
         {
-            _elfHeader = ReadClassAtRawAddr<ElfFileHeader>(0x10);
+            _elfHeader = ReadReadable<ElfFileHeader>(0x10);
 
             InstructionSetId = _elfHeader.Machine switch
             {
@@ -148,8 +148,8 @@ namespace LibCpp2IL.Elf
         private void ReadProgramHeaderTable()
         {
             _elfProgramHeaderEntries = is32Bit
-                ? ReadClassArrayAtRawAddr<ElfProgramHeaderEntry32>(_elfHeader!.pProgramHeader, _elfHeader.ProgramHeaderEntryCount).Cast<IElfProgramHeaderEntry>().ToList()
-                : ReadClassArrayAtRawAddr<ElfProgramHeaderEntry64>(_elfHeader!.pProgramHeader, _elfHeader.ProgramHeaderEntryCount).Cast<IElfProgramHeaderEntry>().ToList();
+                ? ReadReadableArrayAtRawAddr<ElfProgramHeaderEntry32>(_elfHeader!.pProgramHeader, _elfHeader.ProgramHeaderEntryCount).Cast<IElfProgramHeaderEntry>().ToList()
+                : ReadReadableArrayAtRawAddr<ElfProgramHeaderEntry64>(_elfHeader!.pProgramHeader, _elfHeader.ProgramHeaderEntryCount).Cast<IElfProgramHeaderEntry>().ToList();
         }
 
         private IElfProgramHeaderEntry? GetProgramHeaderOfType(ElfProgramEntryType type) => _elfProgramHeaderEntries.FirstOrDefault(p => p.Type == type);
@@ -175,7 +175,7 @@ namespace LibCpp2IL.Elf
                     var relatedTablePointer = _elfSectionHeaderEntries[section.LinkedSectionIndex].RawAddress;
 
                     //Read rel table
-                    var table = ReadClassArrayAtRawAddr<ElfRelEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
+                    var table = ReadReadableArrayAtRawAddr<ElfRelEntry>((long) section.RawAddress, (long) (section.Size / (ulong) section.EntrySize));
 
                     LibLogger.VerboseNewline($"\t\t-Got {table.Length} from REL section {section.Name}");
                     
@@ -193,7 +193,7 @@ namespace LibCpp2IL.Elf
                     var relatedTablePointer = _elfSectionHeaderEntries[section.LinkedSectionIndex].RawAddress;
 
                     //Read rela table
-                    var table = ReadClassArrayAtRawAddr<ElfRelaEntry>(section.RawAddress, section.Size / (ulong) section.EntrySize);
+                    var table = ReadReadableArrayAtRawAddr<ElfRelaEntry>((long) section.RawAddress, (long) (section.Size / (ulong) section.EntrySize));
 
                     LibLogger.VerboseNewline($"\t\t-Got {table.Length} from RELA section {section.Name}");
                     
@@ -209,7 +209,7 @@ namespace LibCpp2IL.Elf
                     //Null-assertion reason: We must have both a RELSZ and a RELENT or this is an error.
                     var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELSZ)!.Value;
                     var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
-                    var entries = ReadClassArrayAtRawAddr<ElfRelEntry>(dtRelStartAddr, relCount);
+                    var entries = ReadReadableArrayAtRawAddr<ElfRelEntry>(dtRelStartAddr, relCount);
 
                     LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic REL section.");
 
@@ -228,7 +228,7 @@ namespace LibCpp2IL.Elf
                     var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELASZ)!.Value;
                     var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELAENT)!.Value);
                     var startAddr = (uint) MapVirtualAddressToRaw(dt_rela.Value);
-                    var entries = ReadClassArrayAtRawAddr<ElfRelaEntry>(startAddr, relCount);
+                    var entries = ReadReadableArrayAtRawAddr<ElfRelaEntry>(startAddr, relCount);
 
                     LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic RELA section.");
 
@@ -250,7 +250,7 @@ namespace LibCpp2IL.Elf
                     ulong symValue;
                     try
                     {
-                        symValue = ((IElfDynamicSymbol) (is32Bit ? ReadClassAtRawAddr<ElfDynamicSymbol32>((long) pointer) : ReadClassAtRawAddr<ElfDynamicSymbol64>((long) pointer))).Value;
+                        symValue = ((IElfDynamicSymbol) (is32Bit ? ReadReadable<ElfDynamicSymbol32>((long) pointer) : ReadReadable<ElfDynamicSymbol64>((long) pointer))).Value;
                     }
                     catch
                     {
@@ -269,7 +269,14 @@ namespace LibCpp2IL.Elf
                     }
 
                     //Read one word.
-                    var addend = rel.Addend ?? ReadClassAtRawAddr<ulong>(targetLocation);
+                    ulong addend;
+                    if (rel.Addend.HasValue)
+                        addend = rel.Addend.Value;
+                    else
+                    {
+                        Position = targetLocation;
+                        addend = ReadUInt64();
+                    }
 
                     //Adapted from Il2CppInspector. Thanks to djKaty.
 
@@ -352,7 +359,7 @@ namespace LibCpp2IL.Elf
                 if (GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB) is { } dynamicSymTab)
                 {
                     var end = _dynamicSection.Where(x => x.Value > dynamicSymTab.Value).OrderBy(x => x.Value).First().Value;
-                    var dynSymSize = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(is32Bit ? typeof(ElfDynamicSymbol32) : typeof(ElfDynamicSymbol64), true, false);
+                    var dynSymSize = is32Bit ? 18ul : 24ul;
 
                     var address = (ulong) MapVirtualAddressToRaw(dynamicSymTab.Value);
 
@@ -373,8 +380,8 @@ namespace LibCpp2IL.Elf
             foreach (var (offset, count, stringTable) in symbolTables)
             {
                 var symbols = is32Bit
-                    ? ReadClassArrayAtRawAddr<ElfDynamicSymbol32>(offset, count).Cast<IElfDynamicSymbol>().ToList()
-                    : ReadClassArrayAtRawAddr<ElfDynamicSymbol64>(offset, count).Cast<IElfDynamicSymbol>().ToList();
+                    ? ReadReadableArrayAtRawAddr<ElfDynamicSymbol32>((long) offset, (long) count).Cast<IElfDynamicSymbol>().ToList()
+                    : ReadReadableArrayAtRawAddr<ElfDynamicSymbol64>((long) offset, (long) count).Cast<IElfDynamicSymbol>().ToList();
 
                 LibLogger.VerboseNewline($"\t\t-Found {symbols.Count} symbols in table at 0x{offset:X}");
 
@@ -412,10 +419,10 @@ namespace LibCpp2IL.Elf
             if (!(GetDynamicEntryOfType(ElfDynamicType.DT_INIT_ARRAY) is { } dtInitArray) || !(GetDynamicEntryOfType(ElfDynamicType.DT_INIT_ARRAYSZ) is { } dtInitArraySz))
                 return;
 
-            var pInitArray = (ulong) MapVirtualAddressToRaw(dtInitArray.Value);
-            var count = dtInitArraySz.Value / (ulong) (is32Bit ? 4 : 8);
+            var pInitArray = MapVirtualAddressToRaw(dtInitArray.Value);
+            var count = (int) dtInitArraySz.Value / (is32Bit ? 4 : 8);
 
-            var initArray = ReadClassArrayAtRawAddr<ulong>(pInitArray, count);
+            var initArray = ReadNUintArrayAtRawAddress(pInitArray, count);
 
             if (GetDynamicEntryOfType(ElfDynamicType.DT_INIT) is { } dtInit)
                 initArray = initArray.Append(dtInit.Value).ToArray();
@@ -491,7 +498,8 @@ namespace LibCpp2IL.Elf
 
                 //Now we know where the function pointer is. Or, the important part of it.
                 //Read 4 bytes there.
-                var pointerToCodegenRegFunction = ReadClassAtRawAddr<uint>(pointerToPointerToCodegenRegFunction);
+                Position = pointerToPointerToCodegenRegFunction;
+                var pointerToCodegenRegFunction = ReadUInt32();
                 
                 //Pointer is relative, so add on address of function + offset of pointer table (?) in function (0x1C).
                 pointerToCodegenRegFunction += (uint) initializerPointer + 0x1C;
@@ -539,7 +547,8 @@ namespace LibCpp2IL.Elf
                         //Valid LDR.
                         var p = pointerToCodegenRegFunction + i * 4 + functionBody[registerOffsets[ldrFirstReg] / 4] + 8;
                         //VIRTUAL address
-                        pointers[ldrFirstReg] = ReadClassAtVirtualAddress<uint>(p);
+                        //We're a 32-bit binary if we're here, so we can just read the pointer as a 32-bit value.
+                        pointers[ldrFirstReg] = (uint) ReadPointerAtVirtualAddress(p);
                     }
                     else
                         fail = true;

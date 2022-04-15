@@ -110,7 +110,7 @@ namespace LibCpp2IL
                 //Empty in v27
                 LibLogger.Verbose("\tReading metadata usages...");
                 start = DateTime.Now;
-                _metadataUsages = ReadClassArrayAtVirtualAddress<ulong>(_metadataRegistration.metadataUsages, (long)Math.Max((decimal) _metadataRegistration.metadataUsagesCount, _maxMetadataUsages));
+                _metadataUsages = ReadNUintArrayAtVirtualAddress(_metadataRegistration.metadataUsages, (long)Math.Max((decimal) _metadataRegistration.metadataUsagesCount, _maxMetadataUsages));
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
@@ -281,13 +281,17 @@ namespace LibCpp2IL
 
         public T[] ReadClassArrayAtVirtualAddress<T>(ulong addr, long count) where T : new() => Reader.ReadClassArrayAtRawAddr<T>(MapVirtualAddressToRaw(addr), count);
 
-        public T ReadClassAtVirtualAddress<T>(ulong addr) where T: new() => Reader.ReadClassAtRawAddr<T>(MapVirtualAddressToRaw(addr));
-
         public T[] ReadReadableArrayAtVirtualAddress<T>(ulong va, long count) where T : ReadableClass, new() => Reader.ReadReadableArrayAtRawAddr<T>(MapVirtualAddressToRaw(va), count);
         
         public T ReadReadableAtVirtualAddress<T>(ulong va) where T : ReadableClass, new() => Reader.ReadReadable<T>(MapVirtualAddressToRaw(va));
         
         public ulong[] ReadNUintArrayAtVirtualAddress(ulong addr, long count) => Reader.ReadNUintArrayAtRawAddress(MapVirtualAddressToRaw(addr), (int) count);
+
+        public ulong ReadPointerAtVirtualAddress(ulong addr)
+        {
+            Position = MapVirtualAddressToRaw(addr);
+            return Reader.ReadNUint();
+        }
 
         public Il2CppGenericInst GetGenericInst(int index) => _genericInsts[index];
 
@@ -305,17 +309,8 @@ namespace LibCpp2IL
         public Il2CppTokenRangePair[] GetRgctxRangePairsForModule(Il2CppCodeGenModule module) => _codegenModuleRgctxRanges[GetCodegenModuleIndex(module)];
         public Il2CppRGCTXDefinition[] GetRgctxDataForPair(Il2CppCodeGenModule module, Il2CppTokenRangePair rangePair) => _codegenModuleRgctxs[GetCodegenModuleIndex(module)].Skip(rangePair.start).Take(rangePair.length).ToArray();
 
-        public Il2CppType GetIl2CppTypeFromPointer(ulong pointer)
-        {
-            return _typesByAddress[pointer];
-        }
-
-        public ulong[] GetPointers(ulong pointer, long count)
-        {
-            if (is32Bit)
-                return Array.ConvertAll(ReadClassArrayAtVirtualAddress<uint>(pointer, count), x => (ulong) x);
-            return ReadNUintArrayAtVirtualAddress(pointer, count);
-        }
+        public Il2CppType GetIl2CppTypeFromPointer(ulong pointer) 
+            => _typesByAddress[pointer];
 
         public int GetFieldOffsetFromIndex(int typeIndex, int fieldIndexInType, int fieldIndex, bool isValueType, bool isStatic)
         {
@@ -327,7 +322,9 @@ namespace LibCpp2IL
                     var ptr = (ulong) _fieldOffsets[typeIndex];
                     if (ptr > 0)
                     {
-                        offset = ReadClassAtRawAddr<int>((long) ((ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType));
+                        var offsetOffset = (ulong) MapVirtualAddressToRaw(ptr) + 4ul * (ulong) fieldIndexInType;
+                        Position = (long) offsetOffset;
+                        offset = ReadInt32();
                     }
                 }
                 else
@@ -391,7 +388,7 @@ namespace LibCpp2IL
             LibCpp2IlMain.TheMetadata!.imageDefinitions
                 .Select(i => (image: i, cgm: GetCodegenModuleByName(i.Name!)!))
                 .SelectMany(tuple => LibCpp2ILUtils.Range(0, (int) tuple.image.customAttributeCount).Select(o => tuple.cgm.customAttributeCacheGenerator + (ulong) o * PointerSize))
-                .Select(ReadClassAtVirtualAddress<ulong>)
+                .Select(ReadPointerAtVirtualAddress)
                 .ToArray();
 
         public abstract byte[] GetRawBinaryContent();

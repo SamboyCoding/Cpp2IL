@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -76,67 +75,13 @@ namespace LibCpp2IL
 
         private Dictionary<FieldInfo, bool> _cachedNoSerialize = new();
 
-        public T ReadClassAtRawAddr<T>(long offset, bool overrideArchCheck = false) where T : new()
-        {
-            GetLockOrThrow();
-
-            try
-            {
-                if (offset >= 0)
-                    Position = offset;
-
-                return InternalReadClass<T>(overrideArchCheck);
-            }
-            finally
-            {
-                PositionShiftLock.Exit();
-            }
-        }
-
         public uint ReadUnityCompressedUIntAtRawAddr(long offset, out int bytesRead)
         {
             GetLockOrThrow();
 
             try
             {
-                if (offset >= 0)
-                    Position = offset;
-
-                //Ref Unity.IL2CPP.dll, Unity.IL2CPP.Metadata.MetadataUtils::WriteCompressedUInt32
-                //Read first byte
-                var b = ReadByte();
-                bytesRead = 1;
-                if (b < 128)
-                    return b;
-                if (b == 240)
-                {
-                    //Full Uint
-                    bytesRead = 5;
-                    return ReadUInt32();
-                }
-
-                //Special constant values
-                if (b == byte.MaxValue)
-                    return uint.MaxValue;
-                if (b == 254)
-                    return uint.MaxValue - 1;
-
-                if ((b & 192) == 192)
-                {
-                    //3 more to read
-                    bytesRead = 4;
-                    return (b & ~192U) << 24 | (uint) (ReadByte() << 16) | (uint) (ReadByte() << 8) | ReadByte();
-                }
-
-                if ((b & 128) == 128)
-                {
-                    //1 more to read
-                    bytesRead = 2;
-                    return (b & ~128U) << 8 | ReadByte();
-                }
-
-
-                throw new Exception($"How did we even get here? Invalid compressed int first byte {b}");
+                return ReadUnityCompressedUIntAtRawAddrNoLock(offset, out bytesRead);
             }
             finally
             {
@@ -144,10 +89,59 @@ namespace LibCpp2IL
             }
         }
 
-        public int ReadUnityCompressedIntAtRawAddr(long position, out int bytesRead)
+        protected internal uint ReadUnityCompressedUIntAtRawAddrNoLock(long offset, out int bytesRead)
+        {
+            if (offset >= 0)
+                Position = offset;
+
+            //Ref Unity.IL2CPP.dll, Unity.IL2CPP.Metadata.MetadataUtils::WriteCompressedUInt32
+            //Read first byte
+            var b = ReadByte();
+            bytesRead = 1;
+            if (b < 128)
+                return b;
+            if (b == 240)
+            {
+                //Full Uint
+                bytesRead = 5;
+                return ReadUInt32();
+            }
+
+            //Special constant values
+            if (b == byte.MaxValue)
+                return uint.MaxValue;
+            if (b == 254)
+                return uint.MaxValue - 1;
+
+            if ((b & 192) == 192)
+            {
+                //3 more to read
+                bytesRead = 4;
+                return (b & ~192U) << 24 | (uint) (ReadByte() << 16) | (uint) (ReadByte() << 8) | ReadByte();
+            }
+
+            if ((b & 128) == 128)
+            {
+                //1 more to read
+                bytesRead = 2;
+                return (b & ~128U) << 8 | ReadByte();
+            }
+
+
+            throw new Exception($"How did we even get here? Invalid compressed int first byte {b}");
+        }
+
+        public int ReadUnityCompressedIntAtRawAddr(long position, out int bytesRead) 
+            => ReadUnityCompressedIntAtRawAddr(position, true, out bytesRead);
+
+        protected internal int ReadUnityCompressedIntAtRawAddr(long position, bool doLock, out int bytesRead)
         {
             //Ref libil2cpp, il2cpp\utils\ReadCompressedInt32
-            var unsigned = ReadUnityCompressedUIntAtRawAddr(position, out bytesRead);
+            uint unsigned;
+            if (doLock)
+                unsigned = ReadUnityCompressedUIntAtRawAddr(position, out bytesRead);
+            else
+                unsigned = ReadUnityCompressedUIntAtRawAddrNoLock(position, out bytesRead);
 
             if (unsigned == uint.MaxValue)
                 return int.MinValue;
@@ -172,13 +166,7 @@ namespace LibCpp2IL
             return t;
         }
 
-        private object InternalReadClass(
-#if NET6_0
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
-#endif
-            Type type,
-            bool overrideArchCheck = false
-        )
+        private object InternalReadClass(Type type, bool overrideArchCheck = false)
         {
             var t = Activator.CreateInstance(type)!;
 
@@ -194,9 +182,7 @@ namespace LibCpp2IL
                 return value!;
             }
 
-            ReadClassFieldwise(overrideArchCheck, t);
-
-            return t;
+            throw new("Support for reading classes has been removed. Please inherit from ReadableClass and call ReadReadable on your local binary reader.");
         }
 
         private object ReadAndConvertPrimitive(bool overrideArchCheck, Type type)
@@ -211,34 +197,6 @@ namespace LibCpp2IL
 
             return value!;
         }
-
-        private void ReadClassFieldwise<T>(bool overrideArchCheck, T t) where T : new()
-        {
-            if (t == null)
-                throw new ArgumentNullException(nameof(t));
-
-            foreach (var field in GetFieldsCached(t.GetType()))
-            {
-                if (!_cachedNoSerialize.ContainsKey(field))
-                    _cachedNoSerialize[field] = Attribute.GetCustomAttribute(field, typeof(NonSerializedAttribute)) != null;
-
-                if (_cachedNoSerialize[field]) continue;
-
-                if (!LibCpp2ILUtils.ShouldReadFieldOnThisVersion(field))
-                    continue;
-
-                if (field.FieldType.IsPrimitive)
-                {
-                    field.SetValue(t, ReadPrimitive(field.FieldType));
-                }
-                else
-                {
-                    field.SetValue(t, InternalReadClass(field.FieldType, overrideArchCheck));
-                }
-            }
-        }
-
-        public T[] ReadClassArrayAtRawAddr<T>(ulong offset, ulong count) where T : new() => ReadClassArrayAtRawAddr<T>((long) offset, (long) count);
 
         public T[] ReadClassArrayAtRawAddr<T>(long offset, long count) where T : new()
         {
@@ -299,11 +257,7 @@ namespace LibCpp2IL
 
             try
             {
-                Position = offset;
-                var ret = new byte[count];
-                Read(ret, 0, count);
-
-                return ret;
+                return ReadByteArrayAtRawAddressNoLock(offset, count);
             }
             finally
             {
@@ -311,7 +265,16 @@ namespace LibCpp2IL
             }
         }
 
-        protected void GetLockOrThrow()
+        protected internal byte[] ReadByteArrayAtRawAddressNoLock(long offset, int count)
+        {
+            Position = offset;
+            var ret = new byte[count];
+            Read(ret, 0, count);
+
+            return ret;
+        }
+
+        protected internal void GetLockOrThrow()
         {
             var obtained = false;
             PositionShiftLock.Enter(ref obtained);
@@ -320,7 +283,7 @@ namespace LibCpp2IL
                 throw new Exception("Failed to obtain lock");
         }
 
-        protected void ReleaseLock()
+        protected internal void ReleaseLock()
         {
             PositionShiftLock.Exit();
         }
@@ -408,20 +371,6 @@ namespace LibCpp2IL
             {
                 PositionShiftLock.Exit();
             }
-        }
-
-        private static FieldInfo[] GetFieldsCached(
-#if NET6_0
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)]
-#endif
-            Type t
-        )
-        {
-            if (CachedFields.TryGetValue(t, out var ret))
-                return ret;
-
-            CachedFields[t] = ret = t.GetFields();
-            return ret;
         }
 
         public T ReadReadableHereNoLock<T>() where T : ReadableClass, new() => InternalReadReadableClass<T>();

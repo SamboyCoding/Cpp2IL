@@ -170,7 +170,7 @@ namespace LibCpp2IL.NintendoSwitch
 
             for (var i = 0; i < maxPossibleDynSectionEntryCount; i++)
             {
-                var dynEntry = ReadClassAtRawAddr<ElfDynamicEntry>(-1);
+                var dynEntry = ReadReadable<ElfDynamicEntry>();
                 if (dynEntry.Tag == ElfDynamicType.DT_NULL)
                     //End of dynamic section
                     break;
@@ -188,7 +188,7 @@ namespace LibCpp2IL.NintendoSwitch
             var symbolCount = ReadUInt32();
 
             var symTab = GetDynamicEntry(ElfDynamicType.DT_SYMTAB) ?? throw new("No symbol table found in NSO");
-            _symbolTable = ReadClassArrayAtVirtualAddress<ElfDynamicSymbol64>((ulong) MapVirtualAddressToRaw(symTab.Value), symbolCount);
+            _symbolTable = ReadReadableArrayAtVirtualAddress<ElfDynamicSymbol64>((ulong) MapVirtualAddressToRaw(symTab.Value), symbolCount);
             
             LibLogger.VerboseNewline($"Got {_symbolTable.Length} symbols");
         }
@@ -201,7 +201,7 @@ namespace LibCpp2IL.NintendoSwitch
             {
                 var dtRela = GetDynamicEntry(ElfDynamicType.DT_RELA) ?? throw new("No relocations found in NSO");
                 var dtRelaSize = GetDynamicEntry(ElfDynamicType.DT_RELASZ) ?? throw new("No relocation size entry found in NSO");
-                relaEntries = ReadClassArrayAtVirtualAddress<ElfRelaEntry>(dtRela.Value, (long) (dtRelaSize.Value / 24)); //24 being sizeof(ElfRelaEntry) on 64-bit
+                relaEntries = ReadReadableArrayAtVirtualAddress<ElfRelaEntry>(dtRela.Value, (long) (dtRelaSize.Value / 24)); //24 being sizeof(ElfRelaEntry) on 64-bit
             }
             catch
             {

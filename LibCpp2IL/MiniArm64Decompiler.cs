@@ -97,7 +97,7 @@ namespace LibCpp2IL
                         ret[regLdrN] += simm * 8;
                         
                         //Dereference resulting pointer
-                        ret[regLdrN] = image.ReadClassAtVirtualAddress<ulong>(ret[regLdrN]);
+                        ret[regLdrN] = image.ReadPointerAtVirtualAddress(ret[regLdrN]);
                     }
                 }
 
@@ -114,11 +114,11 @@ namespace LibCpp2IL
             var ret = new List<uint>();
 
             uint inst;
+            file.Position = file.MapVirtualAddressToRaw(loc);
             do
             {
-                inst = file.ReadClassAtVirtualAddress<uint>(loc);
+                inst = file.ReadUInt32();
                 ret.Add(inst);
-                loc += 4;
             } while (!IsB(inst) && ret.Count < maxLength);
 
             return ret;

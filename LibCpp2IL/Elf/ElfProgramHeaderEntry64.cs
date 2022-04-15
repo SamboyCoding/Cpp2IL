@@ -2,7 +2,7 @@
 
 namespace LibCpp2IL.Elf
 {
-    public class ElfProgramHeaderEntry64 : IElfProgramHeaderEntry
+    public class ElfProgramHeaderEntry64 : ReadableClass, IElfProgramHeaderEntry
     {
         public ElfProgramEntryType _internalType;
         public ElfProgramHeaderFlags _internalFlags; //This is here in 64-bit elf files.
@@ -21,5 +21,17 @@ namespace LibCpp2IL.Elf
         public ulong RawSize => _internalSizeRaw;
         public ulong VirtualSize => _internalSizeVirtual;
         public long Align => _internalAlign;
+
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            _internalType = (ElfProgramEntryType) reader.ReadUInt32();
+            _internalFlags = (ElfProgramHeaderFlags) reader.ReadUInt32();
+            _internalOffsetRaw = reader.ReadUInt64();
+            _internalVirtualAddr = reader.ReadUInt64();
+            _internalPhysicalAddr = reader.ReadUInt64();
+            _internalSizeRaw = reader.ReadUInt64();
+            _internalSizeVirtual = reader.ReadUInt64();
+            _internalAlign = reader.ReadInt64();
+        }
     }
 }

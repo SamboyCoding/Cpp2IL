@@ -100,7 +100,7 @@ namespace LibCpp2IL
             if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null) return null;
 
             var types = new Il2CppTypeReflectionData[genericInst.pointerCount];
-            var pointers = LibCpp2IlMain.Binary.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
+            var pointers = LibCpp2IlMain.Binary.ReadNUintArrayAtVirtualAddress(genericInst.pointerStart, (long) genericInst.pointerCount);
             for (uint i = 0; i < genericInst.pointerCount; ++i)
             {
                 var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointers[i]);
@@ -112,13 +112,7 @@ namespace LibCpp2IL
 
         internal static string GetGenericTypeParamNames(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppGenericInst genericInst)
         {
-            var typeNames = new string[genericInst.pointerCount];
-            var pointers = cppAssembly.ReadClassArrayAtVirtualAddress<ulong>(genericInst.pointerStart, (long) genericInst.pointerCount);
-            for (uint i = 0; i < genericInst.pointerCount; ++i)
-            {
-                var oriType = cppAssembly.GetIl2CppTypeFromPointer(pointers[i]);
-                typeNames[i] = GetTypeName(metadata, cppAssembly, oriType);
-            }
+            var typeNames = genericInst.Types.Select(t => GetTypeName(metadata, cppAssembly, t)).ToArray();
 
             return $"<{string.Join(", ", typeNames)}>";
         }
@@ -193,57 +187,66 @@ namespace LibCpp2IL
             if (pointer <= 0) return null;
 
             var defaultValueType = theDll.GetType(typeIndex);
-            switch (defaultValueType.Type)
+            metadata.GetLockOrThrow();
+            metadata.Position = pointer;
+            try
             {
-                case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-                    return metadata.ReadClassAtRawAddr<bool>(pointer);
-                case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-                    return metadata.ReadClassAtRawAddr<byte>(pointer);
-                case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-                    return metadata.ReadClassAtRawAddr<sbyte>(pointer);
-                case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-                    return BitConverter.ToChar(metadata.ReadByteArrayAtRawAddress(pointer, 2), 0);
-                case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-                    return metadata.ReadClassAtRawAddr<ushort>(pointer);
-                case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-                    return metadata.ReadClassAtRawAddr<short>(pointer);
-                case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    if (LibCpp2IlMain.MetadataVersion < 29)
-                        return metadata.ReadClassAtRawAddr<uint>(pointer);
-                    return metadata.ReadUnityCompressedUIntAtRawAddr(pointer, out _);
-                case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    if (LibCpp2IlMain.MetadataVersion < 29)
-                        return metadata.ReadClassAtRawAddr<int>(pointer);
-                    return metadata.ReadUnityCompressedIntAtRawAddr(pointer, out _);
-                case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-                    return metadata.ReadClassAtRawAddr<ulong>(pointer, true);
-                case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-                    return metadata.ReadClassAtRawAddr<long>(pointer, true);
-                case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-                    return metadata.ReadClassAtRawAddr<float>(pointer);
-                case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-                    return metadata.ReadClassAtRawAddr<double>(pointer);
-                case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-                    int len;
-                    int lenLen = 4;
-                    if (LibCpp2IlMain.MetadataVersion < 29)
-                        len = metadata.ReadClassAtRawAddr<int>(pointer);
-                    else
-                        len = metadata.ReadUnityCompressedIntAtRawAddr(pointer, out lenLen);
-                    if (len > 1024 * 64)
-                        LibLogger.WarnNewline("[GetDefaultValue] String length is really large: " + len);
-                    return Encoding.UTF8.GetString(metadata.ReadByteArrayAtRawAddress(pointer + lenLen, len));
-                default:
-                    return null;
+                switch (defaultValueType.Type)
+                {
+                    case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
+                        return metadata.ReadBoolean();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_U1:
+                        return metadata.ReadByte();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_I1:
+                        return metadata.ReadSByte();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
+                        return BitConverter.ToChar(metadata.ReadByteArrayAtRawAddressNoLock(pointer, 2), 0);
+                    case Il2CppTypeEnum.IL2CPP_TYPE_U2:
+                        return metadata.ReadUInt16();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_I2:
+                        return metadata.ReadInt16();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_U4:
+                        if (LibCpp2IlMain.MetadataVersion < 29)
+                            return metadata.ReadUInt32();
+                        return metadata.ReadUnityCompressedUIntAtRawAddrNoLock(pointer, out _);
+                    case Il2CppTypeEnum.IL2CPP_TYPE_I4:
+                        if (LibCpp2IlMain.MetadataVersion < 29)
+                            return metadata.ReadInt32();
+                        return metadata.ReadUnityCompressedIntAtRawAddr(pointer, false, out _);
+                    case Il2CppTypeEnum.IL2CPP_TYPE_U8:
+                        return metadata.ReadUInt64();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_I8:
+                        return metadata.ReadInt64();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_R4:
+                        return metadata.ReadSingle();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_R8:
+                        return metadata.ReadDouble();
+                    case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
+                        int len;
+                        var lenLen = 4;
+                        if (LibCpp2IlMain.MetadataVersion < 29)
+                            len = metadata.ReadInt32();
+                        else
+                            len = metadata.ReadUnityCompressedIntAtRawAddr(pointer, false, out lenLen);
+                        if (len > 1024 * 64)
+                            LibLogger.WarnNewline("[GetDefaultValue] String length is really large: " + len);
+                        return Encoding.UTF8.GetString(metadata.ReadByteArrayAtRawAddressNoLock(pointer + lenLen, len));
+                    default:
+                        return null;
+                }
+            }
+            finally
+            {
+                metadata.ReleaseLock();
             }
         }
 
         public static Il2CppTypeReflectionData WrapType(Il2CppTypeDefinition what)
         {
-            return new Il2CppTypeReflectionData
+            return new()
             {
                 baseType = what,
-                genericParams = new Il2CppTypeReflectionData[0],
+                genericParams = Array.Empty<Il2CppTypeReflectionData>(),
                 isGenericType = false,
                 isType = true,
             };
@@ -319,10 +322,10 @@ namespace LibCpp2IL
                     }
 
                     var genericInst = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppGenericInst>(genericClass.Context.class_inst);
-                    var pointers = LibCpp2IlMain.Binary.GetPointers(genericInst.pointerStart, (long) genericInst.pointerCount);
+                    var pointers = genericInst.Pointers;
                     var genericParams = pointers
                         .Select(pointer => LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointer))
-                        .Select(type => GetTypeReflectionData(type)) //Recursive call here
+                        .Select(GetTypeReflectionData) //Recursive call here
                         .ToList();
 
                     return new()

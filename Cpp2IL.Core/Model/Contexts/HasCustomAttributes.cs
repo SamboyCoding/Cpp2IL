@@ -116,7 +116,7 @@ public abstract class HasCustomAttributes : HasToken
             var baseAddress = CustomAttributeAssembly.CodeGenModule!.customAttributeCacheGenerator;
             var relativeIndex = rangeIndex - CustomAttributeAssembly.Definition.Image.customAttributeStart;
             var ptrToAddress = baseAddress + (ulong) relativeIndex * AppContext.Binary.PointerSize;
-            generatorPtr = AppContext.Binary.ReadClassAtVirtualAddress<ulong>(ptrToAddress);
+            generatorPtr = AppContext.Binary.ReadPointerAtVirtualAddress(ptrToAddress);
         }
 
         if (!AppContext.Binary.TryMapVirtualAddressToRaw(generatorPtr, out _))

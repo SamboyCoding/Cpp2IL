@@ -100,7 +100,7 @@ namespace LibCpp2IL
             if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(address, out var raw) || raw >= LibCpp2IlMain.Binary.RawLength)
                 return null;
             
-            var encoded = LibCpp2IlMain.Binary.ReadClassAtVirtualAddress<ulong>(address);
+            var encoded = LibCpp2IlMain.Binary.ReadPointerAtVirtualAddress(address);
             var metadataUsage = MetadataUsage.DecodeMetadataUsage(encoded, address);
 
             if (metadataUsage?.IsValid != true)

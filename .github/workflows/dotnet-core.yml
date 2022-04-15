@@ -30,7 +30,6 @@ jobs:
         with:
           script: |
             core.setOutput("extension", "${{ matrix.runtimeIdentifier }}" === "win-x64" ? ".exe" : "");
-            core.setOutput("extraArgs", "${{ matrix.project}}" === "Cpp2IL.Gui" ? "/p:BuiltInComInteropSupport=true" : "");
             
             let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
             let runNumber = "${{ github.run_number }}"; 
@@ -47,7 +46,7 @@ jobs:
         run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Build
         working-directory: ./${{ matrix.project }}/
-        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:IncludeNativeLibrariesForSelfExtract=true /p:PublishTrimmed=true /p:PublishSingleFile=true /p:EnableCompressionInSingleFile=true ${{ steps.set-vars.outputs.extraArgs }} /p:TrimMode=link /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
+        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
       - name: Upload Executable
         uses: actions/upload-artifact@v3
         with:

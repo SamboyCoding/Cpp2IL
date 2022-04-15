@@ -7,7 +7,7 @@ namespace LibCpp2IL.BinaryStructures
         public ulong pointerCount;
         public ulong pointerStart;
         
-        public ulong[] Pointers => LibCpp2IlMain.Binary!.GetPointers(pointerStart, (long) pointerCount);
+        public ulong[] Pointers => LibCpp2IlMain.Binary!.ReadNUintArrayAtVirtualAddress(pointerStart, (long) pointerCount);
 
         public Il2CppType[] Types => Pointers.Select(LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer).ToArray();
         

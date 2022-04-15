@@ -1,13 +1,13 @@
 ﻿namespace LibCpp2IL.Elf
 {
-    public class ElfDynamicSymbol32 : IElfDynamicSymbol
+    public class ElfDynamicSymbol32 : ReadableClass, IElfDynamicSymbol
     {
-        public uint _internalNameIndex;
-        public uint _internalValue;
-        public uint _internalSize;
-        public byte _internalInfo;
-        public byte _internalOther;
-        public ushort _internalShndx;
+        private uint _internalNameIndex;
+        private uint _internalValue;
+        private uint _internalSize;
+        private byte _internalInfo;
+        private byte _internalOther;
+        private ushort _internalShndx;
 
         public uint NameOffset => _internalNameIndex;
         public ulong Value => _internalValue;
@@ -16,5 +16,15 @@
         public byte Other => _internalOther;
         public ushort Shndx => _internalShndx;
         public ElfDynamicSymbolType Type  => (ElfDynamicSymbolType) (Info & 0xF);
+        
+        public override void Read(ClassReadingBinaryReader reader)
+        {
+            _internalNameIndex = reader.ReadUInt32();
+            _internalValue = reader.ReadUInt32();
+            _internalSize = reader.ReadUInt32();
+            _internalInfo = reader.ReadByte();
+            _internalOther = reader.ReadByte();
+            _internalShndx = reader.ReadUInt16();
+        }
     }
 }

@@ -1,11 +1,17 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <OutputType>Exe</OutputType>
-        <TargetFramework>net6.0</TargetFramework>
-        <Nullable>enable</Nullable>
-        <VersionPrefix>2022.1.0</VersionPrefix>
+        <BuiltInComInteropSupport>true</BuiltInComInteropSupport> <!--Needed for avalonia-->
         <Configurations>Debug;Release</Configurations>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+        <Nullable>enable</Nullable>
+        <OutputType>Exe</OutputType>
         <Platforms>AnyCPU;x64</Platforms>
+        <PublishSingleFile>true</PublishSingleFile>
+        <PublishTrimmed>true</PublishTrimmed>
+        <TargetFramework>net6.0</TargetFramework>
+        <TrimMode>link</TrimMode>
+        <VersionPrefix>2022.1.0</VersionPrefix>
     </PropertyGroup>
     <ItemGroup>
         <Folder Include="Models\" />

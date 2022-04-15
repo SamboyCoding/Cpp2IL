@@ -174,10 +174,11 @@ namespace Cpp2IL.Core
         {
             MiscUtils.Init();
             LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList().ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
-            
-            Logger.Info("Creating application model...");
+
+            var start = DateTime.Now;
+            Logger.InfoNewline("Creating application model...");
             CurrentAppContext = new(LibCpp2IlMain.Binary, LibCpp2IlMain.TheMetadata!, LibCpp2IlMain.MetadataVersion);
-            Logger.InfoNewline("Done.");
+            Logger.InfoNewline($"Application model created in {(DateTime.Now - start).TotalMilliseconds}ms");
         }
 
         private static void ResetInternalState()

@@ -117,7 +117,7 @@ namespace LibCpp2IL
 
             foreach (var va in vas)
             {
-                var cr = _binary.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(va);
+                var cr = _binary.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(va);
 
                 if ((long) cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count)
                     return va;
@@ -172,7 +172,8 @@ namespace LibCpp2IL
                     //Sanity check the count, which is one pointer back
                     if (pCodegenModules.Count == 1)
                     {
-                        var moduleCount = _binary.ReadClassAtVirtualAddress<int>(pCodegenModules.First() - ptrSize);
+                        _binary.Position = _binary.MapVirtualAddressToRaw(pCodegenModules.First() - ptrSize);
+                        var moduleCount = _binary.ReadInt32();
 
                         if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
                             pCodegenModules = new();
@@ -207,7 +208,7 @@ namespace LibCpp2IL
                 var address = pCodegenModule - bytesToGoBack;
                 LibLogger.Verbose($"\t\t\tConsidering potential code registration at 0x{address:X}...");
 
-                var codeReg = LibCpp2IlMain.Binary!.ReadClassAtVirtualAddress<Il2CppCodeRegistration>(address);
+                var codeReg = LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(address);
 
                 var success = ValidateCodeRegistration(codeReg, fieldsByName);
 
@@ -271,7 +272,7 @@ namespace LibCpp2IL
 
             foreach (var potentialMetaRegPointer in potentialMetaRegPointers)
             {
-                var mr = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
+                var mr = _binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
 
                 if (mr.metadataUsagesCount == (ulong) LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length)
                 {
@@ -301,7 +302,7 @@ namespace LibCpp2IL
             var mrFieldCount = sizeOfMr / ptrSize;
             foreach (var va in possibleMetadataUsages)
             {
-                var mrWords = _binary.ReadClassArrayAtVirtualAddress<ulong>(va, (int) mrFieldCount);
+                var mrWords = _binary.ReadNUintArrayAtVirtualAddress(va, (int) mrFieldCount);
 
                 // Even field indices are counts, odd field indices are pointers
                 var ok = true;
@@ -334,7 +335,7 @@ namespace LibCpp2IL
 
                 if (ok)
                 {
-                    var metaReg = _binary.ReadClassAtVirtualAddress<Il2CppMetadataRegistration>(va);
+                    var metaReg = _binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(va);
                     if (LibCpp2IlMain.MetadataVersion >= 27f && (metaReg.metadataUsagesCount != 0 || metaReg.metadataUsages != 0))
                     {
                         //Too many metadata usages - should be 0 on v27

@@ -4,6 +4,7 @@ using System.Linq;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Il2CppApiFunctions;
+using Cpp2IL.Core.Logging;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 
@@ -76,6 +77,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
         foreach (var assemblyDefinition in Metadata.AssemblyDefinitions)
         {
+            Logger.VerboseNewline($"\tProcessing assembly: {assemblyDefinition.AssemblyName.Name}...");
             var aac = new AssemblyAnalysisContext(assemblyDefinition, this);
             Assemblies.Add(aac);
             AssembliesByName[assemblyDefinition.AssemblyName.Name] = aac;

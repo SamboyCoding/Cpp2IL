@@ -42,20 +42,18 @@ namespace LibCpp2IL.PE
             if (ReadUInt32() != 0x00004550) //Signature
                 throw new FormatException("ERROR: Invalid PE file signature");
 
-            var fileHeader = ReadClassAtRawAddr<FileHeader>(-1);
+            var fileHeader = ReadReadable<FileHeader>();
             if (fileHeader.Machine == 0x014c) //Intel 386
             {
                 is32Bit = true;
                 InstructionSetId = DefaultInstructionSets.X86_32;
-                peOptionalHeader32 = ReadClassAtRawAddr<OptionalHeader>(-1);
-                peOptionalHeader32.DataDirectory = ReadClassArrayAtRawAddr<DataDirectory>(-1, peOptionalHeader32.NumberOfRvaAndSizes);
+                peOptionalHeader32 = ReadReadable<OptionalHeader>();
                 peImageBase = peOptionalHeader32.ImageBase;
             }
             else if (fileHeader.Machine == 0x8664) //AMD64
             {
                 InstructionSetId = DefaultInstructionSets.X86_64;
-                peOptionalHeader64 = ReadClassAtRawAddr<OptionalHeader64>(-1);
-                peOptionalHeader64.DataDirectory = ReadClassArrayAtRawAddr<DataDirectory>(-1, peOptionalHeader64.NumberOfRvaAndSizes);
+                peOptionalHeader64 = ReadReadable<OptionalHeader64>();
                 peImageBase = peOptionalHeader64.ImageBase;
             }
             else
@@ -63,23 +61,7 @@ namespace LibCpp2IL.PE
                 throw new NotSupportedException("ERROR: Unsupported machine.");
             }
 
-            peSectionHeaders = new SectionHeader[fileHeader.NumberOfSections];
-            for (var i = 0; i < fileHeader.NumberOfSections; i++)
-            {
-                peSectionHeaders[i] = new SectionHeader
-                {
-                    Name = Encoding.UTF8.GetString(ReadBytes(8)).Trim('\0'),
-                    VirtualSize = ReadUInt32(),
-                    VirtualAddress = ReadUInt32(),
-                    SizeOfRawData = ReadUInt32(),
-                    PointerToRawData = ReadUInt32(),
-                    PointerToRelocations = ReadUInt32(),
-                    PointerToLinenumbers = ReadUInt32(),
-                    NumberOfRelocations = ReadUInt16(),
-                    NumberOfLinenumbers = ReadUInt16(),
-                    Characteristics = ReadUInt32()
-                };
-            }
+            peSectionHeaders = ReadReadableArrayAtRawAddr<SectionHeader>(-1, fileHeader.NumberOfSections);
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             LibLogger.VerboseNewline($"\t\tImage Base at 0x{peImageBase:X}");
@@ -139,7 +121,7 @@ namespace LibCpp2IL.PE
             try
             {
                 //Non-virtual addresses for these
-                var directoryEntryExports = ReadClassAtVirtualAddress<PeDirectoryEntryExport>(addrExportTable + peImageBase);
+                var directoryEntryExports = ReadReadableAtVirtualAddress<PeDirectoryEntryExport>(addrExportTable + peImageBase);
 
                 peExportedFunctionPointers = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportTable + peImageBase, directoryEntryExports.NumberOfExports);
                 peExportedFunctionNamePtrs = ReadClassArrayAtVirtualAddress<uint>(directoryEntryExports.RawAddressOfExportNameTable + peImageBase, directoryEntryExports.NumberOfExportNames);
