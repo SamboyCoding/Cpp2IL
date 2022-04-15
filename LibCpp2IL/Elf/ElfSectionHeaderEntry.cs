@@ -20,13 +20,13 @@
             NameOffset = reader.ReadUInt32();
             Type = (ElfSectionEntryType) reader.ReadUInt32();
             Flags = (ElfSectionHeaderFlags) reader.ReadNInt();
-            VirtualAddress = reader.ReadUInt64();
-            RawAddress = reader.ReadUInt64();
-            Size = reader.ReadUInt64();
+            VirtualAddress = reader.ReadNUint();
+            RawAddress = reader.ReadNUint();
+            Size = reader.ReadNUint();
             LinkedSectionIndex = reader.ReadInt32();
             SectionInfo = reader.ReadInt32();
-            Alignment = reader.ReadInt64();
-            EntrySize = reader.ReadInt64();
+            Alignment = reader.ReadNInt();
+            EntrySize = reader.ReadNInt();
         }
     }
 }
