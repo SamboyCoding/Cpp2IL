@@ -59,7 +59,7 @@ namespace Cpp2IL.Core
             if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
             {
                 var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
-                
+
                 Logger.VerboseNewline($"Running on windows and have unity player, so using file version: {unityVer.FileMajorPart}.{unityVer.FileMinorPart}.{unityVer.FileBuildPart}");
 
                 return new[] {unityVer.FileMajorPart, unityVer.FileMinorPart, unityVer.FileBuildPart};
@@ -420,14 +420,18 @@ namespace Cpp2IL.Core
                 if (reference != null)
                     assembly.MainModule.AssemblyReferences.Remove(reference);
 
+#if !DEBUG
                 try
                 {
-                    assembly.Write(dllPath);
+#endif
+                assembly.Write(dllPath);
+#if !DEBUG
                 }
                 catch (Exception e)
                 {
                     throw new DllSaveException(dllPath, e);
                 }
+#endif
             }
         }
 

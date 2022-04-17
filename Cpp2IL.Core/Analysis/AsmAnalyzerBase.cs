@@ -128,8 +128,14 @@ namespace Cpp2IL.Core.Analysis
                             varType = git2.Resolve();
                         if (varType is GenericInstanceType git)
                             varType = processor.ImportRecursive(git, MethodDefinition);
-                        if (varType is ArrayType arr && MiscUtils.GetUltimateElementType(arr).IsGenericParameter)
-                            throw new InvalidOperationException();
+                        if (varType is ArrayType arr)
+                        {
+                            if(MiscUtils.GetUltimateElementType(arr).IsGenericParameter)
+                                throw new InvalidOperationException();
+                            if(arr.ElementType is GenericInstanceType arrGit && arrGit.HasAnyGenericParams())
+                                varType = arrGit.Resolve().MakeArrayType();
+                        }
+
                         if(varType is ArrayType { ElementType: GenericInstanceType git3})
                             varType = processor.ImportRecursive(git3, MethodDefinition).MakeArrayType();
                         

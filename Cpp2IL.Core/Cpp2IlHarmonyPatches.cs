@@ -15,6 +15,9 @@ namespace Cpp2IL.Core
     {
         internal static void Install()
         {
+#if DEBUG
+            return;
+#endif
             Logger.InfoNewline("Patching Cecil for better error messages...", "Harmony");
 
             Logger.VerboseNewline("\tInitializing harmony instance 'dev.samboy.cpp2il'...", "Harmony");
@@ -25,16 +28,16 @@ namespace Cpp2IL.Core
 
             Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.Cil.CodeWriter:WriteOperand...", "Harmony");
             harmony.Patch(AccessTools.Method("Mono.Cecil.Cil.CodeWriter:WriteOperand"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeWriteOperand)));
-            
+
             Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.MetadataBuilder:AddType...", "Harmony");
             harmony.Patch(AccessTools.Method("Mono.Cecil.MetadataBuilder:AddType"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeAddType)));
-            
+
             Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.MetadataBuilder:AddProperty...", "Harmony");
             harmony.Patch(AccessTools.Method("Mono.Cecil.MetadataBuilder:AddProperty"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeAddProperty)));
-            
+
             Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.MetadataBuilder:GetCustomAttributeSignature...", "Harmony");
             harmony.Patch(AccessTools.Method("Mono.Cecil.MetadataBuilder:GetCustomAttributeSignature"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeGetCustomAttributeSignature)));
-            
+
             Logger.VerboseNewline("\tAdding finalizer to Mono.Cecil.SignatureWriter:WriteGenericInstanceSignature...", "Harmony");
             harmony.Patch(AccessTools.Method("Mono.Cecil.SignatureWriter:WriteGenericInstanceSignature"), finalizer: new(typeof(Cpp2IlHarmonyPatches), nameof(FinalizeWriteGenericInstanceSignature)));
 
@@ -64,7 +67,7 @@ namespace Cpp2IL.Core
 
             return null;
         }
-        
+
         public static Exception? FinalizeAddProperty(PropertyDefinition property, Exception? __exception)
         {
             if (__exception != null)
@@ -72,7 +75,7 @@ namespace Cpp2IL.Core
 
             return null;
         }
-        
+
         public static Exception? FinalizeGetCustomAttributeSignature(CustomAttribute attribute, Exception? __exception)
         {
             if (__exception != null)
@@ -80,7 +83,7 @@ namespace Cpp2IL.Core
 
             return null;
         }
-        
+
         public static Exception? FinalizeWriteGenericInstanceSignature(IGenericInstance instance, Exception? __exception)
         {
             if (__exception != null)
