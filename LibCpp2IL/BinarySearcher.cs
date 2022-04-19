@@ -206,6 +206,13 @@ namespace LibCpp2IL
             {
                 //...and subtract that from our pointer.
                 var address = pCodegenModule - bytesToGoBack;
+
+                if (pCodegenModules.Count == 1)
+                {
+                    LibLogger.Verbose($"\t\t\tOnly found one codegen module pointer, so assuming it's correct and returning pCodeReg = 0x{address:X}");
+                    return address;
+                }
+                
                 LibLogger.Verbose($"\t\t\tConsidering potential code registration at 0x{address:X}...");
 
                 var codeReg = LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(address);
@@ -234,7 +241,8 @@ namespace LibCpp2IL
 
                 if (keyValuePair.Key.EndsWith("count", StringComparison.OrdinalIgnoreCase))
                 {
-                    if (fieldValue > 0x60_000)
+                    //19 Apr 2022: Upped to 0x70000 due to Zenith (which has genericMethodPointersCount = 0x6007B)
+                    if (fieldValue > 0x70_000)
                     {
                         LibLogger.VerboseNewline($"Rejected due to unreasonable count field 0x{fieldValue:X} for field {keyValuePair.Key}");
                         success = false;
