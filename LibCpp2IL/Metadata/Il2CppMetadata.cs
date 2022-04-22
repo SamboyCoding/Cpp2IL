@@ -387,8 +387,8 @@ namespace LibCpp2IL.Metadata
         public string GetStringLiteralFromIndex(uint index)
         {
             var stringLiteral = stringLiterals[index];
-            Position = metadataHeader.stringLiteralDataOffset + stringLiteral.dataIndex;
-            return Encoding.UTF8.GetString(ReadBytes((int) stringLiteral.length));
+            
+            return Encoding.UTF8.GetString(ReadByteArrayAtRawAddress(metadataHeader.stringLiteralDataOffset + stringLiteral.dataIndex, (int) stringLiteral.length));
         }
     }
 }
