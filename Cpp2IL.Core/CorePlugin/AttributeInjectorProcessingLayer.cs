@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
@@ -39,6 +40,9 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             foreach (var f in assemblyAnalysisContext.Types.SelectMany(t => t.Fields))
             {
+                if (f.DeclaringType.Name == "FIFJGNHHBKJ")
+                    Debugger.Break();
+
                 if (f.CustomAttributes == null || f.BackingData == null || f.IsStatic)
                     continue;
 
@@ -116,10 +120,25 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
     private static void InjectAttributeAttribute(ApplicationAnalysisContext appContext)
     {
-        if(LibCpp2IlMain.MetadataVersion >= 29f)
+        if (LibCpp2IlMain.MetadataVersion >= 29f)
+        {
             //All attributes should be fully serializable anyway, as they're stored in metadata
+            //However, we still need to read them all
+            var toAnalyze = appContext.Assemblies.SelectMany(ctx => ctx.Types)
+                .SelectMany(ctx =>
+                    ctx.Methods.SelectMany(m => m.Parameters.Cast<HasCustomAttributes>().Append(m)
+                        .Concat(ctx.Fields)
+                        .Concat(ctx.Events)
+                        .Concat(ctx.Properties)
+                        .Append(ctx)));
+            
+            foreach (var hasCustomAttributes in toAnalyze) 
+                hasCustomAttributes.AnalyzeCustomAttributeData();
+
+            // MiscUtils.ExecuteParallel(toAnalyze, ctx => ctx.AnalyzeCustomAttributeData());
             return;
-        
+        }
+
         var attributeAttributes = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "AttributeAttribute", appContext.SystemTypes.SystemAttributeType);
 
         var attributeNameFields = attributeAttributes.InjectFieldToAllAssemblies("Name", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);

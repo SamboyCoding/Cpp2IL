@@ -209,7 +209,7 @@ namespace LibCpp2IL
 
                 if (pCodegenModules.Count == 1)
                 {
-                    LibLogger.Verbose($"\t\t\tOnly found one codegen module pointer, so assuming it's correct and returning pCodeReg = 0x{address:X}");
+                    LibLogger.VerboseNewline($"\t\t\tOnly found one codegen module pointer, so assuming it's correct and returning pCodeReg = 0x{address:X}");
                     return address;
                 }
                 
