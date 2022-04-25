@@ -16,7 +16,7 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     public Il2CppAssemblyDefinition Definition;
     
     /// <summary>
-    /// The analysis context objects for types contained within the assembly.
+    /// The analysis context objects for all types contained within the assembly, including those nested within a parent type.
     /// </summary>
     public List<TypeAnalysisContext> Types = new();
 

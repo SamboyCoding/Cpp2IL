@@ -40,9 +40,6 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             foreach (var f in assemblyAnalysisContext.Types.SelectMany(t => t.Fields))
             {
-                if (f.DeclaringType.Name == "FIFJGNHHBKJ")
-                    Debugger.Break();
-
                 if (f.CustomAttributes == null || f.BackingData == null || f.IsStatic)
                     continue;
 
@@ -125,14 +122,14 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
             //All attributes should be fully serializable anyway, as they're stored in metadata
             //However, we still need to read them all
             var toAnalyze = appContext.Assemblies.SelectMany(ctx => ctx.Types)
-                .SelectMany(ctx =>
-                    ctx.Methods.SelectMany(m => m.Parameters.Cast<HasCustomAttributes>().Append(m)
-                        .Concat(ctx.Fields)
-                        .Concat(ctx.Events)
-                        .Concat(ctx.Properties)
-                        .Append(ctx)));
-            
-            foreach (var hasCustomAttributes in toAnalyze) 
+                .SelectMany(ctx => ctx.Methods
+                    .SelectMany(m => m.Parameters.Cast<HasCustomAttributes>().Append(m))
+                    .Concat(ctx.Fields)
+                    .Concat(ctx.Events)
+                    .Concat(ctx.Properties)
+                    .Append(ctx));
+
+            foreach (var hasCustomAttributes in toAnalyze)
                 hasCustomAttributes.AnalyzeCustomAttributeData();
 
             // MiscUtils.ExecuteParallel(toAnalyze, ctx => ctx.AnalyzeCustomAttributeData());
