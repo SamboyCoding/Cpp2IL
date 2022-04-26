@@ -374,5 +374,7 @@ namespace LibCpp2IL
             CachedFields[t] = ret = t.GetFields();
             return ret;
         }
+
+        public ulong ReadNUint() => is32Bit ? ReadUInt32() : ReadUInt64();
     }
 }

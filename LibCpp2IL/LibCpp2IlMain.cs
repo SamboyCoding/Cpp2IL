@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
+using LibCpp2IL.MachO;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.NintendoSwitch;
 using LibCpp2IL.Reflection;
@@ -180,6 +181,11 @@ namespace LibCpp2IL
                 var wasm = new WasmFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
                 Binary = wasm;
                 (codereg, metareg) = wasm.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
+            } else if (BitConverter.ToUInt32(binaryBytes, 0) is 0xFEEDFACE or 0xFEEDFACF)
+            {
+                var macho = new MachOFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
+                Binary = macho;
+                (codereg, metareg) = macho.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
             }
             else
             {
