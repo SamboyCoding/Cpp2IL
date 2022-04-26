@@ -267,7 +267,9 @@ namespace LibCpp2IL
 
         protected internal byte[] ReadByteArrayAtRawAddressNoLock(long offset, int count)
         {
-            Position = offset;
+            if(offset != -1)
+                Position = offset;
+            
             var ret = new byte[count];
             Read(ret, 0, count);
 

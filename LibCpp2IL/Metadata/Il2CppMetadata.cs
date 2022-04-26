@@ -390,7 +390,10 @@ namespace LibCpp2IL.Metadata
             idx = -1;
 
             if (LibCpp2IlMain.MetadataVersion <= 24f)
+            {
+                idx = customAttributeIndex;
                 return attributeTypeRanges[customAttributeIndex];
+            }
 
             var target = new Il2CppCustomAttributeTypeRange {token = token};
 
