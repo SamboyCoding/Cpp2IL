@@ -21,8 +21,9 @@ namespace LibCpp2IL.MachO
 
             switch (Command)
             {
+                case LoadCommandId.LC_SEGMENT:
                 case LoadCommandId.LC_SEGMENT_64:
-                    CommandData = reader.ReadReadableHereNoLock<MachOSegmentCommand64>();
+                    CommandData = reader.ReadReadableHereNoLock<MachOSegmentCommand>();
                     break;
                 default:
                     UnknownCommandData = reader.ReadByteArrayAtRawAddressNoLock(-1, (int) CommandSize - 8); // -8 because we've already read the 8 bytes of the header
