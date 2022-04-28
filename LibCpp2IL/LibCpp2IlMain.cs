@@ -172,7 +172,7 @@ namespace LibCpp2IL
             }
             else if (BitConverter.ToInt32(binaryBytes, 0) == 0x304F534E) //NSO0
             {
-                var nso = new NsoFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, false, true), TheMetadata.maxMetadataUsages);
+                var nso = new NsoFile(new MemoryStream(binaryBytes, 0, binaryBytes.Length, true, true), TheMetadata.maxMetadataUsages);
                 nso = nso.Decompress();
                 Binary = nso;
                 (codereg, metareg) = nso.PlusSearch(TheMetadata.methodDefs.Count(x => x.methodIndex >= 0), TheMetadata.typeDefs.Length);
