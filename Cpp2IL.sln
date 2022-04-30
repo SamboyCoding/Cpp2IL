@@ -27,8 +27,6 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpTreeView", "SharpTreeV
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Arm64Disassembler", "Arm64Disassembler\Arm64Disassembler.csproj", "{D81354E1-2E2E-4CBA-8138-60FD93D3EA04}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "testproj", "testproj\testproj.csproj", "{4495F3A4-88AC-4016-B70E-25E3AEEFAFD8}"
-EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
