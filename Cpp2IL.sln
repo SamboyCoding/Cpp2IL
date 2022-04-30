@@ -25,6 +25,10 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Gui", "Cpp2IL.Gui\Cp
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SharpTreeView", "SharpTreeView\SharpTreeView.csproj", "{50F9E14E-B328-488E-9280-9FD6A14B0A9F}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Arm64Disassembler", "Arm64Disassembler\Arm64Disassembler.csproj", "{D81354E1-2E2E-4CBA-8138-60FD93D3EA04}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "testproj", "testproj\testproj.csproj", "{4495F3A4-88AC-4016-B70E-25E3AEEFAFD8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -59,5 +63,13 @@ Global
 		{50F9E14E-B328-488E-9280-9FD6A14B0A9F}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{50F9E14E-B328-488E-9280-9FD6A14B0A9F}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{50F9E14E-B328-488E-9280-9FD6A14B0A9F}.Release|Any CPU.Build.0 = Release|Any CPU
+		{D81354E1-2E2E-4CBA-8138-60FD93D3EA04}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{D81354E1-2E2E-4CBA-8138-60FD93D3EA04}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{D81354E1-2E2E-4CBA-8138-60FD93D3EA04}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{D81354E1-2E2E-4CBA-8138-60FD93D3EA04}.Release|Any CPU.Build.0 = Release|Any CPU
+		{4495F3A4-88AC-4016-B70E-25E3AEEFAFD8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{4495F3A4-88AC-4016-B70E-25E3AEEFAFD8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{4495F3A4-88AC-4016-B70E-25E3AEEFAFD8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{4495F3A4-88AC-4016-B70E-25E3AEEFAFD8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

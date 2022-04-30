@@ -27,6 +27,9 @@ WasmDisassembler/bin/
 SharpTreeView/bin/
 SharpTreeView/obj/
 
+/Arm64Disassembler/bin/
+/Arm64Disassembler/obj/
+
 .vs
 
 *.user

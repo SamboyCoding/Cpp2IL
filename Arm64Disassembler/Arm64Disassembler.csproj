@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <LangVersion>10</LangVersion>
+        <Nullable>enable</Nullable>
+        <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference Include="IndexRange" Version="1.0.2" />
+      <PackageReference Include="System.Memory" Version="4.5.4" />
+    </ItemGroup>
+
+</Project>
