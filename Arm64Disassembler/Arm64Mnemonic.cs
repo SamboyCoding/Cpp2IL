@@ -4,5 +4,6 @@ public enum Arm64Mnemonic
 {
     INVALID,
     LDR,
-    STR,
+    RET,
+    STR
 }

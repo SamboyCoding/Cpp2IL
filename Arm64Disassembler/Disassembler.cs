@@ -25,7 +25,7 @@ public static class Disassembler
     public static Arm64Instruction DisassembleSingleInstruction(uint instruction, int offset = 0)
     {
         //Top bit splits into reserved/normal instruction
-        var isReserved = (instruction >> 31) == 0;
+        var isReserved = instruction >> 31 == 0;
         if(isReserved)
             throw new($"Encountered reserved instruction (most-significant bit not set) at offset {offset}: 0x{instruction:X}");
 
@@ -95,6 +95,50 @@ public static class Disassembler
         var op0 = (instruction >> 29) & 0b111; //Bits 29-31
         var op1 = (instruction >> 12) & 0b11_1111_1111_1111; //Bits 12-25
         var op2 = instruction & 0b1_1111; //Bits 0-4
+
+        if (op0 == 0b010)
+        {
+            //Conditional branch - immediate
+            return Arm64Branches.ConditionalBranchImmediate(instruction);
+        }
+
+        if ((op0 & 0b11) == 0b00)
+        {
+            //x00 -> unconditional branch, immediate
+            return Arm64Branches.UnconditionalBranchImmediate(instruction);
+        }
+        
+        if((op0 & 0b11) == 0b01)
+        {
+            //x01 -> compare and branch or test and branch, depending on high bit of op1
+            if(op1 >> 13 == 0b1)
+            {
+                //Test and branch
+                return Arm64Branches.TestAndBranch(instruction);
+            }
+
+            //Compare and branch
+            return Arm64Branches.CompareAndBranch(instruction);
+        }
+        
+        //What's left should be the 110 family - the majority of these instructions
+        //In theory, checking only op1 is enough, as each subcategory has a unique op1 value,
+        //but the Hints subcategory also stipulates that op2 should be all 1s - and in fact is the only use of op2. Seems a little redundant.
+        
+        //Sanity check we are actually 010
+        if(op0 != 0b110)
+        {
+            throw new Exception($"Branch/Exception/Sys Instruction: Unexpected op0 value: {op0}");
+        }
+        
+        //There's also one more category of branch instruction here, so let's get that out of the way:
+        if (op1 >> 13 == 0b1)
+        {
+            //Unconditional branch - register
+            return Arm64Branches.UnconditionalBranchRegister(instruction);
+        }
+        
+        //Everything else falls into some category of system instruction, hints, exceptions, barriers, or PSTATE instruction
         
         return default;
     }
