@@ -47,7 +47,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName
 
     protected override int CustomAttributeIndex => Definition!.CustomAttributeIndex;
 
-    protected internal  override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
+    public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
 
     public override string DefaultName => Definition?.Name! ?? throw new("Subclasses of TypeAnalysisContext must override DefaultName");
 

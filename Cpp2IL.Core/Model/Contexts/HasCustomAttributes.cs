@@ -58,7 +58,7 @@ public abstract class HasCustomAttributes : HasToken
     /// <summary>
     /// Returns this member's assembly context for use in custom attribute reconstruction.
     /// </summary>
-    protected internal abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
+    public abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
     
     public abstract string CustomAttributeOwnerName { get; }
 

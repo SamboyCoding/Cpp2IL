@@ -22,7 +22,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName
     
     protected override int CustomAttributeIndex => BackingData?.Field.customAttributeIndex ?? -1;
 
-    protected internal  override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
+    public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
     public override string DefaultName => BackingData?.Field.Name!;
 

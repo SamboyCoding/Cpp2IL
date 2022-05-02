@@ -127,30 +127,6 @@ namespace Cpp2IL.Core.Extensions
             return arr[i];
         }
 
-        public static bool TryPeek<T>(this Stack<T> stack, [NotNullWhen(true)] out T? result) where T : class
-        {
-            if (stack.Count == 0)
-            {
-                result = default;
-                return false;
-            }
-
-            result = stack.Peek();
-            return true;
-        }
-        
-        public static bool TryPop<T>(this Stack<T> stack, [NotNullWhen(true)] out T? result) where T : class
-        {
-            if (stack.Count == 0)
-            {
-                result = default;
-                return false;
-            }
-
-            result = stack.Pop();
-            return true;
-        }
-        
         public static bool IsImmediate(this OpKind opKind) => opKind is >= OpKind.Immediate8 and <= OpKind.Immediate32to64;
         
         
