@@ -26,7 +26,7 @@ namespace LibCpp2IL.Metadata
         private Il2CppFieldDefaultValue[] fieldDefaultValues;
         private Il2CppParameterDefaultValue[] parameterDefaultValues;
         public Il2CppPropertyDefinition[] propertyDefs;
-        public Il2CppCustomAttributeTypeRange[] attributeTypeRanges;
+        public Il2CppCustomAttributeTypeRange[] attributeTypeRanges; //Pre-29
         private Il2CppStringLiteral[] stringLiterals;
         public Il2CppMetadataUsageList[] metadataUsageLists;
         private Il2CppMetadataUsagePair[] metadataUsagePairs;

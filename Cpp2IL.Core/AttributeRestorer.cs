@@ -71,7 +71,7 @@ namespace Cpp2IL.Core
 
             SharedState.FieldsByType[DummyTypeDefForAttributeList] = new List<FieldInType>();
             
-            _sortedTypeRangeList = LibCpp2IlMain.TheMetadata!.attributeTypeRanges.ToList();
+            _sortedTypeRangeList = LibCpp2IlMain.TheMetadata!.attributeTypeRanges?.ToList() ?? new();
             _sortedTypeRangeList.SortByExtractedKey(r => r.token);
         }
 
@@ -131,6 +131,16 @@ namespace Cpp2IL.Core
 
                 GetCustomAttributesByAttributeIndex<T>(imageDef, methodDef.customAttributeIndex, methodDef.token, typeDefinition.Module, keyFunctionAddresses, methodDef.DeclaringType!.FullName + "::" + methodDefinition.FullName)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
+                
+                var ipd = methodDef.InternalParameterData!;
+                for (var i = 0; i < methodDef.parameterCount; i++)
+                {
+                    var paramDef = ipd[i];
+                    var paramDefinition = methodDefinition.Parameters[i];
+
+                    GetCustomAttributesByAttributeIndex<T>(imageDef, paramDef.customAttributeIndex, paramDef.token, typeDefinition.Module, keyFunctionAddresses, $"Parameter {paramDefinition.Name} of {methodDefinition.FullName}")
+                        .ForEach(attribute => paramDefinition.CustomAttributes.Add(attribute));
+                }
             }
 
             //Apply custom attributes to properties

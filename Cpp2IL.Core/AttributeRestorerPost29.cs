@@ -46,6 +46,16 @@ namespace Cpp2IL.Core
 
                 GetCustomAttributesByAttributeIndex(imageDef, typeDefinition.Module, methodDef.token)
                     .ForEach(attribute => methodDefinition.CustomAttributes.Add(attribute));
+
+                var ipd = methodDef.InternalParameterData!;
+                for (var i = 0; i < methodDef.parameterCount; i++)
+                {
+                    var paramDef = ipd[i];
+                    var paramDefinition = methodDefinition.Parameters[i];
+
+                    GetCustomAttributesByAttributeIndex(imageDef, typeDefinition.Module, paramDef.token)
+                        .ForEach(attribute => paramDefinition.CustomAttributes.Add(attribute));
+                }
             }
 
             //Apply custom attributes to properties
@@ -137,7 +147,7 @@ namespace Cpp2IL.Core
                 for (var i = 0; i < numCtorArgs; i++)
                 {
                     var ctorParam = managedConstructor.Parameters[i];
-                    
+
                     var val = ReadBlob(pos, out var ctorArgBytesRead, out var typeReference);
                     bytesRead += ctorArgBytesRead;
                     pos += ctorArgBytesRead;
@@ -235,8 +245,12 @@ namespace Cpp2IL.Core
             }
             catch (Exception e)
             {
+#if DEBUG
+                throw;
+#else
                 Logger.WarnNewline($"Failed to parse custom attribute {constructor.DeclaringType!.FullName} due to an exception: {e.GetType()}: {e.Message}");
                 return MakeFallbackAttribute(module, managedConstructor) ?? throw new("Failed to resolve AttributeAttribute type");
+#endif
             }
         }
 
@@ -261,7 +275,7 @@ namespace Cpp2IL.Core
 
                 if (typeDef == null)
                     throw new Exception($"Couldn't resolve type {objectTypeName}");
-                
+
                 list.Add(new CustomAttributeArgument(typeDef, o));
             }
 
@@ -406,9 +420,17 @@ namespace Cpp2IL.Core
                         throw new($"Array elements are different but array element type is {arrayElementType}, not IL2CPP_TYPE_OBJECT");
 
                     //Create a representation our side of the array
+                    
+                    if(arrTypeDef.Resolve().IsEnum)
+                        arrTypeDef = arrTypeDef.Resolve().GetEnumUnderlyingType();
+                    
                     var ourRuntimesArrayElementType = typeof(int).Module.GetType(arrTypeDef.FullName!);
                     if (ourRuntimesArrayElementType == typeof(Type))
                         ourRuntimesArrayElementType = typeof(TypeReference);
+                    
+                    if(ourRuntimesArrayElementType == null)
+                        throw new($"Failed to find type {arrTypeDef.FullName} in corlib module");
+                    
                     var resultArray = Array.CreateInstance(ourRuntimesArrayElementType, arrLength);
 
                     //Read the array
