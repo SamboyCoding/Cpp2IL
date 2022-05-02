@@ -8,43 +8,43 @@ namespace Cpp2IL.Core.Utils.AsmResolver
     public static class TypeDefinitionsAsmResolver
     {
         private static Dictionary<string, TypeDefinition> _primitiveTypeMappings = new();
-        
+
 #pragma warning disable 8618
-        internal static TypeDefinition Boolean;
-        internal static TypeDefinition SByte;
-        internal static TypeDefinition Byte;
-        internal static TypeDefinition Char;
-        internal static TypeDefinition Int16;
-        internal static TypeDefinition UInt16;
-        internal static TypeDefinition Int32;
-        internal static TypeDefinition UInt32;
-        internal static TypeDefinition Int64;
-        internal static TypeDefinition UInt64;
-        internal static TypeDefinition Single;
-        internal static TypeDefinition Double;
-        internal static TypeDefinition IntPtr;
-        internal static TypeDefinition UIntPtr;
+        public static TypeDefinition Boolean;
+        public static TypeDefinition SByte;
+        public static TypeDefinition Byte;
+        public static TypeDefinition Char;
+        public static TypeDefinition Int16;
+        public static TypeDefinition UInt16;
+        public static TypeDefinition Int32;
+        public static TypeDefinition UInt32;
+        public static TypeDefinition Int64;
+        public static TypeDefinition UInt64;
+        public static TypeDefinition Single;
+        public static TypeDefinition Double;
+        public static TypeDefinition IntPtr;
+        public static TypeDefinition UIntPtr;
         
-        internal static TypeDefinition Object;
-        internal static TypeDefinition IConvertible;
-        internal static TypeDefinition ValueType;
-        internal static TypeDefinition Type;
-        internal static TypeDefinition TypedReference;
-        internal static TypeDefinition String;
-        internal static TypeDefinition Array;
-        internal static TypeDefinition IEnumerable;
-        internal static TypeDefinition Exception;
-        internal static TypeDefinition Void;
-        internal static TypeDefinition Attribute;
-        internal static TypeDefinition MethodInfo;
+        public static TypeDefinition Object;
+        public static TypeDefinition IConvertible;
+        public static TypeDefinition ValueType;
+        public static TypeDefinition Type;
+        public static TypeDefinition TypedReference;
+        public static TypeDefinition String;
+        public static TypeDefinition Array;
+        public static TypeDefinition IEnumerable;
+        public static TypeDefinition Exception;
+        public static TypeDefinition Void;
+        public static TypeDefinition Attribute;
+        public static TypeDefinition MethodInfo;
 #pragma warning restore 8618
 
-        internal static void Reset()
+        public static void Reset()
         {
             _primitiveTypeMappings.Clear();
         }
 
-        internal static TypeDefinition? GetPrimitive(string name)
+        public static TypeDefinition? GetPrimitive(string name)
         {
             if (_primitiveTypeMappings.TryGetValue(name, out var ret))
                 return ret;
@@ -52,7 +52,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             return null;
         }
         
-        internal static void CacheNeededTypeDefinitions()
+        public static void CacheNeededTypeDefinitions()
         {
             Object = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Object")!;
             ValueType = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.ValueType")!;

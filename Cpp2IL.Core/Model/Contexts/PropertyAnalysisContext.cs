@@ -12,7 +12,7 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName
     
     protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 
-    protected internal  override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
+    public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
     public override string DefaultName => Definition.Name!;
 

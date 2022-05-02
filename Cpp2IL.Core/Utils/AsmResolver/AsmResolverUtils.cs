@@ -17,8 +17,8 @@ namespace Cpp2IL.Core.Utils.AsmResolver
         private static readonly Dictionary<string, (TypeDefinition typeDefinition, string[] genericParams)?> CachedTypeDefsByName = new();
         private static readonly ConcurrentDictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
 
-        internal static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
-        internal static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
+        public static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
+        public static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
 
         public static TypeDefinition GetPrimitiveTypeDef(Il2CppTypeEnum type) =>
             type switch
