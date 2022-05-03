@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <Authors>Samboy063</Authors>
+        <Company>Samboy063</Company>
+        <Copyright>Copyright © Samboy063 2022</Copyright>
+        <DebugType>embedded</DebugType>
+        <Description>Library for generating somewhat stable names for obfuscated types, based on their content.</Description>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <Nullable>enable</Nullable>
+        <PackageId>StableNameDotNet</PackageId>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl> 
+        <TargetFramework>netstandard2.0</TargetFramework> 
+        <LangVersion>10</LangVersion>
+    </PropertyGroup>
+
+</Project>

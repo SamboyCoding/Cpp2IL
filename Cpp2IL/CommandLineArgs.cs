@@ -32,7 +32,7 @@ namespace Cpp2IL
         [Option("list-processors", HelpText = "List the available processing layers and exit.")]
         public bool ListProcessors { get; set; }
         
-        [Option("use-processor", HelpText = "Specify the ID of a processing layer to use. This argument can appear more than once, in which case layers will be executed in the order they are specified.")]
+        [Option("use-processor", HelpText = "Specify the ID of a processing layer to use. This argument can appear more than once, in which case layers will be executed in the order they are specified.", Separator = ',')]
         public IEnumerable<string> ProcessorsToUse { get; set; } = new List<string>();
         
         [Option("processor-config", HelpText = "Specify a configuration option for one of the processors you have selected to use, in the format key=value. This argument can appear more than once for specifying multiple keys. The configuration options are used as needed by the selected processors.")]

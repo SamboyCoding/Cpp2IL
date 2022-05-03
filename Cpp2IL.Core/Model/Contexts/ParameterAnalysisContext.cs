@@ -2,10 +2,11 @@
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
+using StableNameDotNet.Providers;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class ParameterAnalysisContext : HasCustomAttributesAndName
+public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterInfoProvider
 {
     /// <summary>
     /// The backing il2cpp definition of this parameter. Can be null if the parameter is injected. 
@@ -21,12 +22,12 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName
     /// The method which this parameter belongs to. Cannot be null.
     /// </summary>
     public MethodAnalysisContext DeclaringMethod { get; }
-    
+
     /// <summary>
     /// The il2cpp type of the parameter. Cannot be null.
     /// </summary>
     public virtual Il2CppType ParameterType => Definition?.RawType ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
-    
+
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of ParameterAnalysisContext must provide a customAttributeIndex");
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringMethod.DeclaringType!.DeclaringAssembly;
     public override string DefaultName => Definition?.Name ?? throw new("Subclasses of ParameterAnalysisContext must provide a default name");
@@ -35,7 +36,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName
     /// The human-readable display value of the parameter type.
     /// </summary>
     public string ReadableTypeName => LibCpp2ILUtils.GetTypeReflectionData(ParameterType).ToString();
-    
+
     /// <summary>
     /// The human-readable display value of the parameter, as it would appear in a c# method declaration.
     /// </summary>
@@ -50,7 +51,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName
     /// True if this parameter is passed by reference.
     /// </summary>
     public virtual bool IsRef => ParameterType.Byref == 1 || ParameterAttributes.HasFlag(ParameterAttributes.Out);
-    
+
     /// <summary>
     /// The default value data for this parameter. Null if, and only if, the parameter has no default value. If it has a default value of literally null, this will be non-null and have a data index of -1.
     /// </summary>
@@ -72,4 +73,15 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName
             }
         }
     }
+
+    #region StableNameDotNet implementation
+
+    public ITypeInfoProvider ParameterTypeInfoProvider 
+        => Definition!.RawType!.ThisOrElementIsGenericParam()
+        ? new GenericParameterTypeInfoProviderWrapper(Definition.RawType!.GetGenericParamName())
+        : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition.RawType);
+
+    public string ParameterName => Name;
+
+    #endregion
 }

@@ -35,6 +35,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\LibCpp2IL\LibCpp2IL.csproj" />
+        <ProjectReference Include="..\StableNameDotNet\StableNameDotNet.csproj" />
     </ItemGroup>
 
 </Project>

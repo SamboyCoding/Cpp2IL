@@ -18,6 +18,7 @@ namespace LibCpp2IL.Reflection
         private static readonly Dictionary<Il2CppPropertyDefinition, int> PropertyIndices = new();
 
         private static readonly Dictionary<Il2CppTypeEnum, Il2CppType> PrimitiveTypeCache = new();
+        public static readonly Dictionary<Il2CppTypeEnum, Il2CppTypeDefinition> PrimitiveTypeDefinitions = new();
 
         internal static void ResetCaches()
         {
@@ -31,6 +32,7 @@ namespace LibCpp2IL.Reflection
             FieldIndices.Clear();
             PropertyIndices.Clear();
             PrimitiveTypeCache.Clear();
+            PrimitiveTypeDefinitions.Clear();
         }
 
         internal static void InitCaches()
@@ -45,6 +47,11 @@ namespace LibCpp2IL.Reflection
                 var typeDefinition = LibCpp2IlMain.TheMetadata.typeDefs[i];
 
                 TypeIndices[typeDefinition] = i;
+
+                var type = LibCpp2IlMain.Binary!.AllTypes[typeDefinition.ByvalTypeIndex];
+                
+                if(type.Type.IsIl2CppPrimitive())
+                    PrimitiveTypeDefinitions[type.Type] = typeDefinition;
             }
         }
 

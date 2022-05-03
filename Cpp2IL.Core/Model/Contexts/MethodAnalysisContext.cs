@@ -3,15 +3,16 @@ using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
+using StableNameDotNet.Providers;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
 /// <summary>
 /// Represents one method within the application. Can be analyzed to attempt to reconstruct the function body.
 /// </summary>
-public class MethodAnalysisContext : HasCustomAttributesAndName
+public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProvider
 {
     /// <summary>
     /// The underlying metadata for the method.
@@ -58,7 +59,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
 
     public override string DefaultName => Definition?.Name ?? throw new("Subclasses of MethodAnalysisContext should override DefaultName");
-    
+
     public virtual MethodAttributes Attributes => Definition?.Attributes ?? throw new("Subclasses of MethodAnalysisContext should override Attributes");
 
     public TypeAnalysisContext? InjectedReturnType { get; set; }
@@ -99,10 +100,10 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     public void Analyze()
     {
         ConvertedIsil = AppContext.InstructionSet.GetIsilFromMethod(this);
-        
-        if(ConvertedIsil.Count == 0)
+
+        if (ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
-        
+
         //TODO Build control flow graph from ISIL
 
         // ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
@@ -115,4 +116,16 @@ public class MethodAnalysisContext : HasCustomAttributesAndName
     }
 
     public override string ToString() => $"Method: {Definition?.DeclaringType!.Name}::{Definition?.Name ?? "No definition"}";
+
+    #region StableNameDot implementation
+
+    public ITypeInfoProvider ReturnType =>
+        Definition!.RawReturnType!.ThisOrElementIsGenericParam()
+            ? new GenericParameterTypeInfoProviderWrapper(Definition.RawReturnType!.GetGenericParamName())
+            : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition!.RawReturnType);
+
+    public IEnumerable<IParameterInfoProvider> ParameterInfoProviders => Parameters;
+    public string MethodName => Name;
+
+    #endregion
 }

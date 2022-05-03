@@ -134,9 +134,9 @@ namespace LibCpp2IL
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 {
                     var genericClass = cppAssembly.ReadReadableAtVirtualAddress<Il2CppGenericClass>(type.Data.GenericClass);
-                    var typeDef = metadata.typeDefs[genericClass.TypeDefinitionIndex];
-                    ret = metadata.GetStringFromIndex(typeDef.NameIndex);
-                    var genericInst = cppAssembly.ReadReadableAtVirtualAddress<Il2CppGenericInst>(genericClass.Context.class_inst);
+                    var typeDef = genericClass.TypeDefinition;
+                    ret = typeDef.Name!;
+                    var genericInst = genericClass.Context.ClassInst;
                     ret = ret.Replace($"`{genericInst.pointerCount}", "");
                     ret += GetGenericTypeParamNames(metadata, cppAssembly, genericInst);
                     break;

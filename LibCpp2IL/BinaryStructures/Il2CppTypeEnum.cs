@@ -42,4 +42,12 @@ namespace LibCpp2IL.BinaryStructures
         IL2CPP_TYPE_ENUM = 0x55, /* an enumeration */
         IL2CPP_TYPE_IL2CPP_TYPE_INDEX = 0xFF,  /* an index into IL2CPP type metadata table */
     }
+
+    public static class Il2CppTypeEnumExtensions
+    {
+        public static bool IsIl2CppPrimitive(this Il2CppTypeEnum e)
+        {
+            return e is >= Il2CppTypeEnum.IL2CPP_TYPE_VOID and <= Il2CppTypeEnum.IL2CPP_TYPE_STRING or Il2CppTypeEnum.IL2CPP_TYPE_I or Il2CppTypeEnum.IL2CPP_TYPE_U or Il2CppTypeEnum.IL2CPP_TYPE_OBJECT;
+        }
+    }
 }

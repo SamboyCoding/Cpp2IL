@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Extensions;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -59,7 +60,9 @@ public class AssemblyAnalysisContext : HasCustomAttributes
             if(type.Definition!.NestedTypeCount < 1)
                 continue;
             
-            type.NestedTypes = type.Definition.NestedTypes!.Select(n => GetTypeByFullName(n.FullName!) ?? throw new($"Unable to find nested type by name {n.FullName}")).ToList();
+            type.NestedTypes = type.Definition.NestedTypes!.Select(n => GetTypeByFullName(n.FullName!) ?? throw new($"Unable to find nested type by name {n.FullName}"))
+                .Peek(t => t.DeclaringType = type)
+                .ToList();
         }
     }
 

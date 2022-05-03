@@ -4,8 +4,8 @@ namespace LibCpp2IL.MachO
 {
     public class MachOSection : ReadableClass
     {
-        public string SectionName; // 16 bytes
-        public string ContainingSegmentName; // 16 bytes
+        public string SectionName = "INVALID"; // 16 bytes
+        public string ContainingSegmentName = "INVALID"; // 16 bytes
         
         public ulong Address;
         public ulong Size;

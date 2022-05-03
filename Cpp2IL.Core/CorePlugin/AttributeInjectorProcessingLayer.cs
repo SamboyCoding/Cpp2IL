@@ -189,7 +189,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
                 offsetInBinary = 0;
 
             //Add the 3 fields to the replacement attribute
-            replacementAttribute.Fields.Add(new(nameField, new CustomAttributePrimitiveParameter(attribute.Constructor.DeclaringType!.Name)));
+            replacementAttribute.Fields.Add(new(nameField, new CustomAttributePrimitiveParameter(attribute.Constructor.DeclaringType!.TypeName)));
             replacementAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{generatorRva:X}")));
             replacementAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offsetInBinary:X}")));
 

@@ -41,6 +41,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         
         ProcessingLayerRegistry.Register<AttributeAnalysisProcessingLayer>();
         ProcessingLayerRegistry.Register<AttributeInjectorProcessingLayer>();
+        ProcessingLayerRegistry.Register<StableRenamingProcessingLayer>();
 
         var elapsed = DateTime.Now - start;
         Logger.VerboseNewline($"Core plugin loaded in {elapsed.Ticks} ticks ({elapsed.TotalMilliseconds}ms)", "Core Plugin");

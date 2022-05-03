@@ -21,7 +21,7 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var typeCtx in asmCtx.Types)
         {
-            if (typeCtx.Name == "<Module>")
+            if (typeCtx.TypeName == "<Module>")
                 continue;
 
             var il2CppTypeDef = typeCtx.Definition;
@@ -114,7 +114,7 @@ public static class AsmResolverAssemblyPopulator
     }
 
     private static CustomAttributeNamedArgument FromAnalyzedAttributeField(AssemblyDefinition parentAssembly, CustomAttributeField field)
-        => new(CustomAttributeArgumentMemberType.Field, field.Field.Name, GetTypeSigFromAttributeArg(parentAssembly, field.Value), FromAnalyzedAttributeArgument(parentAssembly, field.Value));
+        => new(CustomAttributeArgumentMemberType.Field, field.Field.FieldName, GetTypeSigFromAttributeArg(parentAssembly, field.Value), FromAnalyzedAttributeArgument(parentAssembly, field.Value));
 
     private static CustomAttributeNamedArgument FromAnalyzedAttributeProperty(AssemblyDefinition parentAssembly, CustomAttributeProperty property)
         => new(CustomAttributeArgumentMemberType.Property, property.Property.Name, GetTypeSigFromAttributeArg(parentAssembly, property.Value), FromAnalyzedAttributeArgument(parentAssembly, property.Value));
@@ -164,7 +164,7 @@ public static class AsmResolverAssemblyPopulator
 
         foreach (var type in asmContext.Types)
         {
-            if(type.Name == "<Module>")
+            if(type.TypeName == "<Module>")
                 continue;
 
             CopyCustomAttributes(type, type.GetExtraData<TypeDefinition>("AsmResolverType")!.CustomAttributes);
@@ -198,7 +198,7 @@ public static class AsmResolverAssemblyPopulator
 
         foreach (var typeContext in asmContext.Types)
         {
-            if (typeContext.Name == "<Module>")
+            if (typeContext.TypeName == "<Module>")
                 continue;
 
             var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
@@ -241,7 +241,7 @@ public static class AsmResolverAssemblyPopulator
             //TODO Perf: Again, like in CopyMethodsInType, make a variant which returns TypeSignatures directly. (Though this is only 3% of execution time)
             var fieldTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, fieldContext.FieldType));
 
-            var managedField = new FieldDefinition(fieldContext.Name, (FieldAttributes) fieldContext.Attributes, fieldTypeSig);
+            var managedField = new FieldDefinition(fieldContext.FieldName, (FieldAttributes) fieldContext.Attributes, fieldTypeSig);
 
             if (fieldInfo != null)
             {
@@ -298,7 +298,7 @@ public static class AsmResolverAssemblyPopulator
            
             var signature = methodCtx.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
 
-            var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes) methodCtx.Attributes, signature);
+            var managedMethod = new MethodDefinition(methodCtx.MethodName, (MethodAttributes) methodCtx.Attributes, signature);
 
             if (methodCtx.Definition != null)
                 managedMethod.ImplAttributes = (MethodImplAttributes) methodCtx.Definition.iflags;

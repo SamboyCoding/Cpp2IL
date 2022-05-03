@@ -121,7 +121,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 
         foreach (var il2CppTypeDefinition in assemblyContext.Types.Where(t => t.Definition?.DeclaringType == null))
         {
-            if(il2CppTypeDefinition.Name != "<Module>")
+            if(il2CppTypeDefinition.TypeName != "<Module>")
                 //We skip module because I've never come across an il2cpp assembly with any top-level functions, and it's simpler to skip it as AsmResolver adds one by default.
                 managedModule.TopLevelTypes.Add(BuildStubType(il2CppTypeDefinition));
         }
@@ -139,7 +139,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         const int defaultAttributes = (int) (TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
         
         //Initialize an empty type definition
-        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes) (typeDef?.Flags ?? defaultAttributes));
+        var ret = new TypeDefinition(typeContext.Namespace, typeContext.TypeName, (TypeAttributes) (typeDef?.Flags ?? defaultAttributes));
 
         //Set up its layout
         if(typeDef != null && typeDef.BaseType?.ToString() != "System.Enum")

@@ -1,5 +1,7 @@
 using System;
+using System.Reflection;
 using LibCpp2IL.Metadata;
+using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.BinaryStructures
 {
@@ -53,7 +55,7 @@ namespace LibCpp2IL.BinaryStructures
         public Il2CppTypeDefinition AsClass()
         {
             if(Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
-                throw new Exception("Type is not a class");
+                throw new Exception("Type is not a class, but a " + Type);
 
             return LibCpp2IlMain.TheMetadata!.typeDefs[Data.ClassIndex];
         }
@@ -100,6 +102,45 @@ namespace LibCpp2IL.BinaryStructures
             Bits = reader.ReadUInt32();
             
             InitUnionAndFlags();
+        }
+
+        public Il2CppTypeDefinition CoerceToUnderlyingTypeDefinition()
+        {
+            if(Type is Il2CppTypeEnum.IL2CPP_TYPE_VAR or Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
+                throw new("Can't get the type definition of a generic parameter");
+
+            return Type switch
+            {
+                Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST => GetGenericClass().TypeDefinition,
+                Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => GetEncapsulatedType().CoerceToUnderlyingTypeDefinition(),
+                Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => GetArrayElementType().CoerceToUnderlyingTypeDefinition(),
+                _ => Type.IsIl2CppPrimitive() ? LibCpp2IlReflection.PrimitiveTypeDefinitions[Type] : AsClass()
+            };
+        }
+
+        public bool ThisOrElementIsGenericParam()
+        {
+            return Type switch
+            {
+                Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => GetEncapsulatedType().ThisOrElementIsGenericParam(),
+                Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => GetArrayElementType().ThisOrElementIsGenericParam(),
+                Il2CppTypeEnum.IL2CPP_TYPE_MVAR or Il2CppTypeEnum.IL2CPP_TYPE_VAR => true,
+                _ => false
+            };
+        }
+
+        public string GetGenericParamName()
+        {
+            if(!ThisOrElementIsGenericParam())
+                throw new("Type is not a generic parameter");
+
+            return Type switch
+            {
+                Il2CppTypeEnum.IL2CPP_TYPE_PTR => $"{GetEncapsulatedType().GetGenericParamName()}&",
+                Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => $"{GetEncapsulatedType().GetGenericParamName()}[]",
+                Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => $"{GetArrayElementType().GetGenericParamName()}{"[]".Repeat(GetArrayRank())}",
+                _ => $"{GetGenericParameterDef().Name}",
+            };
         }
     }
 }

@@ -84,7 +84,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
 
         //If type is nested, we should use namespace of ultimate declaring type, which could be an arbitrary depth
         //E.g. rewired has a type Rewired.Data.Mapping.HardwareJoystickMap, which contains a nested class Platform_Linux_Base, which contains MatchingCriteria, which contains ElementCount.
-        var ultimateDeclaringType = type.Definition!;
+        var ultimateDeclaringType = type;
         while (ultimateDeclaringType.DeclaringType != null)
             ultimateDeclaringType = ultimateDeclaringType.DeclaringType;
 
@@ -96,7 +96,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
         
         //Ok so we have the namespace directory. Now we need to join all the declaring type hierarchy together for a filename.
         var declaringTypeHierarchy = new List<string>();
-        var declaringType = type.Definition!.DeclaringType;
+        var declaringType = type.DeclaringType;
         while (declaringType != null)
         {
             declaringTypeHierarchy.Add(declaringType.Name!);
@@ -109,9 +109,9 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
         //Join the hierarchy together with _NestedType_ separators
         string filename;
         if(declaringTypeHierarchy.Count > 0)
-            filename = $"{string.Join("_NestedType_", declaringTypeHierarchy)}_NestedType_{type.Definition!.Name}.txt";
+            filename = $"{string.Join("_NestedType_", declaringTypeHierarchy)}_NestedType_{type.Name}.txt";
         else
-            filename = $"{type.Definition!.Name}.txt";
+            filename = $"{type.Name}.txt";
 
         //Get directory from assembly root + namespace
         var directory = Path.Combine(namespaceSplit.Prepend(assemblyDir).ToArray());

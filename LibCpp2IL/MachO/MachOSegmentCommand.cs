@@ -5,7 +5,7 @@ namespace LibCpp2IL.MachO
 {
     public class MachOSegmentCommand : ReadableClass
     {
-        public string SegmentName; // 16 bytes
+        public string SegmentName = "INVALID"; // 16 bytes
         
         public ulong VirtualAddress;
         public ulong VirtualSize;
