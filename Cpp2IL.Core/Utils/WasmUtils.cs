@@ -19,9 +19,7 @@ namespace Cpp2IL.Core.Utils
         {
             var instanceParam = definition.IsStatic ? "" : "i";
             
-            if (definition.Attributes.HasFlag(MethodAttributes.PinvokeImpl))
-                //It appears pinvokeimpl doesn't have a method info argument.
-                return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.Type, p.IsRefOrOut)))}";
+            //Something still off about p/invoke functions. They do have methodinfo args, but something is wrong somewhere.
             
             return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.Type, p.IsRefOrOut)))}i"; //Add an extra i on the end for the method info param
         }

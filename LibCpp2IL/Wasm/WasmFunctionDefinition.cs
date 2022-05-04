@@ -24,5 +24,13 @@ namespace LibCpp2IL.Wasm
         }
 
         public WasmTypeEntry GetType(WasmFile file) => file.TypeSection.Types[(int) TypeIndex];
+
+        public override string ToString()
+        {
+            if(IsImport)
+                return $"WASM Imported Function: {ImportName}, Pointer = {Pointer}";
+            
+            return $"WASM Function at pointer 0x{Pointer:X}, TypeIndex {TypeIndex}, with {AssociatedFunctionBody!.Instructions.Length} bytes of code";
+        }
     }
 }

@@ -29,8 +29,11 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
                 Logger.WarnNewline($"Could not find WASM definition for method {methodDefinition.Name}, probably incorrect signature calculation", "WasmInstructionSet");
                 return Array.Empty<byte>();
             }
+            
+            if(wasmDef.AssociatedFunctionBody == null)
+                throw new($"WASM definition {wasmDef}, resolved from MethodAnalysisContext {context} has no associated function body");
 
-            return wasmDef.AssociatedFunctionBody?.Instructions ?? throw new ArgumentException("Attempting to get raw bytes for an imported method.");
+            return wasmDef.AssociatedFunctionBody.Instructions;
         }
 
         return Array.Empty<byte>();
