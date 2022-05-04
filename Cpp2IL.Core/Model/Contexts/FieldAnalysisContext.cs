@@ -51,7 +51,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
     public ITypeInfoProvider FieldTypeInfoProvider
         => FieldType.ThisOrElementIsGenericParam()
             ? new GenericParameterTypeInfoProviderWrapper(FieldType.GetGenericParamName())
-            : AppContext.ResolveContextForType(FieldType.CoerceToUnderlyingTypeDefinition())!;
+            : TypeAnalysisContext.GetSndnProviderForType(AppContext, FieldType);
 
     public string FieldName => Name;
 

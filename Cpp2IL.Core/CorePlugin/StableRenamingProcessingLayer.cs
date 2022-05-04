@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
@@ -18,13 +19,12 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)
     {
         var stableNameStemCounts = new Dictionary<string, int>();
+
+        var typesToProcess = appContext.AllTypes.Where(t => t is not InjectedTypeAnalysisContext).ToArray();
         
         //Initial pass through, to find which can be renamed trivially
-        foreach (var typeAnalysisContext in appContext.AllTypes)
+        foreach (var typeAnalysisContext in typesToProcess)
         {
-            if(typeAnalysisContext is InjectedTypeAnalysisContext)
-                continue;
-            
             var stableName = StableNameGenerator.GetStableNameForTypeIfNeeded(typeAnalysisContext, false);
 
             if (stableName == null)
@@ -35,12 +35,11 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
             typeAnalysisContext.OverrideName = stableName;
         }
         
+        StableNameGenerator.RenamedTypes.Clear();
+
         //Remove all types which got a non-unique name
-        foreach (var typeAnalysisContext in appContext.AllTypes)
+        foreach (var typeAnalysisContext in typesToProcess)
         {
-            if(typeAnalysisContext is InjectedTypeAnalysisContext)
-                continue;
-            
             if(typeAnalysisContext.OverrideName == null)
                 //Wasn't renamed
                 continue;
@@ -49,14 +48,14 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
             if (dupeCount > 1)
                 //Clear rename, we'll try again with methods included
                 typeAnalysisContext.OverrideName = null;
+            else
+                //Inform name generator of the rename so it can use them later
+                StableNameGenerator.RenamedTypes[typeAnalysisContext] = typeAnalysisContext.OverrideName;
         }
         
         //Second pass, including method params this time
-        foreach (var typeAnalysisContext in appContext.AllTypes)
+        foreach (var typeAnalysisContext in typesToProcess)
         {
-            if(typeAnalysisContext is InjectedTypeAnalysisContext)
-                continue;
-            
             if (typeAnalysisContext.OverrideName != null)
                 //Already renamed
                 continue;
@@ -74,11 +73,8 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
         //Now we rename duplicates to add a numerical suffix, and rename non-duplicates to add a Unique suffix.
         var stableNameRenameCount = new Dictionary<string, int>();
         
-        foreach (var typeAnalysisContext in appContext.AllTypes)
+        foreach (var typeAnalysisContext in typesToProcess)
         {
-            if(typeAnalysisContext is InjectedTypeAnalysisContext)
-                continue;
-            
             if (typeAnalysisContext.OverrideName == null || !stableNameStemCounts.TryGetValue(typeAnalysisContext.OverrideName, out var count))
                 continue;
 

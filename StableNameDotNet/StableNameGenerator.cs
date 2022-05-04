@@ -14,13 +14,9 @@ public static class StableNameGenerator
 {
     public static Regex? ObfuscatedNameRegex;
 
-    private static readonly ConcurrentDictionary<ITypeInfoProvider, string> PreviouslyGeneratedNames = new();
+    public static readonly ConcurrentDictionary<ITypeInfoProvider, string> RenamedTypes = new();
+    
     private static readonly string[] ClassAccessNames = {"Private", "Public", "NPublic", "NPrivate", "NProtected", "NInternal", "NFamAndAssem", "NFamOrAssem"};
-
-    public static void ResetForNewConfig()
-    {
-        PreviouslyGeneratedNames.Clear();
-    }
 
     public static string? GetStableNameForTypeIfNeeded(ITypeInfoProvider type, bool includeMethodsForNonInterfaces)
     {
@@ -35,7 +31,7 @@ public static class StableNameGenerator
             firstUnobfuscatedType = baseType;
             inheritanceDepth++;
 
-            if (!PreviouslyGeneratedNames.ContainsKey(baseType) && !IsObfuscated(baseType.TypeName))
+            if (!RenamedTypes.ContainsKey(baseType) && !IsObfuscated(baseType.TypeName))
                 break;
         }
 
@@ -138,9 +134,7 @@ public static class StableNameGenerator
 
         nameBuilder.Append(uniqueNameGenerator.GenerateUniqueName());
 
-        var ret = nameBuilder.ToString();
-        PreviouslyGeneratedNames.TryAdd(type, ret);
-        return ret;
+        return nameBuilder.ToString();
     }
 
     private static bool IsObfuscated(string s)
@@ -179,7 +173,7 @@ public static class StableNameGenerator
 
     private static string NameOrRename(this ITypeInfoProvider typeName)
     {
-        if (PreviouslyGeneratedNames.TryGetValue(typeName, out var rename))
+        if (RenamedTypes.TryGetValue(typeName, out var rename))
             return (rename.StableHash() % (ulong) Math.Pow(10, UniqueNameGenerator.NumCharsToTakeFromEachInput)).ToString();
 
         return typeName.TypeName;

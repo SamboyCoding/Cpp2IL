@@ -25,7 +25,7 @@ namespace StableNameDotNet
         /// <summary>
         /// Returns true if the generator is full, and will not process any more inputs.
         /// </summary>
-        public bool IsFull => _resultSet.Count >= MaxInputs;
+        public bool IsFull => _inputOccurrenceCounts.Count >= MaxInputs;
 
         /// <summary>
         /// Adds an input to the generator.
@@ -67,7 +67,7 @@ namespace StableNameDotNet
         /// Generates the final string, based on the inputs that have been added to the generator.
         /// </summary>
         public string GenerateUniqueName()
-            => string.Join("", _resultSet.Select(x => x.Value));
+            => string.Join("", _resultSet.Take(MaxInputs).Select(x => x.Value));
 
         private struct Input : IComparable<Input>
         {
@@ -83,6 +83,11 @@ namespace StableNameDotNet
             public int CompareTo(Input other)
             {
                 return Weight.CompareTo(other.Weight);
+            }
+
+            public override string ToString()
+            {
+                return $"{{{Value}, {Weight}}}";
             }
         }
     }
