@@ -48,7 +48,10 @@ namespace Cpp2IL.Core.Utils
 
         public static string GetGhidraFunctionName(WasmFunctionDefinition functionDefinition)
         {
-            var index = ((WasmFile) LibCpp2IlMain.Binary!).FunctionTable.IndexOf(functionDefinition);
+            var index = functionDefinition.IsImport 
+                ? ((WasmFile) LibCpp2IlMain.Binary!).FunctionTable.IndexOf(functionDefinition) 
+                : functionDefinition.FunctionTableIndex;
+            
             return $"unnamed_function_{index}";
         }
 

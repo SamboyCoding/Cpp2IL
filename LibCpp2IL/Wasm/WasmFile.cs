@@ -62,7 +62,8 @@ namespace LibCpp2IL.Wasm
             for (var index = 0; index < CodeSection.Functions.Count; index++)
             {
                 var codeSectionFunction = CodeSection.Functions[index];
-                FunctionTable.Add(new(this, codeSectionFunction, index));
+                var functionTableIndex = FunctionTable.Count;
+                FunctionTable.Add(new(this, codeSectionFunction, index, functionTableIndex));
             }
             
             LibLogger.VerboseNewline($"\tBuilt function table of {FunctionTable.Count} entries. Calculating dynCall coefficients...");

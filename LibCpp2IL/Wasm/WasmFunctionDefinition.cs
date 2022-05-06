@@ -7,6 +7,7 @@ namespace LibCpp2IL.Wasm
         public ulong Pointer;
         public WasmFunctionBody? AssociatedFunctionBody;
         private ulong TypeIndex;
+        public int FunctionTableIndex; //Only valid for non-imported functions
 
         public WasmFunctionDefinition(WasmImportEntry entry)
         {
@@ -15,8 +16,9 @@ namespace LibCpp2IL.Wasm
             ImportName = entry.Module + "." + entry.Field;
         }
 
-        public WasmFunctionDefinition(WasmFile file, WasmFunctionBody body, int index)
+        public WasmFunctionDefinition(WasmFile file, WasmFunctionBody body, int index, int functionTableIndex)
         {
+            FunctionTableIndex = functionTableIndex;
             IsImport = false;
             Pointer = (ulong) body.InstructionsOffset;
             TypeIndex = file.FunctionSection.Types[index];
