@@ -64,6 +64,8 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public TypeAnalysisContext? OverrideBaseType { get; protected set; }
     
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
+    
+    public string FullName => string.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}"; 
 
     public TypeAnalysisContext(Il2CppTypeDefinition? il2CppTypeDefinition, AssemblyAnalysisContext containingAssembly) : base(il2CppTypeDefinition?.Token ?? 0, containingAssembly.AppContext)
     {
