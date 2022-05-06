@@ -22,6 +22,7 @@ public class GenericInstanceTypeInfoProviderWrapper : ITypeInfoProvider
     public bool IsGenericInstance => true;
     public bool IsValueType => ElementTypeProvider.IsValueType;
     public bool IsEnumType => false;
+    public int GenericParameterCount => ElementTypeProvider.GenericParameterCount;
     public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => GenericTypeProviders;
     public IEnumerable<IFieldInfoProvider> FieldInfoProviders => ElementTypeProvider.FieldInfoProviders;
     public IEnumerable<IMethodInfoProvider> MethodInfoProviders => ElementTypeProvider.MethodInfoProviders;

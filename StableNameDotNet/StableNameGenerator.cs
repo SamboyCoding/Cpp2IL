@@ -134,6 +134,9 @@ public static class StableNameGenerator
 
         nameBuilder.Append(uniqueNameGenerator.GenerateUniqueName());
 
+        if (type.GenericParameterCount > 0)
+            nameBuilder.Append('`').Append(type.GenericParameterCount);
+
         return nameBuilder.ToString();
     }
 

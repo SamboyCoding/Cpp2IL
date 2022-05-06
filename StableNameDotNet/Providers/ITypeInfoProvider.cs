@@ -42,6 +42,11 @@ public interface ITypeInfoProvider
     public bool IsEnumType { get; }
     
     /// <summary>
+    /// Return the number of generic parameters for this type. Used to populate the backtick-suffix of a generic type name.
+    /// </summary>
+    public int GenericParameterCount { get; }
+    
+    /// <summary>
     /// Returns any generic arguments for this type. This should be an empty enumerable if this type is not a generic instance.
     /// </summary>
     public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders { get; }

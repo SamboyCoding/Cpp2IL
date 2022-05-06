@@ -21,7 +21,7 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var typeCtx in asmCtx.Types)
         {
-            if (typeCtx.TypeName == "<Module>")
+            if (typeCtx.Name == "<Module>")
                 continue;
 
             var il2CppTypeDef = typeCtx.Definition;
@@ -164,7 +164,7 @@ public static class AsmResolverAssemblyPopulator
 
         foreach (var type in asmContext.Types)
         {
-            if(type.TypeName == "<Module>")
+            if(type.Name == "<Module>")
                 continue;
 
             CopyCustomAttributes(type, type.GetExtraData<TypeDefinition>("AsmResolverType")!.CustomAttributes);
@@ -198,7 +198,7 @@ public static class AsmResolverAssemblyPopulator
 
         foreach (var typeContext in asmContext.Types)
         {
-            if (typeContext.TypeName == "<Module>")
+            if (typeContext.Name == "<Module>")
                 continue;
 
             var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");

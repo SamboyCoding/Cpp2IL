@@ -108,7 +108,7 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
         //  If the obfuscated name was a nested type, the deobfuscated name is just the new name of the nested type
         //  If the obfuscated name was a top-level type, the deobfuscated name is the new namespace + . + new name
 
-        var originalName = matchingType.FullName;
+        // var originalName = matchingType.FullName;
         
         if (matchingType.DeclaringType != null)
         {

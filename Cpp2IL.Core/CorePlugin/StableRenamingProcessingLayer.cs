@@ -77,6 +77,14 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
         {
             if (typeAnalysisContext.OverrideName == null || !stableNameStemCounts.TryGetValue(typeAnalysisContext.OverrideName, out var count))
                 continue;
+            
+            //Handle generic type backtick suffixes
+            string? backTickSuffix = null;
+            if (typeAnalysisContext.OverrideName.Length > 2 && typeAnalysisContext.OverrideName[^2] == '`')
+            {
+                backTickSuffix = typeAnalysisContext.OverrideName[^2..];
+                typeAnalysisContext.OverrideName = typeAnalysisContext.OverrideName[..^2];
+            }
 
             if (count == 1)
                 typeAnalysisContext.OverrideName += "Unique";
@@ -85,6 +93,9 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
                 var thisCount = stableNameRenameCount[typeAnalysisContext.OverrideName] = stableNameRenameCount.GetOrCreate(typeAnalysisContext.OverrideName, () => -1) + 1;
                 typeAnalysisContext.OverrideName += thisCount;
             }
+
+            if (backTickSuffix != null)
+                typeAnalysisContext.OverrideName += backTickSuffix;
         }
     }
 }
