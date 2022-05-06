@@ -16,6 +16,7 @@ using Cpp2IL.Core.Exceptions;
 #endif
 using LibCpp2IL.Wasm;
 using AssetRipper.VersionUtilities;
+using LibCpp2IL;
 
 namespace Cpp2IL
 {
@@ -150,7 +151,7 @@ namespace Cpp2IL
                 Logger.InfoNewline("Reading globalgamemanagers to determine unity version...", "APK");
                 var ggmBytes = new byte[0x40];
                 using var ggmStream = globalgamemanagers.Open();
-                
+
                 // ReSharper disable once MustUseReturnValue
                 ggmStream.Read(ggmBytes, 0, 0x40);
 
@@ -225,7 +226,7 @@ namespace Cpp2IL
                 Logger.InfoNewline("Reading globalgamemanagers to determine unity version...", "XAPK");
                 var ggmBytes = new byte[0x40];
                 using var ggmStream = globalgamemanagers.Open();
-                
+
                 // ReSharper disable once MustUseReturnValue
                 ggmStream.Read(ggmBytes, 0, 0x40);
 
@@ -406,21 +407,28 @@ namespace Cpp2IL
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
 
+            foreach (var (key, value) in runtimeArgs.ProcessingLayerConfigurationOptions)
+                Cpp2IlApi.CurrentAppContext!.PutExtraData(key, value);
+
             foreach (var processingLayer in runtimeArgs.ProcessingLayersToRun)
             {
                 var processorStart = DateTime.Now;
 
                 Logger.InfoNewline($"Running processor {processingLayer.Name}...");
 
+#if !DEBUG
                 try
                 {
-                    processingLayer.Process(Cpp2IlApi.CurrentAppContext!);
+#endif
+                processingLayer.Process(Cpp2IlApi.CurrentAppContext!);
+#if !DEBUG
                 }
                 catch (Exception e)
                 {
                     Logger.ErrorNewline($"Processing layer {processingLayer.Id} threw an exception: {e}");
                     Environment.Exit(1);
                 }
+#endif
 
                 Logger.InfoNewline($"Processor {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
             }

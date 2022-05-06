@@ -62,10 +62,22 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public string Namespace => OverrideNs ?? DefaultNs;
 
     public TypeAnalysisContext? OverrideBaseType { get; protected set; }
-    
+
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
-    
-    public string FullName => string.IsNullOrEmpty(Namespace) ? Name : $"{Namespace}.{Name}"; 
+
+    public string FullName
+    {
+        get
+        {
+            if (DeclaringType != null)
+                return DeclaringType.FullName + "." + Name;
+            
+            if (string.IsNullOrEmpty(Namespace))
+                return Name;
+
+            return $"{Namespace}.{Name}";
+        }
+    }
 
     public TypeAnalysisContext(Il2CppTypeDefinition? il2CppTypeDefinition, AssemblyAnalysisContext containingAssembly) : base(il2CppTypeDefinition?.Token ?? 0, containingAssembly.AppContext)
     {
