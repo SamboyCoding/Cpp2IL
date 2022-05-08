@@ -114,7 +114,7 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 | NSO (Switch)   | N/A | N/A | N/A | ✔️ | Switch is ArmV8, that is the only supported instruction set. Compression supported. |
 | APK (Android)  | ✔ | ❌ | ✔️ | ✔️ | Unpacks the APK, then delegates to ELF loader. |
 | WASM (WebAssembly) | N/A | N/A | N/A | N/A | WASM is its own instruction set, which **is** supported for dumps but not analyzed yet |
-| Mach-O (Mac OS)| ❌ | ❌ | N/A? | ❌ | Not supported yet, but planned |
+| Mach-O (Mac OS)| ❌ | ❌ | N/A | ❌ | Not supported yet, but planned |
 
 
 ## Supported Analysis Features Table
