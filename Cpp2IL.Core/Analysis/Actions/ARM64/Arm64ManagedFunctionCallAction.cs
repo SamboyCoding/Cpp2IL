@@ -72,5 +72,16 @@ namespace Cpp2IL.Core.Analysis.Actions.ARM64
                 }
             }
         }
+
+        public override string? ToPsuedoCode()
+        {
+            if (wasArrayInstantiation)
+            {
+                var arrayType = ((ArrayType) ((LocalDefinition) Arguments![0]!).Type!).ElementType;
+                return $"{Arguments![0]!.GetPseudocodeRepresentation()} = new {arrayType}[] {{{string.Join(", ", instantiatedArrayValues!)}}}";
+            }
+            
+            return base.ToPsuedoCode();
+        }
     }
 }

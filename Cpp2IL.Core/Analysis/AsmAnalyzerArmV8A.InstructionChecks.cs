@@ -68,6 +68,10 @@ namespace Cpp2IL.Core.Analysis
                     {
                         Analysis.Actions.Add(new Arm64ManagedFunctionCallAction(Analysis, instruction));
                     }
+                    else if (jumpTarget == _keyFunctionAddresses.il2cpp_array_new_specific || jumpTarget == _keyFunctionAddresses.il2cpp_vm_array_new_specific || jumpTarget == _keyFunctionAddresses.SzArrayNew)
+                    {
+                        Analysis.Actions.Add(new Arm64AllocateArrayAction(Analysis, instruction));
+                    }
                     else if (jumpTarget == _keyFunctionAddresses.il2cpp_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_vm_object_new || jumpTarget == _keyFunctionAddresses.il2cpp_codegen_object_new)
                     {
                         Analysis.Actions.Add(new Arm64NewObjectAction(Analysis, instruction));
