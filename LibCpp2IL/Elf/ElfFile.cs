@@ -633,6 +633,12 @@ namespace LibCpp2IL.Elf
 
         public override byte[] GetRawBinaryContent() => _raw;
 
+        public override ulong[] GetAllExportedIl2CppFunctionPointers() => _exportTable
+            .Where(p => p.Key.StartsWith("il2cpp_"))
+            .Select(p => p.Value.VirtualAddress)
+            .Where(va => va > 0)
+            .ToArray();
+
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {
             if (!_exportTable.TryGetValue(toFind, out var exportedSymbol))

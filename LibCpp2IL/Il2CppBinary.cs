@@ -387,6 +387,8 @@ namespace LibCpp2IL
 
         public abstract byte[] GetRawBinaryContent();
         public abstract ulong GetVirtualAddressOfExportedFunctionByName(string toFind);
+        
+        public abstract ulong[] GetAllExportedIl2CppFunctionPointers();
 
         public abstract byte[] GetEntirePrimaryExecutableSection();
 

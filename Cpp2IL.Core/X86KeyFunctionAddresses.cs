@@ -23,7 +23,7 @@ namespace Cpp2IL.Core
             return _cachedDisassembledBytes;
         }
 
-        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
+        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, bool mustBeJumpNotCall, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
         {
             //Disassemble .text
             var allInstructions = DisassembleTextSection();
@@ -47,7 +47,8 @@ namespace Cpp2IL.Core
                 //Double-cc = thunk
                 if (previousByte == 0xCC && nextByte == 0xCC)
                 {
-                    yield return matchingJmp.IP;
+                    if(!mustBeJumpNotCall || matchingJmp.Mnemonic is Mnemonic.Jmp)
+                        yield return matchingJmp.IP;
                     continue;
                 }
 
@@ -61,7 +62,8 @@ namespace Cpp2IL.Core
 
                         if (LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
                         {
-                            yield return matchingJmp.IP - (backtrack - 1);
+                            if(!mustBeJumpNotCall || matchingJmp.Mnemonic is Mnemonic.Jmp)
+                                yield return matchingJmp.IP - (backtrack - 1);
                             break;
                         }
                     }

@@ -34,7 +34,17 @@ namespace Cpp2IL.Core
             {
                 if (LibCpp2IlMain.Binary is not NsoFile)
                 {
-                    Logger.VerboseNewline($"\tLast attribute generator function is at address 0x{attributeGeneratorList[^1]:X}. Skipping everything before that.");
+                    //The below code is flawed on at least some binaries - e.g. I have an APK for which this trims out the exports.
+
+                    var startFrom = attributeGeneratorList[^1];
+                    
+                    //GetExportedFunctionPointers is only defined for ELF and PE files. Mach-O may die here.
+                    var minExport = LibCpp2IlMain.Binary.GetAllExportedIl2CppFunctionPointers().Min();
+
+                    if(minExport != 0)
+                        startFrom = Math.Min(startFrom, minExport);
+                    
+                    Logger.VerboseNewline($"\tBinary likely contains nothing useful before 0x{startFrom:X} (first attribute generator at 0x{attributeGeneratorList[0]:X}). Skipping everything before that.");
 
                     //Optimisation: We can skip all bytes up to and including the last attribute restoration function
                     //However we don't know how long the last restoration function is, so just skip up to it, we'd only be saving a further 100 instructions or so
@@ -42,10 +52,10 @@ namespace Cpp2IL.Core
                     //This may not be correct on v29 which uses the Bee compiler, which may do things differently
                     var oldLength = primaryExecutableSection.Length;
 
-                    var toRemove = (int) (attributeGeneratorList[^1] - primaryExecutableSectionVa);
+                    var toRemove = (int) (startFrom - primaryExecutableSectionVa);
                     primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
 
-                    primaryExecutableSectionVa = attributeGeneratorList[^1];
+                    primaryExecutableSectionVa = startFrom;
 
                     Logger.VerboseNewline($"\tBy trimming out attribute generator functions, reduced decompilation work by {toRemove} of {oldLength} bytes (a {toRemove * 100 / (float) oldLength:f1}% saving)");
 
@@ -71,7 +81,7 @@ namespace Cpp2IL.Core
                                               $"the first export function is at 0x{firstExport:X} and the last at 0x{lastExport:X}");
 
                         //I am assuming, arbitrarily, that the exports are always towards the end of the managed methods, in this case.
-                        var startFrom = Math.Min(firstExport, methodAddresses[^1]);
+                        startFrom = Math.Min(firstExport, methodAddresses[^1]);
 
                         //Just in case we didn't get the first export, let's subtract a little
                         if (startFrom > 0x100_0000)
@@ -91,7 +101,7 @@ namespace Cpp2IL.Core
                     {
                         Logger.VerboseNewline($"\tDetected that the il2cpp-ified managed methods are in the .text section, but api functions are not available. Attempting to (conservatively) trim out managed methods for KFA scanning - the first managed method is at 0x{methodAddresses[0]:X} and the last at 0x{methodAddresses[^1]:X}");
 
-                        var startFrom = methodAddresses[^1];
+                        startFrom = methodAddresses[^1];
 
                         //Just in case the exports are mixed in with the end of the managed methods, let's subtract a little
                         if (startFrom > 0x100_0000)
@@ -129,9 +139,9 @@ namespace Cpp2IL.Core
             _allInstructions = disassembler.Disassemble(primaryExecutableSection, (long) primaryExecutableSectionVa).ToList();
         }
 
-        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
+        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, bool mustBeJumpNotCall, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
         {
-            var allBranchesToAddr = _allInstructions.Where(i => i.Mnemonic is "b" or "bl")
+            var allBranchesToAddr = _allInstructions.Where(i => mustBeJumpNotCall ? i.Mnemonic is "b" : i.Mnemonic is "b" or "bl")
                 .Where(i => i.Details.Operands[0].IsImmediate() && i.Details.Operands[0].Immediate == (long) addr)
                 .ToList();
 
@@ -287,7 +297,7 @@ namespace Cpp2IL.Core
                                 //Looks like we've been inlined and this is just vm::Object::New.
                                 addrVmObjectNew = probableResult;
 
-                            var allThunks = FindAllThunkFunctions((ulong) addrVmObjectNew, 16, (ulong) probableResult).ToList();
+                            var allThunks = FindAllThunkFunctions((ulong) addrVmObjectNew, false, 16, (ulong) probableResult).ToList();
 
                             allThunks.SortByExtractedKey(GetCallerCount); //Sort in ascending order by caller count
                             allThunks.Reverse(); //Reverse to be in descending order

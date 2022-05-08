@@ -227,6 +227,8 @@ namespace LibCpp2IL.Wasm
         {
             return pointer;
         }
+        
+        public override ulong[] GetAllExportedIl2CppFunctionPointers() => Array.Empty<ulong>();
 
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {

@@ -154,6 +154,24 @@ namespace LibCpp2IL.PE
             }
         }
 
+        public override ulong[] GetAllExportedIl2CppFunctionPointers()
+        {
+            if(peExportedFunctionPointers == null)
+                LoadPeExportTable();
+
+            return peExportedFunctionPointers!.Where((e, i) => GetExportedFunctionName(i).StartsWith("il2cpp_")).Select(e => (ulong)e).ToArray();
+        }
+
+        private string GetExportedFunctionName(int index)
+        {
+            if (peExportedFunctionPointers == null)
+                LoadPeExportTable();
+            
+            var stringAddress = peExportedFunctionNamePtrs[index];
+            var rawStringAddress = MapVirtualAddressToRaw(stringAddress + peImageBase);
+            return ReadStringToNull(rawStringAddress);
+        }
+
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {
             if (peExportedFunctionPointers == null)

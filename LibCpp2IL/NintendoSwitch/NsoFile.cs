@@ -349,6 +349,8 @@ namespace LibCpp2IL.NintendoSwitch
         }
 
         public override byte[] GetRawBinaryContent() => _raw;
+        
+        public override ulong[] GetAllExportedIl2CppFunctionPointers() => Array.Empty<ulong>();
 
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {

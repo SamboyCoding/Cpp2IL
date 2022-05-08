@@ -9,7 +9,7 @@ namespace Cpp2IL.Core
             return 0;
         }
 
-        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
+        protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, bool mustBeJumpNotCall, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
         {
             yield break;
         }
