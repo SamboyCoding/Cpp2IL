@@ -40,7 +40,7 @@
     <None Include="license.txt" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia" Version="0.10.13" />
+    <PackageReference Include="Avalonia" Version="0.10.14" />
     <PackageReference Include="Avalonia.AvaloniaEdit" Version="0.10.12.2" />
     <PackageReference Include="Microsoft.NETCore.Platforms" Version="6.0.3" />
   </ItemGroup>
