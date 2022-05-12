@@ -334,8 +334,8 @@ namespace LibCpp2IL
                     if (LibCpp2IlMain.MetadataVersion >= 27f && (metaReg.metadataUsagesCount != 0 || metaReg.metadataUsages != 0))
                     {
                         //Too many metadata usages - should be 0 on v27
-                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.metadataUsagesCount} metadata usages at a pointer of 0x{metaReg.metadataUsages:X}. We're on v27, these should be 0.");
-                        continue;
+                        LibLogger.VerboseNewline($"\t\t\tWarning: metadata registration 0x{va:X} has {metaReg.metadataUsagesCount} metadata usages at a pointer of 0x{metaReg.metadataUsages:X}. We're on v27, these should be 0.");
+                        // continue;
                     }
 
                     if (metaReg.typeDefinitionsSizesCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
