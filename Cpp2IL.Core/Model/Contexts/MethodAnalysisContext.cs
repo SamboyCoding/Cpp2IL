@@ -104,7 +104,12 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         if (ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
 
-        //TODO Build control flow graph from ISIL
+        // Intermediate step to convert metadata usage. Ldstr Opcodes etc.
+
+        //TODO: Build control flow graph from ISIL
+
+
+
 
         // ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
         //

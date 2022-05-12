@@ -12,6 +12,8 @@ public readonly struct InstructionSetIndependentOperand
     public static InstructionSetIndependentOperand MakeImmediate(IConvertible value) => new(OperandType.Immediate, new IsilImmediateOperand(value));
     public static InstructionSetIndependentOperand MakeStack(int value) => new(OperandType.StackOffset, new IsilStackOperand(value));
 
+    public static InstructionSetIndependentOperand MakeInstruction(InstructionSetIndependentInstruction instruction) => new(OperandType.Instruction, instruction);
+
     private InstructionSetIndependentOperand(OperandType type, IsilOperandData data)
     {
         Type = type;
@@ -28,9 +30,12 @@ public readonly struct InstructionSetIndependentOperand
         StackOffset = 2,
         Register = 4,
         Memory = 8,
+        Instruction = 16,
         
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory,
+        NotStack = Immediate | Register | Memory | Instruction,
+        
+        
         Any = Immediate | StackOffset | Register | Memory
     }
 }

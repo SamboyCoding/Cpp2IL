@@ -1,19 +1,24 @@
 using System.Collections.Generic;
+using System.Reflection.Emit;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class InstructionSetIndependentInstruction
+public class InstructionSetIndependentInstruction : IsilOperandData
 {
     public InstructionSetIndependentOpCode OpCode;
     public InstructionSetIndependentOperand[] Operands;
+    public ulong ActualAddress;
+    public uint InstructionIndex = 0;
+    public IsilFlowControl FlowControl;
     
-    public InstructionSetIndependentInstruction(InstructionSetIndependentOpCode opCode, params InstructionSetIndependentOperand[] operands)
+    public InstructionSetIndependentInstruction(InstructionSetIndependentOpCode opCode, ulong address, IsilFlowControl flowControl, params InstructionSetIndependentOperand[] operands)
     {
         OpCode = opCode;
         Operands = operands;
-
+        ActualAddress = address;
+        FlowControl = flowControl;
         OpCode.Validate(this);
     }
 
-    public override string ToString() => $"{OpCode} {string.Join(", ", (IEnumerable<InstructionSetIndependentOperand>) Operands)}";
+    public override string ToString() => $"{InstructionIndex:000} {OpCode} {string.Join(", ", (IEnumerable<InstructionSetIndependentOperand>) Operands)}";
 }
