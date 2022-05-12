@@ -307,5 +307,25 @@ namespace Cpp2IL.Core.Utils
             "launch.exe",
             "MelonLoader.Installer.exe"
         };
+
+        public static string AnalyzeStackTracePointers(ulong[] pointers)
+        {
+            // var pointers = new ulong[] {0x52e6ba0, 0x52ad3a0, 0x11b09714, 0x40a990c, 0xd172c68, 0xa2c0514, 0x35ea45c, 0x1fc43208};
+
+            var methodsSortedByPointer = LibCpp2IlMain.TheMetadata.methodDefs.ToList();
+            methodsSortedByPointer.SortByExtractedKey(m => m.MethodPointer);
+
+            var stack = pointers.Select(p =>
+            {
+                var method = methodsSortedByPointer.LastOrDefault(m => m.MethodPointer <= p);
+
+                if (method == null)
+                    return "<unknown method>";
+
+                return method.DeclaringType.DeclaringAssembly.Name + " ## " + method.DeclaringType.FullName + "::" + method.Name + "(" + string.Join(", ", method.Parameters.ToList()) + ")";
+            });
+
+            return string.Join("\n", stack);
+        }
     }
 }
