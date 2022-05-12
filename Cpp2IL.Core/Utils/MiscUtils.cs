@@ -315,14 +315,30 @@ namespace Cpp2IL.Core.Utils
             var methodsSortedByPointer = LibCpp2IlMain.TheMetadata.methodDefs.ToList();
             methodsSortedByPointer.SortByExtractedKey(m => m.MethodPointer);
 
+            var genericMethodsSortedByPointer = LibCpp2IlMain.Binary.ConcreteGenericImplementationsByAddress.ToList();
+            genericMethodsSortedByPointer.SortByExtractedKey(m => m.Key);
+
             var stack = pointers.Select(p =>
             {
                 var method = methodsSortedByPointer.LastOrDefault(m => m.MethodPointer <= p);
-
-                if (method == null)
+                var genericMethod = genericMethodsSortedByPointer.LastOrDefault(m => m.Key <= p);
+                
+                if (method == null || genericMethod.Key == 0)
                     return "<unknown method>";
 
-                return method.DeclaringType.DeclaringAssembly.Name + " ## " + method.DeclaringType.FullName + "::" + method.Name + "(" + string.Join(", ", method.Parameters.ToList()) + ")";
+                var distanceNormal = p - method.MethodPointer ;
+                var distanceGeneric = p - genericMethod.Key;
+                
+                if(Math.Min(distanceGeneric, distanceNormal) > 0x50000)
+                    return "<unknown method>";
+
+                if (distanceGeneric < distanceNormal)
+                {
+                    var actualGen = genericMethod.Value.First();
+                    return actualGen.DeclaringType!.DeclaringAssembly!.Name + " ## " + actualGen + "(" + string.Join(", ", actualGen.BaseMethod.Parameters!.ToList()) + ")";
+                }
+
+                return method.DeclaringType!.DeclaringAssembly!.Name + " ## " + method.DeclaringType.FullName + "::" + method.Name + "(" + string.Join(", ", method.Parameters!.ToList()) + ")";
             });
 
             return string.Join("\n", stack);
