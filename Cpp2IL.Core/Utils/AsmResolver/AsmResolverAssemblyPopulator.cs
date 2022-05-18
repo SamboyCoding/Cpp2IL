@@ -403,6 +403,23 @@ public static class AsmResolverAssemblyPopulator
         methodDefinition.CilMethodBody = new(methodDefinition);
 
         var methodInstructions = methodDefinition.CilMethodBody.Instructions;
+        foreach (var parameter in methodDefinition.Parameters)
+        {
+            if(parameter.Definition?.IsOut ?? false)
+            {
+                if (parameter.ParameterType.IsValueType)
+                {
+                    methodInstructions.Add(CilOpCodes.Ldarg, parameter);
+                    methodInstructions.Add(CilOpCodes.Initobj, parameter.ParameterType.ToTypeDefOrRef());
+                }
+                else
+                {
+                    methodInstructions.Add(CilOpCodes.Ldarg, parameter);
+                    methodInstructions.Add(CilOpCodes.Ldnull);
+                    methodInstructions.Add(CilOpCodes.Stind_Ref);
+                }
+            }
+        }
         if (methodDefinition.Signature!.ReturnType.FullName == "System.Void")
         {
             methodInstructions.Add(CilOpCodes.Ret);
@@ -421,5 +438,6 @@ public static class AsmResolverAssemblyPopulator
             methodInstructions.Add(CilOpCodes.Ldnull);
             methodInstructions.Add(CilOpCodes.Ret);
         }
+        methodInstructions.OptimizeMacros();
     }
 }
