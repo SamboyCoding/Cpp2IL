@@ -18,6 +18,8 @@ public enum IsilMnemonic
     Not,
     Compare,
     ShiftStack,
+    Push,
+    Pop,
     Return,
     Goto,
     JumpIfEqual,

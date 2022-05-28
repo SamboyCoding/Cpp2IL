@@ -27,6 +27,8 @@ public class InstructionSetIndependentOpCode
     //public static readonly InstructionSetIndependentOpCode CompareLessThanOrEqual = new(IsilMnemonic.CompareLessThanOrEqual, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     //public static readonly InstructionSetIndependentOpCode CompareGreaterThanOrEqual = new(IsilMnemonic.CompareGreaterThanOrEqual, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode ShiftStack = new(IsilMnemonic.ShiftStack, 1, InstructionSetIndependentOperand.OperandType.Immediate);
+    public static readonly InstructionSetIndependentOpCode Push = new(IsilMnemonic.Push, 2, InstructionSetIndependentOperand.OperandType.Register, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Pop = new(IsilMnemonic.Pop, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Register);
     public static readonly InstructionSetIndependentOpCode Return = new(IsilMnemonic.Return, 1, InstructionSetIndependentOperand.OperandType.NotStack);
 
     public static readonly InstructionSetIndependentOpCode Goto = new(IsilMnemonic.Goto, 1, InstructionSetIndependentOperand.OperandType.Instruction);

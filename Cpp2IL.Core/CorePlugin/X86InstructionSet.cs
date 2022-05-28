@@ -68,16 +68,16 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 break;
             case Mnemonic.Push:
             {
-                var operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
-                builder.ShiftStack(instruction.IP, -operandSize);
-                builder.Push(instruction.IP, ConvertOperand(instruction, 0));
+                //var operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
+                //builder.ShiftStack(instruction.IP, -operandSize);
+                builder.Push(instruction.IP, InstructionSetIndependentOperand.MakeRegister("rsp"), ConvertOperand(instruction, 0));
                 break;
             }
             case Mnemonic.Pop:
             {
-                var operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
-                builder.Pop(instruction.IP, ConvertOperand(instruction, 0));
-                builder.ShiftStack(instruction.IP, operandSize);
+                //var operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
+                builder.Pop(instruction.IP, InstructionSetIndependentOperand.MakeRegister("rsp"),ConvertOperand(instruction, 0));
+                //builder.ShiftStack(instruction.IP, operandSize);
                 break;
             }
             case Mnemonic.Sub:
@@ -171,7 +171,8 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                     if (jumpTarget < methodStart || jumpTarget > methodEnd)
                     {
-                        goto case Mnemonic.Call; // This is like 99% likely a non returning call
+                        goto case Mnemonic.Call; // This is like 99% likely a non returning call, jump to case to avoid code duplication 
+                        // TODO: Add a return instruction after this or have a flag passed somehow to the Call case to use the CallNoReturn instruction?
                     }
                     else
                     {

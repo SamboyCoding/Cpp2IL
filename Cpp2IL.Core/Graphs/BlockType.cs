@@ -1,6 +1,6 @@
-﻿namespace Cpp2IL.Core.Graphing;
+﻿namespace Cpp2IL.Core.Graphs;
 
-public enum BlockType
+public enum BlockType : byte
 {
     OneWay,
     TwoWay,

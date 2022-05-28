@@ -68,8 +68,8 @@ public class IsilBuilder
 
     public void ShiftStack(ulong instructionAddress, int amount) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftStack,  instructionAddress,IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(amount)));
 
-    public void Push(ulong instructionAddress, InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Move,  instructionAddress,IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeStack(0), operand));
-    public void Pop(ulong instructionAddress, InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Move, instructionAddress, IsilFlowControl.Continue, operand, InstructionSetIndependentOperand.MakeStack(0)));
+    public void Push(ulong instructionAddress, InstructionSetIndependentOperand stackPointerRegister, InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Push,  instructionAddress,IsilFlowControl.Continue, stackPointerRegister, operand));
+    public void Pop(ulong instructionAddress, InstructionSetIndependentOperand stackPointerRegister, InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Pop, instructionAddress, IsilFlowControl.Continue, operand, stackPointerRegister));
 
     public void Subtract(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Subtract,  instructionAddress, IsilFlowControl.Continue, left, right));
     public void Add(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Add, instructionAddress,IsilFlowControl.Continue,  left, right));
