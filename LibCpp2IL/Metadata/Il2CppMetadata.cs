@@ -328,12 +328,12 @@ namespace LibCpp2IL.Metadata
         //Getters for human readability
         public Il2CppFieldDefaultValue? GetFieldDefaultValueFromIndex(int index)
         {
-            return _fieldDefaultValueLookup.GetValueOrDefault(index);
+            return _fieldDefaultValueLookup.GetOrDefault(index);
         }
 
         public Il2CppFieldDefaultValue? GetFieldDefaultValue(Il2CppFieldDefinition field)
         {
-            return _fieldDefaultLookupNew.GetValueOrDefault(field);
+            return _fieldDefaultLookupNew.GetOrDefault(field);
         }
 
         public (int ptr, int type) GetFieldDefaultValue(int fieldIdx)

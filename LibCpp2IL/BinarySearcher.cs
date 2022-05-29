@@ -6,6 +6,8 @@ using System.Reflection;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
+using LibCpp2IL.NintendoSwitch;
+using LibCpp2IL.Wasm;
 
 namespace LibCpp2IL
 {
@@ -77,10 +79,10 @@ namespace LibCpp2IL
         private IEnumerable<uint> FindAllStrings(string str) => FindAllBytes(Encoding.ASCII.GetBytes(str), 1);
 
         // Find 32-bit words
-        private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), 1);
+        private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), _binary is WasmFile or NsoFile ? 1 : 4);
 
         // Find 64-bit words
-        private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), 1);
+        private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), _binary is WasmFile or NsoFile ? 1 : 8);
 
         // Find words for the current binary size
         private IEnumerable<uint> FindAllWords(ulong word)
@@ -157,7 +159,7 @@ namespace LibCpp2IL
             else
             {
                 //but in v27 it's close to the LAST codegen module (winrt.dll is an exception), so we need to work back until we find an xref.
-                var sanityCheckNumberOfModules = 200;
+                var sanityCheckNumberOfModules = 250;
                 var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList.AsEnumerable();
                 var numModuleDefs = LibCpp2IlMain.TheMetadata!.imageDefinitions.Length;
                 var initialBacktrack = numModuleDefs - 5;

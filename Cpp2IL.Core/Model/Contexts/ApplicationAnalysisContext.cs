@@ -54,8 +54,13 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// A dictionary of method pointers to the corresponding method, which may or may not be generic.
     /// </summary>
     public readonly Dictionary<ulong, List<MethodAnalysisContext>> MethodsByAddress = new();
-
+    
     /// <summary>
+    /// A dictionary of all the generic method variants to their corresponding analysis contexts.
+    /// </summary>
+    public readonly Dictionary<Cpp2IlMethodRef, ConcreteGenericMethodAnalysisContext> ConcreteGenericMethodsByRef = new();
+
+        /// <summary>
     /// Key Function Addresses for the binary file. Populated on-demand
     /// </summary>
     private BaseKeyFunctionAddresses? _keyFunctionAddresses;
@@ -103,6 +108,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             MethodsByAddress[ptr].Add(m);
         });
 
+        Logger.VerboseNewline("\tProcessing concrete generic methods...");
         foreach (var methodRef in Binary.ConcreteGenericMethods.Values.SelectMany(v => v))
         {
             var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
@@ -113,6 +119,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
                 MethodsByAddress[ptr] = new();
 
             MethodsByAddress[ptr].Add(gm);
+            ConcreteGenericMethodsByRef[methodRef] = gm;
         }
     }
 

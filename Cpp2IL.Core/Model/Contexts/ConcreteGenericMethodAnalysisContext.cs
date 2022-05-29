@@ -9,7 +9,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     public TypeAnalysisContext BaseTypeContext;
     public MethodAnalysisContext BaseMethodContext;
 
-    public override ulong UnderlyingPointer => MethodRef.GenericVariantPtr;
+    public sealed override ulong UnderlyingPointer => MethodRef.GenericVariantPtr;
 
     public override bool IsStatic => BaseMethodContext.IsStatic;
     
@@ -25,5 +25,8 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
         //TODO: Do we want to update this to populate known generic parameters based on the generic arguments? 
         Parameters.AddRange(BaseMethodContext.Parameters);
+        
+        if(UnderlyingPointer != 0)
+            RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
     }
 }

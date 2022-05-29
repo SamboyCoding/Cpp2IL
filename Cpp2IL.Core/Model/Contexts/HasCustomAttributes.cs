@@ -125,7 +125,7 @@ public abstract class HasCustomAttributes : HasToken
             return; //Possibly no attributes with params?
         }
 
-        CaCacheGeneratorAnalysis = new(generatorPtr, AppContext);
+        CaCacheGeneratorAnalysis = new(generatorPtr, AppContext, this);
         RawIl2CppCustomAttributeData = CaCacheGeneratorAnalysis.RawBytes;
     }
 

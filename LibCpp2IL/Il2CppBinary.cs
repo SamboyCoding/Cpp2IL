@@ -15,7 +15,7 @@ namespace LibCpp2IL
         public readonly Dictionary<Il2CppMethodDefinition, List<Cpp2IlMethodRef>> ConcreteGenericMethods = new();
         public readonly Dictionary<ulong, List<Cpp2IlMethodRef>> ConcreteGenericImplementationsByAddress = new();
         public ulong[] TypeDefinitionSizePointers = Array.Empty<ulong>();
-        
+
         private readonly long _maxMetadataUsages;
         private Il2CppMetadataRegistration _metadataRegistration = null!;
         private Il2CppCodeRegistration _codeRegistration = null!;
@@ -54,26 +54,36 @@ namespace LibCpp2IL
         /// Can be overriden if, like the wasm format, your data has to be unpacked and you need to use a different reader
         /// </summary>
         public virtual ClassReadingBinaryReader Reader => this;
+        
+        public int InBinaryMetadataSize { get; private set; }
 
         public void Init(ulong pCodeRegistration, ulong pMetadataRegistration)
         {
             _codeRegistration = ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration);
             _metadataRegistration = ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(pMetadataRegistration);
 
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
+
             LibLogger.Verbose("\tReading generic instances...");
             var start = DateTime.Now;
             _genericInsts = Array.ConvertAll(ReadNUintArrayAtVirtualAddress(_metadataRegistration.genericInsts, _metadataRegistration.genericInstsCount), ReadReadableAtVirtualAddress<Il2CppGenericInst>);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             LibLogger.Verbose("\tReading generic method pointers...");
             start = DateTime.Now;
             _genericMethodPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.genericMethodPointers, (long) _codeRegistration.genericMethodPointersCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             LibLogger.Verbose("\tReading invoker pointers...");
             start = DateTime.Now;
             _invokerPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.invokerPointers, (long) _codeRegistration.invokerPointersCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             if (LibCpp2IlMain.MetadataVersion < 27)
             {
@@ -82,11 +92,15 @@ namespace LibCpp2IL
                 _customAttributeGenerators = ReadNUintArrayAtVirtualAddress(_codeRegistration.customAttributeGeneratorListAddress, (long) _codeRegistration.customAttributeCount);
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             LibLogger.Verbose("\tReading field offsets...");
             start = DateTime.Now;
             _fieldOffsets = ReadClassArrayAtVirtualAddress<long>(_metadataRegistration.fieldOffsetListAddress, _metadataRegistration.fieldOffsetsCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             LibLogger.Verbose("\tReading types...");
             start = DateTime.Now;
@@ -97,6 +111,8 @@ namespace LibCpp2IL
                 _types[i] = ReadReadableAtVirtualAddress<Il2CppType>(typePtrs[i]);
                 _typesByAddress[typePtrs[i]] = _types[i];
             }
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
@@ -104,6 +120,8 @@ namespace LibCpp2IL
             start = DateTime.Now;
             TypeDefinitionSizePointers = ReadNUintArrayAtVirtualAddress(_metadataRegistration.typeDefinitionsSizes, _metadataRegistration.typeDefinitionsSizesCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             if (_metadataRegistration.metadataUsages != 0)
             {
@@ -113,6 +131,8 @@ namespace LibCpp2IL
                 _metadataUsages = ReadNUintArrayAtVirtualAddress(_metadataRegistration.metadataUsages, (long)Math.Max((decimal) _metadataRegistration.metadataUsagesCount, _maxMetadataUsages));
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             if (LibCpp2IlMain.MetadataVersion >= 24.2f)
             {
@@ -186,12 +206,15 @@ namespace LibCpp2IL
                 _methodPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.methodPointers, (long) _codeRegistration.methodPointersCount);
                 LibLogger.VerboseNewline($"Read {_methodPointers.Length} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
-
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             LibLogger.Verbose("\tReading generic method tables...");
             start = DateTime.Now;
             _genericMethodTables = ReadReadableArrayAtVirtualAddress<Il2CppGenericMethodFunctionsDefinitions>(_metadataRegistration.genericMethodTable, _metadataRegistration.genericMethodTableCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             LibLogger.Verbose("\tReading method specifications...");
             start = DateTime.Now;
@@ -215,6 +238,8 @@ namespace LibCpp2IL
             }
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
         }
 
         private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex)
@@ -294,6 +319,8 @@ namespace LibCpp2IL
         }
 
         public Il2CppGenericInst GetGenericInst(int index) => _genericInsts[index];
+
+        public Il2CppMethodSpec[] AllGenericMethodSpecs => _methodSpecs;
 
         public Il2CppMethodSpec GetMethodSpec(int index) => index >= _methodSpecs.Length
             ? throw new ArgumentException($"GetMethodSpec: index {index} >= length {_methodSpecs.Length}")

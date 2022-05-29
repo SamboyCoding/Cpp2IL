@@ -6,9 +6,12 @@ public class AttributeGeneratorMethodAnalysisContext : MethodAnalysisContext
 
     public override bool IsVoid => true;
 
-    public AttributeGeneratorMethodAnalysisContext(ulong pointer, ApplicationAnalysisContext context) : base(context)
+    public readonly HasCustomAttributes AssociatedMember;
+
+    public AttributeGeneratorMethodAnalysisContext(ulong pointer, ApplicationAnalysisContext context, HasCustomAttributes associatedMember) : base(context)
     {
         UnderlyingPointer = pointer;
+        AssociatedMember = associatedMember;
         RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, true);
     }
 }

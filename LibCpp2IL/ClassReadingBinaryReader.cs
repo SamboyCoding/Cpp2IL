@@ -345,7 +345,7 @@ namespace LibCpp2IL
                     rawBytes = BitConverter.GetBytes(word);
                 }
 
-                if (shouldReverseArrays)
+                if (ShouldReverseArrays)
                     rawBytes = rawBytes.Reverse();
 
                 if (position > _memoryStream.Length)

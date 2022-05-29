@@ -104,7 +104,7 @@ namespace LibCpp2IL.Reflection
         {
             if (LibCpp2IlMain.TheMetadata == null) return -1;
 
-            return TypeIndices.GetValueOrDefault(typeDefinition, -1);
+            return TypeIndices.GetOrDefault(typeDefinition, -1);
         }
 
         // ReSharper disable InconsistentlySynchronizedField
@@ -128,7 +128,7 @@ namespace LibCpp2IL.Reflection
                 }
             }
 
-            return MethodIndices.GetValueOrDefault(methodDefinition, -1);
+            return MethodIndices.GetOrDefault(methodDefinition, -1);
         }
 
         // ReSharper disable InconsistentlySynchronizedField
