@@ -451,7 +451,7 @@ namespace Cpp2IL.Core
 
         private static ulong GetAddressOfAttributeGeneratorFunction(Il2CppImageDefinition imageDef, Il2CppCustomAttributeTypeRange attributeTypeRange)
         {
-            var rangeIndex = _sortedTypeRangeList.BinarySearch(attributeTypeRange, new TokenComparer());
+            var rangeIndex = _sortedTypeRangeList.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, attributeTypeRange, new TokenComparer());
 
             if (rangeIndex < 0)
             {
