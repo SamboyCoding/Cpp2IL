@@ -313,6 +313,8 @@ namespace LibCpp2IL.Elf
                         (newValue, recognized) = rel.Type switch
                         {
                             ElfRelocationType.R_AMD64_64 => (symValue + addend, true), // S + A
+                            ElfRelocationType.R_AMD64_RELATIVE => (addend, true), //Base address + A
+                            
                             _ => (0UL, false)
                         };
                     else
