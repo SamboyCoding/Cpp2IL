@@ -290,6 +290,7 @@ namespace LibCpp2IL.Elf
                         (ElfRelocationType.R_386_JMP_SLOT, InstructionSet.X86_32) => (symValue, true), // S
 
                         (ElfRelocationType.R_AMD64_64, InstructionSet.X86_64) => (symValue + addend, true), // S + A
+                        (ElfRelocationType.R_AMD64_RELATIVE, InstructionSet.X86_64) => (addend, true), //Base address + A
 
                         _ => (0, false)
                     };

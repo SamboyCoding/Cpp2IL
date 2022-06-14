@@ -18,6 +18,7 @@
         R_386_GLOB_DAT = 6,
         R_386_JMP_SLOT = 7,
 
-        R_AMD64_64 = 1
+        R_AMD64_64 = 1,
+        R_AMD64_RELATIVE = 8,
     }
 }
