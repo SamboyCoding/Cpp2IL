@@ -6,7 +6,7 @@
 
 Due to, well, very much forseen circumstances, we are in the process of rewriting most of cpp2il from the ground up over in the development branch.
 
-As such, bug fixes, and new updates, are likely to be sparse until the work is done, which I expect to be sometime in January 2022.
+As such, bug fixes, and new updates, are likely to be sparse until the work is done, which ~~I expect to be sometime in January 2022~~ will be when it will be, basically.
 
 ### Need Help? Join [the discord](https://discord.gg/XdggT7XZXm)!
 
