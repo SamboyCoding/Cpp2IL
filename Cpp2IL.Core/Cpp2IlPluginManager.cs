@@ -15,10 +15,11 @@ public static class Cpp2IlPluginManager
 
     internal static void LoadFromDirectory(string pluginsDir)
     {
+        Logger.InfoNewline($"Loading plugins from {pluginsDir}...", "Plugins");
+        
         if(!Directory.Exists(pluginsDir))
             return;
         
-        Logger.InfoNewline($"Loading plugins from {pluginsDir}...", "Plugins");
         foreach (var file in Directory.EnumerateFiles(pluginsDir))
         {
             if (Path.GetExtension(file) == ".dll")

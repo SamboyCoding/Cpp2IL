@@ -104,7 +104,14 @@ namespace LibCpp2IL.Metadata
                 else
                     actualVersion = version; //2017.1.0 was the first v24 version
             }
-            else actualVersion = version; //Covers v29
+            else if (version == 29)
+            {
+                if (unityVersion.IsGreaterEqual(2022, 1, 0, UnityVersionType.Beta, 7))
+                    actualVersion = 29.1f; //2022.1.0b7 introduces v29.1 which adds two new pointers to codereg
+                else
+                    actualVersion = 29; //2021.3.0 introduces v29
+            }
+            else actualVersion = version;
 
             LibLogger.InfoNewline($"\tUsing actual IL2CPP Metadata version {actualVersion}");
 
@@ -277,6 +284,7 @@ namespace LibCpp2IL.Metadata
             }
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            _hasFinishedInitialRead = true;
         }
 #pragma warning restore 8618
 

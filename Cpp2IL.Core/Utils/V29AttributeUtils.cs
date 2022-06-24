@@ -6,6 +6,7 @@ using System.Text;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
+using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -20,6 +21,9 @@ public static class V29AttributeUtils
 
         for (var i = 0; i < count; i++) 
             indices[i] = reader.ReadUInt32();
+        
+        if(ClassReadingBinaryReader.EnableReadableSizeInformation)
+            context.Metadata.TrackRead<AnalyzedCustomAttribute>((int) (4 * count), trackIfFinishedReading: true);
 
         return indices.Select(i => context.Metadata.methodDefs[i]).ToArray();
     }
@@ -27,6 +31,8 @@ public static class V29AttributeUtils
     public static AnalyzedCustomAttribute ReadAttribute(Stream stream, MethodAnalysisContext constructor, ApplicationAnalysisContext context)
     {
         var ret = new AnalyzedCustomAttribute(constructor);
+
+        var startPos = stream.Position;
 
         var numCtorArgs = stream.ReadUnityCompressedUint();
         var numFields = stream.ReadUnityCompressedUint();
@@ -60,6 +66,9 @@ public static class V29AttributeUtils
             
             ret.Properties.Add(new(property, value));
         }
+        
+        if(ClassReadingBinaryReader.EnableReadableSizeInformation)
+            context.Metadata.TrackRead<AnalyzedCustomAttribute>((int) (stream.Position - startPos), trackIfFinishedReading: true);
 
         return ret;
     }

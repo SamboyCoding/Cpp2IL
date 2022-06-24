@@ -33,6 +33,9 @@ SharpTreeView/obj/
 /StableNameDotNet/bin/
 /StableNameDotNet/obj/
 
+/Cpp2IL.Plugin.BuildReport/bin/
+/Cpp2IL.Plugin.BuildReport/obj/
+
 .vs
 
 *.user

@@ -386,6 +386,8 @@ namespace Cpp2IL
                 throw new SoftException("Arguments have Valid = false");
 
             var executionStart = DateTime.Now;
+            
+            runtimeArgs.OutputFormat?.OnOutputFormatSelected();
 
             GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
 

@@ -166,7 +166,7 @@ namespace LibCpp2IL.Elf
             {
                 var rels = new HashSet<ElfRelocation>();
 
-                var relSectionStarts = new List<ulong>();
+                var relSectionStarts = new HashSet<ulong>();
 
                 //REL tables
                 foreach (var section in GetSections(ElfSectionEntryType.SHT_REL))
@@ -189,36 +189,50 @@ namespace LibCpp2IL.Elf
                 //RELA tables
                 foreach (var section in GetSections(ElfSectionEntryType.SHT_RELA))
                 {
+                    if (relSectionStarts.Contains(section.RawAddress))
+                    {
+                        LibLogger.VerboseNewline($"\t\t-Ignoring RELA section starting at 0x{section.RawAddress} because it's already been processed.");
+                        continue;
+                    }
+
                     //Get related section pointer
                     var relatedTablePointer = _elfSectionHeaderEntries[section.LinkedSectionIndex].RawAddress;
 
                     //Read rela table
                     var table = ReadReadableArrayAtRawAddr<ElfRelaEntry>((long) section.RawAddress, (long) (section.Size / (ulong) section.EntrySize));
 
-                    LibLogger.VerboseNewline($"\t\t-Got {table.Length} from RELA section {section.Name}");
+                    LibLogger.VerboseNewline($"\t\t-Got {table.Length} from RELA section {section.Name} at 0x{section.RawAddress}");
                     
                     relocationBlocks.Add((section.RawAddress, section.RawAddress + section.Size));
+                    relSectionStarts.Add(section.RawAddress);
 
                     //Insert into rels list.
                     rels.UnionWith(table.Select(r => new ElfRelocation(this, r, relatedTablePointer)));
                 }
 
                 //Dynamic Rel Table
-                if (GetDynamicEntryOfType(ElfDynamicType.DT_REL) is { } dt_rel&& (uint) MapVirtualAddressToRaw(dt_rel.Value) is {} dtRelStartAddr && !relSectionStarts.Contains(dtRelStartAddr))
+                if (GetDynamicEntryOfType(ElfDynamicType.DT_REL) is { } dt_rel&& (uint) MapVirtualAddressToRaw(dt_rel.Value) is {} dtRelStartAddr)
                 {
-                    //Null-assertion reason: We must have both a RELSZ and a RELENT or this is an error.
-                    var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELSZ)!.Value;
-                    var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
-                    var entries = ReadReadableArrayAtRawAddr<ElfRelEntry>(dtRelStartAddr, relCount);
+                    if (!relSectionStarts.Contains(dtRelStartAddr))
+                    {
+                        //Null-assertion reason: We must have both a RELSZ and a RELENT or this is an error.
+                        var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELSZ)!.Value;
+                        var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELENT)!.Value);
+                        var entries = ReadReadableArrayAtRawAddr<ElfRelEntry>(dtRelStartAddr, relCount);
 
-                    LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic REL section.");
+                        LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic REL section at 0x{dtRelStartAddr}");
 
-                    //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_REL
-                    var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
+                        //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_REL
+                        var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
                     
-                    relocationBlocks.Add((dtRelStartAddr, dtRelStartAddr + relocationSectionSize));
+                        relocationBlocks.Add((dtRelStartAddr, dtRelStartAddr + relocationSectionSize));
 
-                    rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
+                        rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
+                    }
+                    else
+                    {
+                        LibLogger.VerboseNewline($"\t\t-Ignoring dynamic REL section starting at 0x{dtRelStartAddr} because it's already been processed.");
+                    }
                 }
 
                 //Dynamic Rela Table
@@ -228,16 +242,24 @@ namespace LibCpp2IL.Elf
                     var relocationSectionSize = GetDynamicEntryOfType(ElfDynamicType.DT_RELASZ)!.Value;
                     var relCount = (int) (relocationSectionSize / GetDynamicEntryOfType(ElfDynamicType.DT_RELAENT)!.Value);
                     var startAddr = (uint) MapVirtualAddressToRaw(dt_rela.Value);
-                    var entries = ReadReadableArrayAtRawAddr<ElfRelaEntry>(startAddr, relCount);
 
-                    LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic RELA section.");
+                    if (!relSectionStarts.Contains(startAddr))
+                    {
+                        var entries = ReadReadableArrayAtRawAddr<ElfRelaEntry>(startAddr, relCount);
 
-                    //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_RELA
-                    var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
-                    
-                    relocationBlocks.Add((startAddr, startAddr + relocationSectionSize));
+                        LibLogger.VerboseNewline($"\t\t-Got {entries.Length} from dynamic RELA section at 0x{startAddr}");
 
-                    rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
+                        //Null-assertion reason: We must have a DT_SYMTAB if we have a DT_RELA
+                        var pSymTab = GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB)!.Value;
+
+                        relocationBlocks.Add((startAddr, startAddr + relocationSectionSize));
+
+                        rels.UnionWith(entries.Select(r => new ElfRelocation(this, r, pSymTab)));
+                    }
+                    else
+                    {
+                        LibLogger.VerboseNewline($"\t\t-Ignoring dynamic RELA section starting at 0x{startAddr} because it's already been processed.");
+                    }
                 }
 
                 var sizeOfRelocationStruct = (ulong) (is32Bit ? LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol32), true, false) : LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol64), true, false));

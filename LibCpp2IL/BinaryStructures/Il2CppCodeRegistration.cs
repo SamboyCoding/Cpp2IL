@@ -24,8 +24,13 @@ namespace LibCpp2IL.BinaryStructures
         [Version(Max = 24.5f)] //Removed in v27
         public ulong customAttributeGeneratorListAddress;
 
-        public ulong unresolvedVirtualCallCount;
+        public ulong unresolvedVirtualCallCount; //Renamed to unresolvedIndirectCallCount in v29.1
         public ulong unresolvedVirtualCallPointers;
+
+        [Version(Min = 29.1f)] 
+        public ulong unresolvedInstanceCallPointers;
+        [Version(Min = 29.1f)] 
+        public ulong unresolvedStaticCallPointers;
 
         public ulong interopDataCount;
         public ulong interopData;
@@ -64,6 +69,12 @@ namespace LibCpp2IL.BinaryStructures
 
             unresolvedVirtualCallCount = reader.ReadNUint();
             unresolvedVirtualCallPointers = reader.ReadNUint();
+
+            if (IsAtLeast(29.1f))
+            {
+                unresolvedInstanceCallPointers = reader.ReadNUint();
+                unresolvedStaticCallPointers = reader.ReadNUint();
+            }
 
             interopDataCount = reader.ReadNUint();
             interopData = reader.ReadNUint();

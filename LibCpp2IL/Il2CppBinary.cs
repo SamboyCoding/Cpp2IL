@@ -240,6 +240,7 @@ namespace LibCpp2IL
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
+            _hasFinishedInitialRead = true;
         }
 
         private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex)

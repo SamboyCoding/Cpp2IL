@@ -11,7 +11,10 @@ namespace LibCpp2IL
 {
     public class ClassReadingBinaryReader : EndianAwareBinaryReader
     {
-        private static readonly Dictionary<Type, FieldInfo[]> CachedFields = new();
+        /// <summary>
+        /// Set this to true to enable storing of amount of bytes read of each readable structure.
+        /// </summary>
+        public static bool EnableReadableSizeInformation = false;
 
         private SpinLock PositionShiftLock;
 
@@ -19,6 +22,10 @@ namespace LibCpp2IL
         private MemoryStream _memoryStream;
 
         public ulong PointerSize => is32Bit ? 4ul : 8ul;
+
+        protected bool _hasFinishedInitialRead;
+        private bool _inReadableRead;
+        public ConcurrentDictionary<Type, int> BytesReadPerClass = new();
 
 
         public ClassReadingBinaryReader(MemoryStream input) : base(input)
@@ -31,6 +38,8 @@ namespace LibCpp2IL
             get => BaseStream.Position;
             protected internal set => BaseStream.Position = value;
         }
+        
+        public long Length => BaseStream.Length;
 
         internal virtual object? ReadPrimitive(Type type, bool overrideArchCheck = false)
         {
@@ -162,7 +171,18 @@ namespace LibCpp2IL
         private T InternalReadReadableClass<T>() where T : ReadableClass, new()
         {
             var t = new T();
-            t.Read(this);
+
+            if (!_inReadableRead)
+            {
+                _inReadableRead = true;
+                t.Read(this);
+                _inReadableRead = false;
+            }
+            else
+            {
+                t.Read(this);
+            }
+
             return t;
         }
 
@@ -244,11 +264,20 @@ namespace LibCpp2IL
             var builder = new List<byte>();
 
             Position = offset;
-            byte b;
-            while ((b = (byte) _memoryStream.ReadByte()) != 0)
-                builder.Add(b);
 
-            return Encoding.UTF8.GetString(builder.ToArray());
+            try
+            {
+                byte b;
+                while ((b = (byte) _memoryStream.ReadByte()) != 0)
+                    builder.Add(b);
+
+                return Encoding.UTF8.GetString(builder.ToArray());
+            }
+            finally
+            {
+                var bytesRead = (int) (Position - offset);
+                TrackRead<string>(bytesRead);
+            }
         }
 
         public byte[] ReadByteArrayAtRawAddress(long offset, int count)
@@ -270,10 +299,19 @@ namespace LibCpp2IL
             if(offset != -1)
                 Position = offset;
             
-            var ret = new byte[count];
-            Read(ret, 0, count);
+            var initialPos = Position;
 
-            return ret;
+            try
+            {
+                var ret = new byte[count];
+                Read(ret, 0, count);
+
+                return ret;
+            }
+            finally
+            {
+                TrackRead<byte>(count, false);
+            }
         }
 
         protected internal void GetLockOrThrow()
@@ -309,6 +347,9 @@ namespace LibCpp2IL
             finally
             {
                 PositionShiftLock.Exit();
+                
+                var bytesRead = count * (int) PointerSize;
+                TrackRead<ulong>(bytesRead, false);
             }
         }
 
@@ -384,12 +425,17 @@ namespace LibCpp2IL
             if (offset >= 0)
                 Position = offset;
 
+            var initialPos = Position;
+
             try
             {
                 return InternalReadReadableClass<T>();
             }
             finally
             {
+                var bytesRead = (int) (Position - initialPos);
+                TrackRead<T>(bytesRead, trackIfFinishedReading: true);
+
                 PositionShiftLock.Exit();
             }
         }
@@ -399,11 +445,14 @@ namespace LibCpp2IL
             var t = new T[count];
 
             GetLockOrThrow();
+            
+            if (offset != -1) 
+                Position = offset;
+            
+            var initialPos = Position;
 
             try
             {
-                if (offset != -1) Position = offset;
-
                 for (var i = 0; i < count; i++)
                 {
                     t[i] = InternalReadReadableClass<T>();
@@ -413,8 +462,25 @@ namespace LibCpp2IL
             }
             finally
             {
+                var bytesRead = (int) (Position - initialPos);
+                TrackRead<T>(bytesRead, trackIfFinishedReading: true);
+                
                 PositionShiftLock.Exit();
             }
+        }
+
+        public void TrackRead<T>(int bytesRead, bool trackIfInReadableRead = true, bool trackIfFinishedReading = false)
+        {
+            if(!EnableReadableSizeInformation)
+                return;
+            
+            if(!trackIfInReadableRead && _inReadableRead)
+                return;
+
+            if (_hasFinishedInitialRead && !trackIfFinishedReading)
+                return;
+            
+            BytesReadPerClass[typeof(T)] = BytesReadPerClass.GetOrDefault(typeof(T)) + bytesRead;
         }
     }
 }

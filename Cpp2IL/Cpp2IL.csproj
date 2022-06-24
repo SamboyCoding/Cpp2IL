@@ -12,7 +12,7 @@
         <PublishSingleFile Condition="'$(TargetFramework)'!='net472'">true</PublishSingleFile>
         <PublishTrimmed>true</PublishTrimmed>
         <TargetFrameworks>net6.0;net472</TargetFrameworks>
-        <TrimMode>link</TrimMode>
+        <TrimMode>copyused</TrimMode>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <ServerGarbageCollection>true</ServerGarbageCollection>
     </PropertyGroup>

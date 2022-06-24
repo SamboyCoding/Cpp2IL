@@ -13,6 +13,15 @@ public abstract class Cpp2IlOutputFormat
     /// The name of the output format displayed to the user (e.g. in logs or the GUI)
     /// </summary>
     public abstract string OutputFormatName { get; }
+
+    /// <summary>
+    /// Called when this output format is selected by the user, before any binary is loaded.
+    /// You do not have a context, but you could use this to, for example, configure the library if you need to enable a feature.
+    /// </summary>
+    public virtual void OnOutputFormatSelected()
+    {
+        
+    }
     
     public abstract void DoOutput(ApplicationAnalysisContext context, string outputRoot);
 }
