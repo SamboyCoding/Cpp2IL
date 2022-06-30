@@ -32,7 +32,7 @@ namespace Cpp2IL.Core
         internal static readonly TypeDefinition DummyTypeDefForAttributeList = new TypeDefinition("dummy", "AttributeList", TypeAttributes.Public | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
 
         private static readonly ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?> FieldToParameterMappings = new ConcurrentDictionary<MethodDefinition, FieldToParameterMapping[]?>();
-        private static List<Il2CppCustomAttributeTypeRange> _sortedTypeRangeList;
+        private static List<Il2CppCustomAttributeTypeRange> _attributeTypeRanges;
         private static Dictionary<ModuleDefinition, MethodDefinition> _attributeAttributeCtorsByModule = new();
 
         static AttributeRestorer() => Initialize();
@@ -71,8 +71,7 @@ namespace Cpp2IL.Core
 
             SharedState.FieldsByType[DummyTypeDefForAttributeList] = new List<FieldInType>();
             
-            _sortedTypeRangeList = LibCpp2IlMain.TheMetadata!.attributeTypeRanges?.ToList() ?? new();
-            _sortedTypeRangeList.SortByExtractedKey(r => r.token);
+            _attributeTypeRanges = LibCpp2IlMain.TheMetadata!.attributeTypeRanges?.ToList() ?? new();
         }
 
         /// <summary>
@@ -92,7 +91,7 @@ namespace Cpp2IL.Core
 
             _simpleFieldToPropertyCache.Clear();
             
-            _sortedTypeRangeList.Clear();
+            _attributeTypeRanges.Clear();
             
             _attributeAttributeCtorsByModule.Clear();
 
@@ -451,7 +450,7 @@ namespace Cpp2IL.Core
 
         private static ulong GetAddressOfAttributeGeneratorFunction(Il2CppImageDefinition imageDef, Il2CppCustomAttributeTypeRange attributeTypeRange)
         {
-            var rangeIndex = _sortedTypeRangeList.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, attributeTypeRange, new TokenComparer());
+            var rangeIndex = _attributeTypeRanges.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, attributeTypeRange, new TokenComparer());
 
             if (rangeIndex < 0)
             {
