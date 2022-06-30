@@ -19,7 +19,7 @@ namespace LibCpp2IL
         private SpinLock PositionShiftLock;
 
         public bool is32Bit;
-        private MemoryStream _memoryStream;
+        private MemoryStream? _memoryStream;
 
         public ulong PointerSize => is32Bit ? 4ul : 8ul;
 
@@ -33,10 +33,15 @@ namespace LibCpp2IL
             _memoryStream = input;
         }
 
+        public ClassReadingBinaryReader(Stream input) : base(input)
+        {
+            _memoryStream = null;
+        }
+
         public long Position
         {
             get => BaseStream.Position;
-            protected internal set => BaseStream.Position = value;
+            set => BaseStream.Position = value;
         }
         
         public long Length => BaseStream.Length;
@@ -263,12 +268,13 @@ namespace LibCpp2IL
         {
             var builder = new List<byte>();
 
-            Position = offset;
+            if(offset != -1)
+                Position = offset;
 
             try
             {
                 byte b;
-                while ((b = (byte) _memoryStream.ReadByte()) != 0)
+                while ((b = ReadByte()) != 0)
                     builder.Add(b);
 
                 return Encoding.UTF8.GetString(builder.ToArray());
@@ -371,6 +377,9 @@ namespace LibCpp2IL
         /// </summary>
         protected void WriteWord(int position, long word)
         {
+            if (_memoryStream == null)
+                throw new("WriteWord is not supported in non-memory-backed readers");
+            
             GetLockOrThrow();
 
             try

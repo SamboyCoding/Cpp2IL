@@ -76,4 +76,29 @@ public static class Cpp2IlPluginManager
         }
         Logger.VerboseNewline("OnLoad complete", "Plugins");
     }
+
+    /// <summary>
+    /// Attempts to handle the given game path and populate the runtime arguments by passing them to plugins.
+    /// </summary>
+    /// <param name="gamePath">The path provided by the user for their game.</param>
+    /// <param name="args">The arguments to populate with the result, if the game can be handled</param>
+    /// <returns>True if the path was handled, and the game can be loaded based on the arguments, otherwise false.</returns>
+    public static bool TryProcessGamePath(string gamePath, ref Cpp2IlRuntimeArgs args)
+    {
+        foreach (var cpp2IlPlugin in _loadedPlugins)
+        {
+            if (cpp2IlPlugin.HandleGamePath(gamePath, ref args))
+                return true;
+        }
+
+        return false;
+    }
+
+    public static void CallOnFinish()
+    {
+        foreach (var cpp2IlPlugin in _loadedPlugins)
+        {
+            cpp2IlPlugin.CallOnFinish();
+        }
+    }
 }

@@ -133,7 +133,9 @@ In addition to the above, the GUI Project uses:
 - [AvaloniaEdit](https://github.com/AvaloniaUI/AvaloniaEdit/) for the text editor.
 - [TextMateSharp](https://github.com/danipen/TextMateSharp) for the syntax highlighting.
 
-It's (very loosely, at this point) based off of [Il2CppDumper](https://github.com/Perfare/Il2CppDumper), which I forked
+Finally, the OrbisPkg plugin uses [LibOrbisPkg](https://github.com/maxton/LibOrbisPkg), which is licensed under the LGPL, version 3.
+
+Cpp2IL is (very loosely, at this point) based off of [Il2CppDumper](https://github.com/Perfare/Il2CppDumper), which I forked
 in 2018 and removed a lot of code, rewrote a lot, and added a lot more. But at its core, it's still got some dumper left
 in it, mostly in LibCpp2IL.
 

@@ -2,7 +2,7 @@
 using AssetRipper.VersionUtilities;
 using Cpp2IL.Core.Api;
 
-namespace Cpp2IL
+namespace Cpp2IL.Core
 {
     public class Cpp2IlRuntimeArgs
     {

@@ -59,7 +59,14 @@ namespace LibCpp2IL.Elf
             start = DateTime.Now;
 
             //Non-null assertion reason: The elf header has already been checked while reading the program header.
-            _elfSectionHeaderEntries = ReadReadableArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader!.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
+            try
+            {
+                _elfSectionHeaderEntries = ReadReadableArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader!.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
+            }
+            catch (Exception e)
+            {
+                _elfSectionHeaderEntries = new();
+            }
 
             if (_elfHeader.SectionNameSectionOffset >= 0 && _elfHeader.SectionNameSectionOffset < _elfSectionHeaderEntries.Count)
             {
@@ -441,7 +448,10 @@ namespace LibCpp2IL.Elf
         private void ProcessInitializers()
         {
             if (!(GetDynamicEntryOfType(ElfDynamicType.DT_INIT_ARRAY) is { } dtInitArray) || !(GetDynamicEntryOfType(ElfDynamicType.DT_INIT_ARRAYSZ) is { } dtInitArraySz))
+            {
+                _initializerPointers = new();
                 return;
+            }
 
             var pInitArray = MapVirtualAddressToRaw(dtInitArray.Value);
             var count = (int) dtInitArraySz.Value / (is32Bit ? 4 : 8);

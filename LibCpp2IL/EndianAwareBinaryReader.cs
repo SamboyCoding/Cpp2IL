@@ -7,8 +7,8 @@ namespace LibCpp2IL
     public class EndianAwareBinaryReader : BinaryReader
     {
         protected bool ShouldReverseArrays = !BitConverter.IsLittleEndian; //Default to LE mode, so on LE systems, don't invert.
-        
-        public bool IsBigEndian = false;
+
+        public bool IsBigEndian { get; private set; } = false;
         
         private int _numBytesReadSinceLastCall = 0;
 
@@ -24,7 +24,7 @@ namespace LibCpp2IL
         {
         }
 
-        protected void SetBigEndian()
+        public void SetBigEndian()
         {
             ShouldReverseArrays = BitConverter.IsLittleEndian; //Set to BE mode, so on LE systems we invert.
             IsBigEndian = true;

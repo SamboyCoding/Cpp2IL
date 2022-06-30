@@ -39,7 +39,10 @@ namespace Cpp2IL
             else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".xapk")
                 HandleXapk(gamePath, ref args);
             else
-                throw new SoftException($"Could not find a valid unity game at {gamePath}");
+            {
+                if(!Cpp2IlPluginManager.TryProcessGamePath(gamePath, ref args))
+                    throw new SoftException($"Could not find a valid unity game at {gamePath}");
+            }
         }
 
         private static void HandleWindowsGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
@@ -455,6 +458,8 @@ namespace Cpp2IL
             // Cpp2IlApi.PopulateConcreteImplementations();
 
             CleanupExtractedFiles();
+            
+            Cpp2IlPluginManager.CallOnFinish();
 
             Logger.InfoNewline($"Done. Total execution time: {(DateTime.Now - executionStart).TotalMilliseconds}ms");
             return 0;
