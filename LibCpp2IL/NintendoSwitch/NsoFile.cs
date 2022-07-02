@@ -331,11 +331,14 @@ namespace LibCpp2IL.NintendoSwitch
         public override long RawLength => _raw.Length;
         public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-        public override long MapVirtualAddressToRaw(ulong addr)
+        public override long MapVirtualAddressToRaw(ulong addr, bool throwOnError = true)
         {
             var segment = segments.FirstOrDefault(x => addr - NsoGlobalOffset >= x.MemoryOffset && addr - NsoGlobalOffset <= x.MemoryOffset + x.DecompressedSize);
             if (segment == null)
-                throw new InvalidOperationException($"NSO: Address 0x{addr:X} is not present in any of the segments. Known segment ends are (hex) {string.Join(", ", segments.Select(s => (s.MemoryOffset + s.DecompressedSize).ToString("X")))}");
+                if (throwOnError)
+                    throw new InvalidOperationException($"NSO: Address 0x{addr:X} is not present in any of the segments. Known segment ends are (hex) {string.Join(", ", segments.Select(s => (s.MemoryOffset + s.DecompressedSize).ToString("X")))}");
+                else
+                    return VirtToRawInvalidNoMatch;
             
             return (long)(addr - (segment.MemoryOffset + NsoGlobalOffset) + segment.FileOffset);
         }

@@ -10,13 +10,13 @@ namespace LibCpp2IL.PE
     {
         //Initialized in constructor
         internal readonly byte[] raw; //Internal for PlusSearch
-        
+
         //PE-Specific Stuff
         internal readonly SectionHeader[] peSectionHeaders; //Internal for the one use in PlusSearch
         internal readonly ulong peImageBase; //Internal for the one use in PlusSearch
         private readonly OptionalHeader64? peOptionalHeader64;
         private readonly OptionalHeader? peOptionalHeader32;
-        
+
         //Disable null check because this stuff is initialized post-constructor
 #pragma warning disable 8618
         private uint[]? peExportedFunctionPointers;
@@ -24,7 +24,7 @@ namespace LibCpp2IL.PE
         private ushort[] peExportedFunctionOrdinals;
 
         //Il2cpp binary fields:
-        
+
         //Top-level structs
 
         //Pointers
@@ -69,14 +69,17 @@ namespace LibCpp2IL.PE
         }
 #pragma warning restore 8618
 
-        public override long MapVirtualAddressToRaw(ulong uiAddr)
+        public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
         {
-            if(uiAddr < peImageBase)
-                throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
-            
-            var addr = (uint) (uiAddr - peImageBase);
+            if (uiAddr < peImageBase)
+                if (throwOnError)
+                    throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
+                else
+                    return VirtToRawInvalidNoMatch;
 
-            if (addr == (uint) int.MaxValue + 1)
+            var addr = (uint)(uiAddr - peImageBase);
+
+            if (addr == (uint)int.MaxValue + 1)
                 throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
 
             var last = peSectionHeaders[peSectionHeaders.Length - 1];
@@ -161,7 +164,7 @@ namespace LibCpp2IL.PE
         {
             return pointer - peImageBase;
         }
-        
+
         public override byte[] GetEntirePrimaryExecutableSection()
         {
             var primarySection = peSectionHeaders.FirstOrDefault(s => s.Name == ".text");
@@ -171,7 +174,7 @@ namespace LibCpp2IL.PE
 
             return GetRawBinaryContent().SubArray((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
         }
-        
+
         public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress + peImageBase ?? 0;
 
         public override byte GetByteAtRawAddress(ulong addr) => raw[addr];

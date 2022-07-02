@@ -75,12 +75,15 @@ namespace LibCpp2IL.MachO
         public override long RawLength => _raw.Length;
         public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-        public override long MapVirtualAddressToRaw(ulong uiAddr)
+        public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
         {
             var sec = Sections64.FirstOrDefault(s => s.Address <= uiAddr && uiAddr < s.Address + s.Size);
             
             if (sec == null)
-                throw new($"Could not find section for virtual address 0x{uiAddr:X}. Lowest section address is 0x{Sections64.Min(s => s.Address):X}, highest section address is 0x{Sections64.Max(s => s.Address + s.Size):X}");
+                if (throwOnError)
+                    throw new($"Could not find section for virtual address 0x{uiAddr:X}. Lowest section address is 0x{Sections64.Min(s => s.Address):X}, highest section address is 0x{Sections64.Max(s => s.Address + s.Size):X}");
+                else
+                    return VirtToRawInvalidNoMatch;
 
             return (long) (sec.Offset + (uiAddr - sec.Address));
         }

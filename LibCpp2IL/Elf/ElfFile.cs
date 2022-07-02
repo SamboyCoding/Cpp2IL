@@ -461,7 +461,7 @@ namespace LibCpp2IL.Elf
             if (GetDynamicEntryOfType(ElfDynamicType.DT_INIT) is { } dtInit)
                 initArray = initArray.Append(dtInit.Value).ToArray();
 
-            _initializerPointers = initArray.Select(MapVirtualAddressToRaw).ToList();
+            _initializerPointers = initArray.Select(a => MapVirtualAddressToRaw(a)).ToList();
         }
 
         public override (ulong pCodeRegistration, ulong pMetadataRegistration) FindCodeAndMetadataReg(int methodCount, int typeDefinitionsCount)
@@ -667,12 +667,15 @@ namespace LibCpp2IL.Elf
 
         public override long RawLength => _raw.Length;
 
-        public override long MapVirtualAddressToRaw(ulong addr)
+        public override long MapVirtualAddressToRaw(ulong addr, bool throwOnError = true)
         {
             var section = _elfProgramHeaderEntries.FirstOrDefault(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
 
             if (section == null)
-                throw new InvalidOperationException($"No entry in the Elf PHT contains virtual address 0x{addr:X}");
+                if (throwOnError)
+                    throw new InvalidOperationException($"No entry in the Elf PHT contains virtual address 0x{addr:X}");
+                else
+                    return VirtToRawInvalidNoMatch;
 
             return (long) (addr - (section.VirtualAddress - section.RawAddress));
         }
