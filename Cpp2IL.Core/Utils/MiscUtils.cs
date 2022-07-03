@@ -334,7 +334,7 @@ namespace Cpp2IL.Core.Utils
 
             //Generics are dumb.
             var genericParams = Array.Empty<string>();
-            if (definedType == null && name.Contains("<"))
+            if (definedType == null && name.Contains("<") && name != "<")
             {
                 //Replace < > with the number of generic params after a `
                 genericParams = GetGenericParams(name[(name.IndexOf("<", StringComparison.Ordinal) + 1)..^1]);
