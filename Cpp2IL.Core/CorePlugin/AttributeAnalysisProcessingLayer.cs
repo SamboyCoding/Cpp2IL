@@ -23,7 +23,11 @@ public class AttributeAnalysisProcessingLayer : Cpp2IlProcessingLayer
             AnalyzeAndRaise(type, ref count, total, progressCallback);
             type.Events.ForEach(e => AnalyzeAndRaise(e, ref count, total, progressCallback));
             type.Fields.ForEach(f => AnalyzeAndRaise(f, ref count, total, progressCallback));
-            type.Methods.ForEach(m => AnalyzeAndRaise(m, ref count, total, progressCallback));
+            type.Methods.ForEach(m =>
+            {
+                AnalyzeAndRaise(m, ref count, total, progressCallback);
+                m.Parameters.ForEach(p => AnalyzeAndRaise(p, ref count, total, progressCallback));
+            });
             type.Properties.ForEach(p => AnalyzeAndRaise(p, ref count, total, progressCallback));
         }
     }
