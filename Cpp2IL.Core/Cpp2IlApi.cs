@@ -26,95 +26,14 @@ namespace Cpp2IL.Core
             Cpp2IlPluginManager.InitAll();
         }
 
-        public static UnityVersion DetermineUnityVersion(string unityPlayerPath, string gameDataPath)
-        {
-            if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
-            {
-                var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
-
-                return new UnityVersion((ushort)unityVer.FileMajorPart, (ushort)unityVer.FileMinorPart, (ushort)unityVer.FileBuildPart);
-            }
-
-            if (!string.IsNullOrEmpty(gameDataPath))
-            {
-                //Globalgamemanagers
-                var globalgamemanagersPath = Path.Combine(gameDataPath, "globalgamemanagers");
-                if (File.Exists(globalgamemanagersPath))
-                {
-                    var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
-                    return GetVersionFromGlobalGameManagers(ggmBytes);
-                }
-
-                //Data.unity3d
-                var dataPath = Path.Combine(gameDataPath, "data.unity3d");
-                if (File.Exists(dataPath))
-                {
-                    using var dataStream = File.OpenRead(dataPath);
-                    return GetVersionFromDataUnity3D(dataStream);
-                }
-            }
-
-            return default;
-        }
+        public static UnityVersion DetermineUnityVersion(string? unityPlayerPath, string? gameDataPath)
+            => LibCpp2IlMain.DetermineUnityVersion(unityPlayerPath, gameDataPath);
 
         public static UnityVersion GetVersionFromGlobalGameManagers(byte[] ggmBytes)
-        {
-            var verString = new StringBuilder();
-            var idx = 0x14;
-            while (ggmBytes[idx] != 0)
-            {
-                verString.Append(Convert.ToChar(ggmBytes[idx]));
-                idx++;
-            }
-
-            string unityVer = verString.ToString();
-
-            if (!unityVersionRegex.IsMatch(unityVer))
-            {
-                idx = 0x30;
-                verString = new StringBuilder();
-                while (ggmBytes[idx] != 0)
-                {
-                    verString.Append(Convert.ToChar(ggmBytes[idx]));
-                    idx++;
-                }
-
-                unityVer = verString.ToString().Trim();
-            }
-
-            return UnityVersion.Parse(unityVer);
-        }
+            => LibCpp2IlMain.GetVersionFromGlobalGameManagers(ggmBytes);
 
         public static UnityVersion GetVersionFromDataUnity3D(Stream fileStream)
-        {
-            //data.unity3d is a bundle file and it's used on later unity versions.
-            //These files are usually really large and we only want the first couple bytes, so it's done via a stream.
-            //e.g.: Secret Neighbour
-            //Fake unity version at 0xC, real one at 0x12
-
-            var verString = new StringBuilder();
-
-            if (fileStream.CanSeek)
-                fileStream.Seek(0x12, SeekOrigin.Begin);
-            else
-                fileStream.Read(new byte[0x12], 0, 0x12);
-
-            while (true)
-            {
-                var read = fileStream.ReadByte();
-                if (read == 0)
-                {
-                    //I'm using a while true..break for this, shoot me.
-                    break;
-                }
-
-                verString.Append(Convert.ToChar(read));
-            }
-
-            var unityVer = verString.ToString().Trim();
-
-            return UnityVersion.Parse(unityVer);
-        }
+            => LibCpp2IlMain.GetVersionFromDataUnity3D(fileStream);
 
         private static void ConfigureLib(bool allowUserToInputAddresses)
         {
@@ -166,7 +85,7 @@ namespace Cpp2IL.Core
             {
                 throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
             }
-            
+
             OnLibInitialized();
         }
 
@@ -189,7 +108,7 @@ namespace Cpp2IL.Core
 
             LibCpp2IlMain.Reset();
         }
-        
+
         // public static void PopulateConcreteImplementations()
         // {
         //     CheckLibInitialized();
