@@ -157,7 +157,7 @@ public abstract class HasCustomAttributes : HasToken
     /// <summary>
     /// Attempt to parse the Il2CppCustomAttributeData blob into custom attributes.
     /// </summary>
-    public void AnalyzeCustomAttributeData()
+    public void AnalyzeCustomAttributeData(bool allowAnalysis = true)
     {
         if(_hasAnalyzedCustomAttributeData)
             return;
@@ -175,13 +175,17 @@ public abstract class HasCustomAttributes : HasToken
         if (RawIl2CppCustomAttributeData.Length == 0)
             return;
 
-        try
+        if (allowAnalysis)
         {
-            CaCacheGeneratorAnalysis!.Analyze();
-        } catch (Exception e)
-        {
-            Logger.WarnNewline("Failed to analyze custom attribute cache generator for " + this + " because " + e.Message, "CA Restore");
-            return;
+            try
+            {
+                CaCacheGeneratorAnalysis!.Analyze();
+            }
+            catch (Exception e)
+            {
+                Logger.WarnNewline("Failed to analyze custom attribute cache generator for " + this + " because " + e.Message, "CA Restore");
+                return;
+            }
         }
 
         //Basically, extract actions from the analysis, and compare with the type list we have to resolve parameters and populate the CustomAttributes list.
