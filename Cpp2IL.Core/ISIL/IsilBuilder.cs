@@ -53,6 +53,10 @@ public class IsilBuilder
                 var target = list.First();
                 if (target is null)
                     throw new IsilConversionException("This can't ever happen");
+                
+                if (target.Equals(tuple.Item1))
+                    throw new IsilConversionException("Invalid jump target for instruction: Instruction can't jump to itself");
+                
                 tuple.Item1.Operands = new[] {InstructionSetIndependentOperand.MakeInstruction(target)};
             }
             else
