@@ -36,11 +36,11 @@ namespace Cpp2IL
                 HandleWindowsGamePath(gamePath, inputExeName, ref args);
             else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".apk")
                 HandleSingleApk(gamePath, ref args);
-            else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".xapk")
+            else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() is ".xapk" or ".apkm")
                 HandleXapk(gamePath, ref args);
             else
             {
-                if(!Cpp2IlPluginManager.TryProcessGamePath(gamePath, ref args))
+                if (!Cpp2IlPluginManager.TryProcessGamePath(gamePath, ref args))
                     throw new SoftException($"Could not find a valid unity game at {gamePath}");
             }
         }
@@ -256,7 +256,7 @@ namespace Cpp2IL
                 //Version or help requested
                 Environment.Exit(0);
 
-            if (parserResult is not Parsed<CommandLineArgs> {Value: { } options})
+            if (parserResult is not Parsed<CommandLineArgs> { Value: { } options })
                 throw new SoftException("Failed to parse command line arguments");
 
             ConsoleLogger.ShowVerbose = options.Verbose;
@@ -389,7 +389,7 @@ namespace Cpp2IL
                 throw new SoftException("Arguments have Valid = false");
 
             var executionStart = DateTime.Now;
-            
+
             runtimeArgs.OutputFormat?.OnOutputFormatSelected();
 
             GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
@@ -458,7 +458,7 @@ namespace Cpp2IL
             // Cpp2IlApi.PopulateConcreteImplementations();
 
             CleanupExtractedFiles();
-            
+
             Cpp2IlPluginManager.CallOnFinish();
 
             Logger.InfoNewline($"Done. Total execution time: {(DateTime.Now - executionStart).TotalMilliseconds}ms");
