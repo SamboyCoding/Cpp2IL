@@ -592,15 +592,17 @@ namespace LibCpp2IL.Elf
         {
             
                 LibLogger.VerboseNewline("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
-                var searcher = new BinarySearcher(this, LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length);
-                
-                LibLogger.VerboseNewline("\tLooking for code reg (this might take a while)...");
-                var codeReg = LibCpp2IlMain.MetadataVersion >= 24.2f ? searcher.FindCodeRegistrationPost2019() : searcher.FindCodeRegistrationPre2019();
-                LibLogger.VerboseNewline($"\tGot code reg 0x{codeReg:X}");
+                // var searcher = new BinarySearcher(this, LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length);
 
-                LibLogger.VerboseNewline($"\tLooking for meta reg ({(LibCpp2IlMain.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
-                var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost24_5() : searcher.FindMetadataRegistrationPre24_5();
-                LibLogger.VerboseNewline($"\tGot meta reg 0x{metaReg:x}");
+                var (codeReg, metaReg) = PlusSearch(LibCpp2IlMain.TheMetadata!.methodDefs.Count(x => x.methodIndex >= 0), LibCpp2IlMain.TheMetadata!.typeDefs.Length);
+                
+                // LibLogger.VerboseNewline("\tLooking for code reg (this might take a while)...");
+                // var codeReg = LibCpp2IlMain.MetadataVersion >= 24.2f ? searcher.FindCodeRegistrationPost2019() : searcher.FindCodeRegistrationPre2019();
+                // LibLogger.VerboseNewline($"\tGot code reg 0x{codeReg:X}");
+                //
+                // LibLogger.VerboseNewline($"\tLooking for meta reg ({(LibCpp2IlMain.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
+                // var metaReg = LibCpp2IlMain.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost24_5() : searcher.FindMetadataRegistrationPre24_5();
+                // LibLogger.VerboseNewline($"\tGot meta reg 0x{metaReg:x}");
 
                 return (codeReg, metaReg);
             
