@@ -133,7 +133,7 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
             }
         }
         
-        //If the user wants to rename types, do that now
+        //If the user wants to rename types using a deobfuscation map, do that now
         if (_deobfuscationMapProcessingLayer != null)
         {
             Logger.InfoNewline("Running Deobfuscation Map Processing Layer Now...", "StableRenamingProcessingLayer");
@@ -147,6 +147,9 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
             var typeMethodNames = new Dictionary<string, int>();
             foreach (var methodAnalysisContext in typeAnalysisContext.Methods)
             {
+                if(methodAnalysisContext is InjectedMethodAnalysisContext)
+                    continue;
+                
                 var stableName = StableNameGenerator.GetStableNameForMethodIfNeeded(methodAnalysisContext);
 
                 if (stableName == null)
@@ -156,6 +159,27 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
                 var occurenceCount = typeMethodNames.GetOrCreate(stableName, () => 0);
                 typeMethodNames[stableName]++;
                 methodAnalysisContext.OverrideName = $"{stableName}_{occurenceCount}";
+            }
+        }
+        
+        //Finally, rename all fields
+        foreach (var typeAnalysisContext in typesToProcess)
+        {
+            var typeFieldNames = new Dictionary<string, int>();
+            foreach (var fieldAnalysisContext in typeAnalysisContext.Fields)
+            {
+                if(fieldAnalysisContext is InjectedFieldAnalysisContext)
+                    continue;
+                
+                var stableName = StableNameGenerator.GetStableNameForFieldIfNeeded(fieldAnalysisContext);
+
+                if (stableName == null)
+                    //No rename needed
+                    continue;
+
+                var occurenceCount = typeFieldNames.GetOrCreate(stableName, () => 0);
+                typeFieldNames[stableName]++;
+                fieldAnalysisContext.OverrideName = $"{stableName}_{occurenceCount}";
             }
         }
     }

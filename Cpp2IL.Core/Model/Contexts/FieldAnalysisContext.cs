@@ -55,5 +55,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public string FieldName => Name;
 
+    public FieldAttributes FieldAttributes => BackingData?.Attributes ?? 0;
+
     #endregion
 }

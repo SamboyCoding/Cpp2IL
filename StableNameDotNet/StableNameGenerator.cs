@@ -18,7 +18,7 @@ public static class StableNameGenerator
     
     private static readonly string[] ClassAccessNames = {"Private", "Public", "NPublic", "NPrivate", "NProtected", "NInternal", "NFamAndAssem", "NFamOrAssem"};
     
-    private static readonly string[] MethodAccessTypeLabels = { "CompilerControlled", "Private", "FamAndAssem", "Internal", "Protected", "FamOrAssem", "Public"};
+    private static readonly string[] MemberAccessTypeLabels = { "CompilerControlled", "Private", "FamAndAssem", "Internal", "Protected", "FamOrAssem", "Public"};
     private static readonly (MethodSemantics, string)[] SemanticsToCheck =
     {
         (MethodSemantics.Setter, "_set"),
@@ -162,7 +162,7 @@ public static class StableNameGenerator
 
         //Accessibility
         var attribs = method.MethodAttributes;
-        nameBuilder.Append(MethodAccessTypeLabels[(int)(attribs & MethodAttributes.MemberAccessMask)]);
+        nameBuilder.Append(MemberAccessTypeLabels[(int)(attribs & MethodAttributes.MemberAccessMask)]);
 
         //Any other keywords
         if (attribs.HasFlag(MethodAttributes.Abstract))
@@ -195,6 +195,30 @@ public static class StableNameGenerator
         
         //TODO _PDM suffix
         
+        return nameBuilder.ToString();
+    }
+    
+    public static string? GetStableNameForFieldIfNeeded(IFieldInfoProvider field)
+    {
+        if (!IsObfuscated(field.FieldName))
+            return null;
+        
+        //Field_ prefix
+        var nameBuilder = new StringBuilder();
+        nameBuilder.Append("field_");
+        
+        //Accessibility
+        var attribs = field.FieldAttributes;
+        nameBuilder.Append(MemberAccessTypeLabels[(int)(attribs & FieldAttributes.FieldAccessMask)]);
+        
+        //Any other keywords
+        if (attribs.HasFlag(FieldAttributes.Static))
+            nameBuilder.Append("_Static");
+        
+        //Type
+        nameBuilder.Append('_');
+        nameBuilder.Append(field.FieldTypeInfoProvider.FormatTypeNameForMember());
+
         return nameBuilder.ToString();
     }
 
