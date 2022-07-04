@@ -9,7 +9,7 @@ namespace StableNameDotNet
     /// Generates a string, based on input, that can be used to somewhat distinguish between otherwise-similar types, based off of
     /// type references occuring within it, and how many times they occur.
     /// </summary>
-    public class UniqueNameGenerator
+    public class UniqueIdentifierGenerator
     {
         /// <summary>
         /// The number of characters from each input to use in the unique name. Do NOT change this without also calling <see cref="StableNameGenerator.ResetForNewConfig"/>

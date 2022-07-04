@@ -12,11 +12,16 @@ namespace Cpp2IL.Core.CorePlugin;
 
 public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
 {
+    private static bool _logUnknownTypes;
+    private static int _numUnknownTypes;
+    
     public override string Name => "Deobfuscation Map";
     public override string Id => "deobfmap";
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)
     {
         var mapPath = appContext.GetExtraData<string>("deobf-map-path");
+        _logUnknownTypes = appContext.GetExtraData<string>("deobf-map-log-unknown-types") != null;
+        
         if (mapPath == null)
         {
             Logger.WarnNewline("No deobfuscation map specified - processor will not run. You need to provide the deobf-map-path, either by programmatically adding it as extra data in the app context, or by specifying it in the --processor-config command line option.", "DeobfuscationMapProcessingLayer");
@@ -71,38 +76,63 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
     private static void Deobfuscate(ApplicationAnalysisContext appContext, string deobfMap)
     {
         var lines = deobfMap.Split('\n');
+        _numUnknownTypes = 0;
+
+        var typeLines = lines.Where(t => !t.Contains("::"));
+        var memberLines = lines.Where(t => t.Contains("::"));
 
         Logger.InfoNewline($"Applying deobfuscation map ({lines.Length} entries)...", "DeobfuscationMapProcessingLayer");
-        foreach (var line in lines)
-        {
-            //Obfuscated;deobfuscated[;priority]
-            var split = line.Split(';');
-            
-            if(split.Length < 2)
-                continue;
-            
-            var (obfuscated, deobfuscated) = (split[0], split[1]);
+        foreach (var line in typeLines) 
+            ProcessLine(appContext, line);
+        
+        foreach (var line in memberLines)
+            ProcessLine(appContext, line);
 
-            ProcessLine(appContext, obfuscated, deobfuscated);
+        if (!_logUnknownTypes)
+        {
+            //Print a summary if we didn't log each individually.
+            Logger.WarnNewline($"Encountered {_numUnknownTypes} unknown types in deobf map. Add the configuration option deobf-map-log-unknown-types=yes to log them.", "DeobfuscationMapProcessingLayer");
         }
     }
 
-    private static void ProcessLine(ApplicationAnalysisContext appContext, string obfuscated, string deobfuscated)
+    private static void ProcessLine(ApplicationAnalysisContext appContext, string line)
     {
-        if(obfuscated.Contains("::"))
-            return; //TODO Support member deobfuscation
-        
-        if (obfuscated.StartsWith("."))
-            //If there's no namespace, strip the leading dot
-            obfuscated = obfuscated[1..];
+        //Obfuscated;deobfuscated[;priority]
+        var split = line.Split(';');
+            
+        if(split.Length < 2)
+            return;
+            
+        var (obfuscated, deobfuscated) = (split[0], split[1]);
 
-        var matchingType = appContext.AllTypes.FirstOrDefault(t => t.FullName == obfuscated);
+        ProcessRemapping(appContext, obfuscated, deobfuscated);
+    }
 
-        if (matchingType == null)
+    private static void ProcessRemapping(ApplicationAnalysisContext appContext, string obfuscated, string deobfuscated)
+    {
+        if (obfuscated.Contains("::"))
         {
-            Logger.WarnNewline("Could not find type " + obfuscated, "DeobfuscationMapProcessingLayer");
+            var index = obfuscated.IndexOf("::", StringComparison.Ordinal);
+            var typeName = obfuscated[..index];
+            var memberName = obfuscated[(index + 2)..];
+
+            var type = GetTypeByObfName(appContext, typeName);
+
+            var member = type?.Fields.FirstOrDefault(f => f.Name == memberName);
+            if (member == null)
+            {
+                //TODO Non-fields? Currently only used for enums
+                return;
+            }
+            
+            member.OverrideName = deobfuscated;
             return;
         }
+
+        var matchingType = GetTypeByObfName(appContext, obfuscated);
+        
+        if(matchingType == null)
+            return;
 
         //The way the rename maps work is something like this:
         //  If the obfuscated name was a nested type, the deobfuscated name is just the new name of the nested type
@@ -133,5 +163,32 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
         }
 
         // Logger.VerboseNewline($"Renamed {originalName} to {matchingType.FullName}", "DeobfuscationMapProcessingLayer");
+    }
+
+    private static TypeAnalysisContext? GetTypeByObfName(ApplicationAnalysisContext appContext, string obfuscated)
+    {
+        if (obfuscated.StartsWith("."))
+            //If there's no namespace, strip the leading dot
+            obfuscated = obfuscated[1..];
+        
+        //Create another copy of obfuscated name with last . replaced with a /, for subclasses
+        var lastDot = obfuscated.LastIndexOf('.');
+        var withSlash = obfuscated;
+        if (lastDot > 0)
+            withSlash = obfuscated[..lastDot] + "/" + obfuscated[(lastDot + 1)..];
+
+        //TODO Change this to a dict at some point and recalculate between type and member names.
+        var matchingType = appContext.AllTypes.AsParallel().FirstOrDefault(t => t.FullName == obfuscated || t.FullName == withSlash);
+        
+        if (matchingType == null)
+        {
+            if(_logUnknownTypes)
+                Logger.WarnNewline("Could not find type " + obfuscated, "DeobfuscationMapProcessingLayer");
+            else
+                _numUnknownTypes++;
+            return null;
+        }
+        
+        return matchingType;
     }
 }

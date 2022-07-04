@@ -17,7 +17,9 @@ public class GenericParameterTypeInfoProviderWrapper : ITypeInfoProvider
 
     public IEnumerable<ITypeInfoProvider> Interfaces => Array.Empty<ITypeInfoProvider>();
     public TypeAttributes TypeAttributes => 0;
-    public string TypeName => GenericParameterName;
+    public string OriginalTypeName => GenericParameterName;
+    public string TypeNamespace => string.Empty;
+    public string RewrittenTypeName => GenericParameterName;
     public bool IsGenericInstance => false;
     public bool IsValueType => false;
     public bool IsEnumType => false;

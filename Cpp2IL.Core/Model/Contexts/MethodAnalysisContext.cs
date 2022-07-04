@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
@@ -131,6 +132,38 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     public IEnumerable<IParameterInfoProvider> ParameterInfoProviders => Parameters;
     public string MethodName => Name;
+
+    public MethodAttributes MethodAttributes => Attributes;
+
+    public MethodSemantics MethodSemantics
+    {
+        get
+        {
+            if (DeclaringType != null)
+            {
+                //This one is a bit trickier, as il2cpp doesn't use semantics.
+                foreach (var prop in DeclaringType.Properties)
+                {
+                    if (prop.Getter == this)
+                        return MethodSemantics.Getter;
+                    if (prop.Setter == this)
+                        return MethodSemantics.Setter;
+                }
+
+                foreach (var evt in DeclaringType.Events)
+                {
+                    if (evt.Adder == this)
+                        return MethodSemantics.AddOn;
+                    if (evt.Remover == this)
+                        return MethodSemantics.RemoveOn;
+                    if (evt.Invoker == this)
+                        return MethodSemantics.Fire;
+                }
+            }
+            
+            return 0;
+        }
+    }
 
     #endregion
 }

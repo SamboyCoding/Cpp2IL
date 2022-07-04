@@ -1,17 +1,16 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace StableNameDotNet.Providers;
 
-public class GenericInstanceTypeInfoProviderWrapper : ITypeInfoProvider
+public class ByRefTypeInfoProviderWrapper : ITypeInfoProvider
 {
     public ITypeInfoProvider ElementTypeProvider { get; }
-    public ITypeInfoProvider[] GenericTypeProviders { get; }
 
-    public GenericInstanceTypeInfoProviderWrapper(ITypeInfoProvider elementTypeProvider, ITypeInfoProvider[] genericTypeProviders)
+    public ByRefTypeInfoProviderWrapper(ITypeInfoProvider elementTypeProvider)
     {
         ElementTypeProvider = elementTypeProvider;
-        GenericTypeProviders = genericTypeProviders;
     }
 
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy() => ElementTypeProvider.GetBaseTypeHierarchy();
@@ -19,13 +18,13 @@ public class GenericInstanceTypeInfoProviderWrapper : ITypeInfoProvider
     public IEnumerable<ITypeInfoProvider> Interfaces => ElementTypeProvider.Interfaces;
     public TypeAttributes TypeAttributes => ElementTypeProvider.TypeAttributes;
     public string OriginalTypeName => ElementTypeProvider.OriginalTypeName;
-    public string TypeNamespace => ElementTypeProvider.TypeNamespace;
     public string RewrittenTypeName => ElementTypeProvider.RewrittenTypeName;
-    public bool IsGenericInstance => true;
+    public string TypeNamespace => ElementTypeProvider.TypeNamespace;
+    public bool IsGenericInstance => false;
     public bool IsValueType => ElementTypeProvider.IsValueType;
     public bool IsEnumType => false;
-    public int GenericParameterCount => ElementTypeProvider.GenericParameterCount;
-    public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => GenericTypeProviders;
+    public int GenericParameterCount => 0;
+    public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => Array.Empty<ITypeInfoProvider>();
     public IEnumerable<IFieldInfoProvider> FieldInfoProviders => ElementTypeProvider.FieldInfoProviders;
     public IEnumerable<IMethodInfoProvider> MethodInfoProviders => ElementTypeProvider.MethodInfoProviders;
     public IEnumerable<IPropertyInfoProvider> PropertyInfoProviders => ElementTypeProvider.PropertyInfoProviders;

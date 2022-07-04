@@ -16,6 +16,7 @@ using Cpp2IL.Core.Exceptions;
 #endif
 using LibCpp2IL.Wasm;
 using AssetRipper.VersionUtilities;
+using Cpp2IL.Core.Extensions;
 using LibCpp2IL;
 
 namespace Cpp2IL
@@ -415,28 +416,15 @@ namespace Cpp2IL
             foreach (var (key, value) in runtimeArgs.ProcessingLayerConfigurationOptions)
                 Cpp2IlApi.CurrentAppContext!.PutExtraData(key, value);
 
-            foreach (var processingLayer in runtimeArgs.ProcessingLayersToRun)
-            {
-                var processorStart = DateTime.Now;
-
-                Logger.InfoNewline($"Running processor {processingLayer.Name}...");
-
-#if !DEBUG
-                try
-                {
-#endif
-                processingLayer.Process(Cpp2IlApi.CurrentAppContext!);
-#if !DEBUG
-                }
-                catch (Exception e)
-                {
-                    Logger.ErrorNewline($"Processing layer {processingLayer.Id} threw an exception: {e}");
-                    Environment.Exit(1);
-                }
-#endif
-
-                Logger.InfoNewline($"Processor {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
-            }
+            //Pre-process processing layers, allowing them to stop others from running
+            Logger.InfoNewline("Pre-processing processing layers...");
+            var layers = runtimeArgs.ProcessingLayersToRun.Clone();
+            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.PreProcess(Cpp2IlApi.CurrentAppContext, layers));
+            runtimeArgs.ProcessingLayersToRun = layers;
+            
+            //Run processing layers
+            Logger.InfoNewline("Invoking processing layers...");
+            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.Process(Cpp2IlApi.CurrentAppContext!));
 
             var outputStart = DateTime.Now;
 
@@ -463,6 +451,32 @@ namespace Cpp2IL
 
             Logger.InfoNewline($"Done. Total execution time: {(DateTime.Now - executionStart).TotalMilliseconds}ms");
             return 0;
+        }
+
+        private static void RunProcessingLayers(Cpp2IlRuntimeArgs runtimeArgs, Action<Cpp2IlProcessingLayer> run)
+        {
+            foreach (var processingLayer in runtimeArgs.ProcessingLayersToRun)
+            {
+                var processorStart = DateTime.Now;
+
+                Logger.InfoNewline($"    {processingLayer.Name}...");
+
+#if !DEBUG
+                try
+                {
+#endif
+                run(processingLayer);
+#if !DEBUG
+                }
+                catch (Exception e)
+                {
+                    Logger.ErrorNewline($"Processing layer {processingLayer.Id} threw an exception: {e}");
+                    Environment.Exit(1);
+                }
+#endif
+
+                Logger.InfoNewline($"    {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
+            }
         }
 
         private static void CleanupExtractedFiles()

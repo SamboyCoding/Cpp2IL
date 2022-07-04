@@ -166,7 +166,9 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public IEnumerable<ITypeInfoProvider> Interfaces => Definition!.RawInterfaces!.Select(t => GetSndnProviderForType(AppContext, t));
     public TypeAttributes TypeAttributes => Definition!.Attributes;
     public int GenericParameterCount => Definition!.GenericContainer?.genericParameterCount ?? 0;
-    public string TypeName => DefaultName;
+    public string OriginalTypeName => DefaultName;
+    public string RewrittenTypeName => Name;
+    public string TypeNamespace => Namespace;
     public bool IsGenericInstance => false;
     public bool IsValueType => Definition!.IsValueType;
     public bool IsEnumType => Definition!.IsEnumType;
