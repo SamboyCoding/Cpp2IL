@@ -58,6 +58,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
         var rvaFields = addressAttributes.InjectFieldToAllAssemblies("RVA", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
         var offsetFields = addressAttributes.InjectFieldToAllAssemblies("Offset", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
+        var lengthFields = addressAttributes.InjectFieldToAllAssemblies("Length", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
 
         var addressConstructors = addressAttributes.InjectConstructor(false);
 
@@ -65,6 +66,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
         {
             var rvaField = rvaFields[assemblyAnalysisContext];
             var offsetField = offsetFields[assemblyAnalysisContext];
+            var lengthField = lengthFields[assemblyAnalysisContext];
 
             var addressConstructor = addressConstructors[assemblyAnalysisContext];
 
@@ -75,6 +77,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
                 var newAttribute = new AnalyzedCustomAttribute(addressConstructor);
                 newAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{m.Definition.Rva:X}")));
+                newAttribute.Fields.Add(new(lengthField, new CustomAttributePrimitiveParameter($"0x{m.RawBytes.Length:X}")));
                 if (appContext.Binary.TryMapVirtualAddressToRaw(m.UnderlyingPointer, out var offset))
                     newAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offset:X}")));
                 m.CustomAttributes.Add(newAttribute);
