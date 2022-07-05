@@ -154,6 +154,15 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
                     continue;
                 
                 var stableName = StableNameGenerator.GetStableNameForMethodIfNeeded(methodAnalysisContext);
+                
+                //Params first
+                for (var i = 0; i < methodAnalysisContext.Parameters.Count; i++)
+                {
+                    var param = methodAnalysisContext.Parameters[i];
+                    
+                    if(StableNameGenerator.IsObfuscated(param.Name))
+                        param.OverrideName = $"param_{i}";
+                }
 
                 if (stableName == null)
                     //No rename needed
@@ -162,13 +171,6 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
                 var occurenceCount = typeMethodNames.GetOrCreate(stableName, () => 0);
                 typeMethodNames[stableName]++;
                 methodAnalysisContext.OverrideName = $"{stableName}_{occurenceCount}";
-                
-                //If renaming a method, also rename its params
-                for (var i = 0; i < methodAnalysisContext.Parameters.Count; i++)
-                {
-                    var param = methodAnalysisContext.Parameters[i];
-                    param.OverrideName = $"param_{i}";
-                }
             }
         }
         

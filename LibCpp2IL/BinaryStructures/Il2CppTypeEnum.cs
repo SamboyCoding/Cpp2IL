@@ -47,7 +47,7 @@ namespace LibCpp2IL.BinaryStructures
     {
         public static bool IsIl2CppPrimitive(this Il2CppTypeEnum e)
         {
-            return e is >= Il2CppTypeEnum.IL2CPP_TYPE_VOID and <= Il2CppTypeEnum.IL2CPP_TYPE_STRING or Il2CppTypeEnum.IL2CPP_TYPE_I or Il2CppTypeEnum.IL2CPP_TYPE_U or Il2CppTypeEnum.IL2CPP_TYPE_OBJECT;
+            return e is >= Il2CppTypeEnum.IL2CPP_TYPE_VOID and <= Il2CppTypeEnum.IL2CPP_TYPE_STRING or Il2CppTypeEnum.IL2CPP_TYPE_I or Il2CppTypeEnum.IL2CPP_TYPE_U or Il2CppTypeEnum.IL2CPP_TYPE_OBJECT or Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF or Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX;
         }
     }
 }

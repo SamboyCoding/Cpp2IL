@@ -119,7 +119,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         }; 
         ourAssembly.Modules.Add(managedModule);
 
-        foreach (var il2CppTypeDefinition in assemblyContext.Types.Where(t => t.Definition?.DeclaringType == null))
+        foreach (var il2CppTypeDefinition in assemblyContext.TopLevelTypes)
         {
             if(il2CppTypeDefinition.Name != "<Module>")
                 //We skip module because I've never come across an il2cpp assembly with any top-level functions, and it's simpler to skip it as AsmResolver adds one by default.

@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 
@@ -23,40 +24,19 @@ public static class ClassFileBuilder
         }
 
         //Type custom attributes
-        sb.Append(GetCustomAttributeStrings(type, 0));
+        sb.Append(CsFileUtils.GetCustomAttributeStrings(type, 0));
 
         //Type keywords and name
-        sb.Append(GetKeyWordsForType(type)).Append(type.Definition.Name);
+        sb.Append(CsFileUtils.GetKeyWordsForType(type)).Append(type.Definition.Name);
 
         //Base class
-        var baseType = type.Definition.BaseType;
-        var needsBaseClass = baseType != null && baseType.ToString() is not "System.Object" and not "System.ValueType" and not "System.Enum";
-        if (needsBaseClass)
-            sb.Append(" : ").Append(GetTypeName(baseType!.ToString()));
-
-        //Interfaces
-        if (type.Definition.Interfaces!.Length > 0)
-        {
-            if (!needsBaseClass)
-                sb.Append(" : ");
-
-            var addComma = needsBaseClass;
-            foreach (var @interface in type.Definition.Interfaces)
-            {
-                if (addComma)
-                    sb.Append(", ");
-
-                addComma = true;
-
-                sb.Append(GetTypeName(@interface.ToString()));
-            }
-        }
+        CsFileUtils.AppendInheritanceInfo(type, sb);
 
         //Opening brace on new line
         sb.AppendLine();
         sb.AppendLine("{");
 
-        if (IsEnum(type))
+        if (type.IsEnumType)
         {
             //enums - all fields that are constants are enum values
             //no methods, no props, no events
@@ -73,10 +53,10 @@ public static class ClassFileBuilder
             //Fields
             foreach (var field in type.Fields)
             {
-                sb.Append(GetCustomAttributeStrings(field, 1));
+                sb.Append(CsFileUtils.GetCustomAttributeStrings(field, 1));
 
-                sb.Append('\t').Append(GetKeyWordsForField(field));
-                sb.Append(GetTypeName(field.BackingData!.Field.FieldType!.ToString())).Append(' ');
+                sb.Append('\t').Append(CsFileUtils.GetKeyWordsForField(field));
+                sb.Append(CsFileUtils.GetTypeName(field.BackingData!.Field.FieldType!.ToString())).Append(' ');
                 sb.Append(field.BackingData.Field.Name!);
 
                 var isConst = field.BackingData.Attributes.HasFlag(FieldAttributes.Literal);
@@ -107,9 +87,9 @@ public static class ClassFileBuilder
                 if (method.Definition.MethodPointer > 0)
                     sb.Append('\t').Append("// Method at address 0x").Append(method.Definition.MethodPointer.ToString("X")).AppendLine();
 
-                sb.Append(GetCustomAttributeStrings(method, 1));
-                sb.Append('\t').Append(GetKeyWordsForMethod(method)).Append(type.Definition.Name).Append('(');
-                sb.Append(GetMethodParameterString(method));
+                sb.Append(CsFileUtils.GetCustomAttributeStrings(method, 1));
+                sb.Append('\t').Append(CsFileUtils.GetKeyWordsForMethod(method)).Append(type.Definition.Name).Append('(');
+                sb.Append(CsFileUtils.GetMethodParameterString(method));
                 sb.Append(')');
 
                 sb.Append(GetMethodBodyIfPresent(method, methodBodyMode));
@@ -141,11 +121,11 @@ public static class ClassFileBuilder
                 if (method.Definition.MethodPointer > 0)
                     sb.Append('\t').Append("// Method at address 0x").Append(method.Definition.MethodPointer.ToString("X")).AppendLine();
 
-                sb.Append(GetCustomAttributeStrings(method, 1));
-                sb.Append('\t').Append(GetKeyWordsForMethod(method));
-                sb.Append(GetTypeName(method.Definition.ReturnType!.ToString())).Append(' ');
+                sb.Append(CsFileUtils.GetCustomAttributeStrings(method, 1));
+                sb.Append('\t').Append(CsFileUtils.GetKeyWordsForMethod(method));
+                sb.Append(CsFileUtils.GetTypeName(method.Definition.ReturnType!.ToString())).Append(' ');
                 sb.Append(method.Definition!.Name).Append('(');
-                sb.Append(GetMethodParameterString(method));
+                sb.Append(CsFileUtils.GetMethodParameterString(method));
                 sb.Append(')');
 
                 sb.Append(GetMethodBodyIfPresent(method, methodBodyMode));
@@ -169,9 +149,9 @@ public static class ClassFileBuilder
                         sb.Append("\t//\t");
                         
                         if (il2CppType.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
-                            sb.Append(GetTypeName(il2CppType.AsClass().FullName!));
+                            sb.Append(CsFileUtils.GetTypeName(il2CppType.AsClass().FullName!));
                         else
-                            sb.Append(GetTypeName(LibCpp2ILUtils.GetTypeReflectionData(il2CppType).ToString()));
+                            sb.Append(CsFileUtils.GetTypeName(LibCpp2ILUtils.GetTypeReflectionData(il2CppType).ToString()));
                         
                         sb.AppendLine();
                     }
@@ -298,163 +278,4 @@ public static class ClassFileBuilder
 
         return sb.ToString();
     }
-
-    private static string GetMethodParameterString(MethodAnalysisContext method)
-    {
-        var sb = new StringBuilder();
-        var first = true;
-        foreach (var paramData in method.Definition!.Parameters!)
-        {
-            if (!first)
-                sb.Append(", ");
-
-            first = false;
-
-            sb.Append(GetTypeName(paramData.Type.ToString())).Append(' ').Append(paramData.ParameterName);
-
-            if (paramData.Attributes.HasFlag(ParameterAttributes.HasDefault))
-                sb.Append(" = ").Append(paramData.DefaultValue);
-        }
-
-        return sb.ToString();
-    }
-
-    private static string GetKeyWordsForType(TypeAnalysisContext type)
-    {
-        var sb = new StringBuilder();
-        var attributes = type.Definition!.Attributes;
-
-        if (attributes.HasFlag(TypeAttributes.Public))
-            sb.Append("public ");
-        else
-            sb.Append("internal "); //private classes don't exist, for obvious reasons
-
-        if (IsEnum(type))
-            sb.Append("enum ");
-        else if (type.Definition.BaseType?.ToString() == "System.ValueType")
-            sb.Append("struct ");
-        else if (attributes.HasFlag(TypeAttributes.Interface))
-            sb.Append("interface ");
-        else
-        {
-            if (attributes.HasFlag(TypeAttributes.Abstract) && attributes.HasFlag(TypeAttributes.Sealed))
-                //Abstract Sealed => Static
-                sb.Append("static ");
-            else if (attributes.HasFlag(TypeAttributes.Abstract))
-                sb.Append("abstract ");
-            else if (attributes.HasFlag(TypeAttributes.Sealed))
-                sb.Append("sealed ");
-
-            sb.Append("class ");
-        }
-
-        return sb.ToString();
-    }
-
-    private static string GetKeyWordsForField(FieldAnalysisContext field)
-    {
-        var sb = new StringBuilder();
-        var attributes = field.BackingData!.Attributes;
-
-        if (attributes.HasFlag(FieldAttributes.Public))
-            sb.Append("public ");
-        else if (attributes.HasFlag(FieldAttributes.Family))
-            sb.Append("protected ");
-        if (attributes.HasFlag(FieldAttributes.Assembly))
-            sb.Append("internal ");
-        else if (attributes.HasFlag(FieldAttributes.Private))
-            sb.Append("private ");
-
-        if (attributes.HasFlag(FieldAttributes.Literal))
-            sb.Append("const ");
-        else
-        {
-            if (attributes.HasFlag(FieldAttributes.Static))
-                sb.Append("static ");
-
-            if (attributes.HasFlag(FieldAttributes.InitOnly))
-                sb.Append("readonly ");
-        }
-
-        return sb.ToString();
-    }
-
-    private static string GetKeyWordsForMethod(MethodAnalysisContext method)
-    {
-        var sb = new StringBuilder();
-        var attributes = method.Definition!.Attributes;
-
-        if (attributes.HasFlag(MethodAttributes.Public))
-            sb.Append("public ");
-        else if (attributes.HasFlag(MethodAttributes.Family))
-            sb.Append("protected ");
-        if (attributes.HasFlag(MethodAttributes.Assembly))
-            sb.Append("internal ");
-        else if (attributes.HasFlag(MethodAttributes.Private))
-            sb.Append("private ");
-        if (attributes.HasFlag(MethodAttributes.Static))
-            sb.Append("static ");
-
-        if (method.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface))
-        {
-            //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
-        }
-        else if (attributes.HasFlag(MethodAttributes.Abstract))
-            sb.Append("abstract ");
-        else if (attributes.HasFlag(MethodAttributes.NewSlot))
-            sb.Append("override ");
-        else if (attributes.HasFlag(MethodAttributes.Virtual))
-            sb.Append("virtual ");
-
-
-        return sb.ToString();
-    }
-
-    private static string GetCustomAttributeStrings(HasCustomAttributes context, int indentCount)
-    {
-        var sb = new StringBuilder();
-
-        context.AnalyzeCustomAttributeData();
-
-        foreach (var analyzedCustomAttribute in context.CustomAttributes!)
-        {
-            if (indentCount > 0)
-                sb.Append('\t', indentCount);
-
-            sb.AppendLine(analyzedCustomAttribute.ToString());
-        }
-
-        return sb.ToString();
-    }
-
-    private static string GetTypeName(string originalName)
-    {
-        if (originalName.Contains('`'))
-            //Generics - remove `1 etc
-            return originalName.Remove(originalName.IndexOf('`'), 2);
-
-        return originalName switch
-        {
-            "System.Void" => "void",
-            "System.Boolean" => "bool",
-            "System.Byte" => "byte",
-            "System.SByte" => "sbyte",
-            "System.Char" => "char",
-            "System.Decimal" => "decimal",
-            "System.Single" => "float",
-            "System.Double" => "double",
-            "System.Int32" => "int",
-            "System.UInt32" => "uint",
-            "System.Int64" => "long",
-            "System.UInt64" => "ulong",
-            "System.Int16" => "short",
-            "System.UInt16" => "ushort",
-            "System.String" => "string",
-            "System.Object" => "object",
-            _ => originalName
-        };
-    }
-
-    private static bool IsEnum(TypeAnalysisContext type)
-        => ((TypeAttributes) type.Definition!.Flags).HasFlag(TypeAttributes.Sealed) && type.Fields.Any(f => f.BackingData!.Field.Name == "value__");
 }

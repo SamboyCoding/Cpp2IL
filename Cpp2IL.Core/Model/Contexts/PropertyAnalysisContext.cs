@@ -1,3 +1,4 @@
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
@@ -17,6 +18,8 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
     public override string DefaultName => Definition.Name!;
+
+    public TypeAnalysisContext PropertyTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition.RawPropertyType!);
 
     public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {

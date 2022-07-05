@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -22,6 +23,11 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     public List<TypeAnalysisContext> Types = new();
 
     /// <summary>
+    /// The analysis context objects for all types contained within the assembly which are not nested within a parent type.
+    /// </summary>
+    public IEnumerable<TypeAnalysisContext> TopLevelTypes => Types.Where(t => t.DeclaringType == null);
+
+    /// <summary>
     /// The code gen module for this assembly.
     ///
     /// Null prior to 24.2
@@ -37,6 +43,11 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     private Dictionary<string, TypeAnalysisContext> TypesByName = new();
     
     public readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
+    
+    /// <summary>
+    /// Get assembly name without the extension and with any invalid path characters or elements removed.
+    /// </summary>
+    public string CleanAssemblyName => MiscUtils.CleanPathElement(Definition.AssemblyName.Name);
 
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
     {

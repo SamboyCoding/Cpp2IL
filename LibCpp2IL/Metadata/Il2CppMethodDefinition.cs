@@ -124,6 +124,7 @@ namespace LibCpp2IL.Metadata
                                 Attributes = paramFlags,
                                 RawType = paramType,
                                 DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex),
+                                ParameterIndex = idx,
                             };
                         }).ToArray();
                 }

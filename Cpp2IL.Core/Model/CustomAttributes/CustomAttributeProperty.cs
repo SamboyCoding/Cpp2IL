@@ -15,6 +15,6 @@ public class CustomAttributeProperty
 
     public override string ToString()
     {
-        return $"{Property.Definition.Name} = {Value}";
+        return $"{Property.Name} = {Value}";
     }
 }

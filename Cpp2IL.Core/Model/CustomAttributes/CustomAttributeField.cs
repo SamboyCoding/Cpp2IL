@@ -15,6 +15,6 @@ public class CustomAttributeField
 
     public override string ToString()
     {
-        return $"{Field.BackingData?.Field.Name} = {Value}";
+        return $"{Field.Name} = {Value}";
     }
 }

@@ -1,4 +1,7 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
+using System.Text;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -57,6 +60,8 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public Il2CppParameterDefaultValue? DefaultValue { get; }
 
+    public TypeAnalysisContext ParameterTypeContext => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(ParameterType);
+
     public ParameterAnalysisContext(Il2CppParameterDefinition? definition, int paramIndex, MethodAnalysisContext declaringMethod) : base(definition?.token ?? 0, declaringMethod.AppContext)
     {
         Definition = definition;
@@ -72,6 +77,30 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
                 DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(declaringMethod.Definition!.parameterStart + paramIndex)!;
             }
         }
+    }
+
+    public override string ToString()
+    {
+        var result = new StringBuilder();
+
+        if (ParameterAttributes.HasFlag(ParameterAttributes.Out))
+            result.Append("out ");
+        else if (ParameterAttributes.HasFlag(ParameterAttributes.In))
+            result.Append("in ");
+        else if(ParameterType.Byref == 1)
+            result.Append("ref ");
+
+        result.Append(ParameterTypeContext.Name).Append(" ");
+
+        if (string.IsNullOrEmpty(ParameterName))
+            result.Append("unnamed_param_").Append(ParamIndex);
+        else
+            result.Append(ParameterName);
+
+        if (ParameterAttributes.HasFlag(ParameterAttributes.HasDefault))
+            result.Append(" = ").Append(DefaultValue?.ContainedDefaultValue ?? "null");
+
+        return result.ToString();
     }
 
     #region StableNameDotNet implementation

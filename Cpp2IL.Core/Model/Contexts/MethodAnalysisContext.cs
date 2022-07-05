@@ -4,6 +4,7 @@ using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
@@ -66,6 +67,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     public TypeAnalysisContext? InjectedReturnType { get; set; }
 
     public int ParameterCount => Parameters.Count;
+
+    public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
     {

@@ -61,6 +61,11 @@ public abstract class HasCustomAttributes : HasToken
     public abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
     
     public abstract string CustomAttributeOwnerName { get; }
+    
+    public bool IsCompilerGeneratedBasedOnCustomAttributes => 
+        CustomAttributes?.Any(a => a.Constructor.DeclaringType!.FullName.Contains("CompilerGeneratedAttribute")) 
+        ?? AttributeTypes?.Any(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_CLASS && t.AsClass().FullName!.Contains("CompilerGeneratedAttribute"))
+        ?? false;
 
     
 #pragma warning disable CS8618 //Non-null member is not initialized.

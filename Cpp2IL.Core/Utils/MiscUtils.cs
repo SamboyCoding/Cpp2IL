@@ -343,5 +343,17 @@ namespace Cpp2IL.Core.Utils
 
             return string.Join("\n", stack);
         }
+
+        /// <summary>
+        /// Returns the input string with any invalid path characters removed.
+        /// </summary>
+        /// <param name="input">The string to clean up</param>
+        /// <returns>The input string with any characters that are invalid in the NTFS file system replaced with underscores, and additionally escaped if they collide with legacy dos device names.</returns>
+        public static string CleanPathElement(string input)
+        {
+            InvalidPathChars.ForEach(c => input = input.Replace(c, '_'));
+
+            return InvalidPathElements.Contains(input) ? $"__invalidwin32name_{input}__" : input;
+        }
     }
 }

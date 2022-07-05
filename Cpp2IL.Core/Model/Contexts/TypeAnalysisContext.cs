@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
@@ -65,6 +67,10 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
+    public TypeAnalysisContext? BaseTypeContext => OverrideBaseType ?? DeclaringAssembly.ResolveIl2CppType(Definition!.RawBaseType);
+
+    public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? Array.Empty<TypeAnalysisContext>())!;
+
     public string FullName
     {
         get
@@ -78,6 +84,24 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
             return $"{Namespace}.{Name}";
         }
     }
+
+    /// <summary>
+    /// Returns the namespace of this type expressed as a folder hierarchy, with each sub-namespace becoming a sub-directory.
+    /// If this type is in the global namespace, this will return an empty string.
+    /// </summary>
+    public string NamespaceAsSubdirs
+    {
+        get
+        {
+            var ns = Namespace;
+            return string.IsNullOrEmpty(ns) ? "" : Path.Combine(ns.Split('.'));
+        }
+    }
+    
+    /// <summary>
+    /// Returns the top-level type this type is nested inside. If this type is not nested, will return this type.
+    /// </summary>
+    public TypeAnalysisContext UltimateDeclaringType => DeclaringType ?? this;
 
     public TypeAnalysisContext(Il2CppTypeDefinition? il2CppTypeDefinition, AssemblyAnalysisContext containingAssembly) : base(il2CppTypeDefinition?.Token ?? 0, containingAssembly.AppContext)
     {

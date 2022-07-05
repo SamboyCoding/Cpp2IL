@@ -39,6 +39,8 @@ public class AnalyzedCustomAttribute
     /// </summary>
     public bool IsSuitableForEmission => !HasAnyParameters || ConstructorParameters.Count == Constructor.ParameterCount;
 
+    public bool AnyFieldsOrPropsSet => Fields.Count + Properties.Count > 0;
+
     public AnalyzedCustomAttribute(MethodAnalysisContext constructor)
     {
         Constructor = constructor;
@@ -48,18 +50,23 @@ public class AnalyzedCustomAttribute
     {
         var sb = new StringBuilder("[");
 
-        var attributeTypeName = Constructor.Definition!.DeclaringType!.Name!;
+        var attributeTypeName = Constructor.DeclaringType!.Name!;
 
         const string suffix = "Attribute";
         if(attributeTypeName.EndsWith(suffix))
             attributeTypeName = attributeTypeName[..^suffix.Length];
         
         sb.Append(attributeTypeName);
-        
+
+        if (HasAnyParameters || AnyFieldsOrPropsSet)
+            sb.Append('(');
+
+        if (!IsSuitableForEmission)
+            sb.Append("/*Cpp2IL Warning: missing at least one required parameter*/");
+
         if (ConstructorParameters.Count + Fields.Count + Properties.Count > 0)
         {
             var needComma = false;
-            sb.Append('(');
             
             foreach (var param in ConstructorParameters)
             {
@@ -88,8 +95,10 @@ public class AnalyzedCustomAttribute
                 needComma = true;
             }
 
-            sb.Append(')');
         }
+
+        if (HasAnyParameters || AnyFieldsOrPropsSet)
+            sb.Append(')');
 
         sb.Append(']');
         return sb.ToString();

@@ -24,11 +24,8 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
         foreach (var assembly in context.Assemblies)
         {
             Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Definition.AssemblyName.Name}", "IsilOutputFormat");
-            
-            var assemblyName = assembly.Definition.AssemblyName.Name;
-            MiscUtils.InvalidPathChars.ForEach(c => assemblyName = assemblyName.Replace(c, '_'));
-            
-            var assemblyNameClean = MiscUtils.InvalidPathElements.Contains(assemblyName) ? $"__invalidwin32name_{assemblyName}__" : assemblyName;
+
+            var assemblyNameClean = assembly.CleanAssemblyName;
 
             MiscUtils.ExecuteParallel(assembly.Types, type =>
             {
@@ -76,7 +73,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
             });
         }
     }
-    
+
     private static string GetFilePathForType(string outputRoot, TypeAnalysisContext type, string assemblyNameClean)
     {
         //Get root assembly directory

@@ -1,4 +1,5 @@
 using System.Reflection;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 using StableNameDotNet.Providers;
@@ -33,6 +34,8 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
     public bool IsStatic => Attributes.HasFlag(FieldAttributes.Static);
 
     public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.IndexInParent, BackingData.Field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
+
+    public TypeAnalysisContext FieldTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(FieldType);
 
 
     public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.Field.token ?? 0, parent.AppContext)
