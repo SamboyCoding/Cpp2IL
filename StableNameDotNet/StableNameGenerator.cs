@@ -146,7 +146,8 @@ public static class StableNameGenerator
         nameBuilder.Append(uniqueNameGenerator.GenerateUniqueName());
 
         if (type.GenericParameterCount > 0)
-            nameBuilder.Append('`').Append(type.GenericParameterCount);
+            if(type.OriginalTypeName.Contains('`') || type.DeclaringTypeInfoProvider == null || type.DeclaringTypeInfoProvider?.GenericParameterCount != type.GenericParameterCount)
+                nameBuilder.Append('`').Append(type.GenericParameterCount);
 
         return nameBuilder.ToString();
     }
@@ -222,7 +223,7 @@ public static class StableNameGenerator
         return nameBuilder.ToString();
     }
 
-    private static bool IsObfuscated(string s)
+    public static bool IsObfuscated(string s)
     {
         if (ObfuscatedNameRegex != null)
             return ObfuscatedNameRegex.IsMatch(s);

@@ -13,6 +13,7 @@ public class GenericParameterTypeInfoProviderWrapper : ITypeInfoProvider
         GenericParameterName = genericParameterName;
     }
 
+    public ITypeInfoProvider? DeclaringTypeInfoProvider => null;
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy() => Array.Empty<ITypeInfoProvider>();
 
     public IEnumerable<ITypeInfoProvider> Interfaces => Array.Empty<ITypeInfoProvider>();

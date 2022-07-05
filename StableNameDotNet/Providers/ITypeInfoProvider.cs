@@ -5,6 +5,7 @@ namespace StableNameDotNet.Providers;
 
 public interface ITypeInfoProvider
 {
+    public ITypeInfoProvider? DeclaringTypeInfoProvider { get; }
     /// <summary>
     /// Get the names of the base types for this type, in order. This should probably be a yielding function which returns each base type, one at a time (starting with the base type of this type,
     /// then the base type of that, etc.).

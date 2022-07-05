@@ -176,6 +176,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public IEnumerable<IFieldInfoProvider> FieldInfoProviders => Fields;
     public IEnumerable<IMethodInfoProvider> MethodInfoProviders => Methods;
     public IEnumerable<IPropertyInfoProvider> PropertyInfoProviders => Properties;
+    public ITypeInfoProvider? DeclaringTypeInfoProvider => DeclaringType;
 
     #endregion
 }

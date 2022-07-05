@@ -93,10 +93,9 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                         .MakePointerType();
                     break;
                 case Il2CppTypeEnum.IL2CPP_TYPE_VAR: //Generic type parameter
-                    ret = new GenericParameterSignature(module, GenericParameterType.Type, il2CppType.GetGenericParameterDef().genericParameterIndexInOwner);
-                    break;
                 case Il2CppTypeEnum.IL2CPP_TYPE_MVAR: //Generic method parameter
-                    ret = new GenericParameterSignature(module, GenericParameterType.Method, il2CppType.GetGenericParameterDef().genericParameterIndexInOwner);
+                    var method = il2CppType.Type == Il2CppTypeEnum.IL2CPP_TYPE_MVAR;
+                    ret = new GenericParameterSignature(module, method ? GenericParameterType.Method : GenericParameterType.Type, il2CppType.GetGenericParameterDef().genericParameterIndexInOwner);
                     break;
                 case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
                 {
@@ -112,6 +111,15 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                     }
 
                     var genericInstanceType = new GenericInstanceTypeSignature(typeDefinition!, typeDefinition!.IsValueType);
+                    
+                    //If the generic type is declared in a type with generic params, we have to fill all its parent's params with dummy values.
+                    // if (typeDefinition.DeclaringType?.GenericParameters?.Count is {} declTypeGpCount)
+                    // {
+                    //     for (var i = 0; i < declTypeGpCount; i++)
+                    //     {
+                    //         genericInstanceType.TypeArguments.Add(TypeDefinitionsAsmResolver.Object.ToTypeSignature());
+                    //     }
+                    // }
 
                     //Get generic arguments
                     var genericArgumentTypes = genericClass.Context.ClassInst.Types;

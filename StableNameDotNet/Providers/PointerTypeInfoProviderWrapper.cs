@@ -13,6 +13,7 @@ public class PointerTypeInfoProviderWrapper : ITypeInfoProvider
         ElementTypeProvider = elementTypeProvider;
     }
 
+    public ITypeInfoProvider? DeclaringTypeInfoProvider => ElementTypeProvider.DeclaringTypeInfoProvider;
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy() => ElementTypeProvider.GetBaseTypeHierarchy();
 
     public IEnumerable<ITypeInfoProvider> Interfaces => ElementTypeProvider.Interfaces;
