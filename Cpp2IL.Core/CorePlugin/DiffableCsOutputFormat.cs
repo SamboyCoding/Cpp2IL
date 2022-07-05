@@ -13,6 +13,8 @@ namespace Cpp2IL.Core.CorePlugin;
 
 public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 {
+    public static bool IncludeMethodLength = false;
+    
     public override string OutputFormatId => "diffable-cs";
     public override string OutputFormatName => "Diffable C#";
     public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
@@ -265,11 +267,14 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 
         sb.Append('(');
         sb.Append(CsFileUtils.GetMethodParameterString(method));
-        sb.Append(')');
-        
-        sb.Append(" { } //Length: ");
-        sb.Append(method.RawBytes.Length);
-        
+        sb.Append(") { }");
+
+        if (IncludeMethodLength)
+        {
+            sb.Append(" //Length: ");
+            sb.Append(method.RawBytes.Length);
+        }
+
         sb.AppendLine().AppendLine();
     }
 
