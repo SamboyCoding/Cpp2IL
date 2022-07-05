@@ -419,7 +419,7 @@ namespace Cpp2IL
             //Pre-process processing layers, allowing them to stop others from running
             Logger.InfoNewline("Pre-processing processing layers...");
             var layers = runtimeArgs.ProcessingLayersToRun.Clone();
-            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.PreProcess(Cpp2IlApi.CurrentAppContext, layers));
+            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.PreProcess(Cpp2IlApi.CurrentAppContext!, layers));
             runtimeArgs.ProcessingLayersToRun = layers;
             
             //Run processing layers

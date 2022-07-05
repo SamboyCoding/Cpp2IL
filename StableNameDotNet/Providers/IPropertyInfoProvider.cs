@@ -2,7 +2,7 @@
 
 public interface IPropertyInfoProvider
 {
-    public ITypeInfoProvider PropertyType { get; }
+    public ITypeInfoProvider PropertyTypeInfoProvider { get; }
     
     public string PropertyName { get; }
 }

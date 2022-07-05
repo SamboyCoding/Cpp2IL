@@ -93,7 +93,7 @@ public static class StableNameGenerator
 
         foreach (var propertyInfoProvider in type.PropertyInfoProviders)
         {
-            if (!uniqueNameGenerator.PushInputs(propertyInfoProvider.PropertyType.FormatTypeNameForType()))
+            if (!uniqueNameGenerator.PushInputs(propertyInfoProvider.PropertyTypeInfoProvider.FormatTypeNameForType()))
                 break;
 
             if (!uniqueNameGenerator.PushInput(propertyInfoProvider.PropertyName))
@@ -220,6 +220,36 @@ public static class StableNameGenerator
         nameBuilder.Append('_');
         nameBuilder.Append(field.FieldTypeInfoProvider.FormatTypeNameForMember());
 
+        return nameBuilder.ToString();
+    }
+
+    public static string? GetStableNameForPropertyIfNeeded(IPropertyInfoProvider property)
+    {
+        if (!IsObfuscated(property.PropertyName))
+            return null;
+        
+        //prop_ prefix
+        var nameBuilder = new StringBuilder();
+        nameBuilder.Append("prop_");
+        
+        //Type
+        nameBuilder.Append(property.PropertyTypeInfoProvider.FormatTypeNameForMember());
+        
+        return nameBuilder.ToString();
+    }
+
+    public static string? GetStableNameForEventIfNeeded(IEventInfoProvider evt)
+    {
+        if (!IsObfuscated(evt.EventName))
+            return null;
+        
+        //event_ prefix
+        var nameBuilder = new StringBuilder();
+        nameBuilder.Append("event_");
+        
+        //Type
+        nameBuilder.Append(evt.EventTypeInfoProvider.FormatTypeNameForMember());
+        
         return nameBuilder.ToString();
     }
 

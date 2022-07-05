@@ -1,8 +1,9 @@
 using LibCpp2IL.Metadata;
+using StableNameDotNet.Providers;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class EventAnalysisContext : HasCustomAttributesAndName
+public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvider
 {
     public readonly TypeAnalysisContext DeclaringType;
     public readonly Il2CppEventDefinition Definition;
@@ -29,4 +30,14 @@ public class EventAnalysisContext : HasCustomAttributesAndName
     }
     
     public override string ToString() => $"Event: {Definition.DeclaringType!.Name}::{Definition.Name}";
+    
+    #region StableNameDotNet Impl
+
+    public ITypeInfoProvider EventTypeInfoProvider => Definition.RawType!.ThisOrElementIsGenericParam()
+        ? new GenericParameterTypeInfoProviderWrapper(Definition.RawType!.GetGenericParamName())
+        : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition.RawType!);
+
+    public string EventName => DefaultName;
+
+    #endregion
 }
