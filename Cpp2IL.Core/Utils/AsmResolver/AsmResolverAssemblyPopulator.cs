@@ -56,31 +56,6 @@ public static class AsmResolverAssemblyPopulator
             return;
 
         var importer = ilTypeDefinition.Module!.Assembly!.GetImporter();
-        
-        //There is actually an il2cpp issue we have to work around here
-        //In the case of a type which defines generic parameters being tested in another type which defines generic parameters,
-        //The child type has to inherit all the generic parameters from the parent type.
-        //IL2CPP does not do this - any parent type information is lost, both in the declaration of, *AND WHEN REFERENCING*, this type.
-        //But if we don't re-add the parents, decompilers like ILSpy will expect to find them, and not, which causes issues.
-        //So we have to add them here.
-        
-        //I'm assuming the parent type has already had its generic params defined and gone through this process, so it has its parents' types, if needed.
-        // if (cppTypeDefinition.DeclaringType?.GenericContainer != null)
-        // {
-        //     //Add parent params
-        //     foreach (var declaringTypeGenericParameter in ilTypeDefinition.DeclaringType.GenericParameters)
-        //     {
-        //         var p = new GenericParameter(declaringTypeGenericParameter.Name, declaringTypeGenericParameter.Attributes);
-        //         foreach (var genericParameterConstraint in declaringTypeGenericParameter.Constraints)
-        //         {
-        //             p.Constraints.Add(new GenericParameterConstraint(genericParameterConstraint.Constraint));
-        //         }
-        //         
-        //         ilTypeDefinition.GenericParameters.Add(p);
-        //     }
-        // }
-        
-        var parentParams = ilTypeDefinition.DeclaringType?.GenericParameters ?? new List<GenericParameter>();
 
         foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
         {
