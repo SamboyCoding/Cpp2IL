@@ -163,7 +163,7 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 
 ## Credits
 
-This application is built using .NET 5.0.
+This application is built primarily using .NET 6.0, but a .NET Framework 4.7.2 build is also published for legacy purposes.
 
 It uses the following libraries, for which I am very thankful:
 
