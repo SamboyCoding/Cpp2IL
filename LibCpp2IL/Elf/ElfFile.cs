@@ -63,12 +63,12 @@ namespace LibCpp2IL.Elf
             {
                 _elfSectionHeaderEntries = ReadReadableArrayAtRawAddr<ElfSectionHeaderEntry>(_elfHeader!.pSectionHeader, _elfHeader.SectionHeaderEntryCount).ToList();
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 _elfSectionHeaderEntries = new();
             }
 
-            if (_elfHeader.SectionNameSectionOffset >= 0 && _elfHeader.SectionNameSectionOffset < _elfSectionHeaderEntries.Count)
+            if (_elfHeader!.SectionNameSectionOffset >= 0 && _elfHeader.SectionNameSectionOffset < _elfSectionHeaderEntries.Count)
             {
                 var pSectionHeaderStringTable = _elfSectionHeaderEntries[_elfHeader.SectionNameSectionOffset].RawAddress;
 

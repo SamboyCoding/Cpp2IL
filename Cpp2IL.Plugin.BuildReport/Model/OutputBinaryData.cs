@@ -2,6 +2,6 @@
 
 public class OutputBinaryData
 {
-    public OutputMethodData[] Methods { get; set; }
-    public OutputReadableClassData[] RawReadableClasses { get; set; }
+    public OutputMethodData[] Methods { get; set; } = Array.Empty<OutputMethodData>();
+    public OutputReadableClassData[] RawReadableClasses { get; set; } = Array.Empty<OutputReadableClassData>();
 }

@@ -9,15 +9,16 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// </summary>
 public class WrappedTypeAnalysisContext : ReferencedTypeAnalysisContext
 {
+    protected override TypeAnalysisContext ElementType => RawType.Type switch
+    {
+        Il2CppTypeEnum.IL2CPP_TYPE_PTR => DeclaringAssembly.ResolveIl2CppType(RawType.GetEncapsulatedType()),
+        Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => DeclaringAssembly.ResolveIl2CppType(RawType.GetEncapsulatedType()),
+        Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => DeclaringAssembly.ResolveIl2CppType(RawType.GetArrayElementType()),
+        Il2CppTypeEnum.IL2CPP_TYPE_BYREF => throw new("TODO Support TYPE_BYREF"),
+        _ => throw new($"Type {RawType.Type} is not a wrapper type")
+    };
+
     public WrappedTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(rawType, referencedFrom)
     {
-        ElementType = rawType.Type switch
-        {
-            Il2CppTypeEnum.IL2CPP_TYPE_PTR => referencedFrom.ResolveIl2CppType(rawType.GetEncapsulatedType()),
-            Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => referencedFrom.ResolveIl2CppType(rawType.GetEncapsulatedType()),
-            Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => referencedFrom.ResolveIl2CppType(rawType.GetArrayElementType()),
-            Il2CppTypeEnum.IL2CPP_TYPE_BYREF => throw new("TODO Support TYPE_BYREF"),
-            _ => throw new($"Type {rawType.Type} is not a wrapper type")
-        };
     }
 }

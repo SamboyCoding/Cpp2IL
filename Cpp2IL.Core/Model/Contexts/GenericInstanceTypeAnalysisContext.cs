@@ -6,6 +6,8 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 {
+    protected override TypeAnalysisContext ElementType { get; }
+
     public GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(rawType, referencedFrom)
     {
         //Element type has to be a type definition

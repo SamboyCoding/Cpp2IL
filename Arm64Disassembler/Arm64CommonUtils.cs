@@ -4,10 +4,14 @@ namespace Arm64Disassembler;
 
 /// <summary>
 /// Helper functions common to various arm64 instructions.
+/// The BitArray stuff in this class is Big-Endian - bit 0 is the most significant (leftmost) bit.
 /// </summary>
 public static class Arm64CommonUtils
 {
-    public static BitArray SignExtend(BitArray value, int size)
+    /// <summary>
+    /// Extends the given bit array to the given length by continuously adding the leftmost bit to the left until the length is reached. 
+    /// </summary>
+    private static BitArray SignExtend(BitArray value, int size)
     {
         var result = new BitArray(size);
         
@@ -28,14 +32,6 @@ public static class Arm64CommonUtils
         }
 
         return result;
-    }
-
-    public static long SignExtend(long original, int originalSizeBits, int newSizeBits)
-    {
-        var originalBits = LongToBits(original, originalSizeBits);
-        var extendedBits = SignExtend(originalBits, newSizeBits);
-
-        return BitsToLong(extendedBits);
     }
 
     private static long BitsToLong(BitArray bits)
@@ -67,5 +63,13 @@ public static class Arm64CommonUtils
         }
 
         return bits;
+    }
+
+    public static long SignExtend(long original, int originalSizeBits, int newSizeBits)
+    {
+        var originalBits = LongToBits(original, originalSizeBits);
+        var extendedBits = SignExtend(originalBits, newSizeBits);
+
+        return BitsToLong(extendedBits);
     }
 }

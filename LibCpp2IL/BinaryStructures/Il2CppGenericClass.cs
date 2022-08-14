@@ -10,7 +10,7 @@ namespace LibCpp2IL.BinaryStructures
         
         public Il2CppTypeDefinition TypeDefinition => LibCpp2IlMain.MetadataVersion < 27f ?
             LibCpp2IlMain.TheMetadata!.typeDefs[(int)TypeDefinitionIndex]
-            : V27BaseType.AsClass();
+            : V27BaseType!.AsClass();
 
         public Il2CppType? V27BaseType => LibCpp2IlMain.MetadataVersion < 27f ? null : LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppType>((ulong) TypeDefinitionIndex); 
         

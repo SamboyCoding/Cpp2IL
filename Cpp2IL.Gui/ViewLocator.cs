@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
 using Cpp2IL.Gui.ViewModels;
@@ -7,6 +8,7 @@ namespace Cpp2IL.Gui
 {
     public class ViewLocator : IDataTemplate
     {
+        [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "All the viewmodel types are hard referenced")]
         public IControl Build(object data)
         {
             var name = data.GetType().FullName!.Replace("ViewModel", "View");

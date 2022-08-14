@@ -1,21 +1,26 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Authors>Samboy063</Authors>
-        <Company>Samboy063</Company>
+        <Authors>Sam Byass (Samboy063)</Authors>
+        <Company>N/A</Company>
         <Copyright>Copyright © Samboy063 2019-2022</Copyright>
         <DebugType>embedded</DebugType>
         <Description>Reverses Unity's IL2CPP Build Process</Description>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <LangVersion>10</LangVersion>
         <Nullable>enable</Nullable>
         <PackageId>Samboy063.Cpp2IL.Core</PackageId>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/SamboyCoding/Cpp2IL</PackageProjectUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <RepositoryType>git</RepositoryType>
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
-        <VersionPrefix>2022.1.0</VersionPrefix>
         <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+        <Title>Cpp2IL.Core</Title>
+        <VersionPrefix>2022.1.0</VersionPrefix>
         <!--Plugins make this non-trimmable-->
+
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <ItemGroup>
@@ -31,9 +36,11 @@
         </PackageReference>
         <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
         <PackageReference Include="System.ValueTuple" Version="4.5.0" />
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\Arm64Disassembler\Arm64Disassembler.csproj" />
         <ProjectReference Include="..\LibCpp2IL\LibCpp2IL.csproj" />
         <ProjectReference Include="..\StableNameDotNet\StableNameDotNet.csproj" />
     </ItemGroup>

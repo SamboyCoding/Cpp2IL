@@ -4,6 +4,7 @@ namespace Arm64Disassembler;
 
 public struct Arm64Instruction
 {
+    public ulong Address { get; internal set; }
     public Arm64Mnemonic Mnemonic { get; internal set; }
 
     public Arm64OperandKind Op0Kind { get; internal set; }
@@ -24,8 +25,12 @@ public struct Arm64Instruction
     public override string ToString()
     {
         var sb = new StringBuilder();
+
+        sb.Append("0x");
+        sb.Append(Address.ToString("X8"));
+        sb.Append(' ');
         sb.Append(Mnemonic);
-        sb.Append(" ");
+        sb.Append(' ');
 
         if (!AppendOperand(sb, Op0Kind, Op0Reg, Op0Imm))
             return sb.ToString();
@@ -39,41 +44,34 @@ public struct Arm64Instruction
 
     private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, uint imm, bool comma = false)
     {
-        switch (kind)
-        {
-            case Arm64OperandKind.Register:
-                if (comma)
-                    sb.Append(", ");
+        if (kind == Arm64OperandKind.None)
+            return false;
 
-                sb.Append(reg);
-                break;
-            case Arm64OperandKind.Immediate:
-                if (comma)
-                    sb.Append(", ");
+        if (comma)
+            sb.Append(", ");
 
-                sb.Append(imm);
-                break;
-            case Arm64OperandKind.Memory:
-                if (comma)
-                    sb.Append(", ");
-
-                sb.Append('[').Append(MemBase);
-
-                if (MemOffset != 0)
-                {
-                    sb.Append(' ')
-                        .Append(MemOffset < 0 ? '-' : '+')
-                        .Append(' ')
-                        .Append(Math.Abs(MemOffset));
-                }
-
-                sb.Append(']');
-                break;
-
-            case Arm64OperandKind.None:
-                return false;
-        }
+        if (kind == Arm64OperandKind.Register)
+            sb.Append(reg);
+        else if (kind == Arm64OperandKind.Immediate)
+            sb.Append(imm);
+        else if (kind == Arm64OperandKind.Memory) 
+            AppendMemory(sb);
 
         return true;
+    }
+
+    private void AppendMemory(StringBuilder sb)
+    {
+        sb.Append('[').Append(MemBase.ToString());
+
+        if (MemOffset != 0)
+        {
+            sb.Append(' ')
+                .Append(MemOffset < 0 ? '-' : '+')
+                .Append(' ')
+                .Append(Math.Abs(MemOffset));
+        }
+
+        sb.Append(']');
     }
 }

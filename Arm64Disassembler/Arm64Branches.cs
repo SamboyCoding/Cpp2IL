@@ -4,22 +4,22 @@ public static class Arm64Branches
 {
     public static Arm64Instruction ConditionalBranchImmediate(uint instruction)
     {
-        return default;
+        throw new NotImplementedException();
     }
 
     public static Arm64Instruction UnconditionalBranchImmediate(uint instruction)
     {
-        return default;
+        throw new NotImplementedException();
     }
 
     public static Arm64Instruction TestAndBranch(uint instruction)
     {
-        return default;
+        throw new NotImplementedException();
     }
 
     public static Arm64Instruction CompareAndBranch(uint instruction)
     {
-        return default;
+        throw new NotImplementedException();
     }
 
     public static Arm64Instruction UnconditionalBranchRegister(uint instruction)
@@ -31,7 +31,7 @@ public static class Arm64Branches
         var op4 = instruction & 0b1_1111; //Bits 0-4
         
         if(op2 != 0b11111)
-            throw new("Unconditional Branch: op2 != 0b11111 is unallocated");
+            throw new Arm64UndefinedInstructionException($"Unconditional Branch: op2 != 0b11111: {op2:X}");
 
         if (opc == 0b0010)
         {
@@ -39,7 +39,7 @@ public static class Arm64Branches
             {
                 //ret. but sanity check op4
                 if(op4 != 0)
-                    throw new("Ret instruction with op4 != 0 is unallocated");
+                    throw new Arm64UndefinedInstructionException($"Ret instruction with op4 != 0: {op4:X}");
                 
                 //By default, ret returns to the caller, the address of which is in X30, however X30 can supposedly be overriden by providing a register in rn.
                 //Looks like most compilers pass 30 anyway - I don't even know what the value being "absent" would imply, as presumably 0 (= X0) is valid? Perhaps 31 (=WZR/SP) is absent?
@@ -55,6 +55,6 @@ public static class Arm64Branches
             }
         }
         
-        return default;
+        throw new NotImplementedException();
     }
 }

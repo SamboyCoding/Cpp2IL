@@ -2,5 +2,5 @@
 
 public class OutputGlobalMetadataData
 {
-    public OutputReadableClassData[] RawReadableClasses { get; set; }
+    public OutputReadableClassData[] RawReadableClasses { get; set; } = Array.Empty<OutputReadableClassData>();
 }

@@ -1,15 +1,34 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
     <PropertyGroup>
+        <Authors>Sam Byass (Samboy063)</Authors>
+        <Company>N/A</Company>
+        <Copyright>Copyright © Samboy063 2022</Copyright>
+        <DebugType>embedded</DebugType>
+        <Description>Pure-C# Disassembler for the ARM Instruction Set</Description>
+        <EmbedUntrackedSources>true</EmbedUntrackedSources>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
         <ImplicitUsings>enable</ImplicitUsings>
         <LangVersion>10</LangVersion>
         <Nullable>enable</Nullable>
+        <PackageId>Samboy063.Arm64Disassembler</PackageId>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/SamboyCoding/Cpp2IL</PackageProjectUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
         <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+        <Title>Arm64Disassembler</Title>
+        <VersionPrefix>2022.1.0</VersionPrefix>
+        <!--Plugins make this non-trimmable-->
+
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <ItemGroup>
-      <PackageReference Include="IndexRange" Version="1.0.2" />
-      <PackageReference Include="System.Memory" Version="4.5.4" />
+        <PackageReference Include="IndexRange" Version="1.0.2"/>
+        <PackageReference Include="System.Memory" Version="4.5.4"/>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
     </ItemGroup>
 
 </Project>

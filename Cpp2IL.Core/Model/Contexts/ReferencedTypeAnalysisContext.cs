@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+﻿using System;
+using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -12,7 +13,7 @@ public abstract class ReferencedTypeAnalysisContext : TypeAnalysisContext
 {
     public Il2CppType RawType { get; }
     
-    protected TypeAnalysisContext ElementType { get; set; }
+    protected abstract TypeAnalysisContext ElementType { get; } //Must be set by derived classes
 
     protected List<TypeAnalysisContext> GenericArguments { get; } = new();
     
@@ -27,8 +28,9 @@ public abstract class ReferencedTypeAnalysisContext : TypeAnalysisContext
         Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => $"{ElementType.Name}[]",
         Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => $"{ElementType.Name}[{RawType.GetArrayRank()}]",
         Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST => $"{ElementType.Name}<{string.Join(", ", GenericArguments.Select(a => a.Name))}>",
-        Il2CppTypeEnum.IL2CPP_TYPE_VAR => GenericParameter!.Name,
-        Il2CppTypeEnum.IL2CPP_TYPE_MVAR => GenericParameter!.Name,
+        Il2CppTypeEnum.IL2CPP_TYPE_VAR => GenericParameter!.Name!,
+        Il2CppTypeEnum.IL2CPP_TYPE_MVAR => GenericParameter!.Name!,
+        _ => throw new ArgumentOutOfRangeException(),
     };
 
     protected override int CustomAttributeIndex => -1;

@@ -2,7 +2,7 @@
 
 public static class Disassembler
 {
-    public static List<Arm64Instruction> Disassemble(Span<byte> assembly)
+    public static Arm64DisassemblyResult Disassemble(Span<byte> assembly, ulong virtualAddress)
     {
         var ret = new List<Arm64Instruction>();
         
@@ -11,15 +11,29 @@ public static class Disassembler
 
         for (var i = 0; i < assembly.Length; i += 4)
         {
-            var rawInsn = assembly.Slice(0, 4);
+            var rawBytes = assembly.Slice(i, 4);
             
             //Assuming little endian here
-            var asUint = (uint) (rawInsn[0] | (rawInsn[1] << 8) | (rawInsn[2] << 16) | (rawInsn[3] << 24));
-            
-            ret.Add(DisassembleSingleInstruction(asUint, i));
+            var rawInstruction = (uint) (rawBytes[0] | (rawBytes[1] << 8) | (rawBytes[2] << 16) | (rawBytes[3] << 24));
+
+            try
+            {
+                var instruction = DisassembleSingleInstruction(rawInstruction, i);
+                instruction.Address = virtualAddress + (ulong)i;
+                
+                ret.Add(instruction);
+            }
+            catch (Arm64UndefinedInstructionException e)
+            {
+                throw new($"Encountered undefined instruction 0x{rawInstruction:X8} at offset {i}. Undefined reason: {e.Message}");
+            }
+            catch (Exception e)
+            {
+                throw new($"Unhandled and unexpected exception disassembling instruction 0x{rawInstruction:X8} at offset {i}", e);
+            }
         }
 
-        return ret;
+        return new(ret, virtualAddress, assembly);
     }
 
     public static Arm64Instruction DisassembleSingleInstruction(uint instruction, int offset = 0)
@@ -27,46 +41,32 @@ public static class Disassembler
         //Top bit splits into reserved/normal instruction
         var isReserved = instruction >> 31 == 0;
         if(isReserved)
-            throw new($"Encountered reserved instruction (most-significant bit not set) at offset {offset}: 0x{instruction:X}");
+            throw new Arm64UndefinedInstructionException($"Most-significant bit not set");
 
         //Bits 25-28 define the kind of instruction
         var type = (instruction >> 25) & 0b1111;
 
         if(type is 0b0001 or 0b0011)
-            throw new($"Encountered unallocated instruction type (bits 25-28 are 0b0001 or 0b0011) at offset {offset}: 0x{instruction:X}");
+            throw new Arm64UndefinedInstructionException($"Unallocated instruction type (bits 25-28 are 0b0001 or 0b0011)");
 
-        Arm64Instruction ret;
-        
-        //Further processing depends on type
-        if (type == 0)
+        return type switch
         {
             //SME (Scalable Matrix Extension, Arm V9 only)
-            throw new($"SME instruction encountered at offset {offset}: 0x{instruction:X} - they are not implemented because Arm V9 is not supported");
-        }
-        if (type == 0b0010)
-        {
-            //SVE (Scalable Vector Extension, ARM v8.2)
-            ret = DisassembleSveInstruction(instruction);
-        } else if (type >> 1 == 0b100)
-        {
-            //Data processing: immediate
-            ret = DisassembleImmediateDataProcessingInstruction(instruction);
-        } else if (type >> 1 == 0b101)
-        {
-            //Branches/Exceptions/System instructions
-            ret = DisassembleBranchExceptionSystemInstruction(instruction);
-        } else if ((type & 0b0101) == 0b0100)
-        {
-            //Loads/Stores
-            ret = DisassembleLoadStoreInstruction(instruction);
-        }
-        else
-        {
-            type &= 0x111; //Discard 4th bit
-            ret = type == 0b101 ? DisassembleRegisterDataProcessingInstruction(instruction) : DisassembleAdvancedSimdDataProcessingInstruction(instruction);
-        }
+            0 => throw new($"SME instruction encountered at offset {offset}: 0x{instruction:X} - they are not implemented because Arm V9 is not supported"),
 
-        return ret;
+            0b0010 => DisassembleSveInstruction(instruction), //SVE (Scalable Vector Extension, ARM v8.2)
+
+            //For these two the last bit is irrelevant here
+            0b1000 or 0b1001 => Arm64DataProcessingImmediate.Disassemble(instruction), //Data processing: immediate  
+            0b1010 or 0b1011 => DisassembleBranchExceptionSystemInstruction(instruction), //Branches/Exceptions/System instructions
+            
+            //Just need to be 0100, ignoring odd bits - so last bit must be 0 and 2nd from left must be 1, other two are irrelevant
+            0b1110 or 0b1100 or 0b0110 or 0b0100 => Arm64LoadsStores.Disassemble(instruction), //Loads/Stores 
+
+            //For these two the first bit is irrelevant here
+            0b1101 or 0b0101 => DisassembleRegisterDataProcessingInstruction(instruction), //Data processing: register
+            _ => DisassembleAdvancedSimdDataProcessingInstruction(instruction), //Advanced SIMD data processing
+        };
     }
 
     private static Arm64Instruction DisassembleSveInstruction(uint instruction)
@@ -77,106 +77,76 @@ public static class Disassembler
         var op3 = (instruction >> 10) & 0b11_1111; //Bits 10-15
         var op4 = (instruction >> 4) & 1; //Bit 4
         
-        return default;
-    }
-    
-    private static Arm64Instruction DisassembleImmediateDataProcessingInstruction(uint instruction)
-    {
-        //This one, at least, is mercifully simple
-        var op0 = (instruction >> 23) & 0b111; //Bits 23-25
+        //TODO
         
-        //All 7 possible mnemonics are defined.
-        
-        return default;
+        throw new NotImplementedException();
     }
-    
+
     private static Arm64Instruction DisassembleBranchExceptionSystemInstruction(uint instruction)
     {
         var op0 = (instruction >> 29) & 0b111; //Bits 29-31
         var op1 = (instruction >> 12) & 0b11_1111_1111_1111; //Bits 12-25
-        var op2 = instruction & 0b1_1111; //Bits 0-4
 
-        if (op0 == 0b010)
+        return op0 switch
         {
-            //Conditional branch - immediate
-            return Arm64Branches.ConditionalBranchImmediate(instruction);
-        }
-
-        if ((op0 & 0b11) == 0b00)
-        {
-            //x00 -> unconditional branch, immediate
-            return Arm64Branches.UnconditionalBranchImmediate(instruction);
-        }
-        
-        if((op0 & 0b11) == 0b01)
-        {
+            0b010 => Arm64Branches.ConditionalBranchImmediate(instruction), //Conditional branch - immediate
+            0b000 or 0b100 => Arm64Branches.UnconditionalBranchImmediate(instruction), //x00 -> unconditional branch, immediate
+            
             //x01 -> compare and branch or test and branch, depending on high bit of op1
-            if(op1 >> 13 == 0b1)
-            {
-                //Test and branch
-                return Arm64Branches.TestAndBranch(instruction);
-            }
-
-            //Compare and branch
-            return Arm64Branches.CompareAndBranch(instruction);
-        }
-        
-        //What's left should be the 110 family - the majority of these instructions
-        //In theory, checking only op1 is enough, as each subcategory has a unique op1 value,
-        //but the Hints subcategory also stipulates that op2 should be all 1s - and in fact is the only use of op2. Seems a little redundant.
-        
-        //Sanity check we are actually 010
-        if(op0 != 0b110)
-        {
-            throw new Exception($"Branch/Exception/Sys Instruction: Unexpected op0 value: {op0}");
-        }
-        
-        //There's also one more category of branch instruction here, so let's get that out of the way:
-        if (op1 >> 13 == 0b1)
-        {
-            //Unconditional branch - register
-            return Arm64Branches.UnconditionalBranchRegister(instruction);
-        }
-        
-        //Everything else falls into some category of system instruction, hints, exceptions, barriers, or PSTATE instruction
-        
-        return default;
+            0b001 or 0b101 when op1 >> 13 == 0b1 => Arm64Branches.TestAndBranch(instruction),  //Test and branch
+            0b001 or 0b101 => Arm64Branches.CompareAndBranch(instruction), //Compare and branch
+            
+            0b110 when op1 >> 13 == 0b1 => Arm64Branches.UnconditionalBranchRegister(instruction), //One more category of branches: Unconditional - register
+            _ => DisassembleSystemHintExceptionBarrierOrPstate(instruction), //110 without bit 13 set -> system instruction
+        };
     }
-    
-    private static Arm64Instruction DisassembleLoadStoreInstruction(uint instruction)
+
+    /// <summary>
+    /// Handles the '110' family of C4.1.65 - Branches, exceptions, and system instructions
+    /// </summary>
+    private static Arm64Instruction DisassembleSystemHintExceptionBarrierOrPstate(uint instruction)
     {
-        //Bits. Bits everywhere.
-        var op0 = instruction >> 28; //Bits 28-31
-        var op1 = (instruction >> 26) & 1; //Bit 26
-        var op2 = (instruction >> 23) & 0b11; //Bits 23-24
-        var op3 = (instruction >> 16) & 0b11_1111; //Bits 16-21
-        var op4 = (instruction >> 10) & 0b11; //Bits 10-11
+        var op1 = (instruction >> 12) & 0b11_1111_1111_1111; //Bits 12-25
+        var op2 = instruction & 0b1_1111; //Bits 0-4
+        
+        //each subcategory has a unique op1 value or mask
+        //the Hints subcategory stipulates that op2 should be all 1s - and in fact is the only use of op2. Seems a little redundant.
+        
+        //Bit 13 of op1 has to be 0 or we'd have gone to an "unconditional branch - register"
+        //Bit 12 being 0 means exceptions
+        if (op1 >> 12 == 0)
+            return Arm64ExceptionGeneration.Disassemble(instruction);
+        
+        //A couple other masked values to get out of the way:
+        var upperHalf = op1 >> 7 & 0b1111111;
 
-        if ((op0 & 0b11) == 0b11)
+        if (upperHalf == 0b010_0000 && (op1 & 0b1111) == 0b0100)
+            //Pstate
+            return Arm64Pstate.Disassemble(instruction);
+
+        if (upperHalf == 0b010_0100)
+            //System, with result
+            return Arm64System.WithResult(instruction);
+
+        if (upperHalf is 0b0100001 or 0b0100101)
+            //General system
+            return Arm64System.General(instruction);
+        
+        //Discard last bit of upperHalf
+        upperHalf >>= 1;
+
+        if (upperHalf is 0b010001 or 0b010011)
+            return Arm64System.RegisterMove(instruction);
+        
+        //Now just switch
+        return op1 switch
         {
-            //Ignore op1
-            //Simple test, if top bit of op2 is set, it's load/store reg unsigned immediate
-            if ((op2 & 0b10) == 0b10)
-            {
-                //Load/store reg unsigned immediate
-                return default;
-            }
-            
-            //Check top bit of op3
-            if((op3 & 0b10_0000) == 0b10_0000)
-            {
-                //One of 3
-                return default;
-            }
-            
-            //One of 4
-            if (op4 == 0b11)
-            {
-                return Arm64LoadsStores.LoadStoreImmPreI(instruction);
-            }
-        }
-
-        return default;
+            0b01000000110001 => Arm64System.WithRegisterArgument(instruction),
+            0b01000000110010 when op2 != 0b1111 => throw new Arm64UndefinedInstructionException($"Hint instructions require op2 to be all 1s. Got {op2:X}"),
+            0b01000000110010 => Arm64Hints.Disassemble(instruction),
+            0b01000000110011 => Arm64Barriers.Disassemble(instruction),
+            _ => throw new Arm64UndefinedInstructionException($"Undefined op1 in system instruction processor: {op1:X}")
+        };
     }
     
     private static Arm64Instruction DisassembleRegisterDataProcessingInstruction(uint instruction)
@@ -187,7 +157,9 @@ public static class Disassembler
         var op2 = (instruction >> 21) & 0b1111; //Bits 21-24
         var op3 = (instruction >> 10) & 0b11_1111; //Bits 10-15
         
-        return default;
+        //TODO
+        
+        throw new NotImplementedException();
     }
     
     private static Arm64Instruction DisassembleAdvancedSimdDataProcessingInstruction(uint instruction)
@@ -198,7 +170,9 @@ public static class Disassembler
         var op2 = (instruction >> 19) & 0b1111; //Bits 19-22
         var op3 = (instruction >> 10) & 0b1_1111_1111; //Bits 10-18
         
-        return default;
+        //TODO
+        
+        throw new NotImplementedException();
     }
     
 }

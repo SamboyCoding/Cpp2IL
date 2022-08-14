@@ -68,11 +68,11 @@ public class BuildReportOutputFormat : Cpp2IlOutputFormat
         var sizeOfAllNonGenerics = methodsBySize.Sum(m => m.Value);
         var largestMethods = methodsBySize.OrderByDescending(kvp => kvp.Value).Take(100).ToList();
         
-        var inBinaryMetadataObjectsBySize = context.Binary.BytesReadPerClass.OrderByDescending(kvp => kvp.Value).ToList();
+        var inBinaryMetadataObjectsBySize = (List<KeyValuePair<Type?, int>>) context.Binary.BytesReadPerClass.OrderByDescending(kvp => kvp.Value).ToList()!;
         var inBinaryMetadataUnspecifiedSize = context.Binary.InBinaryMetadataSize - inBinaryMetadataObjectsBySize.Sum(kvp => kvp.Value);
-        inBinaryMetadataObjectsBySize.Add(new(null, (int) inBinaryMetadataUnspecifiedSize));
+        inBinaryMetadataObjectsBySize.Add(new(null, inBinaryMetadataUnspecifiedSize));
 
-        var metadataFileObjectsBySize = context.Metadata.BytesReadPerClass.OrderByDescending(kvp => kvp.Value).ToList();
+        var metadataFileObjectsBySize = (List<KeyValuePair<Type?, int>>) context.Metadata.BytesReadPerClass.OrderByDescending(kvp => kvp.Value).ToList()!;
         var metadataFileUnspecifiedSize = context.Metadata.Length - metadataFileObjectsBySize.Sum(kvp => kvp.Value);
         metadataFileObjectsBySize.Add(new(null, (int) metadataFileUnspecifiedSize));
 
