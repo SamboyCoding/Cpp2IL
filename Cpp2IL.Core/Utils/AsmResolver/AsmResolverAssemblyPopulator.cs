@@ -432,8 +432,9 @@ public static class AsmResolverAssemblyPopulator
         {
             var variable = new CilLocalVariable(methodDefinition.Signature!.ReturnType);
             methodDefinition.CilMethodBody.LocalVariables.Add(variable);
-            methodInstructions.Add(CilOpCodes.Ldloca_S, variable);
-            methodInstructions.Add(CilOpCodes.Initobj, methodDefinition.Signature.ReturnType.ToTypeDefOrRef());
+            methodDefinition.CilMethodBody.InitializeLocals = true;
+            // methodInstructions.Add(CilOpCodes.Ldloca_S, variable);
+            // methodInstructions.Add(CilOpCodes.Initobj, methodDefinition.Signature.ReturnType.ToTypeDefOrRef());
             methodInstructions.Add(CilOpCodes.Ldloc_0);
             methodInstructions.Add(CilOpCodes.Ret);
         }

@@ -1,3 +1,5 @@
+// #define VERBOSE_LOGGING
+
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -19,44 +21,80 @@ namespace Cpp2IL.Core.CorePlugin;
 public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 {
     public override string OutputFormatId => "dummydll";
-    
+
     public override string OutputFormatName => "Stub (\"Dummy\") DLL Files";
 
     private AssemblyDefinition? MostRecentCorLib { get; set; }
 
     public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
+#if VERBOSE_LOGGING
+        var asmCount = context.Assemblies.Count;
+        var typeCount = context.AllTypes.Count();
+        var methodCount = context.AllTypes.SelectMany(t => t.Methods).Count();
+        var fieldCount = context.AllTypes.SelectMany(t => t.Fields).Count();
+        var propertyCount = context.AllTypes.SelectMany(t => t.Properties).Count();
+        var eventCount = context.AllTypes.SelectMany(t => t.Events).Count();
+#endif
+
         //Build the stub assemblies
-        Logger.VerboseNewline("Building stub assemblies...", "DummyDllOutput");
+        var start = DateTime.Now;
+#if VERBOSE_LOGGING
+        Logger.Verbose($"Building stub assemblies ({asmCount} assemblies, {typeCount} types)...", "DummyDllOutput");
+#else
+        Logger.Verbose($"Building stub assemblies...", "DummyDllOutput");
+#endif
         var ret = BuildStubAssemblies(context);
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
 
         TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
 
-        Logger.VerboseNewline("Configuring hierarchy...", "DummyDllOutput");
-        
+        start = DateTime.Now;
+        Logger.Verbose("Configuring inheritance and generics...", "DummyDllOutput");
+
         Parallel.ForEach(context.Assemblies, AsmResolverAssemblyPopulator.ConfigureHierarchy);
 
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+
         //Populate them
-        Logger.VerboseNewline("Populating assemblies...", "DummyDllOutput");
+        start = DateTime.Now;
+
+#if VERBOSE_LOGGING
+        Logger.Verbose($"Adding {fieldCount} fields, {methodCount} methods, {propertyCount} properties, and {eventCount} events (in parallel)...", "DummyDllOutput");
+#else
+        Logger.Verbose($"Adding fields, methods, properties, and events (in parallel)...", "DummyDllOutput");
+#endif
 
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
-        
+
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+
         //Populate custom attributes
-        Logger.VerboseNewline("Populating custom attributes...", "DummyDllOutput");
+        start = DateTime.Now;
+        Logger.Verbose("Adding custom attributes to all of the above...", "DummyDllOutput");
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.PopulateCustomAttributes);
 
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+
         TypeDefinitionsAsmResolver.Reset();
-        
-        Logger.VerboseNewline("Generating assemblies...", "DummyDllOutput");
-        
+
+        start = DateTime.Now;
+        Logger.Verbose("Generating PE images...", "DummyDllOutput");
+
         if (!Directory.Exists(outputRoot))
             Directory.CreateDirectory(outputRoot);
 
         //Convert assembly definitions to PE files
-        var peImagesToWrite = ret.AsParallel().Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!)).ToList();
-        
-        Logger.VerboseNewline("Writing generated assemblies to disk...", "DummyDllOutput");
-        
+        var peImagesToWrite = ret
+            .AsParallel()
+            .Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!))
+            .ToList();
+
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+
+        start = DateTime.Now;
+        Logger.Verbose("Building and writing managed PE files to disk...", "DummyDllOutput");
+
         //Save them
         var fileBuilder = new ManagedPEFileBuilder();
         foreach (var (image, name) in peImagesToWrite)
@@ -64,6 +102,8 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
             var dllPath = Path.Combine(outputRoot, name);
             fileBuilder.CreateFile(image).Write(dllPath);
         }
+
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
     }
 
     private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)
@@ -106,8 +146,8 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 
         var ourAssembly = new AssemblyDefinition(assemblyNameString, version)
         {
-            HashAlgorithm = (AssemblyHashAlgorithm) assemblyDefinition.AssemblyName.hash_alg,
-            Attributes = (AssemblyAttributes) assemblyDefinition.AssemblyName.flags,
+            HashAlgorithm = (AssemblyHashAlgorithm)assemblyDefinition.AssemblyName.hash_alg,
+            Attributes = (AssemblyAttributes)assemblyDefinition.AssemblyName.flags,
             Culture = assemblyDefinition.AssemblyName.Culture,
             //TODO find a way to set hash? or not needed
         };
@@ -116,12 +156,12 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         var managedModule = new ModuleDefinition(imageDefinition.Name, new(corLib ?? ourAssembly)) //Use either ourself as corlib, if we are corlib, otherwise the provided one
         {
             MetadataResolver = metadataResolver
-        }; 
+        };
         ourAssembly.Modules.Add(managedModule);
 
         foreach (var il2CppTypeDefinition in assemblyContext.TopLevelTypes)
         {
-            if(il2CppTypeDefinition.Name != "<Module>")
+            if (il2CppTypeDefinition.Name != "<Module>")
                 //We skip module because I've never come across an il2cpp assembly with any top-level functions, and it's simpler to skip it as AsmResolver adds one by default.
                 managedModule.TopLevelTypes.Add(BuildStubType(il2CppTypeDefinition));
         }
@@ -135,27 +175,27 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
     private static TypeDefinition BuildStubType(TypeAnalysisContext typeContext)
     {
         var typeDef = typeContext.Definition;
-        
-        const int defaultAttributes = (int) (TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
-        
+
+        const int defaultAttributes = (int)(TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed);
+
         //Initialize an empty type definition
-        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes) (typeDef?.Flags ?? defaultAttributes));
+        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes)(typeDef?.Flags ?? defaultAttributes));
 
         //Set up its layout
-        if(typeDef != null && typeDef.BaseType?.ToString() != "System.Enum")
+        if (typeDef != null && typeDef.BaseType?.ToString() != "System.Enum")
             ConfigureTypeSize(typeDef, ret);
 
         //Create nested types
-        foreach (var cppNestedType in typeContext.NestedTypes) 
+        foreach (var cppNestedType in typeContext.NestedTypes)
             ret.NestedTypes.Add(BuildStubType(cppNestedType));
 
         //Associate this asm resolve td with the type context
         typeContext.PutExtraData("AsmResolverType", ret);
-        
+
         //Add to the lookup-by-id table used by the resolver
-        if(typeDef != null)
+        if (typeDef != null)
             AsmResolverUtils.TypeDefsByIndex[typeDef.TypeIndex] = ret;
-        
+
         return ret;
     }
 
@@ -164,7 +204,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         ushort packingSize = 0;
         var classSize = 0U;
         if (!il2CppDefinition.PackingSizeIsDefault)
-            packingSize = (ushort) il2CppDefinition.PackingSize;
+            packingSize = (ushort)il2CppDefinition.PackingSize;
 
         if (!il2CppDefinition.ClassSizeIsDefault && !il2CppDefinition.IsEnumType)
         {
@@ -172,7 +212,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
                 throw new Exception($"Got invalid size for type {il2CppDefinition}: {il2CppDefinition.RawSizes}");
 
             if (il2CppDefinition.Size != -1)
-                classSize = (uint) il2CppDefinition.Size;
+                classSize = (uint)il2CppDefinition.Size;
             else
                 classSize = 0; //Not sure what this value actually implies but it seems to work
         }

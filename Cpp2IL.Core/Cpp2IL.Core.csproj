@@ -24,9 +24,9 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="AsmResolver" Version="4.10.0" />
-        <PackageReference Include="AsmResolver.DotNet" Version="4.10.0" />
-        <PackageReference Include="AsmResolver.PE" Version="4.10.0" />
+        <PackageReference Include="AsmResolver" Version="4.11.2" />
+        <PackageReference Include="AsmResolver.DotNet" Version="4.11.2" />
+        <PackageReference Include="AsmResolver.PE" Version="4.11.2" />
         <PackageReference Include="js6pak.Gee.External.Capstone" Version="2.1.0" />
         <PackageReference Include="Iced" Version="1.17.0" />
         <PackageReference Include="IndexRange" Version="1.0.2" />
@@ -36,7 +36,7 @@
         </PackageReference>
         <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
         <PackageReference Include="System.ValueTuple" Version="4.5.0" />
-        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All"/>
+        <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
     </ItemGroup>
 
     <ItemGroup>
