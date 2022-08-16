@@ -80,7 +80,12 @@ namespace LibCpp2IL.PE
             var addr = (uint)(uiAddr - peImageBase);
 
             if (addr == (uint)int.MaxValue + 1)
-                throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
+            {
+                if (throwOnError)
+                    throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
+                
+                return VirtToRawInvalidNoMatch;
+            }
 
             var last = peSectionHeaders[peSectionHeaders.Length - 1];
             if (addr > last.VirtualAddress + last.VirtualSize)
