@@ -33,6 +33,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Plugin.BuildReport",
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Plugin.OrbisPkg", "Cpp2IL.Plugin.OrbisPkg\Cpp2IL.Plugin.OrbisPkg.csproj", "{A621899A-564D-4CD0-97AC-097EBABA5ACD}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Arm64Disassembler.Tests", "Arm64Disassembler.Tests\Arm64Disassembler.Tests.csproj", "{10717F4C-CDAC-4BCE-A54E-A638BD5140FD}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,5 +89,9 @@ Global
 		{A621899A-564D-4CD0-97AC-097EBABA5ACD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A621899A-564D-4CD0-97AC-097EBABA5ACD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A621899A-564D-4CD0-97AC-097EBABA5ACD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{10717F4C-CDAC-4BCE-A54E-A638BD5140FD}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{10717F4C-CDAC-4BCE-A54E-A638BD5140FD}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{10717F4C-CDAC-4BCE-A54E-A638BD5140FD}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{10717F4C-CDAC-4BCE-A54E-A638BD5140FD}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 EndGlobal

@@ -119,10 +119,13 @@ namespace LibCpp2IL
 
             foreach (var va in vas)
             {
+                LibLogger.VerboseNewline($"\t\t\tChecking for CodeRegistration at virtual address 0x{va:x}...");
                 var cr = _binary.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(va);
 
                 if ((long) cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count)
                     return va;
+                
+                LibLogger.VerboseNewline($"\t\t\t\tNot a valid CodeRegistration - custom attribute count is {cr.customAttributeCount}, expecting {LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count}");
             }
 
             return 0;

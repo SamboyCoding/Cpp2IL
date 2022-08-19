@@ -36,15 +36,16 @@ public static class Disassembler
         return new(ret, virtualAddress, assembly);
     }
 
-    public static Arm64Instruction DisassembleSingleInstruction(uint instruction, int offset = 0)
+    private static Arm64Instruction DisassembleSingleInstruction(uint instruction, int offset = 0)
     {
         //Top bit splits into reserved/normal instruction
         var isReserved = instruction >> 31 == 0;
-        if(isReserved)
-            throw new Arm64UndefinedInstructionException($"Most-significant bit not set");
-
+        
         //Bits 25-28 define the kind of instruction
         var type = (instruction >> 25) & 0b1111;
+        
+        if(isReserved && type == 0)
+            throw new Arm64UndefinedInstructionException($"Encountered reserved group of instructions");
 
         if(type is 0b0001 or 0b0011)
             throw new Arm64UndefinedInstructionException($"Unallocated instruction type (bits 25-28 are 0b0001 or 0b0011)");
@@ -54,34 +55,22 @@ public static class Disassembler
             //SME (Scalable Matrix Extension, Arm V9 only)
             0 => throw new($"SME instruction encountered at offset {offset}: 0x{instruction:X} - they are not implemented because Arm V9 is not supported"),
 
-            0b0010 => DisassembleSveInstruction(instruction), //SVE (Scalable Vector Extension, ARM v8.2)
+            0b0010 => Arm64Sve.Disassemble(instruction), //SVE (Scalable Vector Extension, ARM v8.2)
 
             //For these two the last bit is irrelevant here
             0b1000 or 0b1001 => Arm64DataProcessingImmediate.Disassemble(instruction), //Data processing: immediate  
             0b1010 or 0b1011 => DisassembleBranchExceptionSystemInstruction(instruction), //Branches/Exceptions/System instructions
             
-            //Just need to be 0100, ignoring odd bits - so last bit must be 0 and 2nd from left must be 1, other two are irrelevant
+            //Just need to be 0100, ignoring odd bits (X1X0) - so last bit must be 0 and 2nd from left must be 1, other two are irrelevant
             0b1110 or 0b1100 or 0b0110 or 0b0100 => Arm64LoadsStores.Disassemble(instruction), //Loads/Stores 
 
             //For these two the first bit is irrelevant here
-            0b1101 or 0b0101 => DisassembleRegisterDataProcessingInstruction(instruction), //Data processing: register
-            _ => DisassembleAdvancedSimdDataProcessingInstruction(instruction), //Advanced SIMD data processing
+            0b1101 or 0b0101 => Arm64DataProcessingRegister.Disassemble(instruction), //Data processing: register
+            _ => Arm64Simd.Disassemble(instruction), //Advanced SIMD data processing
         };
     }
 
-    private static Arm64Instruction DisassembleSveInstruction(uint instruction)
-    {
-        var op0 = (instruction >> 29) & 0b111; //Bits 29-31
-        var op1 = (instruction >> 23) & 0b11; //Bits 23-24
-        var op2 = (instruction >> 17) & 0b1_1111; //Bits 17-21
-        var op3 = (instruction >> 10) & 0b11_1111; //Bits 10-15
-        var op4 = (instruction >> 4) & 1; //Bit 4
-        
-        //TODO
-        
-        throw new NotImplementedException();
-    }
-
+    //These methods are here because some of them are branches but some are various other kinds so we can't really delegate to one class
     private static Arm64Instruction DisassembleBranchExceptionSystemInstruction(uint instruction)
     {
         var op0 = (instruction >> 29) & 0b111; //Bits 29-31
@@ -148,31 +137,4 @@ public static class Disassembler
             _ => throw new Arm64UndefinedInstructionException($"Undefined op1 in system instruction processor: {op1:X}")
         };
     }
-    
-    private static Arm64Instruction DisassembleRegisterDataProcessingInstruction(uint instruction)
-    {
-        var op0 = (instruction >> 30) & 1; //Bit 30
-        var op1 = (instruction >> 28) & 1; //Bit 28
-        //25-27 must be 101
-        var op2 = (instruction >> 21) & 0b1111; //Bits 21-24
-        var op3 = (instruction >> 10) & 0b11_1111; //Bits 10-15
-        
-        //TODO
-        
-        throw new NotImplementedException();
-    }
-    
-    private static Arm64Instruction DisassembleAdvancedSimdDataProcessingInstruction(uint instruction)
-    {
-        var op0 = (instruction >> 28) & 0b1111; //Bits 28-31
-        //25-27 must be 111
-        var op1 = (instruction >> 23) & 0b11; //Bits 23-24
-        var op2 = (instruction >> 19) & 0b1111; //Bits 19-22
-        var op3 = (instruction >> 10) & 0b1_1111_1111; //Bits 10-18
-        
-        //TODO
-        
-        throw new NotImplementedException();
-    }
-    
 }

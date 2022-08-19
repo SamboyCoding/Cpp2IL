@@ -30,6 +30,9 @@ SharpTreeView/obj/
 /Arm64Disassembler/bin/
 /Arm64Disassembler/obj/
 
+/Arm64Disassembler.Tests/bin/
+/Arm64Disassembler.Tests/obj/
+
 /StableNameDotNet/bin/
 /StableNameDotNet/obj/
 

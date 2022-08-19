@@ -122,7 +122,8 @@ namespace Cpp2IL
             using var zipArchive = new ZipArchive(stream);
 
             var globalMetadata = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("assets/bin/Data/Managed/Metadata/global-metadata.dat"));
-            var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/x86/libil2cpp.so"));
+            var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/x86_64/libil2cpp.so"));
+            binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/x86/libil2cpp.so"));
             binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/arm64-v8a/libil2cpp.so"));
             binary ??= zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("lib/armeabi-v7a/libil2cpp.so"));
 
@@ -412,6 +413,8 @@ namespace Cpp2IL
                 WasmFile.RemappedDynCallFunctions = null;
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
+
+            var asm = Cpp2IlApi.CurrentAppContext.GetAssemblyByName("UnityEngine");
 
             foreach (var (key, value) in runtimeArgs.ProcessingLayerConfigurationOptions)
                 Cpp2IlApi.CurrentAppContext!.PutExtraData(key, value);
