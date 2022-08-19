@@ -1,4 +1,6 @@
-﻿namespace Arm64Disassembler;
+﻿using Arm64Disassembler.InternalDisassembly;
+
+namespace Arm64Disassembler;
 
 public static class Disassembler
 {
@@ -68,6 +70,35 @@ public static class Disassembler
             0b1101 or 0b0101 => Arm64DataProcessingRegister.Disassemble(instruction), //Data processing: register
             _ => Arm64Simd.Disassemble(instruction), //Advanced SIMD data processing
         };
+    }
+
+    public static IEnumerable<Arm64Instruction> DisassembleOnDemand(byte[] input, ulong virtualAddress)
+    {
+        Arm64Instruction instruction;
+        
+        for (var i = 0; i < input.Length; i += 4)
+        {
+            var rawBytes = input.AsSpan(i, 4);
+            
+            //Assuming little endian here
+            var rawInstruction = (uint) (rawBytes[0] | (rawBytes[1] << 8) | (rawBytes[2] << 16) | (rawBytes[3] << 24));
+            
+            try
+            {
+                instruction = DisassembleSingleInstruction(rawInstruction, i);
+                instruction.Address = virtualAddress + (ulong)i;
+            }
+            catch (Arm64UndefinedInstructionException e)
+            {
+                throw new($"Encountered undefined instruction 0x{rawInstruction:X8} at offset {i}. Undefined reason: {e.Message}");
+            }
+            catch (Exception e)
+            {
+                throw new($"Unhandled and unexpected exception disassembling instruction 0x{rawInstruction:X8} at offset {i}", e);
+            }
+            
+            yield return instruction;
+        }
     }
 
     //These methods are here because some of them are branches but some are various other kinds so we can't really delegate to one class

@@ -1,4 +1,5 @@
 ﻿using System.Text;
+using Arm64Disassembler.InternalDisassembly;
 
 namespace Arm64Disassembler;
 
@@ -19,6 +20,7 @@ public struct Arm64Instruction
     public uint Op2Imm { get; internal set; }
 
     public Arm64Register MemBase { get; internal set; }
+    public bool MemIsPreIndexed { get; internal set; }
 
     public long MemOffset { get; internal set; }
 
@@ -68,10 +70,13 @@ public struct Arm64Instruction
         {
             sb.Append(' ')
                 .Append(MemOffset < 0 ? '-' : '+')
-                .Append(' ')
-                .Append(Math.Abs(MemOffset));
+                .Append(" 0x")
+                .Append(Math.Abs(MemOffset).ToString("X"));
         }
 
         sb.Append(']');
+
+        if (MemIsPreIndexed)
+            sb.Append('!');
     }
 }

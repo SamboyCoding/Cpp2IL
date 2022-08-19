@@ -1,6 +1,6 @@
-﻿namespace Arm64Disassembler;
+﻿namespace Arm64Disassembler.InternalDisassembly;
 
-public static class Arm64ExceptionGeneration
+public static class Arm64Barriers
 {
     public static Arm64Instruction Disassemble(uint instruction)
     {

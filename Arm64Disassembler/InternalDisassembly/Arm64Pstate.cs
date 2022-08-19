@@ -1,6 +1,6 @@
-﻿namespace Arm64Disassembler;
+﻿namespace Arm64Disassembler.InternalDisassembly;
 
-public static class Arm64Barriers
+public static class Arm64Pstate
 {
     public static Arm64Instruction Disassemble(uint instruction)
     {

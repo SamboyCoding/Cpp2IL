@@ -1,4 +1,4 @@
-﻿namespace Arm64Disassembler;
+﻿namespace Arm64Disassembler.InternalDisassembly;
 
 public static class Arm64Branches
 {

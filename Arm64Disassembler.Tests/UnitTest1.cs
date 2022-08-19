@@ -1,10 +1,14 @@
+using Xunit.Abstractions;
+
 namespace Arm64Disassembler.Tests;
 
 public class UnitTest1
 {
+    private readonly ITestOutputHelper _testOutputHelper;
+
     //Example Arm64 code for a basic assembly-level custom attribute generator
     /* Should disassemble to
-         stp x20, x19, [sp, #-0x20]
+         stp x20, x19, [sp, #-0x20]!
          stp x29, x30, [sp, #0x10]
          add x29, sp, #0x10
          mov x19, x0
@@ -34,9 +38,19 @@ public class UnitTest1
         0xE1, 0x03, 0x00, 0x32, 0xE0, 0x03, 0x13, 0xAA, 0xF4, 0x4F, 0xC2, 0xA8, 0xA2, 0xF5, 0x3C, 0x14
     };
 
+    public UnitTest1(ITestOutputHelper testOutputHelper)
+    {
+        _testOutputHelper = testOutputHelper;
+    }
+
     [Fact]
     public void TestDisassembleEntireBody()
     {
-        var result = Disassembler.Disassemble(caGenBody.AsSpan(), 0);
+        var result = Disassembler.DisassembleOnDemand(caGenBody, 0);
+
+        foreach (var instruction in result)
+        {
+            _testOutputHelper.WriteLine(instruction.ToString());
+        }
     }
 }

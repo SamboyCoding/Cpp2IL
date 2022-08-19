@@ -1,4 +1,4 @@
-﻿namespace Arm64Disassembler;
+﻿namespace Arm64Disassembler.InternalDisassembly;
 
 public static class Arm64LoadsStores
 {
@@ -28,6 +28,7 @@ public static class Arm64LoadsStores
         if ((op0 & 0b1011) == 0b1000)
         {
             //Load/store exclusive pair, or undefined
+            throw new NotImplementedException();
         }
         
         //The last 4 categories look only at the last 2 bits of op0, so we can switch now
@@ -79,7 +80,16 @@ public static class Arm64LoadsStores
 
     private static Arm64Instruction DisassembleLoadStorePairs(uint instruction)
     {
-        throw new NotImplementedException();
+        var op2 = (instruction >> 23) & 0b11; //Bits 23-24
+
+        return op2 switch
+        {
+            0b00 => LoadStoreNoAllocatePairs(instruction), //load/store no-allocate pairs
+            0b01 => LoadStoreRegisterPair(instruction, MemoryAccessMode.PostIndex), //load/store register pair (post-indexed)
+            0b10 => LoadStoreRegisterPair(instruction, MemoryAccessMode.Offset), //load/store register pair (offset)
+            0b11 => LoadStoreRegisterPair(instruction, MemoryAccessMode.PreIndex), //load/store register pair (pre-indexed)
+            _ => throw new("Loads/store pairs: Impossible op2 value")
+        };
     }
 
     //The 'xx11' category of loads/stores
@@ -152,5 +162,83 @@ public static class Arm64LoadsStores
         }
 
         throw new NotImplementedException();
+    }
+    
+    private static Arm64Instruction LoadStoreNoAllocatePairs(uint instruction)
+    {
+        throw new NotImplementedException();
+    }
+
+    private static Arm64Instruction LoadStoreRegisterPair(uint instruction, MemoryAccessMode mode)
+    {
+        //Page C4-559
+        
+        var opc = (instruction >> 30) & 0b11; //Bits 30-31
+        var imm7 = (instruction >> 15) & 0b111_1111; //Bits 15-21
+        var rt2 = (int) (instruction >> 10) & 0b1_1111; //Bits 10-14
+        var rn = (int) (instruction >> 5) & 0b1_1111; //Bits 5-9
+        var rt = (int) (instruction & 0b1_1111); //Bits 0-4
+
+        var isVector = instruction.TestBit(26);
+        var isLoad = instruction.TestBit(22);
+        
+        //opc: 
+        //00 - stp/ldp (32-bit + 32-bit fp)
+        //01 - stgp, ldpsw, stp/ldp (64-bit fp)
+        //10 - stp/ldp (64-bit + 128-bit fp)
+        //11 - reserved
+        
+        if(opc == 0b11)
+            throw new Arm64UndefinedInstructionException("Load/store register pair (pre-indexed): opc == 0b11");
+        
+        var mnemonic = isLoad ? Arm64Mnemonic.LDP : Arm64Mnemonic.STP;
+        
+        if(opc == 1 && !isVector)
+            mnemonic = isLoad ? Arm64Mnemonic.LDPSW : Arm64Mnemonic.STGP; //Store Allocation taG (64-bit) and Pair/LoaD Pair of registers Signed Ward (32-bit) 
+
+        var destBaseReg = opc switch
+        {
+            0b00 when isVector => Arm64Register.S0, //32-bit vector
+            0b00 => Arm64Register.W0, //32-bit
+            0b01 when mnemonic == Arm64Mnemonic.STGP => Arm64Register.W0, //32-bit
+            0b01 => Arm64Register.D0, //All other group 1 is 64-bit vector
+            0b10 when isVector => Arm64Register.V0, //128-bit vector
+            0b10 => Arm64Register.X0, //64-bit
+            _ => throw new("Impossible opc value")
+        };
+
+        var dataSizeBits = opc switch
+        {
+            0b00 => 32,
+            0b01 when mnemonic == Arm64Mnemonic.STGP => 32,
+            0b01 => 64,
+            0b10 when isVector => 128,
+            0b10 => 64,
+            _ => throw new("Impossible opc value")
+        };
+        
+        var dataSizeBytes = dataSizeBits / 8;
+        
+        //The offset must be aligned to the size of the data so is stored in imm7 divided by this factor
+        //So we multiply by the size of the data to get the offset
+        //It is stored signed.
+        var realImm7 = Arm64CommonUtils.CorrectSignBit(imm7, 7);
+
+        var reg1 = destBaseReg + rt;
+        var reg2 = destBaseReg + rt2;
+        var regN = Arm64Register.X0 + rn;
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Memory,
+            Op0Reg = reg1,
+            Op1Reg = reg2,
+            MemBase = regN,
+            MemOffset = realImm7 * dataSizeBytes,
+            MemIsPreIndexed = mode == MemoryAccessMode.PreIndex,
+        };
     }
 }

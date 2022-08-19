@@ -1,6 +1,6 @@
 ﻿using System.Collections;
 
-namespace Arm64Disassembler;
+namespace Arm64Disassembler.InternalDisassembly;
 
 /// <summary>
 /// Helper functions common to various arm64 instructions.
@@ -71,5 +71,23 @@ public static class Arm64CommonUtils
         var extendedBits = SignExtend(originalBits, newSizeBits);
 
         return BitsToLong(extendedBits);
+    }
+
+    public static int CorrectSignBit(uint original, int originalSizeBits)
+    {
+        var topBitMask = 1 << (originalSizeBits - 1);
+        
+        //Get top bit of value
+        var topBit = (original & topBitMask) != 0;
+
+        if (!topBit)
+            return (int)original;
+
+        //Negative - get remainder, and flip all bits, then subtract from -1
+        //This means all bits set => -1 - 0 = -1
+        //All bits clear (except sign bit) => -1 - ((2^originalSizeBits)-1) = -(2^originalSizeBits)
+        var remainder = (int) original & (topBitMask - 1);
+
+        return -1 - (~remainder & (topBitMask - 1));
     }
 }
