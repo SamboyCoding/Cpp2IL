@@ -80,7 +80,41 @@ public static class Arm64DataProcessingImmediate
 
     public static Arm64Instruction MoveWideImmediate(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31);
+        var opc = (instruction >> 29) & 0b11;
+        var hw = (instruction >> 21) & 0b11;
+        var imm16 = (instruction >> 5) & 0b1111_1111_1111_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        if(opc == 0b01)
+            throw new Arm64UndefinedInstructionException("Move wide immediate with opc == 0b01");
+        
+        if(!is64Bit && hw.TestBit(1))
+            throw new Arm64UndefinedInstructionException("Move wide immediate with hw bit 1 and !is64Bit");
+
+        var mnemonic = opc switch
+        {
+            0b00 => Arm64Mnemonic.MOVN, //Move not
+            0b10 => Arm64Mnemonic.MOVZ, //Move zero
+            0b11 => Arm64Mnemonic.MOVK,
+            _ => throw new("Impossible opc value")
+        };
+
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        
+        var regD = baseReg + rd;
+        var shift = (int) hw * 16;
+
+        imm16 <<= shift;
+        
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Immediate,
+            Op0Reg = regD,
+            Op1Imm = imm16
+        };
     }
 
     public static Arm64Instruction Bitfield(uint instruction)
