@@ -11,13 +11,16 @@ public struct Arm64Instruction
     public Arm64OperandKind Op0Kind { get; internal set; }
     public Arm64OperandKind Op1Kind { get; internal set; }
     public Arm64OperandKind Op2Kind { get; internal set; }
+    public Arm64OperandKind Op3Kind { get; internal set; }
 
     public Arm64Register Op0Reg { get; internal set; }
     public Arm64Register Op1Reg { get; internal set; }
     public Arm64Register Op2Reg { get; internal set; }
-    public uint Op0Imm { get; internal set; }
-    public uint Op1Imm { get; internal set; }
-    public uint Op2Imm { get; internal set; }
+    public Arm64Register Op3Reg { get; internal set; }
+    public ulong Op0Imm { get; internal set; }
+    public ulong Op1Imm { get; internal set; }
+    public ulong Op2Imm { get; internal set; }
+    public ulong Op3Imm { get; internal set; }
 
     public Arm64Register MemBase { get; internal set; }
     public bool MemIsPreIndexed { get; internal set; }
@@ -40,11 +43,13 @@ public struct Arm64Instruction
             return sb.ToString();
         if (!AppendOperand(sb, Op2Kind, Op2Reg, Op2Imm, true))
             return sb.ToString();
+        if (!AppendOperand(sb, Op3Kind, Op3Reg, Op3Imm, true))
+            return sb.ToString();
 
         return sb.ToString();
     }
 
-    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, uint imm, bool comma = false)
+    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, ulong imm, bool comma = false)
     {
         if (kind == Arm64OperandKind.None)
             return false;
@@ -55,7 +60,7 @@ public struct Arm64Instruction
         if (kind == Arm64OperandKind.Register)
             sb.Append(reg);
         else if (kind == Arm64OperandKind.Immediate)
-            sb.Append(imm);
+            sb.Append("0x").Append(imm.ToString("X"));
         else if (kind == Arm64OperandKind.Memory) 
             AppendMemory(sb);
 

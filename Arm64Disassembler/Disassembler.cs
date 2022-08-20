@@ -52,7 +52,7 @@ public static class Disassembler
         if(type is 0b0001 or 0b0011)
             throw new Arm64UndefinedInstructionException($"Unallocated instruction type (bits 25-28 are 0b0001 or 0b0011)");
 
-        return type switch
+        var decoded = type switch
         {
             //SME (Scalable Matrix Extension, Arm V9 only)
             0 => throw new($"SME instruction encountered at offset {offset}: 0x{instruction:X} - they are not implemented because Arm V9 is not supported"),
@@ -70,6 +70,10 @@ public static class Disassembler
             0b1101 or 0b0101 => Arm64DataProcessingRegister.Disassemble(instruction), //Data processing: register
             _ => Arm64Simd.Disassemble(instruction), //Advanced SIMD data processing
         };
+        
+        Arm64Aliases.CheckForAlias(ref decoded);
+
+        return decoded;
     }
 
     public static IEnumerable<Arm64Instruction> DisassembleOnDemand(byte[] input, ulong virtualAddress)

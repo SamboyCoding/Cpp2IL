@@ -51,6 +51,16 @@ public static class Arm64CommonUtils
         return result;
     }
 
+    private static ulong RotateRight(ulong original, int numBits, int shift)
+    {
+        var m = shift % numBits;
+
+        var right = original >> m;
+        var left = original << (numBits - m);
+
+        return right | left;
+    }
+
     private static BitArray LongToBits(long value, int numBits)
     {
         var bits = new BitArray(numBits);
@@ -89,5 +99,17 @@ public static class Arm64CommonUtils
         var remainder = (int) original & (topBitMask - 1);
 
         return -1 - (~remainder & (topBitMask - 1));
+    }
+
+    public static ulong ApplyShift(ulong original, ShiftType type, int numBits, int amount)
+    {
+        return type switch
+        {
+            ShiftType.LSL => original << amount,
+            ShiftType.LSR => original >> amount,
+            ShiftType.ASR => (uint)((int)original >> amount),
+            ShiftType.ROR => RotateRight(original, numBits, amount),
+            _ => throw new ArgumentException("Unknown shift type")
+        };
     }
 }

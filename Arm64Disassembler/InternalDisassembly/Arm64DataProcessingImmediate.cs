@@ -28,7 +28,44 @@ public static class Arm64DataProcessingImmediate
 
     public static Arm64Instruction AddSubtractImmediate(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31); //sf flag
+        var isSubtract = instruction.TestBit(30); //op flag
+        var setFlags = instruction.TestBit(29); //S flag
+        var shiftLeftBy12 = instruction.TestBit(22);
+
+        var imm12 = (ulong) (instruction >> 10) & 0b1111_1111_1111;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        if(shiftLeftBy12)
+            imm12 <<= 12;
+
+        var mnemonic = isSubtract switch
+        {
+            true when setFlags => Arm64Mnemonic.SUBS,
+            true => Arm64Mnemonic.SUB,
+            false when setFlags => Arm64Mnemonic.ADDS,
+            false => Arm64Mnemonic.ADD
+        };
+
+        var regN = Arm64Register.X0 + rn;
+        var regD = Arm64Register.X0 + rd;
+        var immediate = is64Bit switch
+        {
+            true => imm12,
+            false => (uint) imm12
+        };
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Immediate,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Imm = immediate
+        };
     }
 
     public static Arm64Instruction AddSubtractImmediateWithTags(uint instruction)
