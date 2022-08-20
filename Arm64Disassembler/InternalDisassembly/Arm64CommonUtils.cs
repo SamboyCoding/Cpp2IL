@@ -34,6 +34,24 @@ public static class Arm64CommonUtils
         return result;
     }
 
+    private static BitArray Replicate(BitArray original, int desiredLength)
+    {
+        if(desiredLength % original.Length != 0)
+            throw new("Desired length is not a multiple of the original length");
+        
+        var result = new BitArray(desiredLength);
+        
+        for(var i = 0; i < desiredLength; i += original.Length)
+        {
+            for(var j = 0; j < original.Length; j++)
+            {
+                result[i + j] = original[j];
+            }
+        }
+        
+        return result;
+    }
+
     private static long BitsToLong(BitArray bits)
     {
         var result = 0L;
@@ -75,6 +93,20 @@ public static class Arm64CommonUtils
         return bits;
     }
 
+    private static int HighestSetBit(BitArray bits)
+    {
+        for (var i = 0; i < bits.Length; i++)
+        {
+            if (bits.Get(i))
+            {
+                //Big endian -> little endian, then 0-indexed
+                return (bits.Length - i) - 1;
+            }
+        }
+
+        return 0;
+    }
+
     public static long SignExtend(long original, int originalSizeBits, int newSizeBits)
     {
         var originalBits = LongToBits(original, originalSizeBits);
@@ -111,5 +143,39 @@ public static class Arm64CommonUtils
             ShiftType.ROR => RotateRight(original, numBits, amount),
             _ => throw new ArgumentException("Unknown shift type")
         };
+    }
+
+    public static (long, long) DecodeBitMasks(bool nFlag, int desiredSize, byte imms, byte immr, bool immediate)
+    {
+        //imms and immr are actually 6 bits not 8.
+        
+        var combined = (short)((imms << 6) | (~immr & 0b11_1111));
+        var bits = LongToBits(combined, 12);
+        var len = HighestSetBit(bits);
+        
+        if(len < 1)
+            throw new Arm64UndefinedInstructionException("DecodeBitMasks: highestBit < 1");
+        
+        if((1 << len) > desiredSize)
+            throw new Arm64UndefinedInstructionException("DecodeBitMasks: (1 << highestBit) > desiredSize");
+        
+        var levels = (1 << len) - 1;
+        
+        if(immediate && (imms & levels) == levels)
+            throw new Arm64UndefinedInstructionException("DecodeBitMasks: imms & levels == levels not allowed in immediate mode");
+
+        var s = imms & levels;
+        var r = immr & levels;
+        var diff = s - r;
+        var esize = 1 << len;
+
+        var d = diff & ((1 << (len - 1)) - 1); //UInt(diff<len-1:0>)
+        var wElem = (1 << (s + 1)) - 1;
+        var tElem = (1 << (d + 1)) - 1;
+
+        var wMask = Replicate(LongToBits((long)RotateRight((ulong)wElem, esize, r), esize), desiredSize);
+        var tMask = Replicate(LongToBits(tElem, esize), desiredSize);
+
+        return (BitsToLong(wMask), BitsToLong(tMask));
     }
 }

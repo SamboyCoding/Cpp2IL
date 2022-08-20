@@ -75,7 +75,41 @@ public static class Arm64DataProcessingImmediate
 
     public static Arm64Instruction LogicalImmediate(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31); //sf flag
+        var opc = (instruction >> 29) & 0b11; //bits 29-30
+        var n = instruction.TestBit(22);
+        var immr = (byte) ((instruction >> 16) & 0b11_1111);
+        var imms = (byte) ((instruction >> 10) & 0b11_1111);
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+
+        if (!is64Bit && n)
+            throw new Arm64UndefinedInstructionException("32-bit instruction with N flag set");
+
+        var mnemonic = opc switch
+        {
+            0b00 => Arm64Mnemonic.AND,
+            0b01 => Arm64Mnemonic.ORR,
+            0b10 => Arm64Mnemonic.EOR,
+            0b11 => Arm64Mnemonic.ANDS,
+            _ => throw new("Impossible opc value")
+        };
+        
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        var regN = baseReg + rn;
+        var regD = baseReg + rd;
+
+        var (immediate, _) = Arm64CommonUtils.DecodeBitMasks(n, is64Bit ? 64 : 32, imms, immr, true);
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Immediate,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Imm = (ulong)immediate
+        };
     }
 
     public static Arm64Instruction MoveWideImmediate(uint instruction)
