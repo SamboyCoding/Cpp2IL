@@ -1,6 +1,6 @@
 ﻿namespace Arm64Disassembler.InternalDisassembly;
 
-public enum MemoryAccessMode
+internal enum MemoryAccessMode
 {
     PreIndex,
     PostIndex,
