@@ -53,4 +53,14 @@ public class UnitTest1
             _testOutputHelper.WriteLine(instruction.ToString());
         }
     }
+
+    [Fact]
+    public void LongTestForProfile()
+    {
+        var body = Enumerable.Repeat(caGenBody, 1000000).SelectMany(b => b).ToArray();
+
+        var result = Disassembler.Disassemble(body, 0);
+        
+        Assert.Equal(body.Length / 4, result.Instructions.Count);
+    }
 }
