@@ -9,7 +9,18 @@ public static class Arm64Branches
 
     public static Arm64Instruction UnconditionalBranchImmediate(uint instruction)
     {
-        throw new NotImplementedException();
+        var comingBack = instruction.TestBit(31);
+        var imm26 = instruction & ((1 << 26) - 1);
+
+        imm26 <<= 2; // Multiply by 4 because jump dest has to be aligned anyway
+
+        return new()
+        {
+            Mnemonic = comingBack ? Arm64Mnemonic.BL : Arm64Mnemonic.B,
+            Op0Kind = Arm64OperandKind.Immediate,
+            Op0Imm = imm26,
+            InternalTempIsPcRel = true,
+        };
     }
 
     public static Arm64Instruction TestAndBranch(uint instruction)

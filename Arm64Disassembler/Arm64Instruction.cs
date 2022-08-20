@@ -5,6 +5,8 @@ namespace Arm64Disassembler;
 
 public struct Arm64Instruction
 {
+    internal bool InternalTempIsPcRel;
+    
     public ulong Address { get; internal set; }
     public Arm64Mnemonic Mnemonic { get; internal set; }
 

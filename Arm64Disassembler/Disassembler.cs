@@ -73,6 +73,12 @@ public static class Disassembler
         
         Arm64Aliases.CheckForAlias(ref decoded);
 
+        if (decoded.InternalTempIsPcRel)
+        {
+            decoded.InternalTempIsPcRel = false;
+            decoded.Op0Imm += (ulong)offset;
+        }
+
         return decoded;
     }
 
