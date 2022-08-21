@@ -2,7 +2,7 @@ using System;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Attributes;
 using Cpp2IL.Core.CorePlugin;
-using Cpp2IL.Core.Logging; //Need this for the assembly attribute definition below.
+//Need this for the assembly attribute definition below.
 using LibCpp2IL;
 
 [assembly: RegisterCpp2IlPlugin(typeof(Cpp2IlCorePlugin))]
@@ -26,7 +26,11 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         InstructionSetRegistry.RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_64);
         InstructionSetRegistry.RegisterInstructionSet<WasmInstructionSet>(DefaultInstructionSets.WASM);
         InstructionSetRegistry.RegisterInstructionSet<ArmV7InstructionSet>(DefaultInstructionSets.ARM_V7);
-        InstructionSetRegistry.RegisterInstructionSet<Arm64InstructionSet>(DefaultInstructionSets.ARM_V8);
+        
+        if(Environment.GetEnvironmentVariable("CPP2IL_NEW_ARM64") != null)
+            InstructionSetRegistry.RegisterInstructionSet<NewArmV8InstructionSet>(DefaultInstructionSets.ARM_V8);
+        else
+            InstructionSetRegistry.RegisterInstructionSet<Arm64InstructionSet>(DefaultInstructionSets.ARM_V8);
         
         Logger.VerboseNewline("\tRegistering built-in binary parsers...", "Core Plugin");
         

@@ -14,7 +14,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 {
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
-        if (true || context is not ConcreteGenericMethodAnalysisContext)
+        if (context is not ConcreteGenericMethodAnalysisContext)
         {
             //Managed method or attr gen => grab raw byte range between a and b
             var startOfNextFunction = (int) MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer) - 1;
@@ -26,8 +26,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         }
         
         var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        var endVa = result.EndVirtualAddress;
 
-        return result.RawBytes.ToArray();
+        var start = (int) context.AppContext.Binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
+        var end = (int) context.AppContext.Binary.MapVirtualAddressToRaw(endVa);
+        
+        return context.AppContext.Binary.GetRawBinaryContent().AsMemory(start, end - start);
     }
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
@@ -38,8 +42,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()
     {
-        //TODO Make this use the new arm64 disassembler once it's ready
-        return new Arm64KeyFunctionAddresses();
+        return new NewArm64KeyFunctionAddresses();
     }
 
     public override string PrintAssembly(MethodAnalysisContext context) => string.Join("\n", Disassembler.Disassemble(context.RawBytes.Span, context.UnderlyingPointer).Instructions);

@@ -5,8 +5,6 @@ namespace Arm64Disassembler;
 
 public struct Arm64Instruction
 {
-    internal bool InternalTempIsPcRel;
-    
     public ulong Address { get; internal set; }
     public Arm64Mnemonic Mnemonic { get; internal set; }
 
@@ -28,6 +26,8 @@ public struct Arm64Instruction
     public bool MemIsPreIndexed { get; internal set; }
 
     public long MemOffset { get; internal set; }
+    
+    public ulong BranchTarget => Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL ? Address + Op0Imm : throw new("Branch target not available for this instruction, must be a B or BL");
 
     public override string ToString()
     {

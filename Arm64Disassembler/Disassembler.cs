@@ -33,7 +33,7 @@ public static class Disassembler
             }
         }
 
-        return new(ret, virtualAddress, assembly);
+        return new(ret, virtualAddress);
     }
 
     private static Arm64Instruction DisassembleSingleInstruction(uint instruction, int offset = 0)
@@ -70,12 +70,6 @@ public static class Disassembler
         };
 
         Arm64Aliases.CheckForAlias(ref decoded);
-
-        if (decoded.InternalTempIsPcRel)
-        {
-            decoded.InternalTempIsPcRel = false;
-            decoded.Op0Imm += (ulong)offset;
-        }
 
         return decoded;
     }

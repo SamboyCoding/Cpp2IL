@@ -1,23 +1,21 @@
 ﻿namespace Arm64Disassembler;
 
-public ref struct Arm64DisassemblyResult
+public readonly struct Arm64DisassemblyResult
 {
-    public List<Arm64Instruction> Instructions;
-    public ulong VirtualAddress;
-    public Span<byte> RawBytes;
-    public int RawLength => RawBytes.Length;
+    public readonly List<Arm64Instruction> Instructions;
+    public readonly ulong VirtualAddress;
+    
+    public ulong EndVirtualAddress => VirtualAddress + (ulong)(Instructions.Count * 4);
 
-    public Arm64DisassemblyResult(List<Arm64Instruction> instructions, ulong virtualAddress, Span<byte> rawBytes)
+    public Arm64DisassemblyResult(List<Arm64Instruction> instructions, ulong virtualAddress)
     {
         Instructions = instructions;
         VirtualAddress = virtualAddress;
-        RawBytes = rawBytes;
     }
 
     public Arm64DisassemblyResult()
     {
         Instructions = new();
-        RawBytes = Span<byte>.Empty;
         VirtualAddress = 0;
     }
 }
