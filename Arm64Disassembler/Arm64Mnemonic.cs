@@ -13,6 +13,9 @@ public enum Arm64Mnemonic
     BIC,
     BICS,
     BL,
+    BR,
+    CBNZ,
+    CBZ,
     EOR,
     EON,
     LDP,
@@ -38,4 +41,6 @@ public enum Arm64Mnemonic
     STRH,
     SUB,
     SUBS,
+    TBNZ,
+    TBZ,
 }
