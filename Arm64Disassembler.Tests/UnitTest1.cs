@@ -38,6 +38,20 @@ public class UnitTest1
         0xE1, 0x03, 0x00, 0x32, 0xE0, 0x03, 0x13, 0xAA, 0xF4, 0x4F, 0xC2, 0xA8, 0xA2, 0xF5, 0x3C, 0x14
     };
 
+    /*
+        stp x22, x21, [sp, #-0x30]!
+        stp x20, x19, [sp, #0x10]
+        stp x29, x30, [sp, #0x20]
+        add x29, sp, #0x20
+        sub sp, sp, #0x10
+        adrp x21, #0x10cd000
+     */
+    private static byte[] IncludesPcRelAddressing =
+    {
+        0xF6, 0x57, 0xBD, 0xA9, 0xF4, 0x4F, 0x01, 0xA9, 0xFD, 0x7B, 0x02, 0xA9, 0xFD, 0x83, 0x00, 0x91,
+        0xFF, 0x43, 0x00, 0xD1, 0x75, 0x86, 0x00, 0xB0
+    };
+
     public UnitTest1(ITestOutputHelper testOutputHelper)
     {
         _testOutputHelper = testOutputHelper;
@@ -46,7 +60,7 @@ public class UnitTest1
     [Fact]
     public void TestDisassembleEntireBody()
     {
-        var result = Disassembler.DisassembleOnDemand(caGenBody, 0);
+        var result = Disassembler.DisassembleOnDemand(IncludesPcRelAddressing, 0);
 
         foreach (var instruction in result)
         {

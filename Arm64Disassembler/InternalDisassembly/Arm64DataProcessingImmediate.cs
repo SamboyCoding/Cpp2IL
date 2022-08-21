@@ -23,7 +23,32 @@ public static class Arm64DataProcessingImmediate
 
     public static Arm64Instruction PcRelativeAddressing(uint instruction)
     {
-        throw new NotImplementedException();
+        var hasP = instruction.TestBit(31);
+        var immlo = (instruction >> 29) & 0b11; //01
+        var immhi = (instruction >> 5) & 0b111_1111_1111_1111_1111; //Bits 5-23, 000_0000_0100_0011_0011
+        var rd = (int) (instruction & 0b11111);
+        
+        //Signed 21-bit immediate gives 2MB range, result value +/- 1MB
+        //If ADRP, concat 12 0s on the end, giving a 33-bit value - 8GB range, +/- 4GB, 4kb aligned
+        var immRaw = immhi << 2 | immlo;
+
+        if (hasP)
+            immRaw <<= 12;
+        
+        var imm21 = Arm64CommonUtils.CorrectSignBit(immRaw, hasP ? 33 : 21);
+
+        var mnemonic = hasP ? Arm64Mnemonic.ADRP : Arm64Mnemonic.ADR;
+
+        var regD = Arm64Register.X0 + rd;
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Immediate,
+            Op0Reg = regD,
+            Op1Imm = imm21
+        };
     }
 
     public static Arm64Instruction AddSubtractImmediate(uint instruction)
@@ -64,7 +89,7 @@ public static class Arm64DataProcessingImmediate
             Op2Kind = Arm64OperandKind.Immediate,
             Op0Reg = regD,
             Op1Reg = regN,
-            Op2Imm = immediate
+            Op2Imm = (long)immediate
         };
     }
 
@@ -108,7 +133,7 @@ public static class Arm64DataProcessingImmediate
             Op2Kind = Arm64OperandKind.Immediate,
             Op0Reg = regD,
             Op1Reg = regN,
-            Op2Imm = (ulong)immediate
+            Op2Imm = immediate
         };
     }
 

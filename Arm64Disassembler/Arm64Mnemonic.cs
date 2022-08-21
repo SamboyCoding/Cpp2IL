@@ -5,6 +5,8 @@ public enum Arm64Mnemonic
     INVALID,
     ADD,
     ADDS,
+    ADR,
+    ADRP,
     AND,
     ANDS,
     B,

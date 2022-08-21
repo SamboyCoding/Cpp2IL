@@ -31,15 +31,22 @@ public static class NewArm64Utils
         //Unmanaged function, look for first b
         var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
         var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
-        var span = allBytes.AsSpan(pos);
+        var span = allBytes.AsSpan(pos, 4);
         Arm64DisassemblyResult ret = new();
-            
-        while ((count == -1 || ret.Instructions.Count < count) && !ret.Instructions.Any(i => i.Mnemonic is Arm64Mnemonic.B))
+
+        try
         {
-            ret = Disassembler.Disassemble(span, virtAddress);
-            
-            //All arm64 instructions are 4 bytes
-            span = allBytes.AsSpan(pos, span.Length + 4);
+            while ((count == -1 || ret.Instructions.Count < count) && !ret.Instructions.Any(i => i.Mnemonic is Arm64Mnemonic.B))
+            {
+                ret = Disassembler.Disassemble(span, virtAddress);
+
+                //All arm64 instructions are 4 bytes
+                span = allBytes.AsSpan(pos, span.Length + 4);
+            }
+        }
+        catch (Exception e)
+        {
+            throw new($"Failed to disassemble method body: {string.Join(", ", span.ToArray().Select(b => "0x" + b.ToString("X2")))}", e);
         }
 
         return ret;

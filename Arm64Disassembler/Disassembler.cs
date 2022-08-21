@@ -29,7 +29,7 @@ public static class Disassembler
             }
             catch (Exception e)
             {
-                throw new($"Unhandled and unexpected exception disassembling instruction 0x{rawInstruction:X8} at offset {i}", e);
+                throw new($"Unhandled and unexpected exception disassembling instruction 0x{rawInstruction:X8} at offset {i} (va 0x{virtualAddress + (ulong)i:X8})", e);
             }
         }
 

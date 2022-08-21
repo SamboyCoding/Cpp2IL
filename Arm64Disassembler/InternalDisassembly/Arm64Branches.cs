@@ -17,7 +17,7 @@ public static class Arm64Branches
         return new()
         {
             Mnemonic = comingBack ? Arm64Mnemonic.BL : Arm64Mnemonic.B,
-            Op0Kind = Arm64OperandKind.Immediate,
+            Op0Kind = Arm64OperandKind.ImmediatePcRelative,
             Op0Imm = imm26,
         };
     }

@@ -17,17 +17,19 @@ public struct Arm64Instruction
     public Arm64Register Op1Reg { get; internal set; }
     public Arm64Register Op2Reg { get; internal set; }
     public Arm64Register Op3Reg { get; internal set; }
-    public ulong Op0Imm { get; internal set; }
-    public ulong Op1Imm { get; internal set; }
-    public ulong Op2Imm { get; internal set; }
-    public ulong Op3Imm { get; internal set; }
+    public long Op0Imm { get; internal set; }
+    public long Op1Imm { get; internal set; }
+    public long Op2Imm { get; internal set; }
+    public long Op3Imm { get; internal set; }
 
     public Arm64Register MemBase { get; internal set; }
     public bool MemIsPreIndexed { get; internal set; }
 
     public long MemOffset { get; internal set; }
     
-    public ulong BranchTarget => Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL ? Address + Op0Imm : throw new("Branch target not available for this instruction, must be a B or BL");
+    public ulong BranchTarget => Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL 
+        ? (ulong) ((long) Address + Op0Imm) //Casting is a bit weird here because we want to return an unsigned long (can't jump to negative), but the immediate needs to be signed.
+        : throw new("Branch target not available for this instruction, must be a B or BL");
 
     public override string ToString()
     {
@@ -51,7 +53,7 @@ public struct Arm64Instruction
         return sb.ToString();
     }
 
-    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, ulong imm, bool comma = false)
+    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, long imm, bool comma = false)
     {
         if (kind == Arm64OperandKind.None)
             return false;
@@ -63,6 +65,8 @@ public struct Arm64Instruction
             sb.Append(reg);
         else if (kind == Arm64OperandKind.Immediate)
             sb.Append("0x").Append(imm.ToString("X"));
+        else if(kind == Arm64OperandKind.ImmediatePcRelative)
+            sb.Append("0x").Append(((long) Address + imm).ToString("X"));
         else if (kind == Arm64OperandKind.Memory) 
             AppendMemory(sb);
 
