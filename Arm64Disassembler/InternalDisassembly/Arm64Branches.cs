@@ -19,7 +19,6 @@ public static class Arm64Branches
             Mnemonic = comingBack ? Arm64Mnemonic.BL : Arm64Mnemonic.B,
             Op0Kind = Arm64OperandKind.Immediate,
             Op0Imm = imm26,
-            InternalTempIsPcRel = true,
         };
     }
 
