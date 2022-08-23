@@ -10,7 +10,6 @@ public struct Arm64Instruction
         //Default initializer
         Address = 0;
         Mnemonic = Arm64Mnemonic.INVALID;
-        ConditionCode = Arm64ConditionCode.NONE; //This line is the ONLY reason this constructor needs to exist because they defined 0 as a valid value.
         Op0Kind = Arm64OperandKind.None;
         Op1Kind = Arm64OperandKind.None;
         Op2Kind = Arm64OperandKind.None;
@@ -26,6 +25,11 @@ public struct Arm64Instruction
         MemBase = Arm64Register.INVALID;
         MemIsPreIndexed = false;
         MemOffset = 0;
+        
+        //These lines are the ONLY reason this constructor needs to exist because they define 0 as a valid value.
+        ConditionCode = Arm64ConditionCode.NONE; 
+        ExtendType = Arm64ExtendType.NONE;
+        ShiftType = Arm64ShiftType.NONE;
     }
 
     public ulong Address { get; internal set; }
@@ -48,8 +52,10 @@ public struct Arm64Instruction
 
     public Arm64Register MemBase { get; internal set; }
     public bool MemIsPreIndexed { get; internal set; }
-
     public long MemOffset { get; internal set; }
+    
+    public Arm64ExtendType ExtendType { get; internal set; }
+    public Arm64ShiftType ShiftType { get; internal set; }
     
     public ulong BranchTarget => Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL 
         ? (ulong) ((long) Address + Op0Imm) //Casting is a bit weird here because we want to return an unsigned long (can't jump to negative), but the immediate needs to be signed.
@@ -75,6 +81,13 @@ public struct Arm64Instruction
             return sb.ToString();
         if (!AppendOperand(sb, Op2Kind, Op2Reg, Op2Imm, true))
             return sb.ToString();
+        
+        if (ExtendType != Arm64ExtendType.NONE)
+            sb.Append(", ").Append(ExtendType);
+
+        if (ShiftType != Arm64ShiftType.NONE)
+            sb.Append(", ").Append(ShiftType);
+        
         if (!AppendOperand(sb, Op3Kind, Op3Reg, Op3Imm, true))
             return sb.ToString();
 

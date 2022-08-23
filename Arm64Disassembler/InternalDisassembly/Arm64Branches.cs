@@ -196,7 +196,37 @@ public static class Arm64Branches
     
     private static Arm64Instruction HandleBlFamily(uint instruction)
     {
-        throw new NotImplementedException();
+        var op3 = (instruction >> 10) & 0b1_1111; //Bits 10-15
+        var rn = (int) (instruction >> 5) & 0b1_1111; //Bits 5-9
+        var op4 = instruction & 0b1_1111; //Bits 0-4
+
+        if (op3 == 0)
+        {
+            //BLR - branch with link to register
+            if(op4 != 0)
+                throw new Arm64UndefinedInstructionException("BLR with op4 != 0");
+
+            return new()
+            {
+                Mnemonic = Arm64Mnemonic.BLR,
+                Op0Kind = Arm64OperandKind.Register,
+                Op0Reg = Arm64Register.X0 + rn
+            };
+        }
+
+        if (op3 == 0b000010)
+        {
+            //BLRA family, key a, zero modifier
+            throw new NotImplementedException();
+        }
+        
+        if (op3 == 0b000011)
+        {
+            //BLRA family, key b, zero modifier
+            throw new NotImplementedException();
+        }
+        
+        throw new Arm64UndefinedInstructionException($"BL Family: op3 {op3}, op4 {op4}");
     }
     
     private static Arm64Instruction HandleEretFamily(uint instruction)

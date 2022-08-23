@@ -14,6 +14,7 @@ public enum Arm64Mnemonic
     BIC,
     BICS,
     BL,
+    BLR,
     BR,
     CBNZ,
     CBZ,

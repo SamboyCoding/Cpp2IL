@@ -23,22 +23,22 @@ public class Arm64Aliases
             return;
         }
 
-        if (instruction.Mnemonic == Arm64Mnemonic.SUBS && instruction.Op0Kind == Arm64OperandKind.Register && instruction.Op0Reg == Arm64Register.W31 && instruction.Op1Kind == Arm64OperandKind.Register && instruction.Op2Kind == Arm64OperandKind.Immediate)
+        if (instruction.Mnemonic == Arm64Mnemonic.SUBS && instruction.Op0Kind == Arm64OperandKind.Register && instruction.Op0Reg is Arm64Register.W31 or Arm64Register.X31 && instruction.Op1Kind == Arm64OperandKind.Register && instruction.Op2Kind is Arm64OperandKind.Immediate or Arm64OperandKind.Register)
         {
-            //SUBS W31, WXX, IMM => CMP WXX, IMM
+            //SUBS W31, WXX, [IMM|RXX] => CMP WXX, [IMM|RXX]
             
             //Convert mnemonic
             instruction.Mnemonic = Arm64Mnemonic.CMP;
             
             //Shift operands down
             instruction.Op0Reg = instruction.Op1Reg;
-            instruction.Op1Kind = Arm64OperandKind.Immediate;
+            instruction.Op1Kind = instruction.Op2Kind;
             instruction.Op2Kind = Arm64OperandKind.None;
             instruction.Op1Imm = instruction.Op2Imm;
+            instruction.Op1Reg = instruction.Op2Reg;
             
             //Null op2
             instruction.Op2Imm = 0;
-            instruction.Op1Reg = Arm64Register.INVALID;
             
             return;
         }

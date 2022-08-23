@@ -130,14 +130,14 @@ public static class Arm64CommonUtils
         return -1 - (~remainder & (topBitMask - 1));
     }
 
-    public static ulong ApplyShift(ulong original, ShiftType type, int numBits, int amount)
+    public static ulong ApplyShift(ulong original, Arm64ShiftType type, int numBits, int amount)
     {
         return type switch
         {
-            ShiftType.LSL => original << amount,
-            ShiftType.LSR => original >> amount,
-            ShiftType.ASR => (uint)((int)original >> amount),
-            ShiftType.ROR => RotateRight(original, numBits, amount),
+            Arm64ShiftType.LSL => original << amount,
+            Arm64ShiftType.LSR => original >> amount,
+            Arm64ShiftType.ASR => (uint)((int)original >> amount),
+            Arm64ShiftType.ROR => RotateRight(original, numBits, amount),
             _ => throw new ArgumentException("Unknown shift type")
         };
     }

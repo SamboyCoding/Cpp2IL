@@ -97,12 +97,86 @@ public static class Arm64DataProcessingRegister
     
     private static Arm64Instruction AddSubtractShiftedRegister(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31);
+        var isSubtract = instruction.TestBit(30);
+        var setFlags = instruction.TestBit(29);
+        var shift = (Arm64ShiftType) ((instruction >> 22) & 0b11);
+        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var shiftAmount = (instruction >> 10) & 0b11_1111;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        var mnemonic = isSubtract
+            ? setFlags ? Arm64Mnemonic.SUBS : Arm64Mnemonic.SUB
+            : setFlags ? Arm64Mnemonic.ADDS : Arm64Mnemonic.ADD;
+        
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        var regD = baseReg + rd;
+        var regN = baseReg + rn;
+        var regM = baseReg + rm;
+
+        if (shift == Arm64ShiftType.ROR)
+            throw new Arm64UndefinedInstructionException("Add/Subtract Shifted Register: Shift type ROR is reserved");
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op3Kind = shiftAmount == 0 ? Arm64OperandKind.None : Arm64OperandKind.Immediate,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Reg = regM,
+            Op3Imm = shiftAmount,
+            ShiftType = shiftAmount == 0 ? Arm64ShiftType.NONE : shift,
+        };
     }
     
     private static Arm64Instruction AddSubtractExtendedRegister(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31);
+        var isSubtract = instruction.TestBit(30);
+        var setFlags = instruction.TestBit(29);
+        var opt = (instruction >> 22) & 0b11;
+        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var extendType = (Arm64ExtendType) ((instruction >> 13) & 0b111);
+        var shift = (instruction >> 10) & 0b111;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        if(opt != 0)
+            throw new Arm64UndefinedInstructionException("AddSubtractExtendedRegister: opt != 0");
+        
+        if(shift > 4)
+            throw new Arm64UndefinedInstructionException($"AddSubtractExtendedRegister: Shift > 4");
+        
+        var mnemonic = isSubtract
+            ? setFlags ? Arm64Mnemonic.SUBS : Arm64Mnemonic.SUB
+            : setFlags ? Arm64Mnemonic.ADDS : Arm64Mnemonic.ADD;
+        
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        var secondBaseReg = is64Bit
+            ? extendType is Arm64ExtendType.UXTX or Arm64ExtendType.SXTX ? Arm64Register.X0 : Arm64Register.W0
+            : Arm64Register.W0;
+
+        var regD = baseReg + rd;
+        var regN = baseReg + rn;
+        var regM = secondBaseReg + rm;
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op3Kind = shift != 0 ? Arm64OperandKind.Immediate : Arm64OperandKind.None,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Reg = regM,
+            Op3Imm = shift,
+            ExtendType = extendType
+        };
     }
     
     private static Arm64Instruction AddSubtractWithCarry(uint instruction)
