@@ -10,6 +10,7 @@ public enum Arm64Mnemonic
     AND,
     ANDS,
     B,
+    BC,
     BIC,
     BICS,
     BL,

@@ -4,7 +4,23 @@ public static class Arm64Branches
 {
     public static Arm64Instruction ConditionalBranchImmediate(uint instruction)
     {
-        throw new NotImplementedException();
+        if (instruction.TestBit(24))
+            throw new Arm64UndefinedInstructionException("Conditional branch (immediate): o1 bit set");
+
+        var imm19 = (instruction >> 5) & 0b111_1111_1111_1111_1111;
+
+        var isConsistent = instruction.TestBit(4);
+        var cond = (Arm64ConditionCode)(instruction & 0b1111);
+
+        var imm = Arm64CommonUtils.SignExtend(imm19 << 2, 21, 64);
+
+        return new()
+        {
+            Mnemonic = isConsistent ? Arm64Mnemonic.BC : Arm64Mnemonic.B,
+            ConditionCode = cond,
+            Op0Kind = Arm64OperandKind.ImmediatePcRelative,
+            Op0Imm = imm,
+        };
     }
 
     public static Arm64Instruction UnconditionalBranchImmediate(uint instruction)

@@ -55,15 +55,12 @@ public static class Arm64CommonUtils
     private static long BitsToLong(BitArray bits)
     {
         var result = 0L;
-        var mask = 1L << (bits.Count - 1);
         for (var i = 0; i < bits.Count; i++)
         {
             if (bits[i])
             {
-                result |= mask;
+                result |= 1L << (bits.Count - 1 - i); //Bit shifting in c# sucks so we have to recalculate this for each i instead of just shifting it right per iteration
             }
-
-            mask >>= 1;
         }
 
         return result;

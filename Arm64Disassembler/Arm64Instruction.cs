@@ -5,8 +5,32 @@ namespace Arm64Disassembler;
 
 public struct Arm64Instruction
 {
+    public Arm64Instruction()
+    {
+        //Default initializer
+        Address = 0;
+        Mnemonic = Arm64Mnemonic.INVALID;
+        ConditionCode = Arm64ConditionCode.NONE; //This line is the ONLY reason this constructor needs to exist because they defined 0 as a valid value.
+        Op0Kind = Arm64OperandKind.None;
+        Op1Kind = Arm64OperandKind.None;
+        Op2Kind = Arm64OperandKind.None;
+        Op3Kind = Arm64OperandKind.None;
+        Op0Reg = Arm64Register.INVALID;
+        Op1Reg = Arm64Register.INVALID;
+        Op2Reg = Arm64Register.INVALID;
+        Op3Reg = Arm64Register.INVALID;
+        Op0Imm = 0;
+        Op1Imm = 0;
+        Op2Imm = 0;
+        Op3Imm = 0;
+        MemBase = Arm64Register.INVALID;
+        MemIsPreIndexed = false;
+        MemOffset = 0;
+    }
+
     public ulong Address { get; internal set; }
     public Arm64Mnemonic Mnemonic { get; internal set; }
+    public Arm64ConditionCode ConditionCode { get; internal set; }
 
     public Arm64OperandKind Op0Kind { get; internal set; }
     public Arm64OperandKind Op1Kind { get; internal set; }
@@ -39,6 +63,10 @@ public struct Arm64Instruction
         sb.Append(Address.ToString("X8"));
         sb.Append(' ');
         sb.Append(Mnemonic);
+
+        if (ConditionCode != Arm64ConditionCode.NONE)
+            sb.Append('.').Append(ConditionCode);
+            
         sb.Append(' ');
 
         if (!AppendOperand(sb, Op0Kind, Op0Reg, Op0Imm))
