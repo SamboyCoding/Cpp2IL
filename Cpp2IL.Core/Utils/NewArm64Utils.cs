@@ -24,31 +24,36 @@ public static class NewArm64Utils
 
                 var bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().AsSpan((int)rawStart, (int)(rawStartOfNextMethod - rawStart));
 
-                return Disassembler.Disassemble(bytes, virtAddress);
+                return Disassemble(bytes, virtAddress);
             }
         }
 
         //Unmanaged function, look for first b
-        var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
+        var pos = (int)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
         var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
         var span = allBytes.AsSpan(pos, 4);
         Arm64DisassemblyResult ret = new();
 
-        try
+        while ((count == -1 || ret.Instructions.Count < count) && !ret.Instructions.Any(i => i.Mnemonic is Arm64Mnemonic.B))
         {
-            while ((count == -1 || ret.Instructions.Count < count) && !ret.Instructions.Any(i => i.Mnemonic is Arm64Mnemonic.B))
-            {
-                ret = Disassembler.Disassemble(span, virtAddress);
+            ret = Disassemble(span, virtAddress);
 
-                //All arm64 instructions are 4 bytes
-                span = allBytes.AsSpan(pos, span.Length + 4);
-            }
-        }
-        catch (Exception e)
-        {
-            throw new($"Failed to disassemble method body: {string.Join(", ", span.ToArray().Select(b => "0x" + b.ToString("X2")))}", e);
+            //All arm64 instructions are 4 bytes
+            span = allBytes.AsSpan(pos, span.Length + 4);
         }
 
         return ret;
-    } 
+    }
+
+    private static Arm64DisassemblyResult Disassemble(Span<byte> bytes, ulong virtAddress)
+    {
+        try
+        {
+            return Disassembler.Disassemble(bytes, virtAddress);
+        }
+        catch (Exception e)
+        {
+            throw new($"Failed to disassemble method body: {string.Join(", ", bytes.ToArray().Select(b => "0x" + b.ToString("X2")))}", e);
+        }
+    }
 }

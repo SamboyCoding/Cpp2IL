@@ -73,8 +73,10 @@ public static class Arm64DataProcessingImmediate
             false => Arm64Mnemonic.ADD
         };
 
-        var regN = Arm64Register.X0 + rn;
-        var regD = Arm64Register.X0 + rd;
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+
+        var regN = baseReg + rn;
+        var regD = baseReg + rd;
         var immediate = is64Bit switch
         {
             true => imm12,

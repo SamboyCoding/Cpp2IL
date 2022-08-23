@@ -16,6 +16,7 @@ public enum Arm64Mnemonic
     BR,
     CBNZ,
     CBZ,
+    CMP,
     EOR,
     EON,
     LDP,
