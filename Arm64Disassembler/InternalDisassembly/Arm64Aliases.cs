@@ -42,5 +42,18 @@ public class Arm64Aliases
             
             return;
         }
+
+        if (instruction.Mnemonic == Arm64Mnemonic.MADD && instruction.Op3Reg is Arm64Register.X31 or Arm64Register.W31)
+        {
+            //MADD Rd, Rn, Rm, ZR => MUL Rd, Rn, Rm
+            //because MADD is (Rd = Rn * Rm + Ra) so when Ra = ZR => Rd = Rn * Rm
+            
+            //Simply clear the last operand
+            instruction.Mnemonic = Arm64Mnemonic.MUL;
+            instruction.Op3Kind = Arm64OperandKind.None;
+            instruction.Op3Reg = Arm64Register.INVALID;
+
+            return;
+        }
     }
 }

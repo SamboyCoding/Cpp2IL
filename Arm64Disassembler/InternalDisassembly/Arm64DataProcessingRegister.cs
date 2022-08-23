@@ -137,6 +137,50 @@ public static class Arm64DataProcessingRegister
     
     private static Arm64Instruction DataProcessing3Source(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31);
+        var op54 = (instruction >> 29) & 0b11;
+        var op31 = (instruction >> 21) & 0b111;
+        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var o0 = instruction.TestBit(15);
+        var ra = (int) (instruction >> 10) & 0b1_1111;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        if(op54 != 0)
+            throw new Arm64UndefinedInstructionException("DataProcessing3Source: op54 != 0");
+
+        var mnemonic = op31 switch
+        {
+            0b000 when o0 => Arm64Mnemonic.MSUB,
+            0b000 => Arm64Mnemonic.MADD,
+            0b001 when !is64Bit => throw new Arm64UndefinedInstructionException("DataProcessing3Source: op31 == 0b001 && sf == 0"),
+            0b001 when o0 =>  Arm64Mnemonic.SMSUBL,
+            0b001 => Arm64Mnemonic.SMADDL,
+            0b010 when !o0 && is64Bit => Arm64Mnemonic.SMULH,
+            0b101 when o0 && is64Bit => Arm64Mnemonic.UMSUBL,
+            0b101 when !o0 && is64Bit => Arm64Mnemonic.UMADDL,
+            0b110 when o0 && is64Bit => Arm64Mnemonic.UMULH,
+            _ => throw new Arm64UndefinedInstructionException($"DataProcessing3Source: unallocated operand combination: op31 = {op31} o0 = {o0} sf = {(is64Bit ? 1 : 0)}")
+        };
+        
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        
+        var regM = baseReg + rm;
+        var regN = baseReg + rn;
+        var regD = baseReg + rd;
+        var regA = baseReg + ra;
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op3Kind = Arm64OperandKind.Register,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Reg = regM,
+            Op3Reg = regA,
+        };
     }
 }
