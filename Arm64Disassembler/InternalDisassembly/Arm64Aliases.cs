@@ -55,5 +55,27 @@ public class Arm64Aliases
 
             return;
         }
+
+        if (instruction.Mnemonic == Arm64Mnemonic.CSINC && instruction.FinalOpConditionCode is not Arm64ConditionCode.AL and not Arm64ConditionCode.NV && instruction.Op2Kind == Arm64OperandKind.Register && instruction.Op1Kind == Arm64OperandKind.Register)
+        {
+            if(instruction.Op2Reg.IsSp() && instruction.Op1Reg.IsSp())
+            {
+                //CSINC Rd, SP, SP, COND => CSET Rd, !COND
+                instruction.FinalOpConditionCode = instruction.FinalOpConditionCode.Invert();
+                instruction.Op1Kind = Arm64OperandKind.None;
+                instruction.Op1Reg = Arm64Register.INVALID;
+                instruction.Op2Kind = Arm64OperandKind.None;
+                instruction.Op2Reg = Arm64Register.INVALID;
+                instruction.Mnemonic = Arm64Mnemonic.CSET;
+            }
+            else if(!instruction.Op2Reg.IsSp() && !instruction.Op1Reg.IsSp() && instruction.Op1Reg == instruction.Op2Reg)
+            {
+                //CSINC Rd, Rn, Rn, COND => CINC Rd, Rn, !COND
+                instruction.FinalOpConditionCode = instruction.FinalOpConditionCode.Invert();
+                instruction.Op2Kind = Arm64OperandKind.None;
+                instruction.Op2Reg = Arm64Register.INVALID;
+                instruction.Mnemonic = Arm64Mnemonic.CINC;
+            }
+        }
     }
 }

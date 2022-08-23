@@ -129,7 +129,7 @@ public static class Arm64DataProcessingRegister
             Op1Reg = regN,
             Op2Reg = regM,
             Op3Imm = shiftAmount,
-            ShiftType = shiftAmount == 0 ? Arm64ShiftType.NONE : shift,
+            Op3ShiftType = shiftAmount == 0 ? Arm64ShiftType.NONE : shift,
         };
     }
     
@@ -175,7 +175,7 @@ public static class Arm64DataProcessingRegister
             Op1Reg = regN,
             Op2Reg = regM,
             Op3Imm = shift,
-            ExtendType = extendType
+            Op3ExtendType = extendType
         };
     }
     
@@ -206,7 +206,47 @@ public static class Arm64DataProcessingRegister
     
     private static Arm64Instruction ConditionalSelect(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31);
+        var isInvert = instruction.TestBit(30);
+        var setFlags = instruction.TestBit(29);
+        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var cond = (Arm64ConditionCode) ((instruction >> 12) & 0b1111);
+        var op2 = (instruction >> 10) & 0b11;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        if(setFlags)
+            throw new Arm64UndefinedInstructionException("ConditionalSelect: S flag set");
+        
+        if(op2 > 1)
+            throw new Arm64UndefinedInstructionException("ConditionalSelect: op2 > 1");
+
+        var mnemonic = isInvert switch
+        {
+            false when op2 == 0 => Arm64Mnemonic.CSEL,
+            false => Arm64Mnemonic.CSINC,
+            true when op2 == 0 => Arm64Mnemonic.CSINV,
+            true => Arm64Mnemonic.CSNEG,
+        };
+        
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        
+        var regD = baseReg + rd;
+        var regN = baseReg + rn;
+        var regM = baseReg + rm;
+        
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op3Kind = Arm64OperandKind.None,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Reg = regM,
+            FinalOpConditionCode = cond,
+        };
     }
     
     private static Arm64Instruction DataProcessing3Source(uint instruction)

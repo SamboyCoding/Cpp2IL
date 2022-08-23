@@ -27,14 +27,15 @@ public struct Arm64Instruction
         MemOffset = 0;
         
         //These lines are the ONLY reason this constructor needs to exist because they define 0 as a valid value.
-        ConditionCode = Arm64ConditionCode.NONE; 
-        ExtendType = Arm64ExtendType.NONE;
-        ShiftType = Arm64ShiftType.NONE;
+        MnemonicConditionCode = Arm64ConditionCode.NONE;
+        FinalOpConditionCode = Arm64ConditionCode.NONE;
+        Op3ExtendType = Arm64ExtendType.NONE;
+        Op3ShiftType = Arm64ShiftType.NONE;
     }
 
     public ulong Address { get; internal set; }
     public Arm64Mnemonic Mnemonic { get; internal set; }
-    public Arm64ConditionCode ConditionCode { get; internal set; }
+    public Arm64ConditionCode MnemonicConditionCode { get; internal set; }
 
     public Arm64OperandKind Op0Kind { get; internal set; }
     public Arm64OperandKind Op1Kind { get; internal set; }
@@ -54,8 +55,9 @@ public struct Arm64Instruction
     public bool MemIsPreIndexed { get; internal set; }
     public long MemOffset { get; internal set; }
     
-    public Arm64ExtendType ExtendType { get; internal set; }
-    public Arm64ShiftType ShiftType { get; internal set; }
+    public Arm64ExtendType Op3ExtendType { get; internal set; }
+    public Arm64ShiftType Op3ShiftType { get; internal set; }
+    public Arm64ConditionCode FinalOpConditionCode { get; internal set; }
     
     public ulong BranchTarget => Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL 
         ? (ulong) ((long) Address + Op0Imm) //Casting is a bit weird here because we want to return an unsigned long (can't jump to negative), but the immediate needs to be signed.
@@ -70,26 +72,28 @@ public struct Arm64Instruction
         sb.Append(' ');
         sb.Append(Mnemonic);
 
-        if (ConditionCode != Arm64ConditionCode.NONE)
-            sb.Append('.').Append(ConditionCode);
+        if (MnemonicConditionCode != Arm64ConditionCode.NONE)
+            sb.Append('.').Append(MnemonicConditionCode);
             
         sb.Append(' ');
 
+        //Ew yes I'm using goto.
         if (!AppendOperand(sb, Op0Kind, Op0Reg, Op0Imm))
-            return sb.ToString();
+            goto doneops;
         if (!AppendOperand(sb, Op1Kind, Op1Reg, Op1Imm, true))
-            return sb.ToString();
+            goto doneops;
         if (!AppendOperand(sb, Op2Kind, Op2Reg, Op2Imm, true))
-            return sb.ToString();
-        
-        if (ExtendType != Arm64ExtendType.NONE)
-            sb.Append(", ").Append(ExtendType);
-
-        if (ShiftType != Arm64ShiftType.NONE)
-            sb.Append(", ").Append(ShiftType);
-        
+            goto doneops;
         if (!AppendOperand(sb, Op3Kind, Op3Reg, Op3Imm, true))
-            return sb.ToString();
+            goto doneops;
+        
+        doneops:
+        if (Op3ExtendType != Arm64ExtendType.NONE)
+            sb.Append(", ").Append(Op3ExtendType);
+        else if (Op3ShiftType != Arm64ShiftType.NONE)
+            sb.Append(", ").Append(Op3ShiftType);
+        else if (FinalOpConditionCode != Arm64ConditionCode.NONE)
+            sb.Append(", ").Append(FinalOpConditionCode);
 
         return sb.ToString();
     }

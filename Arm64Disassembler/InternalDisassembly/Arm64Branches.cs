@@ -17,7 +17,7 @@ public static class Arm64Branches
         return new()
         {
             Mnemonic = isConsistent ? Arm64Mnemonic.BC : Arm64Mnemonic.B,
-            ConditionCode = cond,
+            MnemonicConditionCode = cond,
             Op0Kind = Arm64OperandKind.ImmediatePcRelative,
             Op0Imm = imm,
         };
@@ -140,10 +140,10 @@ public static class Arm64Branches
             //ret. but sanity check op4
             if (op4 == 0)
             {
-                //By default, ret returns to the caller, the address of which is in X30, however X30 can supposedly be overriden by providing a register in rn.
-                //Looks like most compilers pass 30 anyway - I don't even know what the value being "absent" would imply, as presumably 0 (= X0) is valid? Perhaps 31 (=WZR/SP) is absent?
-                if (rn == 0)
-                    rn = Arm64Register.X30 - Arm64Register.X0;
+                //By default, ret returns to the caller, the address of which is in X30, however X30 can be overriden by providing a register in rn.
+                //As X30 is the default, we don't need to disassemble to it explicitly.
+                if (rn == 30)
+                    return new() { Mnemonic = Arm64Mnemonic.RET };
 
                 return new()
                 {
