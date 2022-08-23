@@ -10,16 +10,17 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.MemoryOrStack);
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
+    public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Add = new(IsilMnemonic.Add, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Subtract = new(IsilMnemonic.Subtract, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
-    public static readonly InstructionSetIndependentOpCode Multiply = new(IsilMnemonic.Multiply, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
+    public static readonly InstructionSetIndependentOpCode Multiply = new(IsilMnemonic.Multiply, 3, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Divide = new(IsilMnemonic.Divide, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode ShiftLeft = new(IsilMnemonic.ShiftLeft, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode ShiftRight = new(IsilMnemonic.ShiftRight, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode And = new(IsilMnemonic.And, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Or = new(IsilMnemonic.Or, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Xor = new(IsilMnemonic.Xor, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
-    public static readonly InstructionSetIndependentOpCode Not = new(IsilMnemonic.Not, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
+    public static readonly InstructionSetIndependentOpCode Not = new(IsilMnemonic.Not, 1, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Compare = new(IsilMnemonic.Compare, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     //public static readonly InstructionSetIndependentOpCode CompareNotEqual = new(IsilMnemonic.CompareNotEqual, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     //public static readonly InstructionSetIndependentOpCode CompareLessThan = new(IsilMnemonic.CompareLessThan, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
@@ -39,8 +40,7 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode JumpIfLess = new(IsilMnemonic.JumpIfLess, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfGreaterOrEqual = new(IsilMnemonic.JumpIfGreaterOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfLessOrEqual = new(IsilMnemonic.JumpIfLessOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
-    
-    
+
     public static readonly InstructionSetIndependentOpCode Interrupt = new(IsilMnemonic.Interrupt, 0);
 
     public static readonly InstructionSetIndependentOpCode NotImplemented = new(IsilMnemonic.NotImplemented, 1, InstructionSetIndependentOperand.OperandType.Immediate);
@@ -70,17 +70,17 @@ public class InstructionSetIndependentOpCode
         PermittedOperandTypes = permittedOperandTypes;
         MaxOperands = maxOperands;
     }
-    
+
     public void Validate(InstructionSetIndependentInstruction instruction)
     {
         var operands = instruction.Operands;
-        
+
         if (operands.Length > MaxOperands)
             throw new($"Too many operands! We have {operands.Length} but we only allow {MaxOperands}");
 
         if (PermittedOperandTypes.Length == 0)
             return;
-        
+
         for (var i = 0; i < operands.Length; i++)
         {
             if ((operands[i].Type & PermittedOperandTypes[i]) == 0)

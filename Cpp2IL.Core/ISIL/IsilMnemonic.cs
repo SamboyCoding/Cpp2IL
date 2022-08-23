@@ -6,6 +6,7 @@ public enum IsilMnemonic
     LoadAddress,
     Call,
     CallNoReturn,
+    Exchange,
     Add,
     Subtract,
     Multiply,
@@ -28,6 +29,7 @@ public enum IsilMnemonic
     JumpIfGreaterOrEqual,
     JumpIfLess,
     JumpIfLessOrEqual,
+    SignExtend,
     Interrupt,
     NotImplemented
 }

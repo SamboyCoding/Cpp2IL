@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.ISIL;
 using Gee.External.Capstone.Arm;
 using Gee.External.Capstone.Arm64;
 using Iced.Intel;
@@ -12,6 +13,8 @@ namespace Cpp2IL.Core.Extensions
 {
     public static class MiscExtensions
     {
+        public static InstructionSetIndependentOperand MakeIndependent(this Register reg) => InstructionSetIndependentOperand.MakeRegister(reg.ToString().ToLower());
+
         public static ulong GetImmediateSafe(this Instruction instruction, int op) => instruction.GetOpKind(op).IsImmediate() ? instruction.GetImmediate(op) : 0;
 
         public static bool IsJump(this Mnemonic mnemonic) => mnemonic is Mnemonic.Call or >= Mnemonic.Ja and <= Mnemonic.Js;
@@ -26,7 +29,7 @@ namespace Cpp2IL.Core.Extensions
         public static ArmRegister? MemoryBase(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Base;
         public static ArmRegister? MemoryIndex(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Index;
         public static int MemoryOffset(this ArmInstruction instruction) => MemoryOperand(instruction)?.Memory.Displacement ?? 0;
-        
+
         //Arm64 Extensions
         public static Arm64Register? RegisterSafe(this Arm64Operand operand) => operand.Type != Arm64OperandType.Register ? null : operand.Register;
         public static bool IsImmediate(this Arm64Operand operand) => operand.Type is Arm64OperandType.CImmediate or Arm64OperandType.Immediate;
@@ -65,7 +68,7 @@ namespace Cpp2IL.Core.Extensions
             Array.Reverse(arr);
             return new Stack<T>(arr);
         }
-        
+
         public static List<T> Clone<T>(this List<T> original)
         {
             var arr = new T[original.Count];
@@ -73,8 +76,8 @@ namespace Cpp2IL.Core.Extensions
             Array.Reverse(arr);
             return new List<T>(arr);
         }
-        
-        public static Dictionary<T1, T2> Clone<T1, T2>(this Dictionary<T1, T2> original) where T1 : notnull 
+
+        public static Dictionary<T1, T2> Clone<T1, T2>(this Dictionary<T1, T2> original) where T1 : notnull
             => new(original);
 
         public static T[] SubArray<T>(this T[] data, int index, int length) => data.SubArray(index..(index + length));
@@ -107,13 +110,13 @@ namespace Cpp2IL.Core.Extensions
 
         public static T[] SubArray<T>(this T[] source, Range range)
         {
-            if(!range.Start.IsFromEnd && !range.End.IsFromEnd)
-                if(range.Start.Value > range.End.Value)
+            if (!range.Start.IsFromEnd && !range.End.IsFromEnd)
+                if (range.Start.Value > range.End.Value)
                     throw new Exception($"Range {range} - Start must be less than end, when both are fixed offsets");
-            
+
             var (offset, len) = range.GetOffsetAndLength(source.Length);
             var dest = new T[len];
-            
+
             Array.Copy(source, offset, dest, 0, len);
 
             return dest;
@@ -128,24 +131,24 @@ namespace Cpp2IL.Core.Extensions
         }
 
         public static bool IsImmediate(this OpKind opKind) => opKind is >= OpKind.Immediate8 and <= OpKind.Immediate32to64;
-        
-        
+
+
         public static void TrimEndWhile<T>(this List<T> instructions, Func<T, bool> predicate)
         {
             var i = instructions.Count - 1;
             for (; i >= 0; i--)
             {
-                if(!predicate(instructions[i]))
+                if (!predicate(instructions[i]))
                 {
                     break;
                 }
             }
-            
+
             var toRemove = instructions.Count - 1 - i;
-            
-            if(toRemove <= 0)
+
+            if (toRemove <= 0)
                 return;
-            
+
             instructions.RemoveRange(i, toRemove);
         }
 
