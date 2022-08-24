@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.IO.Compression;
 
 namespace Cpp2IL.Core.Extensions;
 
@@ -82,4 +83,12 @@ public static class StreamExtensions
 
         return Encoding.Unicode.GetString(bytes.ToArray()).TrimEnd('\0');
     }
+
+    public static byte[] ReadBytes(this Stream stream)
+    {
+        using var ms = new MemoryStream();
+        stream.CopyTo(ms);
+        return ms.ToArray();
+    }
+    public static byte[] ReadBytes(this ZipArchiveEntry entry) => entry.Open().ReadBytes();
 }

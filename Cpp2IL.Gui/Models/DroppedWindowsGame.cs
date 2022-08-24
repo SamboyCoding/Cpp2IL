@@ -54,7 +54,7 @@ namespace Cpp2IL.Gui.Models
             }
             else
             {
-                throw new("Could not find file or directory");
+                throw new FileNotFoundException("Could not find the required file or directory.");
             }
 
             var gameAssemblyPath = Path.Combine(path, "GameAssembly.dll");

@@ -17,6 +17,9 @@ namespace Cpp2IL.Gui.Models
             if (DroppedWindowsGame.TryGet(paths) is { } dwg)
                 return dwg;
 
+            if (DroppedSingleApkGame.TryGet(paths) is { } dsag)
+                return dsag;
+
             return null;
         }
         
