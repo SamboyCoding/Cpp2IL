@@ -281,7 +281,7 @@ public static class Arm64LoadsStores
                 0b01 when !isVector => Arm64Mnemonic.LDRSH, //64-bit variant
                 0b10 when !isVector => Arm64Mnemonic.LDRSW,
                 0b00 when isVector => Arm64Mnemonic.STR, //128-bit store
-                0b11 when isVector => Arm64Mnemonic.STR, //64-bit store
+                0b11 => throw new Arm64UndefinedInstructionException("Load/store register from immediate (unsigned): opc 0b10 unallocated for size 0b11"), 
                 _ when isVector => throw new Arm64UndefinedInstructionException("Load/store register from immediate (unsigned): opc 0b10 unallocated for vectors when size > 0"),
                 _ => throw new($"Impossible size: {size}")
             },
@@ -291,8 +291,8 @@ public static class Arm64LoadsStores
                 0b01 when !isVector => Arm64Mnemonic.LDRSH, //32-bit variant
                 0b10 when !isVector => Arm64Mnemonic.PRFM, //TODO?
                 0b00 when isVector => Arm64Mnemonic.LDR, //128-bit load
-                0b11 when isVector => Arm64Mnemonic.LDR, //64-bit load
                 0b11 => throw new Arm64UndefinedInstructionException("Load/store register from immediate (unsigned): opc 0b11 unallocated for size 0b11"),
+                _ when isVector => throw new Arm64UndefinedInstructionException("Load/store register from immediate (unsigned): opc 0b11 unallocated for vectors when size > 0"),
                 _ => throw new($"Impossible size: {size}")
             },
             _ => throw new("Impossible opc value")
@@ -357,7 +357,95 @@ public static class Arm64LoadsStores
 
     private static Arm64Instruction LoadStoreRegisterFromImmUnscaled(uint instruction)
     {
-        throw new NotImplementedException();
+        var size = (instruction >> 30) & 0b11; //Bits 30-31
+        var isVector = instruction.TestBit(26);
+        var opc = (instruction >> 22) & 0b11; //Bits 22-23
+        var imm9 = (instruction >> 12) & 0b1_1111_1111; //Bits 12-20
+        var rn = (int)(instruction >> 5) & 0b1_1111; //Bits 5-9
+        var rt = (int)(instruction & 0b1_1111); //Bits 0-4
+        
+        if(size is 1 or 3 && isVector && opc > 1)
+            throw new Arm64UndefinedInstructionException("Load/store register from immediate (unsigned): opc > 1 unallocated for vectors when size > 1");
+        
+        //Here we go with this dance again...
+        var mnemonic = opc switch
+        {
+            0b00 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.STURB,
+                0b01 when !isVector => Arm64Mnemonic.STURH,
+                0b10 or 0b11 when !isVector => Arm64Mnemonic.STUR,
+                _ when isVector => Arm64Mnemonic.STUR,
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b01 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDURB,
+                0b01 when !isVector => Arm64Mnemonic.LDURH,
+                0b10 or 0b11 when !isVector => Arm64Mnemonic.LDUR,
+                _ when isVector => Arm64Mnemonic.LDUR,
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b10 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDURSB, //64-bit variant
+                0b01 when !isVector => Arm64Mnemonic.LDURSH, //64-bit variant
+                0b10 when !isVector => Arm64Mnemonic.LDURSW,
+                0b00 when isVector => Arm64Mnemonic.STUR, //128-bit store
+                _ when isVector => throw new Arm64UndefinedInstructionException("Load/store register from immediate (unscaled): opc 0b10 unallocated for vectors when size > 0"),
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b11 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDURSB, //32-bit variant
+                0b01 when !isVector => Arm64Mnemonic.LDURSH, //32-bit variant
+                0b10 when !isVector => Arm64Mnemonic.PRFUM, //TODO?
+                0b00 when isVector => Arm64Mnemonic.LDUR, //128-bit store
+                0b11 => throw new Arm64UndefinedInstructionException("Load/store register from immediate (unscaled): opc 0b11 unallocated for size 0b11"),
+                _ => throw new($"Impossible size: {size}")
+            },
+            _ => throw new("Impossible opc value")
+        };
+        
+        if (mnemonic == Arm64Mnemonic.PRFUM)
+            throw new NotImplementedException("If you're seeing this, reach out, because PRFUM is not implemented.");
+        
+        var baseReg = mnemonic switch
+        {
+            Arm64Mnemonic.STUR or Arm64Mnemonic.LDUR when isVector && opc is 0 => size switch
+            {
+                0 => Arm64Register.B0,
+                1 => Arm64Register.H0,
+                2 => Arm64Register.S0,
+                3 => Arm64Register.D0,
+                _ => throw new("Impossible size")
+            },
+            Arm64Mnemonic.STUR or Arm64Mnemonic.LDUR when isVector => Arm64Register.V0, //128-bit vector
+            Arm64Mnemonic.STURB or Arm64Mnemonic.LDURB or Arm64Mnemonic.STURH or Arm64Mnemonic.LDURH => Arm64Register.W0,
+            Arm64Mnemonic.STUR or Arm64Mnemonic.LDUR when size is 0b10 => Arm64Register.W0,
+            Arm64Mnemonic.STUR or Arm64Mnemonic.LDUR => Arm64Register.X0,
+            Arm64Mnemonic.LDURSH when opc is 0b10 => Arm64Register.X0,
+            Arm64Mnemonic.LDURSH => Arm64Register.W0,
+            Arm64Mnemonic.LDURSW => Arm64Register.X0,
+            _ => throw new("Impossible mnemonic")
+        };
+        
+        var regT = baseReg + rt;
+        var regN = Arm64Register.X0 + rn;
+        
+        //Sign extend imm9 to 64-bit
+        var immediate = Arm64CommonUtils.SignExtend(imm9, 9, 64);
+        
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Memory,
+            Op0Reg = regT,
+            MemBase = regN,
+            MemOffset = immediate,
+            MemIsPreIndexed = false,
+        };
     }
 
     private static Arm64Instruction LoadStoreRegisterUnprivileged(uint instruction)

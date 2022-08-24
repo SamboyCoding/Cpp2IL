@@ -111,15 +111,22 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         Logger.VerboseNewline("\tProcessing concrete generic methods...");
         foreach (var methodRef in Binary.ConcreteGenericMethods.Values.SelectMany(v => v))
         {
-            var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
+            try
+            {
+                var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
 
-            var ptr = InstructionSet.GetPointerForMethod(gm);
+                var ptr = InstructionSet.GetPointerForMethod(gm);
 
-            if (!MethodsByAddress.ContainsKey(ptr))
-                MethodsByAddress[ptr] = new();
+                if (!MethodsByAddress.ContainsKey(ptr))
+                    MethodsByAddress[ptr] = new();
 
-            MethodsByAddress[ptr].Add(gm);
-            ConcreteGenericMethodsByRef[methodRef] = gm;
+                MethodsByAddress[ptr].Add(gm);
+                ConcreteGenericMethodsByRef[methodRef] = gm;
+            }
+            catch (Exception e)
+            {
+                throw new("Failed to process concrete generic method: " + methodRef, e);
+            }
         }
     }
 
