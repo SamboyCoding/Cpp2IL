@@ -102,6 +102,8 @@ jobs:
             core.setOutput("versionString", versString);
       - name: Install dependencies
         run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
+      - name: Build all
+        run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} 
       - name: Run Tests
         run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
         working-directory: LibCpp2ILTests
