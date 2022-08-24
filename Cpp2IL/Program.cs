@@ -414,8 +414,6 @@ namespace Cpp2IL
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
 
-            var asm = Cpp2IlApi.CurrentAppContext.GetAssemblyByName("UnityEngine");
-
             foreach (var (key, value) in runtimeArgs.ProcessingLayerConfigurationOptions)
                 Cpp2IlApi.CurrentAppContext!.PutExtraData(key, value);
 

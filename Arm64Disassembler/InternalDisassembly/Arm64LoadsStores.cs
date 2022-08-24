@@ -318,6 +318,7 @@ public static class Arm64LoadsStores
             Arm64Mnemonic.LDRSH when opc is 0b10 => Arm64Register.X0,
             Arm64Mnemonic.LDRSH => Arm64Register.W0,
             Arm64Mnemonic.LDRSW => Arm64Register.X0,
+            _ => throw new("Impossible mnemonic")
         };
         
         var regT = baseReg + rt;

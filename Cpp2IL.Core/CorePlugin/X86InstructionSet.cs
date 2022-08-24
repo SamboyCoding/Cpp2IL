@@ -44,7 +44,8 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
     private void ConvertInstructionStatement(Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
-        bool CallNoReturn = false; // stub, see case Mnemonic.Call
+        // var callNoReturn = false; // stub, see case Mnemonic.Call
+        
         switch (instruction.Mnemonic)
         {
             case Mnemonic.Mov:
@@ -218,7 +219,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                     if (jumpTarget < methodStart || jumpTarget > methodEnd)
                     {
-                        CallNoReturn = true;
+                        // callNoReturn = true;
                         goto case Mnemonic.Call; // This is like 99% likely a non returning call, jump to case to avoid code duplication
                     }
                     else
