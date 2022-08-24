@@ -160,5 +160,13 @@ namespace Cpp2IL.Core.Extensions
                 return t;
             });
         }
+        
+        public static unsafe uint ReadUInt(this Span<byte> span, int start)
+        {
+            if (start >= span.Length)
+                throw new ArgumentOutOfRangeException(nameof(start), $"start=[{start}], mem.Length=[{span.Length}]");
+            fixed (byte* ptr = &span[start])
+                return *(uint*)ptr;
+        }
     }
 }

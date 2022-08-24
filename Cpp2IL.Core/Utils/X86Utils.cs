@@ -55,41 +55,35 @@ namespace Cpp2IL.Core.Utils
             }
 
             var rawArray = LibCpp2IlMain.Binary.GetRawBinaryContent();
+
             var lastPos = startOfNextFunc - 1;
             while (rawArray[lastPos] == 0xCC && lastPos > rawAddr)
                 lastPos--;
+            var memArray =  rawArray.AsMemory(rawAddr, lastPos - rawAddr + 1);
+            
+            if (TryFindJumpTableStart(memArray, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
+            {
+                // TODO: Figure out what to do with jumpTableElements, how do we handle returning it from this function?
+                // we might need to return the address it was found at in TryFindJumpTableStart function too 
+                // Should clean up the way we handle the bytes array too
+                /*
+                foreach (var element in jumpTableElements)
+                    //Logger.InfoNewline($"Jump table element: 0x{element:x8}.");
+                */
+                memArray = memArray.Slice(0, startIndex);
+            }
+            return memArray;
 
-            return rawArray.AsMemory(rawAddr, lastPos - rawAddr + 1);
-
-            // var retBytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray(rawAddr..startOfNextFunc);
-            //
-            // var retList = new List<byte>(retBytes);
-            //
-            // if (TryFindJumpTableStart(retBytes, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
-            // {
-            //     // TODO: Figure out what to do with jumpTableElements, how do we handle returning it from this function?
-            //     // we might need to return the address it was found at in TryFindJumpTableStart function too 
-            //     // Should clean up the way we handle the bytes array too
-            //     /*
-            //     foreach (var element in jumpTableElements)
-            //     {
-            //         //Logger.InfoNewline($"Jump table element: 0x{element:x8}.");
-            //     }
-            //     */
-            //     retList = retList.GetRange(0, startIndex);
-            // }
-            //
-            // return retList.ToArray();
         }
 
-        private static bool TryFindJumpTableStart(byte[] methodBytes, ulong methodPtr, ulong nextMethodPtr, out int startIndex, out List<ulong> jumpTableElements)
+        private static bool TryFindJumpTableStart(Memory<byte> methodBytes, ulong methodPtr, ulong nextMethodPtr, out int startIndex, out List<ulong> jumpTableElements)
         {
             bool foundTable = false;
             startIndex = 0;
             jumpTableElements = new List<ulong>();
             for (int i = (int) (methodPtr % 4); i < methodBytes.Length; i += 4)
             {
-                var result = (ulong) BitConverter.ToUInt32(methodBytes, i);
+                var result = (ulong) methodBytes.Span.ReadUInt(i); 
                 var possibleJumpAddress = result + 0x180000000; // image base
                 if (possibleJumpAddress > methodPtr && possibleJumpAddress < nextMethodPtr)
                 {
@@ -99,7 +93,6 @@ namespace Cpp2IL.Core.Utils
                         startIndex = i;
                         foundTable = true;
                     }
-
                     jumpTableElements.Add(result);
                 }
             }
