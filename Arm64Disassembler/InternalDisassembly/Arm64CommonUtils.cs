@@ -146,7 +146,7 @@ public static class Arm64CommonUtils
     {
         //imms and immr are actually 6 bits not 8.
         
-        var combined = (short)((imms << 6) | (~immr & 0b11_1111));
+        var combined = (short)((nFlag ? 1 << 6 : 0) | (~imms & 0b11_1111));
         var bits = LongToBits(combined, 12);
         var len = HighestSetBit(bits);
         

@@ -35,7 +35,7 @@ public class UnitTest1
     [Fact]
     public void TestLongerBody()
     {
-        var result = Disassembler.DisassembleOnDemand(TestBodies.GenericMethodBody, 0);
+        var result = Disassembler.DisassembleOnDemand(TestBodies.HasABadBitMask, 0);
 
         foreach (var instruction in result)
         {

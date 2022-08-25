@@ -92,7 +92,7 @@ public static class Disassembler
             }
             catch (Arm64UndefinedInstructionException e)
             {
-                throw new($"Encountered undefined instruction 0x{rawInstruction:X8} at offset {i}. Undefined reason: {e.Message}");
+                throw new($"Encountered undefined instruction 0x{rawInstruction:X8} at offset {i}. Undefined reason: {e.Message}", e);
             }
             catch (Exception e)
             {
