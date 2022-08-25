@@ -25,4 +25,16 @@ public static class Arm64EnumExtensions
         Arm64ConditionCode.LE => Arm64ConditionCode.GT,
         _ => conditionCode
     };
+
+    public static string ToDisassemblyString(this Arm64ArrangementSpecifier specifier) => specifier switch
+    {
+        Arm64ArrangementSpecifier.TwoD => "2D",
+        Arm64ArrangementSpecifier.FourH => "4H",
+        Arm64ArrangementSpecifier.FourS => "4S",
+        Arm64ArrangementSpecifier.TwoS => "2S",
+        Arm64ArrangementSpecifier.EightH => "8H",
+        Arm64ArrangementSpecifier.EightB => "8B",
+        Arm64ArrangementSpecifier.SixteenB => "16B",
+        _ => throw new ArgumentOutOfRangeException(nameof(specifier), specifier, null)
+    };
 }

@@ -1,4 +1,7 @@
-﻿using Arm64Disassembler.InternalDisassembly;
+﻿using System.Runtime.CompilerServices;
+using Arm64Disassembler.InternalDisassembly;
+
+[assembly: InternalsVisibleTo("Arm64Disassembler.Tests")]
 
 namespace Arm64Disassembler;
 
@@ -36,7 +39,7 @@ public static class Disassembler
         return new(ret, virtualAddress);
     }
 
-    private static Arm64Instruction DisassembleSingleInstruction(uint instruction, int offset = 0)
+    internal static Arm64Instruction DisassembleSingleInstruction(uint instruction, int offset = 0)
     {
         //Top bit splits into reserved/normal instruction
         var isReserved = instruction >> 31 == 0;

@@ -22,6 +22,10 @@ public struct Arm64Instruction
         Op1Imm = 0;
         Op2Imm = 0;
         Op3Imm = 0;
+        Op0Arrangement = Arm64ArrangementSpecifier.None;
+        Op1Arrangement = Arm64ArrangementSpecifier.None;
+        Op2Arrangement = Arm64ArrangementSpecifier.None;
+        Op3Arrangement = Arm64ArrangementSpecifier.None;
         MemBase = Arm64Register.INVALID;
         MemIsPreIndexed = false;
         MemOffset = 0;
@@ -50,6 +54,10 @@ public struct Arm64Instruction
     public long Op1Imm { get; internal set; }
     public long Op2Imm { get; internal set; }
     public long Op3Imm { get; internal set; }
+    public Arm64ArrangementSpecifier Op0Arrangement { get; internal set; }
+    public Arm64ArrangementSpecifier Op1Arrangement { get; internal set; }
+    public Arm64ArrangementSpecifier Op2Arrangement { get; internal set; }
+    public Arm64ArrangementSpecifier Op3Arrangement { get; internal set; }
 
     public Arm64Register MemBase { get; internal set; }
     public bool MemIsPreIndexed { get; internal set; }
@@ -78,13 +86,13 @@ public struct Arm64Instruction
         sb.Append(' ');
 
         //Ew yes I'm using goto.
-        if (!AppendOperand(sb, Op0Kind, Op0Reg, Op0Imm))
+        if (!AppendOperand(sb, Op0Kind, Op0Reg, Op0Arrangement, Op0Imm))
             goto doneops;
-        if (!AppendOperand(sb, Op1Kind, Op1Reg, Op1Imm, true))
+        if (!AppendOperand(sb, Op1Kind, Op1Reg, Op1Arrangement, Op1Imm, true))
             goto doneops;
-        if (!AppendOperand(sb, Op2Kind, Op2Reg, Op2Imm, true))
+        if (!AppendOperand(sb, Op2Kind, Op2Reg, Op2Arrangement, Op2Imm, true))
             goto doneops;
-        if (!AppendOperand(sb, Op3Kind, Op3Reg, Op3Imm, true))
+        if (!AppendOperand(sb, Op3Kind, Op3Reg, Op3Arrangement, Op3Imm, true))
             goto doneops;
         
         doneops:
@@ -98,7 +106,7 @@ public struct Arm64Instruction
         return sb.ToString();
     }
 
-    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, long imm, bool comma = false)
+    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, Arm64ArrangementSpecifier regArrangement, long imm, bool comma = false)
     {
         if (kind == Arm64OperandKind.None)
             return false;
@@ -107,7 +115,12 @@ public struct Arm64Instruction
             sb.Append(", ");
 
         if (kind == Arm64OperandKind.Register)
+        {
             sb.Append(reg);
+
+            if (regArrangement != Arm64ArrangementSpecifier.None)
+                sb.Append('.').Append(regArrangement.ToDisassemblyString());
+        }
         else if (kind == Arm64OperandKind.Immediate)
             sb.Append("0x").Append(imm.ToString("X"));
         else if(kind == Arm64OperandKind.ImmediatePcRelative)
