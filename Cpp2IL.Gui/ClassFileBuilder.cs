@@ -19,7 +19,7 @@ public static class ClassFileBuilder
 
         if (!string.IsNullOrEmpty(type.Definition!.Namespace))
         {
-            sb.Append("namespace ").AppendLine(type.Definition.Namespace).AppendLine("{");
+            sb.Append("namespace ").Append(type.Definition.Namespace).AppendLine(";");
             sb.AppendLine();
         }
 
@@ -27,7 +27,7 @@ public static class ClassFileBuilder
         sb.Append(CsFileUtils.GetCustomAttributeStrings(type, 0));
 
         //Type keywords and name
-        sb.Append(CsFileUtils.GetKeyWordsForType(type)).Append(type.Definition.Name);
+        sb.Append(CsFileUtils.GetKeyWordsForType(type)).Append(' ').Append(type.Definition.Name);
 
         //Base class
         CsFileUtils.AppendInheritanceInfo(type, sb);
@@ -56,6 +56,7 @@ public static class ClassFileBuilder
                 sb.Append(CsFileUtils.GetCustomAttributeStrings(field, 1));
 
                 sb.Append('\t').Append(CsFileUtils.GetKeyWordsForField(field));
+                sb.Append(' ');
                 sb.Append(CsFileUtils.GetTypeName(field.BackingData!.Field.FieldType!.ToString())).Append(' ');
                 sb.Append(field.BackingData.Field.Name!);
 
@@ -88,7 +89,7 @@ public static class ClassFileBuilder
                     sb.Append('\t').Append("// Method at address 0x").Append(method.Definition.MethodPointer.ToString("X")).AppendLine();
 
                 sb.Append(CsFileUtils.GetCustomAttributeStrings(method, 1));
-                sb.Append('\t').Append(CsFileUtils.GetKeyWordsForMethod(method)).Append(type.Definition.Name).Append('(');
+                sb.Append('\t').Append(CsFileUtils.GetKeyWordsForMethod(method)).Append(' ').Append(type.Definition.Name).Append('(');
                 sb.Append(CsFileUtils.GetMethodParameterString(method));
                 sb.Append(')');
 
@@ -123,6 +124,7 @@ public static class ClassFileBuilder
 
                 sb.Append(CsFileUtils.GetCustomAttributeStrings(method, 1));
                 sb.Append('\t').Append(CsFileUtils.GetKeyWordsForMethod(method));
+                sb.Append(' ');
                 sb.Append(CsFileUtils.GetTypeName(method.Definition.ReturnType!.ToString())).Append(' ');
                 sb.Append(method.Definition!.Name).Append('(');
                 sb.Append(CsFileUtils.GetMethodParameterString(method));
@@ -174,10 +176,7 @@ public static class ClassFileBuilder
 
         sb.AppendLine("}"); //Close class
 
-        if (!string.IsNullOrWhiteSpace(type.Definition.Namespace))
-            sb.Append('}'); //Close namespace
-
-        return sb.ToString();
+        return sb.ToString();    
     }
 
     private static string GetMethodBodyIfPresent(MethodAnalysisContext method, MethodBodyMode mode)
