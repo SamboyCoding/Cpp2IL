@@ -11,6 +11,11 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 public class CustomAttributeTypeParameter : BaseCustomAttributeParameter
 {
     public Il2CppType? Type;
+
+    public CustomAttributeTypeParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
+    {
+    }
+
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context)
     {
         var typeIndex = reader.BaseStream.ReadUnityCompressedInt();

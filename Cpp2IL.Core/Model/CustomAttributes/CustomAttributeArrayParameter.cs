@@ -24,8 +24,14 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
 {
     public bool IsNullArray;
     public Il2CppType? EnumType;
+
     public Il2CppTypeEnum ArrType;
+
     public List<BaseCustomAttributeParameter> ArrayElements = new();
+
+    public CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
+    {
+    }
 
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context)
     {
@@ -63,7 +69,7 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
                 thisType = (Il2CppTypeEnum) reader.ReadByte();
 
             //ConstructParameterForType will handle reading the enum type
-            var arrayElement = V29AttributeUtils.ConstructParameterForType(reader, context, thisType);
+            var arrayElement = V29AttributeUtils.ConstructParameterForType(reader, context, thisType, Owner, CustomAttributeParameterKind.ArrayElement, i);
             
             arrayElement.ReadFromV29Blob(reader, context);
             

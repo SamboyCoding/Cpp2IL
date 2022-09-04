@@ -45,12 +45,12 @@ public static class V29AttributeUtils
         
         //Read constructor params
         for (var i = 0; i < numCtorArgs; i++) 
-            ret.ConstructorParameters.Add(ReadBlob(reader, context));
+            ret.ConstructorParameters.Add(ReadBlob(reader, context, ret, CustomAttributeParameterKind.ConstructorParam, i));
 
         //Read fields
         for (var i = 0; i < numFields; i++)
         {
-            var value = ReadBlob(reader, context);
+            var value = ReadBlob(reader, context, ret, CustomAttributeParameterKind.Field, i);
             var fieldIndex = stream.ReadUnityCompressedInt();
             var field = ResolveMemberFromIndex(stream, constructor, context, fieldIndex, t => t.Fields);
             
@@ -60,7 +60,7 @@ public static class V29AttributeUtils
         //Read properties
         for (var i = 0; i < numProps; i++)
         {
-            var value = ReadBlob(reader, context);
+            var value = ReadBlob(reader, context, ret, CustomAttributeParameterKind.Property, i);
             var propIndex = stream.ReadUnityCompressedInt();
             var property = ResolveMemberFromIndex(stream, constructor, context, propIndex, t => t.Properties);
             
@@ -96,40 +96,40 @@ public static class V29AttributeUtils
         return member;
     }
 
-    private static BaseCustomAttributeParameter ReadBlob(BinaryReader reader, ApplicationAnalysisContext context)
+    private static BaseCustomAttributeParameter ReadBlob(BinaryReader reader, ApplicationAnalysisContext context, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index)
     {
-        var ret = ReadTypeAndConstructParameter(reader, context);
+        var ret = ReadTypeAndConstructParameter(reader, context, owner, kind, index);
         
         ret.ReadFromV29Blob(reader, context);
 
         return ret;
     }
 
-    private static BaseCustomAttributeParameter ReadTypeAndConstructParameter(BinaryReader reader, ApplicationAnalysisContext context)
+    private static BaseCustomAttributeParameter ReadTypeAndConstructParameter(BinaryReader reader, ApplicationAnalysisContext context, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index)
     {
         var rawTypeEnum = (Il2CppTypeEnum) reader.ReadByte();
 
-        return ConstructParameterForType(reader, context, rawTypeEnum);
+        return ConstructParameterForType(reader, context, rawTypeEnum, owner, kind, index);
     }
 
-    public static BaseCustomAttributeParameter ConstructParameterForType(BinaryReader reader, ApplicationAnalysisContext context, Il2CppTypeEnum rawTypeEnum)
+    public static BaseCustomAttributeParameter ConstructParameterForType(BinaryReader reader, ApplicationAnalysisContext context, Il2CppTypeEnum rawTypeEnum, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index)
     {
         switch (rawTypeEnum)
         {
             case Il2CppTypeEnum.IL2CPP_TYPE_ENUM:
                 var enumTypeIndex = reader.BaseStream.ReadUnityCompressedInt();
                 var enumType = context.Binary.GetType(enumTypeIndex);
-                return new CustomAttributeEnumParameter(enumType, context);
+                return new CustomAttributeEnumParameter(enumType, context, owner, kind, index);
             case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
-                return new CustomAttributeArrayParameter();
+                return new CustomAttributeArrayParameter(owner, kind, index);
             case Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX:
-                return new CustomAttributeTypeParameter();
+                return new CustomAttributeTypeParameter(owner, kind, index);
             case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
             case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
             case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
                 throw new("Object type not supported because libil2cpp is very vague");
             default:
-                return new CustomAttributePrimitiveParameter(rawTypeEnum);
+                return new CustomAttributePrimitiveParameter(rawTypeEnum, owner, kind, index);
         }
     }
 }

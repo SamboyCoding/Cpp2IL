@@ -91,30 +91,62 @@ public static class AsmResolverAssemblyPopulator
 
     private static CustomAttributeArgument BuildArrayArgument(AssemblyDefinition parentAssembly, CustomAttributeArrayParameter arrayParameter)
     {
-        var typeSig = GetTypeSigFromAttributeArg(parentAssembly, arrayParameter);
-
-        if (arrayParameter.IsNullArray)
-            return new(typeSig);
-
-        return new(typeSig, arrayParameter.ArrayElements.Select(e => e switch
+        try
         {
-            CustomAttributePrimitiveParameter primitiveParameter =>  primitiveParameter.PrimitiveValue,
-            CustomAttributeEnumParameter enumParameter => enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue,
-            CustomAttributeTypeParameter type => (object) AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, type.Type!),
-            _ => throw new("Not supported array element type: " + e.GetType().FullName)
-        }).ToArray());
+            if (arrayParameter.IsNullArray)
+                return BuildEmptyArrayArgument(parentAssembly, arrayParameter);
+            
+            var typeSig = GetTypeSigFromAttributeArg(parentAssembly, arrayParameter);
+            
+            return new(typeSig, arrayParameter.ArrayElements.Select(e => e switch
+            {
+                CustomAttributePrimitiveParameter primitiveParameter => primitiveParameter.PrimitiveValue,
+                CustomAttributeEnumParameter enumParameter => enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue,
+                CustomAttributeTypeParameter type => (object)AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, type.Type!),
+                _ => throw new("Not supported array element type: " + e.GetType().FullName)
+            }).ToArray());
+        }
+        catch (Exception e)
+        {
+            throw new("Failed to build array argument for " + arrayParameter, e);
+        }
+    }
+
+    private static CustomAttributeArgument BuildEmptyArrayArgument(AssemblyDefinition parentAssembly, CustomAttributeArrayParameter arrayParameter)
+    {
+        //Need to resolve the type of the array because it's not in the blob and AsmResolver needs it.
+
+        var il2CppType = arrayParameter.Kind switch
+        {
+            CustomAttributeParameterKind.ConstructorParam => arrayParameter.Owner.Constructor.Parameters[arrayParameter.Index].ParameterType,
+            CustomAttributeParameterKind.Property => arrayParameter.Owner.Properties[arrayParameter.Index].Property.Definition.RawPropertyType!,
+            CustomAttributeParameterKind.Field => arrayParameter.Owner.Fields[arrayParameter.Index].Field.FieldType,
+            CustomAttributeParameterKind.ArrayElement => throw new("Array element cannot be an array (or at least, not implemented!)"),
+            _ => throw new("Unknown array parameter kind: " + arrayParameter.Kind)
+        };
+        
+        var typeSig = AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, il2CppType);
+
+        return new(typeSig) { IsNullArray = true };
     }
 
     private static CustomAttributeArgument FromAnalyzedAttributeArgument(AssemblyDefinition parentAssembly, BaseCustomAttributeParameter parameter)
     {
-        return parameter switch
+        try
         {
-            CustomAttributePrimitiveParameter primitiveParameter => new(GetTypeSigFromAttributeArg(parentAssembly, primitiveParameter), primitiveParameter.PrimitiveValue),
-            CustomAttributeEnumParameter enumParameter => new(GetTypeSigFromAttributeArg(parentAssembly, enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue),
-            CustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), typeParameter.Type == null ? null : AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, typeParameter.Type!)),
-            CustomAttributeArrayParameter arrayParameter => BuildArrayArgument(parentAssembly, arrayParameter),
-            _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
-        };
+            return parameter switch
+            {
+                CustomAttributePrimitiveParameter primitiveParameter => new(GetTypeSigFromAttributeArg(parentAssembly, primitiveParameter), primitiveParameter.PrimitiveValue),
+                CustomAttributeEnumParameter enumParameter => new(GetTypeSigFromAttributeArg(parentAssembly, enumParameter), enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue),
+                CustomAttributeTypeParameter typeParameter => new(TypeDefinitionsAsmResolver.Type.ToTypeSignature(), typeParameter.Type == null ? null : AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, typeParameter.Type!)),
+                CustomAttributeArrayParameter arrayParameter => BuildArrayArgument(parentAssembly, arrayParameter),
+                _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
+            };
+        }
+        catch (Exception e)
+        {
+            throw new("Failed to build custom attribute argument for " + parameter, e);
+        }
     }
 
     private static CustomAttributeNamedArgument FromAnalyzedAttributeField(AssemblyDefinition parentAssembly, CustomAttributeField field)
@@ -123,28 +155,21 @@ public static class AsmResolverAssemblyPopulator
     private static CustomAttributeNamedArgument FromAnalyzedAttributeProperty(AssemblyDefinition parentAssembly, CustomAttributeProperty property)
         => new(CustomAttributeArgumentMemberType.Property, property.Property.Name, GetTypeSigFromAttributeArg(parentAssembly, property.Value), FromAnalyzedAttributeArgument(parentAssembly, property.Value));
 
-    private static void CopyCustomAttributes(HasCustomAttributes source, IList<CustomAttribute> destination)
+    private static CustomAttribute ConvertCustomAttribute(AnalyzedCustomAttribute analyzedCustomAttribute, AssemblyDefinition assemblyDefinition)
     {
-        if (source.CustomAttributes == null)
-            return;
+        var ctor = analyzedCustomAttribute.Constructor.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"Found a custom attribute with no AsmResolver constructor: {analyzedCustomAttribute}");
 
-        var assemblyDefinition = source.CustomAttributeAssembly.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + source.CustomAttributeAssembly);
+        CustomAttributeSignature signature;
+        var numNamedArgs = analyzedCustomAttribute.Fields.Count + analyzedCustomAttribute.Properties.Count;
 
-        foreach (var analyzedCustomAttribute in source.CustomAttributes)
+        try
         {
-            var ctor = analyzedCustomAttribute.Constructor.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"{source} has a custom attribute with no AsmResolver constructor.");
-
-            CustomAttributeSignature signature;
-            var numNamedArgs = analyzedCustomAttribute.Fields.Count + analyzedCustomAttribute.Properties.Count;
             if (!analyzedCustomAttribute.HasAnyParameters && numNamedArgs == 0)
                 signature = new();
             else if (numNamedArgs == 0)
-            {
                 //Only fixed arguments.
                 signature = new(analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)));
-            }
             else
-            {
                 //Has named arguments.
                 signature = new(
                     analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)),
@@ -152,48 +177,78 @@ public static class AsmResolverAssemblyPopulator
                         .Select(f => FromAnalyzedAttributeField(assemblyDefinition, f))
                         .Concat(analyzedCustomAttribute.Properties.Select(p => FromAnalyzedAttributeProperty(assemblyDefinition, p)))
                 );
+        }
+        catch (Exception e)
+        {
+            throw new("Failed to build custom attribute signature for " + analyzedCustomAttribute, e);
+        }
+
+        var importedCtor = assemblyDefinition.GetImporter().ImportMethod(ctor);
+
+        var newAttribute = new CustomAttribute((ICustomAttributeType)importedCtor, signature);
+        return newAttribute;
+    }
+
+    private static void CopyCustomAttributes(HasCustomAttributes source, IList<CustomAttribute> destination)
+    {
+        if (source.CustomAttributes == null)
+            return;
+
+        var assemblyDefinition = source.CustomAttributeAssembly.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + source.CustomAttributeAssembly);
+
+        try
+        {
+            foreach (var analyzedCustomAttribute in source.CustomAttributes)
+            {
+                destination.Add(ConvertCustomAttribute(analyzedCustomAttribute, assemblyDefinition));
             }
-
-            var importedCtor = assemblyDefinition.GetImporter().ImportMethod(ctor);
-
-            var newAttribute = new CustomAttribute((ICustomAttributeType) importedCtor, signature);
-            
-            destination.Add(newAttribute);
+        }
+        catch (Exception e)
+        {
+            throw new("Failed to copy custom attributes for " + source, e);
         }
     }
-    
+
     public static void PopulateCustomAttributes(AssemblyAnalysisContext asmContext)
     {
-        CopyCustomAttributes(asmContext, asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly")!.CustomAttributes);
-
-        foreach (var type in asmContext.Types)
+        try
         {
-            if(type.Name == "<Module>")
-                continue;
+            CopyCustomAttributes(asmContext, asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly")!.CustomAttributes);
 
-            CopyCustomAttributes(type, type.GetExtraData<TypeDefinition>("AsmResolverType")!.CustomAttributes);
-
-            foreach (var method in type.Methods)
+            foreach (var type in asmContext.Types)
             {
-                var methodDef = method.GetExtraData<MethodDefinition>("AsmResolverMethod")!;
-                CopyCustomAttributes(method, methodDef.CustomAttributes);
+                if (type.Name == "<Module>")
+                    continue;
 
-                var parameterDefinitions = methodDef.ParameterDefinitions;
-                foreach (var parameterAnalysisContext in method.Parameters)
+                CopyCustomAttributes(type, type.GetExtraData<TypeDefinition>("AsmResolverType")!.CustomAttributes);
+
+                foreach (var method in type.Methods)
                 {
-                    CopyCustomAttributes(parameterAnalysisContext, parameterDefinitions[parameterAnalysisContext.ParamIndex].CustomAttributes);
-                }
-            }
+                    var methodDef = method.GetExtraData<MethodDefinition>("AsmResolverMethod")!;
+                    CopyCustomAttributes(method, methodDef.CustomAttributes);
 
-            foreach (var field in type.Fields)
-                CopyCustomAttributes(field, field.GetExtraData<FieldDefinition>("AsmResolverField")!.CustomAttributes);
-            
-            foreach (var property in type.Properties)
-                CopyCustomAttributes(property, property.GetExtraData<PropertyDefinition>("AsmResolverProperty")!.CustomAttributes);
-            
-            foreach (var eventDefinition in type.Events)
-                CopyCustomAttributes(eventDefinition, eventDefinition.GetExtraData<EventDefinition>("AsmResolverEvent")!.CustomAttributes);
+                    var parameterDefinitions = methodDef.ParameterDefinitions;
+                    foreach (var parameterAnalysisContext in method.Parameters)
+                    {
+                        CopyCustomAttributes(parameterAnalysisContext, parameterDefinitions[parameterAnalysisContext.ParamIndex].CustomAttributes);
+                    }
+                }
+
+                foreach (var field in type.Fields)
+                    CopyCustomAttributes(field, field.GetExtraData<FieldDefinition>("AsmResolverField")!.CustomAttributes);
+
+                foreach (var property in type.Properties)
+                    CopyCustomAttributes(property, property.GetExtraData<PropertyDefinition>("AsmResolverProperty")!.CustomAttributes);
+
+                foreach (var eventDefinition in type.Events)
+                    CopyCustomAttributes(eventDefinition, eventDefinition.GetExtraData<EventDefinition>("AsmResolverEvent")!.CustomAttributes);
+            }
         }
+        catch (Exception e)
+        {
+            throw new($"Failed to populate custom attributes in {asmContext}", e);
+        }
+
     }
 
     public static void CopyDataFromIl2CppToManaged(AssemblyAnalysisContext asmContext)

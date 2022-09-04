@@ -16,12 +16,12 @@ public class CustomAttributePrimitiveParameter : BaseCustomAttributeParameter
     public readonly Il2CppTypeEnum PrimitiveType;
     public IConvertible? PrimitiveValue;
 
-    public CustomAttributePrimitiveParameter(Il2CppTypeEnum primitiveType)
+    public CustomAttributePrimitiveParameter(Il2CppTypeEnum primitiveType, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {
         PrimitiveType = primitiveType;
     }
 
-    public CustomAttributePrimitiveParameter(IConvertible value)
+    public CustomAttributePrimitiveParameter(IConvertible value, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {
         PrimitiveValue = value;
 

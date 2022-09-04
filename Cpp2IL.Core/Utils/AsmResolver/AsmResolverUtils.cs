@@ -42,7 +42,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
                 Il2CppTypeEnum.IL2CPP_TYPE_STRING => TypeDefinitionsAsmResolver.String,
                 Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF => TypeDefinitionsAsmResolver.TypedReference,
                 Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => TypeDefinitionsAsmResolver.Type,
-                _ => throw new ArgumentException("Type is not a primitive", nameof(type))
+                _ => throw new ArgumentException($"Type is not a primitive - {type}", nameof(type))
             };
 
         public static TypeSignature GetTypeSignatureFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)

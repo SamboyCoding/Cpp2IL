@@ -54,7 +54,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
                 var newAttribute = new AnalyzedCustomAttribute(fieldOffsetConstructor);
 
                 //This loop is not done parallel because f.Offset has heavy lock contention
-                newAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{f.Offset:X}")));
+                newAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{f.Offset:X}", newAttribute, CustomAttributeParameterKind.Field, 0)));
                 f.CustomAttributes.Add(newAttribute);
             }
         }
@@ -87,12 +87,12 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
                 if (!_useEzDiffMode)
                 {
-                    newAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{m.Definition.Rva:X}")));
+                    newAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{m.Definition.Rva:X}", newAttribute, CustomAttributeParameterKind.Field, 0)));
                     if (appContext.Binary.TryMapVirtualAddressToRaw(m.UnderlyingPointer, out var offset))
-                        newAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offset:X}")));
+                        newAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offset:X}", newAttribute, CustomAttributeParameterKind.Field, 1)));
                 }
 
-                newAttribute.Fields.Add(new(lengthField, new CustomAttributePrimitiveParameter($"0x{m.RawBytes.Length:X}")));
+                newAttribute.Fields.Add(new(lengthField, new CustomAttributePrimitiveParameter($"0x{m.RawBytes.Length:X}", newAttribute, CustomAttributeParameterKind.Field, newAttribute.Fields.Count)));
                 m.CustomAttributes.Add(newAttribute);
             }
         }
@@ -125,7 +125,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
                     return;
 
                 var newAttribute = new AnalyzedCustomAttribute(tokenConstructor);
-                newAttribute.Fields.Add(new(tokenField, new CustomAttributePrimitiveParameter($"0x{context.Token:X}")));
+                newAttribute.Fields.Add(new(tokenField, new CustomAttributePrimitiveParameter($"0x{context.Token:X}", newAttribute, CustomAttributeParameterKind.Field, 0)));
                 context.CustomAttributes.Add(newAttribute);
             });
         }
@@ -210,9 +210,9 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
                 offsetInBinary = 0;
 
             //Add the 3 fields to the replacement attribute
-            replacementAttribute.Fields.Add(new(nameField, new CustomAttributePrimitiveParameter(attribute.Constructor.DeclaringType!.Name)));
-            replacementAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{generatorRva:X}")));
-            replacementAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offsetInBinary:X}")));
+            replacementAttribute.Fields.Add(new(nameField, new CustomAttributePrimitiveParameter(attribute.Constructor.DeclaringType!.Name, replacementAttribute, CustomAttributeParameterKind.Field, 0)));
+            replacementAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{generatorRva:X}", replacementAttribute, CustomAttributeParameterKind.Field, 1)));
+            replacementAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offsetInBinary:X}", replacementAttribute, CustomAttributeParameterKind.Field, 2)));
 
             //Replace the original attribute with the replacement attribute
             context.CustomAttributes[index] = replacementAttribute;
