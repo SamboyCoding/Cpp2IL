@@ -6,10 +6,10 @@ using Avalonia.Markup.Xaml;
 using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.TextMate;
-using AvaloniaEdit.TextMate.Grammars;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.ViewModels;
+using TextMateSharp.Grammars;
 
 namespace Cpp2IL.Gui.Views
 {
