@@ -7,6 +7,7 @@ using AvaloniaEdit;
 using AvaloniaEdit.Document;
 using AvaloniaEdit.TextMate;
 using AvaloniaEdit.TextMate.Grammars;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.ViewModels;
 
@@ -16,6 +17,7 @@ namespace Cpp2IL.Gui.Views
     {
         public MainWindow()
         {
+            Logger.InfoNewline("[MainWindow] Initializing components...", "GUI");
             InitializeComponent();
 #if DEBUG
             this.AttachDevTools();
@@ -24,6 +26,7 @@ namespace Cpp2IL.Gui.Views
 
         public void OnCreated()
         {
+            Logger.InfoNewline("[MainWindow] OnCreated", "GUI");
             var vm = (MainWindowViewModel) DataContext!;
             vm.Window = this;
             

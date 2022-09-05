@@ -40,7 +40,7 @@
                 
                 <!--Status bar items go here-->
                 <StackPanel Orientation="Horizontal">
-                    <TextBlock VerticalAlignment="Center" Padding="0, 0, 8, 0">Method Body Format: </TextBlock>
+                    <TextBlock VerticalAlignment="Center" Padding="0, 0, 8, 0" Text="Method Body Format: "></TextBlock>
                     <ComboBox Name="MethodBodyTypeBox" Width="160" Items="{x:Static local:MethodBodyModes.AllModes}" SelectedItem="{Binding MethodBodyMode, Mode=TwoWay}"></ComboBox>
                 </StackPanel>
                 

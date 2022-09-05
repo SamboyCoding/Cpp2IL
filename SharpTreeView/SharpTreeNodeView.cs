@@ -87,12 +87,12 @@ namespace ICSharpCode.TreeView
 			UpdateTemplate();
 		}
 
-		protected override void OnPropertyChanged<T>(AvaloniaPropertyChangedEventArgs<T> e)
+        protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs e)
 		{
 			base.OnPropertyChanged(e);
 			if (e.Property == DataContextProperty)
 			{
-				UpdateDataContext(e.OldValue.GetValueOrDefault<SharpTreeNode>(), e.NewValue.GetValueOrDefault<SharpTreeNode>());
+				UpdateDataContext(e.OldValue as SharpTreeNode, e.NewValue as SharpTreeNode);
 			}
 		}
 

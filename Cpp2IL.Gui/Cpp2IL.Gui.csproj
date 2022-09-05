@@ -19,13 +19,14 @@
         <None Remove=".gitignore" />
     </ItemGroup>
     <ItemGroup>
-        <PackageReference Include="Avalonia" Version="0.10.13" />
-        <PackageReference Include="Avalonia.AvaloniaEdit" Version="0.10.12.2" />
-        <PackageReference Include="Avalonia.Desktop" Version="0.10.13" />
-        <PackageReference Include="Avalonia.Diagnostics" Version="0.10.13" />
+        <PackageReference Include="Avalonia" Version="11.0.0-preview1" />
+        <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.0.0-preview1" />
+        <PackageReference Include="Avalonia.Desktop" Version="11.0.0-preview1" />
+        <PackageReference Include="Avalonia.Diagnostics" Version="11.0.0-preview1" />
         <!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-        <PackageReference Include="Avalonia.ReactiveUI" Version="0.10.13" />
-        <PackageReference Include="AvaloniaEdit.TextMate" Version="0.10.12.2" />
+        <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0-preview1" />
+        <PackageReference Include="Avalonia.Themes.Fluent" Version="11.0.0-preview1" />
+        <PackageReference Include="AvaloniaEdit.TextMate" Version="11.0.0-preview1" />
         <PackageReference Include="AvaloniaEdit.TextMate.Grammars" Version="0.10.12.1" />
     </ItemGroup>
     <ItemGroup>

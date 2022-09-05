@@ -15,14 +15,13 @@ namespace ICSharpCode.TreeView
 
 		public SharpTreeNode Node => Item.Node;
 
-		[Obsolete]
-		protected override void OnTemplateApplied(TemplateAppliedEventArgs e)
-		{
-			base.OnTemplateApplied(e);
-			Init();
-		}
+        protected override void OnApplyTemplate(TemplateAppliedEventArgs e)
+        {
+            base.OnApplyTemplate(e);
+            Init();
+        }
 
-		void Init()
+        void Init()
 		{
 			Text = Node.LoadEditText();
 			Focus();

@@ -271,7 +271,7 @@ public static class ClassFileBuilder
                 //     sb.Append('\t', 2).AppendLine("// End of if\n");
                 // }
                 // else
-                    sb.Append('\t', 2).Append(instruction).AppendLine(";");
+                    sb.Append('\t', 2).Append("//").Append(instruction).AppendLine(";");
             // }
         }
 

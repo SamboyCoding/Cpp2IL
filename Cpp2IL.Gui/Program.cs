@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Diagnostics;
 using Avalonia;
 using Avalonia.ReactiveUI;
 using Cpp2IL.Core;
@@ -15,11 +14,14 @@ namespace Cpp2IL.Gui
         [STAThread]
         public static void Main(string[] args)
         {
+            Console.WriteLine("Starting Cpp2IL GUI. Initializing Cpp2IL Core...");
+            
             Cpp2IlApi.Init();
             SimpleConsoleLogger.Initialize();
             SimpleConsoleLogger.ShowVerbose = true;
             // Trace.Listeners.Add(new TextWriterTraceListener(Console.Out));
             
+            Logger.InfoNewline("Starting Avalonia...", "GUI");
             BuildAvaloniaApp()
                 .StartWithClassicDesktopLifetime(args);
         }
