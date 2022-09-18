@@ -70,6 +70,7 @@ public enum Arm64Mnemonic
     MOVZ,
     MSUB,
     MUL,
+    NOP,
     ORN,
     ORR,
     PMULL,

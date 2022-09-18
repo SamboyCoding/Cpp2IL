@@ -167,7 +167,7 @@ public static class Disassembler
         return op1 switch
         {
             0b01000000110001 => Arm64System.WithRegisterArgument(instruction),
-            0b01000000110010 when op2 != 0b1111 => throw new Arm64UndefinedInstructionException($"Hint instructions require op2 to be all 1s. Got {op2:X}"),
+            0b01000000110010 when op2 != 0b11111 => throw new Arm64UndefinedInstructionException($"Hint instructions require op2 to be all 1s. Got {op2:X}"),
             0b01000000110010 => Arm64Hints.Disassemble(instruction),
             0b01000000110011 => Arm64Barriers.Disassemble(instruction),
             _ => throw new Arm64UndefinedInstructionException($"Undefined op1 in system instruction processor: {op1:X}")
