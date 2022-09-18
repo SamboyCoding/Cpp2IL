@@ -19,5 +19,7 @@ public class SimdTest
         var result = Disassembler.DisassembleSingleInstruction(insn);
         
         _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.MOV, result.Mnemonic);
     }
 }

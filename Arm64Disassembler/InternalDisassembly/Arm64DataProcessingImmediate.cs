@@ -180,7 +180,46 @@ public static class Arm64DataProcessingImmediate
 
     public static Arm64Instruction Bitfield(uint instruction)
     {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31);
+        var opc = (instruction >> 29) & 0b11;
+        var n = instruction.TestBit(22);
+        var immr = (byte) ((instruction >> 16) & 0b11_1111);
+        var imms = (byte) ((instruction >> 10) & 0b11_1111);
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        if(opc == 0b11)
+            throw new Arm64UndefinedInstructionException("Bitfield with opc == 0b11");
+        
+        if(is64Bit != n)
+            throw new Arm64UndefinedInstructionException("Bitfield with is64Bit != n");
+
+        var mnemonic = opc switch
+        {
+            0b00 => Arm64Mnemonic.SBFM,
+            0b01 => Arm64Mnemonic.BFM,
+            0b10 => Arm64Mnemonic.UBFM,
+            _ => throw new("Impossible opc")
+        };
+        
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        var regN = baseReg + rn;
+        var regD = baseReg + rd;
+
+        // var (wmask, tmask) = Arm64CommonUtils.DecodeBitMasks(n, is64Bit ? 64 : 32, imms, immr, false);
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Immediate,
+            Op3Kind = Arm64OperandKind.Immediate,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Imm = immr,
+            Op3Imm = imms
+        };
     }
 
     public static Arm64Instruction Extract(uint instruction)

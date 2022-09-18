@@ -89,5 +89,33 @@ public class Arm64Aliases
                 instruction.Mnemonic = Arm64Mnemonic.CINC;
             }
         }
+
+        if (instruction.Mnemonic == Arm64Mnemonic.SBFM && instruction.Op2Kind == Arm64OperandKind.Immediate && instruction.Op3Kind == Arm64OperandKind.Immediate && instruction.Op2Imm == 0)
+        {
+            //Check imm3
+            var imm3 = instruction.Op3Imm;
+            
+            if(imm3 is > 0b11111 or < 0b111)
+                return;
+
+            var newMnemonic = imm3 switch
+            {
+                0b111 => Arm64Mnemonic.SXTB,
+                0b1111 => Arm64Mnemonic.SXTH,
+                0b11111 => Arm64Mnemonic.SXTW,
+                _ => throw new("Impossible imm3")
+            };
+            
+            //SBFM Rd, Rn, 0, imm3 => SXT{B|H|W} Rd, Rn
+            instruction.Mnemonic = newMnemonic;
+            instruction.Op2Kind = Arm64OperandKind.None;
+            instruction.Op2Reg = Arm64Register.INVALID;
+            instruction.Op3Kind = Arm64OperandKind.None;
+            instruction.Op3Reg = Arm64Register.INVALID;
+            
+            //Second reg has to be remapped to a W reg not an X one, if the first reg is an X one
+            if (instruction.Op0Reg is >= Arm64Register.X0 and <= Arm64Register.X31)
+                instruction.Op1Reg = Arm64Register.W0 + (instruction.Op1Reg - Arm64Register.X0);
+        }
     }
 }
