@@ -45,7 +45,98 @@ public static class Arm64DataProcessingRegister
 
     private static Arm64Instruction DataProcessing2Source(uint instruction)
     {
-        throw new NotImplementedException();
+        var sf = instruction.TestBit(31);
+        var sFlag = instruction.TestBit(29);
+        var rm = (int)(instruction >> 16) & 0b1_1111;
+        var opcode = (int)(instruction >> 10) & 0b11_1111;
+        var rn = (int)(instruction >> 5) & 0b1_1111;
+        var rd = (int)instruction & 0b1_1111;
+        
+        if(opcode == 1 || (opcode >> 5) == 1 || (opcode >> 3) == 0b011)
+            throw new Arm64UndefinedInstructionException($"Invalid opcode for DataProcessing2Source: {opcode:X}");
+        
+        if(!sf && opcode == 0)
+            throw new Arm64UndefinedInstructionException($"Invalid opcode for DataProcessing2Source: {opcode:X} when sf = 0");
+        
+        //Just going to implement what exists and fall-through to the undefined exception
+
+        if (!sf && !sFlag)
+        {
+            var mnemonic = opcode switch
+            {
+                0b000010 => Arm64Mnemonic.UDIV,
+                0b000011 => Arm64Mnemonic.SDIV,
+                0b001000 => Arm64Mnemonic.LSLV,
+                0b001001 => Arm64Mnemonic.LSRV,
+                0b001010 => Arm64Mnemonic.ASRV,
+                0b001011 => Arm64Mnemonic.RORV,
+                0b010000 => Arm64Mnemonic.CRC32B,
+                0b010001 => Arm64Mnemonic.CRC32H,
+                0b010010 => Arm64Mnemonic.CRC32W,
+                0b010100 => Arm64Mnemonic.CRC32CB,
+                0b010101 => Arm64Mnemonic.CRC32CH,
+                0b010110 => Arm64Mnemonic.CRC32CW,
+                _ => throw new Arm64UndefinedInstructionException($"DataProcessing2Source: opcode {opcode:X} with sf == S == 0")
+            };
+
+            return new()
+            {
+                Mnemonic = mnemonic,
+                Op0Kind = Arm64OperandKind.Register,
+                Op1Kind = Arm64OperandKind.Register,
+                Op2Kind = Arm64OperandKind.Register,
+                Op0Reg = Arm64Register.W0 + rd,
+                Op1Reg = Arm64Register.W0 + rn,
+                Op2Reg = Arm64Register.W0 + rm
+            };
+        }
+
+        if (sf && sFlag)
+        {
+            if(opcode != 0)
+                throw new Arm64UndefinedInstructionException("DataProcessing2Source: opcode != 0 when sf == S == 1");
+
+            return new()
+            {
+                Mnemonic = Arm64Mnemonic.SUBPS,
+                Op0Kind = Arm64OperandKind.Register,
+                Op1Kind = Arm64OperandKind.Register,
+                Op2Kind = Arm64OperandKind.Register,
+                Op0Reg = Arm64Register.X0 + rd,
+                Op1Reg = Arm64Register.X0 + rn,
+                Op2Reg = Arm64Register.X0 + rm
+            };
+        }
+        
+        //sf but no S
+
+        var mnemonic2 = opcode switch
+        {
+            0b000000 => Arm64Mnemonic.SUBP,
+            0b000010 => Arm64Mnemonic.UDIV,
+            0b000011 => Arm64Mnemonic.SDIV,
+            0b000100 => Arm64Mnemonic.IRG,
+            0b000101 => Arm64Mnemonic.GMI,
+            0b001000 => Arm64Mnemonic.LSLV,
+            0b001001 => Arm64Mnemonic.LSRV,
+            0b001010 => Arm64Mnemonic.ASRV,
+            0b001011 => Arm64Mnemonic.RORV,
+            0b001100 => Arm64Mnemonic.PACGA,
+            0b010011 => Arm64Mnemonic.CRC32X,
+            0b010111 => Arm64Mnemonic.CRC32CX,
+            _ => throw new Arm64UndefinedInstructionException($"DataProcessing2Source: opcode {opcode:X} with sf == 1 and S == 0")
+        };
+
+        return new()
+        {
+            Mnemonic = mnemonic2,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op0Reg = Arm64Register.X0 + rd,
+            Op1Reg = Arm64Register.X0 + rn,
+            Op2Reg = Arm64Register.X0 + rm
+        };
     }
 
     private static Arm64Instruction LogicalShiftedRegister(uint instruction)

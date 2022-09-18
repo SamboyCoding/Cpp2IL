@@ -24,4 +24,16 @@ public class DataProcessingTests
         Assert.Equal(Arm64Register.X21, insn.Op0Reg);
         Assert.Equal(Arm64Register.W20, insn.Op1Reg);
     }
+
+    [Fact]
+    public void DataProcessing2Source()
+    {
+        var raw = 0x1AC80D2AU;
+        
+        var insn = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(insn.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.SDIV, insn.Mnemonic);
+    }
 }
