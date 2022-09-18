@@ -35,8 +35,50 @@ public static class Arm64Simd
             return AdvancedSimdNonScalar(instruction);
         }
 
+        if (op0 == 0b1100)
+        {
+            throw new NotImplementedException($"SIMD: Unimplemented 1100 family: Op1: {op1}, Op2: {op2}, Op3: {op3}");
+        }
+
+        if ((op0 & 0b0101) == 0b0001)
+        {
+            //Floating point family - either conversion two/from integer/fixed-point, or some general floating-point instruction
+            
+            if (op1.TestBit(1))
+                //Only one with bit 24 set
+                return Arm64FloatingPoint.DataProcessingThreeSource(instruction);
+
+            //Get the two conversion types out first
+            
+            if (!op2.TestBit(2))
+                //Only one with bit 20 clear
+                return Arm64FloatingPoint.ConversionToAndFromFixedPoint(instruction);
+
+            if ((op3 & 0b11_1111) == 0)
+                return Arm64FloatingPoint.ConversionToAndFromInteger(instruction);
+
+            if ((op3 & 0b1_1111) == 0b1_0000)
+                return Arm64FloatingPoint.DataProcessingOneSource(instruction);
+            
+            if((op3 & 0b1111) == 0b1000)
+                return Arm64FloatingPoint.Compare(instruction);
+
+            if ((op3 & 0b111) == 0b100)
+                return Arm64FloatingPoint.Immediate(instruction);
+
+            return (op3 & 0b11) switch
+            {
+                0b01 => Arm64FloatingPoint.ConditionalCompare(instruction),
+                0b10 => Arm64FloatingPoint.DataProcessingTwoSource(instruction),
+                0b11 => Arm64FloatingPoint.ConditionalSelect(instruction),
+                _ => throw new("Impossible op3"),
+            };
+        }
+
         throw new NotImplementedException($"Unimplemented SIMD instruction. Op0: {op0}, Op1: {op1}, Op2: {op2}, Op3: {op3}");
     }
+
+    
 
     private static Arm64Instruction AdvancedSimdNonScalar(uint instruction)
     {

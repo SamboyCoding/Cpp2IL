@@ -22,4 +22,16 @@ public class SimdTest
         
         Assert.Equal(Arm64Mnemonic.MOV, result.Mnemonic);
     }
+
+    [Fact]
+    public void TestScvtf()
+    {
+        var raw = 0x1E2202A1U;
+        
+        var result = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.SCVTF, result.Mnemonic);
+    }
 }
