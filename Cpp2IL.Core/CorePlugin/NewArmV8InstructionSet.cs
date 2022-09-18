@@ -36,6 +36,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
+        var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        
         //TODO
         return new();
     }

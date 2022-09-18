@@ -23,6 +23,18 @@ public class Arm64Aliases
             return;
         }
 
+        if (instruction.Mnemonic == Arm64Mnemonic.ORR && instruction.Op1Kind == Arm64OperandKind.Register && instruction.Op2Kind == Arm64OperandKind.Register && instruction.Op1Reg == instruction.Op2Reg)
+        {
+            //Change ORR R0, R1, R1 => MOV R0, R1
+            instruction.Mnemonic = Arm64Mnemonic.MOV;
+            
+            //Clear op2
+            instruction.Op2Kind = Arm64OperandKind.None;
+            instruction.Op2Reg = Arm64Register.INVALID;
+            
+            return;
+        }
+
         if (instruction.Mnemonic == Arm64Mnemonic.SUBS && instruction.Op0Kind == Arm64OperandKind.Register && instruction.Op0Reg is Arm64Register.W31 or Arm64Register.X31 && instruction.Op1Kind == Arm64OperandKind.Register && instruction.Op2Kind is Arm64OperandKind.Immediate or Arm64OperandKind.Register)
         {
             //SUBS W31, WXX, [IMM|RXX] => CMP WXX, [IMM|RXX]

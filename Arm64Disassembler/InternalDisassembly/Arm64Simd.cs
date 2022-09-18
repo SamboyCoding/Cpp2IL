@@ -309,7 +309,147 @@ public static class Arm64Simd
 
     private static Arm64Instruction AdvancedSimdThreeSame(uint instruction)
     {
-        throw new NotImplementedException();
+        var q = instruction.TestBit(30);
+        var u = instruction.TestBit(29);
+        var size = (instruction >> 22) & 0b11;
+        var rm = (int) ((instruction >> 16) & 0b1_1111);
+        var opcode = (instruction >> 11) & 0b1_1111;
+        var rn = (int) ((instruction >> 5) & 0b1_1111);
+        var rd = (int) (instruction & 0b1_1111);
+
+        var sizeHi = size.TestBit(1);
+
+        Arm64Mnemonic mnemonic;
+
+        if (u)
+            mnemonic = opcode switch
+            {
+                _ => throw new NotImplementedException()
+            };
+        else
+            mnemonic = opcode switch
+            {
+                0b00000 => Arm64Mnemonic.SHADD,
+                0b00001 => Arm64Mnemonic.SQADD,
+                0b00010 => Arm64Mnemonic.SRHADD,
+                0b00011 when size is 0b00 => Arm64Mnemonic.AND,
+                0b00011 when size is 0b01 => Arm64Mnemonic.BIC,
+                0b00011 when size is 0b10 => Arm64Mnemonic.ORR,
+                0b00011 when size is 0b11 => Arm64Mnemonic.ORN,
+                0b00100 => Arm64Mnemonic.SHSUB,
+                0b00101 => Arm64Mnemonic.SQSUB,
+                0b00110 => Arm64Mnemonic.CMGT,
+                0b00111 => Arm64Mnemonic.CMGE,
+                0b01000 => Arm64Mnemonic.SSHL,
+                0b01001 => Arm64Mnemonic.SQSHL,
+                0b01010 => Arm64Mnemonic.SRSHL,
+                0b01011 => Arm64Mnemonic.SQRSHL,
+                0b01100 => Arm64Mnemonic.SMAX,
+                0b01101 => Arm64Mnemonic.SMIN,
+                0b01110 => Arm64Mnemonic.SABD,
+                0b01111 => Arm64Mnemonic.SABA,
+                0b10000 => Arm64Mnemonic.ADD,
+                0b10001 => Arm64Mnemonic.CMTST,
+                0b10010 => Arm64Mnemonic.MLA,
+                0b10011 => Arm64Mnemonic.MUL,
+                0b10100 => Arm64Mnemonic.SMAXP,
+                0b10101 => Arm64Mnemonic.SMINP,
+                0b10110 => Arm64Mnemonic.SQDMULH,
+                0b10111 => Arm64Mnemonic.ADDP,
+                0b11000 when !sizeHi => Arm64Mnemonic.FMAXNM,
+                0b11000 => Arm64Mnemonic.FMINNM,
+                0b11001 when !sizeHi => Arm64Mnemonic.FMLA,
+                0b11001 => Arm64Mnemonic.FMLS,
+                0b11010 when !sizeHi => Arm64Mnemonic.FADD,
+                0b11010 => Arm64Mnemonic.FSUB,
+                0b11011 when !sizeHi => Arm64Mnemonic.FMULX,
+                0b11011 => throw new Arm64UndefinedInstructionException("Advanced SIMD three same: opcode 0b11011 with high size bit set"),
+                0b11100 when !sizeHi => Arm64Mnemonic.FCMEQ,
+                0b11100 => throw new Arm64UndefinedInstructionException("Advanced SIMD three same: opcode 0b11100 with high size bit set"),
+                0b11101 when size is 0b00 => Arm64Mnemonic.FMLAL, //TODO or FMLAL2
+                0b11101 when size is 0b01 => throw new Arm64UndefinedInstructionException("Advanced SIMD three same: opcode 0b11101 with size 0b01"),
+                0b11101 when size is 0b10 => Arm64Mnemonic.FMLSL, //TODO or FMLSL2
+                0b11101 when size is 0b11 => throw new Arm64UndefinedInstructionException("Advanced SIMD three same: opcode 0b11101 with size 0b11"),
+                0b11110 when !sizeHi => Arm64Mnemonic.FMAX,
+                0b11110 => Arm64Mnemonic.FMIN,
+                0b11111 when !sizeHi => Arm64Mnemonic.FRECPS,
+                0b11111 => Arm64Mnemonic.FRSQRTS,
+            };
+
+        //Three groups of arrangements based on how much of size is used
+        //If the top bit is specified (i.e. sizeHi used) then arrangement is a 2-bit field - lower bit of size : Q
+        //If both bits are specified, arrangement is a 1-bit field - Q
+        //If neither bit is specified, arrangement is a 3-bit field - size : Q
+
+        Arm64ArrangementSpecifier arrangement;
+        Arm64Register baseReg;
+
+        if (mnemonic is Arm64Mnemonic.AND or Arm64Mnemonic.BIC or Arm64Mnemonic.ORR or Arm64Mnemonic.ORN)
+        {
+            baseReg = Arm64Register.V0;
+            arrangement = q ? Arm64ArrangementSpecifier.SixteenB : Arm64ArrangementSpecifier.EightB;
+        }
+        else if (opcode < 0b11000)
+        {
+            //"Simple" instructions 
+            baseReg = size switch
+            {
+                //TODO This logic is wrong for some instructions (e.g. SMIN), revisit
+                0b00 => Arm64Register.B0,
+                0b01 => Arm64Register.H0,
+                0b10 => Arm64Register.S0,
+                0b11 => Arm64Register.D0,
+                _ => throw new("Impossible size")
+            };
+
+            //This logic should be ok though
+            arrangement = size switch
+            {
+                0b00 when q => Arm64ArrangementSpecifier.SixteenB,
+                0b00 => Arm64ArrangementSpecifier.EightB,
+                0b01 when q => Arm64ArrangementSpecifier.EightH,
+                0b01 => Arm64ArrangementSpecifier.FourH,
+                0b10 when q => Arm64ArrangementSpecifier.FourS,
+                0b10 => Arm64ArrangementSpecifier.TwoS,
+                _ => throw new("Impossible size")
+            };
+        } else if (opcode == 0b11101)
+        {
+            throw new NotImplementedException();
+        }
+        else
+        {
+            //Uses the high bit of size, leaving only bit 22 as sz, and q
+            var arrangementBits = (size & 0b1) << 1 | (uint)(q ? 1 : 0);
+
+            arrangement = arrangementBits switch
+            {
+                0b00 => Arm64ArrangementSpecifier.TwoS,
+                0b01 => Arm64ArrangementSpecifier.FourS,
+                0b10 => throw new Arm64UndefinedInstructionException("Advanced SIMD three same: arrangement: sz = 1, Q = 0: reserved"),
+                0b11 => Arm64ArrangementSpecifier.TwoD,
+                _ => throw new("Impossible arrangement bits")
+            };
+            baseReg = Arm64Register.V0;
+        }
+
+        var regD = baseReg + rd;
+        var regN = baseReg + rn;
+        var regM = baseReg + rm;
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op0Arrangement = arrangement,
+            Op1Arrangement = arrangement,
+            Op2Arrangement = arrangement,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Reg = regM,
+        };
     }
 
     internal static Arm64Instruction LoadStoreSingleStructure(uint instruction)

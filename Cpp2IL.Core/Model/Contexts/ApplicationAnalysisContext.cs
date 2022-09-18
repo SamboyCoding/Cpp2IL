@@ -79,6 +79,8 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         {
             throw new InstructionSetHandlerNotRegisteredException(binary.InstructionSetId);
         }
+        
+        Logger.VerboseNewline("\tUsing instruction set handler: " + InstructionSet.GetType().FullName);
 
         foreach (var assemblyDefinition in Metadata.AssemblyDefinitions)
         {
