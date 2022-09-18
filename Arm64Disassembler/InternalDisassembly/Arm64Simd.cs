@@ -18,7 +18,7 @@ public static class Arm64Simd
         //Concrete values or one-masked-bit for op0
         switch (op0)
         {
-            case 0b0100 when op1Hi == 0 && (op2 & 0b111) == 0b101:
+            case 0b0100 when op1Hi == 0 && (op2 & 0b111) == 0b101 && (op3 & 0b1_1000_0011) == 0b0_0000_0010:
                 return CryptoAes(instruction);
             case 0b0101 when op1Hi == 0 && (op2 & 0b111) == 0b101:
                 return CryptoTwoRegSha(instruction);
@@ -110,6 +110,17 @@ public static class Arm64Simd
 
     private static Arm64Instruction CryptoAes(uint instruction)
     {
+        var size = (instruction >> 22) & 0b11;
+        var opcode = (instruction >> 12) & 0b1_1111;
+        var rn = (int) (instruction >> 5) & 0b11111;
+        var rd = (int) instruction & 0b11111;
+        
+        if(size != 0)
+            throw new Arm64UndefinedInstructionException("AES instruction with size != 0");
+
+        if (opcode.TestBit(3) || instruction.TestBit(4) || (instruction >> 2) == 0)
+            throw new Arm64UndefinedInstructionException($"AES: Reserved opcode 0x{opcode:X}");
+
         throw new NotImplementedException();
     }
 

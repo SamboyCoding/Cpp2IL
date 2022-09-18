@@ -42,4 +42,16 @@ public class UnitTest1
             _testOutputHelper.WriteLine(instruction.ToString());
         }
     }
+
+    [Fact]
+    public void IdkThisShouldntBeAes()
+    {
+        var raw = 0x4EA81D01U;
+
+        var insn = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(insn.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.MOV, insn.Mnemonic);
+    }
 }

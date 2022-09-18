@@ -132,39 +132,93 @@ public static class Arm64LoadsStores
         // Load/store immediate pre-indexed
 
         var size = (instruction >> 30) & 0b11; //Bits 30-31
-        var v = (instruction >> 26) & 1; //Bit 26
+        var isVector = instruction.TestBit(26); //Bit 26
         var opc = (instruction >> 22) & 0b11; //Bits 22-23
         var imm9 = (instruction >> 12) & 0b1_1111_1111; //Bits 12-20
         var rn = (int)(instruction >> 5) & 0b11111; //Bits 5-9
         var rt = (int)(instruction & 0b11111); //Bits 0-4
 
-        //TODO Rework this
-
-        if (size == 0b11)
+        if (size is 0b10 or 0b11)
         {
-            //64-bit
-            if (v == 0)
-            {
-                //Non-vector.
-                //LDR/STR Xt, [Xn, #imm9]
-                var isLoad = opc == 1;
-
-                var offset = Arm64CommonUtils.SignExtend(imm9, 9, 64);
-
-                return new Arm64Instruction
-                {
-                    Mnemonic = isLoad ? Arm64Mnemonic.LDR : Arm64Mnemonic.STR,
-                    Op0Kind = Arm64OperandKind.Register,
-                    Op1Kind = Arm64OperandKind.Memory,
-                    Op0Reg = Arm64Register.X0 + rt,
-                    MemBase = Arm64Register.X0 + rn,
-                    MemOffset = offset,
-                    MemIsPreIndexed = memoryAccessMode == MemoryAccessMode.PreIndex,
-                };
-            }
+            var invalid = isVector ? opc is 0b10 or 0b11 : opc is 0b11;
+            
+            if (invalid)
+                throw new Arm64UndefinedInstructionException($"Load/store immediate pre-indexed: Invalid size/opc combination. size: {size}, opc: {opc}");
         }
+        
+        //Note to self - this logic is copied from further down but has had some minor adjustments made, it may still be incorrect in places
+        //so if something seems wrong, it probably is!
+        var mnemonic = opc switch
+        {
+            0b00 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.STRB,
+                0b01 when !isVector => Arm64Mnemonic.STRH,
+                0b10 or 0b11 when !isVector => Arm64Mnemonic.STR,
+                _ when isVector => Arm64Mnemonic.STR,
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b01 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDRB,
+                0b01 when !isVector => Arm64Mnemonic.LDRH,
+                0b10 or 0b11 when !isVector => Arm64Mnemonic.LDR,
+                _ when isVector => Arm64Mnemonic.LDR,
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b10 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDRSB, //64-bit variant
+                0b01 when !isVector => Arm64Mnemonic.LDRSH, //64-bit variant
+                0b10 when !isVector => Arm64Mnemonic.LDRSW,
+                0b00 when isVector => Arm64Mnemonic.STR, //128-bit store
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b11 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDRSB, //32-bit variant
+                0b01 when !isVector => Arm64Mnemonic.LDRSH, //32-bit variant
+                0b00 when isVector => Arm64Mnemonic.LDR, //128-bit load
+                _ => throw new($"Impossible size: {size}")
+            },
+            _ => throw new("Impossible opc value")
+        };
+        
+        var baseReg = mnemonic switch
+        {
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR when isVector && opc is 0 => size switch
+            {
+                0 => Arm64Register.B0,
+                1 => Arm64Register.H0,
+                2 => Arm64Register.S0,
+                3 => Arm64Register.D0,
+                _ => throw new("Impossible size")
+            },
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR when isVector => Arm64Register.V0, //128-bit vector
+            Arm64Mnemonic.STRB or Arm64Mnemonic.LDRB or Arm64Mnemonic.STRH or Arm64Mnemonic.LDRH => Arm64Register.W0,
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR when size is 0b10 => Arm64Register.W0,
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR => Arm64Register.X0,
+            Arm64Mnemonic.LDRSH when opc is 0b10 => Arm64Register.X0,
+            Arm64Mnemonic.LDRSH => Arm64Register.W0,
+            Arm64Mnemonic.LDRSW => Arm64Register.X0,
+            _ => throw new("Impossible mnemonic")
+        };
+        
+        var regT = baseReg + rt;
+        var regN = Arm64Register.X0 + rn;
+        
+        var offset = Arm64CommonUtils.SignExtend(imm9, 9, 64);
 
-        throw new NotImplementedException();
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Memory,
+            MemIsPreIndexed = memoryAccessMode == MemoryAccessMode.PreIndex,
+            Op0Reg = regT,
+            MemBase = regN,
+            MemOffset = offset,
+        };
     }
 
     private static Arm64Instruction LoadStoreNoAllocatePairs(uint instruction)
