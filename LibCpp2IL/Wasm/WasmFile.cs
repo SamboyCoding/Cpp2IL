@@ -169,8 +169,9 @@ namespace LibCpp2IL.Wasm
                     add = 0;
                 } else if (disassembled[^1].Mnemonic == WasmMnemonic.End && disassembled[^2].Mnemonic == WasmMnemonic.CallIndirect && disassembled[^3].Mnemonic == WasmMnemonic.LocalGet && (byte) disassembled[^3].Operands[0] == 0)
                 {
+                    //If we're ending with LocalGet 0, CallIndirect, End, then we're *probably* just keeping the same index as was passed in
                     //Tentatively assume we're doing shenanigans only to the params and we don't touch the index
-                    LibLogger.WarnNewline($"\t\tAssuming index is not touched, but couldn't get a proper calculation for dynCall_{signature}. Might cause issues later down the line.");
+                    LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (method ends with LocalGet 0, CallIndirect, End)");
                     andWith = int.MaxValue;
                     add = 0;
                 }
