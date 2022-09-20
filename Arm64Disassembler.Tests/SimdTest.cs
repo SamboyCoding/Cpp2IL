@@ -1,4 +1,5 @@
-﻿using Xunit.Abstractions;
+﻿using Arm64Disassembler.InternalDisassembly;
+using Xunit.Abstractions;
 
 namespace Arm64Disassembler.Tests;
 
@@ -45,5 +46,18 @@ public class SimdTest
         _testOutputHelper.WriteLine(result.ToString());
         
         Assert.Equal(Arm64Mnemonic.FDIV, result.Mnemonic);
+    }
+
+    [Fact]
+    public void TestFp16Scvtf()
+    {
+        var raw = 0x5E21D800U;
+        
+        var result = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.SCVTF, result.Mnemonic);
+        Assert.Equal(Arm64Register.S0, result.Op0Reg);
     }
 }
