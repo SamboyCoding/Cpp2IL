@@ -34,4 +34,16 @@ public class SimdTest
         
         Assert.Equal(Arm64Mnemonic.SCVTF, result.Mnemonic);
     }
+
+    [Fact]
+    public void Test2SourceFp()
+    {
+        var raw = 0x1E201820U;
+        
+        var result = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.FDIV, result.Mnemonic);
+    }
 }

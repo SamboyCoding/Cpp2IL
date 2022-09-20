@@ -99,12 +99,79 @@ public static class Arm64FloatingPoint
         };
     }
 
-    public static Arm64Instruction DataProcessingThreeSource(uint instruction)
+    public static Arm64Instruction DataProcessingOneSource(uint instruction)
     {
         throw new NotImplementedException();
     }
 
-    public static Arm64Instruction DataProcessingOneSource(uint instruction)
+    public static Arm64Instruction DataProcessingTwoSource(uint instruction)
+    {
+        var mFlag = instruction.TestBit(31);
+        var sFlag = instruction.TestBit(29);
+        var pType = (instruction >> 2) & 0b11;
+        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var opcode = (instruction >> 12) & 0b1111;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) (instruction >> 0) & 0b1_1111;
+        
+        
+        if(sFlag)
+            throw new Arm64UndefinedInstructionException("Floating point: Data processing 2-source: S flag is reserved");
+        
+        if(mFlag)
+            throw new Arm64UndefinedInstructionException("Floating point: Data processing 2-source: M flag is reserved");
+        
+        if(opcode.TestPattern(0b1001) || opcode.TestPattern(0b1010) || opcode.TestPattern(0b1100))
+            throw new Arm64UndefinedInstructionException($"Floating point: Data processing 2-source: Reserved opcode used: 0x{opcode:X}");
+        
+        if(pType == 0b10)
+            throw new Arm64UndefinedInstructionException("Floating point: Data processing 2-source: ptype 0b10 is reserved");
+
+        var mnemonic = opcode switch
+        {
+            0b0000 => Arm64Mnemonic.FMUL,
+            0b0001 => Arm64Mnemonic.FDIV,
+            0b0010 => Arm64Mnemonic.FADD,
+            0b0011 => Arm64Mnemonic.FSUB,
+            0b0100 => Arm64Mnemonic.FMAX,
+            0b0101 => Arm64Mnemonic.FMIN,
+            0b0110 => Arm64Mnemonic.FMAXNM,
+            0b0111 => Arm64Mnemonic.FMINNM,
+            0b1000 => Arm64Mnemonic.FNMUL,
+            _ => throw new("Impossible opcode")
+        };
+        
+        //ptype:
+        //0 - single
+        //1 - double
+        //2 - reserved
+        //3 - half
+        
+        var floatingBaseReg = pType switch
+        {
+            0b00 => Arm64Register.S0,
+            0b01 => Arm64Register.D0,
+            0b11 => Arm64Register.H0,
+            _ => throw new("Impossible ptype"),
+        };
+        
+        var regD = floatingBaseReg + rd;
+        var regN = floatingBaseReg + rn;
+        var regM = floatingBaseReg + rm;
+        
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Reg = regM,
+        };
+    }
+
+    public static Arm64Instruction DataProcessingThreeSource(uint instruction)
     {
         throw new NotImplementedException();
     }
@@ -120,11 +187,6 @@ public static class Arm64FloatingPoint
     }
 
     public static Arm64Instruction ConditionalCompare(uint instruction)
-    {
-        throw new NotImplementedException();
-    }
-
-    public static Arm64Instruction DataProcessingTwoSource(uint instruction)
     {
         throw new NotImplementedException();
     }
