@@ -177,8 +177,8 @@ namespace LibCpp2IL
                     //Sanity check the count, which is one pointer back
                     if (pCodegenModules.Count == 1)
                     {
-                        _binary.Position = _binary.MapVirtualAddressToRaw(pCodegenModules.First() - ptrSize);
-                        var moduleCount = _binary.ReadInt32();
+                        _binary.Reader.Position = _binary.MapVirtualAddressToRaw(pCodegenModules.First() - ptrSize);
+                        var moduleCount = _binary.Reader.ReadInt32();
 
                         if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
                             pCodegenModules = new();
