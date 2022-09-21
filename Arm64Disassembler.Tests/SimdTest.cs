@@ -105,4 +105,18 @@ public class SimdTest
         Assert.Equal(Arm64Register.S8, result.Op2Reg);
         Assert.Equal(Arm64ConditionCode.NE, result.FinalOpConditionCode);
     }
+
+    [Fact]
+    public void TestMovi()
+    {
+        var raw = 0x2F00E400U;
+        
+        var result = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.MOVI, result.Mnemonic);
+        Assert.Equal(Arm64Register.D0, result.Op0Reg);
+        Assert.Equal(0, result.Op1Imm);
+    }
 }

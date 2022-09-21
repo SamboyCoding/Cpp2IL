@@ -220,7 +220,7 @@ public static class Arm64DataProcessingRegister
             Op1Reg = regN,
             Op2Reg = regM,
             Op3Imm = shiftAmount,
-            Op3ShiftType = shiftAmount == 0 ? Arm64ShiftType.NONE : shift,
+            FinalOpShiftType = shiftAmount == 0 ? Arm64ShiftType.NONE : shift,
         };
     }
     
@@ -266,7 +266,7 @@ public static class Arm64DataProcessingRegister
             Op1Reg = regN,
             Op2Reg = regM,
             Op3Imm = shift,
-            Op3ExtendType = extendType
+            FinalOpExtendType = extendType
         };
     }
     

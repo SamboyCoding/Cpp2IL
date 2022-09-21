@@ -1,4 +1,6 @@
-﻿namespace Arm64Disassembler.InternalDisassembly;
+﻿using System.Collections;
+
+namespace Arm64Disassembler.InternalDisassembly;
 
 public static class Arm64NonScalarAdvancedSimd
 {
@@ -33,14 +35,14 @@ public static class Arm64NonScalarAdvancedSimd
             if (test == 0b10)
                 return AdvancedSimdPermute(instruction);
         }
-        
-        if((op0 & 0b1011) == 0b10 && !op1Hi && (op2UpperHalf & 1) == 0)
+
+        if ((op0 & 0b1011) == 0b10 && !op1Hi && (op2UpperHalf & 1) == 0)
         {
             if ((op3 & 0b100001) == 0)
                 return AdvancedSimdExtract(instruction);
         }
-        
-        if(op1 == 0 && op2UpperHalf == 0 && (op3 & 0b100001) == 1)
+
+        if (op1 == 0 && op2UpperHalf == 0 && (op3 & 0b100001) == 1)
             return AdvancedSimdCopy(instruction);
 
         //Ok, now all the remaining define op0 as 0xx0 and op1 as 0x so there is no point checking either
@@ -50,8 +52,8 @@ public static class Arm64NonScalarAdvancedSimd
 
         if (op2 == 0b1111 && (op3 & 0b1_1000_0011) == 0b10)
             return AdvancedSimdTwoRegisterMiscFp16(instruction);
-        
-        if((op2UpperHalf & 1) == 0 && (op3 * 0b100001) == 0b100001)
+
+        if ((op2UpperHalf & 1) == 0 && (op3 * 0b100001) == 0b100001)
             return AdvancedSimdThreeRegExtension(instruction);
 
         if (op2 is 0b0100 or 0b1100 && (op3 & 0b110000011) == 0b10)
@@ -74,7 +76,151 @@ public static class Arm64NonScalarAdvancedSimd
 
     private static Arm64Instruction AdvancedSimdModifiedImmediate(uint instruction)
     {
-        throw new NotImplementedException();
+        //Let's play the alphabet game I guess
+        var qFlag = instruction.TestBit(30);
+        var op = instruction.TestBit(29);
+        var abc = (instruction >> 16) & 0b111;
+        var cmode = (instruction >> 12) & 0b1111;
+        var o2 = instruction.TestBit(11);
+        var defgh = (instruction >> 5) & 0b1_1111;
+        var rd = (int)instruction & 0b1_1111;
+
+        var immediate = (long) (abc << 5 | defgh);
+
+        //o2 is basically only valid when paired with !op and cmode == 1111 in which case it indicates a variant of fmov
+        //conversely, if op is set and cmode is 1111 then this is only valid if o2 is set.
+
+        if (op && o2)
+            throw new Arm64UndefinedInstructionException("Advanced SIMD: modified immediate: op == 1 and o2 == 1");
+
+        if (!qFlag && op && cmode == 0b1111 && !o2)
+            throw new Arm64UndefinedInstructionException("Advanced SIMD: modified immediate: q == 0, op == 1, cmode == 1111 and o2 == 0");
+
+        if (!op && o2 && !cmode.TestBit(3))
+            throw new Arm64UndefinedInstructionException("Advanced SIMD: modified immediate: op == 0, o2 == 1 and high bit of cmode not set");
+
+        if (!op && o2 && cmode.TestPattern(0b1100, 0b1000))
+            throw new Arm64UndefinedInstructionException("Advanced SIMD: modified immediate: op == 0, o2 == 1 and cmode matches 10xx");
+
+        if (!op && o2 && cmode.TestPattern(0b1110, 0b1100))
+            throw new Arm64UndefinedInstructionException("Advanced SIMD: modified immediate: op == 0, o2 == 1 and cmode matches 110x");
+
+        //That's all the undefined cases, now for the actual decoding
+        //There's only really 5 different mnemonics (movi, orr, fmov, mvni, bic) but they seem to follow no pattern
+        //for movi, op indicates shifted (0) vs not shifted (1)
+        //when not shifted, q indicates scalar (0) vs vector (1)
+        //mvni is always shifted
+
+        //easiest is just to brute force this to be honest
+
+        Arm64ArrangementSpecifier arrangement;
+
+        if (cmode == 0b1111)
+        {
+            //Some variant of FMOV
+            //Either:
+            //  op         => (vector, imm), double precision
+            //  !op && !o2 => (vector, imm), single precision
+            //  !op && o2  => (vector, imm), half precision
+
+            arrangement = op
+                ? Arm64ArrangementSpecifier.TwoD //Double precision
+                : o2
+                    ? qFlag ? Arm64ArrangementSpecifier.EightH : Arm64ArrangementSpecifier.FourH //Half precision
+                    : qFlag
+                        ? Arm64ArrangementSpecifier.FourS
+                        : Arm64ArrangementSpecifier.TwoS; //Single precision
+
+            var convertedImmediate = Arm64CommonUtils.AdvancedSimdExpandImmediate(op, (byte)cmode, (byte) immediate);
+            
+            return new()
+            {
+                Mnemonic = Arm64Mnemonic.FMOV,
+                Op0Kind = Arm64OperandKind.Register,
+                Op0Reg = Arm64Register.V0 + rd,
+                Op0Arrangement = arrangement,
+                Op1Kind = Arm64OperandKind.Immediate,
+                Op1Imm = (long)convertedImmediate,
+            };
+        }
+
+        Arm64Mnemonic mnemonic;
+        int shiftAmount;
+        var baseReg = Arm64Register.V0;
+
+        if (!op)
+        {
+            //movi
+            if (cmode.TestPattern(0b1001, 0))
+                //32-bit shifted imm
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MOVI, qFlag ? Arm64ArrangementSpecifier.FourS : Arm64ArrangementSpecifier.TwoS, 8 * (int) ((cmode >> 1) & 0b11)); //0/8/16/24
+            else if (cmode.TestPattern(0b1101, 0b1000))
+                //16-bit shifted imm
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MOVI, qFlag ? Arm64ArrangementSpecifier.EightH : Arm64ArrangementSpecifier.FourH, cmode.TestBit(1) ? 8 : 0);
+            else if (cmode.TestPattern(0b1110, 0b1100))
+                //32-bit shifting ones
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MOVI, qFlag ? Arm64ArrangementSpecifier.FourS : Arm64ArrangementSpecifier.TwoS, cmode.TestBit(0) ? 16 : 8);
+            else if (cmode == 0b1110)
+                //8-bit
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MOVI, qFlag ? Arm64ArrangementSpecifier.SixteenB : Arm64ArrangementSpecifier.EightB, 0);
+            //orr
+            else if (cmode.TestPattern(0b1001, 0b0001))
+                //32-bit
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.ORR, qFlag ? Arm64ArrangementSpecifier.FourS : Arm64ArrangementSpecifier.TwoS, 8 * (int) ((cmode >> 1) & 0b11)); //0/8/16/24
+            else if (cmode.TestPattern(0b1101, 0b1001))
+                //16-bit
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.ORR, qFlag ? Arm64ArrangementSpecifier.EightH : Arm64ArrangementSpecifier.FourH, cmode.TestBit(1) ? 8 : 0);
+            else
+                throw new("Impossible cmode");
+        }
+        else
+        {
+            //mvni
+            if (cmode.TestPattern(0b1001, 0))
+                //32-bit shifted imm
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MVNI, qFlag ? Arm64ArrangementSpecifier.FourS : Arm64ArrangementSpecifier.TwoS, 8 * (int) ((cmode >> 1) & 0b11)); //0/8/16/24
+            else if (cmode.TestPattern(0b1101, 0b1000))
+                //16-bit shifted imm
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MVNI, qFlag ? Arm64ArrangementSpecifier.EightH : Arm64ArrangementSpecifier.FourH, cmode.TestBit(1) ? 8 : 0);
+            else if (cmode.TestPattern(0b1110, 0b1100))
+                //32-bit shifting ones
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MVNI, qFlag ? Arm64ArrangementSpecifier.FourS : Arm64ArrangementSpecifier.TwoS, cmode.TestBit(0) ? 16 : 8);
+            //bic
+            else if (cmode.TestPattern(0b1001, 0b0001))
+                //32-bit
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.BIC, qFlag ? Arm64ArrangementSpecifier.FourS : Arm64ArrangementSpecifier.TwoS, 8 * (int) ((cmode >> 1) & 0b11)); //0/8/16/24
+            else if (cmode.TestPattern(0b1101, 0b1001))
+                //16-bit
+                (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.BIC, qFlag ? Arm64ArrangementSpecifier.EightH : Arm64ArrangementSpecifier.FourH, cmode.TestBit(1) ? 8 : 0);
+            //movi
+            else if (cmode == 0b1110)
+            {
+                immediate = (long) Arm64CommonUtils.AdvancedSimdExpandImmediate(op, (byte)cmode, (byte) immediate);
+                if (qFlag)
+                    (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MOVI, Arm64ArrangementSpecifier.TwoD, 0);
+                else
+                {
+                    //64-bit scalar
+                    baseReg = Arm64Register.D0;
+                    (mnemonic, arrangement, shiftAmount) = (Arm64Mnemonic.MOVI, Arm64ArrangementSpecifier.None, 0);
+                }
+            }
+            else
+                throw new("Impossible cmode");
+        }
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op0Reg = baseReg + rd,
+            Op0Arrangement = arrangement,
+            Op1Kind = Arm64OperandKind.Immediate,
+            Op1Imm = immediate,
+            Op2Kind = shiftAmount > 0 ? Arm64OperandKind.Immediate : Arm64OperandKind.None,
+            Op2Imm = shiftAmount,
+            Op2ShiftType = shiftAmount > 0 ? Arm64ShiftType.LSL : Arm64ShiftType.NONE,
+        };
     }
 
     private static Arm64Instruction AdvancedSimdShiftByImmediate(uint instruction)
@@ -137,12 +283,12 @@ public static class Arm64NonScalarAdvancedSimd
         var q = instruction.TestBit(30);
         var u = instruction.TestBit(29);
         var size = (instruction >> 22) & 0b11;
-        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var rm = (int)(instruction >> 16) & 0b1_1111;
         var opcode = (instruction >> 12) & 0b1111;
-        var rn = (int) (instruction >> 5) & 0b1_1111;
-        var rd = (int) instruction & 0b1_1111;
-        
-        if(opcode == 0b1111)
+        var rn = (int)(instruction >> 5) & 0b1_1111;
+        var rd = (int)instruction & 0b1_1111;
+
+        if (opcode == 0b1111)
             throw new Arm64UndefinedInstructionException("AdvancedSimdThreeSame: opcode == 1111");
 
         if (size == 0b11)
@@ -256,10 +402,10 @@ public static class Arm64NonScalarAdvancedSimd
         var q = instruction.TestBit(30);
         var u = instruction.TestBit(29);
         var size = (instruction >> 22) & 0b11;
-        var rm = (int) ((instruction >> 16) & 0b1_1111);
+        var rm = (int)((instruction >> 16) & 0b1_1111);
         var opcode = (instruction >> 11) & 0b1_1111;
-        var rn = (int) ((instruction >> 5) & 0b1_1111);
-        var rd = (int) (instruction & 0b1_1111);
+        var rn = (int)((instruction >> 5) & 0b1_1111);
+        var rd = (int)(instruction & 0b1_1111);
 
         var sizeHi = size.TestBit(1);
 
@@ -358,7 +504,8 @@ public static class Arm64NonScalarAdvancedSimd
                 0b10 => Arm64ArrangementSpecifier.TwoS,
                 _ => throw new("Impossible size")
             };
-        } else if (opcode == 0b11101)
+        }
+        else if (opcode == 0b11101)
         {
             throw new NotImplementedException();
         }

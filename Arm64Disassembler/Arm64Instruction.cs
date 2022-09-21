@@ -35,10 +35,14 @@ public struct Arm64Instruction
         //These lines are the ONLY reason this constructor needs to exist because they define 0 as a valid value.
         MnemonicConditionCode = Arm64ConditionCode.NONE;
         FinalOpConditionCode = Arm64ConditionCode.NONE;
-        Op3ExtendType = Arm64ExtendType.NONE;
-        Op3ShiftType = Arm64ShiftType.NONE;
+        FinalOpExtendType = Arm64ExtendType.NONE;
+        FinalOpShiftType = Arm64ShiftType.NONE;
         MemExtendType = Arm64ExtendType.NONE;
         MemShiftType = Arm64ShiftType.NONE;
+        Op0ShiftType = Arm64ShiftType.NONE;
+        Op1ShiftType = Arm64ShiftType.NONE;
+        Op2ShiftType = Arm64ShiftType.NONE;
+        Op3ShiftType = Arm64ShiftType.NONE;
     }
 
     public ulong Address { get; internal set; }
@@ -62,6 +66,10 @@ public struct Arm64Instruction
     public Arm64ArrangementSpecifier Op1Arrangement { get; internal set; }
     public Arm64ArrangementSpecifier Op2Arrangement { get; internal set; }
     public Arm64ArrangementSpecifier Op3Arrangement { get; internal set; }
+    public Arm64ShiftType Op0ShiftType { get; internal set; }
+    public Arm64ShiftType Op1ShiftType { get; internal set; }
+    public Arm64ShiftType Op2ShiftType { get; internal set; }
+    public Arm64ShiftType Op3ShiftType { get; internal set; }
 
     public Arm64Register MemBase { get; internal set; }
     public Arm64Register MemAddendReg { get; internal set; }
@@ -71,8 +79,8 @@ public struct Arm64Instruction
     public Arm64ShiftType MemShiftType { get; internal set; }
     public int MemExtendOrShiftAmount { get; internal set; }
     
-    public Arm64ExtendType Op3ExtendType { get; internal set; }
-    public Arm64ShiftType Op3ShiftType { get; internal set; }
+    public Arm64ExtendType FinalOpExtendType { get; internal set; }
+    public Arm64ShiftType FinalOpShiftType { get; internal set; }
     public Arm64ConditionCode FinalOpConditionCode { get; internal set; }
     
     public ulong BranchTarget => Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL 
@@ -94,27 +102,27 @@ public struct Arm64Instruction
         sb.Append(' ');
 
         //Ew yes I'm using goto.
-        if (!AppendOperand(sb, Op0Kind, Op0Reg, Op0Arrangement, Op0Imm))
+        if (!AppendOperand(sb, Op0Kind, Op0Reg, Op0Arrangement, Op1ShiftType, Op0Imm))
             goto doneops;
-        if (!AppendOperand(sb, Op1Kind, Op1Reg, Op1Arrangement, Op1Imm, true))
+        if (!AppendOperand(sb, Op1Kind, Op1Reg, Op1Arrangement, Op1ShiftType, Op1Imm, true))
             goto doneops;
-        if (!AppendOperand(sb, Op2Kind, Op2Reg, Op2Arrangement, Op2Imm, true))
+        if (!AppendOperand(sb, Op2Kind, Op2Reg, Op2Arrangement, Op1ShiftType, Op2Imm, true))
             goto doneops;
-        if (!AppendOperand(sb, Op3Kind, Op3Reg, Op3Arrangement, Op3Imm, true))
+        if (!AppendOperand(sb, Op3Kind, Op3Reg, Op3Arrangement, Op1ShiftType, Op3Imm, true))
             goto doneops;
         
         doneops:
-        if (Op3ExtendType != Arm64ExtendType.NONE)
-            sb.Append(", ").Append(Op3ExtendType);
-        else if (Op3ShiftType != Arm64ShiftType.NONE)
-            sb.Append(", ").Append(Op3ShiftType);
+        if (FinalOpExtendType != Arm64ExtendType.NONE)
+            sb.Append(", ").Append(FinalOpExtendType);
+        else if (FinalOpShiftType != Arm64ShiftType.NONE)
+            sb.Append(", ").Append(FinalOpShiftType);
         else if (FinalOpConditionCode != Arm64ConditionCode.NONE)
             sb.Append(", ").Append(FinalOpConditionCode);
 
         return sb.ToString();
     }
 
-    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, Arm64ArrangementSpecifier regArrangement, long imm, bool comma = false)
+    private bool AppendOperand(StringBuilder sb, Arm64OperandKind kind, Arm64Register reg, Arm64ArrangementSpecifier regArrangement, Arm64ShiftType shiftType, long imm, bool comma = false)
     {
         if (kind == Arm64OperandKind.None)
             return false;
@@ -130,7 +138,11 @@ public struct Arm64Instruction
                 sb.Append('.').Append(regArrangement.ToDisassemblyString());
         }
         else if (kind == Arm64OperandKind.Immediate)
+        {
+            if (shiftType != Arm64ShiftType.NONE)
+                sb.Append(shiftType).Append(' ');
             sb.Append("0x").Append(imm.ToString("X"));
+        }
         else if(kind == Arm64OperandKind.ImmediatePcRelative)
             sb.Append("0x").Append(((long) Address + imm).ToString("X"));
         else if (kind == Arm64OperandKind.Memory) 

@@ -175,4 +175,115 @@ public static class Arm64CommonUtils
 
         return (BitsToLong(wMask), BitsToLong(tMask));
     }
+
+    /// <summary>
+    /// Expands the immediate value used in Advanced SIMD instructions.
+    /// </summary>
+    /// <param name="op">The op flag from the instruction</param>
+    /// <param name="cmode">The 4-bit cmode field from the instruction</param>
+    /// <param name="imm">The 8-bit immediate value as encoded in the instruction as a:b:c:d:e:f:g:h</param>
+    public static ulong AdvancedSimdExpandImmediate(bool op, byte cmode, byte imm)
+    {
+        switch (cmode >> 1)
+        {
+            case 0b000:
+            {
+                // (Zeroes(24):imm8) twice
+                var tmp = (uint)imm;
+                return tmp & (ulong)tmp << 32;
+            }
+            case 0b001:
+            {
+                // (Zeroes(16):imm8:Zeroes(8)) twice
+                var tmp = (uint) imm << 8;
+                return tmp & (ulong)tmp << 32;
+            }
+            case 0b010:
+            {
+                // (Zeroes(8):imm8:Zeroes(16)) twice
+                var tmp = (uint) imm << 16;
+                return tmp & (ulong)tmp << 32;
+            }
+            case 0b011:
+            {
+                // (imm8:Zeroes(24)) twice
+                var tmp = (uint) imm << 24;
+                return tmp & (ulong)tmp << 32;
+            }
+            case 0b100:
+            {
+                // (Zeroes(8):imm8) four times
+                var tmp = (ushort) imm;
+                return tmp & (ulong)tmp << 16 & (ulong)tmp << 32 & (ulong)tmp << 48;
+            }
+            case 0b101:
+            {
+                // (imm8:Zeroes(8)) four times
+                var tmp = (ushort) (imm << 8);
+                return tmp & (ulong)tmp << 16 & (ulong)tmp << 32 & (ulong)tmp << 48;
+            }
+            case 0b110:
+            {
+                //Check low bit of cmode
+                if ((cmode & 1) == 0)
+                {
+                    // (Zeroes(16):imm8:Ones(8)) twice
+                    var tmp = (uint) imm << 8 | 0xFF;
+                    return tmp & (ulong)tmp << 32;
+                }
+                    
+                // (Zeroes(8):imm8:Ones(16)) twice
+                var tmp2 = (uint) imm << 16 | 0xFFFF;
+                return tmp2 & (ulong)tmp2 << 32;
+            }
+            case 0b111:
+            {
+                var cmodeLow = (cmode & 1) == 1;
+                if (!cmodeLow && !op)
+                {
+                    // (imm8) eight times
+                    return imm & (ulong)imm << 8 & (ulong)imm << 16 & (ulong)imm << 24 & (ulong)imm << 32 & (ulong)imm << 40 & (ulong)imm << 48 & (ulong)imm << 56;
+                }
+
+                if (!cmodeLow && op)
+                {
+                    // for each of the 8 bits in the imm, repeat that bit 8 times, then concatenate the results
+                    var tmp = 0ul;
+                    for (var i = 0; i < 8; i++)
+                    {
+                        var bit = ((imm >> i) & 1) == 1;
+                        tmp |= (ulong)(bit ? 0xFF : 0) << (i * 8);
+                    }
+
+                    return tmp;
+                }
+                
+                // given that imm8 is abcdefgh, and uppercasing a letter inverts it, create aBbbbbbcdefgh (13 bits)
+                var b = (imm & 0b0100_0000U) >> 6;
+                var a = (imm & 0b1000_0000U) >> 7;
+                var notB = b == 0 ? 1U : 0U;
+                var cdefgh = imm & 0b0011_1111U;
+                var bbbbb = b << 4 | b << 3 | b << 2 | b << 1 | b;
+                var bitString = (a << 12) | (notB << 11) | (bbbbb << 6) | cdefgh; //aBbbbbbcdefgh
+
+                if (cmodeLow && !op)
+                {
+                    //add 19 0s, then repeat it twice
+                    bitString <<= 19; //append 19 0s
+                    return bitString & (ulong)bitString << 32; //repeat twice
+                }
+                
+                //last mode (cmodeLow && op): modify bitString a bit by inserting 3*b between b and c to make it 16-bit, then append 48 0s
+                bitString = bitString >> 6 //discard cdefgh
+                    << 3 //make room for 3*b
+                    | (b << 2) | (b << 1) | b //insert 3*b
+                    << 6 //make room for cdefgh
+                    | cdefgh; //append cdefgh
+
+                return (ulong) bitString << 48; //append 48 0s
+            }
+            default:
+                throw new ArgumentException(nameof(cmode));
+        }
+    }
 }
