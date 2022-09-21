@@ -401,7 +401,114 @@ public static class Arm64LoadsStores
 
     private static Arm64Instruction LoadStoreRegisterFromRegisterOffset(uint instruction)
     {
-        throw new NotImplementedException();
+        var size = (instruction >> 30) & 0b11; //Bits 30-31
+        var isVector = instruction.TestBit(26);
+        var opc = (instruction >> 22) & 0b11; //Bits 22-23
+        var rm = (int)(instruction >> 16) & 0b1_1111; //Bits 16-20
+        var option = (instruction >> 13) & 0b111; //Bits 13-15
+        var sFlag = instruction.TestBit(12);
+        var rn = (int)(instruction >> 5) & 0b1_1111; //Bits 5-9
+        var rt = (int)(instruction & 0b1_1111); //Bits 0-4
+        
+        var mnemonic = opc switch
+        {
+            0b00 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.STRB,
+                0b01 when !isVector => Arm64Mnemonic.STRH,
+                0b10 or 0b11 when !isVector => Arm64Mnemonic.STR,
+                _ when isVector => Arm64Mnemonic.STR,
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b01 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDRB,
+                0b01 when !isVector => Arm64Mnemonic.LDRH,
+                0b10 or 0b11 when !isVector => Arm64Mnemonic.LDR,
+                _ when isVector => Arm64Mnemonic.LDR,
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b10 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDRSB, //64-bit variant
+                0b01 when !isVector => Arm64Mnemonic.LDRSH, //64-bit variant
+                0b10 when !isVector => Arm64Mnemonic.LDRSW,
+                0b11 when !isVector => Arm64Mnemonic.PRFM,
+                0b00 when isVector => Arm64Mnemonic.STR, 
+                _ when isVector => throw new Arm64UndefinedInstructionException("Load/store register from register offset: opc 0b10 unallocated for vectors when size > 0"),
+                _ => throw new($"Impossible size: {size}")
+            },
+            0b11 => size switch
+            {
+                0b00 when !isVector => Arm64Mnemonic.LDRSB, //32-bit variant
+                0b01 when !isVector => Arm64Mnemonic.LDRSH, //32-bit variant
+                0b00 when isVector => Arm64Mnemonic.LDR, //128-bit load
+                0b10 or 0b11 => throw new Arm64UndefinedInstructionException("Load/store register from register offset: opc 0b11 unallocated for size 0b1x"),
+                _ when isVector => throw new Arm64UndefinedInstructionException("Load/store register from register offset: opc 0b11 unallocated for vectors when size > 0"),
+                _ => throw new($"Impossible size: {size}")
+            },
+            _ => throw new("Impossible opc value")
+        };
+
+        var isShiftedRegister = option == 0b011;
+        
+        if (mnemonic == Arm64Mnemonic.PRFM)
+            throw new NotImplementedException("If you're seeing this, reach out, because PRFM is not implemented.");
+
+        var baseReg = mnemonic switch
+        {
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR when isVector && opc is 0 => size switch
+            {
+                0 => Arm64Register.B0,
+                1 => Arm64Register.H0,
+                2 => Arm64Register.S0,
+                3 => Arm64Register.D0,
+                _ => throw new("Impossible size")
+            },
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR when isVector => Arm64Register.V0, //128-bit vector
+            Arm64Mnemonic.STRB or Arm64Mnemonic.LDRB or Arm64Mnemonic.STRH or Arm64Mnemonic.LDRH => Arm64Register.W0,
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR when size is 0b10 => Arm64Register.W0,
+            Arm64Mnemonic.STR or Arm64Mnemonic.LDR => Arm64Register.X0,
+            Arm64Mnemonic.LDRSH when opc is 0b10 => Arm64Register.X0,
+            Arm64Mnemonic.LDRSH => Arm64Register.W0,
+            Arm64Mnemonic.LDRSW => Arm64Register.X0,
+            _ => throw new("Impossible mnemonic")
+        };
+
+        var secondReg64Bit = option.TestBit(0);
+        var secondRegBase = secondReg64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        var extendKind = (Arm64ExtendType)option;
+        //Extended register: Mnemonic Wt, [Xn, Xm|Wm, ExtendKind Amount]
+        //Shifted register: Mnemonic Wt, [Xn, Xm|Wm, LSL Amount]
+
+        var shiftAmount = 0;
+        if (sFlag && isShiftedRegister)
+        {
+            //Shift set, amount is size-dependent
+            shiftAmount = size switch
+            {
+                0b00 when isVector && opc == 0b11 => 4, //128-bit variant
+                0b00 => 0, //8-bit variant, vector or otherwise
+                0b01 => 1,
+                0b10 => 2,
+                0b11 => 3,
+                _ => throw new("Impossible size")
+            };
+        }
+        
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Memory,
+            Op0Reg = baseReg + rt,
+            MemBase = Arm64Register.X0 + rn,
+            MemAddendReg = secondRegBase + rm,
+            MemIsPreIndexed = false,
+            MemExtendType = isShiftedRegister ? Arm64ExtendType.NONE : extendKind,
+            MemShiftType = isShiftedRegister ? Arm64ShiftType.LSL : Arm64ShiftType.NONE,
+            MemExtendOrShiftAmount = shiftAmount,
+        };
     }
 
     private static Arm64Instruction LoadStoreRegisterFromPac(uint instruction)

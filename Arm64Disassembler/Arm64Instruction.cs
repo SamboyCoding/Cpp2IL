@@ -27,14 +27,18 @@ public struct Arm64Instruction
         Op2Arrangement = Arm64ArrangementSpecifier.None;
         Op3Arrangement = Arm64ArrangementSpecifier.None;
         MemBase = Arm64Register.INVALID;
+        MemAddendReg = Arm64Register.INVALID;
         MemIsPreIndexed = false;
         MemOffset = 0;
+        MemExtendOrShiftAmount = 0;
         
         //These lines are the ONLY reason this constructor needs to exist because they define 0 as a valid value.
         MnemonicConditionCode = Arm64ConditionCode.NONE;
         FinalOpConditionCode = Arm64ConditionCode.NONE;
         Op3ExtendType = Arm64ExtendType.NONE;
         Op3ShiftType = Arm64ShiftType.NONE;
+        MemExtendType = Arm64ExtendType.NONE;
+        MemShiftType = Arm64ShiftType.NONE;
     }
 
     public ulong Address { get; internal set; }
@@ -60,8 +64,12 @@ public struct Arm64Instruction
     public Arm64ArrangementSpecifier Op3Arrangement { get; internal set; }
 
     public Arm64Register MemBase { get; internal set; }
+    public Arm64Register MemAddendReg { get; internal set; }
     public bool MemIsPreIndexed { get; internal set; }
     public long MemOffset { get; internal set; }
+    public Arm64ExtendType MemExtendType { get; internal set; }
+    public Arm64ShiftType MemShiftType { get; internal set; }
+    public int MemExtendOrShiftAmount { get; internal set; }
     
     public Arm64ExtendType Op3ExtendType { get; internal set; }
     public Arm64ShiftType Op3ShiftType { get; internal set; }
@@ -134,6 +142,9 @@ public struct Arm64Instruction
     private void AppendMemory(StringBuilder sb)
     {
         sb.Append('[').Append(MemBase.ToString());
+        
+        if(MemAddendReg != Arm64Register.INVALID)
+            sb.Append(", ").Append(MemAddendReg.ToString());
 
         if (MemOffset != 0)
         {
@@ -142,6 +153,14 @@ public struct Arm64Instruction
                 .Append(" 0x")
                 .Append(Math.Abs(MemOffset).ToString("X"));
         }
+        
+        if(MemExtendType != Arm64ExtendType.NONE)
+            sb.Append(", ").Append(MemExtendType.ToString());
+        else if(MemShiftType != Arm64ShiftType.NONE)
+            sb.Append(", ").Append(MemShiftType.ToString());
+        
+        if(MemExtendOrShiftAmount != 0)
+            sb.Append(" #").Append(MemExtendOrShiftAmount);
 
         sb.Append(']');
 

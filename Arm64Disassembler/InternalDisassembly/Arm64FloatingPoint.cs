@@ -247,7 +247,7 @@ public static class Arm64FloatingPoint
         var sFlag = instruction.TestBit(29);
         var pType = (instruction >> 22) & 0b11;
         var rm = (int) (instruction >> 16) & 0b1_1111;
-        var op = (instruction >> 14) & 0b1111;
+        var op = (instruction >> 14) & 0b11;
         var rn = (int) (instruction >> 5) & 0b1_1111;
         var opcode2 = instruction & 0b1_1111;
         
