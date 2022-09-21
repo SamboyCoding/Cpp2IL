@@ -48,6 +48,7 @@ public enum Arm64Mnemonic
     FCMEQ,
     FCMP,
     FCMPE,
+    FCSEL,
     FCVT,
     FCVTMS,
     FCVTNS,

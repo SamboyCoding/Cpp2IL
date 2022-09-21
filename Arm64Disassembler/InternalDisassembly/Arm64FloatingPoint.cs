@@ -320,6 +320,47 @@ public static class Arm64FloatingPoint
 
     public static Arm64Instruction ConditionalSelect(uint instruction)
     {
-        throw new NotImplementedException();
+        var mFlag = instruction.TestBit(31);
+        var sFlag = instruction.TestBit(29);
+        var pType = (instruction >> 22) & 0b11;
+        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var cond = (instruction >> 12) & 0b1111;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var rd = (int) instruction & 0b1_1111;
+        
+        if(sFlag)
+            throw new Arm64UndefinedInstructionException("Floating point: Conditional select: S flag is reserved");
+        
+        if(mFlag)
+            throw new Arm64UndefinedInstructionException("Floating point: Conditional select: M flag is reserved");
+        
+        if(pType == 0b10)
+            throw new Arm64UndefinedInstructionException("Floating point: Conditional select: ptype 0b10 is reserved");
+        
+        var baseReg = pType switch
+        {
+            0b00 => Arm64Register.S0,
+            0b01 => Arm64Register.D0,
+            0b11 => Arm64Register.H0,
+            _ => throw new("Impossible ptype"),
+        };
+        
+        var regD = baseReg + rd;
+        var regN = baseReg + rn;
+        var regM = baseReg + rm;
+
+        var condition = (Arm64ConditionCode)cond;
+
+        return new()
+        {
+            Mnemonic = Arm64Mnemonic.FCSEL,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op2Kind = Arm64OperandKind.Register,
+            Op0Reg = regD,
+            Op1Reg = regN,
+            Op2Reg = regM,
+            FinalOpConditionCode = condition,
+        };
     }
 }

@@ -89,4 +89,20 @@ public class SimdTest
         Assert.Equal(Arm64Register.D0, result.Op0Reg);
         Assert.Equal(Arm64Register.D1, result.Op1Reg);
     }
+
+    [Fact]
+    public void TestFcsel()
+    {
+        var raw = 0x1E281C00U;
+        
+        var result = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.FCSEL, result.Mnemonic);
+        Assert.Equal(Arm64Register.S0, result.Op0Reg);
+        Assert.Equal(Arm64Register.S0, result.Op1Reg);
+        Assert.Equal(Arm64Register.S8, result.Op2Reg);
+        Assert.Equal(Arm64ConditionCode.NE, result.FinalOpConditionCode);
+    }
 }
