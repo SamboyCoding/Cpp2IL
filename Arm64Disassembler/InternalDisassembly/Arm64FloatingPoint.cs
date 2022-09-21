@@ -101,14 +101,79 @@ public static class Arm64FloatingPoint
 
     public static Arm64Instruction DataProcessingOneSource(uint instruction)
     {
-        throw new NotImplementedException();
+        var mFlag = instruction.TestBit(31);
+        var sFlag = instruction.TestBit(29);
+        var ptype = (instruction >> 22) & 0b11;
+        var opcode = (instruction >> 15) & 0b11_1111;
+        var rn = (int) (instruction >> 5) & 0b11111;
+        var rd = (int) (instruction >> 0) & 0b11111;
+        
+        if (mFlag)
+            throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): M is reserved");
+        
+        if(sFlag)
+            throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): S is reserved");
+        
+        if(opcode.TestBit(5))
+            throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): top bit of opcode is reserved");
+        
+        if(ptype == 0b11 && opcode > 0b1111)
+            throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): ptype 0b11 only allowed with opcode 0b0000 to 0b1111");
+        
+        if(ptype == 0b10)
+            throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): ptype 0b10 is reserved");
+
+        var mnemonic = opcode switch
+        {
+            0b000000 => Arm64Mnemonic.FMOV,
+            0b000001 => Arm64Mnemonic.FABS,
+            0b000010 => Arm64Mnemonic.FNEG,
+            0b000011 => Arm64Mnemonic.FSQRT,
+            0b000100 => throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): opcode 0b000100 is reserved"),
+            0b000101 => Arm64Mnemonic.FCVT,
+            0b000110 => throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): opcode 0b000110 is reserved"),
+            0b000111 => Arm64Mnemonic.FCVT,
+            0b001000 => Arm64Mnemonic.FRINTN,
+            0b001001 => Arm64Mnemonic.FRINTP,
+            0b001010 => Arm64Mnemonic.FRINTM,
+            0b001011 => Arm64Mnemonic.FRINTZ,
+            0b001100 => Arm64Mnemonic.FRINTA,
+            0b001101 => throw new Arm64UndefinedInstructionException("Floating-point data-processing (1 source): opcode 0b001101 is reserved"),
+            0b001110 => Arm64Mnemonic.FRINTX,
+            0b001111 => Arm64Mnemonic.FRINTI,
+            0b010000 => Arm64Mnemonic.FRINT32Z,
+            0b010001 => Arm64Mnemonic.FRINT32X,
+            0b010010 => Arm64Mnemonic.FRINT64Z,
+            0b010011 => Arm64Mnemonic.FRINT64X,
+            _ => throw new Arm64UndefinedInstructionException($"Floating-point data-processing (1 source): opcode 0x{opcode:X2} is reserved")
+        };
+        
+        var baseReg = ptype switch
+        {
+            0b00 => Arm64Register.S0,
+            0b01 => Arm64Register.D0,
+            0b11 => Arm64Register.H0,
+            _ => throw new("Impossible ptype"),
+        };
+        
+        var regD = baseReg + rd;
+        var regN = baseReg + rn;
+
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op0Reg = regD,
+            Op1Reg = regN,
+        };
     }
 
     public static Arm64Instruction DataProcessingTwoSource(uint instruction)
     {
         var mFlag = instruction.TestBit(31);
         var sFlag = instruction.TestBit(29);
-        var pType = (instruction >> 2) & 0b11;
+        var pType = (instruction >> 22) & 0b11;
         var rm = (int) (instruction >> 16) & 0b1_1111;
         var opcode = (instruction >> 12) & 0b1111;
         var rn = (int) (instruction >> 5) & 0b1_1111;

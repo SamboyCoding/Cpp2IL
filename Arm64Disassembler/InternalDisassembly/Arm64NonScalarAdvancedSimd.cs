@@ -318,6 +318,7 @@ public static class Arm64NonScalarAdvancedSimd
                 0b11110 => Arm64Mnemonic.FMIN,
                 0b11111 when !sizeHi => Arm64Mnemonic.FRECPS,
                 0b11111 => Arm64Mnemonic.FRSQRTS,
+                _ => throw new("Impossible opcode")
             };
 
         //Three groups of arrangements based on how much of size is used

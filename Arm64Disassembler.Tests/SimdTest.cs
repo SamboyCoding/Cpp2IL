@@ -75,4 +75,18 @@ public class SimdTest
         Assert.Equal(Arm64Register.D1, result.Op0Reg);
         Assert.Equal(Arm64Register.D0, result.Op1Reg);
     }
+
+    [Fact]
+    public void TestFsqrt()
+    {
+        var raw = 0x1E61C020U;
+        
+        var result = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.FSQRT, result.Mnemonic);
+        Assert.Equal(Arm64Register.D0, result.Op0Reg);
+        Assert.Equal(Arm64Register.D1, result.Op1Reg);
+    }
 }
