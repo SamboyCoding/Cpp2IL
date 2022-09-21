@@ -23,6 +23,8 @@ public enum Arm64Mnemonic
     BR,
     CBNZ,
     CBZ,
+    CCMN,
+    CCMP,
     CINC,
     CMGE,
     CMGT,

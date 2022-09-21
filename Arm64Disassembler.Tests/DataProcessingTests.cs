@@ -36,4 +36,22 @@ public class DataProcessingTests
         
         Assert.Equal(Arm64Mnemonic.SDIV, insn.Mnemonic);
     }
+
+    [Fact]
+    public void ConditionalCompareImmediate()
+    {
+        //(ccmp)
+
+        var raw = 0x7A49B102U;
+        
+        var insn = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(insn.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.CCMP, insn.Mnemonic);
+        Assert.Equal(Arm64Register.W8, insn.Op0Reg);
+        Assert.Equal(Arm64Register.W9, insn.Op1Reg);
+        Assert.Equal(2, insn.Op2Imm);
+        Assert.Equal(Arm64ConditionCode.LT, insn.FinalOpConditionCode);
+    }
 }

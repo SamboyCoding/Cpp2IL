@@ -31,8 +31,8 @@ public static class Arm64DataProcessingRegister
             0b0000 when op3 == 0 => AddSubtractWithCarry(instruction),
             0b0000 when op3 is 0b100001 or 0b000001 => RotateRightIntoFlags(instruction),
             0b0000 when (op3 & 0b1111) == 0b0010 => EvaluateIntoFlags(instruction),
-            0b0010 when op3.TestBit(1) => ConditionalCompareRegister(instruction),
-            0b0010 => ConditionalCompareImmediate(instruction),
+            0b0010 when op3.TestBit(1) => ConditionalCompare(instruction, false),
+            0b0010 => ConditionalCompare(instruction, true),
             0b0100 => ConditionalSelect(instruction),
             _ => DataProcessing3Source(instruction)
         };
@@ -284,15 +284,40 @@ public static class Arm64DataProcessingRegister
     {
         throw new NotImplementedException();
     }
-    
-    private static Arm64Instruction ConditionalCompareRegister(uint instruction)
+
+    private static Arm64Instruction ConditionalCompare(uint instruction, bool secondOpIsReg)
     {
-        throw new NotImplementedException();
-    }
-    
-    private static Arm64Instruction ConditionalCompareImmediate(uint instruction)
-    {
-        throw new NotImplementedException();
+        var is64Bit = instruction.TestBit(31);
+        var op = instruction.TestBit(30);
+        var sFlag = instruction.TestBit(29);
+        var imm5 = (instruction >> 16) & 0b1_1111;
+        var cond = (Arm64ConditionCode) ((instruction >> 12) & 0b1111);
+        var o2 = instruction.TestBit(10);
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var o3 = instruction.TestBit(4);
+        var nzcv = instruction & 0b1111;
+        
+        if(!sFlag)
+            throw new Arm64UndefinedInstructionException("ConditionalCompareImmediate: sFlag == 0");
+        
+        if(o2 || o3)
+            throw new Arm64UndefinedInstructionException("ConditionalCompareImmediate: o2 or o3 is set");
+        
+        var mnemonic = op ? Arm64Mnemonic.CCMP : Arm64Mnemonic.CCMN;
+        var baseReg = is64Bit ? Arm64Register.X0 : Arm64Register.W0;
+        
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = secondOpIsReg ? Arm64OperandKind.Register : Arm64OperandKind.Immediate,
+            Op2Kind = Arm64OperandKind.Immediate,
+            Op0Reg = baseReg + rn,
+            Op1Imm = secondOpIsReg ? 0 : imm5,
+            Op1Reg = secondOpIsReg ? baseReg + (int)imm5 : Arm64Register.INVALID,
+            Op2Imm = nzcv,
+            FinalOpConditionCode = cond,
+        };
     }
     
     private static Arm64Instruction ConditionalSelect(uint instruction)
