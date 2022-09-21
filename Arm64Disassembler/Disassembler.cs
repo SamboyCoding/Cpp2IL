@@ -7,7 +7,7 @@ namespace Arm64Disassembler;
 
 public static class Disassembler
 {
-    public static Arm64DisassemblyResult Disassemble(Span<byte> assembly, ulong virtualAddress)
+    public static Arm64DisassemblyResult Disassemble(ReadOnlySpan<byte> assembly, ulong virtualAddress)
     {
         var ret = new List<Arm64Instruction>(assembly.Length / 4);
 

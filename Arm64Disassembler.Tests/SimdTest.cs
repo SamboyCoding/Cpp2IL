@@ -1,4 +1,5 @@
-﻿using Arm64Disassembler.InternalDisassembly;
+﻿using System.Reflection;
+using Arm64Disassembler.InternalDisassembly;
 using Xunit.Abstractions;
 
 namespace Arm64Disassembler.Tests;
@@ -59,5 +60,19 @@ public class SimdTest
         
         Assert.Equal(Arm64Mnemonic.SCVTF, result.Mnemonic);
         Assert.Equal(Arm64Register.S0, result.Op0Reg);
+    }
+
+    [Fact]
+    public void TestFpCompare()
+    {
+        var raw = 0x1E602020U;
+        
+        var result = Disassembler.DisassembleSingleInstruction(raw);
+        
+        _testOutputHelper.WriteLine(result.ToString());
+        
+        Assert.Equal(Arm64Mnemonic.FCMP, result.Mnemonic);
+        Assert.Equal(Arm64Register.D1, result.Op0Reg);
+        Assert.Equal(Arm64Register.D0, result.Op1Reg);
     }
 }

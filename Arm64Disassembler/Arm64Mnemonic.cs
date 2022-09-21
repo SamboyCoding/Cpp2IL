@@ -45,6 +45,8 @@ public enum Arm64Mnemonic
     EON,
     FADD,
     FCMEQ,
+    FCMP,
+    FCMPE,
     FCVTMS,
     FCVTNS,
     FCVTPS,

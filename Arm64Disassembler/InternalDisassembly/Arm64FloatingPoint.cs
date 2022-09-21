@@ -178,7 +178,69 @@ public static class Arm64FloatingPoint
 
     public static Arm64Instruction Compare(uint instruction)
     {
-        throw new NotImplementedException();
+        var mFlag = instruction.TestBit(31);
+        var sFlag = instruction.TestBit(29);
+        var pType = (instruction >> 22) & 0b11;
+        var rm = (int) (instruction >> 16) & 0b1_1111;
+        var op = (instruction >> 14) & 0b1111;
+        var rn = (int) (instruction >> 5) & 0b1_1111;
+        var opcode2 = instruction & 0b1_1111;
+        
+        if(sFlag)
+            throw new Arm64UndefinedInstructionException("Floating point: Compare: S flag is reserved");
+        
+        if(mFlag)
+            throw new Arm64UndefinedInstructionException("Floating point: Compare: M flag is reserved");
+        
+        if(pType == 0b10)
+            throw new Arm64UndefinedInstructionException("Floating point: Compare: ptype 0b10 is reserved");
+        
+        if(op != 0)
+            throw new Arm64UndefinedInstructionException("Floating point: Compare: values other than 0 for op are reserved");
+        
+        if(opcode2.TestPattern(0b1) || opcode2.TestPattern(0b10) || opcode2.TestPattern(0b100))
+            throw new Arm64UndefinedInstructionException($"Floating point: Compare: Reserved opcode2: 0x{opcode2:X}");
+
+        var mnemonic = opcode2 switch
+        {
+            0b00000 => Arm64Mnemonic.FCMP,
+            0b01000 => Arm64Mnemonic.FCMP,
+            0b10000 => Arm64Mnemonic.FCMPE,
+            0b11000 => Arm64Mnemonic.FCMPE,
+            _ => throw new("Impossible opcode2")
+        };
+        
+        var baseReg = pType switch
+        {
+            0b00 => Arm64Register.S0,
+            0b01 => Arm64Register.D0,
+            0b11 => Arm64Register.H0,
+            _ => throw new("Impossible ptype"),
+        };
+        
+        var regN = baseReg + rn;
+        var regM = baseReg + rm;
+
+        if (opcode2.TestBit(3))
+            //Zero variant
+            return new()
+            {
+                Mnemonic = mnemonic,
+                Op0Kind = Arm64OperandKind.Register,
+                Op1Kind = Arm64OperandKind.Immediate,
+                Op0Reg = regN,
+                Op1Imm = 0,
+            };
+        
+        //Reg variant
+        return new()
+        {
+            Mnemonic = mnemonic,
+            Op0Kind = Arm64OperandKind.Register,
+            Op1Kind = Arm64OperandKind.Register,
+            Op0Reg = regN,
+            Op1Reg = regM,
+        };
     }
 
     public static Arm64Instruction Immediate(uint instruction)
