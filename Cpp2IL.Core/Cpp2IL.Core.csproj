@@ -19,11 +19,6 @@
         <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
         <Title>Cpp2IL.Core</Title>
         <VersionPrefix>2022.1.0</VersionPrefix>
-
-        <!--For disarm, remove once it's stable-->
-        <RestoreAdditionalProjectSources>
-            https://nuget.samboy.dev/v3/index.json
-        </RestoreAdditionalProjectSources>
         <!--Plugins make this non-trimmable-->
 
         <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
