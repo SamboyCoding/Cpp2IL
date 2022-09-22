@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Linq;
-using Arm64Disassembler;
+using Disarm;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils;

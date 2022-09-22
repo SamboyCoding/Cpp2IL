@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using Arm64Disassembler;
+using Disarm;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
