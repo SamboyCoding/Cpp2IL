@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
@@ -92,7 +93,7 @@ public abstract class HasCustomAttributes : HasToken
 
         AttributeTypeRange = AppContext.Metadata.GetCustomAttributeData(CustomAttributeAssembly.Definition.Image, CustomAttributeIndex, Token, out var rangeIndex);
 
-        if (AttributeTypeRange == null)
+        if (AttributeTypeRange == null || AttributeTypeRange.count == 0)
         {
             RawIl2CppCustomAttributeData = Array.Empty<byte>();
             AttributeTypes = new();
@@ -124,9 +125,10 @@ public abstract class HasCustomAttributes : HasToken
             generatorPtr = AppContext.Binary.ReadPointerAtVirtualAddress(ptrToAddress);
         }
 
-        if (!AppContext.Binary.TryMapVirtualAddressToRaw(generatorPtr, out _))
+        if (generatorPtr == 0 || !AppContext.Binary.TryMapVirtualAddressToRaw(generatorPtr, out _))
         {
-            RawIl2CppCustomAttributeData = Array.Empty<byte>();
+            Logger.WarnNewline($"Supposedly had custom attributes ({string.Join(", ", AttributeTypes)}), but generator was null for " + this, "CA Restore");
+            RawIl2CppCustomAttributeData = Memory<byte>.Empty;
             return; //Possibly no attributes with params?
         }
 

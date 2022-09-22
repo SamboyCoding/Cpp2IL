@@ -103,6 +103,9 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     public void Analyze()
     {
+        if(UnderlyingPointer == 0)
+            return;
+        
         ConvertedIsil = AppContext.InstructionSet.GetIsilFromMethod(this);
 
         if (ConvertedIsil.Count == 0)
