@@ -113,9 +113,6 @@ jobs:
       - name: Publish WasmDisassembler
         if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./WasmDisassembler/bin/Release/*.nupkg
-      - name: Publish Arm64Disassembler
-        if: github.event_name == 'push'
-        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Arm64Disassembler/bin/Release/*.nupkg
       - name: Publish LibCpp2IL
         if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./LibCpp2IL/bin/Release/*.nupkg
