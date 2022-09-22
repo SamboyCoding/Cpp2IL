@@ -22,10 +22,8 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <PackageReference Include="CommandLineParser" Version="2.9.0-preview1" />
-        <PackageReference Include="Microsoft.CSharp" Version="4.7.0" />
-        <PackageReference Include="Pastel" Version="3.0.0" />
-        <PackageReference Include="System.Runtime.InteropServices" Version="4.3.0" />
+        <PackageReference Include="CommandLineParser" Version="2.9.1" />
+        <PackageReference Include="Pastel" Version="3.0.1" />
     </ItemGroup>
 
     <ItemGroup>
@@ -34,20 +32,5 @@
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
         <Reference Include="System.IO.Compression" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <None Remove="bin\**" />
-      <None Remove="obj\**" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Compile Remove="bin\**" />
-      <Compile Remove="obj\**" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <EmbeddedResource Remove="bin\**" />
-      <EmbeddedResource Remove="obj\**" />
     </ItemGroup>
 </Project>
