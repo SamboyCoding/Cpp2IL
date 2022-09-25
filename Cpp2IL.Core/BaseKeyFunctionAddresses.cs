@@ -156,7 +156,55 @@ namespace Cpp2IL.Core
             {
                 Logger.Verbose("\t\tLooking for il2cpp_codegen_object_new as a thunk of vm::Object::New...");
                 
-                var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, false, 0, il2cpp_string_new_wrapper).FirstOrDefault();
+                var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, false, 16);
+
+                //Sort by caller count in ascending order
+                var list = potentialThunks.Select(ptr => (ptr, count: GetCallerCount(ptr))).ToList();
+                list.SortByExtractedKey(pair => pair.count);
+
+                //Sort in descending order - most called first
+                list.Reverse();
+
+                //Take first as the target
+                il2cpp_codegen_object_new = list.FirstOrDefault().ptr;
+
+                Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_object_new:X}");
+            }
+
+            if (il2cpp_type_get_object != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
+                il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(il2cpp_type_get_object);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_reflection_get_type_object:X}");
+            }
+
+            if (il2cpp_resolve_icall != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to InternalCalls::Resolve...");
+                InternalCalls_Resolve = FindFunctionThisIsAThunkOf(il2cpp_resolve_icall);
+                Logger.VerboseNewline($"Found at 0x{InternalCalls_Resolve:X}");
+            }
+
+            if (il2cpp_string_new != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_string_new to String::New...");
+                il2cpp_vm_string_new = FindFunctionThisIsAThunkOf(il2cpp_string_new);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_new:X}");
+            }
+
+            if (il2cpp_string_new_wrapper != 0)
+            {
+                Logger.Verbose("\t\tMapping il2cpp_string_new_wrapper to String::NewWrapper...");
+                il2cpp_vm_string_newWrapper = FindFunctionThisIsAThunkOf(il2cpp_string_new_wrapper);
+                Logger.VerboseNewline($"Found at 0x{il2cpp_vm_string_newWrapper:X}");
+            }
+
+            if (il2cpp_vm_string_newWrapper != 0)
+            {
+                Logger.Verbose("\t\tMapping String::NewWrapper to il2cpp_codegen_string_new_wrapper...");
+                il2cpp_codegen_string_new_wrapper = FindAllThunkFunctions(il2cpp_vm_string_newWrapper, false, 0, il2cpp_string_new_wrapper).FirstOrDefault();
+                
+                // var potentialThunks = FindAllThunkFunctions(il2cpp_vm_object_new, false, 0, il2cpp_string_new_wrapper).FirstOrDefault();
                 Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_string_new_wrapper:X}");
             }
 
