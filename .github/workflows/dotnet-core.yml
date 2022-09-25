@@ -63,3 +63,18 @@ jobs:
       with:
         name: Cpp2IL-Mac
         path: ./Cpp2IL/bin/Release/net6.0/osx-x64/publish/Cpp2IL
+    - name: Upload LibCpp2IL nuget package
+      uses: actions/upload-artifact@v2
+      with:
+          name: LibCpp2IL.nupkg
+          path: ./LibCpp2IL/bin/Release/LibCpp2IL*.nupkg
+    - name: Upload Cpp2IL.Core nuget package
+      uses: actions/upload-artifact@v2
+      with:
+        name: LibCpp2IL.nupkg
+        path: ./Cpp2IL.Core/bin/Release/Cpp2IL.Core*.nupkg
+    - name: Upload WasmDisassembler nuget package
+      uses: actions/upload-artifact@v2
+      with:
+        name: WasmDisassembler.nupkg
+        path: ./WasmDisassembler/bin/Release/WasmDisassembler*.nupkg
