@@ -71,7 +71,7 @@ jobs:
     - name: Upload Cpp2IL.Core nuget package
       uses: actions/upload-artifact@v2
       with:
-        name: LibCpp2IL.nupkg
+        name: Cpp2IL.Core.nupkg
         path: ./Cpp2IL.Core/bin/Release/Samboy063.Cpp2IL.Core*.nupkg
     - name: Upload WasmDisassembler nuget package
       uses: actions/upload-artifact@v2
