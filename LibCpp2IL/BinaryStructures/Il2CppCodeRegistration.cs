@@ -45,8 +45,8 @@ namespace LibCpp2IL.BinaryStructures
         {
             if (IsAtMost(24.15f))
             {
-                methodPointersCount = reader.ReadUInt64();
-                methodPointers = reader.ReadUInt64();
+                methodPointersCount = reader.ReadNUint();
+                methodPointers = reader.ReadNUint();
             }
 
             reversePInvokeWrapperCount = reader.ReadNUint();
