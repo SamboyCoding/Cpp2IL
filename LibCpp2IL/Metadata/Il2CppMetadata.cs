@@ -66,9 +66,9 @@ namespace LibCpp2IL.Metadata
             }
 
             var version = BitConverter.ToInt32(bytes, 4);
-            if (version is < 24 or > 29)
+            if (version is < 23 or > 29)
             {
-                throw new FormatException("Unsupported metadata version found! We support 24-29, got " + version);
+                throw new FormatException("Unsupported metadata version found! We support 23-29, got " + version);
             }
 
             LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
@@ -127,8 +127,6 @@ namespace LibCpp2IL.Metadata
             {
                 throw new Exception("ERROR: Magic number mismatch. Expecting " + 0xFAB11BAF + " but got " + metadataHeader.magicNumber);
             }
-
-            if (metadataHeader.version < 24) throw new Exception("ERROR: Invalid metadata version, we only support v24+, this metadata is using v" + metadataHeader.version);
 
             LibLogger.Verbose("\tReading image definitions...");
             var start = DateTime.Now;

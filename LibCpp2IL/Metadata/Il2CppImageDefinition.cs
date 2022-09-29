@@ -10,7 +10,9 @@ namespace LibCpp2IL.Metadata
         public int firstTypeIndex;
         public uint typeCount;
 
+        [Version(Min=24)]
         public int exportedTypeStart;
+        [Version(Min=24)]
         public uint exportedTypeCount;
 
         public int entryPointIndex;
@@ -35,10 +37,13 @@ namespace LibCpp2IL.Metadata
             
             firstTypeIndex = reader.ReadInt32();
             typeCount = reader.ReadUInt32();
-            
-            exportedTypeStart = reader.ReadInt32();
-            exportedTypeCount = reader.ReadUInt32();
-            
+
+            if (IsAtLeast(24f))
+            {
+                exportedTypeStart = reader.ReadInt32();
+                exportedTypeCount = reader.ReadUInt32();
+            }
+
             entryPointIndex = reader.ReadInt32();
             token = reader.ReadUInt32();
 

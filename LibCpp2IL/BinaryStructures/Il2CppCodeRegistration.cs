@@ -32,7 +32,9 @@ namespace LibCpp2IL.BinaryStructures
         [Version(Min = 29.1f)] 
         public ulong unresolvedStaticCallPointers;
 
+        [Version(Min = 23)]
         public ulong interopDataCount;
+        [Version(Min = 23)]
         public ulong interopData;
 
         [Version(Min = 24.3f)] public ulong windowsRuntimeFactoryCount;
@@ -76,8 +78,11 @@ namespace LibCpp2IL.BinaryStructures
                 unresolvedStaticCallPointers = reader.ReadNUint();
             }
 
-            interopDataCount = reader.ReadNUint();
-            interopData = reader.ReadNUint();
+            if (IsAtLeast(23f))
+            {
+                interopDataCount = reader.ReadNUint();
+                interopData = reader.ReadNUint();
+            }
 
             if (IsAtLeast(24.2f))
             {

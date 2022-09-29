@@ -75,13 +75,18 @@ namespace LibCpp2IL.Metadata
         public int unresolvedVirtualCallParameterTypesCount;
         public int unresolvedVirtualCallParameterRangesOffset; // Il2CppRange
         public int unresolvedVirtualCallParameterRangesCount;
+        
+        [Version(Min = 23)]
         public int windowsRuntimeTypeNamesOffset; // Il2CppWindowsRuntimeTypeNamePair
+        [Version(Min = 23)]
         public int windowsRuntimeTypeNamesSize;
 
         [Version(Min = 27)] public int windowsRuntimeStringsOffset; // const char*
         [Version(Min = 27)] public int windowsRuntimeStringsSize;
 
+        [Version(Min=24)]
         public int exportedTypeDefinitionsOffset; // TypeDefinitionIndex
+        [Version(Min=24)]
         public int exportedTypeDefinitionsCount;
 
         public override void Read(ClassReadingBinaryReader reader)
@@ -181,8 +186,11 @@ namespace LibCpp2IL.Metadata
                 windowsRuntimeStringsSize = reader.ReadInt32();
             }
 
-            exportedTypeDefinitionsOffset = reader.ReadInt32();
-            exportedTypeDefinitionsCount = reader.ReadInt32();
+            if (IsAtLeast(24f))
+            {
+                exportedTypeDefinitionsOffset = reader.ReadInt32();
+                exportedTypeDefinitionsCount = reader.ReadInt32();
+            }
         }
     }
 }

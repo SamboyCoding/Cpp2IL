@@ -17,7 +17,7 @@ namespace LibCpp2IL
 {
     public static class LibCpp2IlMain
     {
-        private static readonly Regex UnityVersionRegex = new Regex(@"^[0-9]+\.[0-9]+\.[0-9]+[abcfx][0-9]+$", RegexOptions.Compiled);
+        private static readonly Regex UnityVersionRegex = new Regex(@"^[0-9]+\.[0-9]+\.[0-9]+[abcfxp][0-9]+$", RegexOptions.Compiled);
 
         public class LibCpp2IlSettings
         {
