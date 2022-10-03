@@ -165,7 +165,7 @@ namespace LibCpp2IL
                 var sanityCheckNumberOfModules = 250;
                 var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList.AsEnumerable();
                 var numModuleDefs = LibCpp2IlMain.TheMetadata!.imageDefinitions.Length;
-                var initialBacktrack = numModuleDefs - 5;
+                var initialBacktrack = numModuleDefs - 10;
 
                 pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize * (ulong) initialBacktrack);
                 
