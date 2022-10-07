@@ -1,9 +1,12 @@
 ﻿using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
+using AssetRipper.VersionUtilities;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Logging;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils
@@ -14,10 +17,7 @@ namespace Cpp2IL.Core.Utils
 
         private static Dictionary<string, ulong> _primitiveSizes = new();
 
-        public static readonly List<char> InvalidPathChars = new()
-        {
-            '<', '>', ':', '"', '/', '\\', '|', '?', '*'
-        };
+        public static readonly List<char> InvalidPathChars = Path.GetInvalidPathChars().ToList();
 
         public static readonly HashSet<string> InvalidPathElements = new()
         {
@@ -101,6 +101,32 @@ namespace Cpp2IL.Core.Utils
             return ret.ToArray();
         }
 
+        public static UnityVersion? GetVersionFromFile(string path, bool byName = false, string info = "Program")
+        {
+            if (!File.Exists(path) || path.EndsWith(".resS"))
+                return null;
+            if (byName && !(path.EndsWith(".assets") || !path.Contains('.'))) return null;
+            if (path.EndsWith("data.unity3d"))
+            {
+                using var du3d = File.Open(path, FileMode.Open);
+                Logger.InfoNewline("Reading data.unity3d to determine Unity version...", info);
+                var uvi = Cpp2IlApi.GetVersionFromDataUnity3D(du3d);
+                return uvi.ToString() == "0.0.0" ? null : uvi;
+            }
+            Logger.InfoNewline("Reading a generic asset file to determine Unity version...", info);
+            var full = new byte[0x40];
+            using var stream = File.Open(path, FileMode.Open);
+
+            // ReSharper disable once MustUseReturnValue
+            stream.Read(full, 0, 0x40);
+
+            if (BitConverter.ToUInt32(full, 0) == 0x46534235) // "FSB5" magic
+                return null;
+
+            var uv = Cpp2IlApi.GetVersionFromGlobalGameManagers(full);
+            return uv.ToString() == "0.0.0" ? null : uv;
+        }
+
         public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
         {
             if (theDll.RawLength <= (long)rawAddr)
@@ -118,9 +144,7 @@ namespace Cpp2IL.Core.Utils
                     if (isUnicode) rawAddr++;
                 }
 
-                var wasNullTerminated = theDll.GetByteAtRawAddress(rawAddr) == 0;
-
-                if (literal.Length >= 4 || (wasNullTerminated))
+                if (literal.Length >= 4 || theDll.GetByteAtRawAddress(rawAddr) == 0)
                 {
                     return literal.ToString();
                 }
@@ -157,18 +181,18 @@ namespace Cpp2IL.Core.Utils
         {
             if (desired is null)
                 throw new ArgumentNullException(nameof(desired), "Destination type is null");
-            
+
             var rawBytes = RawBytes(original);
 
             if (!typeof(IConvertible).IsAssignableFrom(desired))
                 throw new Exception($"ReinterpretBytes: Desired type, {desired}, does not implement IConvertible");
-            
+
             //Pad out with leading zeros if we have to
             var requiredLength = LibCpp2ILUtils.VersionAwareSizeOf(desired);
 
             if (requiredLength > rawBytes.Length)
             {
-                rawBytes = ((byte) 0).Repeat(requiredLength - rawBytes.Length).Concat(rawBytes).ToArray();
+                rawBytes = ((byte)0).Repeat(requiredLength - rawBytes.Length).Concat(rawBytes).ToArray();
             }
 
             if (desired == typeof(bool))
@@ -182,7 +206,7 @@ namespace Cpp2IL.Core.Utils
             if (desired == typeof(ushort))
                 return BitConverter.ToUInt16(rawBytes, 0);
             if (desired == typeof(short))
-                return BitConverter.ToInt16(rawBytes,0);
+                return BitConverter.ToInt16(rawBytes, 0);
             if (desired == typeof(uint))
                 return BitConverter.ToUInt32(rawBytes, 0);
             if (desired == typeof(int))
@@ -193,7 +217,7 @@ namespace Cpp2IL.Core.Utils
                 return BitConverter.ToInt64(rawBytes, 0);
             if (desired == typeof(float))
                 return BitConverter.ToSingle(rawBytes, 0);
-            if(desired == typeof(double))
+            if (desired == typeof(double))
                 return BitConverter.ToDouble(rawBytes, 0);
 
             throw new($"ReinterpretBytes: Cannot convert byte array back to a type of {desired}");
@@ -230,7 +254,7 @@ namespace Cpp2IL.Core.Utils
 
         public static ulong GetAddressOfNextFunctionStart(ulong current)
         {
-            if(_allKnownFunctionStarts == null)
+            if (_allKnownFunctionStarts == null)
                 InitFunctionStarts();
 
             //Binary-search-like approach
@@ -276,10 +300,10 @@ namespace Cpp2IL.Core.Utils
         {
             if (first.Count != second.Count)
                 return false;
-            
+
             bool areDifferent = false;
             for (int i = 0; i < first.Count && !areDifferent; i++)
-                areDifferent =  first.Get(i) != second.Get(i);
+                areDifferent = first.Get(i) != second.Get(i);
 
             return !areDifferent;
         }
@@ -294,7 +318,7 @@ namespace Cpp2IL.Core.Utils
 
             enumerable
                 .AsParallel()
-                .Select((Func<T, bool>) F2)
+                .Select((Func<T, bool>)F2)
                 .ToList();
         }
 
@@ -322,14 +346,14 @@ namespace Cpp2IL.Core.Utils
             {
                 var method = methodsSortedByPointer.LastOrDefault(m => m.MethodPointer <= p);
                 var genericMethod = genericMethodsSortedByPointer.LastOrDefault(m => m.Key <= p);
-                
+
                 if (method == null || genericMethod.Key == 0)
                     return "<unknown method>";
 
-                var distanceNormal = p - method.MethodPointer ;
+                var distanceNormal = p - method.MethodPointer;
                 var distanceGeneric = p - genericMethod.Key;
-                
-                if(Math.Min(distanceGeneric, distanceNormal) > 0x50000)
+
+                if (Math.Min(distanceGeneric, distanceNormal) > 0x50000)
                     return "<unknown method>";
 
                 if (distanceGeneric < distanceNormal)

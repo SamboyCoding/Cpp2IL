@@ -22,17 +22,17 @@ public class FileTreeEntry : SharpTreeNode
 
         var assemblies = context.Assemblies.ToList();
         assemblies.SortByExtractedKey(a => a.Definition.AssemblyName.Name);
-        
-        foreach (var assemblyAnalysisContext in assemblies) 
+
+        foreach (var assemblyAnalysisContext in assemblies)
             Children.Add(new FileTreeEntry(assemblyAnalysisContext));
     }
 
-    private FileTreeEntry(AssemblyAnalysisContext context) : this((HasApplicationContext) context)
+    private FileTreeEntry(AssemblyAnalysisContext context) : this((HasApplicationContext)context)
     {
         var uniqueNamespaces = context.Types.Select(t => t.Definition!.Namespace!).Distinct();
-        
+
         //Top-level namespaces only
-        foreach (var ns in uniqueNamespaces.Where(n => !n.Contains('.'))) 
+        foreach (var ns in uniqueNamespaces.Where(n => !n.Contains('.')))
             Children.Add(new FileTreeEntry(context, ns));
     }
 
@@ -45,7 +45,7 @@ public class FileTreeEntry : SharpTreeNode
             foreach (var methodAnalysisContext in tac.Methods)
                 Children.Add(new FileTreeEntry(methodAnalysisContext));
     }
-    
+
     private FileTreeEntry(AssemblyAnalysisContext parentCtx, string namespaceName)
     {
         Context = null;
@@ -63,9 +63,9 @@ public class FileTreeEntry : SharpTreeNode
                 if (subNs.Contains('.'))
                 {
                     var directChildNs = subNs[..subNs.IndexOf('.')];
-                    if(!uniqueSubNamespaces.Contains(directChildNs))
+                    if (!uniqueSubNamespaces.Contains(directChildNs))
                         Children.Add(new FileTreeEntry(parentCtx, $"{namespaceDot}{directChildNs}"));
-                    
+
                     continue; //Skip deeper-nested namespaces
                 }
 
@@ -77,7 +77,7 @@ public class FileTreeEntry : SharpTreeNode
             //Empty namespace cannot have sub namespaces
             allTypesInThisNamespaceAndSubNamespaces = parentCtx.Types.Where(t => t.Definition!.Namespace == namespaceName).ToList();
         }
-        
+
         allTypesInThisNamespaceAndSubNamespaces.SortByExtractedKey(t => t.Definition!.Name!);
 
         //Add types in this namespace
@@ -99,18 +99,18 @@ public class FileTreeEntry : SharpTreeNode
         EntryType.Method => false,
         EntryType.Assembly => true,
         EntryType.Namespace => true,
-        EntryType.Type => ((TypeAnalysisContext) Context!).Methods.Count > 0,
+        EntryType.Type => ((TypeAnalysisContext)Context!).Methods.Count > 0,
         _ => throw new ArgumentOutOfRangeException()
     };
 
     public string DisplayName => Context switch
-        {
-            TypeAnalysisContext tac => tac.Definition!.Name!,
-            AssemblyAnalysisContext aac => aac.Definition.AssemblyName.Name,
-            MethodAnalysisContext mac => $"{mac.Definition!.Name}({string.Join(", ", mac.Parameters.Select(p => p.ReadableTypeName))})",
-            null => NamespaceName!.Contains('.') ? NamespaceName[(NamespaceName.LastIndexOf('.') + 1)..] : NamespaceName,
-            _ => throw new ArgumentOutOfRangeException()
-        };
+    {
+        TypeAnalysisContext tac => tac.Definition!.Name!,
+        AssemblyAnalysisContext aac => aac.Definition.AssemblyName.Name,
+        MethodAnalysisContext mac => $"{mac.Definition!.Name}({string.Join(", ", mac.Parameters.Select(p => p.ReadableTypeName))})",
+        null => NamespaceName!.Contains('.') ? NamespaceName[(NamespaceName.LastIndexOf('.') + 1)..] : NamespaceName,
+        _ => throw new ArgumentOutOfRangeException()
+    };
 
     public override string ToString() => $"FileTreeEntry: DisplayName = {DisplayName}, Type = {Type}, Context = {Context}";
 

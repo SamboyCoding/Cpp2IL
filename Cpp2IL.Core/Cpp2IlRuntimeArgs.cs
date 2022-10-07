@@ -8,17 +8,17 @@ namespace Cpp2IL.Core
     {
         //To determine easily if this struct is the default one or not.
         public bool Valid;
-        
+
         //Core variables
         public UnityVersion UnityVersion;
-        public string PathToAssembly = null!;
-        public string PathToMetadata = null!;
+        public byte[] Assembly = null!;
+        public byte[] Metadata = null!;
 
         public string? WasmFrameworkJsFile;
 
         public List<Cpp2IlProcessingLayer> ProcessingLayersToRun = new();
         public readonly Dictionary<string, string> ProcessingLayerConfigurationOptions = new();
-        
+
         public Cpp2IlOutputFormat? OutputFormat;
         public string OutputRootDirectory = null!;
     }

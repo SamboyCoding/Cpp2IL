@@ -4,6 +4,7 @@ using AssetRipper.VersionUtilities;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using Cpp2IL.Core;
+using Cpp2IL.Core.InputModels;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.Views;
@@ -14,7 +15,7 @@ namespace Cpp2IL.Gui.ViewModels
     public class MainWindowViewModel : ViewModelBase
     {
         public MainWindow Window = null!;
-        
+
         private string _statusText = "Drop an IL2CPP game on this window to start, or click here to open a file browser.";
         private bool _hasGame;
         private FileTreeEntry? _rootNode;
@@ -51,7 +52,7 @@ namespace Cpp2IL.Gui.ViewModels
                 UpdateEditor();
             }
         }
-        
+
         public bool ShowAttributeGenerators
         {
             get => _showAttributeGenerators;
@@ -70,10 +71,10 @@ namespace Cpp2IL.Gui.ViewModels
 
         public async void OnDropped(string[]? droppedFiles)
         {
-            if(droppedFiles == null)
+            if (droppedFiles == null)
                 return;
 
-            var dg = DroppedGame.ForPaths(droppedFiles);
+            var dg = InputGame.ForPaths(droppedFiles);
 
             if (dg == null)
             {
@@ -116,7 +117,7 @@ namespace Cpp2IL.Gui.ViewModels
             StatusText = $"Load failed: {exception}";
         }
 
-        private void ContinueLoading(DroppedGame droppedGame, UnityVersion version)
+        private void ContinueLoading(InputGame droppedGame, UnityVersion version)
         {
             StatusText = "Loading game...";
 
@@ -142,7 +143,7 @@ namespace Cpp2IL.Gui.ViewModels
 
         public void OnItemSelected(FileTreeEntry fileTreeEntry)
         {
-            if(fileTreeEntry.Context is not TypeAnalysisContext type)
+            if (fileTreeEntry.Context is not TypeAnalysisContext type)
                 return;
 
             LastSelectedType = type;
@@ -151,9 +152,9 @@ namespace Cpp2IL.Gui.ViewModels
 
         private void UpdateEditor()
         {
-            if(LastSelectedType == null)
+            if (LastSelectedType == null)
                 return;
-            
+
             EditorText = new(ClassFileBuilder.BuildCsFileForType(LastSelectedType, MethodBodyMode, ShowAttributeGenerators));
         }
     }
