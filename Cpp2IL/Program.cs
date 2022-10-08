@@ -17,6 +17,7 @@ using LibCpp2IL.Wasm;
 using AssetRipper.VersionUtilities;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.InputModels;
+using LibCpp2IL;
 
 namespace Cpp2IL
 {
