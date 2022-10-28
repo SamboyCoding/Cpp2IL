@@ -24,7 +24,7 @@
         <PackageReference Include="Avalonia.Desktop" Version="11.0.0-preview1" />
         <PackageReference Include="Avalonia.Diagnostics" Version="11.0.0-preview1" />
         <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0-preview1" />
-        <PackageReference Include="Avalonia.Themes.Simple" Version="11.0.0-preview1" />
+        <PackageReference Include="Avalonia.Themes.Simple" Version="11.0.0-preview3" />
         <PackageReference Include="AvaloniaEdit.TextMate" Version="11.0.0-preview1" />
     </ItemGroup>
     <ItemGroup>
