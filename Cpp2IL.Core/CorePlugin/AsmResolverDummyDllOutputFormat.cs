@@ -28,6 +28,38 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 
     public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
+        var ret = BuildAssemblies(context);
+
+        var start = DateTime.Now;
+        Logger.Verbose("Generating PE images...", "DummyDllOutput");
+
+        if (!Directory.Exists(outputRoot))
+            Directory.CreateDirectory(outputRoot);
+
+        //Convert assembly definitions to PE files
+        var peImagesToWrite = ret
+            .AsParallel()
+            .Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!))
+            .ToList();
+
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+
+        start = DateTime.Now;
+        Logger.Verbose("Building and writing managed PE files to disk...", "DummyDllOutput");
+
+        //Save them
+        var fileBuilder = new ManagedPEFileBuilder();
+        foreach (var (image, name) in peImagesToWrite)
+        {
+            var dllPath = Path.Combine(outputRoot, name);
+            fileBuilder.CreateFile(image).Write(dllPath);
+        }
+
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+    }
+
+    public List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
+    {
 #if VERBOSE_LOGGING
         var asmCount = context.Assemblies.Count;
         var typeCount = context.AllTypes.Count();
@@ -44,7 +76,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 #else
         Logger.Verbose($"Building stub assemblies...", "DummyDllOutput");
 #endif
-        var ret = BuildStubAssemblies(context);
+        List<AssemblyDefinition> ret = BuildStubAssemblies(context);
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
 
         TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
@@ -78,32 +110,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 
         TypeDefinitionsAsmResolver.Reset();
 
-        start = DateTime.Now;
-        Logger.Verbose("Generating PE images...", "DummyDllOutput");
-
-        if (!Directory.Exists(outputRoot))
-            Directory.CreateDirectory(outputRoot);
-
-        //Convert assembly definitions to PE files
-        var peImagesToWrite = ret
-            .AsParallel()
-            .Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!))
-            .ToList();
-
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
-
-        start = DateTime.Now;
-        Logger.Verbose("Building and writing managed PE files to disk...", "DummyDllOutput");
-
-        //Save them
-        var fileBuilder = new ManagedPEFileBuilder();
-        foreach (var (image, name) in peImagesToWrite)
-        {
-            var dllPath = Path.Combine(outputRoot, name);
-            fileBuilder.CreateFile(image).Write(dllPath);
-        }
-
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+        return ret;
     }
 
     private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)
