@@ -181,11 +181,25 @@ namespace LibCpp2IL.NintendoSwitch
             LibLogger.Verbose($"\tReading NSO symbol table...");
             
             var hash = GetDynamicEntry(ElfDynamicType.DT_HASH);
+
+            if (hash == null)
+            {
+                LibLogger.WarnNewline("\tNo DT_HASH found in NSO, symbols will not be resolved");
+                return;
+            }
+            
             Position = MapVirtualAddressToRaw(hash.Value);
             ReadUInt32(); //Ignored
             var symbolCount = ReadUInt32();
 
             var symTab = GetDynamicEntry(ElfDynamicType.DT_SYMTAB);
+
+            if (symTab == null)
+            {
+                LibLogger.WarnNewline("\tNo DT_SYMTAB found in NSO, symbols will not be resolved");
+                return;
+            }
+            
             SymbolTable = ReadClassArrayAtVirtualAddress<ElfDynamicSymbol64>((ulong) MapVirtualAddressToRaw(symTab.Value), symbolCount);
             
             LibLogger.VerboseNewline($"\tGot {SymbolTable.Length} symbols");
@@ -197,8 +211,8 @@ namespace LibCpp2IL.NintendoSwitch
 
             try
             {
-                var dtRela = GetDynamicEntry(ElfDynamicType.DT_RELA);
-                var dtRelaSize = GetDynamicEntry(ElfDynamicType.DT_RELASZ);
+                var dtRela = GetDynamicEntry(ElfDynamicType.DT_RELA) ?? throw new(); //Using exceptions as control flow :)
+                var dtRelaSize = GetDynamicEntry(ElfDynamicType.DT_RELASZ) ?? throw new();
                 relaEntries = ReadClassArrayAtVirtualAddress<ElfRelaEntry>(dtRela.Value, (long) (dtRelaSize.Value / 24)); //24 being sizeof(ElfRelaEntry) on 64-bit
             }
             catch
@@ -224,7 +238,7 @@ namespace LibCpp2IL.NintendoSwitch
             }
         }
         
-        public ElfDynamicEntry GetDynamicEntry(ElfDynamicType tag) => dynamicEntries.Find(x => x.Tag == tag);
+        public ElfDynamicEntry? GetDynamicEntry(ElfDynamicType tag) => dynamicEntries.Find(x => x.Tag == tag);
 
         public NsoFile Decompress()
         {
