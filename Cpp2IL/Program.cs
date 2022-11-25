@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -7,6 +7,7 @@ using System.Linq;
 using System.Reflection;
 using System.Runtime;
 using System.Runtime.InteropServices;
+using System.Xml.Linq;
 using CommandLine;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Utils;
@@ -37,10 +38,13 @@ namespace Cpp2IL
         private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
         {
             if (Directory.Exists(gamePath))
-                HandleWindowsGamePath(gamePath, inputExeName, ref args);
+                if (Path.GetExtension(gamePath).ToLowerInvariant() == ".app")
+                    HandleMachOGamePath(gamePath, ref args);
+                else
+                    HandleWindowsGamePath(gamePath, inputExeName, ref args);
             else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".apk")
                 HandleSingleApk(gamePath, ref args);
-            else if(File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".xapk")
+            else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".xapk")
                 HandleXapk(gamePath, ref args);
             else
                 throw new SoftException($"Could not find a valid unity game at {gamePath}");
@@ -239,6 +243,52 @@ namespace Cpp2IL
             }
 
             Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}", "XAPK");
+
+            args.Valid = true;
+        }
+
+        private static void HandleMachOGamePath(string gamePath, ref Cpp2IlRuntimeArgs args)
+        {
+            //APP
+            //Metadata: Contents/Resources/Data/il2cpp_data/Metadata/global-metadata.dat
+            //Binary: Contents/Frameworks/GameAssembly.dylib
+
+            Logger.InfoNewline($"Attempting to extract required files from APP {gamePath}", "APP");
+
+            var binary = Path.Combine(gamePath, "Contents", "Frameworks", "GameAssembly.dylib");
+            var globalMetadata = Path.Combine(gamePath, "Contents", "Resources", "Data", "il2cpp_data", "Metadata", "global-metadata.dat");
+            var globalgamemanagers = Path.Combine(gamePath, "Contents", "Resources", "Data", "globalgamemanagers");
+
+            if (binary == null)
+                throw new SoftException("Could not find GameAssembly.dylib inside the app");
+            if (globalMetadata == null)
+                throw new SoftException("Could not find global-metadata.dat inside the app");
+            if (globalgamemanagers == null)
+                throw new SoftException("Could not find globalgamemanagers inside the app");
+
+            args.PathToAssembly = binary;
+            args.PathToMetadata = globalMetadata;
+
+            Logger.VerboseNewline("Attempting to get unity version...");
+
+            Logger.InfoNewline("Reading globalgamemanagers to determine unity version...", "APP");
+            var uv = (File.Exists(globalgamemanagers) ? 
+                        Cpp2IlApi.GetVersionFromGlobalGameManagers(File.ReadAllBytes(globalgamemanagers)) : null);
+            Logger.VerboseNewline($"First-attempt unity version detection gave: {(uv == null ? "null" : string.Join(".", uv))}");
+
+            if (uv == null)
+            {
+                Logger.Warn("Could not determine unity version, probably due to not running on windows and not having any assets files to determine it from. Enter unity version, if known, in the format of (xxxx.x.x), else nothing to fail: ");
+                var userInputUv = Console.ReadLine();
+                uv = userInputUv?.Split('.').Select(int.Parse).ToArray();
+
+                if (uv == null)
+                    throw new SoftException("Failed to determine unity version. If you're not running on windows, I need a globalgamemanagers file, or you need to use the force options.");
+            }
+
+            args.UnityVersion = uv;
+
+            Logger.InfoNewline($"Determined game's unity version to be {string.Join(".", args.UnityVersion)}", "APP");
 
             args.Valid = true;
         }
