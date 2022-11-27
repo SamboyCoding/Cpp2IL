@@ -28,6 +28,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
         public static TypeDefinition Object;
         public static TypeDefinition IConvertible;
         public static TypeDefinition ValueType;
+        public static TypeDefinition Enum;
         public static TypeDefinition Type;
         public static TypeDefinition TypedReference;
         public static TypeDefinition String;
@@ -42,6 +43,35 @@ namespace Cpp2IL.Core.Utils.AsmResolver
         public static void Reset()
         {
             _primitiveTypeMappings.Clear();
+            
+            Boolean = null!;
+            SByte = null!;
+            Byte = null!;
+            Char = null!;
+            Int16 = null!;
+            UInt16 = null!;
+            Int32 = null!;
+            UInt32 = null!;
+            Int64 = null!;
+            UInt64 = null!;
+            Single = null!;
+            Double = null!;
+            IntPtr = null!;
+            UIntPtr = null!;
+            
+            Object = null!;
+            IConvertible = null!;
+            ValueType = null!;
+            Enum = null!;
+            Type = null!;
+            TypedReference = null!;
+            String = null!;
+            Array = null!;
+            IEnumerable = null!;
+            Exception = null!;
+            Void = null!;
+            Attribute = null!;
+            MethodInfo = null!;
         }
 
         public static TypeDefinition? GetPrimitive(string name)
@@ -56,6 +86,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
         {
             Object = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Object")!;
             ValueType = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.ValueType")!;
+            Enum = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Enum")!;
             String = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.String")!;
             Int64 = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Int64")!;
             Single = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Single")!;

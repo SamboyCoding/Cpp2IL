@@ -79,8 +79,6 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         List<AssemblyDefinition> ret = BuildStubAssemblies(context);
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
 
-        TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
-
         start = DateTime.Now;
         Logger.Verbose("Configuring inheritance and generics...", "DummyDllOutput");
 
@@ -171,6 +169,24 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
             if (il2CppTypeDefinition.Name != "<Module>")
                 //We skip module because I've never come across an il2cpp assembly with any top-level functions, and it's simpler to skip it as AsmResolver adds one by default.
                 managedModule.TopLevelTypes.Add(BuildStubType(il2CppTypeDefinition));
+        }
+
+        if (corLib == null)
+        {
+            //We *are* the corlib, so cache defs now
+            TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
+        }
+        
+        //We can get issues with consumers of the API if the base type is not set correctly for value types or enums, so we set it here (as early as possible) if we can
+        foreach (var assemblyContextType in assemblyContext.Types)
+        {
+            if(assemblyContextType.Definition is not {} def || assemblyContextType.GetExtraData<TypeDefinition>("AsmResolverType") is not {} asmResolverType)
+                continue;
+            
+            if(def.IsValueType)
+                asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.ValueType);
+            else if(def.IsEnumType)
+                asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.Enum);
         }
 
         //Store the managed assembly in the context so we can use it later.
