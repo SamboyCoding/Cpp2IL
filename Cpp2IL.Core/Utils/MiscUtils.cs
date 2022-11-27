@@ -305,7 +305,8 @@ namespace Cpp2IL.Core.Utils
             "UnityCrashHandler64.exe",
             "install.exe",
             "launch.exe",
-            "MelonLoader.Installer.exe"
+            "MelonLoader.Installer.exe",
+            "crashpad_handler.exe"
         };
 
         public static string AnalyzeStackTracePointers(ulong[] pointers)

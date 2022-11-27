@@ -9,7 +9,7 @@
         <LangVersion>10</LangVersion>
         <Nullable>enable</Nullable>
         <OutputType>Exe</OutputType>
-        <PublishSingleFile Condition="'$(TargetFramework)'!='net472'">true</PublishSingleFile>
+        <PublishSingleFile Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
         <PublishTrimmed>true</PublishTrimmed>
         <TargetFrameworks>net6.0;net472</TargetFrameworks>
         <TrimMode>copyused</TrimMode>
