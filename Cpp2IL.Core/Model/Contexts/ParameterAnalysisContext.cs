@@ -81,6 +81,10 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
     public override string ToString()
     {
+        if (!AppContext.HasFinishedInitializing)
+            //Cannot safely access ParameterTypeContext.Name if we haven't finished initializing as it may require doing system type lookups etc.
+            return $"Parameter {Name} (ordinal {ParamIndex}) of {DeclaringMethod}";
+        
         var result = new StringBuilder();
 
         if (ParameterAttributes.HasFlag(ParameterAttributes.Out))

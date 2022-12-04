@@ -19,7 +19,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// The IL2CPP binary file this application was loaded from
     /// </summary>
     public Il2CppBinary Binary;
-    
+
     /// <summary>
     /// The IL2CPP global-metadata file this application was loaded from.
     /// </summary>
@@ -34,12 +34,12 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// The instruction set helper class associated with the instruction set that this application was compiled with.
     /// </summary>
     public Cpp2IlInstructionSet InstructionSet;
-    
+
     /// <summary>
     /// Contains references to some commonly-used System types.
     /// </summary>
     public SystemTypesContext SystemTypes;
-    
+
     /// <summary>
     /// All the managed assemblies contained within the metadata file.
     /// </summary>
@@ -54,16 +54,21 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// A dictionary of method pointers to the corresponding method, which may or may not be generic.
     /// </summary>
     public readonly Dictionary<ulong, List<MethodAnalysisContext>> MethodsByAddress = new();
-    
+
     /// <summary>
     /// A dictionary of all the generic method variants to their corresponding analysis contexts.
     /// </summary>
     public readonly Dictionary<Cpp2IlMethodRef, ConcreteGenericMethodAnalysisContext> ConcreteGenericMethodsByRef = new();
 
-        /// <summary>
+    /// <summary>
     /// Key Function Addresses for the binary file. Populated on-demand
     /// </summary>
     private BaseKeyFunctionAddresses? _keyFunctionAddresses;
+
+    /// <summary>
+    /// True if this ApplicationAnalysisContext has finished initialization of all of its child contexts, else false.
+    /// </summary>
+    public bool HasFinishedInitializing { get; private set; }
 
     public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata, float metadataVersion)
     {
@@ -79,7 +84,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         {
             throw new InstructionSetHandlerNotRegisteredException(binary.InstructionSetId);
         }
-        
+
         Logger.VerboseNewline("\tUsing instruction set handler: " + InstructionSet.GetType().FullName);
 
         foreach (var assemblyDefinition in Metadata.AssemblyDefinitions)
@@ -91,8 +96,10 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         }
 
         SystemTypes = new(this);
-        
+
         PopulateMethodsByAddressTable();
+        
+        HasFinishedInitializing = true;
     }
 
     /// <summary>
@@ -147,10 +154,10 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     }
 
     public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.TypesByDefinition[typeDefinition];
-    
+
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()
     {
-        if (_keyFunctionAddresses == null) 
+        if (_keyFunctionAddresses == null)
             (_keyFunctionAddresses = InstructionSet.CreateKeyFunctionAddressesInstance()).Find(this);
 
         return _keyFunctionAddresses;
@@ -158,8 +165,8 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
     public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext baseType)
     {
-        var types = Assemblies.Select(a => (InjectedTypeAnalysisContext) a.InjectType(ns, name, baseType)).ToArray();
-        
+        var types = Assemblies.Select(a => (InjectedTypeAnalysisContext)a.InjectType(ns, name, baseType)).ToArray();
+
         return new(types);
     }
 
