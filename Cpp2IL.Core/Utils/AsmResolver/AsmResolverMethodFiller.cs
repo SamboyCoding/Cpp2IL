@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
@@ -22,7 +23,7 @@ internal static class AsmResolverMethodFiller
             if (typeContext.Name == "<Module>")
                 continue;
 
-            var ilTypeDefinition = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
+            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
 
 #if !DEBUG
             try
