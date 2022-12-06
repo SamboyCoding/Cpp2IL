@@ -156,7 +156,7 @@ internal static class AsmResolverMethodFiller
 
     private static MethodDefinition MakeRefHelper(ModuleDefinition module)
     {
-        var staticClass = new TypeDefinition("Cpp2IlInjected", "RefHelper", TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
+        var staticClass = new TypeDefinition("Cpp2ILInjected", "RefHelper", TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
         module.TopLevelTypes.Add(staticClass);
         staticClass.GenericParameters.Add(new GenericParameter("T"));
 
