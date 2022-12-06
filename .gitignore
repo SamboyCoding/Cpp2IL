@@ -42,3 +42,5 @@ SharpTreeView/obj/
 .vs
 
 *.user
+
+launchsettings.json

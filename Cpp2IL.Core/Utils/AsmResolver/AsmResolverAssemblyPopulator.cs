@@ -265,11 +265,11 @@ public static class AsmResolverAssemblyPopulator
 
 #if !DEBUG
             try
-            {
 #endif
-            CopyIl2CppDataToManagedType(typeContext, managedType);
-#if !DEBUG
+            {
+                CopyIl2CppDataToManagedType(typeContext, managedType);
             }
+#if !DEBUG
             catch (Exception e)
             {
                 throw new Exception($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {asmContext.Definition.AssemblyName.Name}", e);
@@ -368,9 +368,6 @@ public static class AsmResolverAssemblyPopulator
                 managedMethod.ParameterDefinitions.Add(parameterDefinition);
             }
 
-            if (managedMethod.IsManagedMethodWithBody())
-                FillMethodBodyWithStub(managedMethod);
-
             //Handle generic parameters.
             methodDef?.GenericContainer?.GenericParameters.ToList()
                 .ForEach(p =>
@@ -455,49 +452,5 @@ public static class AsmResolverAssemblyPopulator
 
             ilTypeDefinition.Events.Add(managedEvent);
         }
-    }
-
-    private static void FillMethodBodyWithStub(MethodDefinition methodDefinition)
-    {
-        methodDefinition.CilMethodBody = new(methodDefinition);
-
-        var methodInstructions = methodDefinition.CilMethodBody.Instructions;
-        foreach (var parameter in methodDefinition.Parameters)
-        {
-            if(parameter.Definition?.IsOut ?? false)
-            {
-                if (parameter.ParameterType.IsValueType)
-                {
-                    methodInstructions.Add(CilOpCodes.Ldarg, parameter);
-                    methodInstructions.Add(CilOpCodes.Initobj, parameter.ParameterType.ToTypeDefOrRef());
-                }
-                else
-                {
-                    methodInstructions.Add(CilOpCodes.Ldarg, parameter);
-                    methodInstructions.Add(CilOpCodes.Ldnull);
-                    methodInstructions.Add(CilOpCodes.Stind_Ref);
-                }
-            }
-        }
-        if (methodDefinition.Signature!.ReturnType.FullName == "System.Void")
-        {
-            methodInstructions.Add(CilOpCodes.Ret);
-        }
-        else if (methodDefinition.Signature!.ReturnType.IsValueType)
-        {
-            var variable = new CilLocalVariable(methodDefinition.Signature!.ReturnType);
-            methodDefinition.CilMethodBody.LocalVariables.Add(variable);
-            methodDefinition.CilMethodBody.InitializeLocals = true;
-            // methodInstructions.Add(CilOpCodes.Ldloca_S, variable);
-            // methodInstructions.Add(CilOpCodes.Initobj, methodDefinition.Signature.ReturnType.ToTypeDefOrRef());
-            methodInstructions.Add(CilOpCodes.Ldloc_0);
-            methodInstructions.Add(CilOpCodes.Ret);
-        }
-        else
-        {
-            methodInstructions.Add(CilOpCodes.Ldnull);
-            methodInstructions.Add(CilOpCodes.Ret);
-        }
-        methodInstructions.OptimizeMacros();
     }
 }

@@ -96,6 +96,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 #endif
 
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
+        MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverMethodFiller.FillManagedMethodBodies);
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
 
