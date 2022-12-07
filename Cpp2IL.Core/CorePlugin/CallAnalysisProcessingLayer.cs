@@ -7,6 +7,7 @@ using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
+using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 
@@ -96,14 +97,14 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         var address = operand.Value.ToUInt64(null);
                         if (appContext.MethodsByAddress.TryGetValue(address, out var list))
                         {
-                            IncreaseCount(callCounts, address);
+                            callCounts[address] = callCounts.GetOrDefault(address, 0) + 1;
                             if (list.Count == 0)
                             {
-                                IncreaseCount(unknownCalls, m);
+                                unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                             }
                             else if (list.Count > 1)
                             {
-                                IncreaseCount(deduplicatedCalls, m);
+                                deduplicatedCalls[m] = deduplicatedCalls.GetOrDefault(m, 0) + 1;
                             }
                             else
                             {
@@ -114,12 +115,12 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         }
                         else if (!keyFunctionAddresses.IsKeyFunctionAddress(address))
                         {
-                            IncreaseCount(unknownCalls, m);
+                            unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                         }
                     }
                     else
                     {
-                        IncreaseCount(unknownCalls, m);
+                        unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                     }
                 }
             }
@@ -138,8 +139,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 if (m.CustomAttributes == null || m.Definition == null)
                     continue;
 
-                AddOneParameterAttribute(m, callerCountAttributeInfo, GetCount(callCounts, m.UnderlyingPointer));
-                var unknownCallCount = GetCount(unknownCalls, m);
+                AddOneParameterAttribute(m, callerCountAttributeInfo, callCounts.GetOrDefault(m.UnderlyingPointer, 0));
+                var unknownCallCount = unknownCalls.GetOrDefault(m, 0);
                 if (deduplicatedCalls.TryGetValue(m, out var deduplicatedCallCount))
                 {
                     AddOneParameterAttribute(m, callsDeduplicatedMethodsAttributeInfo, deduplicatedCallCount);
@@ -284,23 +285,6 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
     private static Il2CppType? GetTypeFromContext(TypeAnalysisContext? type)
     {
         return type?.Definition is null ? null : LibCpp2IlReflection.GetTypeFromDefinition(type.Definition);
-    }
-
-    private static int GetCount<T>(Dictionary<T, int> dictionary, T item) where T : notnull
-    {
-        if (dictionary.TryGetValue(item, out var count))
-        {
-            return count;
-        }
-        else
-        {
-            return count;
-        }
-    }
-
-    private static void IncreaseCount<T>(Dictionary<T, int> dictionary, T item) where T : notnull
-    {
-        dictionary[item] = GetCount(dictionary, item) + 1;
     }
 
     private static void Add<T>(Dictionary<T, List<T>> dictionary, T key, T value) where T : notnull
