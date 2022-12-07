@@ -1,16 +1,14 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using AsmResolver;
 using AsmResolver.DotNet;
-using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.DotNet.Signatures;
 using AsmResolver.DotNet.Signatures.Types;
-using AsmResolver.PE.DotNet.Cil;
 using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -97,14 +95,28 @@ public static class AsmResolverAssemblyPopulator
                 return BuildEmptyArrayArgument(parentAssembly, arrayParameter);
             
             var typeSig = GetTypeSigFromAttributeArg(parentAssembly, arrayParameter);
-            
-            return new(typeSig, arrayParameter.ArrayElements.Select(e => e switch
+
+            var isObjectArray = arrayParameter.ArrType == Il2CppTypeEnum.IL2CPP_TYPE_OBJECT;
+
+            var arrayElements = arrayParameter.ArrayElements.Select(e =>
             {
-                CustomAttributePrimitiveParameter primitiveParameter => primitiveParameter.PrimitiveValue,
-                CustomAttributeEnumParameter enumParameter => enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue,
-                CustomAttributeTypeParameter type => (object)AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, type.Type!),
-                _ => throw new("Not supported array element type: " + e.GetType().FullName)
-            }).ToArray());
+                var rawValue = e switch
+                {
+                    CustomAttributePrimitiveParameter primitiveParameter => primitiveParameter.PrimitiveValue,
+                    CustomAttributeEnumParameter enumParameter => enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue,
+                    CustomAttributeTypeParameter type => (object)AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, type.Type!),
+                    _ => throw new("Not supported array element type: " + e.GetType().FullName)
+                };
+
+                if (isObjectArray)
+                    //Object params have to be boxed
+                    return new BoxedArgument(GetTypeSigFromAttributeArg(parentAssembly, e), rawValue);
+
+                return rawValue;
+
+            }).ToArray();
+
+            return new(typeSig, arrayElements);
         }
         catch (Exception e)
         {
