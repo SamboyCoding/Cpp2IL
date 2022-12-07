@@ -16,6 +16,10 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 {
     public override string Name => "Call Analyzer";
     public override string Id => "callanalyzer";
+    /// <summary>
+    /// We don't want 1000 attributes on a single method
+    /// </summary>
+    const int MaximumCalledByAttributes = 20;
 
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)
     {
@@ -83,8 +87,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
                 foreach (var instruction in m.ConvertedIsil)
                 {
-                    if (instruction.OpCode != InstructionSetIndependentOpCode.Call
-                        && instruction.OpCode != InstructionSetIndependentOpCode.CallNoReturn)
+                    if (instruction.OpCode != InstructionSetIndependentOpCode.Call && instruction.OpCode != InstructionSetIndependentOpCode.CallNoReturn)
                     {
                         continue;
                     }
@@ -146,27 +149,27 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     foreach (var calledMethod in callsList)
                     {
                         var il2cppType = GetTypeFromContext(calledMethod.DeclaringType);
-                        if (il2cppType is not null)
-                        {
-                            AddTwoParameterAttribute(m, callsAttributeInfo, il2cppType, calledMethod.Name);
-                        }
-                        else
+                        if (il2cppType == null)
                         {
                             unknownCallCount++;
                         }
+                        else
+                        {
+                            AddTwoParameterAttribute(m, callsAttributeInfo, il2cppType, calledMethod.Name);
+                        }
                     }
                 }
-                const int MaximumCalledByAttributes = 20;//We don't want 1000 attributes on a single method :)
                 if (calledByDictionary.TryGetValue(m, out var calledByList) && calledByList.Count < MaximumCalledByAttributes)
                 {
                     foreach (var callingMethod in calledByList)
                     {
                         var il2cppType = GetTypeFromContext(callingMethod.DeclaringType);
-                        if (il2cppType is not null)
+                        if (il2cppType == null)
                         {
-                            AddTwoParameterAttribute(m, calledByAttributeInfo, il2cppType, callingMethod.Name);
+                            //If null, nothing we can do
+                            continue;
                         }
-                        //If null, nothing we can do
+                        AddTwoParameterAttribute(m, calledByAttributeInfo, il2cppType, callingMethod.Name);
                     }
                 }
                 if (unknownCallCount > 0)
@@ -181,52 +184,28 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
     /// Inject an attribute with no fields nor properties into the <see cref="ApplicationAnalysisContext"/>.
     /// </summary>
     /// <returns>A dictionary of assembly contexts to their inject attribute constructors.</returns>
-    private static Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectZeroParameterAttribute(
-        ApplicationAnalysisContext appContext,
-        string @namespace,
-        string name,
-        AttributeTargets attributeTargets,
-        bool allowMultiple)
+    private static Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectZeroParameterAttribute(ApplicationAnalysisContext appContext, string ns, string name, AttributeTargets attributeTargets, bool allowMultiple)
     {
-        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(@namespace, name, appContext.SystemTypes.SystemAttributeType);
+        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(ns, name, appContext.SystemTypes.SystemAttributeType);
         ApplyAttributeUsageAttribute(appContext, multiInjectType, attributeTargets, allowMultiple);
         return multiInjectType.InjectConstructor(false);
     }
 
-    private static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext)> InjectOneParameterAttribute(
-        ApplicationAnalysisContext appContext,
-        string @namespace,
-        string name,
-        AttributeTargets attributeTargets,
-        bool allowMultiple,
-        TypeAnalysisContext fieldType,
-        string fieldName)
+    private static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext)> InjectOneParameterAttribute(ApplicationAnalysisContext appContext, string ns, string name, AttributeTargets attributeTargets, bool allowMultiple, TypeAnalysisContext fieldType, string fieldName)
     {
-        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(@namespace, name, appContext.SystemTypes.SystemAttributeType);
+        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(ns, name, appContext.SystemTypes.SystemAttributeType);
         ApplyAttributeUsageAttribute(appContext, multiInjectType, attributeTargets, allowMultiple);
 
         var fields = multiInjectType.InjectFieldToAllAssemblies(fieldName, fieldType, FieldAttributes.Public);
 
         var constructors = multiInjectType.InjectConstructor(false);
 
-        return multiInjectType.InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t =>
-        {
-            return (constructors[t.DeclaringAssembly], fields[t.DeclaringAssembly]);
-        });
+        return multiInjectType.InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t => (constructors[t.DeclaringAssembly], fields[t.DeclaringAssembly]));
     }
 
-    private static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext, InjectedFieldAnalysisContext)> InjectTwoParameterAttribute(
-        ApplicationAnalysisContext appContext,
-        string @namespace,
-        string name,
-        AttributeTargets attributeTargets,
-        bool allowMultiple,
-        TypeAnalysisContext fieldType1,
-        string fieldName1,
-        TypeAnalysisContext fieldType2,
-        string fieldName2)
+    private static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext, InjectedFieldAnalysisContext)> InjectTwoParameterAttribute(ApplicationAnalysisContext appContext, string ns, string name, AttributeTargets attributeTargets, bool allowMultiple, TypeAnalysisContext fieldType1, string fieldName1, TypeAnalysisContext fieldType2, string fieldName2)
     {
-        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(@namespace, name, appContext.SystemTypes.SystemAttributeType);
+        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(ns, name, appContext.SystemTypes.SystemAttributeType);
         ApplyAttributeUsageAttribute(appContext, multiInjectType, attributeTargets, allowMultiple);
 
         var firstFields = multiInjectType.InjectFieldToAllAssemblies(fieldName1, fieldType1, FieldAttributes.Public);
@@ -241,48 +220,30 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         });
     }
 
-    private static void AddZeroParameterAttribute(
-        HasCustomAttributes customAttributeHolder,
-        MethodAnalysisContext constructor)
+    private static void AddZeroParameterAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor)
     {
         var newAttribute = new AnalyzedCustomAttribute(constructor);
         customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
     }
 
-    private static void AddOneParameterAttribute(
-        HasCustomAttributes customAttributeHolder,
-        (MethodAnalysisContext, FieldAnalysisContext) attributeInfo,
-        object fieldValue)
+    private static void AddOneParameterAttribute(HasCustomAttributes customAttributeHolder, (MethodAnalysisContext, FieldAnalysisContext) attributeInfo, object fieldValue)
     {
         AddOneParameterAttribute(customAttributeHolder, attributeInfo.Item1, attributeInfo.Item2, fieldValue);
     }
 
-    private static void AddOneParameterAttribute(
-        HasCustomAttributes customAttributeHolder,
-        MethodAnalysisContext constructor,
-        FieldAnalysisContext field,
-        object fieldValue)
+    private static void AddOneParameterAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor, FieldAnalysisContext field, object fieldValue)
     {
         var newAttribute = new AnalyzedCustomAttribute(constructor);
         newAttribute.Fields.Add(new(field, MakeFieldParameter(fieldValue, newAttribute, 0)));
         customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
     }
 
-    private static void AddTwoParameterAttribute(
-        HasCustomAttributes customAttributeHolder,
-        (MethodAnalysisContext, FieldAnalysisContext, FieldAnalysisContext) attributeInfo,
-        object fieldValue1,
-        object fieldValue2)
+    private static void AddTwoParameterAttribute(HasCustomAttributes customAttributeHolder, (MethodAnalysisContext, FieldAnalysisContext, FieldAnalysisContext) attributeInfo, object fieldValue1, object fieldValue2)
     {
         AddTwoParameterAttribute(customAttributeHolder, attributeInfo.Item1, attributeInfo.Item2, fieldValue1, attributeInfo.Item3, fieldValue2);
     }
 
-    private static void AddTwoParameterAttribute(HasCustomAttributes customAttributeHolder,
-        MethodAnalysisContext constructor,
-        FieldAnalysisContext field1,
-        object fieldValue1,
-        FieldAnalysisContext field2,
-        object fieldValue2)
+    private static void AddTwoParameterAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor, FieldAnalysisContext field1, object fieldValue1, FieldAnalysisContext field2, object fieldValue2)
     {
         var newAttribute = new AnalyzedCustomAttribute(constructor);
         newAttribute.Fields.Add(new(field1, MakeFieldParameter(fieldValue1, newAttribute, 0)));
@@ -339,14 +300,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
     private static void IncreaseCount<T>(Dictionary<T, int> dictionary, T item) where T : notnull
     {
-        if (dictionary.TryGetValue(item, out var count))
-        {
-            dictionary[item] = count + 1;
-        }
-        else
-        {
-            dictionary.Add(item, 1);
-        }
+        dictionary[item] = GetCount(dictionary, item) + 1;
     }
 
     private static void Add<T>(Dictionary<T, List<T>> dictionary, T key, T value) where T : notnull

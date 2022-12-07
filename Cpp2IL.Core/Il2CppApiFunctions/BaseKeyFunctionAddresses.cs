@@ -55,7 +55,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
 
         public bool IsKeyFunctionAddress(ulong address)
         {
-            return address is not 0 && resolvedAddresses.Contains(address);
+            return address != 0 && resolvedAddresses.Contains(address);
         }
 
         private void FindExport(string name, out ulong ptr)
