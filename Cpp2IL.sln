@@ -36,6 +36,11 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cpp2IL.Plugin.BuildReport",
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cpp2IL.Plugin.OrbisPkg", "Cpp2IL.Plugin.OrbisPkg\Cpp2IL.Plugin.OrbisPkg.csproj", "{A621899A-564D-4CD0-97AC-097EBABA5ACD}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{51C7C919-3561-4630-827C-7FF8173AF665}"
+	ProjectSection(SolutionItems) = preProject
+		docs\CallAnalyzer.md = docs\CallAnalyzer.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -85,6 +90,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{51C7C919-3561-4630-827C-7FF8173AF665} = {46226B08-22BA-455E-8B99-F496E90EDCBC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E9A45B2C-AAEF-4D66-ADD6-7DD234DA3F39}

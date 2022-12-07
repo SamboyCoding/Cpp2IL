@@ -12,6 +12,11 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeParameter
 {
     public Il2CppType? Type;
 
+    public CustomAttributeTypeParameter(Il2CppType? type, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
+    {
+        Type = type;
+    }
+
     public CustomAttributeTypeParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {
     }

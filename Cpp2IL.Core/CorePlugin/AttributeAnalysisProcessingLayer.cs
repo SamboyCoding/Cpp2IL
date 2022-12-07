@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Linq;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Model.Contexts;
@@ -7,7 +7,7 @@ namespace Cpp2IL.Core.CorePlugin;
 
 public class AttributeAnalysisProcessingLayer : Cpp2IlProcessingLayer
 {
-    public override string Name => "CustomAttribute Analyser";
+    public override string Name => "CustomAttribute Analyzer";
     public override string Id => "attributeanalyzer";
     
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)

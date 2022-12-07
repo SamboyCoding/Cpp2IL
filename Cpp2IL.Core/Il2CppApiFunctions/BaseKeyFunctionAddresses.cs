@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using Cpp2IL.Core.Logging;
@@ -50,6 +50,13 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
         public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
 
         private ApplicationAnalysisContext _appContext = null!; //Always initialized before used
+
+        private readonly HashSet<ulong> resolvedAddresses = new();
+
+        public bool IsKeyFunctionAddress(ulong address)
+        {
+            return address != 0 && resolvedAddresses.Contains(address);
+        }
 
         private void FindExport(string name, out ulong ptr)
         {
@@ -105,6 +112,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
             AttemptInstructionAnalysisToFillGaps();
 
             FindThunks();
+            InitializeResolvedAddresses();
         }
 
         protected void TryGetInitMetadataFromException()
@@ -282,6 +290,46 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
 
         protected virtual void Init(ApplicationAnalysisContext context)
         {
+        }
+
+        private void InitializeResolvedAddresses()
+        {
+            resolvedAddresses.Clear();
+            resolvedAddresses.Add(il2cpp_codegen_initialize_method);
+            resolvedAddresses.Add(il2cpp_codegen_initialize_runtime_metadata);
+            resolvedAddresses.Add(il2cpp_vm_metadatacache_initializemethodmetadata);
+            resolvedAddresses.Add(il2cpp_runtime_class_init_export);
+            resolvedAddresses.Add(il2cpp_runtime_class_init_actual);
+            resolvedAddresses.Add(il2cpp_object_new);
+            resolvedAddresses.Add(il2cpp_vm_object_new);
+            resolvedAddresses.Add(il2cpp_codegen_object_new);
+            resolvedAddresses.Add(il2cpp_array_new_specific);
+            resolvedAddresses.Add(il2cpp_vm_array_new_specific);
+            resolvedAddresses.Add(SzArrayNew);
+            resolvedAddresses.Add(il2cpp_type_get_object);
+            resolvedAddresses.Add(il2cpp_vm_reflection_get_type_object);
+            resolvedAddresses.Add(il2cpp_resolve_icall);
+            resolvedAddresses.Add(InternalCalls_Resolve);
+
+            resolvedAddresses.Add(il2cpp_string_new);
+            resolvedAddresses.Add(il2cpp_vm_string_new);
+            resolvedAddresses.Add(il2cpp_string_new_wrapper);
+            resolvedAddresses.Add(il2cpp_vm_string_newWrapper);
+            resolvedAddresses.Add(il2cpp_codegen_string_new_wrapper);
+
+            resolvedAddresses.Add(il2cpp_value_box);
+            resolvedAddresses.Add(il2cpp_vm_object_box);
+
+            resolvedAddresses.Add(il2cpp_object_unbox);
+            resolvedAddresses.Add(il2cpp_vm_object_unbox);
+
+            resolvedAddresses.Add(il2cpp_raise_exception);
+            resolvedAddresses.Add(il2cpp_vm_exception_raise);
+            resolvedAddresses.Add(il2cpp_codegen_raise_exception);
+
+            resolvedAddresses.Add(il2cpp_vm_object_is_inst);
+
+            resolvedAddresses.Add(AddrPInvokeLookup);
         }
     }
 }
