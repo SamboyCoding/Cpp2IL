@@ -45,8 +45,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         Dictionary<ulong, int> callCounts = new();
         Dictionary<MethodAnalysisContext, int> unknownCalls = new();
         Dictionary<MethodAnalysisContext, int> deduplicatedCalls = new();
-        Dictionary<MethodAnalysisContext, List<MethodAnalysisContext>> callsDictionary = new();
-        Dictionary<MethodAnalysisContext, List<MethodAnalysisContext>> calledByDictionary = new();
+        Dictionary<MethodAnalysisContext, HashSet<MethodAnalysisContext>> callsDictionary = new();
+        Dictionary<MethodAnalysisContext, HashSet<MethodAnalysisContext>> calledByDictionary = new();
 
         var keyFunctionAddresses = appContext.GetOrCreateKeyFunctionAddresses();
 
@@ -287,7 +287,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         return type?.Definition is null ? null : LibCpp2IlReflection.GetTypeFromDefinition(type.Definition);
     }
 
-    private static void Add<T>(Dictionary<T, List<T>> dictionary, T key, T value) where T : notnull
+    private static void Add<T>(Dictionary<T, HashSet<T>> dictionary, T key, T value) where T : notnull
     {
         if (!dictionary.TryGetValue(key, out var list))
         {

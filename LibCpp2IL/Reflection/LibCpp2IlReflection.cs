@@ -19,6 +19,7 @@ namespace LibCpp2IL.Reflection
 
         private static readonly Dictionary<Il2CppTypeEnum, Il2CppType> PrimitiveTypeCache = new();
         public static readonly Dictionary<Il2CppTypeEnum, Il2CppTypeDefinition> PrimitiveTypeDefinitions = new();
+        private static readonly Dictionary<long, Il2CppType> Il2CppTypeCache = new();
 
         internal static void ResetCaches()
         {
@@ -33,6 +34,7 @@ namespace LibCpp2IL.Reflection
             PropertyIndices.Clear();
             PrimitiveTypeCache.Clear();
             PrimitiveTypeDefinitions.Clear();
+            Il2CppTypeCache.Clear();
         }
 
         internal static void InitCaches()
@@ -52,6 +54,17 @@ namespace LibCpp2IL.Reflection
                 
                 if(type.Type.IsIl2CppPrimitive())
                     PrimitiveTypeDefinitions[type.Type] = typeDefinition;
+            }
+
+            foreach (var type in LibCpp2IlMain.Binary!.AllTypes)
+            {
+                if (type.Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+                    continue;
+
+                if (type.Byref == 0)
+                {
+                    Il2CppTypeCache[type.Data.ClassIndex] = type;
+                }
             }
         }
 
@@ -181,9 +194,7 @@ namespace LibCpp2IL.Reflection
             if (LibCpp2IlMain.Binary == null)
                 return null;
 
-            var fullName = definition.FullName;
-
-            switch (fullName)
+            switch (definition.FullName)
             {
                 case "System.Int32":
                     return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I4];
@@ -195,6 +206,11 @@ namespace LibCpp2IL.Reflection
 
             var index = definition.TypeIndex;
 
+            if (Il2CppTypeCache.TryGetValue(index, out var cachedType))
+            {
+                return cachedType;
+            }
+
             foreach (var type in LibCpp2IlMain.Binary.AllTypes)
             {
                 if (type.Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
@@ -202,6 +218,7 @@ namespace LibCpp2IL.Reflection
 
                 if (type.Data.ClassIndex == index && type.Byref == 0)
                 {
+                    Il2CppTypeCache[index] = type;
                     return type;
                 }
             }
