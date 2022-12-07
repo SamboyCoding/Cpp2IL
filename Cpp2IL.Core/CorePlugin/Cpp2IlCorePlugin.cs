@@ -47,6 +47,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         
         ProcessingLayerRegistry.Register<AttributeAnalysisProcessingLayer>();
         ProcessingLayerRegistry.Register<AttributeInjectorProcessingLayer>();
+        ProcessingLayerRegistry.Register<CallAnalysisProcessingLayer>();
         ProcessingLayerRegistry.Register<StableRenamingProcessingLayer>();
         ProcessingLayerRegistry.Register<DeobfuscationMapProcessingLayer>();
 

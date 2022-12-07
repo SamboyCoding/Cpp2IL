@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
@@ -282,6 +282,14 @@ namespace Cpp2IL.Core.Utils
                 areDifferent =  first.Get(i) != second.Get(i);
 
             return !areDifferent;
+        }
+
+        public static void ExecuteSerial<T>(IEnumerable<T> enumerable, Action<T> what)
+        {
+            foreach (var item in enumerable)
+            {
+                what(item);
+            }
         }
 
         public static void ExecuteParallel<T>(IEnumerable<T> enumerable, Action<T> what)

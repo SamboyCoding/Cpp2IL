@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
@@ -185,6 +185,8 @@ namespace LibCpp2IL.Reflection
 
             switch (fullName)
             {
+                case "System.Int32":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I4];
                 case "System.String":
                     return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_STRING];
                 case "System.Void":
