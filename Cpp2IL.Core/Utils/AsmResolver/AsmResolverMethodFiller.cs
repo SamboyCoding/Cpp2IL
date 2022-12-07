@@ -172,13 +172,16 @@ internal static class AsmResolverMethodFiller
         staticConstructorInstructions.Add(CilOpCodes.Ldsflda, field);
         staticConstructorInstructions.Add(CilOpCodes.Initobj, fieldType.ToTypeDefOrRef());
         staticConstructorInstructions.Add(CilOpCodes.Ret);
+        
+        var genericInstance = staticClass.MakeGenericInstanceType(fieldType);
+        var memberReference = new MemberReference(genericInstance.ToTypeDefOrRef(), field.Name, field.Signature);
 
         var methodSignature = MethodSignature.CreateStatic(new ByReferenceTypeSignature(fieldType));
         var method = new MethodDefinition("GetSharedReference", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig, methodSignature);
         staticClass.Methods.Add(method);
         method.CilMethodBody = new CilMethodBody(method);
         var methodInstructions = method.CilMethodBody.Instructions;
-        methodInstructions.Add(CilOpCodes.Ldsflda, field);
+        methodInstructions.Add(CilOpCodes.Ldsflda, memberReference);
         methodInstructions.Add(CilOpCodes.Ret);
 
         return method;
