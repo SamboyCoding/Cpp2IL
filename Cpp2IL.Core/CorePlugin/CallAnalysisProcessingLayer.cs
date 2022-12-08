@@ -139,12 +139,21 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 if (m.CustomAttributes == null || m.Definition == null)
                     continue;
 
-                AddOneParameterAttribute(m, callerCountAttributeInfo, callCounts.GetOrDefault(m.UnderlyingPointer, 0));
                 var unknownCallCount = unknownCalls.GetOrDefault(m, 0);
-                if (deduplicatedCalls.TryGetValue(m, out var deduplicatedCallCount))
+                if (calledByDictionary.TryGetValue(m, out var calledByList) && calledByList.Count < MaximumCalledByAttributes)
                 {
-                    AddOneParameterAttribute(m, callsDeduplicatedMethodsAttributeInfo, deduplicatedCallCount);
+                    foreach (var callingMethod in calledByList)
+                    {
+                        var il2cppType = GetTypeFromContext(callingMethod.DeclaringType);
+                        if (il2cppType == null)
+                        {
+                            //If null, nothing we can do
+                            continue;
+                        }
+                        AddTwoParameterAttribute(m, calledByAttributeInfo, il2cppType, callingMethod.Name);
+                    }
                 }
+                AddOneParameterAttribute(m, callerCountAttributeInfo, callCounts.GetOrDefault(m.UnderlyingPointer, 0));
                 if (callsDictionary.TryGetValue(m, out var callsList))
                 {
                     foreach (var calledMethod in callsList)
@@ -160,18 +169,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         }
                     }
                 }
-                if (calledByDictionary.TryGetValue(m, out var calledByList) && calledByList.Count < MaximumCalledByAttributes)
+                if (deduplicatedCalls.TryGetValue(m, out var deduplicatedCallCount))
                 {
-                    foreach (var callingMethod in calledByList)
-                    {
-                        var il2cppType = GetTypeFromContext(callingMethod.DeclaringType);
-                        if (il2cppType == null)
-                        {
-                            //If null, nothing we can do
-                            continue;
-                        }
-                        AddTwoParameterAttribute(m, calledByAttributeInfo, il2cppType, callingMethod.Name);
-                    }
+                    AddOneParameterAttribute(m, callsDeduplicatedMethodsAttributeInfo, deduplicatedCallCount);
                 }
                 if (unknownCallCount > 0)
                 {
