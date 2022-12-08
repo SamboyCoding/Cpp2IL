@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Api;
@@ -102,15 +103,14 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                             {
                                 unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                             }
-                            else if (list.Count > 1)
+                            else if (TryGetCommonMethodFromList(list, out var calledMethod))
                             {
-                                deduplicatedCalls[m] = deduplicatedCalls.GetOrDefault(m, 0) + 1;
+                                Add(callsDictionary, m, calledMethod);
+                                Add(calledByDictionary, calledMethod, m);
                             }
                             else
                             {
-                                var calledMethod = list[0];
-                                Add(callsDictionary, m, calledMethod);
-                                Add(calledByDictionary, calledMethod, m);
+                                deduplicatedCalls[m] = deduplicatedCalls.GetOrDefault(m, 0) + 1;
                             }
                         }
                         else if (!keyFunctionAddresses.IsKeyFunctionAddress(address))
@@ -134,7 +134,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             var callsAttributeInfo = callsAttributes[assemblyAnalysisContext];
             var calledByAttributeInfo = calledByAttributes[assemblyAnalysisContext];
 
-            foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods).Select(GetBaseMethodIfConcrete))
+            foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
                 if (m.CustomAttributes == null || m.Definition == null)
                     continue;
@@ -142,12 +142,12 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 var unknownCallCount = unknownCalls.GetOrDefault(m, 0);
                 if (calledByDictionary.TryGetValue(m, out var calledByList) && calledByList.Count < MaximumCalledByAttributes)
                 {
-                    foreach (var callingMethod in calledByList.Select(GetBaseMethodIfConcrete))
+                    foreach (var callingMethod in calledByList)
                     {
                         var il2cppType = GetTypeFromContext(callingMethod.DeclaringType);
                         if (il2cppType == null)
                         {
-                            //If null, nothing we can do
+                            //If it's null, there's nothing we can do. However, this should never happen.
                             continue;
                         }
                         AddTwoParameterAttribute(m, calledByAttributeInfo, il2cppType, callingMethod.Name);
@@ -156,11 +156,12 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 AddOneParameterAttribute(m, callerCountAttributeInfo, callCounts.GetOrDefault(m.UnderlyingPointer, 0));
                 if (callsDictionary.TryGetValue(m, out var callsList))
                 {
-                    foreach (var calledMethod in callsList.Select(GetBaseMethodIfConcrete))
+                    foreach (var calledMethod in callsList)
                     {
                         var il2cppType = GetTypeFromContext(calledMethod.DeclaringType);
                         if (il2cppType == null)
                         {
+                            //This should never happen, but we handle the possibility anyway.
                             unknownCallCount++;
                         }
                         else
@@ -181,12 +182,33 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         }
     }
 
-    /// <summary>
-    /// Concrete generic methods have no DeclaringType, so we get the base method instead
-    /// </summary>
-    private static MethodAnalysisContext GetBaseMethodIfConcrete(MethodAnalysisContext method)
+    private static bool TryGetCommonMethodFromList(List<MethodAnalysisContext> methods, [NotNullWhen(true)] out MethodAnalysisContext? commonMethod)
     {
-        return method is ConcreteGenericMethodAnalysisContext genericMethod ? genericMethod.BaseMethodContext : method;
+        if (methods.Count < 1)
+        {
+            throw new ArgumentException("Count cannot be 0.", nameof(methods));
+        }
+
+        var firstMethod = GetBaseMethodIfConcrete(methods[0]);
+
+        for (var i = 1; i < methods.Count; i++)
+        {
+            var method = GetBaseMethodIfConcrete(methods[i]);
+            if (firstMethod != method)
+            {
+                commonMethod = null;
+                return false;
+            }
+        }
+
+        commonMethod = firstMethod;
+        return true;
+
+        // Concrete generic methods have no DeclaringType, so we get the base method instead
+        static MethodAnalysisContext GetBaseMethodIfConcrete(MethodAnalysisContext method)
+        {
+            return method is ConcreteGenericMethodAnalysisContext genericMethod ? genericMethod.BaseMethodContext : method;
+        }
     }
 
     /// <summary>
