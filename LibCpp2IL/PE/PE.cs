@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -106,6 +107,7 @@ namespace LibCpp2IL.PE
             return peImageBase + section.VirtualAddress + offset - section.PointerToRawData;
         }
 
+        [MemberNotNull(nameof(peExportedFunctionPointers))]
         private void LoadPeExportTable()
         {
             uint addrExportTable;
@@ -160,9 +162,24 @@ namespace LibCpp2IL.PE
                 return 0;
 
             var ordinal = peExportedFunctionOrdinals[index];
-            var functionPointer = peExportedFunctionPointers![ordinal];
+            var functionPointer = peExportedFunctionPointers[ordinal];
 
             return functionPointer + peImageBase;
+        }
+
+        public override bool IsExportedFunction(ulong addr)
+        {
+            if (addr <= peImageBase)
+                return false;
+
+            var rva = addr - peImageBase;
+            if (rva > uint.MaxValue)
+                return false;
+
+            if (peExportedFunctionPointers == null)
+                LoadPeExportTable();
+
+            return Array.IndexOf(peExportedFunctionPointers, (uint)rva) >= 0;
         }
 
         public override ulong GetRva(ulong pointer)

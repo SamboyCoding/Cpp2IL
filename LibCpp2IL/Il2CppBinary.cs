@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -422,6 +422,7 @@ namespace LibCpp2IL
 
         public abstract byte[] GetRawBinaryContent();
         public abstract ulong GetVirtualAddressOfExportedFunctionByName(string toFind);
+        public virtual bool IsExportedFunction(ulong addr) => false;
 
         public abstract byte[] GetEntirePrimaryExecutableSection();
 

@@ -113,7 +113,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                                 deduplicatedCalls[m] = deduplicatedCalls.GetOrDefault(m, 0) + 1;
                             }
                         }
-                        else if (!keyFunctionAddresses.IsKeyFunctionAddress(address))
+                        else if (!keyFunctionAddresses.IsKeyFunctionAddress(address) && !appContext.Binary.IsExportedFunction(address))
                         {
                             unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                         }
