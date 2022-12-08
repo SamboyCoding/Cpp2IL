@@ -134,7 +134,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             var callsAttributeInfo = callsAttributes[assemblyAnalysisContext];
             var calledByAttributeInfo = calledByAttributes[assemblyAnalysisContext];
 
-            foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
+            foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods).Select(GetBaseMethodIfConcrete))
             {
                 if (m.CustomAttributes == null || m.Definition == null)
                     continue;
@@ -142,7 +142,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 var unknownCallCount = unknownCalls.GetOrDefault(m, 0);
                 if (calledByDictionary.TryGetValue(m, out var calledByList) && calledByList.Count < MaximumCalledByAttributes)
                 {
-                    foreach (var callingMethod in calledByList)
+                    foreach (var callingMethod in calledByList.Select(GetBaseMethodIfConcrete))
                     {
                         var il2cppType = GetTypeFromContext(callingMethod.DeclaringType);
                         if (il2cppType == null)
@@ -156,7 +156,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 AddOneParameterAttribute(m, callerCountAttributeInfo, callCounts.GetOrDefault(m.UnderlyingPointer, 0));
                 if (callsDictionary.TryGetValue(m, out var callsList))
                 {
-                    foreach (var calledMethod in callsList)
+                    foreach (var calledMethod in callsList.Select(GetBaseMethodIfConcrete))
                     {
                         var il2cppType = GetTypeFromContext(calledMethod.DeclaringType);
                         if (il2cppType == null)
@@ -179,6 +179,14 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Concrete generic methods have no DeclaringType, so we get the base method instead
+    /// </summary>
+    private static MethodAnalysisContext GetBaseMethodIfConcrete(MethodAnalysisContext method)
+    {
+        return method is ConcreteGenericMethodAnalysisContext genericMethod ? genericMethod.BaseMethodContext : method;
     }
 
     /// <summary>
