@@ -297,7 +297,7 @@ public static class CsFileUtils
     /// <param name="sb"></param>
     public static void AppendInheritanceInfo(TypeAnalysisContext type, StringBuilder sb)
     {
-        var baseType = type.BaseTypeContext;
+        var baseType = type.BaseType;
         var needsBaseClass = baseType is { FullName: not "System.Object" and not "System.ValueType" and not "System.Enum" };
         if (needsBaseClass)
             sb.Append(" : ").Append(GetTypeName(baseType!.Name));
