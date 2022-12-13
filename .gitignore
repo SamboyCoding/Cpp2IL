@@ -4,19 +4,19 @@ packages/
 \.idea/
 
 Cpp2IL/bin/
-
 Cpp2IL/obj/
 
 LibCpp2IL/bin/
-
 LibCpp2IL/obj/
 
 LibCpp2ILTests/bin/
-
 LibCpp2ILTests/obj/
-Cpp2IL.Core/obj/
 
+Cpp2IL.Core/obj/
 Cpp2IL.Core/bin/
+
+Cpp2IL.Core.Tests/obj/
+Cpp2IL.Core.Tests/bin/
 
 Il2CppBinaryAnalyzer/obj/
 Il2CppBinaryAnalyzer/bin/

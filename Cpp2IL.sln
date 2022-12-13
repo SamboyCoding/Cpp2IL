@@ -41,6 +41,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Docs", "Docs", "{51C7C919-3
 		docs\CallAnalyzer.md = docs\CallAnalyzer.md
 	EndProjectSection
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Core.Tests", "Cpp2IL.Core.Tests\Cpp2IL.Core.Tests.csproj", "{9DA1EAC8-05D8-4CB6-80D6-AB6C304DF834}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,10 @@ Global
 		{A621899A-564D-4CD0-97AC-097EBABA5ACD}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{A621899A-564D-4CD0-97AC-097EBABA5ACD}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{A621899A-564D-4CD0-97AC-097EBABA5ACD}.Release|Any CPU.Build.0 = Release|Any CPU
+		{9DA1EAC8-05D8-4CB6-80D6-AB6C304DF834}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{9DA1EAC8-05D8-4CB6-80D6-AB6C304DF834}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{9DA1EAC8-05D8-4CB6-80D6-AB6C304DF834}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{9DA1EAC8-05D8-4CB6-80D6-AB6C304DF834}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
