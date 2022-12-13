@@ -1,6 +1,7 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -17,7 +18,6 @@ namespace Cpp2IL.Core
 {
     public static class Cpp2IlApi
     {
-        private static Regex unityVersionRegex = new Regex(@"^[0-9]+\.[0-9]+\.[0-9]+[abcfx][0-9]+$", RegexOptions.Compiled);
         public static ApplicationAnalysisContext? CurrentAppContext;
 
         public static void Init(string pluginsDir = "Plugins")
@@ -46,6 +46,7 @@ namespace Cpp2IL.Core
             LibLogger.Writer = new LibLogWriter();
         }
 
+        [MemberNotNull(nameof(CurrentAppContext))]
         public static void InitializeLibCpp2Il(string assemblyPath, string metadataPath, UnityVersion unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
@@ -69,6 +70,7 @@ namespace Cpp2IL.Core
             OnLibInitialized();
         }
 
+        [MemberNotNull(nameof(CurrentAppContext))]
         public static void InitializeLibCpp2Il(byte[] assemblyData, byte[] metadataData, UnityVersion unityVersion, bool allowUserToInputAddresses = false)
         {
             if (IsLibInitialized())
@@ -89,6 +91,7 @@ namespace Cpp2IL.Core
             OnLibInitialized();
         }
 
+        [MemberNotNull(nameof(CurrentAppContext))]
         private static void OnLibInitialized()
         {
             MiscUtils.Init();
