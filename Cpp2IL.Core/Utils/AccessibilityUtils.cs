@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -7,7 +7,7 @@ using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Utils;
 
-internal static class AccessibilityUtils
+public static class AccessibilityUtils
 {
     public static bool IsAccessibleTo(this TypeAnalysisContext referenceType, TypeAnalysisContext referencingType)
     {
@@ -15,13 +15,18 @@ internal static class AccessibilityUtils
             return true;
 
         var declaringTypesHierarchy = referenceType.GetTypeAndDeclaringTypes().ToArray();
-        var index = declaringTypesHierarchy.IndexOf(t => referencingType.IsAssignableTo(t));
+        var inheritsFromIndex = declaringTypesHierarchy.IndexOf(t => referencingType.IsAssignableTo(t));
+        var declaringTypeIndex = Array.IndexOf(declaringTypesHierarchy, referencingType);
 
         if (referenceType.DeclaringAssembly == referencingType.DeclaringAssembly /*or internals visible*/)
         {
             for (var i = 0; i < declaringTypesHierarchy.Length; i++)
             {
-                if (i == index - 1)
+                if (i == declaringTypeIndex - 1)
+                {
+                    //All nested classes are accesible to their immediate declaring type.
+                }
+                else if (i == inheritsFromIndex - 1)
                 {
                     if (declaringTypesHierarchy[i].GetVisibility() is TypeAttributes.NestedPrivate)
                     {
@@ -42,7 +47,11 @@ internal static class AccessibilityUtils
         {
             for (var i = 0; i < declaringTypesHierarchy.Length; i++)
             {
-                if (i == index - 1)
+                if (i == declaringTypeIndex - 1)
+                {
+                    //All nested classes are accesible to their immediate declaring type.
+                }
+                else if (i == inheritsFromIndex - 1)
                 {
                     if (declaringTypesHierarchy[i].GetVisibility() is TypeAttributes.NotPublic or TypeAttributes.NestedPrivate or TypeAttributes.NestedAssembly or TypeAttributes.NestedFamANDAssem)
                     {
@@ -60,6 +69,18 @@ internal static class AccessibilityUtils
             return true;
         }
         return false;
+    }
+
+    public static bool IsAssignableTo(this TypeAnalysisContext derivedType, TypeAnalysisContext baseType)
+    {
+        if (baseType.IsInterface)
+        {
+            return derivedType.IsAssignableToInterface(baseType);
+        }
+        else
+        {
+            return derivedType.InheritsFrom(baseType);
+        }
     }
 
     private static int IndexOf<T>(this IEnumerable<T> enumerable, Func<T, bool> selector)
@@ -87,18 +108,6 @@ internal static class AccessibilityUtils
     }
 
     private static TypeAttributes GetVisibility(this TypeAnalysisContext type) => type.TypeAttributes & TypeAttributes.VisibilityMask;
-
-    private static bool IsAssignableTo(this TypeAnalysisContext derivedType, TypeAnalysisContext baseType)
-    {
-        if (baseType.IsInterface)
-        {
-            return derivedType.IsAssignableToInterface(baseType);
-        }
-        else
-        {
-            return derivedType.InheritsFrom(baseType);
-        }
-    }
 
     private static bool InheritsFrom(this TypeAnalysisContext derivedType, TypeAnalysisContext baseType)
     {
