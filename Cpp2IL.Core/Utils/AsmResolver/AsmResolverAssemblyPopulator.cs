@@ -179,16 +179,60 @@ public static class AsmResolverAssemblyPopulator
             if (!analyzedCustomAttribute.HasAnyParameters && numNamedArgs == 0)
                 signature = new();
             else if (numNamedArgs == 0)
+            {
                 //Only fixed arguments.
-                signature = new(analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)));
+                if (analyzedCustomAttribute.IsSuitableForEmission)
+                    signature = new(analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)));
+                else
+                {
+                    var argumentList = new List<CustomAttributeArgument>(analyzedCustomAttribute.Constructor.ParameterCount);
+                    var parameterDictionary = analyzedCustomAttribute.ConstructorParameters.ToDictionary(p => p.Index);
+                    for (var i = 0; i < analyzedCustomAttribute.Constructor.ParameterCount; i++)
+                    {
+                        if (parameterDictionary.TryGetValue(i, out var parameter))
+                        {
+                            argumentList.Add(FromAnalyzedAttributeArgument(assemblyDefinition, parameter));
+                        }
+                        else
+                        {
+                            argumentList.Add(FromConstructorParameter(assemblyDefinition, analyzedCustomAttribute.Constructor.Parameters[i]));
+                        }
+                    }
+                    signature = new(argumentList);
+                }
+            }
             else
+            {
                 //Has named arguments.
-                signature = new(
-                    analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)),
-                    analyzedCustomAttribute.Fields
-                        .Select(f => FromAnalyzedAttributeField(assemblyDefinition, f))
-                        .Concat(analyzedCustomAttribute.Properties.Select(p => FromAnalyzedAttributeProperty(assemblyDefinition, p)))
-                );
+                if (analyzedCustomAttribute.IsSuitableForEmission)
+                    signature = new(
+                        analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)),
+                        analyzedCustomAttribute.Fields
+                            .Select(f => FromAnalyzedAttributeField(assemblyDefinition, f))
+                            .Concat(analyzedCustomAttribute.Properties.Select(p => FromAnalyzedAttributeProperty(assemblyDefinition, p)))
+                    );
+                else
+                {
+                    var argumentList = new List<CustomAttributeArgument>(analyzedCustomAttribute.Constructor.ParameterCount);
+                    var parameterDictionary = analyzedCustomAttribute.ConstructorParameters.ToDictionary(p => p.Index);
+                    for (var i = 0; i < analyzedCustomAttribute.Constructor.ParameterCount; i++)
+                    {
+                        if (parameterDictionary.TryGetValue(i, out var parameter))
+                        {
+                            argumentList.Add(FromAnalyzedAttributeArgument(assemblyDefinition, parameter));
+                        }
+                        else
+                        {
+                            argumentList.Add(FromConstructorParameter(assemblyDefinition, analyzedCustomAttribute.Constructor.Parameters[i]));
+                        }
+                    }
+                    signature = new(
+                        argumentList,
+                        analyzedCustomAttribute.Fields
+                            .Select(f => FromAnalyzedAttributeField(assemblyDefinition, f))
+                            .Concat(analyzedCustomAttribute.Properties.Select(p => FromAnalyzedAttributeProperty(assemblyDefinition, p))));
+                }
+            }
         }
         catch (Exception e)
         {
@@ -199,6 +243,59 @@ public static class AsmResolverAssemblyPopulator
 
         var newAttribute = new CustomAttribute((ICustomAttributeType)importedCtor, signature);
         return newAttribute;
+    }
+
+    private static CustomAttributeArgument FromConstructorParameter(AssemblyDefinition assemblyDefinition, ParameterAnalysisContext parameterAnalysisContext)
+    {
+        var typeSignature = AsmResolverUtils.GetTypeSignatureFromIl2CppType(assemblyDefinition.ManifestModule!, parameterAnalysisContext.ParameterType);
+        if (typeSignature is CorLibTypeSignature corLibTypeSignature)
+        {
+            return FromCorLibTypeSignature(corLibTypeSignature);
+        }
+        else if (typeSignature is SzArrayTypeSignature)
+        {
+            return new(typeSignature, Array.Empty<object>());
+        }
+        else if (typeSignature is TypeDefOrRefSignature typeDefOrRefSignature)
+        {
+            if (typeDefOrRefSignature.IsValueType && typeDefOrRefSignature.Resolve() is { IsEnum: true } enumType)
+            {
+                return FromCorLibTypeSignature((CorLibTypeSignature)enumType.Fields.First(f => !f.IsStatic).Signature!.FieldType);
+            }
+            else if (typeDefOrRefSignature.Namespace == "System" && typeDefOrRefSignature.Name == "Type")
+            {
+                return new(typeSignature, (object?)null);
+            }
+            else
+            {
+                throw new NotSupportedException($"{nameof(TypeDefOrRefSignature)} {typeDefOrRefSignature.FullName} not supported for custom attribute parameters.");
+            }
+        }
+        else
+        {
+            throw new NotSupportedException($"{nameof(TypeSignature)} {typeSignature.GetType().Name} not supported for custom attribute parameters.");
+        }
+    }
+
+    private static CustomAttributeArgument FromCorLibTypeSignature(CorLibTypeSignature corLibTypeSignature)
+    {
+        return corLibTypeSignature.ElementType switch
+        {
+            ElementType.I1 => new(corLibTypeSignature, default(sbyte)),
+            ElementType.U1 => new(corLibTypeSignature, default(byte)),
+            ElementType.I2 => new(corLibTypeSignature, default(short)),
+            ElementType.U2 => new(corLibTypeSignature, default(ushort)),
+            ElementType.I4 => new(corLibTypeSignature, default(int)),
+            ElementType.U4 => new(corLibTypeSignature, default(uint)),
+            ElementType.I8 => new(corLibTypeSignature, default(long)),
+            ElementType.U8 => new(corLibTypeSignature, default(ulong)),
+            ElementType.R4 => new(corLibTypeSignature, default(float)),
+            ElementType.R8 => new(corLibTypeSignature, default(double)),
+            ElementType.Boolean => new(corLibTypeSignature, default(bool)),
+            ElementType.Char => new(corLibTypeSignature, default(char)),
+            ElementType.String => new(corLibTypeSignature, ""),
+            _ => throw new NotSupportedException($"{nameof(ElementType)} {corLibTypeSignature.ElementType} not supported for custom attribute parameters."),
+        };
     }
 
     private static void CopyCustomAttributes(HasCustomAttributes source, IList<CustomAttribute> destination)
