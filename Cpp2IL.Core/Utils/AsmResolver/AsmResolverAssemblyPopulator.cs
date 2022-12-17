@@ -167,7 +167,7 @@ public static class AsmResolverAssemblyPopulator
     private static CustomAttributeNamedArgument FromAnalyzedAttributeProperty(AssemblyDefinition parentAssembly, CustomAttributeProperty property)
         => new(CustomAttributeArgumentMemberType.Property, property.Property.Name, GetTypeSigFromAttributeArg(parentAssembly, property.Value), FromAnalyzedAttributeArgument(parentAssembly, property.Value));
 
-    private static CustomAttribute ConvertCustomAttribute(AnalyzedCustomAttribute analyzedCustomAttribute, AssemblyDefinition assemblyDefinition)
+    private static CustomAttribute? ConvertCustomAttribute(AnalyzedCustomAttribute analyzedCustomAttribute, AssemblyDefinition assemblyDefinition)
     {
         var ctor = analyzedCustomAttribute.Constructor.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"Found a custom attribute with no AsmResolver constructor: {analyzedCustomAttribute}");
 
@@ -178,17 +178,28 @@ public static class AsmResolverAssemblyPopulator
         {
             if (!analyzedCustomAttribute.HasAnyParameters && numNamedArgs == 0)
                 signature = new();
-            else if (numNamedArgs == 0)
-                //Only fixed arguments.
-                signature = new(analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)));
+            else if (analyzedCustomAttribute.IsSuitableForEmission)
+            {
+                if (numNamedArgs == 0)
+                {
+                    //Only fixed arguments.
+                    signature = new(analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)));
+                }
+                else
+                {
+                    //Has named arguments.
+                    signature = new(
+                            analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)),
+                            analyzedCustomAttribute.Fields
+                                .Select(f => FromAnalyzedAttributeField(assemblyDefinition, f))
+                                .Concat(analyzedCustomAttribute.Properties.Select(p => FromAnalyzedAttributeProperty(assemblyDefinition, p)))
+                        );
+                }
+            }
             else
-                //Has named arguments.
-                signature = new(
-                    analyzedCustomAttribute.ConstructorParameters.Select(p => FromAnalyzedAttributeArgument(assemblyDefinition, p)),
-                    analyzedCustomAttribute.Fields
-                        .Select(f => FromAnalyzedAttributeField(assemblyDefinition, f))
-                        .Concat(analyzedCustomAttribute.Properties.Select(p => FromAnalyzedAttributeProperty(assemblyDefinition, p)))
-                );
+            {
+                return null;
+            }
         }
         catch (Exception e)
         {
@@ -212,7 +223,9 @@ public static class AsmResolverAssemblyPopulator
         {
             foreach (var analyzedCustomAttribute in source.CustomAttributes)
             {
-                destination.Add(ConvertCustomAttribute(analyzedCustomAttribute, assemblyDefinition));
+                var asmResolverCustomAttribute = ConvertCustomAttribute(analyzedCustomAttribute, assemblyDefinition);
+                if (asmResolverCustomAttribute != null)
+                    destination.Add(asmResolverCustomAttribute);
             }
         }
         catch (Exception e)
