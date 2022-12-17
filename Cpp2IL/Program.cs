@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -485,24 +485,24 @@ namespace Cpp2IL
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
 
             foreach (var (key, value) in runtimeArgs.ProcessingLayerConfigurationOptions)
-                Cpp2IlApi.CurrentAppContext!.PutExtraData(key, value);
+                Cpp2IlApi.CurrentAppContext.PutExtraData(key, value);
 
             //Pre-process processing layers, allowing them to stop others from running
             Logger.InfoNewline("Pre-processing processing layers...");
             var layers = runtimeArgs.ProcessingLayersToRun.Clone();
-            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.PreProcess(Cpp2IlApi.CurrentAppContext!, layers));
+            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.PreProcess(Cpp2IlApi.CurrentAppContext, layers));
             runtimeArgs.ProcessingLayersToRun = layers;
             
             //Run processing layers
             Logger.InfoNewline("Invoking processing layers...");
-            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.Process(Cpp2IlApi.CurrentAppContext!));
+            RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.Process(Cpp2IlApi.CurrentAppContext));
 
             var outputStart = DateTime.Now;
 
             if (runtimeArgs.OutputFormat != null)
             {
                 Logger.InfoNewline($"Outputting as {runtimeArgs.OutputFormat.OutputFormatName} to {runtimeArgs.OutputRootDirectory}...");
-                runtimeArgs.OutputFormat.DoOutput(Cpp2IlApi.CurrentAppContext!, runtimeArgs.OutputRootDirectory);
+                runtimeArgs.OutputFormat.DoOutput(Cpp2IlApi.CurrentAppContext, runtimeArgs.OutputRootDirectory);
                 Logger.InfoNewline($"Finished outputting in {(DateTime.Now - outputStart).TotalMilliseconds}ms");
             }
             else

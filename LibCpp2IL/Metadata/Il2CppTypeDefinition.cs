@@ -108,6 +108,8 @@ namespace LibCpp2IL.Metadata
 
         public bool IsAbstract => ((TypeAttributes) Flags & TypeAttributes.Abstract) != 0;
 
+        public bool IsInterface => ((TypeAttributes)Flags & TypeAttributes.Interface) != 0;
+
         private Il2CppImageDefinition? _cachedDeclaringAssembly;
 
         public Il2CppImageDefinition? DeclaringAssembly

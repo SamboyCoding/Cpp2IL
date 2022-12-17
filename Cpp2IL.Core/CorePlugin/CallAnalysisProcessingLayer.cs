@@ -1,12 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.Model;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Model.CustomAttributes;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
@@ -31,22 +31,22 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
     {
         const string Namespace = "Cpp2ILInjected.CallAnalysis";
 
-        var deduplicatedMethodAttributes = InjectZeroParameterAttribute(appContext, Namespace, "DeduplicatedMethodAttribute", AttributeTargets.Method, false);
-        var analysisFailedAttributes = InjectZeroParameterAttribute(appContext, Namespace, "CallAnalysisFailedAttribute", AttributeTargets.Method, false);
-        var analysisNotSupportedAttributes = InjectZeroParameterAttribute(appContext, Namespace, "CallAnalysisNotSupportedAttribute", AttributeTargets.Method, false);
+        var deduplicatedMethodAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "DeduplicatedMethodAttribute", AttributeTargets.Method, false);
+        var analysisFailedAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "CallAnalysisFailedAttribute", AttributeTargets.Method, false);
+        var analysisNotSupportedAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "CallAnalysisNotSupportedAttribute", AttributeTargets.Method, false);
 
-        var callsDeduplicatedMethodsAttributes = InjectOneParameterAttribute(appContext, Namespace, "CallsDeduplicatedMethodsAttribute", AttributeTargets.Method, false, appContext.SystemTypes.SystemInt32Type, "Count");
-        var callsUnknownMethodsAttributes = InjectOneParameterAttribute(appContext, Namespace, "CallsUnknownMethodsAttribute", AttributeTargets.Method, false, appContext.SystemTypes.SystemInt32Type, "Count");
-        var callerCountAttributes = InjectOneParameterAttribute(appContext, Namespace, "CallerCountAttribute", AttributeTargets.Method, false, appContext.SystemTypes.SystemInt32Type, "Count");
+        var callsDeduplicatedMethodsAttributes = AttributeInjectionUtils.InjectOneParameterAttribute(appContext, Namespace, "CallsDeduplicatedMethodsAttribute", AttributeTargets.Method, false, appContext.SystemTypes.SystemInt32Type, "Count");
+        var callsUnknownMethodsAttributes = AttributeInjectionUtils.InjectOneParameterAttribute(appContext, Namespace, "CallsUnknownMethodsAttribute", AttributeTargets.Method, false, appContext.SystemTypes.SystemInt32Type, "Count");
+        var callerCountAttributes = AttributeInjectionUtils.InjectOneParameterAttribute(appContext, Namespace, "CallerCountAttribute", AttributeTargets.Method, false, appContext.SystemTypes.SystemInt32Type, "Count");
 
-        var callsAttributes = InjectTwoParameterAttribute(appContext, Namespace, "CallsAttribute", AttributeTargets.Method, true, appContext.SystemTypes.SystemTypeType, "Type", appContext.SystemTypes.SystemStringType, "Member");
-        var calledByAttributes = InjectTwoParameterAttribute(appContext, Namespace, "CalledByAttribute", AttributeTargets.Method, true, appContext.SystemTypes.SystemTypeType, "Type", appContext.SystemTypes.SystemStringType, "Member");
+        var callsAttributes = AttributeInjectionUtils.InjectThreeParameterAttribute(appContext, Namespace, "CallsAttribute", AttributeTargets.Method, true, appContext.SystemTypes.SystemTypeType, "Type", appContext.SystemTypes.SystemStringType, "TypeFullName", appContext.SystemTypes.SystemStringType, "Member");
+        var calledByAttributes = AttributeInjectionUtils.InjectThreeParameterAttribute(appContext, Namespace, "CalledByAttribute", AttributeTargets.Method, true, appContext.SystemTypes.SystemTypeType, "Type", appContext.SystemTypes.SystemStringType, "TypeFullName", appContext.SystemTypes.SystemStringType, "Member");
 
         Dictionary<ulong, int> callCounts = new();
         Dictionary<MethodAnalysisContext, int> unknownCalls = new();
         Dictionary<MethodAnalysisContext, int> deduplicatedCalls = new();
-        Dictionary<MethodAnalysisContext, List<MethodAnalysisContext>> callsDictionary = new();
-        Dictionary<MethodAnalysisContext, List<MethodAnalysisContext>> calledByDictionary = new();
+        Dictionary<MethodAnalysisContext, HashSet<MethodAnalysisContext>> callsDictionary = new();
+        Dictionary<MethodAnalysisContext, HashSet<MethodAnalysisContext>> calledByDictionary = new();
 
         var keyFunctionAddresses = appContext.GetOrCreateKeyFunctionAddresses();
 
@@ -64,7 +64,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
                 if (appContext.MethodsByAddress.TryGetValue(m.UnderlyingPointer, out var methodsWithThatAddress) && methodsWithThatAddress.Count > 1)
                 {
-                    AddZeroParameterAttribute(m, deduplicatedMethodConstructor);
+                    AttributeInjectionUtils.AddZeroParameterAttribute(m, deduplicatedMethodConstructor);
                 }
                 
                 try
@@ -73,7 +73,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 }
                 catch
                 {
-                    AddZeroParameterAttribute(m, analysisFailedConstructor);
+                    AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisFailedConstructor);
                     continue;
                 }
 
@@ -81,7 +81,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 {
                     if ((m.MethodAttributes & MethodAttributes.Abstract) == 0)
                     {
-                        AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
+                        AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
                     }
                     continue;
                 }
@@ -102,18 +102,17 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                             {
                                 unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                             }
-                            else if (list.Count > 1)
+                            else if (TryGetCommonMethodFromList(list, out var calledMethod))
                             {
-                                deduplicatedCalls[m] = deduplicatedCalls.GetOrDefault(m, 0) + 1;
-                            }
-                            else
-                            {
-                                var calledMethod = list[0];
                                 Add(callsDictionary, m, calledMethod);
                                 Add(calledByDictionary, calledMethod, m);
                             }
+                            else
+                            {
+                                deduplicatedCalls[m] = deduplicatedCalls.GetOrDefault(m, 0) + 1;
+                            }
                         }
-                        else if (!keyFunctionAddresses.IsKeyFunctionAddress(address))
+                        else if (!keyFunctionAddresses.IsKeyFunctionAddress(address) && !appContext.Binary.IsExportedFunction(address))
                         {
                             unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                         }
@@ -139,147 +138,100 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 if (m.CustomAttributes == null || m.Definition == null)
                     continue;
 
-                AddOneParameterAttribute(m, callerCountAttributeInfo, callCounts.GetOrDefault(m.UnderlyingPointer, 0));
                 var unknownCallCount = unknownCalls.GetOrDefault(m, 0);
-                if (deduplicatedCalls.TryGetValue(m, out var deduplicatedCallCount))
-                {
-                    AddOneParameterAttribute(m, callsDeduplicatedMethodsAttributeInfo, deduplicatedCallCount);
-                }
-                if (callsDictionary.TryGetValue(m, out var callsList))
-                {
-                    foreach (var calledMethod in callsList)
-                    {
-                        var il2cppType = GetTypeFromContext(calledMethod.DeclaringType);
-                        if (il2cppType == null)
-                        {
-                            unknownCallCount++;
-                        }
-                        else
-                        {
-                            AddTwoParameterAttribute(m, callsAttributeInfo, il2cppType, calledMethod.Name);
-                        }
-                    }
-                }
                 if (calledByDictionary.TryGetValue(m, out var calledByList) && calledByList.Count < MaximumCalledByAttributes)
                 {
                     foreach (var callingMethod in calledByList)
                     {
-                        var il2cppType = GetTypeFromContext(callingMethod.DeclaringType);
-                        if (il2cppType == null)
+                        if (TryGetIl2CppTypeForMethod(m, callingMethod, out var il2cppType, out var typeFullName))
                         {
-                            //If null, nothing we can do
-                            continue;
+                            AttributeInjectionUtils.AddTwoParameterAttribute(m, calledByAttributeInfo.Item1, calledByAttributeInfo.Item2, il2cppType, calledByAttributeInfo.Item4, callingMethod.Name);
                         }
-                        AddTwoParameterAttribute(m, calledByAttributeInfo, il2cppType, callingMethod.Name);
+                        else
+                        {
+                            AttributeInjectionUtils.AddTwoParameterAttribute(m, calledByAttributeInfo.Item1, calledByAttributeInfo.Item3, typeFullName, calledByAttributeInfo.Item4, callingMethod.Name);
+                        }
                     }
+                }
+
+                AttributeInjectionUtils.AddOneParameterAttribute(m, callerCountAttributeInfo, callCounts.GetOrDefault(m.UnderlyingPointer, 0));
+                if (callsDictionary.TryGetValue(m, out var callsList))
+                {
+                    foreach (var calledMethod in callsList)
+                    {
+                        if (TryGetIl2CppTypeForMethod(m, calledMethod, out var il2cppType, out var typeFullName))
+                        {
+                            AttributeInjectionUtils.AddTwoParameterAttribute(m, callsAttributeInfo.Item1, callsAttributeInfo.Item2, il2cppType, callsAttributeInfo.Item4, calledMethod.Name);
+                        }
+                        else
+                        {
+                            AttributeInjectionUtils.AddTwoParameterAttribute(m, callsAttributeInfo.Item1, callsAttributeInfo.Item3, typeFullName, callsAttributeInfo.Item4, calledMethod.Name);
+                        }
+                    }
+                }
+                if (deduplicatedCalls.TryGetValue(m, out var deduplicatedCallCount))
+                {
+                    AttributeInjectionUtils.AddOneParameterAttribute(m, callsDeduplicatedMethodsAttributeInfo, deduplicatedCallCount);
                 }
                 if (unknownCallCount > 0)
                 {
-                    AddOneParameterAttribute(m, callsUnknownMethodsAttributeInfo, unknownCallCount);
+                    AttributeInjectionUtils.AddOneParameterAttribute(m, callsUnknownMethodsAttributeInfo, unknownCallCount);
                 }
             }
         }
     }
 
-    /// <summary>
-    /// Inject an attribute with no fields nor properties into the <see cref="ApplicationAnalysisContext"/>.
-    /// </summary>
-    /// <returns>A dictionary of assembly contexts to their inject attribute constructors.</returns>
-    private static Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectZeroParameterAttribute(ApplicationAnalysisContext appContext, string ns, string name, AttributeTargets attributeTargets, bool allowMultiple)
+    private static bool TryGetCommonMethodFromList(List<MethodAnalysisContext> methods, [NotNullWhen(true)] out MethodAnalysisContext? commonMethod)
     {
-        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(ns, name, appContext.SystemTypes.SystemAttributeType);
-        ApplyAttributeUsageAttribute(appContext, multiInjectType, attributeTargets, allowMultiple);
-        return multiInjectType.InjectConstructor(false);
-    }
-
-    private static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext)> InjectOneParameterAttribute(ApplicationAnalysisContext appContext, string ns, string name, AttributeTargets attributeTargets, bool allowMultiple, TypeAnalysisContext fieldType, string fieldName)
-    {
-        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(ns, name, appContext.SystemTypes.SystemAttributeType);
-        ApplyAttributeUsageAttribute(appContext, multiInjectType, attributeTargets, allowMultiple);
-
-        var fields = multiInjectType.InjectFieldToAllAssemblies(fieldName, fieldType, FieldAttributes.Public);
-
-        var constructors = multiInjectType.InjectConstructor(false);
-
-        return multiInjectType.InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t => (constructors[t.DeclaringAssembly], fields[t.DeclaringAssembly]));
-    }
-
-    private static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext, InjectedFieldAnalysisContext)> InjectTwoParameterAttribute(ApplicationAnalysisContext appContext, string ns, string name, AttributeTargets attributeTargets, bool allowMultiple, TypeAnalysisContext fieldType1, string fieldName1, TypeAnalysisContext fieldType2, string fieldName2)
-    {
-        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(ns, name, appContext.SystemTypes.SystemAttributeType);
-        ApplyAttributeUsageAttribute(appContext, multiInjectType, attributeTargets, allowMultiple);
-
-        var firstFields = multiInjectType.InjectFieldToAllAssemblies(fieldName1, fieldType1, FieldAttributes.Public);
-
-        var secondFields = multiInjectType.InjectFieldToAllAssemblies(fieldName2, fieldType2, FieldAttributes.Public);
-
-        var constructors = multiInjectType.InjectConstructor(false);
-
-        return multiInjectType.InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t =>
+        if (methods.Count < 1)
         {
-            return (constructors[t.DeclaringAssembly], firstFields[t.DeclaringAssembly], secondFields[t.DeclaringAssembly]);
-        });
-    }
+            throw new ArgumentException("Count cannot be 0.", nameof(methods));
+        }
 
-    private static void AddZeroParameterAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor)
-    {
-        var newAttribute = new AnalyzedCustomAttribute(constructor);
-        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
-    }
+        var firstMethod = GetBaseMethodIfConcrete(methods[0]);
 
-    private static void AddOneParameterAttribute(HasCustomAttributes customAttributeHolder, (MethodAnalysisContext, FieldAnalysisContext) attributeInfo, object fieldValue)
-    {
-        AddOneParameterAttribute(customAttributeHolder, attributeInfo.Item1, attributeInfo.Item2, fieldValue);
-    }
-
-    private static void AddOneParameterAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor, FieldAnalysisContext field, object fieldValue)
-    {
-        var newAttribute = new AnalyzedCustomAttribute(constructor);
-        newAttribute.Fields.Add(new(field, MakeFieldParameter(fieldValue, newAttribute, 0)));
-        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
-    }
-
-    private static void AddTwoParameterAttribute(HasCustomAttributes customAttributeHolder, (MethodAnalysisContext, FieldAnalysisContext, FieldAnalysisContext) attributeInfo, object fieldValue1, object fieldValue2)
-    {
-        AddTwoParameterAttribute(customAttributeHolder, attributeInfo.Item1, attributeInfo.Item2, fieldValue1, attributeInfo.Item3, fieldValue2);
-    }
-
-    private static void AddTwoParameterAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor, FieldAnalysisContext field1, object fieldValue1, FieldAnalysisContext field2, object fieldValue2)
-    {
-        var newAttribute = new AnalyzedCustomAttribute(constructor);
-        newAttribute.Fields.Add(new(field1, MakeFieldParameter(fieldValue1, newAttribute, 0)));
-        newAttribute.Fields.Add(new(field2, MakeFieldParameter(fieldValue2, newAttribute, 1)));
-        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
-    }
-
-    private static void ApplyAttributeUsageAttribute(ApplicationAnalysisContext appContext, MultiAssemblyInjectedType multiAssemblyInjectedType, AttributeTargets attributeTargets, bool allowMultiple)
-    {
-        var mscorlibAssembly = appContext.GetAssemblyByName("mscorlib") ?? throw new("Could not find mscorlib");
-        var targetsEnum = mscorlibAssembly.GetTypeByFullName($"System.{nameof(AttributeTargets)}") ?? throw new("Could not find AttributeTargets");
-        var targetsEnumType = GetTypeFromContext(targetsEnum) ?? throw new("Could not get the Il2CppType for AttributeTargets");
-        var usageAttribute = mscorlibAssembly.GetTypeByFullName($"System.{nameof(AttributeUsageAttribute)}") ?? throw new("Could not find AttributeUsageAttribute");
-        var usageConstructor = usageAttribute.Methods.First(m => (m.MethodAttributes & MethodAttributes.MemberAccessMask) == MethodAttributes.Public && m.Name == ".ctor");
-        var allowMultipleProperty = usageAttribute.Properties.First(p => p.Name == nameof(AttributeUsageAttribute.AllowMultiple));
-        foreach (var injectedType in multiAssemblyInjectedType.InjectedTypes)
+        for (var i = 1; i < methods.Count; i++)
         {
-            var newAttribute = new AnalyzedCustomAttribute(usageConstructor);
-            var enumParameter = new CustomAttributeEnumParameter(targetsEnumType, appContext, newAttribute, CustomAttributeParameterKind.ConstructorParam, 0);
-            enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue = (int)attributeTargets;
-            newAttribute.ConstructorParameters.Add(enumParameter);
-            newAttribute.Properties.Add(new(allowMultipleProperty, new CustomAttributePrimitiveParameter(allowMultiple, newAttribute, CustomAttributeParameterKind.Property, 1)));
-            injectedType.AnalyzeCustomAttributeData();
-            injectedType.CustomAttributes!.Add(newAttribute);//Nullability checked above
+            var method = GetBaseMethodIfConcrete(methods[i]);
+            if (firstMethod != method)
+            {
+                commonMethod = null;
+                return false;
+            }
+        }
+
+        commonMethod = firstMethod;
+        return true;
+
+        // Concrete generic methods have no DeclaringType, so we get the base method instead
+        static MethodAnalysisContext GetBaseMethodIfConcrete(MethodAnalysisContext method)
+        {
+            return method is ConcreteGenericMethodAnalysisContext genericMethod ? genericMethod.BaseMethodContext : method;
         }
     }
 
-    private static BaseCustomAttributeParameter MakeFieldParameter(object fieldValue, AnalyzedCustomAttribute owner, int index)
+    private static bool TryGetIl2CppTypeForMethod(MethodAnalysisContext annotedMethod, MethodAnalysisContext targetMethod, [NotNullWhen(true)] out Il2CppType? targetDeclaringType, [NotNullWhen(false)] out string? targetDeclaringTypeFullName)
     {
-        return fieldValue switch
+        var declaringType = targetMethod.DeclaringType;
+        if (declaringType == null)
         {
-            Il2CppType type => new CustomAttributeTypeParameter(type, owner, CustomAttributeParameterKind.Field, index),
-            IConvertible convertible => new CustomAttributePrimitiveParameter(convertible, owner, CustomAttributeParameterKind.Field, index),
-            _ => throw new NotSupportedException(),
-        };
+            targetDeclaringType = null;
+            targetDeclaringTypeFullName = "";
+            return false;
+        }
+        var il2CppType = GetTypeFromContext(declaringType);
+        if (il2CppType != null && annotedMethod.DeclaringType != null && declaringType.IsAccessibleTo(annotedMethod.DeclaringType))
+        {
+            targetDeclaringType = il2CppType;
+            targetDeclaringTypeFullName = null;
+            return true;
+        }
+        else
+        {
+            targetDeclaringType = null;
+            targetDeclaringTypeFullName = declaringType.FullName;
+            return false;
+        }
     }
 
     private static Il2CppType? GetTypeFromContext(TypeAnalysisContext? type)
@@ -287,7 +239,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         return type?.Definition is null ? null : LibCpp2IlReflection.GetTypeFromDefinition(type.Definition);
     }
 
-    private static void Add<T>(Dictionary<T, List<T>> dictionary, T key, T value) where T : notnull
+    private static void Add<T>(Dictionary<T, HashSet<T>> dictionary, T key, T value) where T : notnull
     {
         if (!dictionary.TryGetValue(key, out var list))
         {

@@ -40,7 +40,9 @@ public sealed class CallAnalysisNotSupportedAttribute : Attribute
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class CalledByAttribute : Attribute
 {
-	public Type Type;
+	public Type? Type;
+
+	public string? TypeFullName;
 
 	public string Member;
 }
@@ -51,7 +53,9 @@ public sealed class CalledByAttribute : Attribute
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class CallsAttribute : Attribute
 {
-	public Type Type;
+	public Type? Type;
+
+	public string? TypeFullName;
 
 	public string Member;
 }

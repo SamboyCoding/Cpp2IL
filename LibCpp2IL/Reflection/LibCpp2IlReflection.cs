@@ -19,6 +19,7 @@ namespace LibCpp2IL.Reflection
 
         private static readonly Dictionary<Il2CppTypeEnum, Il2CppType> PrimitiveTypeCache = new();
         public static readonly Dictionary<Il2CppTypeEnum, Il2CppTypeDefinition> PrimitiveTypeDefinitions = new();
+        private static readonly Dictionary<long, Il2CppType> Il2CppTypeCache = new();
 
         internal static void ResetCaches()
         {
@@ -33,11 +34,17 @@ namespace LibCpp2IL.Reflection
             PropertyIndices.Clear();
             PrimitiveTypeCache.Clear();
             PrimitiveTypeDefinitions.Clear();
+            Il2CppTypeCache.Clear();
         }
 
         internal static void InitCaches()
         {
             for (var e = Il2CppTypeEnum.IL2CPP_TYPE_VOID; e <= Il2CppTypeEnum.IL2CPP_TYPE_STRING; e++)
+            {
+                PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == e && t.Byref == 0);
+            }
+            PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF && t.Byref == 0);
+            for (var e = Il2CppTypeEnum.IL2CPP_TYPE_I; e <= Il2CppTypeEnum.IL2CPP_TYPE_U; e++)
             {
                 PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == e && t.Byref == 0);
             }
@@ -52,6 +59,17 @@ namespace LibCpp2IL.Reflection
                 
                 if(type.Type.IsIl2CppPrimitive())
                     PrimitiveTypeDefinitions[type.Type] = typeDefinition;
+            }
+
+            foreach (var type in LibCpp2IlMain.Binary!.AllTypes)
+            {
+                if (type.Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+                    continue;
+
+                if (type.Byref == 0)
+                {
+                    Il2CppTypeCache[type.Data.ClassIndex] = type;
+                }
             }
         }
 
@@ -181,19 +199,50 @@ namespace LibCpp2IL.Reflection
             if (LibCpp2IlMain.Binary == null)
                 return null;
 
-            var fullName = definition.FullName;
-
-            switch (fullName)
+            switch (definition.FullName)
             {
+                case "System.SByte":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I1];
+                case "System.Int16":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I2];
                 case "System.Int32":
                     return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I4];
+                case "System.Int64":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I8];
+                case "System.Byte":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U1];
+                case "System.UInt16":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U2];
+                case "System.UInt32":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U4];
+                case "System.UInt64":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U8];
+                case "System.IntPtr":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I];
+                case "System.UIntPtr":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U];
+                case "System.Single":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_R4];
+                case "System.Double":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_R8];
+                case "System.Boolean":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN];
+                case "System.Char":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_CHAR];
                 case "System.String":
                     return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_STRING];
                 case "System.Void":
                     return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_VOID];
+                case "System.TypedReference":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF];
             }
 
             var index = definition.TypeIndex;
+
+            if (Il2CppTypeCache.TryGetValue(index, out var cachedType))
+            {
+                return cachedType;
+            }
 
             foreach (var type in LibCpp2IlMain.Binary.AllTypes)
             {
@@ -202,6 +251,10 @@ namespace LibCpp2IL.Reflection
 
                 if (type.Data.ClassIndex == index && type.Byref == 0)
                 {
+                    lock(Il2CppTypeCache)
+                    {
+                        Il2CppTypeCache[index] = type;
+                    }
                     return type;
                 }
             }

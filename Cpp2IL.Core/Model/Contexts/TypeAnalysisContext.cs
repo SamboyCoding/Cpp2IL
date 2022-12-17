@@ -67,7 +67,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
-    public TypeAnalysisContext? BaseTypeContext => OverrideBaseType ?? DeclaringAssembly.ResolveIl2CppType(Definition!.RawBaseType);
+    public TypeAnalysisContext? BaseType => OverrideBaseType ?? (Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType));
 
     public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? Array.Empty<TypeAnalysisContext>())!;
 
@@ -196,6 +196,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public bool IsGenericInstance => false;
     public bool IsValueType => Definition!.IsValueType;
     public bool IsEnumType => Definition!.IsEnumType;
+    public bool IsInterface => Definition!.IsInterface;
     public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => Array.Empty<ITypeInfoProvider>();
     public IEnumerable<IFieldInfoProvider> FieldInfoProviders => Fields;
     public IEnumerable<IMethodInfoProvider> MethodInfoProviders => Methods;
