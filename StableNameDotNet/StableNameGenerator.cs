@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -31,9 +31,11 @@ public static class StableNameGenerator
 
     public static string? GetStableNameForTypeIfNeeded(ITypeInfoProvider type, bool includeMethodsForNonInterfaces)
     {
-        if (!IsObfuscated(type.OriginalTypeName))
-            return null;
+        return IsObfuscated(type.OriginalTypeName) ? GetStableNameForType(type, includeMethodsForNonInterfaces) : null;
+    }
 
+    public static string GetStableNameForType(ITypeInfoProvider type, bool includeMethodsForNonInterfaces)
+    {
         var inheritanceDepth = -1;
 
         ITypeInfoProvider? firstUnobfuscatedType = null;
@@ -154,9 +156,11 @@ public static class StableNameGenerator
 
     public static string? GetStableNameForMethodIfNeeded(IMethodInfoProvider method)
     {
-        if (!IsObfuscated(method.MethodName))
-            return null;
-        
+        return IsObfuscated(method.MethodName) ? GetStableNameForMethod(method) : null;
+    }
+
+    public static string GetStableNameForMethod(IMethodInfoProvider method)
+    {
         //Method_ prefix
         var nameBuilder = new StringBuilder();
         nameBuilder.Append("Method_");
@@ -201,9 +205,11 @@ public static class StableNameGenerator
     
     public static string? GetStableNameForFieldIfNeeded(IFieldInfoProvider field)
     {
-        if (!IsObfuscated(field.FieldName))
-            return null;
-        
+        return IsObfuscated(field.FieldName) ? GetStableNameForField(field) : null;
+    }
+
+    public static string GetStableNameForField(IFieldInfoProvider field)
+    {
         //Field_ prefix
         var nameBuilder = new StringBuilder();
         nameBuilder.Append("field_");
@@ -225,9 +231,11 @@ public static class StableNameGenerator
 
     public static string? GetStableNameForPropertyIfNeeded(IPropertyInfoProvider property)
     {
-        if (!IsObfuscated(property.PropertyName))
-            return null;
-        
+        return IsObfuscated(property.PropertyName) ? GetStableNameForProperty(property) : null;
+    }
+
+    public static string GetStableNameForProperty(IPropertyInfoProvider property)
+    {
         //prop_ prefix
         var nameBuilder = new StringBuilder();
         nameBuilder.Append("prop_");
@@ -240,9 +248,11 @@ public static class StableNameGenerator
 
     public static string? GetStableNameForEventIfNeeded(IEventInfoProvider evt)
     {
-        if (!IsObfuscated(evt.EventName))
-            return null;
-        
+        return IsObfuscated(evt.EventName) ? GetStableNameForEvent(evt) : null;
+    }
+
+    public static string GetStableNameForEvent(IEventInfoProvider evt)
+    {
         //event_ prefix
         var nameBuilder = new StringBuilder();
         nameBuilder.Append("event_");
