@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.OutputFormats;
 
 public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 {

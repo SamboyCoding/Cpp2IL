@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using WasmDisassembler;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.InstructionSets;
 
 public class WasmInstructionSet : Cpp2IlInstructionSet
 {

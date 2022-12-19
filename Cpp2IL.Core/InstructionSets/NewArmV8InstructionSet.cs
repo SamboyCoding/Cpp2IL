@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Disarm;
 using Cpp2IL.Core.Api;
@@ -8,7 +8,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.InstructionSets;
 
 public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 {

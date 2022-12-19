@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.InstructionSets;
 
 public class X86InstructionSet : Cpp2IlInstructionSet
 {
