@@ -48,6 +48,7 @@ namespace LibCpp2IL.Reflection
             {
                 PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == e && t.Byref == 0);
             }
+            PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_OBJECT] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_OBJECT && t.Byref == 0);
 
             for (var i = 0; i < LibCpp2IlMain.TheMetadata!.typeDefs.Length; i++)
             {
@@ -235,6 +236,8 @@ namespace LibCpp2IL.Reflection
                     return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_VOID];
                 case "System.TypedReference":
                     return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF];
+                case "System.Object":
+                    return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_OBJECT];
             }
 
             var index = definition.TypeIndex;
