@@ -59,7 +59,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
                 m.AnalyzeCustomAttributeData();
-                if (m.CustomAttributes == null || m.Definition == null)
+                if (m.CustomAttributes == null || m.UnderlyingPointer == 0)
                     continue;
 
                 if (appContext.MethodsByAddress.TryGetValue(m.UnderlyingPointer, out var methodsWithThatAddress) && methodsWithThatAddress.Count > 1)
@@ -73,11 +73,12 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 }
                 catch
                 {
+                    m.ConvertedIsil = null;
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisFailedConstructor);
                     continue;
                 }
 
-                if (m.ConvertedIsil is null or { Count: 0 })
+                if (m.ConvertedIsil is { Count: 0 })
                 {
                     if ((m.MethodAttributes & MethodAttributes.Abstract) == 0)
                     {
@@ -135,7 +136,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
             foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
-                if (m.CustomAttributes == null || m.Definition == null)
+                if (m.CustomAttributes == null || m.UnderlyingPointer == 0)
                     continue;
 
                 var unknownCallCount = unknownCalls.GetOrDefault(m, 0);

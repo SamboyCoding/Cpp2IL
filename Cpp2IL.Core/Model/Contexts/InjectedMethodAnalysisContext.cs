@@ -1,9 +1,11 @@
-﻿using System.Reflection;
+using System.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
 public class InjectedMethodAnalysisContext : MethodAnalysisContext
 {
+    public override ulong UnderlyingPointer => 0;
+
     public override string DefaultName { get; }
 
     public override bool IsStatic { get; }

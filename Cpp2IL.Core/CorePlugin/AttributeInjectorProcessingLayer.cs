@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
@@ -80,14 +80,14 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
-                if (m.CustomAttributes == null || m.Definition == null)
+                if (m.CustomAttributes == null || m.UnderlyingPointer == 0)
                     continue;
 
                 var newAttribute = new AnalyzedCustomAttribute(addressConstructor);
 
                 if (!_useEzDiffMode)
                 {
-                    newAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{m.Definition.Rva:X}", newAttribute, CustomAttributeParameterKind.Field, 0)));
+                    newAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{m.Rva:X}", newAttribute, CustomAttributeParameterKind.Field, 0)));
                     if (appContext.Binary.TryMapVirtualAddressToRaw(m.UnderlyingPointer, out var offset))
                         newAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offset:X}", newAttribute, CustomAttributeParameterKind.Field, 1)));
                 }
