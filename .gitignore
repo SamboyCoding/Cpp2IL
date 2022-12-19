@@ -3,41 +3,8 @@ packages/
 
 \.idea/
 
-Cpp2IL/bin/
-Cpp2IL/obj/
-
-LibCpp2IL/bin/
-LibCpp2IL/obj/
-
-LibCpp2ILTests/bin/
-LibCpp2ILTests/obj/
-
-Cpp2IL.Core/obj/
-Cpp2IL.Core/bin/
-
-Cpp2IL.Core.Tests/obj/
-Cpp2IL.Core.Tests/bin/
-
-Il2CppBinaryAnalyzer/obj/
-Il2CppBinaryAnalyzer/bin/
-
-WasmDisassembler/obj/
-WasmDisassembler/bin/
-
-SharpTreeView/bin/
-SharpTreeView/obj/
-
-/Arm64Disassembler/bin/
-/Arm64Disassembler/obj/
-
-/Arm64Disassembler.Tests/bin/
-/Arm64Disassembler.Tests/obj/
-
-/StableNameDotNet/bin/
-/StableNameDotNet/obj/
-
-/Cpp2IL.Plugin.*/bin/
-/Cpp2IL.Plugin.*/obj/
+bin/
+obj/
 
 .vs
 
