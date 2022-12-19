@@ -16,7 +16,7 @@ using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.Metadata;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.OutputFormats;
 
 public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 {

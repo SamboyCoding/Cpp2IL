@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.CustomAttributes;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.ProcessingLayers;
 
 public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 {

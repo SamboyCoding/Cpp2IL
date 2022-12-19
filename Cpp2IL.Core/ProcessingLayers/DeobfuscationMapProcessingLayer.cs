@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -8,7 +8,7 @@ using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.ProcessingLayers;
 
 public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
 {

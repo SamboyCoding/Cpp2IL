@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -8,7 +8,7 @@ using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
 using StableNameDotNet;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.ProcessingLayers;
 
 /// <summary>
 /// This class is functionally adapted from parts of Il2CppAssemblyUnhollower

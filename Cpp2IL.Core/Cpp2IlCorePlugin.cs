@@ -1,13 +1,16 @@
 using System;
+using Cpp2IL.Core;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Attributes;
-using Cpp2IL.Core.CorePlugin;
+using Cpp2IL.Core.InstructionSets;
+using Cpp2IL.Core.OutputFormats;
+using Cpp2IL.Core.ProcessingLayers;
 //Need this for the assembly attribute definition below.
 using LibCpp2IL;
 
 [assembly: RegisterCpp2IlPlugin(typeof(Cpp2IlCorePlugin))]
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core;
 
 public class Cpp2IlCorePlugin : Cpp2IlPlugin
 {

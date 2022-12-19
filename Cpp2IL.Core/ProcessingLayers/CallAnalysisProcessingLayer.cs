@@ -11,7 +11,7 @@ using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.ProcessingLayers;
 
 public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 {

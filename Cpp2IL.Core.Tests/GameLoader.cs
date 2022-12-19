@@ -1,6 +1,6 @@
-﻿using AssetRipper.VersionUtilities;
+using AssetRipper.VersionUtilities;
 using Cpp2IL.Core.Api;
-using Cpp2IL.Core.CorePlugin;
+using Cpp2IL.Core.InstructionSets;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
 

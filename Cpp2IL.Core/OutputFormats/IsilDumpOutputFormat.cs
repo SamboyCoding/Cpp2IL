@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,7 +9,7 @@ using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.OutputFormats;
 
 public class IsilDumpOutputFormat : Cpp2IlOutputFormat
 {
