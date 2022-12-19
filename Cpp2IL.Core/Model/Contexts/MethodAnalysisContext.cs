@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Utils;
+using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
@@ -35,6 +37,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     /// </summary>
     public virtual ulong UnderlyingPointer => Definition?.MethodPointer ?? throw new("Subclasses of MethodAnalysisContext should override UnderlyingPointer");
 
+    public ulong Rva => UnderlyingPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRva(UnderlyingPointer);
+
     /// <summary>
     /// The raw method body as machine code in the active instruction set.
     /// </summary>
@@ -52,6 +56,9 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     public List<ParameterAnalysisContext> Parameters = new();
 
+    /// <summary>
+    /// Does this method return void?
+    /// </summary>
     public virtual bool IsVoid => (Definition?.ReturnType?.ToString() ?? throw new("Subclasses of MethodAnalysisContext should override IsVoid")) == "System.Void";
 
     public virtual bool IsStatic => Definition?.IsStatic ?? throw new("Subclasses of MethodAnalysisContext should override IsStatic");
@@ -101,11 +108,18 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         RawBytes = Array.Empty<byte>();
     }
 
+    [MemberNotNull(nameof(ConvertedIsil))]
     public void Analyze()
     {
-        if(UnderlyingPointer == 0)
+        if (ConvertedIsil != null)
             return;
-        
+
+        if (UnderlyingPointer == 0)
+        {
+            ConvertedIsil = new(0);
+            return;
+        }
+
         ConvertedIsil = AppContext.InstructionSet.GetIsilFromMethod(this);
 
         if (ConvertedIsil.Count == 0)

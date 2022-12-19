@@ -163,7 +163,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return _keyFunctionAddresses;
     }
 
-    public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext baseType)
+    public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext? baseType)
     {
         var types = Assemblies.Select(a => (InjectedTypeAnalysisContext)a.InjectType(ns, name, baseType)).ToArray();
 
