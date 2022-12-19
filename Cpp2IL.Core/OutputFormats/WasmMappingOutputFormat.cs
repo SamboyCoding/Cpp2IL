@@ -8,7 +8,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Wasm;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.OutputFormats;
 
 public class WasmMappingOutputFormat : Cpp2IlOutputFormat
 {
@@ -26,34 +26,34 @@ public class WasmMappingOutputFormat : Cpp2IlOutputFormat
         foreach (var assemblyAnalysisContext in context.Assemblies)
         {
             output.Append("// ").Append(assemblyAnalysisContext.Definition.AssemblyName.Name).Append(".dll").AppendLine().AppendLine();
-            
+
             foreach (var typeAnalysisContext in assemblyAnalysisContext.Types)
-            foreach (var methodAnalysisContext in typeAnalysisContext.Methods)
-            {
-                if (methodAnalysisContext is InjectedMethodAnalysisContext || methodAnalysisContext.Definition == null)
-                    continue;
-
-                output.Append(methodAnalysisContext.Definition.ReturnType)
-                    .Append(' ')
-                    .Append(methodAnalysisContext.DeclaringType!.FullName)
-                    .Append("::")
-                    .Append(methodAnalysisContext.Definition.Name)
-                    .Append('(')
-                    .Append(string.Join(", ", methodAnalysisContext.Definition.Parameters!.Select(p => $"{p.Type} {p.ParameterName}")))
-                    .Append(") -> ");
-
-                try
+                foreach (var methodAnalysisContext in typeAnalysisContext.Methods)
                 {
-                    var wasmDef = WasmUtils.GetWasmDefinition(methodAnalysisContext.Definition);
-                    var ghidraName = WasmUtils.GetGhidraFunctionName(wasmDef);
+                    if (methodAnalysisContext is InjectedMethodAnalysisContext || methodAnalysisContext.Definition == null)
+                        continue;
 
-                    output.AppendLine(ghidraName);
+                    output.Append(methodAnalysisContext.Definition.ReturnType)
+                        .Append(' ')
+                        .Append(methodAnalysisContext.DeclaringType!.FullName)
+                        .Append("::")
+                        .Append(methodAnalysisContext.Definition.Name)
+                        .Append('(')
+                        .Append(string.Join(", ", methodAnalysisContext.Definition.Parameters!.Select(p => $"{p.Type} {p.ParameterName}")))
+                        .Append(") -> ");
+
+                    try
+                    {
+                        var wasmDef = WasmUtils.GetWasmDefinition(methodAnalysisContext.Definition);
+                        var ghidraName = WasmUtils.GetGhidraFunctionName(wasmDef);
+
+                        output.AppendLine(ghidraName);
+                    }
+                    catch (Exception)
+                    {
+                        output.AppendLine("<not resolved>");
+                    }
                 }
-                catch (Exception)
-                {
-                    output.AppendLine("<not resolved>");
-                }
-            }
 
             output.AppendLine().AppendLine();
         }

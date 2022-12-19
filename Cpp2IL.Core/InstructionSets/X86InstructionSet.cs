@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.InstructionSets;
 
 public class X86InstructionSet : Cpp2IlInstructionSet
 {
@@ -45,7 +45,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     private void ConvertInstructionStatement(Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         // var callNoReturn = false; // stub, see case Mnemonic.Call
-        
+
         switch (instruction.Mnemonic)
         {
             case Mnemonic.Mov:
@@ -78,7 +78,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Imul:
                 if (instruction.OpCount == 1)
                 {
-                    int OpSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
+                    var OpSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
                     switch (OpSize) // TODO I don't know how to work with dual registers here in Iced, I left hints though
                     {
                         case 1: // Op0 * AL -> AX
@@ -126,7 +126,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 //Special case - stack shift
                 if (instruction.Op0Register == Register.RSP && instruction.Op1Kind.IsImmediate())
                 {
-                    var amount = (int) instruction.GetImmediate(1);
+                    var amount = (int)instruction.GetImmediate(1);
                     builder.ShiftStack(instruction.IP, isSubtract ? -amount : amount);
                     break;
                 }
@@ -181,7 +181,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     parameterCount -= registerParams.Count; //Subtract the 4 params we can fit in registers
 
                     //Generate and append stack operands
-                    var ptrSize = (int) context.AppContext.Binary.PointerSize;
+                    var ptrSize = (int)context.AppContext.Binary.PointerSize;
                     registerParams = registerParams.Concat(Enumerable.Range(0, parameterCount).Select(p => p * ptrSize).Select(InstructionSetIndependentOperand.MakeStack)).ToList();
 
                     builder.Call(instruction.IP, target, registerParams.ToArray());
@@ -214,7 +214,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 {
                     var jumpTarget = instruction.NearBranchTarget;
 
-                    var methodEnd = instruction.IP + (ulong) context.RawBytes.Length;
+                    var methodEnd = instruction.IP + (ulong)context.RawBytes.Length;
                     var methodStart = context.UnderlyingPointer;
 
                     if (jumpTarget < methodStart || jumpTarget > methodEnd)
@@ -311,7 +311,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         if (kind.IsImmediate())
             return InstructionSetIndependentOperand.MakeImmediate(instruction.GetImmediate(operand));
         if (kind == OpKind.Memory && instruction.MemoryBase == Register.RSP)
-            return InstructionSetIndependentOperand.MakeStack((int) instruction.MemoryDisplacement32);
+            return InstructionSetIndependentOperand.MakeStack((int)instruction.MemoryDisplacement32);
 
         //Memory
         //Most complex to least complex

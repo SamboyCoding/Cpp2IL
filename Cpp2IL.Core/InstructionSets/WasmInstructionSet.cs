@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using WasmDisassembler;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.InstructionSets;
 
 public class WasmInstructionSet : Cpp2IlInstructionSet
 {
@@ -29,8 +29,8 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
                 Logger.WarnNewline($"Could not find WASM definition for method {methodDefinition.Name}, probably incorrect signature calculation", "WasmInstructionSet");
                 return Array.Empty<byte>();
             }
-            
-            if(wasmDef.AssociatedFunctionBody == null)
+
+            if (wasmDef.AssociatedFunctionBody == null)
                 throw new($"WASM definition {wasmDef}, resolved from MethodAnalysisContext {context} has no associated function body");
 
             return wasmDef.AssociatedFunctionBody.Instructions;
@@ -38,7 +38,7 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
 
         return Array.Empty<byte>();
     }
-    
+
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
         return new();
@@ -55,7 +55,7 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
             return string.Empty;
 
         var def = WasmUtils.GetWasmDefinition(methodDefinition);
-        var disassembled = Disassembler.Disassemble(def.AssociatedFunctionBody!.Instructions, (uint) context.UnderlyingPointer);
+        var disassembled = Disassembler.Disassemble(def.AssociatedFunctionBody!.Instructions, (uint)context.UnderlyingPointer);
 
         return string.Join("\n", disassembled);
     }

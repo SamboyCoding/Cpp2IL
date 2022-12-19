@@ -16,7 +16,7 @@ using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.Metadata;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.OutputFormats;
 
 public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 {
@@ -76,7 +76,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
 #else
         Logger.Verbose($"Building stub assemblies...", "DummyDllOutput");
 #endif
-        List<AssemblyDefinition> ret = BuildStubAssemblies(context);
+        var ret = BuildStubAssemblies(context);
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
 
         start = DateTime.Now;
@@ -177,16 +177,16 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
             //We *are* the corlib, so cache defs now
             TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
         }
-        
+
         //We can get issues with consumers of the API if the base type is not set correctly for value types or enums, so we set it here (as early as possible) if we can
         foreach (var assemblyContextType in assemblyContext.Types)
         {
-            if(assemblyContextType.Definition is not {} def || assemblyContextType.GetExtraData<TypeDefinition>("AsmResolverType") is not {} asmResolverType)
+            if (assemblyContextType.Definition is not { } def || assemblyContextType.GetExtraData<TypeDefinition>("AsmResolverType") is not { } asmResolverType)
                 continue;
-            
-            if(def.IsValueType)
+
+            if (def.IsValueType)
                 asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.ValueType);
-            else if(def.IsEnumType)
+            else if (def.IsEnumType)
                 asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.Enum);
         }
 

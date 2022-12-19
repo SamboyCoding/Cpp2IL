@@ -9,7 +9,7 @@ using Cpp2IL.Core.Model.CustomAttributes;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.CorePlugin;
+namespace Cpp2IL.Core.ProcessingLayers;
 
 public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 {
@@ -24,8 +24,8 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
         _useEzDiffMode = appContext.GetExtraData<string>("attr-injector-use-ez-diff") != null;
 
         InjectAttributeAttribute(appContext);
-        
-        if (!_useEzDiffMode) 
+
+        if (!_useEzDiffMode)
             InjectTokenAttribute(appContext);
 
         InjectAddressAttribute(appContext);
