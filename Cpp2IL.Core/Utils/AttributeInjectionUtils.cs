@@ -139,6 +139,7 @@ internal static class AttributeInjectionUtils
         return fieldValue switch
         {
             Il2CppType type => new CustomAttributeTypeParameter(type, owner, CustomAttributeParameterKind.Field, index),
+            TypeAnalysisContext type => new InjectedCustomAttributeTypeParameter(type, owner, CustomAttributeParameterKind.Field, index),
             IConvertible convertible => new CustomAttributePrimitiveParameter(convertible, owner, CustomAttributeParameterKind.Field, index),
             _ => throw new NotSupportedException(),
         };
