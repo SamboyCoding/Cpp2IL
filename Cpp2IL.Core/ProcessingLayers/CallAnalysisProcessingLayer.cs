@@ -66,7 +66,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 {
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, deduplicatedMethodConstructor);
                 }
-                
+
                 try
                 {
                     m.Analyze();
@@ -144,7 +144,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 {
                     foreach (var callingMethod in calledByList)
                     {
-                        if (TryGetIl2CppTypeForMethod(m, callingMethod, out var il2cppType, out var typeFullName))
+                        if (TryGetDeclaringTypeForMethod(m, callingMethod, out var il2cppType, out var typeFullName))
                         {
                             AttributeInjectionUtils.AddTwoParameterAttribute(m, calledByAttributeInfo.Item1, calledByAttributeInfo.Item2, il2cppType, calledByAttributeInfo.Item4, callingMethod.Name);
                         }
@@ -160,7 +160,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 {
                     foreach (var calledMethod in callsList)
                     {
-                        if (TryGetIl2CppTypeForMethod(m, calledMethod, out var il2cppType, out var typeFullName))
+                        if (TryGetDeclaringTypeForMethod(m, calledMethod, out var il2cppType, out var typeFullName))
                         {
                             AttributeInjectionUtils.AddTwoParameterAttribute(m, callsAttributeInfo.Item1, callsAttributeInfo.Item2, il2cppType, callsAttributeInfo.Item4, calledMethod.Name);
                         }
@@ -211,7 +211,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         }
     }
 
-    private static bool TryGetIl2CppTypeForMethod(MethodAnalysisContext annotedMethod, MethodAnalysisContext targetMethod, [NotNullWhen(true)] out Il2CppType? targetDeclaringType, [NotNullWhen(false)] out string? targetDeclaringTypeFullName)
+    private static bool TryGetDeclaringTypeForMethod(MethodAnalysisContext annotedMethod, MethodAnalysisContext targetMethod, [NotNullWhen(true)] out TypeAnalysisContext? targetDeclaringType, [NotNullWhen(false)] out string? targetDeclaringTypeFullName)
     {
         var declaringType = targetMethod.DeclaringType;
         if (declaringType == null)
@@ -220,10 +220,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             targetDeclaringTypeFullName = "";
             return false;
         }
-        var il2CppType = GetTypeFromContext(declaringType);
-        if (il2CppType != null && annotedMethod.DeclaringType != null && declaringType.IsAccessibleTo(annotedMethod.DeclaringType))
+        else if (annotedMethod.DeclaringType != null && declaringType.IsAccessibleTo(annotedMethod.DeclaringType))
         {
-            targetDeclaringType = il2CppType;
+            targetDeclaringType = declaringType;
             targetDeclaringTypeFullName = null;
             return true;
         }
@@ -233,11 +232,6 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             targetDeclaringTypeFullName = declaringType.FullName;
             return false;
         }
-    }
-
-    private static Il2CppType? GetTypeFromContext(TypeAnalysisContext? type)
-    {
-        return type?.Definition is null ? null : LibCpp2IlReflection.GetTypeFromDefinition(type.Definition);
     }
 
     private static void Add<T>(Dictionary<T, HashSet<T>> dictionary, T key, T value) where T : notnull

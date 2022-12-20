@@ -1,14 +1,17 @@
 using System.IO;
+using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
 
 /// <summary>
-/// Represents a custom attribute parameter which is a type reference (typeof(x))
+/// Represents a <see cref="BaseCustomAttributeTypeParameter"/> for a <see cref="Il2CppType"/>.
 /// </summary>
-public class CustomAttributeTypeParameter : BaseCustomAttributeParameter
+public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
 {
     public Il2CppType? Type;
 
@@ -38,5 +41,10 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeParameter
             return "(Type) null";
         
         return $"typeof({Type.AsClass().Name})";
+    }
+
+    public override TypeSignature? ToTypeSignature(ModuleDefinition parentModule)
+    {
+        return Type == null ? null : AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentModule, Type);
     }
 }
