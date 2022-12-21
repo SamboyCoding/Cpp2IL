@@ -16,7 +16,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-dotnet@v3.0.2
+      - uses: actions/setup-dotnet@v3.0.3
         with:
           dotnet-version: 6.x
       - id: git-vars
@@ -57,7 +57,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-dotnet@v3.0.2
+      - uses: actions/setup-dotnet@v3.0.3
         with:
           dotnet-version: 6.x
       - name: Install dependencies
@@ -76,7 +76,7 @@ jobs:
     if: github.repository == 'SamboyCoding/Cpp2IL'
     steps:
       - uses: actions/checkout@v3
-      - uses: actions/setup-dotnet@v3.0.2
+      - uses: actions/setup-dotnet@v3.0.3
         with:
           dotnet-version: 6.x
       - id: git-vars
