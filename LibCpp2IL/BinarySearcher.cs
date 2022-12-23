@@ -349,6 +349,13 @@ namespace LibCpp2IL
                         LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.numTypes} types, while we have {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
                         continue;
                     }
+                    
+                    if (metaReg.fieldOffsetsCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                    {
+                        //If we see any cases of failing to find meta reg and this line is in verbose log, maybe the assumption (num field offsets == num type defs) is wrong.
+                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.fieldOffsetsCount} field offsets, while metadata file defines {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                        continue;
+                    }
 
                     LibLogger.VerboseNewline($"\t\t\tAccepting metadata reg as VA 0x{va:X}");
                     return va;
