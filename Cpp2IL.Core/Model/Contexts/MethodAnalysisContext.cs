@@ -5,6 +5,7 @@ using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
@@ -89,7 +90,14 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
             //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't support default interface methods so idk what's going on here.
             //E.g. UnityEngine.Purchasing.AppleCore.dll: UnityEngine.Purchasing.INativeAppleStore::SetUnityPurchasingCallback on among us (itch.io build)
             if (Definition.MethodPointer != 0 && !Definition.Attributes.HasFlag(MethodAttributes.Abstract))
+            {
                 RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+
+                if (RawBytes.Length == 0)
+                {
+                    Logger.VerboseNewline("\t\t\tUnexpectedly got 0-byte method body for " + this + $". Pointer was 0x{Definition.MethodPointer:X}", "MAC");
+                }
+            }
             else
                 RawBytes = Array.Empty<byte>();
 

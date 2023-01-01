@@ -12,7 +12,8 @@ namespace LibCpp2IL
     public abstract class Il2CppBinary : ClassReadingBinaryReader
     {
         protected const long VirtToRawInvalidNoMatch = long.MinValue + 1000;
-
+        protected const long VirtToRawInvalidOutOfBounds = long.MinValue + 1001;
+        
         public InstructionSetId InstructionSetId = null!;
         public readonly Dictionary<Il2CppMethodDefinition, List<Cpp2IlMethodRef>> ConcreteGenericMethods = new();
         public readonly Dictionary<ulong, List<Cpp2IlMethodRef>> ConcreteGenericImplementationsByAddress = new();

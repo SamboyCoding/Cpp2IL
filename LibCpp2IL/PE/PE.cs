@@ -90,8 +90,12 @@ namespace LibCpp2IL.PE
 
             var last = peSectionHeaders[peSectionHeaders.Length - 1];
             if (addr > last.VirtualAddress + last.VirtualSize)
-                // throw new ArgumentOutOfRangeException($"Provided address maps to image offset {addr} which is outside the range of the file (last section ends at {last.VirtualAddress + last.VirtualSize})");
-                return 0L;
+            {
+                if(throwOnError)
+                    throw new ArgumentOutOfRangeException(nameof(uiAddr), $"Provided address maps to image offset 0x{addr:X} which is outside the range of the file (last section ends at 0x{last.VirtualAddress + last.VirtualSize:X})");
+                
+                return VirtToRawInvalidOutOfBounds;
+            }
 
             var section = peSectionHeaders.FirstOrDefault(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
 

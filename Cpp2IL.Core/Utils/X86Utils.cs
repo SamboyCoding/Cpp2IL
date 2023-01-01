@@ -36,7 +36,11 @@ namespace Cpp2IL.Core.Utils
 
         public static Memory<byte> GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)
         {
-            var rawAddr = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(ptr);
+            var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(ptr, false);
+
+            if (rawAddr <= 0)
+                return Memory<byte>.Empty;
+
             var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr);
 
             if (virtStartNextFunc == 0 || (isCaGen && virtStartNextFunc - ptr > 50000))
@@ -45,7 +49,16 @@ namespace Cpp2IL.Core.Utils
                 return ret;
             }
 
-            var startOfNextFunc = (int) LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc);
+            var ra2 = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc, false);
+
+            if (ra2 <= 0)
+            {
+                //Don't have a known end point => fall back
+                GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
+                return ret;
+            }
+
+            var startOfNextFunc = (int)ra2;
 
             if (startOfNextFunc < rawAddr)
             {
@@ -59,7 +72,7 @@ namespace Cpp2IL.Core.Utils
             var lastPos = startOfNextFunc - 1;
             while (rawArray[lastPos] == 0xCC && lastPos > rawAddr)
                 lastPos--;
-            var memArray =  rawArray.AsMemory(rawAddr, lastPos - rawAddr + 1);
+            var memArray =  rawArray.AsMemory((int) rawAddr, (int) (lastPos - rawAddr + 1));
             
             if (TryFindJumpTableStart(memArray, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
             {
