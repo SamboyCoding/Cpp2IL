@@ -9,9 +9,10 @@ namespace Cpp2IL.Gui
     public class ViewLocator : IDataTemplate
     {
         [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "All the viewmodel types are hard referenced")]
-        public IControl Build(object data)
+        [UnconditionalSuppressMessage("Trimming", "IL2057", Justification = "All the viewmodel types are hard referenced")]
+        public IControl Build(object? data)
         {
-            var name = data.GetType().FullName!.Replace("ViewModel", "View");
+            var name = data!.GetType().FullName!.Replace("ViewModel", "View");
             var type = Type.GetType(name);
 
             if (type != null)
@@ -24,7 +25,7 @@ namespace Cpp2IL.Gui
             }
         }
 
-        public bool Match(object data)
+        public bool Match(object? data)
         {
             return data is ViewModelBase;
         }

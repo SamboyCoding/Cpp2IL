@@ -193,8 +193,6 @@ namespace LibCpp2IL
 
         private object InternalReadClass(Type type, bool overrideArchCheck = false)
         {
-            var t = Activator.CreateInstance(type)!;
-
             if (type.IsPrimitive)
             {
                 return ReadAndConvertPrimitive(overrideArchCheck, type);

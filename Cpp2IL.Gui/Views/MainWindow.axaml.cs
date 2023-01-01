@@ -1,10 +1,9 @@
+using System.Collections.Generic;
 using System.Linq;
-using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Markup.Xaml;
 using AvaloniaEdit;
-using AvaloniaEdit.Document;
 using AvaloniaEdit.TextMate;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Gui.Models;
@@ -46,13 +45,19 @@ namespace Cpp2IL.Gui.Views
 
         private async void OnClickDropPrompt(object? sender, PointerPressedEventArgs e)
         {
-            OpenFileDialog dialog = new()
-            {
-                AllowMultiple = true
-            };
-            var ret = await dialog.ShowAsync(this);
+            var ret = await StorageProvider.OpenFilePickerAsync(new() { AllowMultiple = true, });
             var vm = (MainWindowViewModel) DataContext!;
-            vm.OnDropped(ret);
+            
+            var paths = new List<string>();
+            foreach (var file in ret)
+            {
+                if(!file.TryGetUri(out var uri))
+                    continue;
+                
+                paths.Add(uri.LocalPath);
+            }
+
+            vm.OnDropped(paths.ToArray());
         }
 
         private void InitializeComponent()

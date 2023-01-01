@@ -393,10 +393,8 @@ namespace LibCpp2IL
             throw new ArgumentException($"Unknown type {forWhat.Type}");
         }
 
+#pragma warning disable IL2070 //'this' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicFields'
         public static int VersionAwareSizeOf(
-#if NET6_0
-            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)]
-#endif
             Type type,
             bool dontCheckVersionAttributes = false,
             bool downsize = true
@@ -449,6 +447,7 @@ namespace LibCpp2IL
 
             return size;
         }
+#pragma warning restore IL2070
 
         internal static IEnumerable<int> Range(int start, int count)
         {

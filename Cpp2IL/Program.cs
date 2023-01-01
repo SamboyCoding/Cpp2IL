@@ -33,7 +33,7 @@ namespace Cpp2IL
             if (string.IsNullOrEmpty(gamePath))
                 throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
             
-            if (!string.IsNullOrEmpty(inputExeName) && inputExeName.EndsWith(".x86_64"))
+            if (!string.IsNullOrEmpty(inputExeName) && inputExeName!.EndsWith(".x86_64"))
                 HandleLinuxGamePath(gamePath, inputExeName, ref args);
             else if (Directory.Exists(gamePath))
                 HandleWindowsGamePath(gamePath, inputExeName, ref args);
