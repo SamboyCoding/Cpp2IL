@@ -1,4 +1,6 @@
+#if !DEBUG
 using System;
+#endif
 using System.Linq;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
@@ -14,16 +16,12 @@ internal static class AsmResolverMethodFiller
 {
     public static void FillManagedMethodBodies(AssemblyAnalysisContext asmContext)
     {
-        var managedAssembly = asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + asmContext);
-
-        var injectedRefHelperMethod = MakeRefHelper(managedAssembly.ManifestModule!);
+        MethodDefinition? injectedRefHelperMethod = null;
 
         foreach (var typeContext in asmContext.Types)
         {
             if (typeContext.Name == "<Module>")
                 continue;
-
-            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
 
 #if !DEBUG
             try
@@ -34,12 +32,13 @@ internal static class AsmResolverMethodFiller
                     var managedMethod = methodCtx.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {typeContext.Definition?.FullName}.{methodCtx.Definition?.Name}");
 
                     if (managedMethod.IsManagedMethodWithBody())
-                        FillMethodBodyWithStub(managedMethod, injectedRefHelperMethod);
+                        FillMethodBodyWithStub(managedMethod, ref injectedRefHelperMethod);
                 }
             }
 #if !DEBUG
             catch (Exception e)
             {
+                var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
                 throw new Exception($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {asmContext.Definition.AssemblyName.Name}", e);
             }
 #endif
@@ -64,7 +63,7 @@ internal static class AsmResolverMethodFiller
         }
     }
 
-    private static void FillMethodBodyWithStub(MethodDefinition methodDefinition, MethodDefinition injectedRefHelperMethod)
+    private static void FillMethodBodyWithStub(MethodDefinition methodDefinition, ref MethodDefinition? injectedRefHelperMethod)
     {
         methodDefinition.CilMethodBody = new(methodDefinition);
         var methodInstructions = methodDefinition.CilMethodBody.Instructions;
@@ -100,6 +99,8 @@ internal static class AsmResolverMethodFiller
                     }
                     else if (importedBaseParameterType is ByReferenceTypeSignature byReferenceTypeSignature)
                     {
+                        injectedRefHelperMethod ??= MakeRefHelper(methodDefinition.Module!);
+                        
                         var referencedType = byReferenceTypeSignature.BaseType;
                         var genericRefHelperInstance = injectedRefHelperMethod.DeclaringType!.MakeGenericInstanceType(referencedType);
                         var memberReference = new MemberReference(genericRefHelperInstance.ToTypeDefOrRef(), injectedRefHelperMethod.Name, injectedRefHelperMethod.Signature);
