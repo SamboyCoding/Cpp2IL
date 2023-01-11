@@ -284,12 +284,10 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             return ret;
         }
 
-        public static TypeSignature ImportTypeSignatureIfNeeded(this ReferenceImporter importer, TypeSignature signature) => signature is GenericParameterSignature ? signature : importer.ImportTypeSignature(signature);
-
         public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type)
         {
             if (type is TypeSpecification spec)
-                return new TypeSpecification(importer.ImportTypeSignatureIfNeeded(spec.Signature!));
+                return new TypeSpecification(importer.ImportTypeSignature(spec.Signature!));
 
             return importer.ImportType(type);
         }
