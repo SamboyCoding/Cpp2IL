@@ -1,13 +1,9 @@
-#if !DEBUG
-using System;
-#endif
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using AsmResolver.DotNet;
-using AsmResolver.DotNet.Code.Cil;
-using AsmResolver.DotNet.Signatures;
+using AsmResolver.DotNet.Collections;
 using AsmResolver.DotNet.Signatures.Types;
 using AsmResolver.PE.DotNet.Cil;
-using AsmResolver.PE.DotNet.Metadata.Tables.Rows;
 using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Utils.AsmResolver;
@@ -16,8 +12,6 @@ internal static class AsmResolverMethodFiller
 {
     public static void FillManagedMethodBodies(AssemblyAnalysisContext asmContext)
     {
-        MethodDefinition? injectedRefHelperMethod = null;
-
         foreach (var typeContext in asmContext.Types)
         {
             if (typeContext.Name == "<Module>")
@@ -32,38 +26,20 @@ internal static class AsmResolverMethodFiller
                     var managedMethod = methodCtx.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {typeContext.Definition?.FullName}.{methodCtx.Definition?.Name}");
 
                     if (managedMethod.IsManagedMethodWithBody())
-                        FillMethodBodyWithStub(managedMethod, ref injectedRefHelperMethod);
+                        FillMethodBodyWithStub(managedMethod);
                 }
             }
 #if !DEBUG
-            catch (Exception e)
+            catch (System.Exception e)
             {
                 var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
-                throw new Exception($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {asmContext.Definition.AssemblyName.Name}", e);
+                throw new($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {asmContext.Definition.AssemblyName.Name}", e);
             }
 #endif
         }
     }
 
-    private static void AddDefaultValueForType(CilInstructionCollection instructions, TypeSignature type)
-    {
-        if (type is CorLibTypeSignature { ElementType: ElementType.Void })
-        {
-        }
-        else if (type.IsValueType)
-        {
-            var variable = instructions.AddLocalVariable(type);
-            instructions.Add(CilOpCodes.Ldloca, variable);
-            instructions.Add(CilOpCodes.Initobj, type.ToTypeDefOrRef());
-            instructions.Add(CilOpCodes.Ldloc, variable);
-        }
-        else
-        {
-            instructions.Add(CilOpCodes.Ldnull);
-        }
-    }
-
-    private static void FillMethodBodyWithStub(MethodDefinition methodDefinition, ref MethodDefinition? injectedRefHelperMethod)
+    private static void FillMethodBodyWithStub(MethodDefinition methodDefinition)
     {
         methodDefinition.CilMethodBody = new(methodDefinition);
         var methodInstructions = methodDefinition.CilMethodBody.Instructions;
@@ -76,40 +52,8 @@ internal static class AsmResolverMethodFiller
                 methodInstructions.Add(CilOpCodes.Ldarg_0);
                 foreach (var baseParameter in baseConstructor.Parameters)
                 {
-                    var importedBaseParameterType = methodDefinition.DeclaringType.Module!.DefaultImporter.ImportTypeSignatureIfNeeded(baseParameter.ParameterType);
-                    if (baseParameter.Definition is { IsOut: true })
-                    {
-                        var variable = methodInstructions.AddLocalVariable(importedBaseParameterType);
-                        methodInstructions.Add(CilOpCodes.Ldloca, variable);
-                    }
-                    else if (baseParameter.Definition is { IsIn: true })
-                    {
-                        var variable = methodInstructions.AddLocalVariable(importedBaseParameterType);
-                        if (importedBaseParameterType.IsValueType)
-                        {
-                            methodInstructions.Add(CilOpCodes.Ldloca, variable);
-                            methodInstructions.Add(CilOpCodes.Initobj, importedBaseParameterType.ToTypeDefOrRef());
-                        }
-                        else
-                        {
-                            methodInstructions.Add(CilOpCodes.Ldnull);
-                            methodInstructions.Add(CilOpCodes.Stloc, variable);
-                        }
-                        methodInstructions.Add(CilOpCodes.Ldloca, variable);
-                    }
-                    else if (importedBaseParameterType is ByReferenceTypeSignature byReferenceTypeSignature)
-                    {
-                        injectedRefHelperMethod ??= MakeRefHelper(methodDefinition.Module!);
-                        
-                        var referencedType = byReferenceTypeSignature.BaseType;
-                        var genericRefHelperInstance = injectedRefHelperMethod.DeclaringType!.MakeGenericInstanceType(referencedType);
-                        var memberReference = new MemberReference(genericRefHelperInstance.ToTypeDefOrRef(), injectedRefHelperMethod.Name, injectedRefHelperMethod.Signature);
-                        methodInstructions.Add(CilOpCodes.Call, memberReference);
-                    }
-                    else
-                    {
-                        AddDefaultValueForType(methodInstructions, importedBaseParameterType);
-                    }
+                    var importedBaseParameterType = methodDefinition.DeclaringType.Module!.DefaultImporter.ImportTypeSignature(baseParameter.ParameterType);
+                    methodInstructions.AddDefaultValueForType(importedBaseParameterType);
                 }
                 methodInstructions.Add(CilOpCodes.Call, methodDefinition.DeclaringType.Module!.DefaultImporter.ImportMethod(baseConstructor));
             }
@@ -117,12 +61,17 @@ internal static class AsmResolverMethodFiller
 
         foreach (var parameter in methodDefinition.Parameters)
         {
-            if (parameter.Definition?.IsOut ?? false)
+            //Although Roslyn-compiled code will only emit the out flag on ByReferenceTypeSignatures,
+            //Some Unity libraries have it on a handful (less than 100) of parameters with incompatible type signatures.
+            //One example on 2021.3.6 is int System.IO.CStreamReader.Read([In][Out] char[] dest, int index, int count)
+            //All the instances I investigated were clearly not meant to be out parameters.
+            //The [In][Out] attributes are not a decompilation issue and compile fine on .NET 7.
+            if (parameter.IsOutParameter(out var parameterType))
             {
-                if (parameter.ParameterType.IsValueType)
+                if (parameterType.IsValueTypeOrGenericParameter())
                 {
                     methodInstructions.Add(CilOpCodes.Ldarg, parameter);
-                    methodInstructions.Add(CilOpCodes.Initobj, parameter.ParameterType.ToTypeDefOrRef());
+                    methodInstructions.Add(CilOpCodes.Initobj, parameterType.ToTypeDefOrRef());
                 }
                 else
                 {
@@ -132,9 +81,29 @@ internal static class AsmResolverMethodFiller
                 }
             }
         }
-        AddDefaultValueForType(methodInstructions, methodDefinition.Signature!.ReturnType);
+        methodInstructions.AddDefaultValueForType(methodDefinition.Signature!.ReturnType);
         methodInstructions.Add(CilOpCodes.Ret);
         methodInstructions.OptimizeMacros();
+    }
+
+    /// <summary>
+    /// Is this <see cref="Parameter"/> an out parameter?
+    /// </summary>
+    /// <param name="parameter"></param>
+    /// <param name="parameterType">The base type of the <see cref="ByReferenceTypeSignature"/></param>
+    /// <returns></returns>
+    private static bool IsOutParameter(this Parameter parameter, [NotNullWhen(true)] out TypeSignature? parameterType)
+    {
+        if ((parameter.Definition?.IsOut ?? false) && parameter.ParameterType is ByReferenceTypeSignature byReferenceTypeSignature)
+        {
+            parameterType = byReferenceTypeSignature.BaseType;
+            return true;
+        }
+        else
+        {
+            parameterType = default;
+            return false;
+        }
     }
 
     private static MethodDefinition? TryGetBaseConstructor(MethodDefinition methodDefinition)
@@ -153,38 +122,5 @@ internal static class AsmResolverMethodFiller
         {
             return baseType.Methods.FirstOrDefault(m => m.IsConstructor && !m.IsStatic && (m.IsFamily || m.IsPublic));
         }
-    }
-
-    private static MethodDefinition MakeRefHelper(ModuleDefinition module)
-    {
-        var staticClass = new TypeDefinition("Cpp2ILInjected", "RefHelper", TypeAttributes.NotPublic | TypeAttributes.Abstract | TypeAttributes.Sealed | TypeAttributes.BeforeFieldInit);
-        module.TopLevelTypes.Add(staticClass);
-        staticClass.GenericParameters.Add(new GenericParameter("T"));
-
-        var fieldType = new GenericParameterSignature(GenericParameterType.Type, 0);
-        var fieldSignature = new FieldSignature(fieldType);
-        var field = new FieldDefinition("backingField", FieldAttributes.Private | FieldAttributes.Static, fieldSignature);
-        staticClass.Fields.Add(field);
-
-        var staticConstructorSignature = MethodSignature.CreateStatic(module.CorLibTypeFactory.Void);
-        var staticConstructor = new MethodDefinition("..ctor", MethodAttributes.Private | MethodAttributes.Static | MethodAttributes.HideBySig | MethodAttributes.SpecialName | MethodAttributes.RuntimeSpecialName, staticConstructorSignature);
-        staticConstructor.CilMethodBody = new CilMethodBody(staticConstructor);
-        var staticConstructorInstructions = staticConstructor.CilMethodBody.Instructions;
-        staticConstructorInstructions.Add(CilOpCodes.Ldsflda, field);
-        staticConstructorInstructions.Add(CilOpCodes.Initobj, fieldType.ToTypeDefOrRef());
-        staticConstructorInstructions.Add(CilOpCodes.Ret);
-        
-        var genericInstance = staticClass.MakeGenericInstanceType(fieldType);
-        var memberReference = new MemberReference(genericInstance.ToTypeDefOrRef(), field.Name, field.Signature);
-
-        var methodSignature = MethodSignature.CreateStatic(new ByReferenceTypeSignature(fieldType));
-        var method = new MethodDefinition("GetSharedReference", MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig, methodSignature);
-        staticClass.Methods.Add(method);
-        method.CilMethodBody = new CilMethodBody(method);
-        var methodInstructions = method.CilMethodBody.Instructions;
-        methodInstructions.Add(CilOpCodes.Ldsflda, memberReference);
-        methodInstructions.Add(CilOpCodes.Ret);
-
-        return method;
     }
 }
