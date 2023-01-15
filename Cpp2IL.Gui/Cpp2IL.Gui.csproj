@@ -9,7 +9,7 @@
         <Platforms>AnyCPU;x64</Platforms>
         <PublishSingleFile>true</PublishSingleFile>
         <PublishTrimmed>true</PublishTrimmed>
-        <TargetFramework>net6.0</TargetFramework>
+        <TargetFramework>net7.0</TargetFramework>
         <TrimMode>link</TrimMode>
         <VersionPrefix>2022.1.0</VersionPrefix>
     </PropertyGroup>

@@ -3,7 +3,7 @@
     <PropertyGroup>
         <Authors>Samboy063</Authors>
         <Company>Samboy063</Company>
-        <Copyright>Copyright © Samboy063 2022</Copyright>
+        <Copyright>Copyright © Samboy063 2022-2023</Copyright>
         <DebugType>embedded</DebugType>
         <Description>Library for generating somewhat stable names for obfuscated types, based on their content.</Description>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

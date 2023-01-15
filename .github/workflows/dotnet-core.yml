@@ -7,7 +7,7 @@ on:
     branches: [ new-analysis, development ]
 
 jobs:
-  release-net6:
+  release-net7:
     strategy:     
       matrix:
         runtimeIdentifier: [linux-x64, osx-x64, win-x64]
@@ -46,12 +46,12 @@ jobs:
         run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Build
         working-directory: ./${{ matrix.project }}/
-        run: dotnet publish -c Release -f net6.0 -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
+        run: dotnet publish -c Release -f net7.0 -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
       - name: Upload Executable
         uses: actions/upload-artifact@v3
         with:
-          name: ${{ matrix.project }}-net6-${{ matrix.runtimeIdentifier }}
-          path: ./${{ matrix.project }}/bin/Release/net6.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
+          name: ${{ matrix.project }}-net7-${{ matrix.runtimeIdentifier }}
+          path: ./${{ matrix.project }}/bin/Release/ne7.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
   release-netframework:
     name: Build - Windows .NET Framework Zip
     runs-on: ubuntu-latest

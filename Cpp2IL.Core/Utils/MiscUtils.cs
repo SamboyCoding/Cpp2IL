@@ -204,8 +204,8 @@ namespace Cpp2IL.Core.Utils
             {
                 bool b => BitConverter.GetBytes(b),
                 char c => BitConverter.GetBytes(c),
-                byte b => BitConverter.GetBytes(b),
-                sbyte sb => BitConverter.GetBytes(sb),
+                byte b => new [] {b},
+                sbyte sb => new[] {(byte) sb},
                 ushort us => BitConverter.GetBytes(us),
                 short s => BitConverter.GetBytes(s),
                 uint ui => BitConverter.GetBytes(ui),

@@ -15,7 +15,7 @@
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Simple, zero-dependency disassembler for WebAssembly bytecode</Description>
-        <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net7.0;net6.0;netstandard2.0</TargetFrameworks>
         <IsTrimmable>true</IsTrimmable>
     </PropertyGroup>
 

@@ -2,13 +2,12 @@
 
     <PropertyGroup>
         <Nullable>enable</Nullable>
-        <RuntimeIdentifiers>ubuntu-x64;win-x64;osx-x64</RuntimeIdentifiers>
         <LangVersion>9</LangVersion>
         <DebugType>embedded</DebugType>
         <PackageId>Samboy063.LibCpp2IL</PackageId>
         <Title>LibCpp2IL</Title>
         <Authors>Samboy063</Authors>
-        <Copyright>Copyright © Samboy063 2019-2022</Copyright>
+        <Copyright>Copyright © Samboy063 2019-2023</Copyright>
         <Company>Samboy063</Company>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
@@ -18,7 +17,7 @@
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Library for interacting with IL2CPP metadata and binaries</Description>
         <Configurations>Debug;Release</Configurations>
-        <TargetFrameworks>net6.0;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net7.0;netstandard2.0</TargetFrameworks>
         <IsTrimmable>true</IsTrimmable>
     </PropertyGroup>
 
