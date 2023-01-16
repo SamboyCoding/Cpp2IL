@@ -40,7 +40,7 @@
         <!--Not used at runtime, but needed for the build-->
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
 
-        <PackageReference Include="PolySharp" Version="1.8.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+        <PackageReference Include="PolySharp" Version="1.10.0" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' != 'net6.0'">
