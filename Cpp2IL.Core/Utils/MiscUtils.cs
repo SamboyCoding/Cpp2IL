@@ -205,7 +205,7 @@ namespace Cpp2IL.Core.Utils
                 bool b => BitConverter.GetBytes(b),
                 char c => BitConverter.GetBytes(c),
                 byte b => new [] {b},
-                sbyte sb => new[] {(byte) sb},
+                sbyte sb => new[] {unchecked((byte) sb)},
                 ushort us => BitConverter.GetBytes(us),
                 short s => BitConverter.GetBytes(s),
                 uint ui => BitConverter.GetBytes(ui),
