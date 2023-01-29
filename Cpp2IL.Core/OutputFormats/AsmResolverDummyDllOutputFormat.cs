@@ -159,7 +159,11 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         };
 
         //Setting the corlib module allows element types in references to that assembly to be set correctly without us having to manually set them.
-        var managedModule = new ModuleDefinition(imageDefinition.Name, new(corLib ?? ourAssembly)) //Use either ourself as corlib, if we are corlib, otherwise the provided one
+        var moduleName = imageDefinition.Name;
+        if (moduleName == "__Generated")
+            moduleName += ".dll"; //__Generated doesn't have a .dll extension in the metadata but it is still of course a DLL
+        
+        var managedModule = new ModuleDefinition(moduleName, new(corLib ?? ourAssembly)) //Use either ourself as corlib, if we are corlib, otherwise the provided one
         {
             MetadataResolver = metadataResolver
         };
