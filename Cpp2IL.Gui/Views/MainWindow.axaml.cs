@@ -10,6 +10,10 @@ using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.ViewModels;
 using TextMateSharp.Grammars;
 
+#if DEBUG
+using Avalonia;
+#endif
+
 namespace Cpp2IL.Gui.Views
 {
     public partial class MainWindow : Window
@@ -51,10 +55,7 @@ namespace Cpp2IL.Gui.Views
             var paths = new List<string>();
             foreach (var file in ret)
             {
-                if(!file.TryGetUri(out var uri))
-                    continue;
-                
-                paths.Add(uri.LocalPath);
+                paths.Add(file.Path.LocalPath);
             }
 
             vm.OnDropped(paths.ToArray());

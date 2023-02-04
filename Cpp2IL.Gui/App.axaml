@@ -9,6 +9,6 @@
     <Application.Styles>
         <StyleInclude Source="avares://AvaloniaEdit/AvaloniaEdit.xaml" />
         <StyleInclude Source="avares://SharpTreeView/Themes/TreeView.xaml" />
-        <SimpleTheme Mode="Dark"/>
+        <SimpleTheme />
     </Application.Styles>
 </Application>

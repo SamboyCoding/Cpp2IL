@@ -10,7 +10,7 @@ namespace Cpp2IL.Gui
     {
         [UnconditionalSuppressMessage("Trimming", "IL2026", Justification = "All the viewmodel types are hard referenced")]
         [UnconditionalSuppressMessage("Trimming", "IL2057", Justification = "All the viewmodel types are hard referenced")]
-        public IControl Build(object? data)
+        public Control Build(object? data)
         {
             var name = data!.GetType().FullName!.Replace("ViewModel", "View");
             var type = Type.GetType(name);

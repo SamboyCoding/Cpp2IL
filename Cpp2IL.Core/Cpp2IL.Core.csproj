@@ -26,7 +26,7 @@
 
     <ItemGroup>
         <!--Needed for DLL output-->
-        <PackageReference Include="AsmResolver.DotNet" Version="5.0.0" />
+        <PackageReference Include="AsmResolver.DotNet" Version="5.1.0" />
         
         <!--For ARM64 dissassembly-->
         <PackageReference Include="Disarm" Version="2022.1.0-master.26" />
@@ -40,7 +40,7 @@
         <!--Not used at runtime, but needed for the build-->
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
 
-        <PackageReference Include="PolySharp" Version="1.8.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+        <PackageReference Include="PolySharp" Version="1.12.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' != 'net6.0'">
