@@ -41,7 +41,7 @@ public static class V29AttributeUtils
         if(numCtorArgs + numFields + numProps == 0)
             return ret;
 
-        using var reader = new BinaryReader(stream, Encoding.UTF8, true);
+        using var reader = new BinaryReader(stream, Encoding.Unicode, true);
         
         //Read constructor params
         for (var i = 0; i < numCtorArgs; i++) 
