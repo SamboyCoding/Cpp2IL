@@ -25,7 +25,7 @@
         <PackageReference Include="Avalonia.Diagnostics" Version="11.0.0-preview5" />
         <PackageReference Include="Avalonia.ReactiveUI" Version="11.0.0-preview5" />
         <PackageReference Include="Avalonia.Themes.Simple" Version="11.0.0-preview5" />
-        <PackageReference Include="AvaloniaEdit.TextMate" Version="11.0.0-preview2" />
+        <PackageReference Include="AvaloniaEdit.TextMate" Version="11.0.0-preview5" />
     </ItemGroup>
     <ItemGroup>
       <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
