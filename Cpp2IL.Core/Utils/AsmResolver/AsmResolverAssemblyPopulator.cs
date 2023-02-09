@@ -336,6 +336,10 @@ public static class AsmResolverAssemblyPopulator
                 //Field Initial Values (used for allocation of Array Literals)
                 if (managedField.HasFieldRva)
                     managedField.FieldRva = new DataSegment(fieldInfo.Field.StaticArrayInitialValue);
+                
+                if(ilTypeDefinition.IsExplicitLayout)
+                    //Copy field offset
+                    managedField.FieldOffset = fieldInfo.FieldOffset;
             }
             
             fieldContext.PutExtraData("AsmResolverField", managedField);
