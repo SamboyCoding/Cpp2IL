@@ -264,7 +264,6 @@ namespace LibCpp2IL
 
         public virtual string ReadStringToNull(long offset)
         {
-            var builder = new List<byte>();
 
             var obtained = false;
             PositionShiftLock.Enter(ref obtained);
@@ -275,17 +274,25 @@ namespace LibCpp2IL
             try
             {
                 Position = offset;
-                byte b;
-                while ((b = (byte) _memoryStream.ReadByte()) != 0)
-                    builder.Add(b);
 
-
-                return Encoding.UTF8.GetString(builder.ToArray());
+                return ReadStringToNullAtCurrentPos();
             }
             finally
             {
                 PositionShiftLock.Exit();
             }
+        }
+
+        public string ReadStringToNullAtCurrentPos()
+        {
+            var builder = new List<byte>();
+            byte b;
+            var sanity = 0;
+            while ((b = (byte)_memoryStream.ReadByte()) != 0 && ++sanity < 32768)
+                builder.Add(b);
+
+
+            return Encoding.UTF8.GetString(builder.ToArray());
         }
 
         public byte[] ReadByteArrayAtRawAddress(long offset, int count)

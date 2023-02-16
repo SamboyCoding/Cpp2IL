@@ -373,8 +373,11 @@ namespace Cpp2IL.Core
         {
             CheckLibInitialized();
 
+            Logger.Info("Generating type dumps for all assemblies...");
             foreach (var assemblyDefinition in SharedState.AssemblyList)
                 GenerateMetadataForAssembly(rootFolder, assemblyDefinition);
+            
+            Logger.InfoNewline("OK.");
         }
 
         public static void GenerateMetadataForAssembly(string rootFolder, AssemblyDefinition assemblyDefinition)

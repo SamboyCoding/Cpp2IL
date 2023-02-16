@@ -38,7 +38,6 @@ namespace Cpp2IL.Core
 
                     var startFrom = attributeGeneratorList[^1];
                     
-                    //GetExportedFunctionPointers is only defined for ELF and PE files. Mach-O may die here.
                     var minExport = LibCpp2IlMain.Binary.GetAllExportedIl2CppFunctionPointers().Min();
 
                     if(minExport != 0)
