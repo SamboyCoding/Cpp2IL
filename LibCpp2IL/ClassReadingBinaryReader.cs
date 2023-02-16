@@ -248,8 +248,6 @@ namespace LibCpp2IL
 
         public virtual string ReadStringToNull(long offset)
         {
-            var builder = new List<byte>();
-
             GetLockOrThrow();
 
             try
@@ -283,6 +281,9 @@ namespace LibCpp2IL
                 TrackRead<string>(bytesRead);
             }
         }
+
+        public string ReadStringToNullAtCurrentPos()
+            => ReadStringToNullNoLock(-1);
 
         public byte[] ReadByteArrayAtRawAddress(long offset, int count)
         {

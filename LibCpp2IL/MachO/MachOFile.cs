@@ -1,4 +1,6 @@
-﻿using System.IO;
+using System.IO;
+using System;
+using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.Logging;
 
@@ -13,6 +15,7 @@ namespace LibCpp2IL.MachO
 
         private readonly MachOSegmentCommand[] Segments64;
         private readonly MachOSection[] Sections64;
+        private Dictionary<string, long> _exportsDict;
         
         public MachOFile(MemoryStream input) : base(input)
         {
@@ -69,6 +72,12 @@ namespace LibCpp2IL.MachO
             Segments64 = _loadCommands.Where(c => c.Command == LoadCommandId.LC_SEGMENT_64).Select(c => c.CommandData).Cast<MachOSegmentCommand>().ToArray();
             Sections64 = Segments64.SelectMany(s => s.Sections).ToArray();
             
+            var dyldData = _loadCommands.FirstOrDefault(c => c.Command is LoadCommandId.LC_DYLD_INFO or LoadCommandId.LC_DYLD_INFO_ONLY)?.CommandData as MachODynamicLinkerCommand;
+            var exports = dyldData?.Exports ?? Array.Empty<MachOExportEntry>();
+            _exportsDict = exports.ToDictionary(e => e.Name[1..], e => e.Address); //Skip the first character, which is a leading underscore inserted by the compiler
+            
+            LibLogger.VerboseNewline($"Found {_exportsDict.Count} exports in the DYLD info load command.");
+            
             LibLogger.VerboseNewline($"\tMach-O contains {Segments64.Length} segments, split into {Sections64.Length} sections.");
         }
 
@@ -107,7 +116,10 @@ namespace LibCpp2IL.MachO
 
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {
-            return 0; //TODO?
+            if (!_exportsDict.TryGetValue(toFind, out var addr))
+                return 0;
+
+            return (ulong) addr;
         }
 
         private MachOSection GetTextSection64()
