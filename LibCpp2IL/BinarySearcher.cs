@@ -162,7 +162,7 @@ namespace LibCpp2IL
             else
             {
                 //but in v27 it's close to the LAST codegen module (winrt.dll is an exception), so we need to work back until we find an xref.
-                var sanityCheckNumberOfModules = 250;
+                var sanityCheckNumberOfModules = 400;
                 var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList.AsEnumerable();
                 var numModuleDefs = LibCpp2IlMain.TheMetadata!.imageDefinitions.Length;
                 var initialBacktrack = numModuleDefs - 10;
