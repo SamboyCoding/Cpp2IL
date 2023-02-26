@@ -4,6 +4,7 @@ using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils.AsmResolver;
+using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
@@ -39,6 +40,9 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
     {
         if(Type == null)
             return "(Type) null";
+
+        if (Type.Type.IsIl2CppPrimitive())
+            return $"typeof({LibCpp2ILUtils.GetTypeName(Owner.Constructor.AppContext.Metadata, Owner.Constructor.AppContext.Binary, Type)}";
         
         return $"typeof({Type.AsClass().Name})";
     }
