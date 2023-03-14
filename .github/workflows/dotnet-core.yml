@@ -51,7 +51,7 @@ jobs:
         uses: actions/upload-artifact@v3
         with:
           name: ${{ matrix.project }}-net7-${{ matrix.runtimeIdentifier }}
-          path: ./${{ matrix.project }}/bin/Release/ne7.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
+          path: ./${{ matrix.project }}/bin/Release/net7.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
   release-netframework:
     name: Build - Windows .NET Framework Zip
     runs-on: ubuntu-latest
