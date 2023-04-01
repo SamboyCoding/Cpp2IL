@@ -215,17 +215,25 @@ namespace LibCpp2IL
         {
             if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
             {
+                LibLogger.VerboseNewline($"DetermineUnityVersion: Running on windows so have FileVersionInfo, trying to pull version from unity player {unityPlayerPath}");
                 var unityVer = FileVersionInfo.GetVersionInfo(unityPlayerPath);
 
-                return new UnityVersion((ushort)unityVer.FileMajorPart, (ushort)unityVer.FileMinorPart, (ushort)unityVer.FileBuildPart);
+                if(unityVer.FileMajorPart > 0)
+                    return new UnityVersion((ushort)unityVer.FileMajorPart, (ushort)unityVer.FileMinorPart, (ushort)unityVer.FileBuildPart);
+                
+                LibLogger.VerboseNewline($"DetermineUnityVersion: FileVersionInfo gave useless result, falling back to other methods");
             }
 
             if (!string.IsNullOrEmpty(gameDataPath))
             {
+                LibLogger.VerboseNewline($"DetermineUnityVersion: Have game data path {gameDataPath}, trying to pull version from globalgamemanagers or data.unity3d");
+                
                 //Globalgamemanagers
                 var globalgamemanagersPath = Path.Combine(gameDataPath, "globalgamemanagers");
                 if (File.Exists(globalgamemanagersPath))
                 {
+                    LibLogger.VerboseNewline($"DetermineUnityVersion: globalgamemanagers exists, pulling version from it");
+                    
                     var ggmBytes = File.ReadAllBytes(globalgamemanagersPath);
                     return GetVersionFromGlobalGameManagers(ggmBytes);
                 }
@@ -234,10 +242,16 @@ namespace LibCpp2IL
                 var dataPath = Path.Combine(gameDataPath, "data.unity3d");
                 if (File.Exists(dataPath))
                 {
+                    LibLogger.VerboseNewline($"DetermineUnityVersion: data.unity3d exists, pulling version from it");
+                    
                     using var dataStream = File.OpenRead(dataPath);
                     return GetVersionFromDataUnity3D(dataStream);
                 }
+                
+                LibLogger.VerboseNewline($"DetermineUnityVersion: No globalgamemanagers or data.unity3d found in game data path.");
             }
+            
+            LibLogger.VerboseNewline($"DetermineUnityVersion: All methods to determine unity version failed!");
 
             return default;
         }

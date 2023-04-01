@@ -76,7 +76,7 @@ namespace LibCpp2IL
         }
 
         // Find strings
-        private IEnumerable<uint> FindAllStrings(string str) => FindAllBytes(Encoding.ASCII.GetBytes(str), 1);
+        public IEnumerable<uint> FindAllStrings(string str) => FindAllBytes(Encoding.ASCII.GetBytes(str), 1);
 
         // Find 32-bit words
         private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), _binary is WasmFile or NsoFile ? 1 : 4);
@@ -96,16 +96,16 @@ namespace LibCpp2IL
         }
 
         // Find all valid virtual address pointers to a virtual address
-        private IEnumerable<ulong> FindAllMappedWords(ulong word)
+        public IEnumerable<ulong> FindAllMappedWords(ulong word)
         {
             var fileOffsets = FindAllWords(word).ToList();
             return MapOffsetsToVirt(fileOffsets);
         }
 
         // Find all valid virtual address pointers to a set of virtual addresses
-        private IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(FindAllMappedWords);
+        public IEnumerable<ulong> FindAllMappedWords(IEnumerable<ulong> va) => va.SelectMany(FindAllMappedWords);
 
-        private IEnumerable<ulong> FindAllMappedWords(IEnumerable<uint> va) => va.SelectMany(a => FindAllMappedWords(a));
+        public IEnumerable<ulong> FindAllMappedWords(IEnumerable<uint> va) => va.SelectMany(a => FindAllMappedWords(a));
 
         public ulong FindCodeRegistrationPre2019()
         {
@@ -162,7 +162,7 @@ namespace LibCpp2IL
             else
             {
                 //but in v27 it's close to the LAST codegen module (winrt.dll is an exception), so we need to work back until we find an xref.
-                var sanityCheckNumberOfModules = 400;
+                var sanityCheckNumberOfModules = Math.Min(400, LibCpp2IlMain.TheMetadata!.imageDefinitions.Length);
                 var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList.AsEnumerable();
                 var numModuleDefs = LibCpp2IlMain.TheMetadata!.imageDefinitions.Length;
                 var initialBacktrack = numModuleDefs - 10;
@@ -170,7 +170,8 @@ namespace LibCpp2IL
                 pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize * (ulong) initialBacktrack);
                 
                 //Slightly experimental, but we're gonna try backtracking most of the way through the number of modules. Not all the way because we don't want to overshoot.
-                for (var backtrack = initialBacktrack; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
+                int backtrack;
+                for (backtrack = initialBacktrack; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
                 {
                     pCodegenModules = FindAllMappedWords(pSomewhereInCodegenModules).ToList();
 
@@ -187,6 +188,12 @@ namespace LibCpp2IL
                     }
 
                     pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);
+                }
+
+                if (backtrack == sanityCheckNumberOfModules)
+                {
+                    LibLogger.WarnNewline($"Hit backtrack limit of {backtrack} modules and still didn't find a valid pCodegenModules pointer.");
+                    return 0;
                 }
 
                 if (pCodegenModules?.Any() != true)

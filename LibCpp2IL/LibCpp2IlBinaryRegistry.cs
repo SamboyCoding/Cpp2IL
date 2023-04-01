@@ -67,9 +67,6 @@ namespace LibCpp2IL
 
             var (codereg, metareg) = binary.FindCodeAndMetadataReg(metadata.methodDefs.Count(x => x.methodIndex >= 0), metadata.typeDefs.Length);
 
-            if (codereg == 0 || metareg == 0)
-                throw new("Failed to find Binary code or metadata registration");
-
             LibLogger.InfoNewline($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.");
             LibLogger.InfoNewline("Initializing Binary...");
             start = DateTime.Now;

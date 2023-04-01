@@ -1,4 +1,6 @@
-﻿namespace LibCpp2IL.MachO
+﻿using System.Text;
+
+namespace LibCpp2IL.MachO
 {
     public class MachOSymtabEntry
     {
@@ -21,6 +23,33 @@
         public bool IsTypePreboundUndefined => Section == 0 && TypeBits == 0b1100;
         public bool IsTypeIndirect => Section == 0 && TypeBits == 0b1010;
         public bool IsTypeSection => TypeBits == 0b1110;
+
+        public string GetTypeFlags()
+        {
+            var ret = new StringBuilder();
+
+            if (IsExternal)
+                ret.Append("EXTERNAL ");
+            if (IsSymbolicDebugging)
+                ret.Append("SYMBOLIC_DEBUGGING ");
+            if (IsPrivateExternal)
+                ret.Append("PRIVATE_EXTERNAL ");
+            
+            if (IsTypeUndefined)
+                ret.Append("TYPE_UNDEFINED ");
+            else if (IsTypeAbsolute)
+                ret.Append("TYPE_ABSOLUTE ");
+            else if (IsTypePreboundUndefined)
+                ret.Append("TYPE_PREBOUND_UNDEFINED ");
+            else if (IsTypeIndirect)
+                ret.Append("TYPE_INDIRECT ");
+            else if (IsTypeSection)
+                ret.Append("TYPE_SECTION ");
+            else
+                ret.Append("TYPE_UNKNOWN ");
+            
+            return ret.ToString();
+        }
 
         public void Read(ClassReadingBinaryReader reader, MachOSymtabCommand machOSymtabCommand)
         {

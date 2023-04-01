@@ -11,6 +11,10 @@ namespace LibCpp2IL
 {
     public abstract class Il2CppBinary : ClassReadingBinaryReader
     {
+        public delegate void RegistrationStructLocationFailureHandler(Il2CppBinary binary, Il2CppMetadata metadata, ref Il2CppCodeRegistration? codeReg, ref Il2CppMetadataRegistration? metaReg);
+        
+        public static event RegistrationStructLocationFailureHandler? OnRegistrationStructLocationFailure;
+        
         protected const long VirtToRawInvalidNoMatch = long.MinValue + 1000;
         protected const long VirtToRawInvalidOutOfBounds = long.MinValue + 1001;
         
@@ -25,7 +29,7 @@ namespace LibCpp2IL
 
         private ulong[] _methodPointers = Array.Empty<ulong>();
         private ulong[] _genericMethodPointers = Array.Empty<ulong>();
-        private ulong[] _invokerPointers = Array.Empty<ulong>();
+        // private ulong[] _invokerPointers = Array.Empty<ulong>();
         private ulong[]? _customAttributeGenerators = Array.Empty<ulong>(); //Pre-27 only
         private long[] _fieldOffsets = Array.Empty<long>();
         private ulong[] _metadataUsages = Array.Empty<ulong>(); //Pre-27 only
@@ -62,8 +66,21 @@ namespace LibCpp2IL
 
         public void Init(ulong pCodeRegistration, ulong pMetadataRegistration)
         {
-            _codeRegistration = ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration);
-            _metadataRegistration = ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(pMetadataRegistration);
+            var cr = pCodeRegistration > 0 ? ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration) : null;
+            var mr = pMetadataRegistration > 0 ? ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(pMetadataRegistration) : null;
+
+            if (cr == null || mr == null)
+            {
+                LibLogger.WarnNewline("At least one of the registration structs was not able to be found. Attempting to use fallback locator delegate to find them (this will fail unless you have a plugin that helps with this!)...");
+                OnRegistrationStructLocationFailure?.Invoke(this, LibCpp2IlMain.TheMetadata!, ref cr, ref mr);
+                LibLogger.VerboseNewline($"After fallback, code registration is {(cr == null ? "null" : "not null")} and metadata registration is {(mr == null ? "null" : "not null")}.");
+            }
+
+            if(cr == null || mr == null)
+                throw new("Failed to find code registration or metadata registration!");
+            
+            _codeRegistration = cr;
+            _metadataRegistration = mr;
 
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
@@ -74,17 +91,26 @@ namespace LibCpp2IL
 
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
-            LibLogger.Verbose("\tReading generic method pointers...");
-            start = DateTime.Now;
-            _genericMethodPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.genericMethodPointers, (long)_codeRegistration.genericMethodPointersCount);
-            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            if (_codeRegistration.genericMethodPointers != 0)
+            {
+                LibLogger.Verbose("\tReading generic method pointers...");
+                start = DateTime.Now;
+                _genericMethodPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.genericMethodPointers, (long)_codeRegistration.genericMethodPointersCount);
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
+            else
+            {
+                LibLogger.WarnNewline("\tPointer to generic method array in CodeReg is null! This isn't inherently going to cause dumping to fail but there will be no generic method data in the dump.");
+                _genericMethodPointers = Array.Empty<ulong>();
+            }
 
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
-            LibLogger.Verbose("\tReading invoker pointers...");
-            start = DateTime.Now;
-            _invokerPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.invokerPointers, (long)_codeRegistration.invokerPointersCount);
-            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            // These aren't actually used right now, and if we have a limited code reg (e.g. heavily inlined linux games) we can't read them anyway
+            // LibLogger.Verbose("\tReading invoker pointers...");
+            // start = DateTime.Now;
+            // _invokerPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.invokerPointers, (long)_codeRegistration.invokerPointersCount);
+            // LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
@@ -223,26 +249,35 @@ namespace LibCpp2IL
             start = DateTime.Now;
             _methodSpecs = ReadReadableArrayAtVirtualAddress<Il2CppMethodSpec>(_metadataRegistration.methodSpecs, _metadataRegistration.methodSpecsCount);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
-            LibLogger.Verbose("\tReading generic methods...");
-            start = DateTime.Now;
-            _genericMethodDictionary = new Dictionary<int, ulong>();
-            foreach (var table in _genericMethodTables)
-            {
-                var genericMethodIndex = table.GenericMethodIndex;
-                var genericMethodPointerIndex = table.Indices.methodIndex;
-
-                var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex);
-
-                if (!_genericMethodDictionary.ContainsKey(methodDefIndex) && genericMethodPointerIndex < _genericMethodPointers.Length)
-                {
-                    _genericMethodDictionary.TryAdd(methodDefIndex, _genericMethodPointers[genericMethodPointerIndex]);
-                }
-            }
-
-            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
-
+            
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
+
+            if (_genericMethodPointers.Length > 0)
+            {
+                LibLogger.Verbose("\tReading generic methods...");
+                start = DateTime.Now;
+                _genericMethodDictionary = new Dictionary<int, ulong>();
+                foreach (var table in _genericMethodTables)
+                {
+                    var genericMethodIndex = table.GenericMethodIndex;
+                    var genericMethodPointerIndex = table.Indices.methodIndex;
+
+                    var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex);
+
+                    if (!_genericMethodDictionary.ContainsKey(methodDefIndex) && genericMethodPointerIndex < _genericMethodPointers.Length)
+                    {
+                        _genericMethodDictionary.TryAdd(methodDefIndex, _genericMethodPointers[genericMethodPointerIndex]);
+                    }
+                }
+
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+                InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
+            }
+            else
+            {
+                LibLogger.WarnNewline("\tNo generic method pointer data found, skipping generic mapping.");
+            }
+            
             _hasFinishedInitialRead = true;
         }
 

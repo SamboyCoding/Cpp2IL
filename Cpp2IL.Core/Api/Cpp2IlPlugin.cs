@@ -32,6 +32,9 @@ public abstract class Cpp2IlPlugin
 
     protected void RegisterBinaryFormat<T>(string name, Func<byte[], bool> isValid, Func<MemoryStream, T> factory) where T : Il2CppBinary => 
         LibCpp2IlBinaryRegistry.Register(name, Name, isValid, factory);
+    
+    protected void RegisterBinaryRegistrationFuncFallbackHandler(Il2CppBinary.RegistrationStructLocationFailureHandler handler) => 
+        Il2CppBinary.OnRegistrationStructLocationFailure += handler;
 
     /// <summary>
     /// Attempt to handle the given game path and populate the runtime arguments. For example, unpacking and populating the paths to the binary and metadata in a container format such as an APK.

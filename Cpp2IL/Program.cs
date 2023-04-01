@@ -33,7 +33,9 @@ namespace Cpp2IL
             if (string.IsNullOrEmpty(gamePath))
                 throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
             
-            if (!string.IsNullOrEmpty(inputExeName) && inputExeName!.EndsWith(".x86_64"))
+            Logger.VerboseNewline("Beginning path resolution...");
+            
+            if (Directory.Exists(gamePath) && File.Exists(Path.Combine(gamePath, "GameAssembly.so")))
                 HandleLinuxGamePath(gamePath, inputExeName, ref args);
             else if (Directory.Exists(gamePath))
                 HandleWindowsGamePath(gamePath, inputExeName, ref args);
@@ -52,12 +54,14 @@ namespace Cpp2IL
         {
             //Linux game.
             args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.so");
-            var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
+            var exeName = Path.GetFileName(Directory.GetFiles(gamePath)
                 .FirstOrDefault(f =>
                     (f.EndsWith(".x86_64") || f.EndsWith(".x86")) &&
                     !MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
             exeName = inputExeName ?? exeName;
+            
+            Logger.VerboseNewline($"Trying HandleLinuxGamePath as provided directory contains a GameAssembly.so, potential GA is {args.PathToAssembly} and executable {exeName}");
 
             if (exeName == null)
                 throw new SoftException("Failed to locate any executable in the provided game directory. Make sure the path is correct, and if you *really* know what you're doing (and know it's not supported), use the force options, documented if you provide --help.");
@@ -124,6 +128,8 @@ namespace Cpp2IL
                 .FirstOrDefault(f => f.EndsWith(".exe") && !MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
             exeName = inputExeName ?? exeName;
+            
+            Logger.VerboseNewline($"Trying HandleWindowsGamePath as provided path is a directory with no GameAssembly.so, potential GA is {args.PathToAssembly} and executable {exeName}");
 
             if (exeName == null)
                 throw new SoftException("Failed to locate any executable in the provided game directory. Make sure the path is correct, and if you *really* know what you're doing (and know it's not supported), use the force options, documented if you provide --help.");
@@ -185,6 +191,8 @@ namespace Cpp2IL
             //APK
             //Metadata: assets/bin/Data/Managed/Metadata
             //Binary: lib/(armeabi-v7a)|(arm64-v8a)/libil2cpp.so
+            
+            Logger.VerboseNewline("Trying HandleSingleApk as provided path is an apk file");
 
             Logger.InfoNewline($"Attempting to extract required files from APK {gamePath}", "APK");
 
@@ -251,6 +259,8 @@ namespace Cpp2IL
             //Contains two APKs - one starting with `config.` and one with the package name
             //The config one is architecture-specific and so contains the binary
             //The other contains the metadata
+            
+            Logger.VerboseNewline("Trying HandleXapk as provided path is an xapk or apkm file");
 
             Logger.InfoNewline($"Attempting to extract required files from XAPK {gamePath}", "XAPK");
 
@@ -354,6 +364,8 @@ namespace Cpp2IL
             if (!options.AreForceOptionsValid)
                 throw new SoftException("Invalid force option configuration");
 
+            Cpp2IlApi.ConfigureLib(false);
+            
             var result = new Cpp2IlRuntimeArgs();
 
             if (options.ForcedBinaryPath == null)
