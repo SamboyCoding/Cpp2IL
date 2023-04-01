@@ -32,9 +32,9 @@ namespace Cpp2IL
         {
             if (string.IsNullOrEmpty(gamePath))
                 throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
-            
+
             Logger.VerboseNewline("Beginning path resolution...");
-            
+
             if (Directory.Exists(gamePath) && File.Exists(Path.Combine(gamePath, "GameAssembly.so")))
                 HandleLinuxGamePath(gamePath, inputExeName, ref args);
             else if (Directory.Exists(gamePath))
@@ -49,7 +49,7 @@ namespace Cpp2IL
                     throw new SoftException($"Could not find a valid unity game at {gamePath}");
             }
         }
-        
+
         private static void HandleLinuxGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
         {
             //Linux game.
@@ -60,14 +60,14 @@ namespace Cpp2IL
                     !MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
             exeName = inputExeName ?? exeName;
-            
+
             Logger.VerboseNewline($"Trying HandleLinuxGamePath as provided directory contains a GameAssembly.so, potential GA is {args.PathToAssembly} and executable {exeName}");
 
             if (exeName == null)
                 throw new SoftException("Failed to locate any executable in the provided game directory. Make sure the path is correct, and if you *really* know what you're doing (and know it's not supported), use the force options, documented if you provide --help.");
-            
+
             var exeNameNoExt = exeName.Replace(".x86_64", "").Replace(".x86", "");
-            
+
             var unityPlayerPath = Path.Combine(gamePath, exeName);
             args.PathToMetadata = Path.Combine(gamePath, $"{exeNameNoExt}_Data", "il2cpp_data", "Metadata", "global-metadata.dat");
 
@@ -128,7 +128,7 @@ namespace Cpp2IL
                 .FirstOrDefault(f => f.EndsWith(".exe") && !MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
             exeName = inputExeName ?? exeName;
-            
+
             Logger.VerboseNewline($"Trying HandleWindowsGamePath as provided path is a directory with no GameAssembly.so, potential GA is {args.PathToAssembly} and executable {exeName}");
 
             if (exeName == null)
@@ -191,7 +191,7 @@ namespace Cpp2IL
             //APK
             //Metadata: assets/bin/Data/Managed/Metadata
             //Binary: lib/(armeabi-v7a)|(arm64-v8a)/libil2cpp.so
-            
+
             Logger.VerboseNewline("Trying HandleSingleApk as provided path is an apk file");
 
             Logger.InfoNewline($"Attempting to extract required files from APK {gamePath}", "APK");
@@ -259,7 +259,7 @@ namespace Cpp2IL
             //Contains two APKs - one starting with `config.` and one with the package name
             //The config one is architecture-specific and so contains the binary
             //The other contains the metadata
-            
+
             Logger.VerboseNewline("Trying HandleXapk as provided path is an xapk or apkm file");
 
             Logger.InfoNewline($"Attempting to extract required files from XAPK {gamePath}", "XAPK");
@@ -330,6 +330,9 @@ namespace Cpp2IL
             args.Valid = true;
         }
 
+#if !NETFRAMEWORK
+        [DynamicDependency(DynamicallyAccessedMemberTypes.All, "Cpp2IL.CommandLineArgs", "Cpp2IL")]
+#endif
         private static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)
         {
             var parserResult = Parser.Default.ParseArguments<CommandLineArgs>(commandLine);
@@ -365,7 +368,7 @@ namespace Cpp2IL
                 throw new SoftException("Invalid force option configuration");
 
             Cpp2IlApi.ConfigureLib(false);
-            
+
             var result = new Cpp2IlRuntimeArgs();
 
             if (options.ForcedBinaryPath == null)
@@ -504,7 +507,7 @@ namespace Cpp2IL
             var layers = runtimeArgs.ProcessingLayersToRun.Clone();
             RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.PreProcess(Cpp2IlApi.CurrentAppContext, layers));
             runtimeArgs.ProcessingLayersToRun = layers;
-            
+
             //Run processing layers
             Logger.InfoNewline("Invoking processing layers...");
             RunProcessingLayers(runtimeArgs, processingLayer => processingLayer.Process(Cpp2IlApi.CurrentAppContext));
