@@ -147,6 +147,12 @@ namespace LibCpp2IL
 
             LibLogger.VerboseNewline($"\t\t\tFound {pMscorlibCodegenEntryInCodegenModulesList.Count} address for potential codegen modules in potential codegen module lists: [{string.Join(", ", pMscorlibCodegenEntryInCodegenModulesList.Select(p => p.ToString("X")))}]");
 
+            if (pMscorlibCodegenEntryInCodegenModulesList.Count == 0)
+            {
+                LibLogger.ErrorNewline("\t\t\tNo codegen modules found for mscorlib! Aborting search.");
+                return 0;
+            }
+
             var ptrSize = (_binary.is32Bit ? 4u : 8u);
 
             List<ulong>? pCodegenModules = null;
