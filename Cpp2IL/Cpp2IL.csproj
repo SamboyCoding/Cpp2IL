@@ -12,7 +12,7 @@
         <PublishSingleFile Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
         <PublishTrimmed>true</PublishTrimmed>
         <TargetFrameworks>net7.0;net472</TargetFrameworks>
-        <TrimMode>copyused</TrimMode>
+        <TrimMode>partial</TrimMode>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <ServerGarbageCollection>true</ServerGarbageCollection>
     </PropertyGroup>
