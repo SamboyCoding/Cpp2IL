@@ -55,10 +55,10 @@ namespace LibCpp2IL.Metadata
 
         public static Il2CppMetadata? ReadFrom(byte[] bytes, int[] unityVer)
         {
-            if (BitConverter.ToUInt32(bytes, 0) != 0xFAB11BAF)
+            if (BitConverter.ToUInt32(bytes, 0) is var magic && magic != 0xFAB11BAF)
             {
                 //Magic number is wrong
-                throw new FormatException("Invalid or corrupt metadata (magic number check failed)");
+                throw new FormatException($"Invalid or corrupt metadata. Magic number was 0x{magic:X}, expected 0xFAB11BAF.");
             }
 
             var version = BitConverter.ToInt32(bytes, 4);
