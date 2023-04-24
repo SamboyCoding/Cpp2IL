@@ -149,7 +149,9 @@ namespace Cpp2IL.Core.Utils
             var actualArgs = new List<IAnalysedOperand?>();
             if (!isInstance)
             {
-                actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(0)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm0", "rcx", context));
+                if(LibCpp2IlMain.MetadataVersion > 24f)
+                    //We can only add rcx/xmm0 if we're > v24, because il2cpp used to always emit an unused parameter for a non-existent this pointer.
+                    actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(0)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm0", "rcx", context));
                 actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(1)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm1", "rdx", context));
                 actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(2)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm2", "r8", context));
                 actualArgs.Add(GetValueFromAppropriateX64Reg(method.Parameters.GetValueSafely(3)?.ParameterType?.ShouldBeInFloatingPointRegister(), "xmm3", "r9", context));
@@ -356,7 +358,8 @@ namespace Cpp2IL.Core.Utils
             //See MethodAnalysis#HandleArm64Parameters for a detailed explanation of how this works.
             arguments = null;
             
-            var xCount = isInstance ? 1 : 0;
+            //instance methods have a `this` param, and prior to v24.1, so do static methods, even though they don't use it.
+            var xCount = isInstance || LibCpp2IlMain.MetadataVersion <= 24f ? 1 : 0;
             var vCount = 0;
             
             var ret = new List<IAnalysedOperand>();
