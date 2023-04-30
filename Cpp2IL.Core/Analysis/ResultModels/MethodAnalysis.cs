@@ -123,6 +123,10 @@ namespace Cpp2IL.Core.Analysis.ResultModels
                     method.Body.ThisParameter.Name = "this";
                     FunctionArgumentLocals.Add(MakeLocal(method.DeclaringType, "this", _parameterDestRegList.RemoveAndReturn(0)).WithParameter(method.Body.ThisParameter));
                 }
+                else if (LibCpp2IlMain.MetadataVersion <= 24f)
+                {
+                    FunctionArgumentLocals.Add(MakeLocal(TypeDefinitions.Object, "dummythis", _parameterDestRegList.RemoveAndReturn(0)));
+                }
 
                 while (args.Count > 0)
                 {
