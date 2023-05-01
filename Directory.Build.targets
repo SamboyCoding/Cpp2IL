@@ -1,0 +1,5 @@
+<Project>
+    <PropertyGroup Condition="$(MSBuildProjectName) != 'SharpTreeView'">
+        <PackageId Condition="'$(PackageId)' == ''">Samboy063.$(AssemblyName)</PackageId>
+    </PropertyGroup>
+</Project>

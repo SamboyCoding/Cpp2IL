@@ -1,24 +1,20 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <BuiltInComInteropSupport>true</BuiltInComInteropSupport> <!--Needed for avalonia-->
-        <Configurations>Debug;Release</Configurations>
-        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <Nullable>enable</Nullable>
+        <TargetFramework>net7.0</TargetFramework>
         <OutputType>Exe</OutputType>
-        <Platforms>AnyCPU;x64</Platforms>
+
         <PublishSingleFile>true</PublishSingleFile>
         <PublishTrimmed>true</PublishTrimmed>
-        <TargetFramework>net7.0</TargetFramework>
+        <BuiltInComInteropSupport>true</BuiltInComInteropSupport> <!--Needed for avalonia-->
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <TrimMode>link</TrimMode>
-        <VersionPrefix>2022.1.0</VersionPrefix>
     </PropertyGroup>
+
     <ItemGroup>
-        <Folder Include="Models\" />
-        <AvaloniaResource Include="Assets\**" />
-        <None Remove=".gitignore" />
-    </ItemGroup>
-    <ItemGroup>
+        <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
+        <ProjectReference Include="..\SharpTreeView\SharpTreeView.csproj" />
+
         <PackageReference Include="Avalonia" Version="11.0.0-preview5" />
         <PackageReference Include="Avalonia.AvaloniaEdit" Version="11.0.0-preview2" />
         <PackageReference Include="Avalonia.Desktop" Version="11.0.0-preview5" />
@@ -27,18 +23,9 @@
         <PackageReference Include="Avalonia.Themes.Simple" Version="11.0.0-preview5" />
         <PackageReference Include="AvaloniaEdit.TextMate" Version="11.0.0-preview2" />
     </ItemGroup>
+
     <ItemGroup>
-      <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
-      <ProjectReference Include="..\SharpTreeView\SharpTreeView.csproj" />
-    </ItemGroup>
-    <ItemGroup>
-      <None Remove="Images\Assembly.png" />
-      <EmbeddedResource Include="Images\Assembly.png" />
-      <None Remove="Images\Class.png" />
-      <EmbeddedResource Include="Images\Class.png" />
-      <None Remove="Images\NameSpace.png" />
-      <EmbeddedResource Include="Images\NameSpace.png" />
-      <None Remove="Images\Method.png" />
-      <EmbeddedResource Include="Images\Method.png" />
+        <AvaloniaResource Include="Assets\**" />
+        <EmbeddedResource Include="Images\*.png" />
     </ItemGroup>
 </Project>

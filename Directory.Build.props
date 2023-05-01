@@ -1,0 +1,21 @@
+<Project>
+    <PropertyGroup Condition="$(MSBuildProjectName) != 'SharpTreeView'">
+        <Nullable>enable</Nullable>
+        <LangVersion>10</LangVersion>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DebugType>embedded</DebugType>
+
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+
+        <VersionPrefix>2022.1.0</VersionPrefix>
+        <VersionSuffix>development</VersionSuffix>
+        <Authors>Sam Byass (Samboy063)</Authors>
+        <Copyright>Copyright © Samboy063 2019-2023</Copyright>
+
+        <PackageProjectUrl>https://github.com/SamboyCoding/Cpp2IL</PackageProjectUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <RepositoryType>git</RepositoryType>
+        <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    </PropertyGroup>
+</Project>

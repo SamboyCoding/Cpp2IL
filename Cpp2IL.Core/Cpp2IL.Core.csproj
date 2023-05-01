@@ -1,56 +1,36 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Authors>Sam Byass (Samboy063)</Authors>
-        <Company>N/A</Company>
-        <Copyright>Copyright © Samboy063 2019-2023</Copyright>
-        <DebugType>embedded</DebugType>
+        <TargetFrameworks>net7.0;net6.0;netstandard2.0</TargetFrameworks>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+
         <Description>Reverses Unity's IL2CPP Build Process</Description>
         <EmbedUntrackedSources>true</EmbedUntrackedSources>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <LangVersion>10</LangVersion>
-        <Nullable>enable</Nullable>
-        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-        <PackageId>Samboy063.Cpp2IL.Core</PackageId>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <PackageProjectUrl>https://github.com/SamboyCoding/Cpp2IL</PackageProjectUrl>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl>
-        <RepositoryType>git</RepositoryType>
-        <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
-        <TargetFrameworks>net7.0;net6.0;netstandard2.0</TargetFrameworks>
-        <Title>Cpp2IL.Core</Title>
-        <VersionPrefix>2022.1.0</VersionPrefix>
         <!--Plugins make this non-trimmable-->
-
-        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
     </PropertyGroup>
 
     <ItemGroup>
         <!--Needed for DLL output-->
-        <PackageReference Include="AsmResolver.DotNet" Version="5.1.0" />
-        
+        <PackageReference Include="AsmResolver.DotNet" Version="5.3.0" />
+
         <!--For ARM64 dissassembly-->
         <PackageReference Include="Disarm" Version="2022.1.0-master.26" />
 
         <!--For X86/X64 disassembly-->
         <PackageReference Include="Iced" Version="1.18.0" />
-        
+
         <!--For ARM64 and ARMv7 disassembly. Future: Remove once disarm is stable and move ARMv7 to CapstoneSharp by 6pak-->
         <PackageReference Include="js6pak.Gee.External.Capstone" Version="2.1.0" />
-        
+
         <!--Not used at runtime, but needed for the build-->
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
 
-        <PackageReference Include="PolySharp" Version="1.12.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
-    </ItemGroup>
-
-    <ItemGroup Condition="'$(TargetFramework)' != 'net6.0'">
-        <!--Supplementary packages to provide modern runtime features on netstandard2-->
-        <PackageReference Include="System.ValueTuple" Version="4.5.0" />
+        <PackageReference Include="PolySharp" Version="1.13.2" PrivateAssets="all" />
     </ItemGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\LibCpp2IL\LibCpp2IL.csproj" />
-        
+
         <!--Future: Consider moving to its own project and moving the impl in cpp2il to a plugin-->
         <ProjectReference Include="..\StableNameDotNet\StableNameDotNet.csproj" />
     </ItemGroup>

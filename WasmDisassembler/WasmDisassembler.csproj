@@ -1,22 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
     <PropertyGroup>
-        <Authors>Samboy063</Authors>
-        <Company>Samboy063</Company>
-        <DebugType>embedded</DebugType>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <LangVersion>10</LangVersion>
-        <PackageId>Samboy063.WasmDisassembler</PackageId>
-        <VersionPrefix>2022.1.0</VersionPrefix>
-        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <RepositoryType>git</RepositoryType>
-        <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl>
-        <Description>Simple, zero-dependency disassembler for WebAssembly bytecode</Description>
         <TargetFrameworks>net7.0;net6.0;netstandard2.0</TargetFrameworks>
         <IsTrimmable>true</IsTrimmable>
-    </PropertyGroup>
 
+        <Description>Simple, zero-dependency disassembler for WebAssembly bytecode</Description>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    </PropertyGroup>
 </Project>

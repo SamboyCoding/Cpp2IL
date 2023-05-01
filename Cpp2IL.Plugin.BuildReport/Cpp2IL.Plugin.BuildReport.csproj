@@ -1,22 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
     <PropertyGroup>
         <TargetFramework>net7.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <DebugType>embedded</DebugType>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>compile; build</IncludeAssets>
-          <ExcludedAssets>runtime</ExcludedAssets>
-      </ProjectReference>
+        <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
     </ItemGroup>
-
-    <ItemGroup>
-      <PackageReference Include="System.Text.Json" Version="7.0.1" />
-    </ItemGroup>
-
 </Project>

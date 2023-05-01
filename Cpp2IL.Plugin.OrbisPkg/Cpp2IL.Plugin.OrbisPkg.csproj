@@ -1,21 +1,13 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
-        <ImplicitUsings>enable</ImplicitUsings>
-        <Nullable>enable</Nullable>
-        <LangVersion>10</LangVersion>
-        <DebugType>embedded</DebugType>
     </PropertyGroup>
 
     <ItemGroup>
-      <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
-    </ItemGroup>
+        <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
 
-    <ItemGroup>
-      <Reference Include="LibOrbisPkg.Core">
-        <HintPath>Deps\LibOrbisPkg.Core.dll</HintPath>
-      </Reference>
+        <Reference Include="LibOrbisPkg.Core">
+            <HintPath>Deps\LibOrbisPkg.Core.dll</HintPath>
+        </Reference>
     </ItemGroup>
-
 </Project>

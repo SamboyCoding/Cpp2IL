@@ -1,24 +1,14 @@
-﻿ <Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Company>Samboy063</Company>
-        <Copyright>Copyright © Samboy063 2019-2023</Copyright>
-        <Configurations>Debug;Release</Configurations>
-        <DebugType>embedded</DebugType>
-        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
-        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-        <LangVersion>10</LangVersion>
-        <Nullable>enable</Nullable>
+        <TargetFrameworks>net7.0;net472</TargetFrameworks>
         <OutputType>Exe</OutputType>
+
         <PublishSingleFile Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
         <PublishTrimmed>true</PublishTrimmed>
-        <TargetFrameworks>net7.0;net472</TargetFrameworks>
+        <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
+        <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
         <TrimMode>partial</TrimMode>
-        <VersionPrefix>2022.1.0</VersionPrefix>
         <ServerGarbageCollection>true</ServerGarbageCollection>
-    </PropertyGroup>
-
-    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
-        <OutputPath>bin\x64\Debug\</OutputPath>
     </PropertyGroup>
 
     <ItemGroup>
