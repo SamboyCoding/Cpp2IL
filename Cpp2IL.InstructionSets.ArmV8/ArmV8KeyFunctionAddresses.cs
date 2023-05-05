@@ -1,16 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
+﻿using Cpp2IL.Core.Il2CppApiFunctions;
 using Disarm;
-using Cpp2IL.Core.Logging;
-using Cpp2IL.Core.Utils;
-using Iced.Intel;
 using LibCpp2IL;
-using LibCpp2IL.Reflection;
 
-namespace Cpp2IL.Core.Il2CppApiFunctions;
+namespace Cpp2IL.InstructionSets.ArmV8;
 
-public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
+public class ArmV8KeyFunctionAddresses : BaseKeyFunctionAddresses
 {
     private Arm64DisassemblyResult? _cachedDisassembledBytes;
 
@@ -73,55 +67,12 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
 
     protected override ulong GetObjectIsInstFromSystemType()
     {
-        Logger.Verbose("\tTrying to use System.Type::IsInstanceOfType to find il2cpp::vm::Object::IsInst...");
-        var typeIsInstanceOfType = LibCpp2IlReflection.GetType("Type", "System")?.Methods?.FirstOrDefault(m => m.Name == "IsInstanceOfType");
-        if (typeIsInstanceOfType == null)
-        {
-            Logger.VerboseNewline("Type or method not found, aborting.");
-            return 0;
-        }
-            
-        //IsInstanceOfType is a very simple ICall, that looks like this:
-        //  Il2CppClass* klass = vm::Class::FromIl2CppType(type->type.type);
-        //  return il2cpp::vm::Object::IsInst(obj, klass) != NULL;
-        //The last call is to Object::IsInst
-            
-        Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(typeIsInstanceOfType.MethodPointer, true);
-
-        var lastCall = instructions.LastOrDefault(i => i.Mnemonic == Mnemonic.Call);
-
-        if (lastCall.Mnemonic == Mnemonic.INVALID)
-        {
-            Logger.VerboseNewline("Method does not match expected signature. Aborting.");
-            return 0;
-        }
-            
-        Logger.VerboseNewline($"Success. IsInst found at 0x{lastCall.NearBranchTarget:X}");
-        return lastCall.NearBranchTarget;
+        throw new NotImplementedException();
     }
 
     protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
     {
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
-
-        try
-        {
-            var target = prioritiseCall ? Mnemonic.Call : Mnemonic.Jmp;
-            var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
-
-            if (matchingCall.Mnemonic == Mnemonic.INVALID)
-            {
-                target = target == Mnemonic.Call ? Mnemonic.Jmp : Mnemonic.Call;
-                matchingCall = instructions.First(i => i.Mnemonic == target);
-            }
-
-            return matchingCall.NearBranchTarget;
-        }
-        catch (Exception)
-        {
-            return 0;
-        }
+        throw new NotImplementedException();
     }
 
     protected override int GetCallerCount(ulong toWhere)

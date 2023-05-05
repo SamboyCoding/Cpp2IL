@@ -1,11 +1,10 @@
-﻿using System;
-using System.Linq;
+﻿using Cpp2IL.Core.Utils;
 using Disarm;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Utils;
+namespace Cpp2IL.InstructionSets.ArmV8;
 
-public static class NewArm64Utils
+internal static class ArmV8Utils
 {
     public static Arm64DisassemblyResult GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
     {

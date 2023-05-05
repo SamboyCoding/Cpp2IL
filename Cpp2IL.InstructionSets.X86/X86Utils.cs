@@ -1,14 +1,12 @@
-using System;
 using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.RegularExpressions;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Logging;
+using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Utils
+namespace Cpp2IL.InstructionSets.X86
 {
     public static class X86Utils
     {

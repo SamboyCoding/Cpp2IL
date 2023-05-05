@@ -1,18 +1,19 @@
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using Cpp2IL.Core.Api;
-using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
 using Iced.Intel;
+using LibCpp2IL;
 
-namespace Cpp2IL.Core.InstructionSets;
+namespace Cpp2IL.InstructionSets.X86;
 
 public class X86InstructionSet : Cpp2IlInstructionSet
 {
+    public static void RegisterInstructionSet()
+    {
+        InstructionSetRegistry.RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_32);
+        InstructionSetRegistry.RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_64);
+    }
 
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
 

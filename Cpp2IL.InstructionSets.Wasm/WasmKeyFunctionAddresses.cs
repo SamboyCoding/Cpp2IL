@@ -1,6 +1,6 @@
-using System.Collections.Generic;
+using Cpp2IL.Core.Il2CppApiFunctions;
 
-namespace Cpp2IL.Core.Il2CppApiFunctions
+namespace Cpp2IL.InstructionSets.Wasm
 {
     public class WasmKeyFunctionAddresses : BaseKeyFunctionAddresses
     {

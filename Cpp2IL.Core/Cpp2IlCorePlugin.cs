@@ -1,8 +1,6 @@
-using System;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Attributes;
-using Cpp2IL.Core.InstructionSets;
 using Cpp2IL.Core.OutputFormats;
 using Cpp2IL.Core.ProcessingLayers;
 //Need this for the assembly attribute definition below.
@@ -22,19 +20,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
     {
         Logger.VerboseNewline("Initializing...", "Core Plugin");
         var start = DateTime.Now;
-        
-        Logger.VerboseNewline("\tRegistering built-in instruction set handlers...", "Core Plugin");
-        
-        InstructionSetRegistry.RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_32);
-        InstructionSetRegistry.RegisterInstructionSet<X86InstructionSet>(DefaultInstructionSets.X86_64);
-        InstructionSetRegistry.RegisterInstructionSet<WasmInstructionSet>(DefaultInstructionSets.WASM);
-        InstructionSetRegistry.RegisterInstructionSet<ArmV7InstructionSet>(DefaultInstructionSets.ARM_V7);
-        
-        if(Environment.GetEnvironmentVariable("CPP2IL_NEW_ARM64") != null)
-            InstructionSetRegistry.RegisterInstructionSet<NewArmV8InstructionSet>(DefaultInstructionSets.ARM_V8);
-        else
-            InstructionSetRegistry.RegisterInstructionSet<Arm64InstructionSet>(DefaultInstructionSets.ARM_V8);
-        
+
         Logger.VerboseNewline("\tRegistering built-in binary parsers...", "Core Plugin");
         
         LibCpp2IlBinaryRegistry.RegisterBuiltInBinarySupport();
@@ -44,7 +30,6 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         OutputFormatRegistry.Register<AsmResolverDummyDllOutputFormat>();
         OutputFormatRegistry.Register<DiffableCsOutputFormat>();
         OutputFormatRegistry.Register<IsilDumpOutputFormat>();
-        OutputFormatRegistry.Register<WasmMappingOutputFormat>();
         
         Logger.VerboseNewline("\tRegistering built-in processing layers", "Core Plugin");
         

@@ -17,6 +17,7 @@ using Cpp2IL.Core.Exceptions;
 using LibCpp2IL.Wasm;
 using AssetRipper.VersionUtilities;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.InstructionSets.All;
 using LibCpp2IL;
 
 namespace Cpp2IL
@@ -346,6 +347,7 @@ namespace Cpp2IL
 
             ConsoleLogger.ShowVerbose = options.Verbose;
 
+            AllInstructionSets.Register();
             Cpp2IlApi.Init();
 
             if (options.ListProcessors)

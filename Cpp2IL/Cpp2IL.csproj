@@ -18,6 +18,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
+        <ProjectReference Include="..\Cpp2IL.InstructionSets.All\Cpp2IL.InstructionSets.All.csproj" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'net472'">
