@@ -6,6 +6,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
+        <ProjectReference Include="..\Cpp2IL.InstructionSets.ArmV7\Cpp2IL.InstructionSets.ArmV7.csproj" />
         <ProjectReference Include="..\Cpp2IL.InstructionSets.ArmV8\Cpp2IL.InstructionSets.ArmV8.csproj" />
         <ProjectReference Include="..\Cpp2IL.InstructionSets.Wasm\Cpp2IL.InstructionSets.Wasm.csproj" />
         <ProjectReference Include="..\Cpp2IL.InstructionSets.X86\Cpp2IL.InstructionSets.X86.csproj" />

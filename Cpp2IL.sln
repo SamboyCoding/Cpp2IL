@@ -55,6 +55,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.InstructionSets.ArmV
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.InstructionSets.Wasm", "Cpp2IL.InstructionSets.Wasm\Cpp2IL.InstructionSets.Wasm.csproj", "{69F27003-2D6B-42E3-BB69-C542CA16E0D8}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.InstructionSets.ArmV7", "Cpp2IL.InstructionSets.ArmV7\Cpp2IL.InstructionSets.ArmV7.csproj", "{BBBC3D51-9F2E-4AB3-B4BE-195A01568F1D}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -125,6 +127,10 @@ Global
 		{69F27003-2D6B-42E3-BB69-C542CA16E0D8}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{69F27003-2D6B-42E3-BB69-C542CA16E0D8}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{69F27003-2D6B-42E3-BB69-C542CA16E0D8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{BBBC3D51-9F2E-4AB3-B4BE-195A01568F1D}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{BBBC3D51-9F2E-4AB3-B4BE-195A01568F1D}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{BBBC3D51-9F2E-4AB3-B4BE-195A01568F1D}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{BBBC3D51-9F2E-4AB3-B4BE-195A01568F1D}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -135,6 +141,7 @@ Global
 		{CC7781FC-1A0E-441D-9551-412509BE63DF} = {6B0AAAA9-3C29-4AD9-84CB-47DB34134C82}
 		{6B9023CB-8EB3-4738-B079-FD7E7AE76023} = {6B0AAAA9-3C29-4AD9-84CB-47DB34134C82}
 		{69F27003-2D6B-42E3-BB69-C542CA16E0D8} = {6B0AAAA9-3C29-4AD9-84CB-47DB34134C82}
+		{BBBC3D51-9F2E-4AB3-B4BE-195A01568F1D} = {6B0AAAA9-3C29-4AD9-84CB-47DB34134C82}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {E9A45B2C-AAEF-4D66-ADD6-7DD234DA3F39}

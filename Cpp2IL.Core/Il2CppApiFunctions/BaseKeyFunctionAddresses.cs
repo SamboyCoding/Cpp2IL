@@ -146,7 +146,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
 
             if (il2cpp_type_get_object != 0)
             {
-                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
+                Logger.Verbose("\t\tMapping il2cpp_type_get_object to Reflection::GetTypeObject...");
                 il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(il2cpp_type_get_object);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_reflection_get_type_object:X}");
             }
