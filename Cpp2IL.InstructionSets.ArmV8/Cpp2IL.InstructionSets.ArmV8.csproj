@@ -6,6 +6,6 @@
 
     <ItemGroup>
         <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
-        <PackageReference Include="Disarm" Version="2022.1.0-master.26" />
+        <PackageReference Include="Disarm" Version="2022.1.0-master.34" />
     </ItemGroup>
 </Project>

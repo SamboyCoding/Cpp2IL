@@ -28,18 +28,17 @@ public class ArmV8InstructionSet : Cpp2IlInstructionSet
                 return LibCpp2IlMain.Binary!.GetRawBinaryContent().AsMemory(ptrAsInt, count);
         }
 
-        var result = ArmV8Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
-        var endVa = result.EndVirtualAddress;
+        ArmV8Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer, out var endVirtualAddress);
 
         var start = (int) context.AppContext.Binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
-        var end = (int) context.AppContext.Binary.MapVirtualAddressToRaw(endVa);
-        
+        var end = (int) context.AppContext.Binary.MapVirtualAddressToRaw(endVirtualAddress);
+
         return context.AppContext.Binary.GetRawBinaryContent().AsMemory(start, end - start);
     }
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        var result = ArmV8Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        var instructions = ArmV8Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer, out var endVirtualAddress);
 
         throw new NotImplementedException();
     }
@@ -49,5 +48,5 @@ public class ArmV8InstructionSet : Cpp2IlInstructionSet
         return new ArmV8KeyFunctionAddresses();
     }
 
-    public override string PrintAssembly(MethodAnalysisContext context) => string.Join("\n", Disassembler.Disassemble(context.RawBytes.Span, context.UnderlyingPointer).Instructions);
+    public override string PrintAssembly(MethodAnalysisContext context) => string.Join("\n", Disassembler.Disassemble(context.RawBytes, context.UnderlyingPointer));
 }
