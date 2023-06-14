@@ -44,7 +44,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             
             if (ManagedMethodBeingCalled is MethodDefinition mDef)
             {
-                if (mDef.Name.StartsWith("get_"))
+                if (mDef.Name.StartsWith("get_") && mDef.Parameters.Count <= 0)
                 {
                     var unmanaged = mDef.AsUnmanaged();
                     var prop = unmanaged.DeclaringType!.Properties!.FirstOrDefault(p => p.Getter == unmanaged);
