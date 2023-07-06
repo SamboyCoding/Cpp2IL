@@ -196,7 +196,7 @@ namespace LibCpp2IL
                     pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);
                 }
 
-                if (backtrack == sanityCheckNumberOfModules)
+                if (backtrack == sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1)
                 {
                     LibLogger.WarnNewline($"Hit backtrack limit of {backtrack} modules and still didn't find a valid pCodegenModules pointer.");
                     return 0;
