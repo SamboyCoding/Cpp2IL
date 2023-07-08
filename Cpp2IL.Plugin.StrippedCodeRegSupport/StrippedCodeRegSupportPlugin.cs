@@ -74,7 +74,7 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
         endOfCodegenModulesList -= pointerSize;
 
         //Now subtract module count * pointer size to get the start of the list.
-        var startOfCodegenModulesList = endOfCodegenModulesList - ((moduleCount + 1) * pointerSize);
+        var startOfCodegenModulesList = endOfCodegenModulesList - ((moduleCount - 1) * pointerSize);
         
         Logger.VerboseNewline($"Found end of CodeGenModules list at 0x{endOfCodegenModulesList:X}, so start of list is 0x{startOfCodegenModulesList:X}. Returning dummy code reg struct now!");
 
