@@ -362,12 +362,12 @@ namespace LibCpp2IL
         /// <summary>
         /// Read a native-sized integer (i.e. 32 or 64 bit, depending on platform) at the current position
         /// </summary>
-        public long ReadNInt() => is32Bit ? ReadInt32() : ReadInt64();
+        public virtual long ReadNInt() => is32Bit ? ReadInt32() : ReadInt64();
 
         /// <summary>
         /// Read a native-sized unsigned integer (i.e. 32 or 64 bit, depending on platform) at the current position
         /// </summary>
-        public ulong ReadNUint() => is32Bit ? ReadUInt32() : ReadUInt64();
+        public virtual ulong ReadNUint() => is32Bit ? ReadUInt32() : ReadUInt64();
 
         protected void WriteWord(int position, ulong word) => WriteWord(position, (long) word);
 
