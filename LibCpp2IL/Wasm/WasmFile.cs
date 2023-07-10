@@ -86,7 +86,7 @@ namespace LibCpp2IL.Wasm
             index = (index & coefficients.andWith) + coefficients.addConstant;
 
             //Use element section to look up real index
-            var realIndex = ElementSection.Elements[0].FunctionIndices![(int) index];
+            var realIndex = ElementSection.Elements[0].FunctionIndices![(int) index - 1]; //Minus 1 because the first element in the actual memory layout is FFFFFFFF
             
             //Look up real index in function table
             return FunctionTable[(int) realIndex];
