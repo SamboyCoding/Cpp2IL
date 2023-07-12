@@ -1,5 +1,5 @@
 ﻿using System.Collections.Generic;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using Cpp2IL.Core.Api;
 
 namespace Cpp2IL.Core

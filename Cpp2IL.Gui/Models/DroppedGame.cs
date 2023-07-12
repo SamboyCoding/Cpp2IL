@@ -1,4 +1,4 @@
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using Cpp2IL.Core.Extensions;
 using LibCpp2IL;
 

@@ -6,7 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
