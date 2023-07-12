@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
 

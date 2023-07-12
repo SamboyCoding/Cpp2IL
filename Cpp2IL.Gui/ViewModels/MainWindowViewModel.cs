@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Threading;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using Avalonia.Threading;
 using AvaloniaEdit.Document;
 using Cpp2IL.Core;

@@ -5,7 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;

@@ -1,6 +1,6 @@
 using System.Net;
 using System.Net.Http;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using LibCpp2IL;
 using Xunit;
 using Xunit.Abstractions;

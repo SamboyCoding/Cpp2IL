@@ -1,6 +1,6 @@
 using System.IO;
 using System.Linq;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 

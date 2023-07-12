@@ -15,7 +15,7 @@ using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Exceptions;
 #endif
 using LibCpp2IL.Wasm;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using Cpp2IL.Core.Extensions;
 using LibCpp2IL;
 

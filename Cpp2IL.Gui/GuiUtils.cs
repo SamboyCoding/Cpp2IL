@@ -5,7 +5,7 @@ using System.Linq;
 using AsmResolver;
 using AsmResolver.PE;
 using AsmResolver.PE.Win32Resources;
-using AssetRipper.VersionUtilities;
+using AssetRipper.Primitives;
 using Cpp2IL.Core.Extensions;
 using LibCpp2IL;
 
