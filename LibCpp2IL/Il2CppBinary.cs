@@ -389,7 +389,7 @@ namespace LibCpp2IL
                     {
                         var offsetOffset = (ulong)MapVirtualAddressToRaw(ptr) + 4ul * (ulong)fieldIndexInType;
                         Position = (long)offsetOffset;
-                        offset = ReadInt32();
+                        offset = (int)ReadNInt();
                     }
                 }
                 else
