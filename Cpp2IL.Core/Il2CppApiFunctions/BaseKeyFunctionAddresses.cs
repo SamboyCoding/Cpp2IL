@@ -1,12 +1,7 @@
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
-using Iced.Intel;
 using LibCpp2IL;
-using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Il2CppApiFunctions
 {
@@ -49,7 +44,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
 
         public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
 
-        private ApplicationAnalysisContext _appContext = null!; //Always initialized before used
+        protected ApplicationAnalysisContext _appContext = null!; //Always initialized before used
 
         private readonly HashSet<ulong> resolvedAddresses = new();
 
@@ -72,9 +67,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
             Init(applicationAnalysisContext);
 
             //Try to find System.Exception (should always be there)
-            if (applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_32 || applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
-                //TODO make this abstract and implement in subclasses.
-                TryGetInitMetadataFromException();
+            TryGetInitMetadataFromException();
 
             //New Object
             FindExport("il2cpp_object_new", out il2cpp_object_new);
@@ -115,38 +108,8 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
             InitializeResolvedAddresses();
         }
 
-        protected void TryGetInitMetadataFromException()
+        protected virtual void TryGetInitMetadataFromException()
         {
-            //Exception.get_Message() - first call is either to codegen_initialize_method (< v27) or codegen_initialize_runtime_metadata
-            Logger.VerboseNewline("\tLooking for Type System.Exception, Method get_Message...");
-
-            var type = LibCpp2IlReflection.GetType("Exception", "System")!;
-            Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
-            var targetMethod = type.Methods!.FirstOrDefault(m => m.Name == "get_Message");
-            if (targetMethod != null) //Check struct contains valid data 
-            {
-                Logger.VerboseNewline($"\t\tTarget Method Located at {targetMethod.MethodPointer}. Taking first CALL as the (version-specific) metadata initialization function...");
-
-                var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.MethodPointer, false);
-                var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
-
-                if (calls.Count == 0)
-                {
-                    Logger.WarnNewline("Couldn't find any call instructions in the method body. This is not expected. Will not have metadata initialization function.");
-                    return;
-                }
-
-                if (_appContext.MetadataVersion < 27)
-                {
-                    il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
-                    Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_method => 0x{il2cpp_codegen_initialize_method:X}");
-                }
-                else
-                {
-                    il2cpp_codegen_initialize_runtime_metadata = calls.First().NearBranchTarget;
-                    Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_runtime_metadata => 0x{il2cpp_codegen_initialize_runtime_metadata:X}");
-                }
-            }
         }
 
         protected virtual void AttemptInstructionAnalysisToFillGaps()
@@ -183,7 +146,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
 
             if (il2cpp_type_get_object != 0)
             {
-                Logger.Verbose("\t\tMapping il2cpp_resolve_icall to Reflection::GetTypeObject...");
+                Logger.Verbose("\t\tMapping il2cpp_type_get_object to Reflection::GetTypeObject...");
                 il2cpp_vm_reflection_get_type_object = FindFunctionThisIsAThunkOf(il2cpp_type_get_object);
                 Logger.VerboseNewline($"Found at 0x{il2cpp_vm_reflection_get_type_object:X}");
             }

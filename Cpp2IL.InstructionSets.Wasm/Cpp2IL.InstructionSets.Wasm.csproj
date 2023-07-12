@@ -1,13 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
-
-        <Reference Include="LibOrbisPkg.Core">
-            <HintPath>Deps\LibOrbisPkg.Core.dll</HintPath>
-        </Reference>
+        <ProjectReference Include="..\WasmDisassembler\WasmDisassembler.csproj" />
     </ItemGroup>
 </Project>

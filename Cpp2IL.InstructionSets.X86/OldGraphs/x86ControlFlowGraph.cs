@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using Cpp2IL.Core.Il2CppApiFunctions;
+﻿using Cpp2IL.Core.Il2CppApiFunctions;
 using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;

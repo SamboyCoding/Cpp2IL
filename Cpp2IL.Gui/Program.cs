@@ -3,6 +3,7 @@ using Avalonia;
 using Avalonia.ReactiveUI;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Logging;
+using Cpp2IL.InstructionSets.All;
 
 namespace Cpp2IL.Gui
 {
@@ -16,6 +17,7 @@ namespace Cpp2IL.Gui
         {
             Console.WriteLine("Starting Cpp2IL GUI. Initializing Cpp2IL Core...");
             
+            AllInstructionSets.Register();
             Cpp2IlApi.Init();
             SimpleConsoleLogger.Initialize();
             SimpleConsoleLogger.ShowVerbose = true;

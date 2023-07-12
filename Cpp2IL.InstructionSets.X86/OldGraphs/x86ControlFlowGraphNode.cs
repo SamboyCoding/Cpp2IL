@@ -1,4 +1,3 @@
-using System.Linq;
 using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;

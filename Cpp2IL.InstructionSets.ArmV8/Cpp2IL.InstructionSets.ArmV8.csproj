@@ -1,13 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>netstandard2.0</TargetFramework>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
-
-        <Reference Include="LibOrbisPkg.Core">
-            <HintPath>Deps\LibOrbisPkg.Core.dll</HintPath>
-        </Reference>
+        <PackageReference Include="Disarm" Version="2022.1.0-master.34" />
     </ItemGroup>
 </Project>

@@ -9,7 +9,7 @@ namespace Cpp2IL.Core
     {
         internal static readonly Dictionary<Il2CppTypeDefinition, Il2CppTypeDefinition> ConcreteImplementations = new();
 
-        internal static readonly HashSet<ulong> AttributeGeneratorStarts = new();
+        public static readonly HashSet<ulong> AttributeGeneratorStarts = new();
 
         internal static void Clear()
         {

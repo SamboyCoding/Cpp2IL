@@ -1,18 +1,21 @@
-using System;
-using System.Collections.Generic;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
+using LibCpp2IL;
 using WasmDisassembler;
 
-namespace Cpp2IL.Core.InstructionSets;
+namespace Cpp2IL.InstructionSets.Wasm;
 
 public class WasmInstructionSet : Cpp2IlInstructionSet
 {
+    public static void RegisterInstructionSet()
+    {
+        InstructionSetRegistry.RegisterInstructionSet<WasmInstructionSet>(DefaultInstructionSets.WASM);
+    }
+
     public virtual IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
         return null!;

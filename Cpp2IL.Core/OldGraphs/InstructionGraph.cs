@@ -6,7 +6,6 @@ using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.Utils;
-using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -94,7 +93,7 @@ public class AbstractControlFlowGraph<TInstruction, TNode> : IControlFlowGraph w
         return newNode;
     }
 
-    private static Dictionary<Instruction, InstructionGraphUseDef> UsageAndDefinitions = new();
+    // private static Dictionary<Instruction, InstructionGraphUseDef> UsageAndDefinitions = new();
 
 
     public void Run(bool print = false)

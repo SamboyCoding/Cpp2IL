@@ -1,9 +1,11 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <TargetFramework>net7.0</TargetFramework>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
     </PropertyGroup>
 
     <ItemGroup>
         <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" />
+        <PackageReference Include="Iced" Version="1.18.0" />
     </ItemGroup>
 </Project>

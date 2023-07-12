@@ -1,5 +1,4 @@
-﻿using System;
-using Iced.Intel;
+﻿using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
