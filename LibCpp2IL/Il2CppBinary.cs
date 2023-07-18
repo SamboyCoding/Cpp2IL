@@ -389,7 +389,7 @@ namespace LibCpp2IL
                     {
                         var offsetOffset = (ulong)MapVirtualAddressToRaw(ptr) + 4ul * (ulong)fieldIndexInType;
                         Position = (long)offsetOffset;
-                        offset = ReadInt32();
+                        offset = (int)ReadPrimitive(typeof(int))!; //Read 4 bytes. We can't just use ReadInt32 because that breaks e.g. Wasm. Hoping the JIT can optimize this as it knows the type.
                     }
                 }
                 else

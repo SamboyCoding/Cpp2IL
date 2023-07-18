@@ -87,8 +87,6 @@ namespace LibCpp2IL
             return null;
         }
 
-        private Dictionary<FieldInfo, bool> _cachedNoSerialize = new();
-
         public uint ReadUnityCompressedUIntAtRawAddr(long offset, out int bytesRead)
         {
             GetLockOrThrow();
