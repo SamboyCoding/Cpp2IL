@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using System.Text;
+using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -14,7 +16,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents one managed type in the application.
 /// </summary>
-public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
+public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider, ICSharpSourceToken
 {
     /// <summary>
     /// The context for the assembly this type was defined in.
@@ -137,6 +139,19 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public List<MethodAnalysisContext> GetConstructors() => Methods.Where(m => m.Definition!.Name == ".ctor").ToList();
 
     public override string ToString() => $"Type: {Definition?.FullName}";
+    public virtual string GetCSharpSourceString()
+    {
+        if (Definition != null)
+            return Definition.FullName!;
+
+        var ret = new StringBuilder();
+        if(OverrideNs != null)
+            ret.Append(OverrideNs).Append('.');
+        
+        ret.Append(Name);
+
+        return ret.ToString();
+    }
 
     #region StableNameDotNet implementation
 

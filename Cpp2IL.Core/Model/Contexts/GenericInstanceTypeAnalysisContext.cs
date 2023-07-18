@@ -1,4 +1,5 @@
 ﻿using System.Linq;
+using System.Text;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
@@ -15,5 +16,27 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         ElementType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
         
         GenericArguments.AddRange(gClass.Context.ClassInst.Types.Select(referencedFrom.ResolveIl2CppType)!);
+    }
+
+    public override string GetCSharpSourceString()
+    {
+        var sb = new StringBuilder();
+
+        sb.Append(ElementType.GetCSharpSourceString());
+        sb.Append('<');
+        var first = true;
+        foreach (var genericArgument in GenericArguments)
+        {
+            if (!first)
+                sb.Append(", ");
+            else
+                first = false;
+
+            sb.Append(genericArgument.GetCSharpSourceString());
+        }
+        
+        sb.Append('>');
+        
+        return sb.ToString();
     }
 }

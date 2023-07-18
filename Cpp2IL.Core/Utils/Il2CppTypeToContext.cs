@@ -6,7 +6,7 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Utils;
 
-internal static class Il2CppTypeToContext
+public static class Il2CppTypeToContext
 {
     private static TypeAnalysisContext GetPrimitive(this SystemTypesContext context, Il2CppTypeEnum type) => 
         type switch

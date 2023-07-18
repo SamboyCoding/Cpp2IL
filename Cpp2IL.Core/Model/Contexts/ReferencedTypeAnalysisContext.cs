@@ -46,4 +46,9 @@ public abstract class ReferencedTypeAnalysisContext : TypeAnalysisContext
     {
         return $"{DefaultName}";
     }
+
+    public override string GetCSharpSourceString()
+    {
+        return Name;
+    }
 }

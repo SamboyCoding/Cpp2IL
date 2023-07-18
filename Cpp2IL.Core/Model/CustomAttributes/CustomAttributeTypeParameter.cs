@@ -3,6 +3,7 @@ using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
@@ -43,7 +44,15 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
 
         if (Type.Type.IsIl2CppPrimitive())
             return $"typeof({LibCpp2ILUtils.GetTypeName(Owner.Constructor.AppContext.Metadata, Owner.Constructor.AppContext.Binary, Type)}";
+
+        if (Type.Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+        {
+            //Some sort of wrapper type, like a generic parameter or a generic instance.
+            var typeContext = Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(Type);
+            return $"typeof({typeContext.GetCSharpSourceString()})";
+        }
         
+        //Basic class/struct
         return $"typeof({Type.AsClass().Name})";
     }
 
