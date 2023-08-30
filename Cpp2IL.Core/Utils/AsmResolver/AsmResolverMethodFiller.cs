@@ -14,7 +14,7 @@ internal static class AsmResolverMethodFiller
     {
         foreach (var typeContext in asmContext.Types)
         {
-            if (typeContext.Name == "<Module>")
+            if (AsmResolverAssemblyPopulator.IsTypeContextModule(typeContext))
                 continue;
 
 #if !DEBUG

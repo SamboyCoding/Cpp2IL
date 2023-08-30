@@ -16,11 +16,16 @@ namespace Cpp2IL.Core.Utils.AsmResolver;
 
 public static class AsmResolverAssemblyPopulator
 {
+    public static bool IsTypeContextModule(TypeAnalysisContext typeCtx)
+    {
+        return typeCtx.Name.StartsWith("<Module>") || typeCtx.FullName.StartsWith("<Module>");
+    }
+
     public static void ConfigureHierarchy(AssemblyAnalysisContext asmCtx)
     {
         foreach (var typeCtx in asmCtx.Types)
         {
-            if (typeCtx.Name == "<Module>")
+            if (IsTypeContextModule(typeCtx))
                 continue;
 
             var il2CppTypeDef = typeCtx.Definition;
@@ -242,7 +247,7 @@ public static class AsmResolverAssemblyPopulator
 
             foreach (var type in asmContext.Types)
             {
-                if (type.Name == "<Module>")
+                if (IsTypeContextModule(type))
                     continue;
 
                 CopyCustomAttributes(type, type.GetExtraData<TypeDefinition>("AsmResolverType")!.CustomAttributes);
@@ -282,7 +287,7 @@ public static class AsmResolverAssemblyPopulator
 
         foreach (var typeContext in asmContext.Types)
         {
-            if (typeContext.Name == "<Module>")
+            if (IsTypeContextModule(typeContext))
                 continue;
 
             var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
