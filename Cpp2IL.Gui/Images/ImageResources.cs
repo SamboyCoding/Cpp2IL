@@ -4,10 +4,10 @@ namespace Cpp2IL.Gui.Images;
 
 public class ImageResources
 {
-    static IBitmap LoadBitmap(string name) => new Bitmap(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream($"Cpp2IL.Gui.Images.{name}.png") ?? throw new("Could not find image resource"));
+    static Bitmap LoadBitmap(string name) => new Bitmap(System.Reflection.Assembly.GetExecutingAssembly().GetManifestResourceStream($"Cpp2IL.Gui.Images.{name}.png") ?? throw new("Could not find image resource"));
     
-    public static readonly IBitmap Assembly = LoadBitmap("Assembly");
-    public static readonly IBitmap Namespace = LoadBitmap("NameSpace");
-    public static readonly IBitmap Class = LoadBitmap("Class");
-    public static readonly IBitmap Method = LoadBitmap("Method");
+    public static readonly Bitmap Assembly = LoadBitmap("Assembly");
+    public static readonly Bitmap Namespace = LoadBitmap("NameSpace");
+    public static readonly Bitmap Class = LoadBitmap("Class");
+    public static readonly Bitmap Method = LoadBitmap("Method");
 }

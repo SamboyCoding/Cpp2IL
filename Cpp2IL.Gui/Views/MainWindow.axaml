@@ -4,9 +4,9 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:Cpp2IL.Gui"
-        xmlns:tv="clr-namespace:ICSharpCode.TreeView;assembly=SharpTreeView"
         xmlns:edit="clr-namespace:AvaloniaEdit;assembly=AvaloniaEdit"
         xmlns:avaloniaEdit="https://github.com/avaloniaui/avaloniaedit"
+        xmlns:viewModels="clr-namespace:Cpp2IL.Gui.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="Cpp2IL.Gui.Views.MainWindow"
         Icon="/Assets/avalonia-logo.ico"
@@ -41,20 +41,25 @@
                 <!--Status bar items go here-->
                 <StackPanel Orientation="Horizontal">
                     <TextBlock VerticalAlignment="Center" Padding="0, 0, 8, 0" Text="Method Body Format: "></TextBlock>
-                    <ComboBox Name="MethodBodyTypeBox" Width="160" Items="{x:Static local:MethodBodyModes.AllModes}" SelectedItem="{Binding MethodBodyMode, Mode=TwoWay}"></ComboBox>
+                    <ComboBox Name="MethodBodyTypeBox" Width="160" ItemsSource="{Binding MethodBodyModes}" SelectedItem="{Binding MethodBodyMode, Mode=TwoWay}"></ComboBox>
                 </StackPanel>
                 
                 <CheckBox IsChecked="{Binding ShowAttributeGenerators, Mode=TwoWay}">Show Attribute Generator Functions</CheckBox>
             </ListBox>
-            <tv:SharpTreeView
+            <TreeView
                 Grid.Row="1"
                 Grid.Column="0"
                 Padding="16"
                 VerticalAlignment="Stretch"
                 HorizontalAlignment="Stretch"
-                ShowRoot="False"
-                Root="{Binding RootNode}"
-                SelectionChanged="SelectingItemsControl_OnSelectionChanged" />
+                ItemsSource="{Binding RootNodes}"
+                SelectionChanged="SelectingItemsControl_OnSelectionChanged">
+                <TreeView.ItemTemplate>
+                    <TreeDataTemplate ItemsSource="{Binding SubEntries}">
+                        <TextBlock Text="{Binding DisplayName}" />
+                    </TreeDataTemplate>
+                </TreeView.ItemTemplate>
+            </TreeView>
             <GridSplitter
                 Grid.Row="1"
                 Grid.Column="1"

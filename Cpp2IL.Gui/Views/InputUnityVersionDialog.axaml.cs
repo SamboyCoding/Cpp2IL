@@ -6,7 +6,7 @@ using Cpp2IL.Gui.ViewModels;
 
 namespace Cpp2IL.Gui.Views
 {
-    public class InputUnityVersionDialog : Window
+    public partial class InputUnityVersionDialog : Window
     {
         private InputUnityVersionViewModel _viewModel;
         public InputUnityVersionDialog()

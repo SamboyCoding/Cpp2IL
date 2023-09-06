@@ -1,4 +1,6 @@
 ﻿using System;
+using System.Collections.ObjectModel;
+using System.Linq;
 using System.Threading;
 using AssetRipper.Primitives;
 using Avalonia.Threading;
@@ -7,6 +9,7 @@ using Cpp2IL.Core;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Gui.Models;
 using Cpp2IL.Gui.Views;
+using LibCpp2IL;
 using ReactiveUI;
 
 namespace Cpp2IL.Gui.ViewModels
@@ -17,7 +20,7 @@ namespace Cpp2IL.Gui.ViewModels
         
         private string _statusText = "Drop an IL2CPP game on this window to start, or click here to open a file browser.";
         private bool _hasGame;
-        private FileTreeEntry? _rootNode;
+        private ObservableCollection<FileTreeEntry> _rootNodes = new();
         private MethodBodyMode _methodBodyMode = MethodBodyMode.Isil;
         private bool _showAttributeGenerators;
         private TextDocument _editorText = new TextDocument("Select a class to open");
@@ -36,10 +39,10 @@ namespace Cpp2IL.Gui.ViewModels
             set => this.RaiseAndSetIfChanged(ref _hasGame, value);
         }
 
-        public FileTreeEntry? RootNode
+        public ObservableCollection<FileTreeEntry> RootNodes
         {
-            get => _rootNode;
-            set => this.RaiseAndSetIfChanged(ref _rootNode, value);
+            get => _rootNodes;
+            set => this.RaiseAndSetIfChanged(ref _rootNodes, value);
         }
 
         public MethodBodyMode MethodBodyMode
@@ -51,7 +54,15 @@ namespace Cpp2IL.Gui.ViewModels
                 UpdateEditor();
             }
         }
-        
+
+        public static MethodBodyMode[] MethodBodyModes => new []
+        {
+            MethodBodyMode.Stubs,
+            MethodBodyMode.RawAsm,
+            MethodBodyMode.Isil,
+            MethodBodyMode.Pseudocode
+        };
+
         public bool ShowAttributeGenerators
         {
             get => _showAttributeGenerators;
@@ -105,7 +116,11 @@ namespace Cpp2IL.Gui.ViewModels
         {
             StatusText = "Building file tree...";
 
-            RootNode = new(Cpp2IlApi.CurrentAppContext!);
+            var assemblies = Cpp2IlApi.CurrentAppContext!.Assemblies.ToList();
+            assemblies.SortByExtractedKey(a => a.Definition.AssemblyName.Name);
+
+            foreach (AssemblyAnalysisContext assemblyAnalysisContext in assemblies)
+                _rootNodes.Add(new FileTreeEntry(assemblyAnalysisContext));
 
             StatusText = "Load complete";
             HasGame = true;

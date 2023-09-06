@@ -1,39 +1,29 @@
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
-using Avalonia;
-using Avalonia.Media;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Gui.Images;
-using ICSharpCode.TreeView;
 using LibCpp2IL;
 
 namespace Cpp2IL.Gui.Models;
 
-public class FileTreeEntry : SharpTreeNode
+public class FileTreeEntry
 {
+    public ObservableCollection<FileTreeEntry>? SubEntries { get; }
     public HasApplicationContext? Context { get; }
     public string? NamespaceName { get; }
 
-    public FileTreeEntry(ApplicationAnalysisContext context)
-    {
-        Context = null;
-        NamespaceName = "Root";
-
-        var assemblies = context.Assemblies.ToList();
-        assemblies.SortByExtractedKey(a => a.Definition.AssemblyName.Name);
-        
-        foreach (var assemblyAnalysisContext in assemblies) 
-            Children.Add(new FileTreeEntry(assemblyAnalysisContext));
-    }
-
-    private FileTreeEntry(AssemblyAnalysisContext context) : this((HasApplicationContext) context)
+    public FileTreeEntry(AssemblyAnalysisContext context) : this((HasApplicationContext) context)
     {
         var uniqueNamespaces = context.Types.Select(t => t.Definition!.Namespace!).Distinct();
         
         //Top-level namespaces only
-        foreach (var ns in uniqueNamespaces.Where(n => !n.Contains('.'))) 
-            Children.Add(new FileTreeEntry(context, ns));
+        foreach (var ns in uniqueNamespaces.Where(n => !n.Contains('.')))
+        {
+            SubEntries ??= new ObservableCollection<FileTreeEntry>();
+            SubEntries.Add(new FileTreeEntry(context, ns));
+        }
     }
 
     private FileTreeEntry(HasApplicationContext context)
@@ -43,10 +33,13 @@ public class FileTreeEntry : SharpTreeNode
 
         if (context is TypeAnalysisContext tac)
             foreach (var methodAnalysisContext in tac.Methods)
-                Children.Add(new FileTreeEntry(methodAnalysisContext));
+            {
+                SubEntries ??= new ObservableCollection<FileTreeEntry>();
+                SubEntries.Add(new FileTreeEntry(methodAnalysisContext));
+            }
     }
     
-    private FileTreeEntry(AssemblyAnalysisContext parentCtx, string namespaceName)
+    private FileTreeEntry(AssemblyAnalysisContext parentCtx, string namespaceName = "Root")
     {
         Context = null;
         NamespaceName = namespaceName;
@@ -60,16 +53,18 @@ public class FileTreeEntry : SharpTreeNode
             var uniqueSubNamespaces = allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition!.Namespace != namespaceName).Select(t => t.Definition!.Namespace![(namespaceName.Length + 1)..]).Distinct().ToList();
             foreach (var subNs in uniqueSubNamespaces)
             {
+                SubEntries ??= new ObservableCollection<FileTreeEntry>();
+
                 if (subNs.Contains('.'))
                 {
                     var directChildNs = subNs[..subNs.IndexOf('.')];
                     if(!uniqueSubNamespaces.Contains(directChildNs))
-                        Children.Add(new FileTreeEntry(parentCtx, $"{namespaceDot}{directChildNs}"));
+                        SubEntries.Add(new FileTreeEntry(parentCtx, $"{namespaceDot}{directChildNs}"));
                     
                     continue; //Skip deeper-nested namespaces
                 }
 
-                Children.Add(new FileTreeEntry(parentCtx, $"{namespaceDot}{subNs}"));
+                SubEntries.Add(new FileTreeEntry(parentCtx, $"{namespaceDot}{subNs}"));
             }
         }
         else
@@ -82,7 +77,10 @@ public class FileTreeEntry : SharpTreeNode
 
         //Add types in this namespace
         foreach (var type in allTypesInThisNamespaceAndSubNamespaces.Where(t => t.Definition!.Namespace == namespaceName))
-            Children.Add(new FileTreeEntry(type));
+        {
+            SubEntries ??= new ObservableCollection<FileTreeEntry>();
+            SubEntries.Add(new FileTreeEntry(type));
+        }
     }
 
     public EntryType Type => Context switch
@@ -104,23 +102,15 @@ public class FileTreeEntry : SharpTreeNode
     };
 
     public string DisplayName => Context switch
-        {
-            TypeAnalysisContext tac => tac.Definition!.Name!,
-            AssemblyAnalysisContext aac => aac.Definition.AssemblyName.Name,
-            MethodAnalysisContext mac => $"{mac.Definition!.Name}({string.Join(", ", mac.Parameters.Select(p => p.ReadableTypeName))})",
-            null => NamespaceName!.Contains('.') ? NamespaceName[(NamespaceName.LastIndexOf('.') + 1)..] : NamespaceName,
-            _ => throw new ArgumentOutOfRangeException()
-        };
+    {
+        TypeAnalysisContext tac => tac.Definition!.Name!,
+        AssemblyAnalysisContext aac => aac.Definition.AssemblyName.Name,
+        MethodAnalysisContext mac => $"{mac.Definition!.Name}({string.Join(", ", mac.Parameters.Select(p => p.ReadableTypeName))})",
+        null => NamespaceName!.Contains('.') ? NamespaceName[(NamespaceName.LastIndexOf('.') + 1)..] : NamespaceName,
+        _ => throw new ArgumentOutOfRangeException()
+    };
 
-    public override string ToString() => $"FileTreeEntry: DisplayName = {DisplayName}, Type = {Type}, Context = {Context}";
-
-    public override object Text => DisplayName;
-
-    public override bool IsCheckable => false;
-
-    // public override bool ShowExpander => ShouldHaveChildren;
-
-    public override object Icon => Type switch
+    public object Icon => Type switch
     {
         EntryType.Assembly => ImageResources.Assembly,
         EntryType.Namespace => ImageResources.Namespace,
@@ -128,8 +118,25 @@ public class FileTreeEntry : SharpTreeNode
         EntryType.Method => ImageResources.Method,
         _ => throw new ArgumentOutOfRangeException()
     };
+    
+    public override string ToString() => $"FileTreeEntry: DisplayName = {DisplayName}, Type = {Type}, Context = {Context}";
 
-    public override IBrush Foreground => IsSelected ? SystemColors.HighlightBrush : Brushes.Transparent;
+    // public override object Text => DisplayName;
+
+    // public override bool IsCheckable => false;
+
+    // public override bool ShowExpander => ShouldHaveChildren;
+
+    // public override object Icon => Type switch
+    // {
+    //     EntryType.Assembly => ImageResources.Assembly,
+    //     EntryType.Namespace => ImageResources.Namespace,
+    //     EntryType.Type => ImageResources.Class,
+    //     EntryType.Method => ImageResources.Method,
+    //     _ => throw new ArgumentOutOfRangeException()
+    // };
+
+    // public override IBrush Foreground => IsSelected ? SystemColors.HighlightBrush : Brushes.Transparent;
 
     public enum EntryType
     {
