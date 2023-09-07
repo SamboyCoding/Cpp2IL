@@ -56,7 +56,13 @@
                 SelectionChanged="SelectingItemsControl_OnSelectionChanged">
                 <TreeView.ItemTemplate>
                     <TreeDataTemplate ItemsSource="{Binding SubEntries}">
-                        <TextBlock Text="{Binding DisplayName}" />
+                        <StackPanel Orientation="Horizontal">
+                            <Image 
+                                Width="16"
+                                Height="16"
+                                Source="{Binding Icon}" />
+                            <TextBlock Text="{Binding DisplayName}" />
+                        </StackPanel>
                     </TreeDataTemplate>
                 </TreeView.ItemTemplate>
             </TreeView>
