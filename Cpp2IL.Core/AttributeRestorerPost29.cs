@@ -127,7 +127,10 @@ namespace Cpp2IL.Core
         {
             bytesRead = 0;
             var managedConstructor = constructor.AsManaged();
+            
+#if !DEBUG
             try
+#endif
             {
                 var ret = new CustomAttribute(module.ImportReference(managedConstructor));
 
@@ -243,15 +246,13 @@ namespace Cpp2IL.Core
 
                 return ret;
             }
+#if !DEBUG
             catch (Exception e)
             {
-#if DEBUG
-                throw;
-#else
                 Logger.WarnNewline($"Failed to parse custom attribute {constructor.DeclaringType!.FullName} due to an exception: {e.GetType()}: {e.Message}");
                 return MakeFallbackAttribute(module, managedConstructor) ?? throw new("Failed to resolve AttributeAttribute type");
-#endif
             }
+#endif
         }
 
         private static object? WrapArrayValuesInCustomAttributeArguments(TypeReference typeReference, Array arr)
@@ -271,12 +272,20 @@ namespace Cpp2IL.Core
 
                 var objectTypeName = o?.GetType()?.FullName ?? throw new NullReferenceException($"Object {o} in array {arr} of variable type and length {arr.Length} is null, so cannot determine its type");
 
-                var typeDef = MiscUtils.TryLookupTypeDefKnownNotGeneric(objectTypeName);
+                TypeDefinition typeDef;
+                if(o is TypeDefinition)
+                    //Special case TypeDefinition => Type
+                    typeDef = TypeDefinitions.Type;
+                else
+                    typeDef = MiscUtils.TryLookupTypeDefKnownNotGeneric(objectTypeName);
 
                 if (typeDef == null)
                     throw new Exception($"Couldn't resolve type {objectTypeName}");
 
-                list.Add(new CustomAttributeArgument(typeDef, o));
+                var typedParam = new CustomAttributeArgument(typeDef, o);
+                
+                //Needs to be wrapped in an additional argument with type System.Object, because cecil
+                list.Add(new CustomAttributeArgument(TypeDefinitions.Object, typedParam));
             }
 
             return list.ToArray();
@@ -541,6 +550,7 @@ namespace Cpp2IL.Core
             Il2CppTypeEnum.IL2CPP_TYPE_STRING => TypeDefinitions.String.AsUnmanaged(),
             Il2CppTypeEnum.IL2CPP_TYPE_BYREF => TypeDefinitions.TypedReference.AsUnmanaged(),
             Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => TypeDefinitions.Type.AsUnmanaged(),
+            Il2CppTypeEnum.IL2CPP_TYPE_OBJECT => TypeDefinitions.Object.AsUnmanaged(),
             _ => throw new ArgumentOutOfRangeException(nameof(typeEnum), typeEnum, null)
         };
     }
