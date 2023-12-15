@@ -10,8 +10,10 @@
         <PublishSingleFile>true</PublishSingleFile>
         <PublishTrimmed>true</PublishTrimmed>
         <TargetFramework>net7.0</TargetFramework>
-        <TrimMode>link</TrimMode>
         <VersionPrefix>2022.1.0</VersionPrefix>
+    </PropertyGroup>
+    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
+        <TrimMode>link</TrimMode>
     </PropertyGroup>
     <ItemGroup>
         <Folder Include="Models\" />
