@@ -18,6 +18,9 @@
         <Description>Library for interacting with IL2CPP metadata and binaries</Description>
         <Configurations>Debug;Release</Configurations>
         <TargetFrameworks>net7.0;net6.0;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
         <IsTrimmable>true</IsTrimmable>
     </PropertyGroup>
 

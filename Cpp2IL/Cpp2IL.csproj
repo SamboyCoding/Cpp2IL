@@ -10,11 +10,14 @@
         <Nullable>enable</Nullable>
         <OutputType>Exe</OutputType>
         <PublishSingleFile Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
-        <PublishTrimmed>true</PublishTrimmed>
         <TargetFrameworks>net7.0;net472</TargetFrameworks>
-        <TrimMode>partial</TrimMode>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <ServerGarbageCollection>true</ServerGarbageCollection>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
+        <TrimMode>partial</TrimMode>
+        <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>
 
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
