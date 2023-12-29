@@ -1,5 +1,7 @@
-﻿using System.Reflection;
+﻿using System;
+using System.Reflection;
 using System.Text;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
 
@@ -250,7 +252,15 @@ public static class CsFileUtils
             if (indentCount > 0)
                 sb.Append('\t', indentCount);
 
-            sb.AppendLine(analyzedCustomAttribute.ToString());
+            try
+            {
+                sb.AppendLine(analyzedCustomAttribute.ToString());
+            }
+            catch (Exception e)
+            {
+                Logger.WarnNewline("Exception printing/formatting custom attribute: " + e, "C# Generator");
+                sb.Append("/*Cpp2IL: Exception outputting custom attribute of type ").Append(analyzedCustomAttribute.Constructor.DeclaringType?.Name ?? "<unknown type?>").AppendLine("*/");
+            }
         }
 
         return sb.ToString();
