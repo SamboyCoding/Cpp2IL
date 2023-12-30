@@ -76,37 +76,37 @@ namespace LibCpp2IL.Metadata
             float actualVersion;
             if (version == 27)
             {
-                if (unityVersion.IsGreaterEqual(2021, 1))
+                if (unityVersion.GreaterThanOrEquals(2021, 1))
                     actualVersion = 27.2f; //2021.1 and up is v27.2, which just changes Il2CppType to have one new bit
-                else if (unityVersion.IsGreaterEqual(2020, 2, 4))
+                else if (unityVersion.GreaterThanOrEquals(2020, 2, 4))
                     actualVersion = 27.1f; //2020.2.4 and above is v27.1
                 else
                     actualVersion = version; //2020.2 and above is v27
             }
             else if (version == 24)
             {
-                if (unityVersion.IsGreaterEqual(2020, 1, 11))
+                if (unityVersion.GreaterThanOrEquals(2020, 1, 11))
                     actualVersion = 24.4f; //2020.1.11-17 were released prior to 2019.4.21, so are still on 24.4
-                else if (unityVersion.IsGreaterEqual(2020))
+                else if (unityVersion.GreaterThanOrEquals(2020))
                     actualVersion = 24.3f; //2020.1.0-10 were released prior to to 2019.4.15, so are still on 24.3
-                else if (unityVersion.IsGreaterEqual(2019, 4, 21))
+                else if (unityVersion.GreaterThanOrEquals(2019, 4, 21))
                     actualVersion = 24.5f; //2019.4.21 introduces v24.5
-                else if (unityVersion.IsGreaterEqual(2019, 4, 15))
+                else if (unityVersion.GreaterThanOrEquals(2019, 4, 15))
                     actualVersion = 24.4f; //2019.4.15 introduces v24.4
-                else if (unityVersion.IsGreaterEqual(2019, 3, 7))
+                else if (unityVersion.GreaterThanOrEquals(2019, 3, 7))
                     actualVersion = 24.3f; //2019.3.7 introduces v24.3
-                else if (unityVersion.IsGreaterEqual(2019))
+                else if (unityVersion.GreaterThanOrEquals(2019))
                     actualVersion = 24.2f; //2019.1.0 introduces v24.2
-                else if (unityVersion.IsGreaterEqual(2018, 4, 34))
+                else if (unityVersion.GreaterThanOrEquals(2018, 4, 34))
                     actualVersion = 24.15f; //2018.4.34 made a tiny little change which just removes HashValueIndex from AssemblyNameDefinition
-                else if (unityVersion.IsGreaterEqual(2018, 3))
+                else if (unityVersion.GreaterThanOrEquals(2018, 3))
                     actualVersion = 24.1f; //2018.3.0 introduces v24.1
                 else
                     actualVersion = version; //2017.1.0 was the first v24 version
             }
             else if (version == 29)
             {
-                if (unityVersion.IsGreaterEqual(2022, 1, 0, UnityVersionType.Beta, 7))
+                if (unityVersion.GreaterThanOrEquals(2022, 1, 0, UnityVersionType.Beta, 7))
                     actualVersion = 29.1f; //2022.1.0b7 introduces v29.1 which adds two new pointers to codereg
                 else
                     actualVersion = 29; //2021.3.0 introduces v29
