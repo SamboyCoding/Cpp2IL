@@ -35,22 +35,22 @@ namespace LibCpp2IL
             {28, "object"}
         };
 
-        private static readonly Dictionary<string, ulong> PrimitiveSizes = new()
+        private static readonly Dictionary<Type, byte> PrimitiveSizes = new()
         {
-            {"Byte", 1},
-            {"SByte", 1},
-            {"Boolean", 1},
-            {"Int16", 2},
-            {"UInt16", 2},
-            {"Char", 2},
-            {"Int32", 4},
-            {"UInt32", 4},
-            {"Single", 4},
-            {"Int64", 8},
-            {"UInt64", 8},
-            {"Double", 8},
-            {"IntPtr", 8},
-            {"UIntPtr", 8},
+            {typeof(byte), 1},
+            {typeof(sbyte), 1},
+            {typeof(bool), 1},
+            {typeof(short), 2},
+            {typeof(ushort), 2},
+            {typeof(char), 2},
+            {typeof(int), 4},
+            {typeof(uint), 4},
+            {typeof(float), 4},
+            {typeof(long), 8},
+            {typeof(ulong), 8},
+            {typeof(double), 8},
+            {typeof(IntPtr), 8},
+            {typeof(UIntPtr), 8},
         };
 
         private static Dictionary<FieldInfo, VersionAttribute[]> _cachedVersionAttributes = new();
@@ -393,18 +393,17 @@ namespace LibCpp2IL
             throw new ArgumentException($"Unknown type {forWhat.Type}");
         }
 
-#pragma warning disable IL2070 //'this' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicFields'
         public static int VersionAwareSizeOf(
-            Type type,
+            [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] Type type,
             bool dontCheckVersionAttributes = false,
             bool downsize = true
         )
         {
             if (type.IsEnum)
-                type = type.GetEnumUnderlyingType();
+                return PrimitiveSizes[type.GetEnumUnderlyingType()];
 
             if (type.IsPrimitive)
-                return (int) PrimitiveSizes[type.Name];
+                return PrimitiveSizes[type];
 
             var shouldDownsize = downsize && LibCpp2IlMain.Binary!.is32Bit;
 
@@ -418,36 +417,32 @@ namespace LibCpp2IL
                         continue;
                 }
 
-                switch (field.FieldType.Name)
-                {
-                    case "Int64":
-                    case "UInt64":
-                        size += shouldDownsize ? 4 : 8;
-                        break;
-                    case "Int32":
-                    case "UInt32":
-                        size += 4;
-                        break;
-                    case "Int16":
-                    case "UInt16":
-                        size += 2;
-                        break;
-                    case "Byte":
-                    case "SByte":
-                        size += 1;
-                        break;
-                    default:
-                        if (field.FieldType == type)
-                            throw new Exception($"Infinite recursion is not allowed. Field {field} of type {type} has the same type as its parent.");
-
-                        size += VersionAwareSizeOf(field.FieldType, dontCheckVersionAttributes, downsize);
-                        break;
-                }
+                if (field.FieldType == typeof(long) || field.FieldType == typeof(ulong))
+                    size += shouldDownsize ? 4 : 8;
+                else if (field.FieldType == typeof(int) || field.FieldType == typeof(uint))
+                    size += 4;
+                else if (field.FieldType == typeof(short) || field.FieldType == typeof(ushort))
+                    size += 2;
+                else if (field.FieldType == typeof(byte) || field.FieldType == typeof(sbyte))
+                    size += 1;
+                else if (field.FieldType.IsEnum)
+                    size += PrimitiveSizes[field.FieldType.GetEnumUnderlyingType()];
+                else if (field.FieldType.IsPrimitive)
+                    size += PrimitiveSizes[field.FieldType];
+                else if (field.FieldType == type)
+                    throw new Exception($"Infinite recursion is not allowed. Field {field} of type {type} has the same type as its parent.");
+                else if (field.FieldType == typeof(Il2CppGenericContext))
+                    size += VersionAwareSizeOf(typeof(Il2CppGenericContext), dontCheckVersionAttributes, downsize);
+                else if (field.FieldType == typeof(Il2CppGenericMethodIndices))
+                    size += VersionAwareSizeOf(typeof(Il2CppGenericMethodIndices), dontCheckVersionAttributes, downsize);
+                else if (field.FieldType == typeof(Il2CppAssemblyNameDefinition))
+                    size += VersionAwareSizeOf(typeof(Il2CppAssemblyNameDefinition), dontCheckVersionAttributes, downsize);
+                else
+                    throw new Exception($"Custom field type '{field.FieldType}' has no special case.");
             }
 
             return size;
         }
-#pragma warning restore IL2070
 
         internal static IEnumerable<int> Range(int start, int count)
         {

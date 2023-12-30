@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -286,7 +287,7 @@ namespace LibCpp2IL.Metadata
         }
 #pragma warning restore 8618
 
-        private T[] ReadMetadataClassArray<T>(int offset, int length) where T : ReadableClass, new()
+        private T[] ReadMetadataClassArray<[DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] T>(int offset, int length) where T : ReadableClass, new()
         {
             return ReadReadableArrayAtRawAddr<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T), downsize: false));
         }

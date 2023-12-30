@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Extensions;
@@ -153,7 +154,7 @@ namespace Cpp2IL.Core.Utils
             return LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
         }
 
-        public static IConvertible ReinterpretBytes(IConvertible original, Type desired)
+        public static IConvertible ReinterpretBytes(IConvertible original, [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicFields)] Type desired)
         {
             if (desired is null)
                 throw new ArgumentNullException(nameof(desired), "Destination type is null");
