@@ -35,7 +35,7 @@
         <PackageReference Include="Iced" Version="1.18.0" />
         
         <!--For ARM64 and ARMv7 disassembly. Future: Remove once disarm is stable and move ARMv7 to CapstoneSharp by 6pak-->
-        <PackageReference Include="js6pak.Gee.External.Capstone" Version="2.1.0" />
+        <PackageReference Include="AssetRipper.Gee.External.Capstone" Version="2.3.1" />
         
         <!--Not used at runtime, but needed for the build-->
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="1.1.1" PrivateAssets="All" />
