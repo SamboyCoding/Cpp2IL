@@ -10,7 +10,7 @@ namespace LibCpp2IL.MachO
         public ushort Description;
         public ulong Value; // Architecture sized
 
-        public string Name;
+        public string Name = null!; //Null-suppressed because: Initialized in Read
         
         public bool IsExternal => (Type & 0b1) == 0b1;
         public bool IsSymbolicDebugging => (Type & 0b1110_0000) != 0;
