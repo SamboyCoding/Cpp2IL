@@ -271,7 +271,7 @@ namespace LibCpp2IL.Elf
                     }
                 }
 
-                var sizeOfRelocationStruct = (ulong) (is32Bit ? LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol32), true, false) : LibCpp2ILUtils.VersionAwareSizeOf(typeof(ElfDynamicSymbol64), true, false));
+                var sizeOfRelocationStruct = (ulong) (is32Bit ? ElfDynamicSymbol32.StructSize : ElfDynamicSymbol64.StructSize);
 
                 LibLogger.Verbose($"\t-Now Processing {rels.Count} relocations...");
 

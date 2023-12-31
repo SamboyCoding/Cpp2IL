@@ -2,6 +2,8 @@
 {
     public class ElfDynamicSymbol32 : ReadableClass, IElfDynamicSymbol
     {
+        public const int StructSize = 16;
+        
         private uint _internalNameIndex;
         private uint _internalValue;
         private uint _internalSize;

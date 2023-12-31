@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Cpp2IL.Core.Extensions;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Utils
@@ -153,52 +152,6 @@ namespace Cpp2IL.Core.Utils
             return LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
         }
 
-        public static IConvertible ReinterpretBytes(IConvertible original, Type desired)
-        {
-            if (desired is null)
-                throw new ArgumentNullException(nameof(desired), "Destination type is null");
-            
-            var rawBytes = RawBytes(original);
-
-            if (!typeof(IConvertible).IsAssignableFrom(desired))
-                throw new Exception($"ReinterpretBytes: Desired type, {desired}, does not implement IConvertible");
-            
-            //Pad out with leading zeros if we have to
-            var requiredLength = LibCpp2ILUtils.VersionAwareSizeOf(desired);
-
-            if (requiredLength > rawBytes.Length)
-            {
-                rawBytes = ((byte) 0).Repeat(requiredLength - rawBytes.Length).Concat(rawBytes).ToArray();
-            }
-
-            if (desired == typeof(bool))
-                return BitConverter.ToBoolean(rawBytes, 0);
-            if (desired == typeof(byte))
-                return rawBytes[0];
-            if (desired == typeof(char))
-                return BitConverter.ToChar(rawBytes, 0);
-            if (desired == typeof(sbyte))
-                return unchecked((sbyte)rawBytes[0]);
-            if (desired == typeof(ushort))
-                return BitConverter.ToUInt16(rawBytes, 0);
-            if (desired == typeof(short))
-                return BitConverter.ToInt16(rawBytes,0);
-            if (desired == typeof(uint))
-                return BitConverter.ToUInt32(rawBytes, 0);
-            if (desired == typeof(int))
-                return BitConverter.ToInt32(rawBytes, 0);
-            if (desired == typeof(ulong))
-                return BitConverter.ToUInt64(rawBytes, 0);
-            if (desired == typeof(long))
-                return BitConverter.ToInt64(rawBytes, 0);
-            if (desired == typeof(float))
-                return BitConverter.ToSingle(rawBytes, 0);
-            if(desired == typeof(double))
-                return BitConverter.ToDouble(rawBytes, 0);
-
-            throw new($"ReinterpretBytes: Cannot convert byte array back to a type of {desired}");
-        }
-
         internal static byte[] RawBytes(IConvertible original) =>
             original switch
             {
@@ -344,7 +297,7 @@ namespace Cpp2IL.Core.Utils
                 if (distanceGeneric < distanceNormal)
                 {
                     var actualGen = genericMethod.Value.First();
-                    return actualGen.DeclaringType!.DeclaringAssembly!.Name + " ## " + actualGen + "(" + string.Join(", ", actualGen.BaseMethod.Parameters!.ToList()) + ")";
+                    return actualGen.DeclaringType.DeclaringAssembly!.Name + " ## " + actualGen + "(" + string.Join(", ", actualGen.BaseMethod.Parameters!.ToList()) + ")";
                 }
 
                 return method.DeclaringType!.DeclaringAssembly!.Name + " ## " + method.DeclaringType.FullName + "::" + method.Name + "(" + string.Join(", ", method.Parameters!.ToList()) + ")";

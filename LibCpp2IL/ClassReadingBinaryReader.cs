@@ -97,7 +97,7 @@ namespace LibCpp2IL
             }
             finally
             {
-                PositionShiftLock.Exit();
+                ReleaseLock();
             }
         }
 
@@ -238,7 +238,7 @@ namespace LibCpp2IL
             }
             finally
             {
-                PositionShiftLock.Exit();
+                ReleaseLock();
             }
         }
 
@@ -254,7 +254,7 @@ namespace LibCpp2IL
             }
             finally
             {
-                PositionShiftLock.Exit();
+                ReleaseLock();
             }
         }
 
@@ -293,7 +293,7 @@ namespace LibCpp2IL
             }
             finally
             {
-                PositionShiftLock.Exit();
+                ReleaseLock();
             }
         }
 
@@ -349,7 +349,7 @@ namespace LibCpp2IL
             }
             finally
             {
-                PositionShiftLock.Exit();
+                ReleaseLock();
                 
                 var bytesRead = count * (int) PointerSize;
                 TrackRead<ulong>(bytesRead, false);
@@ -418,7 +418,7 @@ namespace LibCpp2IL
             }
             finally
             {
-                PositionShiftLock.Exit();
+                ReleaseLock();
             }
         }
 
@@ -442,7 +442,7 @@ namespace LibCpp2IL
                 var bytesRead = (int) (Position - initialPos);
                 TrackRead<T>(bytesRead, trackIfFinishedReading: true);
 
-                PositionShiftLock.Exit();
+                ReleaseLock();
             }
         }
 
@@ -454,24 +454,36 @@ namespace LibCpp2IL
             
             if (offset != -1) 
                 Position = offset;
+
+            try
+            {
+                //This handles the actual reading into the array, and tracking read counts, for us.
+                FillReadableArrayHereNoLock(t);
+            }
+            finally
+            {
+                ReleaseLock();
+            }
             
+            return t;
+        }
+        
+        public void FillReadableArrayHereNoLock<T>(T[] array, int startOffset = 0) where T : ReadableClass, new()
+        {
             var initialPos = Position;
 
             try
             {
-                for (var i = 0; i < count; i++)
+                var i = startOffset;
+                for (; i < array.Length; i++)
                 {
-                    t[i] = InternalReadReadableClass<T>();
+                    array[i] = InternalReadReadableClass<T>();
                 }
-
-                return t;
             }
             finally
             {
                 var bytesRead = (int) (Position - initialPos);
                 TrackRead<T>(bytesRead, trackIfFinishedReading: true);
-                
-                PositionShiftLock.Exit();
             }
         }
 

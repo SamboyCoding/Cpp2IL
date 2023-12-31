@@ -288,7 +288,39 @@ namespace LibCpp2IL.Metadata
 
         private T[] ReadMetadataClassArray<T>(int offset, int length) where T : ReadableClass, new()
         {
-            return ReadReadableArrayAtRawAddr<T>(offset, length / LibCpp2ILUtils.VersionAwareSizeOf(typeof(T), downsize: false));
+            //First things first, we're going to be moving the position around a lot, so we need to lock. 
+            GetLockOrThrow();
+            
+            Position = offset;
+
+            try
+            {
+                //Length is in bytes, not in elements, so we need to work out the element size to know how big of an array to allocate.
+                //We do this by reading the first element, then count how many bytes we read.
+                var first = ReadReadableHereNoLock<T>();
+
+                //How many bytes did we read?
+                var elementSize = (int) (Position - offset);
+                
+                //For build report purposes, we track that many bytes. FillReadableArrayHereNoLock will add the rest.
+                TrackRead<T>(elementSize);
+
+                //Now we can work out how many elements there are.
+                var numElements = length / elementSize;
+
+                //And so we can allocate an array of that length, and assign the first element.
+                var arr = new T[numElements];
+                arr[0] = first;
+
+                //And finally, read the rest of the elements, starting at index 1.
+                FillReadableArrayHereNoLock(arr, 1);
+                
+                return arr;
+            }
+            finally
+            {
+                ReleaseLock();
+            }
         }
 
         private void DecipherMetadataUsage()

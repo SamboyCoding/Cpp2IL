@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using System.Reflection;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
@@ -52,13 +50,6 @@ namespace LibCpp2IL
             {"IntPtr", 8},
             {"UIntPtr", 8},
         };
-
-        private static Dictionary<FieldInfo, VersionAttribute[]> _cachedVersionAttributes = new();
-
-        internal static void Reset()
-        {
-            _cachedVersionAttributes.Clear();
-        }
 
         internal static string GetTypeName(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppTypeDefinition typeDef, bool fullName = false)
         {
@@ -393,81 +384,12 @@ namespace LibCpp2IL
             throw new ArgumentException($"Unknown type {forWhat.Type}");
         }
 
-#pragma warning disable IL2070 //'this' argument does not satisfy 'DynamicallyAccessedMemberTypes.PublicFields'
-        public static int VersionAwareSizeOf(
-            Type type,
-            bool dontCheckVersionAttributes = false,
-            bool downsize = true
-        )
-        {
-            if (type.IsEnum)
-                type = type.GetEnumUnderlyingType();
-
-            if (type.IsPrimitive)
-                return (int) PrimitiveSizes[type.Name];
-
-            var shouldDownsize = downsize && LibCpp2IlMain.Binary!.is32Bit;
-
-            var size = 0;
-            foreach (var field in type.GetFields())
-            {
-                if (!dontCheckVersionAttributes)
-                {
-                    if (!ShouldReadFieldOnThisVersion(field))
-                        //Move to next field.
-                        continue;
-                }
-
-                switch (field.FieldType.Name)
-                {
-                    case "Int64":
-                    case "UInt64":
-                        size += shouldDownsize ? 4 : 8;
-                        break;
-                    case "Int32":
-                    case "UInt32":
-                        size += 4;
-                        break;
-                    case "Int16":
-                    case "UInt16":
-                        size += 2;
-                        break;
-                    case "Byte":
-                    case "SByte":
-                        size += 1;
-                        break;
-                    default:
-                        if (field.FieldType == type)
-                            throw new Exception($"Infinite recursion is not allowed. Field {field} of type {type} has the same type as its parent.");
-
-                        size += VersionAwareSizeOf(field.FieldType, dontCheckVersionAttributes, downsize);
-                        break;
-                }
-            }
-
-            return size;
-        }
-#pragma warning restore IL2070
-
         internal static IEnumerable<int> Range(int start, int count)
         {
             for (var i = start; i < start + count; i++)
             {
                 yield return i;
             }
-        }
-
-        internal static bool ShouldReadFieldOnThisVersion(FieldInfo i)
-        {
-            if (!_cachedVersionAttributes.TryGetValue(i, out var attrs))
-            {
-                //GetCustomAttributes is reasonably slow, so we cache here.
-                attrs = Attribute.GetCustomAttributes(i, typeof(VersionAttribute)).Cast<VersionAttribute>().ToArray();
-                _cachedVersionAttributes[i] = attrs;
-            }
-
-            //Either no version attribute present, or we're in one of the acceptable versions.
-            return attrs.Length == 0 || attrs.Any(attr => LibCpp2IlMain.MetadataVersion >= attr.Min && LibCpp2IlMain.MetadataVersion <= attr.Max);
         }
 
         internal static void PopulateDeclaringAssemblyCache()

@@ -213,7 +213,7 @@ namespace LibCpp2IL
 
             //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
             //So, subtract the size of one pointer from that...
-            var bytesToGoBack = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppCodeRegistration)) - ptrSize;
+            var bytesToGoBack = (ulong) Il2CppCodeRegistration.GetStructSize(_binary.is32Bit, LibCpp2IlMain.MetadataVersion) - ptrSize;
 
             LibLogger.VerboseNewline($"\t\t\tpCodegenModules is the second-to-last field of the codereg struct. Therefore on this version and architecture, we need to subtract {bytesToGoBack} bytes from its address to get pCodeReg");
 
@@ -285,7 +285,7 @@ namespace LibCpp2IL
         public ulong FindMetadataRegistrationPre24_5()
         {
             //We're looking for TypeDefinitionsSizesCount, which is the 4th-to-last field
-            var sizeOfMr = (ulong) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
+            var sizeOfMr = (ulong) Il2CppMetadataRegistration.GetStructSize(_binary.is32Bit);
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
 
             var bytesToSubtract = sizeOfMr - ptrSize * 4;
@@ -315,7 +315,7 @@ namespace LibCpp2IL
         public ulong FindMetadataRegistrationPost24_5()
         {
             var ptrSize = _binary.is32Bit ? 4ul : 8ul;
-            var sizeOfMr = (uint) LibCpp2ILUtils.VersionAwareSizeOf(typeof(Il2CppMetadataRegistration));
+            var sizeOfMr = (uint) Il2CppMetadataRegistration.GetStructSize(_binary.is32Bit);
 
             LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{_typeDefinitionsCount:X}");
             var ptrsToNumberOfTypes = FindAllMappedWords((ulong) _typeDefinitionsCount).ToList();
@@ -339,8 +339,8 @@ namespace LibCpp2IL
                         //Count
                         ok = mrWords[i] < 0xC_0000;
 
-                        if (!ok && mrWords[i] < 0xF_FFFF)
-                            LibLogger.VerboseNewline($"\t\t\tRejected Metadata registration at 0x{va:X}, because it has a count field 0x{mrWords[i]:X} at offset {i} which is above sanity limit of 0xA0000. If metadata registration detection fails, need to bump up the limit.");
+                        if (!ok)
+                            LibLogger.VerboseNewline($"\t\t\tRejected Metadata registration at 0x{va:X}, because it has a count field 0x{mrWords[i]:X} at offset {i} which is above sanity limit of 0xC0000. If metadata registration detection fails, may need to bump up the limit.");
                     }
                     else
                     {

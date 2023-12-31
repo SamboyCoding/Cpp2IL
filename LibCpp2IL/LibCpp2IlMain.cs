@@ -38,7 +38,6 @@ namespace LibCpp2IL
         public static void Reset()
         {
             LibCpp2IlGlobalMapper.Reset();
-            LibCpp2ILUtils.Reset();
             MethodsByPtr.Clear();
         }
 
