@@ -453,6 +453,24 @@ public static class AsmResolverAssemblyPopulator
             if (managedSetter != null)
                 managedProperty.Semantics.Add(new(managedSetter, MethodSemanticsAttributes.Setter));
 
+            //Indexer parameters
+            if (managedGetter != null && managedGetter.Parameters.Count > 0)
+            {
+                foreach (var parameter in managedGetter.Parameters)
+                {
+                    propertySignature.ParameterTypes.Add(parameter.ParameterType);
+                }
+            }
+            else if (managedSetter != null && managedSetter.Parameters.Count > 1)
+            {
+                //value parameter is always last
+                for (var i = 0; i < managedSetter.Parameters.Count - 1; i++)
+                {
+                    var parameter = managedSetter.Parameters[i];
+                    propertySignature.ParameterTypes.Add(parameter.ParameterType);
+                }
+            }
+
             propertyCtx.PutExtraData("AsmResolverProperty", managedProperty);
             
             ilTypeDefinition.Properties.Add(managedProperty);
