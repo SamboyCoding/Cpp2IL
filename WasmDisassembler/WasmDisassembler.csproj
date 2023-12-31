@@ -15,8 +15,15 @@
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl>
         <PublishRepositoryUrl>true</PublishRepositoryUrl>
         <Description>Simple, zero-dependency disassembler for WebAssembly bytecode</Description>
-        <TargetFrameworks>net7.0;net6.0;netstandard2.0</TargetFrameworks>
+        <TargetFrameworks>net8.0;net7.0;net6.0;netstandard2.0</TargetFrameworks>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
         <IsTrimmable>true</IsTrimmable>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
+        <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>
 
 </Project>
