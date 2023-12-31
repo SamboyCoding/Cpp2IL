@@ -158,7 +158,7 @@ namespace LibCpp2IL.PE
             var index = Array.FindIndex(peExportedFunctionNamePtrs, stringAddress =>
             {
                 var rawStringAddress = MapVirtualAddressToRaw(stringAddress + peImageBase);
-                string exportName = ReadStringToNull(rawStringAddress);
+                var exportName = ReadStringToNull(rawStringAddress);
                 return exportName == toFind;
             });
 
@@ -176,7 +176,7 @@ namespace LibCpp2IL.PE
             if (addr <= peImageBase)
                 return false;
 
-            var rva = addr - peImageBase;
+            var rva = GetRva(addr);
             if (rva > uint.MaxValue)
                 return false;
 
@@ -184,6 +184,35 @@ namespace LibCpp2IL.PE
                 LoadPeExportTable();
 
             return Array.IndexOf(peExportedFunctionPointers, (uint)rva) >= 0;
+        }
+
+        public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
+        {
+            if (addr <= peImageBase)
+            {
+                return base.TryGetExportedFunctionName(addr, out name);
+            }
+
+            var rva = GetRva(addr);
+            if (rva > uint.MaxValue)
+            {
+                return base.TryGetExportedFunctionName(addr, out name);
+            }
+
+            if (peExportedFunctionPointers == null)
+                LoadPeExportTable();
+
+            var index = Array.IndexOf(peExportedFunctionPointers, (uint)rva);
+            if (index < 0)
+            {
+                return base.TryGetExportedFunctionName(addr, out name);
+            }
+            else
+            {
+                var rawStringAddress = MapVirtualAddressToRaw(peExportedFunctionNamePtrs[index] + peImageBase);
+                name = ReadStringToNull(rawStringAddress);
+                return true;
+            }
         }
 
         public override ulong GetRva(ulong pointer)

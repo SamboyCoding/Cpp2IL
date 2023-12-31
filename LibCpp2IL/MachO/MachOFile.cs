@@ -3,6 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.Logging;
+using System.Diagnostics.CodeAnalysis;
 
 namespace LibCpp2IL.MachO
 {
@@ -15,7 +16,8 @@ namespace LibCpp2IL.MachO
 
         private readonly MachOSegmentCommand[] Segments64;
         private readonly MachOSection[] Sections64;
-        private Dictionary<string, long> _exportsDict;
+        private readonly Dictionary<string, long> _exportAddressesDict;
+        private readonly Dictionary<long, string> _exportNamesDict;
         
         public MachOFile(MemoryStream input) : base(input)
         {
@@ -74,9 +76,10 @@ namespace LibCpp2IL.MachO
             
             var dyldData = _loadCommands.FirstOrDefault(c => c.Command is LoadCommandId.LC_DYLD_INFO or LoadCommandId.LC_DYLD_INFO_ONLY)?.CommandData as MachODynamicLinkerCommand;
             var exports = dyldData?.Exports ?? Array.Empty<MachOExportEntry>();
-            _exportsDict = exports.ToDictionary(e => e.Name[1..], e => e.Address); //Skip the first character, which is a leading underscore inserted by the compiler
+            _exportAddressesDict = exports.ToDictionary(e => e.Name[1..], e => e.Address); //Skip the first character, which is a leading underscore inserted by the compiler
+            _exportNamesDict = _exportAddressesDict.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
             
-            LibLogger.VerboseNewline($"Found {_exportsDict.Count} exports in the DYLD info load command.");
+            LibLogger.VerboseNewline($"Found {_exportAddressesDict.Count} exports in the DYLD info load command.");
             
             LibLogger.VerboseNewline($"\tMach-O contains {Segments64.Length} segments, split into {Sections64.Length} sections.");
         }
@@ -116,10 +119,17 @@ namespace LibCpp2IL.MachO
 
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {
-            if (!_exportsDict.TryGetValue(toFind, out var addr))
+            if (!_exportAddressesDict.TryGetValue(toFind, out var addr))
                 return 0;
 
             return (ulong) addr;
+        }
+
+        public override bool IsExportedFunction(ulong addr) => _exportNamesDict.ContainsKey((long) addr);
+
+        public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
+        {
+            return _exportNamesDict.TryGetValue((long) addr, out name);
         }
 
         private MachOSection GetTextSection64()
