@@ -7,12 +7,10 @@ namespace Cpp2IL.Core.Attributes;
 [AttributeUsage(AttributeTargets.Assembly, AllowMultiple = true)]
 public class RegisterCpp2IlPluginAttribute : Attribute
 {
-#if NET6_0
     [DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)]
-#endif
     public Type PluginType { get; }
 
-    public RegisterCpp2IlPluginAttribute(Type pluginType)
+    public RegisterCpp2IlPluginAttribute([DynamicallyAccessedMembers(DynamicallyAccessedMemberTypes.PublicParameterlessConstructor)] Type pluginType)
     {
         if (!typeof(Cpp2IlPlugin).IsAssignableFrom(pluginType))
             throw new ArgumentException("Plugin type to register must extend Cpp2IlPlugin", nameof(pluginType));

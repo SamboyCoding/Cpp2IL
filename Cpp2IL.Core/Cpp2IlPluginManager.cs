@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -13,6 +14,7 @@ public static class Cpp2IlPluginManager
 {
     private static List<Cpp2IlPlugin> _loadedPlugins = new();
 
+    [RequiresUnreferencedCode("Plugins are loaded dynamically.")]
     internal static void LoadFromDirectory(string pluginsDir)
     {
         Logger.InfoNewline($"Loading plugins from {pluginsDir}...", "Plugins");

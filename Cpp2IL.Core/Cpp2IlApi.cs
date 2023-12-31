@@ -20,6 +20,7 @@ namespace Cpp2IL.Core
     {
         public static ApplicationAnalysisContext? CurrentAppContext;
 
+        [RequiresUnreferencedCode("Plugins are loaded dynamically.")]
         public static void Init(string pluginsDir = "Plugins")
         {
             Cpp2IlPluginManager.LoadFromDirectory(Path.Combine(Environment.CurrentDirectory, pluginsDir));
