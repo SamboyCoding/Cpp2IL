@@ -34,7 +34,8 @@
 
     <ItemGroup>
         <!--Needed for DLL output-->
-        <PackageReference Include="AsmResolver.DotNet" Version="5.1.0" />
+        <PackageReference Include="AsmResolver.DotNet" Version="5.5.0" />
+		<PackageReference Include="AssetRipper.CIL" Version="1.0.0" />
         
         <!--For ARM64 dissassembly-->
         <PackageReference Include="Disarm" Version="2022.1.0-master.26" />
@@ -51,7 +52,7 @@
         <PackageReference Include="PolySharp" Version="1.14.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' != 'net6.0'">
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
         <!--Supplementary packages to provide modern runtime features on netstandard2-->
         <PackageReference Include="System.ValueTuple" Version="4.5.0" />
     </ItemGroup>
