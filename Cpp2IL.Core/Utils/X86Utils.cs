@@ -70,6 +70,14 @@ namespace Cpp2IL.Core.Utils
             var rawArray = LibCpp2IlMain.Binary.GetRawBinaryContent();
 
             var lastPos = startOfNextFunc - 1;
+
+            if (lastPos >= rawArray.Length)
+            {
+                Logger.WarnNewline($"StartOfNextFunc returned va 0x{virtStartNextFunc:X}, raw address 0x{startOfNextFunc:X}, for raw address 0x{rawAddr:X}. LastPos should be less than the raw array length. Falling back to manual, slow, decompiler-based approach.");
+                GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
+                return ret;
+            }
+
             while (rawArray[lastPos] == 0xCC && lastPos > rawAddr)
                 lastPos--;
             var memArray =  rawArray.AsMemory((int) rawAddr, (int) (lastPos - rawAddr + 1));
@@ -150,6 +158,8 @@ namespace Cpp2IL.Core.Utils
 
                 addr++;
                 rawAddr++;
+                if (rawAddr >= LibCpp2IlMain.Binary.RawLength)
+                    con = false;
             }
 
             rawBytes = buff.ToArray();
