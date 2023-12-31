@@ -1,5 +1,6 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Logging;
@@ -16,7 +17,8 @@ namespace LibCpp2IL.Elf
         private ElfFileHeader? _elfHeader;
         private readonly List<ElfDynamicEntry> _dynamicSection = new();
         private readonly List<ElfSymbolTableEntry> _symbolTable = new();
-        private readonly Dictionary<string, ElfSymbolTableEntry> _exportTable = new();
+        private readonly Dictionary<string, ElfSymbolTableEntry> _exportNameTable = new();
+        private readonly Dictionary<ulong, ElfSymbolTableEntry> _exportAddressTable = new();
         private List<long>? _initializerPointers;
 
         private readonly List<(ulong start, ulong end)> relocationBlocks = new(); 
@@ -405,7 +407,8 @@ namespace LibCpp2IL.Elf
             }
 
             _symbolTable.Clear();
-            _exportTable.Clear();
+            _exportNameTable.Clear();
+            _exportAddressTable.Clear();
 
             //Unify symbol tables
             foreach (var (offset, count, stringTable) in symbolTables)
@@ -440,7 +443,10 @@ namespace LibCpp2IL.Elf
                     _symbolTable.Add(entry);
 
                     if (symbol.Shndx != 0)
-                        _exportTable.TryAdd(name, entry);
+                    {
+                        _exportNameTable.TryAdd(name, entry);
+                        _exportAddressTable.TryAdd(virtualAddress, entry);
+                    }
                 }
             }
         }
@@ -707,10 +713,25 @@ namespace LibCpp2IL.Elf
 
         public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
         {
-            if (!_exportTable.TryGetValue(toFind, out var exportedSymbol))
+            if (!_exportNameTable.TryGetValue(toFind, out var exportedSymbol))
                 return 0;
 
             return exportedSymbol.VirtualAddress;
+        }
+
+        public override bool IsExportedFunction(ulong addr) => _exportAddressTable.ContainsKey(addr);
+
+        public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
+        {
+            if (_exportAddressTable.TryGetValue(addr, out var symbol))
+            {
+                name = symbol.Name;
+                return true;
+            }
+            else
+            {
+                return base.TryGetExportedFunctionName(addr, out name);
+            }
         }
 
         public override ulong GetVirtualAddressOfPrimaryExecutableSection() => _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
