@@ -26,7 +26,7 @@
 
     <ItemGroup>
         <PackageReference Include="CommandLineParser" Version="2.9.1" />
-        <PackageReference Include="Pastel" Version="4.1.0" />
+        <PackageReference Include="Pastel" Version="4.2.0" />
     </ItemGroup>
 
     <ItemGroup>
