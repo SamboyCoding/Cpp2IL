@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
@@ -40,9 +41,9 @@ public class AssemblyAnalysisContext : HasCustomAttributes
 
     public override string CustomAttributeOwnerName => Definition.AssemblyName.Name; 
 
-    private Dictionary<string, TypeAnalysisContext> TypesByName = new();
+    private readonly Dictionary<string, TypeAnalysisContext> TypesByName = new();
     
-    public readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
+    private readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
     
     /// <summary>
     /// Get assembly name without the extension and with any invalid path characters or elements removed.
@@ -77,14 +78,16 @@ public class AssemblyAnalysisContext : HasCustomAttributes
         }
     }
 
-    public TypeAnalysisContext InjectType(string ns, string name, TypeAnalysisContext? baseType)
+    public TypeAnalysisContext InjectType(string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = TypeAnalysisContext.DefaultTypeAttributes)
     {
-        var ret = new InjectedTypeAnalysisContext(this, name, ns, baseType);
+        var ret = new InjectedTypeAnalysisContext(this, name, ns, baseType, typeAttributes);
         Types.Add(ret);
         return ret;
     }
 
     public TypeAnalysisContext? GetTypeByFullName(string fullName) => TypesByName.TryGetValue(fullName, out var typeContext) ? typeContext : null;
-    
+
+    public TypeAnalysisContext? GetTypeByDefinition(Il2CppTypeDefinition typeDefinition) => TypesByDefinition.TryGetValue(typeDefinition, out var typeContext) ? typeContext : null;
+
     public override string ToString() => "Assembly: " + Definition.AssemblyName.Name;
 }

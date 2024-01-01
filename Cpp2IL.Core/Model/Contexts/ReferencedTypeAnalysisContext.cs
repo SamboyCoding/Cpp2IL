@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.BinaryStructures;
@@ -34,6 +34,10 @@ public abstract class ReferencedTypeAnalysisContext : TypeAnalysisContext
     };
 
     protected override int CustomAttributeIndex => -1;
+
+    public sealed override bool IsGenericInstance => GenericArguments.Count > 0;
+
+    public sealed override int GenericParameterCount => GenericArguments.Count;
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
 

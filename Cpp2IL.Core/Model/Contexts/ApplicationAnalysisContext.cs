@@ -153,7 +153,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return AssembliesByName[name];
     }
 
-    public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.TypesByDefinition[typeDefinition];
+    public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.GetTypeByDefinition(typeDefinition);
 
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()
     {

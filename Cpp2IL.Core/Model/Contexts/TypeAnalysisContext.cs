@@ -18,6 +18,8 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// </summary>
 public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider, ICSharpSourceToken
 {
+    internal const TypeAttributes DefaultTypeAttributes = TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed;
+
     /// <summary>
     /// The context for the assembly this type was defined in.
     /// </summary>
@@ -203,15 +205,15 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     }
 
     public IEnumerable<ITypeInfoProvider> Interfaces => Definition!.RawInterfaces!.Select(t => GetSndnProviderForType(AppContext, t));
-    public TypeAttributes TypeAttributes => Definition!.Attributes;
-    public int GenericParameterCount => Definition!.GenericContainer?.genericParameterCount ?? 0;
+    public virtual TypeAttributes TypeAttributes => Definition?.Attributes ?? DefaultTypeAttributes;
+    public virtual int GenericParameterCount => Definition!.GenericContainer?.genericParameterCount ?? 0;
     public string OriginalTypeName => DefaultName;
     public string RewrittenTypeName => Name;
     public string TypeNamespace => Namespace;
-    public bool IsGenericInstance => false;
-    public bool IsValueType => Definition!.IsValueType;
-    public bool IsEnumType => Definition!.IsEnumType;
-    public bool IsInterface => Definition!.IsInterface;
+    public virtual bool IsGenericInstance => false;
+    public bool IsValueType => Definition?.IsValueType ?? BaseType is { Namespace: "System", Name: "ValueType" };
+    public bool IsEnumType => Definition?.IsEnumType ?? BaseType is { Namespace: "System", Name: "Enum" };
+    public bool IsInterface => Definition?.IsInterface ?? ((TypeAttributes & TypeAttributes.Interface) != default);
     public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => Array.Empty<ITypeInfoProvider>();
     public IEnumerable<IFieldInfoProvider> FieldInfoProviders => Fields;
     public IEnumerable<IMethodInfoProvider> MethodInfoProviders => Methods;

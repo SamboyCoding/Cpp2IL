@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
@@ -16,7 +17,11 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)
     {
         var nativeMethodInfoStack = new Stack<(ulong, bool)>();
-        var cppNativeMethodsType = appContext.AssembliesByName["mscorlib"].InjectType("Cpp2ILInjected", "CppNativeMethods", null);
+        var cppNativeMethodsType = appContext.AssembliesByName["mscorlib"].InjectType(
+            "Cpp2ILInjected",
+            "CppNativeMethods",
+            null,
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Abstract | TypeAttributes.Sealed);//public static class
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
         {
             foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
