@@ -1,4 +1,7 @@
+using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
+using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
@@ -7,11 +10,11 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfoProvider
 {
-    public readonly TypeAnalysisContext DeclaringType;
-    public readonly Il2CppPropertyDefinition Definition;
+    public TypeAnalysisContext DeclaringType { get; }
+    public Il2CppPropertyDefinition Definition { get; }
 
-    public readonly MethodAnalysisContext? Getter;
-    public readonly MethodAnalysisContext? Setter;
+    public MethodAnalysisContext? Getter { get; }
+    public MethodAnalysisContext? Setter { get; }
 
     protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 
@@ -30,6 +33,13 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
 
         Getter = parent.GetMethod(definition.Getter);
         Setter = parent.GetMethod(definition.Setter);
+    }
+
+    public TypeSignature ToTypeSignature(ModuleDefinition parentModule)
+    {
+        return Definition.RawPropertyType is not null
+            ? AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentModule, Definition.RawPropertyType)
+            : throw new("RawPropertyType was null");
     }
 
     public override string ToString() => $"Property:  {Definition.DeclaringType!.Name}::{Definition.Name}";

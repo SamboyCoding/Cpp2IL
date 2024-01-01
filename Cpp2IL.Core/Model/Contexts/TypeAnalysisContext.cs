@@ -164,6 +164,26 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         return ret.ToString();
     }
 
+    public ArrayTypeAnalysisContext MakeArrayType(int rank)
+    {
+        return new(this, rank, DeclaringAssembly);
+    }
+
+    public ByRefTypeAnalysisContext MakeByReferenceType()
+    {
+        return new(this, DeclaringAssembly);
+    }
+
+    public PointerTypeAnalysisContext MakePointerType()
+    {
+        return new(this, DeclaringAssembly);
+    }
+
+    public SzArrayTypeAnalysisContext MakeSzArrayType()
+    {
+        return new(this, DeclaringAssembly);
+    }
+
     #region StableNameDotNet implementation
 
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy()

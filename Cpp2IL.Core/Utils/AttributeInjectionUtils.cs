@@ -71,6 +71,25 @@ internal static class AttributeInjectionUtils
         });
     }
 
+    internal static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext[])> InjectAttribute(ApplicationAnalysisContext appContext, string ns, string name, AttributeTargets attributeTargets, bool allowMultiple, params (TypeAnalysisContext, string)[] fields)
+    {
+        var multiInjectType = appContext.InjectTypeIntoAllAssemblies(ns, name, appContext.SystemTypes.SystemAttributeType);
+        ApplyAttributeUsageAttribute(appContext, multiInjectType, attributeTargets, allowMultiple);
+
+        var injectedFields = new Dictionary<AssemblyAnalysisContext, InjectedFieldAnalysisContext>[fields.Length];
+        for (var i = 0; i < fields.Length; i++)
+        {
+            injectedFields[i] = multiInjectType.InjectFieldToAllAssemblies(fields[i].Item2, fields[i].Item1, FieldAttributes.Public);
+        }
+
+        var constructors = multiInjectType.InjectConstructor(false);
+
+        return multiInjectType.InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t =>
+        {
+            return (constructors[t.DeclaringAssembly], injectedFields.Select(d => d[t.DeclaringAssembly]).ToArray());
+        });
+    }
+
     private static void ApplyAttributeUsageAttribute(ApplicationAnalysisContext appContext, MultiAssemblyInjectedType multiAssemblyInjectedType, AttributeTargets attributeTargets, bool allowMultiple)
     {
         var mscorlibAssembly = appContext.GetAssemblyByName("mscorlib") ?? throw new("Could not find mscorlib");
@@ -121,6 +140,23 @@ internal static class AttributeInjectionUtils
         customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
     }
 
+    internal static void AddAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor, params (FieldAnalysisContext, object)[] fields)
+    {
+        AddAttribute(customAttributeHolder, constructor, fields.AsEnumerable());
+    }
+
+    internal static void AddAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor, IEnumerable<(FieldAnalysisContext, object)> fields)
+    {
+        var newAttribute = new AnalyzedCustomAttribute(constructor);
+        var i = 0;
+        foreach (var field in fields)
+        {
+            newAttribute.Fields.Add(new(field.Item1, MakeFieldParameter(field.Item2, newAttribute, i)));
+            i++;
+        }
+        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
+    }
+
     private static Il2CppType GetAttributeTargetsType(AssemblyAnalysisContext mscorlibAssembly)
     {
         var targetsEnum = mscorlibAssembly.GetTypeByFullName($"System.{nameof(AttributeTargets)}") ?? throw new("Could not find AttributeTargets");
@@ -140,6 +176,11 @@ internal static class AttributeInjectionUtils
         {
             Il2CppType type => new CustomAttributeTypeParameter(type, owner, CustomAttributeParameterKind.Field, index),
             TypeAnalysisContext type => new InjectedCustomAttributeTypeParameter(type, owner, CustomAttributeParameterKind.Field, index),
+            TypeAnalysisContext[] types => new CustomAttributeArrayParameter(owner, CustomAttributeParameterKind.Field, index)
+            {
+                ArrType = Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX,
+                ArrayElements = types.Select(t => new InjectedCustomAttributeTypeParameter(t, owner, CustomAttributeParameterKind.ArrayElement, index)).Cast<BaseCustomAttributeParameter>().ToList()
+            },
             IConvertible convertible => new CustomAttributePrimitiveParameter(convertible, owner, CustomAttributeParameterKind.Field, index),
             _ => throw new NotSupportedException(),
         };

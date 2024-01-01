@@ -137,16 +137,14 @@ public static class AsmResolverAssemblyPopulator
     {
         //Need to resolve the type of the array because it's not in the blob and AsmResolver needs it.
 
-        var il2CppType = arrayParameter.Kind switch
+        var typeSig = arrayParameter.Kind switch
         {
-            CustomAttributeParameterKind.ConstructorParam => arrayParameter.Owner.Constructor.Parameters[arrayParameter.Index].ParameterType,
-            CustomAttributeParameterKind.Property => arrayParameter.Owner.Properties[arrayParameter.Index].Property.Definition.RawPropertyType!,
-            CustomAttributeParameterKind.Field => arrayParameter.Owner.Fields[arrayParameter.Index].Field.FieldType,
+            CustomAttributeParameterKind.ConstructorParam => arrayParameter.Owner.Constructor.Parameters[arrayParameter.Index].ToTypeSignature(parentAssembly.ManifestModule!),
+            CustomAttributeParameterKind.Property => arrayParameter.Owner.Properties[arrayParameter.Index].Property.ToTypeSignature(parentAssembly.ManifestModule!),
+            CustomAttributeParameterKind.Field => arrayParameter.Owner.Fields[arrayParameter.Index].Field.ToTypeSignature(parentAssembly.ManifestModule!),
             CustomAttributeParameterKind.ArrayElement => throw new("Array element cannot be an array (or at least, not implemented!)"),
             _ => throw new("Unknown array parameter kind: " + arrayParameter.Kind)
         };
-        
-        var typeSig = AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, il2CppType);
 
         return new(typeSig) { IsNullArray = true };
     }
@@ -346,8 +344,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var fieldInfo = fieldContext.BackingData;
 
-            //TODO Perf: Again, like in CopyMethodsInType, make a variant which returns TypeSignatures directly. (Though this is only 3% of execution time)
-            var fieldTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, fieldContext.FieldType));
+            var fieldTypeSig = importer.ImportTypeSignature(fieldContext.ToTypeSignature(importer.TargetModule));
 
             var managedField = new FieldDefinition(fieldContext.FieldName, (FieldAttributes) fieldContext.Attributes, fieldTypeSig);
 
@@ -390,7 +387,7 @@ public static class AsmResolverAssemblyPopulator
             foreach (var parameterAnalysisContext in methodCtx.Parameters)
             {
                 var i = parameterAnalysisContext.ParamIndex; 
-                parameterTypes[i] = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, parameterAnalysisContext.ParameterType));
+                parameterTypes[i] = importer.ImportTypeSignature(parameterAnalysisContext.ParameterTypeContext.ToTypeSignature(importer.TargetModule));
                 
                 var sequence = (ushort) (i + 1); //Add one because sequence 0 is the return type
                 parameterDefinitions[i] = new(sequence, parameterAnalysisContext.Name, (ParameterAttributes) parameterAnalysisContext.ParameterAttributes);

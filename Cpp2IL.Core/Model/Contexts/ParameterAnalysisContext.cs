@@ -1,7 +1,10 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Text;
+using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
+using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -60,7 +63,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public Il2CppParameterDefaultValue? DefaultValue { get; }
 
-    public TypeAnalysisContext ParameterTypeContext => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(ParameterType);
+    public virtual TypeAnalysisContext ParameterTypeContext => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(ParameterType);
 
     public ParameterAnalysisContext(Il2CppParameterDefinition? definition, int paramIndex, MethodAnalysisContext declaringMethod) : base(definition?.token ?? 0, declaringMethod.AppContext)
     {
@@ -77,6 +80,13 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
                 DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(declaringMethod.Definition!.parameterStart + paramIndex)!;
             }
         }
+    }
+
+    public TypeSignature ToTypeSignature(ModuleDefinition parentModule)
+    {
+        return Definition?.RawType is not null
+            ? AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentModule, Definition.RawType)
+            : throw new("Definition?.RawType was null");
     }
 
     public override string ToString()

@@ -19,7 +19,7 @@ public class ByRefTypeAnalysisContext : WrappedTypeAnalysisContext
 
     public override string DefaultName => $"{ElementType.Name}&";
 
-    protected override TypeAnalysisContext ElementType => base.ElementType ?? throw new("TODO Support TYPE_BYREF");
+    public override TypeAnalysisContext ElementType => base.ElementType ?? throw new("TODO Support TYPE_BYREF");
 
     public override TypeSignature ToTypeSignature(ModuleDefinition parentModule)
     {

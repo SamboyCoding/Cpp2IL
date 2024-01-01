@@ -10,41 +10,49 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 {
-    protected override TypeAnalysisContext ElementType { get; }
+    public TypeAnalysisContext GenericType { get; }
 
-    public override string DefaultName => $"{ElementType.Name}<{string.Join(", ", GenericArguments.Select(a => a.Name))}>";
+    public List<TypeAnalysisContext> GenericArguments { get; } = new();
 
-    public override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST;
+    public override string DefaultName => $"{GenericType.Name}<{string.Join(", ", GenericArguments.Select(a => a.Name))}>";
+
+    public override string DefaultNs => GenericType.Namespace;
+
+    public sealed override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST;
+
+    public sealed override bool IsGenericInstance => true;
+
+    public sealed override int GenericParameterCount => GenericArguments.Count;
 
     public GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
-        //Element type has to be a type definition
+        //Generic type has to be a type definition
         var gClass = rawType.GetGenericClass();
-        ElementType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
+        GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
         
         GenericArguments.AddRange(gClass.Context.ClassInst.Types.Select(referencedFrom.ResolveIl2CppType)!);
     }
 
-    public GenericInstanceTypeAnalysisContext(TypeAnalysisContext elementType, IEnumerable<TypeAnalysisContext> genericArguments, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
+    public GenericInstanceTypeAnalysisContext(TypeAnalysisContext genericType, IEnumerable<TypeAnalysisContext> genericArguments, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
-        ElementType = elementType;
+        GenericType = genericType;
         GenericArguments.AddRange(genericArguments);
-        OverrideBaseType = elementType.BaseType;
+        OverrideBaseType = genericType.BaseType;
     }
 
     public override TypeSignature ToTypeSignature(ModuleDefinition parentModule)
     {
-        var elementType = ElementType.ToTypeSignature(parentModule).ToTypeDefOrRef();
+        var genericType = GenericType.ToTypeSignature(parentModule).ToTypeDefOrRef();
         var genericArguments = GenericArguments.Select(a => a.ToTypeSignature(parentModule)).ToArray();
 
-        return new GenericInstanceTypeSignature(elementType, IsValueType, genericArguments);
+        return new GenericInstanceTypeSignature(genericType, IsValueType, genericArguments);
     }
 
     public override string GetCSharpSourceString()
     {
         var sb = new StringBuilder();
 
-        sb.Append(ElementType.GetCSharpSourceString());
+        sb.Append(GenericType.GetCSharpSourceString());
         sb.Append('<');
         var first = true;
         foreach (var genericArgument in GenericArguments)

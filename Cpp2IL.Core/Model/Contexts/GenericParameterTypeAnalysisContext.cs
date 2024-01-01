@@ -14,8 +14,6 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public override Il2CppTypeEnum Type { get; }
 
-    protected override TypeAnalysisContext ElementType => throw new("Attempted to get element type of a generic parameter");
-
     public GenericParameterTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
         : this(rawType.GetGenericParameterDef(), rawType.Type, referencedFrom)
     {
