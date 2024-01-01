@@ -1,6 +1,7 @@
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -33,9 +34,19 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         MethodRef = methodRef;
         DeclaringAsm = declaringAssembly;
         BaseMethodContext = ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!);
+        
+        foreach (var parameter in BaseMethodContext.Parameters)
+        {
+            var parameterType = parameter.ParameterTypeContext;
+            var instantiatedType = GenericInstantiation.Instantiate(
+                parameter.ParameterTypeContext,
+                ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly),
+                ResolveTypeArray(methodRef.MethodGenericParams, declaringAssembly));
 
-        //TODO: Do we want to update this to populate known generic parameters based on the generic arguments? 
-        Parameters.AddRange(BaseMethodContext.Parameters);
+            Parameters.Add(parameterType == instantiatedType
+                ? parameter
+                : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, BaseMethodContext));
+        }
 
         if(UnderlyingPointer != 0)
             RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
@@ -52,13 +63,21 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         var baseType = declaringAssembly.AppContext.ResolveContextForType(methodRef.DeclaringType)
             ?? throw new($"Unable to resolve declaring type {methodRef.DeclaringType.FullName} for generic method {methodRef}");
 
-        var genericParams = new TypeAnalysisContext[methodRef.TypeGenericParams.Length];
-        for (var i = 0; i < methodRef.TypeGenericParams.Length; i++)
-        {
-            genericParams[i] = methodRef.TypeGenericParams[i].ToContext(declaringAssembly)
-                ?? throw new($"Unable to resolve generic parameter {methodRef.TypeGenericParams[i]} for generic method {methodRef}");
-        }
+        var genericParams = ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly);
+
         return new GenericInstanceTypeAnalysisContext(baseType, genericParams, declaringAssembly);
+    }
+
+    private static TypeAnalysisContext[] ResolveTypeArray(Il2CppTypeReflectionData[] array, AssemblyAnalysisContext declaringAssembly)
+    {
+        var ret = new TypeAnalysisContext[array.Length];
+        for (var i = 0; i < array.Length; i++)
+        {
+            ret[i] = array[i].ToContext(declaringAssembly)
+                ?? throw new($"Unable to resolve generic parameter {array[i]} for generic method.");
+        }
+
+        return ret;
     }
 
     private static MethodAnalysisContext ResolveBaseMethod(Cpp2IlMethodRef methodRef, TypeAnalysisContext declaringType)

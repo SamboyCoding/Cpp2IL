@@ -1,5 +1,4 @@
 using Cpp2IL.Core.Utils;
-using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
 
@@ -7,11 +6,11 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfoProvider
 {
-    public readonly TypeAnalysisContext DeclaringType;
-    public readonly Il2CppPropertyDefinition Definition;
+    public TypeAnalysisContext DeclaringType { get; }
+    public Il2CppPropertyDefinition Definition { get; }
 
-    public readonly MethodAnalysisContext? Getter;
-    public readonly MethodAnalysisContext? Setter;
+    public MethodAnalysisContext? Getter { get; }
+    public MethodAnalysisContext? Setter { get; }
 
     protected override int CustomAttributeIndex => Definition.customAttributeIndex;
 

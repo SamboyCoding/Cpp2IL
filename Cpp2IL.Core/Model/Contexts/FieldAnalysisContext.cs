@@ -27,7 +27,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public override string DefaultName => BackingData?.Field.Name!;
 
-    public virtual Il2CppType FieldType => BackingData!.Field.RawFieldType!;
+    public Il2CppType? FieldType => BackingData?.Field.RawFieldType;
 
     public virtual FieldAttributes Attributes => BackingData!.Attributes;
 
@@ -35,7 +35,8 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.IndexInParent, BackingData.Field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
 
-    public TypeAnalysisContext FieldTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(FieldType);
+    public virtual TypeAnalysisContext FieldTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(FieldType)
+        ?? throw new($"Field type {FieldType} could not be resolved.");
 
 
     public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.Field.token ?? 0, parent.AppContext)
@@ -52,13 +53,37 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
     #region StableNameDotNet
 
     public ITypeInfoProvider FieldTypeInfoProvider
-        => FieldType.ThisOrElementIsGenericParam()
-            ? new GenericParameterTypeInfoProviderWrapper(FieldType.GetGenericParamName())
-            : TypeAnalysisContext.GetSndnProviderForType(AppContext, FieldType);
+        => ThisOrElementIsGenericParam(FieldTypeContext)
+            ? new GenericParameterTypeInfoProviderWrapper(GetGenericParamName(FieldTypeContext))
+            : TypeAnalysisContext.GetSndnProviderForType(AppContext, FieldType!);
 
     public string FieldName => Name;
 
     public FieldAttributes FieldAttributes => BackingData?.Attributes ?? 0;
+
+    private static bool ThisOrElementIsGenericParam(TypeAnalysisContext type) => type switch
+    {
+        GenericParameterTypeAnalysisContext => true,
+        SzArrayTypeAnalysisContext szArray => ThisOrElementIsGenericParam(szArray.ElementType),
+        PointerTypeAnalysisContext pointer => ThisOrElementIsGenericParam(pointer.ElementType),
+        ArrayTypeAnalysisContext array => ThisOrElementIsGenericParam(array.ElementType),
+        _ => false,
+    };
+
+    private static string GetGenericParamName(TypeAnalysisContext type)
+    {
+        if (!ThisOrElementIsGenericParam(type))
+            throw new("Type is not a generic parameter");
+
+        return type switch
+        {
+            GenericParameterTypeAnalysisContext genericParam => genericParam.Name,
+            SzArrayTypeAnalysisContext szArray => GetGenericParamName(szArray.ElementType),
+            PointerTypeAnalysisContext pointer => GetGenericParamName(pointer.ElementType),
+            ArrayTypeAnalysisContext array => GetGenericParamName(array.ElementType),
+            _ => throw new("Type is not a generic parameter")
+        };
+    }
 
     #endregion
 }

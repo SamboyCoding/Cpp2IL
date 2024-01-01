@@ -4,8 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
@@ -144,12 +142,6 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public override string ToString() => $"Type: {Definition?.FullName}";
 
-    public virtual TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        var typeDefinition = GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {FullName}");
-        return parentModule.DefaultImporter.ImportType(typeDefinition).ToTypeSignature();
-    }
-
     public virtual string GetCSharpSourceString()
     {
         if (Definition != null)
@@ -162,6 +154,26 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         ret.Append(Name);
 
         return ret.ToString();
+    }
+
+    public ArrayTypeAnalysisContext MakeArrayType(int rank)
+    {
+        return new(this, rank, DeclaringAssembly);
+    }
+
+    public ByRefTypeAnalysisContext MakeByReferenceType()
+    {
+        return new(this, DeclaringAssembly);
+    }
+
+    public PointerTypeAnalysisContext MakePointerType()
+    {
+        return new(this, DeclaringAssembly);
+    }
+
+    public SzArrayTypeAnalysisContext MakeSzArrayType()
+    {
+        return new(this, DeclaringAssembly);
     }
 
     #region StableNameDotNet implementation

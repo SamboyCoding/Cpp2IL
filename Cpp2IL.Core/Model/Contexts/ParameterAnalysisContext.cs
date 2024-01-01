@@ -1,4 +1,3 @@
-﻿using System;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Utils;
@@ -60,7 +59,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public Il2CppParameterDefaultValue? DefaultValue { get; }
 
-    public TypeAnalysisContext ParameterTypeContext => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(ParameterType);
+    public virtual TypeAnalysisContext ParameterTypeContext => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(ParameterType);
 
     public ParameterAnalysisContext(Il2CppParameterDefinition? definition, int paramIndex, MethodAnalysisContext declaringMethod) : base(definition?.token ?? 0, declaringMethod.AppContext)
     {

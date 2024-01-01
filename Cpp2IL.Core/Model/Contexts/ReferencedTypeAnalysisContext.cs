@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -10,17 +9,7 @@ public abstract class ReferencedTypeAnalysisContext : TypeAnalysisContext
 {
     public abstract Il2CppTypeEnum Type { get; } //Must be set by derived classes
 
-    protected abstract TypeAnalysisContext ElementType { get; } //Must be set by derived classes
-
-    protected List<TypeAnalysisContext> GenericArguments { get; } = new();
-
-    public override string DefaultNs => ElementType.Namespace;
-
     protected override int CustomAttributeIndex => -1;
-
-    public sealed override bool IsGenericInstance => GenericArguments.Count > 0;
-
-    public sealed override int GenericParameterCount => GenericArguments.Count;
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
 

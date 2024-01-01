@@ -1,5 +1,3 @@
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
@@ -22,9 +20,4 @@ public class ArrayTypeAnalysisContext : WrappedTypeAnalysisContext
     public override string DefaultName => $"{ElementType.Name}[{Rank}]";
 
     public int Rank { get; }
-
-    public override TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        return ElementType.ToTypeSignature(parentModule).MakeArrayType(Rank);
-    }
 }

@@ -1,6 +1,4 @@
 using System;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -13,8 +11,6 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
     public int Index { get; }
 
     public override Il2CppTypeEnum Type { get; }
-
-    protected override TypeAnalysisContext ElementType => throw new("Attempted to get element type of a generic parameter");
 
     public GenericParameterTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
         : this(rawType.GetGenericParameterDef(), rawType.Type, referencedFrom)
@@ -34,10 +30,5 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
         DefaultName = name;
         Index = index;
         Type = type;
-    }
-
-    public override TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        return new GenericParameterSignature(Type == Il2CppTypeEnum.IL2CPP_TYPE_VAR ? GenericParameterType.Type : GenericParameterType.Method, Index);
     }
 }
