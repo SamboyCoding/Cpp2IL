@@ -1,7 +1,4 @@
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
-using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
 
@@ -32,13 +29,6 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
 
         Getter = parent.GetMethod(definition.Getter);
         Setter = parent.GetMethod(definition.Setter);
-    }
-
-    public TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        return Definition.RawPropertyType is not null
-            ? AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentModule, Definition.RawPropertyType)
-            : throw new("RawPropertyType was null");
     }
 
     public override string ToString() => $"Property:  {Definition.DeclaringType!.Name}::{Definition.Name}";
