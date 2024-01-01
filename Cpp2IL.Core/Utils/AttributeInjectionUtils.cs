@@ -172,16 +172,29 @@ internal static class AttributeInjectionUtils
 
     private static BaseCustomAttributeParameter MakeFieldParameter(object fieldValue, AnalyzedCustomAttribute owner, int index)
     {
-        return fieldValue switch
+        return MakeCustomAttributeParameter(fieldValue, owner, index, CustomAttributeParameterKind.Field);
+    }
+
+    private static BaseCustomAttributeParameter MakeCustomAttributeParameter(object? value, AnalyzedCustomAttribute owner, int index, CustomAttributeParameterKind parameterKind)
+    {
+        return value switch
         {
-            Il2CppType type => new CustomAttributeTypeParameter(type, owner, CustomAttributeParameterKind.Field, index),
-            TypeAnalysisContext type => new InjectedCustomAttributeTypeParameter(type, owner, CustomAttributeParameterKind.Field, index),
-            TypeAnalysisContext[] types => new CustomAttributeArrayParameter(owner, CustomAttributeParameterKind.Field, index)
+            Il2CppType type => new CustomAttributeTypeParameter(type, owner, parameterKind, index),
+            TypeAnalysisContext type => new InjectedCustomAttributeTypeParameter(type, owner, parameterKind, index),
+            TypeAnalysisContext?[] types => new CustomAttributeArrayParameter(owner, parameterKind, index)
             {
                 ArrType = Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX,
-                ArrayElements = types.Select(t => new InjectedCustomAttributeTypeParameter(t, owner, CustomAttributeParameterKind.ArrayElement, index)).Cast<BaseCustomAttributeParameter>().ToList()
+                ArrayElements = types.Select(t => (BaseCustomAttributeParameter)new InjectedCustomAttributeTypeParameter(t, owner, CustomAttributeParameterKind.ArrayElement, index)).ToList()
             },
-            IConvertible convertible => new CustomAttributePrimitiveParameter(convertible, owner, CustomAttributeParameterKind.Field, index),
+            object?[] objects => new CustomAttributeArrayParameter(owner, parameterKind, index)
+            {
+                ArrType = Il2CppTypeEnum.IL2CPP_TYPE_OBJECT,
+                ArrayElements = objects.Select(obj => obj is null
+                    ? new CustomAttributeNullParameter(owner, CustomAttributeParameterKind.ArrayElement, index)
+                    : MakeCustomAttributeParameter(obj, owner, index, CustomAttributeParameterKind.ArrayElement)).ToList()
+            },
+            IConvertible convertible => new CustomAttributePrimitiveParameter(convertible, owner, parameterKind, index),
+            null => new CustomAttributeNullParameter(owner, parameterKind, index),
             _ => throw new NotSupportedException(),
         };
     }

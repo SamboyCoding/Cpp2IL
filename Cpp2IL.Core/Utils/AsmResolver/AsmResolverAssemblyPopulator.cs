@@ -112,6 +112,7 @@ public static class AsmResolverAssemblyPopulator
                     CustomAttributePrimitiveParameter primitiveParameter => primitiveParameter.PrimitiveValue,
                     CustomAttributeEnumParameter enumParameter => enumParameter.UnderlyingPrimitiveParameter.PrimitiveValue,
                     BaseCustomAttributeTypeParameter type => (object?)type.TypeContext?.ToTypeSignature(parentAssembly.ManifestModule!),
+                    CustomAttributeNullParameter => null,
                     _ => throw new("Not supported array element type: " + e.GetType().FullName)
                 };
 
