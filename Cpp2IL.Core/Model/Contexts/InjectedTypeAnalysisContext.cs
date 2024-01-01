@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -9,11 +9,14 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
 
     public override string DefaultNs { get; }
 
-    public InjectedTypeAnalysisContext(AssemblyAnalysisContext containingAssembly, string name, string ns, TypeAnalysisContext? baseType) : base(null, containingAssembly)
+    public override TypeAttributes TypeAttributes { get; }
+
+    public InjectedTypeAnalysisContext(AssemblyAnalysisContext containingAssembly, string name, string ns, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = DefaultTypeAttributes) : base(null, containingAssembly)
     {
         DefaultName = name;
         DefaultNs = ns;
         OverrideBaseType = baseType;
+        TypeAttributes = typeAttributes;
     }
 
     public InjectedMethodAnalysisContext InjectMethodContext(string methodName, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
