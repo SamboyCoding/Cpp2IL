@@ -691,6 +691,13 @@ namespace LibCpp2IL.Elf
                     throw new InvalidOperationException($"No entry in the Elf PHT contains virtual address 0x{addr:X}");
                 else
                     return VirtToRawInvalidNoMatch;
+            
+            if (addr >= section.VirtualAddress + section.RawSize)
+                if (throwOnError)
+                    throw new InvalidOperationException(
+                        $"Virtual address {section.VirtualAddress:X} is located outside of the file-backed portion of Elf PHT section at 0x{section.VirtualAddress:X}");
+                else
+                    return VirtToRawInvalidOutOfBounds;
 
             return (long) (addr - (section.VirtualAddress - section.RawAddress));
         }
