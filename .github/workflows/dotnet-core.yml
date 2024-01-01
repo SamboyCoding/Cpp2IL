@@ -48,7 +48,7 @@ jobs:
         working-directory: ./${{ matrix.project }}/
         run: dotnet publish -c Release -f net7.0 -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
       - name: Upload Executable
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.project }}-net7-${{ matrix.runtimeIdentifier }}
           path: ./${{ matrix.project }}/bin/Release/net7.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
@@ -66,7 +66,7 @@ jobs:
         working-directory: ./Cpp2IL/
         run: dotnet publish -c Release -f net472 --no-restore -r win-x64
       - name: Upload
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: Cpp2IL-Netframework472-Windows
           path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
