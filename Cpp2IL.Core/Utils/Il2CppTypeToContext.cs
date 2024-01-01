@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Diagnostics.CodeAnalysis;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils.AsmResolver;
@@ -50,7 +50,7 @@ public static class Il2CppTypeToContext
             return new GenericInstanceTypeAnalysisContext(type, context);
 
         if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_BYREF or Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY or Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
-            return new WrappedTypeAnalysisContext(type, context);
+            return WrappedTypeAnalysisContext.Create(type, context);
 
         return new GenericParameterTypeAnalysisContext(type, context);
     }

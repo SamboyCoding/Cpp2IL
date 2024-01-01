@@ -1,4 +1,4 @@
-﻿using System.IO;
+using System.IO;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Model.Contexts;
@@ -21,9 +21,6 @@ public class InjectedCustomAttributeTypeParameter : BaseCustomAttributeTypeParam
 
     public override TypeSignature? ToTypeSignature(ModuleDefinition parentModule)
     {
-        if (Type == null)
-            return null;
-        var typeDefinition = Type.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {Type.FullName}");
-        return parentModule.DefaultImporter.ImportType(typeDefinition).ToTypeSignature();
+        return Type?.ToTypeSignature(parentModule);
     }
 }

@@ -4,6 +4,8 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
@@ -141,6 +143,13 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public List<MethodAnalysisContext> GetConstructors() => Methods.Where(m => m.Definition!.Name == ".ctor").ToList();
 
     public override string ToString() => $"Type: {Definition?.FullName}";
+
+    public virtual TypeSignature ToTypeSignature(ModuleDefinition parentModule)
+    {
+        var typeDefinition = GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {FullName}");
+        return parentModule.DefaultImporter.ImportType(typeDefinition).ToTypeSignature();
+    }
+
     public virtual string GetCSharpSourceString()
     {
         if (Definition != null)

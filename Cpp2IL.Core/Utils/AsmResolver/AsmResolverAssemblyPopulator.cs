@@ -94,7 +94,9 @@ public static class AsmResolverAssemblyPopulator
 
     private static CustomAttributeArgument BuildArrayArgument(AssemblyDefinition parentAssembly, CustomAttributeArrayParameter arrayParameter)
     {
+#if !DEBUG
         try
+#endif
         {
             if (arrayParameter.IsNullArray)
                 return BuildEmptyArrayArgument(parentAssembly, arrayParameter);
@@ -123,10 +125,12 @@ public static class AsmResolverAssemblyPopulator
 
             return new(typeSig, arrayElements);
         }
+#if !DEBUG
         catch (Exception e)
         {
             throw new("Failed to build array argument for " + arrayParameter, e);
         }
+#endif
     }
 
     private static CustomAttributeArgument BuildEmptyArrayArgument(AssemblyDefinition parentAssembly, CustomAttributeArrayParameter arrayParameter)
@@ -149,7 +153,9 @@ public static class AsmResolverAssemblyPopulator
 
     private static CustomAttributeArgument FromAnalyzedAttributeArgument(AssemblyDefinition parentAssembly, BaseCustomAttributeParameter parameter)
     {
+#if !DEBUG
         try
+#endif
         {
             return parameter switch
             {
@@ -160,10 +166,12 @@ public static class AsmResolverAssemblyPopulator
                 _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
             };
         }
+#if !DEBUG
         catch (Exception e)
         {
             throw new("Failed to build custom attribute argument for " + parameter, e);
         }
+#endif
     }
 
     private static CustomAttributeNamedArgument FromAnalyzedAttributeField(AssemblyDefinition parentAssembly, CustomAttributeField field)
@@ -179,7 +187,9 @@ public static class AsmResolverAssemblyPopulator
         CustomAttributeSignature signature;
         var numNamedArgs = analyzedCustomAttribute.Fields.Count + analyzedCustomAttribute.Properties.Count;
 
+#if !DEBUG
         try
+#endif
         {
             if (!analyzedCustomAttribute.HasAnyParameters && numNamedArgs == 0)
                 signature = new();
@@ -206,10 +216,12 @@ public static class AsmResolverAssemblyPopulator
                 return null;
             }
         }
+#if !DEBUG
         catch (Exception e)
         {
             throw new("Failed to build custom attribute signature for " + analyzedCustomAttribute, e);
         }
+#endif
 
         var importedCtor = assemblyDefinition.GetImporter().ImportMethod(ctor);
 
@@ -224,7 +236,9 @@ public static class AsmResolverAssemblyPopulator
 
         var assemblyDefinition = source.CustomAttributeAssembly.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + source.CustomAttributeAssembly);
 
+#if !DEBUG
         try
+#endif
         {
             foreach (var analyzedCustomAttribute in source.CustomAttributes)
             {
@@ -233,15 +247,19 @@ public static class AsmResolverAssemblyPopulator
                     destination.Add(asmResolverCustomAttribute);
             }
         }
+#if !DEBUG
         catch (Exception e)
         {
             throw new("Failed to copy custom attributes for " + source, e);
         }
+#endif
     }
 
     public static void PopulateCustomAttributes(AssemblyAnalysisContext asmContext)
     {
+#if !DEBUG
         try
+#endif
         {
             CopyCustomAttributes(asmContext, asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly")!.CustomAttributes);
 
@@ -274,11 +292,12 @@ public static class AsmResolverAssemblyPopulator
                     CopyCustomAttributes(eventDefinition, eventDefinition.GetExtraData<EventDefinition>("AsmResolverEvent")!.CustomAttributes);
             }
         }
+#if !DEBUG
         catch (Exception e)
         {
             throw new($"Failed to populate custom attributes in {asmContext}", e);
         }
-
+#endif
     }
 
     public static void CopyDataFromIl2CppToManaged(AssemblyAnalysisContext asmContext)
