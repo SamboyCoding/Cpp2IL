@@ -189,6 +189,14 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             throw new ArgumentException("Count cannot be 0.", nameof(methods));
         }
 
+        if (methods.Count == 1)
+        {
+            commonMethod = methods[0];
+            return true;
+        }
+
+        // We attempt to unify multiple concrete generic methods into a common base method.
+
         var firstMethod = GetBaseMethodIfConcrete(methods[0]);
 
         for (var i = 1; i < methods.Count; i++)
@@ -204,7 +212,6 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         commonMethod = firstMethod;
         return true;
 
-        // Concrete generic methods have no DeclaringType, so we get the base method instead
         static MethodAnalysisContext GetBaseMethodIfConcrete(MethodAnalysisContext method)
         {
             return method is ConcreteGenericMethodAnalysisContext genericMethod ? genericMethod.BaseMethodContext : method;

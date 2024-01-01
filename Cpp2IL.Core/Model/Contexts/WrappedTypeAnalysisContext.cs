@@ -1,4 +1,4 @@
-﻿using Cpp2IL.Core.Utils;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -7,18 +7,24 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// Represents any type which is just a wrapper with additional info around a base type.
 /// For example, pointers, byref types, arrays.
 /// </summary>
-public class WrappedTypeAnalysisContext : ReferencedTypeAnalysisContext
+public abstract class WrappedTypeAnalysisContext : ReferencedTypeAnalysisContext
 {
-    protected override TypeAnalysisContext ElementType => RawType.Type switch
-    {
-        Il2CppTypeEnum.IL2CPP_TYPE_PTR => DeclaringAssembly.ResolveIl2CppType(RawType.GetEncapsulatedType()),
-        Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => DeclaringAssembly.ResolveIl2CppType(RawType.GetEncapsulatedType()),
-        Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => DeclaringAssembly.ResolveIl2CppType(RawType.GetArrayElementType()),
-        Il2CppTypeEnum.IL2CPP_TYPE_BYREF => throw new("TODO Support TYPE_BYREF"),
-        _ => throw new($"Type {RawType.Type} is not a wrapper type")
-    };
+    protected override TypeAnalysisContext ElementType { get; }
 
-    public WrappedTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(rawType, referencedFrom)
+    protected WrappedTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
+        ElementType = elementType;
+    }
+
+    public static WrappedTypeAnalysisContext Create(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
+    {
+        return rawType.Type switch
+        {
+            Il2CppTypeEnum.IL2CPP_TYPE_PTR => new PointerTypeAnalysisContext(rawType, referencedFrom),
+            Il2CppTypeEnum.IL2CPP_TYPE_BYREF => new ByRefTypeAnalysisContext(rawType, referencedFrom),
+            Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => new ArrayTypeAnalysisContext(rawType, referencedFrom),
+            Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => new SzArrayTypeAnalysisContext(rawType, referencedFrom),
+            _ => throw new($"Type {rawType.Type} is not a wrapper type")
+        };
     }
 }

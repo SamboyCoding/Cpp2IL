@@ -28,8 +28,6 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     /// <summary>
     /// The analysis context for the declaring type of this method.
-    ///
-    /// Null iff this is a subclass.
     /// </summary>
     public readonly TypeAnalysisContext? DeclaringType;
 
