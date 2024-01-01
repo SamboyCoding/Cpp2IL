@@ -41,6 +41,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         
         Logger.VerboseNewline("\tRegistering built-in output formats...", "Core Plugin");
         
+        OutputFormatRegistry.Register<AsmResolverDllOutputFormatLegacy>();
         OutputFormatRegistry.Register<AsmResolverDllOutputFormatDefault>();
         OutputFormatRegistry.Register<AsmResolverDllOutputFormatEmpty>();
         OutputFormatRegistry.Register<AsmResolverDllOutputFormatThrowNull>();
@@ -60,5 +61,11 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
 
         var elapsed = DateTime.Now - start;
         Logger.VerboseNewline($"Core plugin loaded in {elapsed.Ticks} ticks ({elapsed.TotalMilliseconds}ms)", "Core Plugin");
+    }
+
+    private sealed class AsmResolverDllOutputFormatLegacy : AsmResolverDllOutputFormatDefault
+    {
+        public override string OutputFormatId => "dummydll";
+        public override string OutputFormatName => "DLL output format for backwards compatibility.";
     }
 }
