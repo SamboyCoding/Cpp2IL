@@ -175,17 +175,17 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         }
         else
         {
-            typeField = (callsAttributeInfo.Item2[1], typeFullName);
+            typeField = (callsAttributeInfo.Item2[0], typeFullName);
         }
 
-        var memberField = (callsAttributeInfo.Item2[2], targetMethod.Name);
+        var memberField = (callsAttributeInfo.Item2[1], targetMethod.Name);
 
         (FieldAnalysisContext, object)? typeParametersField;
         if (targetMethod is ConcreteGenericMethodAnalysisContext concreteMethod)
         {
             if (concreteMethod.MethodRef.MethodGenericParams.Length > 0)
             {
-                var parameters = new TypeAnalysisContext[concreteMethod.MethodRef.MethodGenericParams.Length];
+                var parameters = new object?[concreteMethod.MethodRef.MethodGenericParams.Length];
 
                 for (var i = 0; i < parameters.Length; i++)
                 {
@@ -194,9 +194,13 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     {
                         parameters[i] = parameterType;
                     }
+                    else
+                    {
+                        parameters[i] = parameterType?.FullName;
+                    }
                 }
 
-                typeParametersField = (callsAttributeInfo.Item2[3], parameters);
+                typeParametersField = (callsAttributeInfo.Item2[2], parameters);
             }
             else
             {
@@ -211,7 +215,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         (FieldAnalysisContext, object)? parametersField;
         if (targetMethod.ParameterCount > 0)
         {
-            var parameters = new TypeAnalysisContext[targetMethod.ParameterCount];
+            var parameters = new object?[targetMethod.ParameterCount];
 
             for (var i = 0; i < parameters.Length; i++)
             {
@@ -220,9 +224,13 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 {
                     parameters[i] = parameterType;
                 }
+                else
+                {
+                    parameters[i] = parameterType?.FullName;
+                }
             }
 
-            parametersField = (callsAttributeInfo.Item2[4], parameters);
+            parametersField = (callsAttributeInfo.Item2[3], parameters);
         }
         else
         {
@@ -245,11 +253,10 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             methodName,
             AttributeTargets.Method,
             true,
-            (appContext.SystemTypes.SystemTypeType, "Type"),
-            (appContext.SystemTypes.SystemStringType, "TypeFullName"),
+            (appContext.SystemTypes.SystemObjectType, "Type"),
             (appContext.SystemTypes.SystemStringType, "Member"),
-            (appContext.SystemTypes.SystemTypeType.MakeSzArrayType(), "MemberTypeParameters"),
-            (appContext.SystemTypes.SystemTypeType.MakeSzArrayType(), "MemberParameters"));
+            (appContext.SystemTypes.SystemObjectType.MakeSzArrayType(), "MemberTypeParameters"),
+            (appContext.SystemTypes.SystemObjectType.MakeSzArrayType(), "MemberParameters"));
     }
 
     private static bool TryGetCommonMethodFromList(List<MethodAnalysisContext> methods, [NotNullWhen(true)] out MethodAnalysisContext? commonMethod)

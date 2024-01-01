@@ -6,7 +6,9 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
 {
-    public override string DefaultName { get; }
+    public sealed override string DefaultName { get; }
+
+    public sealed override string DefaultNs => "";
 
     public int Index { get; }
 
