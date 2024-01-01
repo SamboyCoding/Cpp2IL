@@ -18,20 +18,16 @@ using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.OutputFormats;
 
-public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
+public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 {
-    public override string OutputFormatId => "dummydll";
-
-    public override string OutputFormatName => "Stub (\"Dummy\") DLL Files";
-
     private AssemblyDefinition? MostRecentCorLib { get; set; }
 
-    public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
+    public sealed override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         var ret = BuildAssemblies(context);
 
         var start = DateTime.Now;
-        Logger.Verbose("Generating PE images...", "DummyDllOutput");
+        Logger.Verbose("Generating PE images...", "DllOutput");
 
         if (!Directory.Exists(outputRoot))
             Directory.CreateDirectory(outputRoot);
@@ -42,10 +38,10 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
             .Select(a => (image: a.ManifestModule!.ToPEImage(new ManagedPEImageBuilder()), name: a.ManifestModule.Name!))
             .ToList();
 
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
         start = DateTime.Now;
-        Logger.Verbose("Building and writing managed PE files to disk...", "DummyDllOutput");
+        Logger.Verbose("Building and writing managed PE files to disk...", "DllOutput");
 
         //Save them
         var fileBuilder = new ManagedPEFileBuilder();
@@ -55,7 +51,7 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
             fileBuilder.CreateFile(image).Write(dllPath);
         }
 
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
     }
 
     public List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
@@ -72,44 +68,74 @@ public class AsmResolverDummyDllOutputFormat : Cpp2IlOutputFormat
         //Build the stub assemblies
         var start = DateTime.Now;
 #if VERBOSE_LOGGING
-        Logger.Verbose($"Building stub assemblies ({asmCount} assemblies, {typeCount} types)...", "DummyDllOutput");
+        Logger.Verbose($"Building stub assemblies ({asmCount} assemblies, {typeCount} types)...", "DllOutput");
 #else
-        Logger.Verbose($"Building stub assemblies...", "DummyDllOutput");
+        Logger.Verbose($"Building stub assemblies...", "DllOutput");
 #endif
         List<AssemblyDefinition> ret = BuildStubAssemblies(context);
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
         start = DateTime.Now;
-        Logger.Verbose("Configuring inheritance and generics...", "DummyDllOutput");
+        Logger.Verbose("Configuring inheritance and generics...", "DllOutput");
 
         Parallel.ForEach(context.Assemblies, AsmResolverAssemblyPopulator.ConfigureHierarchy);
 
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
         //Populate them
         start = DateTime.Now;
 
 #if VERBOSE_LOGGING
-        Logger.Verbose($"Adding {fieldCount} fields, {methodCount} methods, {propertyCount} properties, and {eventCount} events (in parallel)...", "DummyDllOutput");
+        Logger.Verbose($"Adding {fieldCount} fields, {methodCount} methods, {propertyCount} properties, and {eventCount} events (in parallel)...", "DllOutput");
 #else
-        Logger.Verbose($"Adding fields, methods, properties, and events (in parallel)...", "DummyDllOutput");
+        Logger.Verbose($"Adding fields, methods, properties, and events (in parallel)...", "DllOutput");
 #endif
 
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
-        MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverMethodFiller.FillManagedMethodBodies);
+        MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
 
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
         //Populate custom attributes
         start = DateTime.Now;
-        Logger.Verbose("Adding custom attributes to all of the above...", "DummyDllOutput");
+        Logger.Verbose("Adding custom attributes to all of the above...", "DllOutput");
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.PopulateCustomAttributes);
 
-        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DummyDllOutput");
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
         TypeDefinitionsAsmResolver.Reset();
 
         return ret;
+    }
+
+    protected abstract void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext);
+
+    protected virtual void FillMethodBodies(AssemblyAnalysisContext context)
+    {
+        foreach (var typeContext in context.Types)
+        {
+            if (AsmResolverAssemblyPopulator.IsTypeContextModule(typeContext))
+                continue;
+
+#if !DEBUG
+            try
+#endif
+            {
+                foreach (var methodCtx in typeContext.Methods)
+                {
+                    var managedMethod = methodCtx.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {typeContext.Definition?.FullName}.{methodCtx.Definition?.Name}");
+
+                    FillMethodBody(managedMethod, methodCtx);
+                }
+            }
+#if !DEBUG
+            catch (System.Exception e)
+            {
+                var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
+                throw new($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {context.Definition.AssemblyName.Name}", e);
+            }
+#endif
+        }
     }
 
     private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)
