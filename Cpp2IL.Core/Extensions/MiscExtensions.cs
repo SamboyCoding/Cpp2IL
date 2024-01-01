@@ -73,7 +73,6 @@ namespace Cpp2IL.Core.Extensions
         {
             var arr = new T[original.Count];
             original.CopyTo(arr, 0);
-            Array.Reverse(arr);
             return new List<T>(arr);
         }
 
