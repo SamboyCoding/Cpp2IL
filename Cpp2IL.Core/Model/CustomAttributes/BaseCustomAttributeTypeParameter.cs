@@ -1,5 +1,4 @@
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
+using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
 
@@ -8,14 +7,9 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 /// </summary>
 public abstract class BaseCustomAttributeTypeParameter : BaseCustomAttributeParameter
 {
+    public abstract TypeAnalysisContext? TypeContext { get; }
+
     public BaseCustomAttributeTypeParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {
     }
-
-    /// <summary>
-    /// Convert the parameter to an AsmResolver <see cref="TypeSignature"/>.
-    /// </summary>
-    /// <param name="parentModule">The <see cref="ModuleDefinition"/> this signature is being imported into.</param>
-    /// <returns>An imported <see cref="TypeSignature"/> for the <paramref name="parentModule"/>.</returns>
-    public abstract TypeSignature? ToTypeSignature(ModuleDefinition parentModule);
 }

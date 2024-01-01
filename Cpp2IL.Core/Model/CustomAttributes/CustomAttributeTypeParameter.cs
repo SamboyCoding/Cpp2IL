@@ -1,10 +1,7 @@
 using System.IO;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
-using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 
@@ -16,6 +13,8 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
 {
     public Il2CppType? Type;
+
+    public override TypeAnalysisContext? TypeContext => Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(Type);
 
     public CustomAttributeTypeParameter(Il2CppType? type, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {
@@ -54,10 +53,5 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
         
         //Basic class/struct
         return $"typeof({Type.AsClass().Name})";
-    }
-
-    public override TypeSignature? ToTypeSignature(ModuleDefinition parentModule)
-    {
-        return Type == null ? null : AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentModule, Type);
     }
 }

@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
     {
         private static Dictionary<string, TypeDefinition> _primitiveTypeMappings = new();
 
-#pragma warning disable 8618
+#nullable disable
         public static TypeDefinition Boolean;
         public static TypeDefinition SByte;
         public static TypeDefinition Byte;
@@ -38,7 +38,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver
         public static TypeDefinition Void;
         public static TypeDefinition Attribute;
         public static TypeDefinition MethodInfo;
-#pragma warning restore 8618
+#nullable restore
 
         public static void Reset()
         {

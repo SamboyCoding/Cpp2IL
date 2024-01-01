@@ -1,8 +1,5 @@
 using System.Reflection;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
-using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 using StableNameDotNet.Providers;
@@ -49,11 +46,6 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
         if (BackingData != null)
             InitCustomAttributeData();
-    }
-
-    public TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        return FieldTypeContext.ToTypeSignature(parentModule);
     }
 
     public override string ToString() => $"Field: {DeclaringType.Definition?.Name}::{BackingData?.Field.Name}";

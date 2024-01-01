@@ -1,8 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
@@ -38,14 +36,6 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         GenericType = genericType;
         GenericArguments.AddRange(genericArguments);
         OverrideBaseType = genericType.BaseType;
-    }
-
-    public override TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        var genericType = GenericType.ToTypeSignature(parentModule).ToTypeDefOrRef();
-        var genericArguments = GenericArguments.Select(a => a.ToTypeSignature(parentModule)).ToArray();
-
-        return new GenericInstanceTypeSignature(genericType, IsValueType, genericArguments);
     }
 
     public override string GetCSharpSourceString()

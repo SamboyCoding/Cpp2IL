@@ -1,5 +1,3 @@
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
@@ -19,9 +17,4 @@ public class PointerTypeAnalysisContext : WrappedTypeAnalysisContext
     public override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_PTR;
 
     public override string DefaultName => $"{ElementType.Name}*";
-
-    public override TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        return ElementType.ToTypeSignature(parentModule).MakePointerType();
-    }
 }

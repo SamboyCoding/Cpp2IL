@@ -1,6 +1,4 @@
 using System;
-using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -32,10 +30,5 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
         DefaultName = name;
         Index = index;
         Type = type;
-    }
-
-    public override TypeSignature ToTypeSignature(ModuleDefinition parentModule)
-    {
-        return new GenericParameterSignature(Type == Il2CppTypeEnum.IL2CPP_TYPE_VAR ? GenericParameterType.Type : GenericParameterType.Method, Index);
     }
 }

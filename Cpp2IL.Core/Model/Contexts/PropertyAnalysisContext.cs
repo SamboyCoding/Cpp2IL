@@ -2,7 +2,6 @@ using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures.Types;
 using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
-using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
 
