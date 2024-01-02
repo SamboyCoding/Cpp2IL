@@ -34,7 +34,7 @@
         <PackageReference Include="PolySharp" Version="1.14.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>
 
-    <ItemGroup Condition="'$(TargetFramework)' != 'net6.0'">
+    <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
         <PackageReference Include="System.Memory" Version="4.5.5" />
     </ItemGroup>
 
