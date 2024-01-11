@@ -379,12 +379,9 @@ public static class AsmResolverAssemblyPopulator
             var rawReturnType = methodDef != null ? methodDef.RawReturnType! : LibCpp2IlReflection.GetTypeFromDefinition(methodCtx.InjectedReturnType!.Definition ?? throw new("Injected methods with injected return types not supported at the moment."))!;
             var returnType = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, rawReturnType));
 
-            TypeSignature[] parameterTypes;
-            var parameterDefinitions = Array.Empty<ParameterDefinition>();
-            
             var paramData = methodCtx.Parameters;
-            parameterTypes = new TypeSignature[paramData.Count];
-            parameterDefinitions = new ParameterDefinition[paramData.Count];
+            var parameterTypes = new TypeSignature[paramData.Count];
+            var parameterDefinitions = new ParameterDefinition[paramData.Count];
             foreach (var parameterAnalysisContext in methodCtx.Parameters)
             {
                 var i = parameterAnalysisContext.ParamIndex; 
