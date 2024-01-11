@@ -39,27 +39,24 @@ public static class Il2CppTypeToContext
     {
         if (type == null)
             return null;
+
+        TypeAnalysisContext ret;
         
         if (type.Type.IsIl2CppPrimitive())
-            return context.AppContext.SystemTypes.GetPrimitive(type.Type);
+            ret = context.AppContext.SystemTypes.GetPrimitive(type.Type);
+        else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE) 
+            ret = context.AppContext.ResolveContextForType(type.AsClass()) ?? throw new($"Could not resolve type context for type {type.AsClass().FullName}");
+        else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
+            ret = new GenericInstanceTypeAnalysisContext(type, context);
+        else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_BYREF or Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY or Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
+            ret = WrappedTypeAnalysisContext.Create(type, context);
+        else
+            ret = new GenericParameterTypeAnalysisContext(type, context);
 
-        if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
-        {
-            var typeDefContext = context.AppContext.ResolveContextForType(type.AsClass()) ?? throw new($"Could not resolve type context for type {type.AsClass().FullName}");
-
-            if (type.Byref == 1)
-                // Byref types need to be wrapped
-                return typeDefContext.MakeByReferenceType();
-            
-            return typeDefContext;
-        }
-
-        if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
-            return new GenericInstanceTypeAnalysisContext(type, context);
-
-        if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_BYREF or Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY or Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
-            return WrappedTypeAnalysisContext.Create(type, context);
-
-        return new GenericParameterTypeAnalysisContext(type, context);
+        if (type.Byref == 1)
+            //Byref types need to be wrapped in a byref context so that we don't have incorrect method signatures.
+            ret = ret.MakeByReferenceType();
+        
+        return ret;
     }
 }
