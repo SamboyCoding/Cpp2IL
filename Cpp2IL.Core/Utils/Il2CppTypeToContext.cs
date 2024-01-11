@@ -44,7 +44,15 @@ public static class Il2CppTypeToContext
             return context.AppContext.SystemTypes.GetPrimitive(type.Type);
 
         if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
-            return context.AppContext.ResolveContextForType(type.AsClass()) ?? throw new($"Could not resolve type context for type {type.AsClass().FullName}");
+        {
+            var typeDefContext = context.AppContext.ResolveContextForType(type.AsClass()) ?? throw new($"Could not resolve type context for type {type.AsClass().FullName}");
+
+            if (type.Byref == 1)
+                // Byref types need to be wrapped
+                return typeDefContext.MakeByReferenceType();
+            
+            return typeDefContext;
+        }
 
         if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
             return new GenericInstanceTypeAnalysisContext(type, context);
