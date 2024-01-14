@@ -35,7 +35,7 @@
     <ItemGroup>
         <!--Needed for DLL output-->
         <PackageReference Include="AsmResolver.DotNet" Version="5.5.0" />
-		<PackageReference Include="AssetRipper.CIL" Version="1.0.0" />
+        <PackageReference Include="AssetRipper.CIL" Version="1.0.1" />
         
         <!--For ARM64 dissassembly-->
         <PackageReference Include="Disarm" Version="2022.1.0-master.26" />
@@ -44,7 +44,7 @@
         <PackageReference Include="Iced" Version="1.20.0" />
         
         <!--For ARM64 and ARMv7 disassembly. Future: Remove once disarm is stable and move ARMv7 to CapstoneSharp by 6pak-->
-        <PackageReference Include="AssetRipper.Gee.External.Capstone" Version="2.3.1" />
+        <PackageReference Include="AssetRipper.Gee.External.Capstone" Version="2.3.2" />
         
         <!--Not used at runtime, but needed for the build-->
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
