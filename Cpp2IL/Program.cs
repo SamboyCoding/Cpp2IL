@@ -43,6 +43,8 @@ namespace Cpp2IL
                 HandleSingleApk(gamePath, ref args);
             else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() is ".xapk" or ".apkm")
                 HandleXapk(gamePath, ref args);
+            else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() is ".ipa" or ".tipa")
+                HandleIpa(gamePath, ref args);
             else
             {
                 if (!Cpp2IlPluginManager.TryProcessGamePath(gamePath, ref args))
@@ -338,6 +340,72 @@ namespace Cpp2IL
             }
 
             Logger.InfoNewline($"Determined game's unity version to be {args.UnityVersion}", "XAPK");
+
+            args.Valid = true;
+        }
+
+        private static void HandleIpa(string gamePath, ref Cpp2IlRuntimeArgs args)
+        {
+            //IPA
+            //Metadata: Payload/AppName.app/Data/Managed/Metadata/global-metadata.dat
+            //Binary: Payload/AppName.app/Frameworks/UnityFramework.framework/UnityFramework
+            //GlobalGameManager: Payload/AppName.app/Data/globalgamemanagers
+            //Unity3d: Payload/AppName.app/Data/data.unity3d
+
+            Logger.VerboseNewline("Trying HandleIpa as provided path is an ipa or tipa file");
+
+            Logger.InfoNewline($"Attempting to extract required files from IPA {gamePath}", "IPA");
+
+            using var stream = File.OpenRead(gamePath);
+            using var zipArchive = new ZipArchive(stream);
+
+            var globalMetadata = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("Data/Managed/Metadata/global-metadata.dat"));
+            var binary = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("Frameworks/UnityFramework.framework/UnityFramework"));
+
+            var globalgamemanagers = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("Data/globalgamemanagers"));
+            var dataUnity3d = zipArchive.Entries.FirstOrDefault(e => e.FullName.EndsWith("Data/data.unity3d"));
+
+            if (binary == null)
+                throw new SoftException("Could not find UnityFramework inside the ipa.");
+            if (globalMetadata == null)
+                throw new SoftException("Could not find global-metadata.dat inside the ipa.");
+            if (globalgamemanagers == null && dataUnity3d == null)
+                throw new SoftException("Could not find globalgamemanagers or unity3d inside the ipa.");
+
+            var tempFileBinary = Path.GetTempFileName();
+            var tempFileMeta = Path.GetTempFileName();
+
+            PathsToDeleteOnExit.Add(tempFileBinary);
+            PathsToDeleteOnExit.Add(tempFileMeta);
+
+            Logger.InfoNewline($"Extracting IPA/{binary.FullName} to {tempFileBinary}", "IPA");
+            binary.ExtractToFile(tempFileBinary, true);
+            Logger.InfoNewline($"Extracting IPA/{globalMetadata.FullName} to {tempFileMeta}", "IPA");
+            globalMetadata.ExtractToFile(tempFileMeta, true);
+
+            args.PathToAssembly = tempFileBinary;
+            args.PathToMetadata = tempFileMeta;
+
+            if (globalgamemanagers != null)
+            {
+                Logger.InfoNewline("Reading globalgamemanagers to determine unity version...", "IPA");
+                var ggmBytes = new byte[0x40];
+                using var ggmStream = globalgamemanagers.Open();
+
+                // ReSharper disable once MustUseReturnValue
+                ggmStream.Read(ggmBytes, 0, 0x40);
+
+                args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
+            }
+            else
+            {
+                Logger.InfoNewline("Reading data.unity3d to determine unity version...", "IPA");
+                using var du3dStream = dataUnity3d!.Open();
+
+                args.UnityVersion = Cpp2IlApi.GetVersionFromDataUnity3D(du3dStream);
+            }
+
+            Logger.InfoNewline($"Determined game's unity version to be {args.UnityVersion}", "IPA");
 
             args.Valid = true;
         }
