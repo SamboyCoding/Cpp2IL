@@ -333,11 +333,19 @@ namespace LibCpp2IL
 
         public ulong[] ReadNUintArrayAtRawAddress(long offset, int count)
         {
+            if(offset > Length)
+                throw new EndOfStreamException($"ReadNUintArrayAtRawAddress: Offset 0x{offset:X} is beyond the end of the stream (length 0x{Length:X})");
+            
+            var inBounds = offset + count * (int)PointerSize <= Length;
+            if (!inBounds)
+                throw new EndOfStreamException($"ReadNUintArrayAtRawAddress: Attempted to read {count} pointers (pointer length {PointerSize}) at offset 0x{offset:X}, but this goes beyond the end of the stream (length 0x{Length:X})");
+            
             GetLockOrThrow();
 
             try
             {
                 Position = offset;
+                
                 var ret = new ulong[count];
 
                 for (var i = 0; i < count; i++)

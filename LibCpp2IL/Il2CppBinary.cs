@@ -350,6 +350,10 @@ namespace LibCpp2IL
 
         public ulong[] ReadNUintArrayAtVirtualAddress(ulong addr, long count) => Reader.ReadNUintArrayAtRawAddress(MapVirtualAddressToRaw(addr), (int)count);
 
+        public override long ReadNInt() => is32Bit ? Reader.ReadInt32() : Reader.ReadInt64();
+
+        public override ulong ReadNUint() => is32Bit ? Reader.ReadUInt32() : Reader.ReadUInt64();
+
         public ulong ReadPointerAtVirtualAddress(ulong addr)
         {
             Position = MapVirtualAddressToRaw(addr);

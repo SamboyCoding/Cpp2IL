@@ -243,9 +243,5 @@ namespace LibCpp2IL.Wasm
         public override byte[] GetEntirePrimaryExecutableSection() => ((WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE)).RawSectionContent;
 
         public override ulong GetVirtualAddressOfPrimaryExecutableSection() => (ulong) Sections.First(s => s.Type == WasmSectionId.SEC_CODE).Pointer;
-
-        public override long ReadNInt() => is32Bit ? _memoryBlock.ReadInt32() : _memoryBlock.ReadInt64();
-
-        public override ulong ReadNUint() => is32Bit ? _memoryBlock.ReadUInt32() : _memoryBlock.ReadUInt64();
     }
 }

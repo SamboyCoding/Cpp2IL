@@ -328,72 +328,79 @@ namespace LibCpp2IL
             var mrFieldCount = sizeOfMr / ptrSize;
             foreach (var va in possibleMetadataUsages)
             {
-                var mrWords = _binary.ReadNUintArrayAtVirtualAddress(va, (int) mrFieldCount);
-
-                // Even field indices are counts, odd field indices are pointers
-                var ok = true;
-                for (var i = 0; i < mrWords.Length && ok; i++)
+                try
                 {
-                    if (i % 2 == 0)
-                    {
-                        //Count
-                        ok = mrWords[i] < 0xC_0000;
+                    var mrWords = _binary.ReadNUintArrayAtVirtualAddress(va, (int)mrFieldCount);
 
-                        if (!ok)
-                            LibLogger.VerboseNewline($"\t\t\tRejected Metadata registration at 0x{va:X}, because it has a count field 0x{mrWords[i]:X} at offset {i} which is above sanity limit of 0xC0000. If metadata registration detection fails, may need to bump up the limit.");
-                    }
-                    else
+                    // Even field indices are counts, odd field indices are pointers
+                    var ok = true;
+                    for (var i = 0; i < mrWords.Length && ok; i++)
                     {
-                        //Pointer
-                        if (mrWords[i] == 0)
+                        if (i % 2 == 0)
                         {
-                            ok = i >= 14; //Maybe need an investigation here, but metadataUsages can be (always is?) a null ptr on v27
-                            if(!ok)
-                                LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i} is 0.");
+                            //Count
+                            ok = mrWords[i] < 0xC_0000;
+
+                            if (!ok)
+                                LibLogger.VerboseNewline($"\t\t\tRejected Metadata registration at 0x{va:X}, because it has a count field 0x{mrWords[i]:X} at offset {i} which is above sanity limit of 0xC0000. If metadata registration detection fails, may need to bump up the limit.");
                         }
                         else
                         {
-                            ok = _binary.TryMapVirtualAddressToRaw((ulong) mrWords[i], out _); //Can be mapped successfully to the binary.
-                            if (!ok)
-                                LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i}, which is 0x{mrWords[i]:X}, can't be mapped to the binary.");
+                            //Pointer
+                            if (mrWords[i] == 0)
+                            {
+                                ok = i >= 14; //Maybe need an investigation here, but metadataUsages can be (always is?) a null ptr on v27
+                                if (!ok)
+                                    LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i} is 0.");
+                            }
+                            else
+                            {
+                                ok = _binary.TryMapVirtualAddressToRaw((ulong)mrWords[i], out _); //Can be mapped successfully to the binary.
+                                if (!ok)
+                                    LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i}, which is 0x{mrWords[i]:X}, can't be mapped to the binary.");
+                            }
                         }
+
+                        if (!ok)
+                            break;
                     }
 
-                    if (!ok)
-                        break;
+                    if (ok)
+                    {
+                        var metaReg = _binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(va);
+                        if (LibCpp2IlMain.MetadataVersion >= 27f && (metaReg.metadataUsagesCount != 0 || metaReg.metadataUsages != 0))
+                        {
+                            //Too many metadata usages - should be 0 on v27
+                            LibLogger.VerboseNewline($"\t\t\tWarning: metadata registration 0x{va:X} has {metaReg.metadataUsagesCount} metadata usages at a pointer of 0x{metaReg.metadataUsages:X}. We're on v27, these should be 0.");
+                            // continue;
+                        }
+
+                        if (metaReg.typeDefinitionsSizesCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                        {
+                            LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.typeDefinitionsSizesCount} type def sizes, while metadata file defines {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                            continue;
+                        }
+
+                        if (metaReg.numTypes < LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                        {
+                            LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.numTypes} types, which is less than metadata-file-defined type def count of {LibCpp2IlMain.TheMetadata!.typeDefs.Length}");
+                            continue;
+                        }
+
+                        if (metaReg.fieldOffsetsCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
+                        {
+                            //If we see any cases of failing to find meta reg and this line is in verbose log, maybe the assumption (num field offsets == num type defs) is wrong.
+                            LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.fieldOffsetsCount} field offsets, while metadata file defines {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
+                            continue;
+                        }
+
+                        LibLogger.VerboseNewline($"\t\t\tAccepting metadata reg as VA 0x{va:X}");
+                        return va;
+                    }
                 }
-
-                if (ok)
+                catch (Exception e)
                 {
-                    var metaReg = _binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(va);
-                    if (LibCpp2IlMain.MetadataVersion >= 27f && (metaReg.metadataUsagesCount != 0 || metaReg.metadataUsages != 0))
-                    {
-                        //Too many metadata usages - should be 0 on v27
-                        LibLogger.VerboseNewline($"\t\t\tWarning: metadata registration 0x{va:X} because it has {metaReg.metadataUsagesCount} metadata usages at a pointer of 0x{metaReg.metadataUsages:X}. We're on v27, these should be 0.");
-                        // continue;
-                    }
-
-                    if (metaReg.typeDefinitionsSizesCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
-                    {
-                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.typeDefinitionsSizesCount} type def sizes, while metadata file defines {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
-                        continue;
-                    }
-
-                    if (metaReg.numTypes < LibCpp2IlMain.TheMetadata!.typeDefs.Length)
-                    {
-                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.numTypes} types, which is less than metadata-file-defined type def count of {LibCpp2IlMain.TheMetadata!.typeDefs.Length}");
-                        continue;
-                    }
-                    
-                    if (metaReg.fieldOffsetsCount != LibCpp2IlMain.TheMetadata!.typeDefs.Length)
-                    {
-                        //If we see any cases of failing to find meta reg and this line is in verbose log, maybe the assumption (num field offsets == num type defs) is wrong.
-                        LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because it has {metaReg.fieldOffsetsCount} field offsets, while metadata file defines {LibCpp2IlMain.TheMetadata!.typeDefs.Length} type defs");
-                        continue;
-                    }
-
-                    LibLogger.VerboseNewline($"\t\t\tAccepting metadata reg as VA 0x{va:X}");
-                    return va;
+                    LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration at 0x{va:X} because it threw an exception of type {e.GetType().FullName}");
                 }
             }
 
