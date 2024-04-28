@@ -5,7 +5,7 @@ on:
     branches: [ new-analysis, development ]
   pull_request:
     branches: [ new-analysis, development ]
-  woworkflow_dispatch:
+  workflow_dispatch:
 
 jobs:
   release-net7:
