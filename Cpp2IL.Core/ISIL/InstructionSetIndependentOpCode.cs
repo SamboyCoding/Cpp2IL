@@ -10,18 +10,27 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.MemoryOrStack);
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
+    public static readonly InstructionSetIndependentOpCode Convert = new(IsilMnemonic.Convert, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Info);
+    public static readonly InstructionSetIndependentOpCode Shuffle = new(IsilMnemonic.Shuffle, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode LongShuffle = new(IsilMnemonic.Shuffle, 4, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Add = new(IsilMnemonic.Add, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Subtract = new(IsilMnemonic.Subtract, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Multiply = new(IsilMnemonic.Multiply, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
-    public static readonly InstructionSetIndependentOpCode Divide = new(IsilMnemonic.Divide, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Divide1 = new(IsilMnemonic.Divide, 1, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Divide2 = new(IsilMnemonic.Divide, 1, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Divide3 = new(IsilMnemonic.Divide, 1, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode ShiftLeft = new(IsilMnemonic.ShiftLeft, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode ShiftRight = new(IsilMnemonic.ShiftRight, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode And = new(IsilMnemonic.And, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Or = new(IsilMnemonic.Or, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Xor = new(IsilMnemonic.Xor, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Neg = new(IsilMnemonic.Neg, 1, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Not = new(IsilMnemonic.Not, 1, InstructionSetIndependentOperand.OperandType.NotStack);
     public static readonly InstructionSetIndependentOpCode Compare = new(IsilMnemonic.Compare, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode BitTest = new(IsilMnemonic.BitTest, 3, InstructionSetIndependentOperand.OperandType.Info, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode RotateLeft = new(IsilMnemonic.RotateLeft, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode RotateRight = new(IsilMnemonic.RotateRight, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     //public static readonly InstructionSetIndependentOpCode CompareNotEqual = new(IsilMnemonic.CompareNotEqual, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     //public static readonly InstructionSetIndependentOpCode CompareLessThan = new(IsilMnemonic.CompareLessThan, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     //public static readonly InstructionSetIndependentOpCode CompareGreaterThan = new(IsilMnemonic.CompareGreaterThan, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
@@ -33,13 +42,26 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Return = new(IsilMnemonic.Return, 1, InstructionSetIndependentOperand.OperandType.NotStack);
 
     public static readonly InstructionSetIndependentOpCode Goto = new(IsilMnemonic.Goto, 1, InstructionSetIndependentOperand.OperandType.Instruction);
+    public static readonly InstructionSetIndependentOpCode GotoRegister = new(IsilMnemonic.Goto, 1, InstructionSetIndependentOperand.OperandType.Register);
 
+    public static readonly InstructionSetIndependentOpCode JumpIfSign = new(IsilMnemonic.JumpIfParity, 1, InstructionSetIndependentOperand.OperandType.Instruction);
+    public static readonly InstructionSetIndependentOpCode JumpIfNotSign = new(IsilMnemonic.JumpIfParity, 1, InstructionSetIndependentOperand.OperandType.Instruction);
+    public static readonly InstructionSetIndependentOpCode JumpIfParity = new(IsilMnemonic.JumpIfParity, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfEqual = new(IsilMnemonic.JumpIfEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfNotEqual = new(IsilMnemonic.JumpIfNotEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfGreater = new(IsilMnemonic.JumpIfGreater, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfLess = new(IsilMnemonic.JumpIfLess, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfGreaterOrEqual = new(IsilMnemonic.JumpIfGreaterOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfLessOrEqual = new(IsilMnemonic.JumpIfLessOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
+
+    public static readonly InstructionSetIndependentOpCode SignExtend = new(IsilMnemonic.SignExtend, 1, InstructionSetIndependentOperand.OperandType.Register);
+    public static readonly InstructionSetIndependentOpCode ZeroExtend = new(IsilMnemonic.ZeroExtend, 1, InstructionSetIndependentOperand.OperandType.Register);
+
+    public static readonly InstructionSetIndependentOpCode ByteSwap = new(IsilMnemonic.ByteSwap, 1, InstructionSetIndependentOperand.OperandType.Register);
+
+    public static readonly InstructionSetIndependentOpCode CursedCPUFlags = new(IsilMnemonic.CursedCPUFlags, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Info);
+
+    public static readonly InstructionSetIndependentOpCode Nop = new(IsilMnemonic.Nop, 0);
 
     public static readonly InstructionSetIndependentOpCode Interrupt = new(IsilMnemonic.Interrupt, 0);
 
