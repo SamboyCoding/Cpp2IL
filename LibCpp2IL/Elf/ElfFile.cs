@@ -684,7 +684,7 @@ namespace LibCpp2IL.Elf
 
         public override long MapVirtualAddressToRaw(ulong addr, bool throwOnError = true)
         {
-            var section = _elfProgramHeaderEntries.FirstOrDefault(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
+            var section = _elfProgramHeaderEntries.FirstOrDefault(x => addr >= x.VirtualAddress && addr < x.VirtualAddress + x.VirtualSize);
 
             if (section == null)
                 if (throwOnError)
@@ -704,7 +704,7 @@ namespace LibCpp2IL.Elf
 
         public override ulong MapRawAddressToVirtual(uint offset)
         {
-            if (relocationBlocks.Any(b => b.start <= offset && b.end >= offset))
+            if (relocationBlocks.Any(b => b.start <= offset && b.end > offset))
                 throw new InvalidOperationException("Attempt to map a relocation block to a virtual address");
             
             var section = _elfProgramHeaderEntries.First(x => offset >= x.RawAddress && offset < x.RawAddress + x.RawSize);
