@@ -106,6 +106,8 @@ namespace LibCpp2IL.Metadata
             }
             else if (version == 29)
             {
+                if (unityVersion.GreaterThanOrEquals(2023, 2, 0, UnityVersionType.Alpha, 22))
+                    actualVersion = 29.2f; //2023.2.0a22 introduces v29.2 which adds a new field to Il2CppMethodDefinition
                 if (unityVersion.GreaterThanOrEquals(2022, 1, 0, UnityVersionType.Beta, 7))
                     actualVersion = 29.1f; //2022.1.0b7 introduces v29.1 which adds two new pointers to codereg
                 else

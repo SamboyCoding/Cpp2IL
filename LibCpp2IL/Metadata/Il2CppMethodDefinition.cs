@@ -26,6 +26,7 @@ namespace LibCpp2IL.Metadata
         public ushort iflags;
         public ushort slot;
         public ushort parameterCount;
+        [Version(Min = 29.2f)] public bool isUnmanagedCallersOnly; //uint8_t
 
         public MethodAttributes Attributes => (MethodAttributes) flags;
 
@@ -176,6 +177,9 @@ namespace LibCpp2IL.Metadata
             iflags = reader.ReadUInt16();
             slot = reader.ReadUInt16();
             parameterCount = reader.ReadUInt16();
+            
+            if (IsAtLeast(29.2f))
+                isUnmanagedCallersOnly = reader.ReadByte() != 0;
         }
     }
 }
