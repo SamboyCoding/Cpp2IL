@@ -21,7 +21,12 @@ public readonly struct InstructionSetIndependentOperand
     }
 
     public override string? ToString()
-        => Data.ToString();
+    {
+        if(Data is InstructionSetIndependentInstruction instruction)
+            return $"{{{instruction.InstructionIndex.ToString()}}}"; //Special case for instructions, we want to show the index in braces. Otherwise we print the entire instruction and it looks weird.
+        
+        return Data.ToString();
+    }
 
     [Flags]
     public enum OperandType

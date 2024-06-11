@@ -11,7 +11,7 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
     public static readonly InstructionSetIndependentOpCode CallNoReturn = new(IsilMnemonic.CallNoReturn);
     public static readonly InstructionSetIndependentOpCode Exchange = new(IsilMnemonic.Exchange, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.NotStack);
-    public static readonly InstructionSetIndependentOpCode Add = new(IsilMnemonic.Add, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
+    public static readonly InstructionSetIndependentOpCode Add = new(IsilMnemonic.Add, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Subtract = new(IsilMnemonic.Subtract, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Multiply = new(IsilMnemonic.Multiply, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Divide = new(IsilMnemonic.Divide, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);

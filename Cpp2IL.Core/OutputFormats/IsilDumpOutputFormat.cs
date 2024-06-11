@@ -50,6 +50,11 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
                     {
                         method.Analyze();
 
+                        typeDump.AppendLine("Disassembly:");
+                        typeDump.Append('\t').AppendLine(context.InstructionSet.PrintAssembly(method).Replace("\n", "\n\t"));
+
+                        typeDump.AppendLine().AppendLine("ISIL:");
+
                         if (method.ConvertedIsil == null || method.ConvertedIsil.Count == 0)
                         {
                             typeDump.AppendLine("No ISIL was generated");
@@ -65,7 +70,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
                     }
                     catch (Exception e)
                     {
-                        typeDump.Append("Method threw an exception while analyzing - ").AppendLine(e.Message).AppendLine();
+                        typeDump.Append("Method threw an exception while analyzing - ").AppendLine(e.ToString()).AppendLine();
                     }
                 }
 

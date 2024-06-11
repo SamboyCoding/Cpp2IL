@@ -78,7 +78,7 @@ public class IsilBuilder
     public void Exchange(ulong instructionAddress, InstructionSetIndependentOperand place1, InstructionSetIndependentOperand place2) => AddInstruction(new(InstructionSetIndependentOpCode.Exchange, instructionAddress, IsilFlowControl.Continue, place1, place2));
 
     public void Subtract(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Subtract, instructionAddress, IsilFlowControl.Continue, left, right));
-    public void Add(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Add, instructionAddress, IsilFlowControl.Continue, left, right));
+    public void Add(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Add, instructionAddress, IsilFlowControl.Continue, dest, left, right));
     public void Xor(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Xor, instructionAddress, IsilFlowControl.Continue, left, right));
     // The following 4 had their opcode implemented but not the builder func
     // I don't know why

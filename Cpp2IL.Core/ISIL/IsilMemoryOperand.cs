@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Text;
 
@@ -95,15 +96,15 @@ public readonly struct IsilMemoryOperand : IsilOperandData
             needsPlus = true;
         }
         
-        if(Addend > 0)
+        if(Addend != 0)
         {
             if (needsPlus)
-                ret.Append("+");
+                ret.Append(Addend > 0 ? '+' : '-');
             
             if(Addend > 0x10000)
-                ret.AppendFormat("0x{0:X}", Addend);
+                ret.AppendFormat("0x{0:X}", Math.Abs(Addend));
             else
-                ret.Append(Addend);
+                ret.Append(Math.Abs(Addend));
             needsPlus = true;
         }
         

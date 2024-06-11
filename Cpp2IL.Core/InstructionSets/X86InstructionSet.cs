@@ -136,7 +136,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 if (isSubtract)
                     builder.Subtract(instruction.IP, left, right);
                 else
-                    builder.Add(instruction.IP, left, right);
+                    builder.Add(instruction.IP,  left, left, right);
 
                 break;
             case Mnemonic.Dec:
@@ -145,7 +145,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 var isDec = instruction.Mnemonic == Mnemonic.Dec;
                 var im = InstructionSetIndependentOperand.MakeImmediate(1);
                 if (isDec) builder.Subtract(instruction.IP, ConvertOperand(instruction, 0), im);
-                else builder.Add(instruction.IP, ConvertOperand(instruction, 0), im);
+                else builder.Add(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), im);
                 break;
             case Mnemonic.Call:
                 // We don't try and resolve which method is being called, but we do need to know how many parameters it has
