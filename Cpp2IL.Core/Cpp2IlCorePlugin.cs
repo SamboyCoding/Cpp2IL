@@ -30,10 +30,10 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         InstructionSetRegistry.RegisterInstructionSet<WasmInstructionSet>(DefaultInstructionSets.WASM);
         InstructionSetRegistry.RegisterInstructionSet<ArmV7InstructionSet>(DefaultInstructionSets.ARM_V7);
         
-        if(Environment.GetEnvironmentVariable("CPP2IL_NEW_ARM64") != null)
-            InstructionSetRegistry.RegisterInstructionSet<NewArmV8InstructionSet>(DefaultInstructionSets.ARM_V8);
-        else
+        if(Environment.GetEnvironmentVariable("CPP2IL_LEGACY_ARM64") != null)
             InstructionSetRegistry.RegisterInstructionSet<Arm64InstructionSet>(DefaultInstructionSets.ARM_V8);
+        else
+            InstructionSetRegistry.RegisterInstructionSet<NewArmV8InstructionSet>(DefaultInstructionSets.ARM_V8);
         
         Logger.VerboseNewline("\tRegistering built-in binary parsers...", "Core Plugin");
         
