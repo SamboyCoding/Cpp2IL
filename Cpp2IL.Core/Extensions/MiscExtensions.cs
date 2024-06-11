@@ -107,7 +107,7 @@ namespace Cpp2IL.Core.Extensions
             return res.ToString();
         }
 
-        public static T[] SubArray<T>(this T[] source, Range range)
+        internal static T[] SubArray<T>(this T[] source, Range range)
         {
             if (!range.Start.IsFromEnd && !range.End.IsFromEnd)
                 if (range.Start.Value > range.End.Value)

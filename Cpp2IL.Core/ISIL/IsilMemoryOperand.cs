@@ -12,14 +12,14 @@ public readonly struct IsilMemoryOperand : IsilOperandData
 {
     public readonly InstructionSetIndependentOperand? Base = null; //Must be literal
     public readonly InstructionSetIndependentOperand? Index = null;
-    public readonly ulong Addend = 0;
+    public readonly long Addend = 0;
     public readonly int Scale = 0;
 
     /// <summary>
     /// Create a new memory operand representing just a constant address
     /// </summary>
     /// <param name="addend">The constant address which will be represented as the addent</param>
-    public IsilMemoryOperand(ulong addend)
+    public IsilMemoryOperand(long addend)
     {
         Addend = addend;
     }
@@ -40,7 +40,7 @@ public readonly struct IsilMemoryOperand : IsilOperandData
     /// </summary>
     /// <param name="base">The base. Should be an operand of type <see cref="InstructionSetIndependentOperand.OperandType.Register"/></param>
     /// <param name="addend">The addend relative to the memory base.</param>
-    public IsilMemoryOperand(InstructionSetIndependentOperand @base, ulong addend)
+    public IsilMemoryOperand(InstructionSetIndependentOperand @base, long addend)
     {
         Debug.Assert(@base.Type == InstructionSetIndependentOperand.OperandType.Register);
         
@@ -72,7 +72,7 @@ public readonly struct IsilMemoryOperand : IsilOperandData
     /// <param name="index">The index. Should be an operand of type <see cref="InstructionSetIndependentOperand.OperandType.Register"/></param>
     /// <param name="addend">A constant addend to be added to the memory address after adding the index multiplied by the scale.</param>
     /// <param name="scale">The scale that the index is multiplied by. Should be a positive integer.</param>
-    public IsilMemoryOperand(InstructionSetIndependentOperand @base, InstructionSetIndependentOperand index, ulong addend, int scale)
+    public IsilMemoryOperand(InstructionSetIndependentOperand @base, InstructionSetIndependentOperand index, long addend, int scale)
     {
         Debug.Assert(@base.Type == InstructionSetIndependentOperand.OperandType.Register);
         Debug.Assert(index.Type == InstructionSetIndependentOperand.OperandType.Register);

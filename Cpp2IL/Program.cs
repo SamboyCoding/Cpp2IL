@@ -267,8 +267,20 @@ namespace Cpp2IL
             using var xapkStream = File.OpenRead(gamePath);
             using var xapkZip = new ZipArchive(xapkStream);
 
-            var configApk = xapkZip.Entries.FirstOrDefault(e => e.FullName.Contains("config.") && e.FullName.EndsWith(".apk"));
-            var mainApk = xapkZip.Entries.FirstOrDefault(e => e != configApk && e.FullName.EndsWith(".apk"));
+            ZipArchiveEntry? configApk = null;
+            var configApks = xapkZip.Entries.Where(e => e.FullName.Contains("config.") && e.FullName.EndsWith(".apk")).ToList();
+
+            var instructionSetPreference = new string[] { "arm64_v8a", "arm64", "armeabi_v7a", "arm" };
+            foreach (var instructionSet in instructionSetPreference)
+            {
+                configApk = configApks.FirstOrDefault(e => e.FullName.Contains(instructionSet));
+                if (configApk != null)
+                    break;
+            }
+            
+            //Try for base.apk, else find any apk that isn't the config apk
+            var mainApk = xapkZip.Entries.FirstOrDefault(e => e.FullName.EndsWith(".apk") && e.FullName.Contains("base.apk"))
+                ?? xapkZip.Entries.FirstOrDefault(e => e != configApk && e.FullName.EndsWith(".apk"));
 
             Logger.InfoNewline($"Identified APKs inside XAPK - config: {configApk?.FullName}, mainPackage: {mainApk?.FullName}", "XAPK");
 

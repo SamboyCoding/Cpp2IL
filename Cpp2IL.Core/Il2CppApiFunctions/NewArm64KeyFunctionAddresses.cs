@@ -12,17 +12,17 @@ namespace Cpp2IL.Core.Il2CppApiFunctions;
 
 public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
 {
-    private Arm64DisassemblyResult? _cachedDisassembledBytes;
+    private List<Arm64Instruction>? _cachedDisassembledBytes;
 
-    private Arm64DisassemblyResult DisassembleTextSection()
+    private List<Arm64Instruction> DisassembleTextSection()
     {
         if (_cachedDisassembledBytes == null)
         {
             var toDisasm = LibCpp2IlMain.Binary!.GetEntirePrimaryExecutableSection();
-            _cachedDisassembledBytes = Disassembler.Disassemble(toDisasm, LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection());
+            _cachedDisassembledBytes = Disassembler.Disassemble(toDisasm, LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection(), new(true, true, false)).ToList();
         }
 
-        return _cachedDisassembledBytes.Value;
+        return _cachedDisassembledBytes;
     }
 
     protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)
@@ -31,7 +31,7 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
         var disassembly = DisassembleTextSection();
 
         //Find all jumps to the target address
-        var matchingJmps = disassembly.Instructions.Where(i => i.Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL && i.BranchTarget == addr).ToList();
+        var matchingJmps = disassembly.Where(i => i.Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL && i.BranchTarget == addr).ToList();
 
         foreach (var matchingJmp in matchingJmps)
         {
@@ -130,6 +130,6 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
         var disassembly = DisassembleTextSection();
 
         //Find all jumps to the target address
-        return disassembly.Instructions.Count(i => i.Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL && i.BranchTarget == toWhere);
+        return disassembly.Count(i => i.Mnemonic is Arm64Mnemonic.B or Arm64Mnemonic.BL && i.BranchTarget == toWhere);
     }
 }

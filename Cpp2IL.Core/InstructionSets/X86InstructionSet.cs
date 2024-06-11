@@ -317,7 +317,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         //Most complex to least complex
 
         if (instruction.IsIPRelativeMemoryOperand)
-            return InstructionSetIndependentOperand.MakeMemory(new(instruction.IPRelativeMemoryAddress));
+            return InstructionSetIndependentOperand.MakeMemory(new((long)instruction.IPRelativeMemoryAddress));
 
         //All four components
         if (instruction.MemoryIndex != Register.None && instruction.MemoryBase != Register.None && instruction.MemoryDisplacement64 != 0)
@@ -339,7 +339,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         if (instruction.MemoryBase != Register.None && instruction.MemoryDisplacement64 > 0)
         {
             var mBase = InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(instruction.MemoryBase));
-            return InstructionSetIndependentOperand.MakeMemory(new(mBase, instruction.MemoryDisplacement64));
+            return InstructionSetIndependentOperand.MakeMemory(new(mBase, (long)instruction.MemoryDisplacement64));
         }
 
         //Only base
@@ -349,6 +349,6 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         }
 
         //Only addend
-        return InstructionSetIndependentOperand.MakeMemory(new(instruction.MemoryDisplacement64));
+        return InstructionSetIndependentOperand.MakeMemory(new((long)instruction.MemoryDisplacement64));
     }
 }
