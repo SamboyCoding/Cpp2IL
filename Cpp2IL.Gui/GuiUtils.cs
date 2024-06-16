@@ -7,7 +7,6 @@ using AsmResolver.PE;
 using AsmResolver.PE.Win32Resources;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Extensions;
-using LibCpp2IL;
 
 namespace Cpp2IL.Gui;
 
@@ -17,9 +16,9 @@ public static class GuiUtils
     {
         var pe = PEImage.FromFile(path);
 
-        var versionResourceDirectory = (IResourceDirectory) pe.Resources!.GetEntry(16); //ID 16 is RT_VERSION, from https://docs.microsoft.com/en-us/windows/win32/menurc/resource-types
-        var theSingleVersionResource = (IResourceDirectory) versionResourceDirectory.Entries.Single();
-        var defaultCultureVersionResource = (IResourceData) theSingleVersionResource.Entries.Single();
+        var versionResourceDirectory = (ResourceDirectory) pe.Resources!.GetEntry(16); //ID 16 is RT_VERSION, from https://docs.microsoft.com/en-us/windows/win32/menurc/resource-types
+        var theSingleVersionResource = (ResourceDirectory) versionResourceDirectory.Entries.Single();
+        var defaultCultureVersionResource = (ResourceData) theSingleVersionResource.Entries.Single();
         var versionResource = ((DataSegment) defaultCultureVersionResource.Contents!).Data;
 
         //https://docs.microsoft.com/en-us/windows/win32/menurc/vs-versioninfo
