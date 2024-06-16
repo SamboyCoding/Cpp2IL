@@ -12,6 +12,6 @@ public class AsmResolverDllOutputFormatDefault : AsmResolverDllOutputFormat
 
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
-        methodDefinition.FillMethodBodyWithStub();
+        methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
     }
 }

@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 using AsmResolver.DotNet;
-using AsmResolver.DotNet.Signatures.Types;
+using AsmResolver.DotNet.Signatures;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.BinaryStructures;
 
