@@ -12,7 +12,7 @@ jobs:
     strategy:     
       matrix:
         runtimeIdentifier: [linux-x64, osx-x64, win-x64]
-        project: [Cpp2IL, Cpp2IL.Gui]
+        project: [Cpp2IL]
     name: Build Single-File Artifact
     runs-on: ubuntu-latest
     steps:
