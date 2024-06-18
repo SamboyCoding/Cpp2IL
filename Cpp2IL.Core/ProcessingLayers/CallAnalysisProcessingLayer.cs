@@ -30,7 +30,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         const string Namespace = "Cpp2ILInjected.CallAnalysis";
 
         var deduplicatedMethodAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "DeduplicatedMethodAttribute", AttributeTargets.Method, false);
-        var analysisFailedAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "CallAnalysisFailedAttribute", AttributeTargets.Method, false);
+        var invalidInstructionsAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "ContainsInvalidInstructionsAttribute", AttributeTargets.Method, false);
+        var unimplementedInstructionsAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "ContainsUnimplementedInstructionsAttribute", AttributeTargets.Method, false);
         var analysisNotSupportedAttributes = AttributeInjectionUtils.InjectZeroParameterAttribute(appContext, Namespace, "CallAnalysisNotSupportedAttribute", AttributeTargets.Method, false);
 
         var callsDeduplicatedMethodsAttributes = AttributeInjectionUtils.InjectOneParameterAttribute(appContext, Namespace, "CallsDeduplicatedMethodsAttribute", AttributeTargets.Method, false, appContext.SystemTypes.SystemInt32Type, "Count");
@@ -50,7 +51,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
         {
-            var analysisFailedConstructor = analysisFailedAttributes[assemblyAnalysisContext];
+            var invalidInstructionsConstructor = invalidInstructionsAttributes[assemblyAnalysisContext];
+            var unimplementedInstructionsConstructor = unimplementedInstructionsAttributes[assemblyAnalysisContext];
             var analysisNotSupportedConstructor = analysisNotSupportedAttributes[assemblyAnalysisContext];
             var deduplicatedMethodConstructor = deduplicatedMethodAttributes[assemblyAnalysisContext];
 
@@ -65,16 +67,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, deduplicatedMethodConstructor);
                 }
 
-                try
-                {
-                    m.Analyze();
-                }
-                catch
-                {
-                    m.ConvertedIsil = null;
-                    AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisFailedConstructor);
-                    continue;
-                }
+                m.Analyze();
 
                 if (m.ConvertedIsil is { Count: 0 })
                 {
@@ -83,6 +76,16 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
                     }
                     continue;
+                }
+
+                if (m.ConvertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.Invalid))
+                {
+                    AttributeInjectionUtils.AddZeroParameterAttribute(m, invalidInstructionsConstructor);
+                }
+
+                if (m.ConvertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.NotImplemented))
+                {
+                    AttributeInjectionUtils.AddZeroParameterAttribute(m, unimplementedInstructionsConstructor);
                 }
 
                 foreach (var instruction in m.ConvertedIsil)

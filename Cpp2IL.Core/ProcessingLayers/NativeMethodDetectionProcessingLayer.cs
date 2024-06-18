@@ -48,20 +48,7 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
         if (m.UnderlyingPointer == 0)
             return;
 
-        try
-        {
-            m.Analyze();
-        }
-        catch (Exception ex)
-        {
-#if DEBUG
-            if (ex.Message is not "Failed to convert to ISIL. Reason: Jump target not found in method. Ruh roh" && !ex.Message.StartsWith("Instruction "))
-            {
-            }
-#endif
-            m.ConvertedIsil = null;
-            return;
-        }
+        m.Analyze();
 
         if (m.ConvertedIsil is { Count: 0 })
         {

@@ -45,6 +45,8 @@ public class InstructionSetIndependentOpCode
 
     public static readonly InstructionSetIndependentOpCode NotImplemented = new(IsilMnemonic.NotImplemented, 1, InstructionSetIndependentOperand.OperandType.Immediate);
 
+    public static readonly InstructionSetIndependentOpCode Invalid = new(IsilMnemonic.Invalid, 1, InstructionSetIndependentOperand.OperandType.Immediate);
+
 
     public readonly IsilMnemonic Mnemonic;
     public readonly InstructionSetIndependentOperand.OperandType[] PermittedOperandTypes;
@@ -76,7 +78,10 @@ public class InstructionSetIndependentOpCode
         var operands = instruction.Operands;
 
         if (operands.Length > MaxOperands)
-            throw new($"Too many operands! We have {operands.Length} but we only allow {MaxOperands}");
+        {
+            instruction.MakeInvalid($"Too many operands! We have {operands.Length} but we only allow {MaxOperands}");
+            return;
+        }
 
         if (PermittedOperandTypes.Length == 0)
             return;
@@ -84,7 +89,10 @@ public class InstructionSetIndependentOpCode
         for (var i = 0; i < operands.Length; i++)
         {
             if ((operands[i].Type & PermittedOperandTypes[i]) == 0)
-                throw new($"Instruction {instruction}: Operand {operands[i]} at index {i} (0-based) is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
+            {
+                instruction.MakeInvalid($"Operand {operands[i]} at index {i} (0-based) is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
+                return;
+            }
         }
     }
 

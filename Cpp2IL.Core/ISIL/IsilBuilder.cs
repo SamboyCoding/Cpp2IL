@@ -30,15 +30,13 @@ public class IsilBuilder
 
     private void AddInstruction(InstructionSetIndependentInstruction instruction)
     {
-        if (InstructionAddressMap.ContainsKey(instruction.ActualAddress))
+        if (InstructionAddressMap.TryGetValue(instruction.ActualAddress, out var list))
         {
-            InstructionAddressMap[instruction.ActualAddress].Add(instruction);
+            list.Add(instruction);
         }
         else
         {
-            var newList = new List<InstructionSetIndependentInstruction>();
-            newList.Add(instruction);
-            InstructionAddressMap[instruction.ActualAddress] = newList;
+            InstructionAddressMap[instruction.ActualAddress] = [ instruction ];
         }
         BackingStatementList.Add(instruction);
         instruction.InstructionIndex = (uint)BackingStatementList.Count;
@@ -51,17 +49,15 @@ public class IsilBuilder
             if (InstructionAddressMap.TryGetValue(tuple.Item2, out var list))
             {
                 var target = list.First();
-                if (target is null)
-                    throw new IsilConversionException("This can't ever happen");
 
                 if (target.Equals(tuple.Item1))
-                    throw new IsilConversionException("Invalid jump target for instruction: Instruction can't jump to itself");
-
-                tuple.Item1.Operands = new[] { InstructionSetIndependentOperand.MakeInstruction(target) };
+                    tuple.Item1.MakeInvalid("Invalid jump target for instruction: Instruction can't jump to itself");
+                else
+                    tuple.Item1.Operands = [InstructionSetIndependentOperand.MakeInstruction(target)];
             }
             else
             {
-                throw new IsilConversionException("Jump target not found in method. Ruh roh");
+                tuple.Item1.MakeInvalid("Jump target not found in method.");
             }
         }
     }
@@ -123,6 +119,8 @@ public class IsilBuilder
     public void Compare(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Compare, instructionAddress, IsilFlowControl.Continue, left, right));
 
     public void NotImplemented(ulong instructionAddress, string text) => AddInstruction(new(InstructionSetIndependentOpCode.NotImplemented, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(text)));
+
+    public void Invalid(ulong instructionAddress, string text) => AddInstruction(new(InstructionSetIndependentOpCode.Invalid, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(text)));
 
     public void Interrupt(ulong instructionAddress) => AddInstruction(new(InstructionSetIndependentOpCode.Interrupt, instructionAddress, IsilFlowControl.Interrupt));
 
