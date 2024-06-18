@@ -180,8 +180,10 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
         var memberField = (callsAttributeInfo.Item2[1], targetMethod.Name);
 
+        var concreteMethod = targetMethod as ConcreteGenericMethodAnalysisContext;
+
         (FieldAnalysisContext, object)? typeParametersField;
-        if (targetMethod is ConcreteGenericMethodAnalysisContext concreteMethod)
+        if (concreteMethod is not null)
         {
             if (concreteMethod.MethodRef.MethodGenericParams.Length > 0)
             {
@@ -237,12 +239,51 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             parametersField = null;
         }
 
+        (FieldAnalysisContext, object)? returnTypeField;
+        TypeAnalysisContext? returnType;
+        if (targetMethod is NativeMethodAnalysisContext)
+        {
+            returnType = null;//Native methods don't have identifiable return types.
+        }
+        else if (targetMethod.InjectedReturnType is not null)
+        {
+            returnType = targetMethod.InjectedReturnType;
+        }
+        else if (concreteMethod is not null && (concreteMethod.BaseMethodContext.Definition is not null || concreteMethod.BaseMethodContext.InjectedReturnType is not null))
+        {
+            returnType = concreteMethod.BaseMethodContext.ReturnTypeContext;
+        }
+        else if (targetMethod.Definition is null)
+        {
+            returnType = null;
+        }
+        else
+        {
+            returnType = targetMethod.ReturnTypeContext;
+        }
+        if (returnType is not null)
+        {
+            if (returnType.IsAccessibleTo(annotatedMethod.DeclaringType!) && !returnType.HasAnyGenericParameters())
+            {
+                returnTypeField = (callsAttributeInfo.Item2[4], returnType);
+            }
+            else
+            {
+                returnTypeField = (callsAttributeInfo.Item2[4], returnType.FullName);
+            }
+        }
+        else
+        {
+            returnTypeField = null;
+        }
+
         AttributeInjectionUtils.AddAttribute(
             annotatedMethod,
             callsAttributeInfo.Item1,
             ((IEnumerable<(FieldAnalysisContext, object)>)[typeField, memberField])
             .MaybeAppend(typeParametersField)
-            .MaybeAppend(parametersField));
+            .MaybeAppend(parametersField)
+            .MaybeAppend(returnTypeField));
     }
 
     private static Dictionary<AssemblyAnalysisContext, (InjectedMethodAnalysisContext, InjectedFieldAnalysisContext[])> CreateCallAttributes(ApplicationAnalysisContext appContext, string Namespace, string methodName)
@@ -256,7 +297,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             (appContext.SystemTypes.SystemObjectType, "Type"),
             (appContext.SystemTypes.SystemStringType, "Member"),
             (appContext.SystemTypes.SystemObjectType.MakeSzArrayType(), "MemberTypeParameters"),
-            (appContext.SystemTypes.SystemObjectType.MakeSzArrayType(), "MemberParameters"));
+            (appContext.SystemTypes.SystemObjectType.MakeSzArrayType(), "MemberParameters"),
+            (appContext.SystemTypes.SystemObjectType, "ReturnType"));
     }
 
     private static bool TryGetCommonMethodFromList(List<MethodAnalysisContext> methods, [NotNullWhen(true)] out MethodAnalysisContext? commonMethod)
