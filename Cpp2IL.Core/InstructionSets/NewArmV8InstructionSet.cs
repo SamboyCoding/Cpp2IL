@@ -143,6 +143,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 //Add is (dest, src1, src2)
                 builder.Add(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 break;
+            default:
+                builder.NotImplemented(instruction.Address, $"Instruction {instruction.Mnemonic} not yet implemented.");
+                break;
         }
     }
 
