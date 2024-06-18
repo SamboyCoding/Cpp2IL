@@ -20,4 +20,11 @@ public class InstructionSetIndependentInstruction : IsilOperandData
     }
 
     public override string ToString() => $"{InstructionIndex:000} {OpCode} {string.Join(", ", (IEnumerable<InstructionSetIndependentOperand>) Operands)}";
+
+    public void MakeInvalid(string reason)
+    {
+        OpCode = InstructionSetIndependentOpCode.Invalid;
+        Operands = [InstructionSetIndependentOperand.MakeImmediate(reason)];
+        FlowControl = IsilFlowControl.Continue;
+    }
 }
