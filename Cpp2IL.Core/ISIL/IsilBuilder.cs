@@ -51,13 +51,13 @@ public class IsilBuilder
                 var target = list.First();
 
                 if (target.Equals(tuple.Item1))
-                    tuple.Item1.MakeInvalid("Invalid jump target for instruction: Instruction can't jump to itself");
+                    tuple.Item1.Invalidate("Invalid jump target for instruction: Instruction can't jump to itself");
                 else
                     tuple.Item1.Operands = [InstructionSetIndependentOperand.MakeInstruction(target)];
             }
             else
             {
-                tuple.Item1.MakeInvalid("Jump target not found in method.");
+                tuple.Item1.Invalidate("Jump target not found in method.");
             }
         }
     }
