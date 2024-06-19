@@ -79,7 +79,7 @@ public class InstructionSetIndependentOpCode
 
         if (operands.Length > MaxOperands)
         {
-            instruction.MakeInvalid($"Too many operands! We have {operands.Length} but we only allow {MaxOperands}");
+            instruction.Invalidate($"Too many operands! We have {operands.Length} but we only allow {MaxOperands}");
             return;
         }
 
@@ -90,7 +90,7 @@ public class InstructionSetIndependentOpCode
         {
             if ((operands[i].Type & PermittedOperandTypes[i]) == 0)
             {
-                instruction.MakeInvalid($"Operand {operands[i]} at index {i} (0-based) is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
+                instruction.Invalidate($"Operand {operands[i]} at index {i} (0-based) is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
                 return;
             }
         }
