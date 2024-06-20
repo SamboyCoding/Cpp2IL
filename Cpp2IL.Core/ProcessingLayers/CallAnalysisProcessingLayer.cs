@@ -249,7 +249,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         {
             returnType = targetMethod.InjectedReturnType;
         }
-        else if (concreteMethod is not null && (concreteMethod.BaseMethodContext.Definition is not null || concreteMethod.BaseMethodContext.InjectedReturnType is not null))
+        else if (concreteMethod is { BaseMethodContext: { Definition: not null } or { InjectedReturnType: not null } })
         {
             returnType = concreteMethod.BaseMethodContext.ReturnTypeContext;
         }
