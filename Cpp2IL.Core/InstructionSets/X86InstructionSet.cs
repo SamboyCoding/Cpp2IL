@@ -58,7 +58,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 if (instruction.Op0Kind == OpKind.Register && instruction.Op1Kind == OpKind.Register && instruction.Op0Register == instruction.Op1Register)
                     builder.Move(instruction.IP, ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeImmediate(0));
                 else
-                    builder.Xor(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                    builder.Xor(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Shl:
                 builder.ShiftLeft(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
@@ -67,10 +67,10 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 builder.ShiftRight(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.And:
-                builder.And(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                builder.And(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Or:
-                builder.Or(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                builder.Or(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Not:
                 builder.Not(instruction.IP, ConvertOperand(instruction, 0));
@@ -134,7 +134,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 var left = ConvertOperand(instruction, 0);
                 var right = ConvertOperand(instruction, 1);
                 if (isSubtract)
-                    builder.Subtract(instruction.IP, left, right);
+                    builder.Subtract(instruction.IP, left, left, right);
                 else
                     builder.Add(instruction.IP,  left, left, right);
 
@@ -144,7 +144,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 // no CF
                 var isDec = instruction.Mnemonic == Mnemonic.Dec;
                 var im = InstructionSetIndependentOperand.MakeImmediate(1);
-                if (isDec) builder.Subtract(instruction.IP, ConvertOperand(instruction, 0), im);
+                if (isDec) builder.Subtract(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), im);
                 else builder.Add(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), im);
                 break;
             case Mnemonic.Call:
