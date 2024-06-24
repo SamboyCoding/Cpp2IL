@@ -62,9 +62,9 @@ namespace LibCpp2IL.Metadata
             }
 
             var version = BitConverter.ToInt32(bytes, 4);
-            if (version is < 24 or > 29)
+            if (version is < 24 or > 31)
             {
-                throw new FormatException("Unsupported metadata version found! We support 24-29, got " + version);
+                throw new FormatException("Unsupported metadata version found! We support 24-31, got " + version);
             }
 
             LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
@@ -104,6 +104,11 @@ namespace LibCpp2IL.Metadata
                     actualVersion = 29.1f; //2022.1.0b7 introduces v29.1 which adds two new pointers to codereg
                 else
                     actualVersion = 29; //2021.3.0 introduces v29
+            } else if (version == 31)
+            {
+                //2022.3.33 introduces v31. Unity why would you bump this on a minor version.
+                //Adds one new field (return type token) to method def
+                actualVersion = 31;
             }
             else actualVersion = version;
 

@@ -13,6 +13,7 @@ namespace LibCpp2IL.Metadata
         public int nameIndex;
         public int declaringTypeIdx;
         public int returnTypeIdx;
+        [Version(Min = 31)] public uint returnParameterToken;
         public int parameterStart;
         [Version(Max = 24)] public int customAttributeIndex;
         public int genericContainerIndex;
