@@ -121,6 +121,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 //LDP (dest1, dest2, [mem]) - basically just treat as two loads, with the second offset by the length of the first
                 var destRegSize = instruction.Op0Reg switch
                 {
+                    //vector (128 bit)
+                    >= Arm64Register.V0 and <= Arm64Register.V31 => 16, //TODO check if this is accurate
                     //double
                     >= Arm64Register.D0 and <= Arm64Register.D31 => 8,
                     //single
