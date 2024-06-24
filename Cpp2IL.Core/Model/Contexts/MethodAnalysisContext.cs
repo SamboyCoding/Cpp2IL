@@ -74,6 +74,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     public int ParameterCount => Parameters.Count;
 
+    //TODO Support custom attributes on return types (v31 feature)
     public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)

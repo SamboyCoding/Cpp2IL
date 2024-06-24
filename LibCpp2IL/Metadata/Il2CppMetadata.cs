@@ -66,24 +66,15 @@ namespace LibCpp2IL.Metadata
             }
 
             var version = BitConverter.ToInt32(bytes, 4);
-            if (version is < 23 or > 29)
+            if (version is < 23 or > 31)
             {
-                throw new FormatException("Unsupported metadata version found! We support 23-29, got " + version);
+                throw new FormatException("Unsupported metadata version found! We support 23-31, got " + version);
             }
 
             LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
 
             float actualVersion;
-            if (version == 27)
-            {
-                if (unityVersion.GreaterThanOrEquals(2021, 1))
-                    actualVersion = 27.2f; //2021.1 and up is v27.2, which just changes Il2CppType to have one new bit
-                else if (unityVersion.GreaterThanOrEquals(2020, 2, 4))
-                    actualVersion = 27.1f; //2020.2.4 and above is v27.1
-                else
-                    actualVersion = version; //2020.2 and above is v27
-            }
-            else if (version == 24)
+            if (version == 24)
             {
                 if (unityVersion.GreaterThanOrEquals(2020, 1, 11))
                     actualVersion = 24.4f; //2020.1.11-17 were released prior to 2019.4.21, so are still on 24.4
@@ -104,6 +95,15 @@ namespace LibCpp2IL.Metadata
                 else
                     actualVersion = version; //2017.1.0 was the first v24 version
             }
+            else if (version == 27)
+            {
+                if (unityVersion.GreaterThanOrEquals(2021, 1))
+                    actualVersion = 27.2f; //2021.1 and up is v27.2, which just changes Il2CppType to have one new bit
+                else if (unityVersion.GreaterThanOrEquals(2020, 2, 4))
+                    actualVersion = 27.1f; //2020.2.4 and above is v27.1
+                else
+                    actualVersion = version; //2020.2 and above is v27
+            }
             else if (version == 29)
             {
                 if (unityVersion.GreaterThanOrEquals(2023, 2, 0, UnityVersionType.Alpha, 22))
@@ -112,6 +112,11 @@ namespace LibCpp2IL.Metadata
                     actualVersion = 29.1f; //2022.1.0b7 introduces v29.1 which adds two new pointers to codereg
                 else
                     actualVersion = 29; //2021.3.0 introduces v29
+            } else if (version == 31)
+            {
+                //2022.3.33 introduces v31. Unity why would you bump this on a minor version.
+                //Adds one new field (return type token) to method def
+                actualVersion = 31; 
             }
             else actualVersion = version;
 
