@@ -22,6 +22,8 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public sealed override int GenericParameterCount => GenericArguments.Count;
 
+    public sealed override bool IsValueType => GenericType.IsValueType; //We don't set a definition so the default implementation cannot determine if we're a value type or not. 
+
     public GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
         //Generic type has to be a type definition

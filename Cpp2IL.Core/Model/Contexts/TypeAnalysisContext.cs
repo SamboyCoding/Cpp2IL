@@ -232,7 +232,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     public string RewrittenTypeName => Name;
     public string TypeNamespace => Namespace;
     public virtual bool IsGenericInstance => false;
-    public bool IsValueType => Definition?.IsValueType ?? BaseType is { Namespace: "System", Name: "ValueType" };
+    public virtual bool IsValueType => Definition?.IsValueType ?? BaseType is { Namespace: "System", Name: "ValueType" };
     public bool IsEnumType => Definition?.IsEnumType ?? BaseType is { Namespace: "System", Name: "Enum" };
     public bool IsInterface => Definition?.IsInterface ?? ((TypeAttributes & TypeAttributes.Interface) != default);
     public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => Array.Empty<ITypeInfoProvider>();
