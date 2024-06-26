@@ -337,7 +337,40 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 offset));
         }
 
-        throw new NotImplementedException($"Operand kind {kind} not yet implemented.");
+        if (kind == Arm64OperandKind.VectorRegisterElement)
+        {
+            var reg = operand switch
+            {
+                0 => instruction.Op0Reg,
+                1 => instruction.Op1Reg,
+                2 => instruction.Op2Reg,
+                3 => instruction.Op3Reg,
+                _ => throw new ArgumentOutOfRangeException(nameof(operand), $"Operand must be between 0 and 3, inclusive. Got {operand}")
+            };
+            
+            var vectorElement = operand switch
+            {
+                0 => instruction.Op0VectorElement,
+                1 => instruction.Op1VectorElement,
+                2 => instruction.Op2VectorElement,
+                3 => instruction.Op3VectorElement,
+                _ => throw new ArgumentOutOfRangeException(nameof(operand), $"Operand must be between 0 and 3, inclusive. Got {operand}")
+            };
+            
+            var width = vectorElement.Width switch
+            {
+                Arm64VectorElementWidth.B => IsilVectorRegisterElementOperand.VectorElementWidth.B,
+                Arm64VectorElementWidth.H => IsilVectorRegisterElementOperand.VectorElementWidth.H,
+                Arm64VectorElementWidth.S => IsilVectorRegisterElementOperand.VectorElementWidth.S,
+                Arm64VectorElementWidth.D => IsilVectorRegisterElementOperand.VectorElementWidth.D,
+                _ => throw new ArgumentOutOfRangeException(nameof(vectorElement.Width), $"Unknown vector element width {vectorElement.Width}")
+            };
+            
+            //<Reg>.<Width>[<Index>]
+            return InstructionSetIndependentOperand.MakeVectorElement(reg.ToString().ToUpperInvariant(), width, vectorElement.Index);
+        }
+
+        return InstructionSetIndependentOperand.MakeImmediate($"<UNIMPLEMENTED OPERAND TYPE {kind}>");
     }
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new NewArm64KeyFunctionAddresses();
