@@ -17,5 +17,7 @@ public class ByRefTypeAnalysisContext : WrappedTypeAnalysisContext
 
     public override string DefaultName => $"{ElementType.Name}&";
 
+    public sealed override bool IsValueType => false;
+
     public override TypeAnalysisContext ElementType => base.ElementType ?? throw new("TODO Support TYPE_BYREF");
 }

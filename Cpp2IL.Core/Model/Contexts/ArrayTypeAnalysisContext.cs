@@ -19,5 +19,7 @@ public class ArrayTypeAnalysisContext : WrappedTypeAnalysisContext
 
     public override string DefaultName => $"{ElementType.Name}[{Rank}]";
 
+    public sealed override bool IsValueType => false;
+
     public int Rank { get; }
 }

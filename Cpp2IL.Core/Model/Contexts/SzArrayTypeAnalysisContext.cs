@@ -17,4 +17,6 @@ public class SzArrayTypeAnalysisContext : WrappedTypeAnalysisContext
     public override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY;
 
     public override string DefaultName => $"{ElementType.Name}[]";
+
+    public sealed override bool IsValueType => false;
 }
