@@ -17,4 +17,6 @@ public class PointerTypeAnalysisContext : WrappedTypeAnalysisContext
     public override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_PTR;
 
     public override string DefaultName => $"{ElementType.Name}*";
+
+    public sealed override bool IsValueType => true;
 }

@@ -12,8 +12,6 @@ public abstract class WrappedTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public override string DefaultNs => ElementType.Namespace;
 
-    public override bool IsValueType => ElementType.IsValueType; //We don't set a definition so the default implementation cannot determine if we're a value type or not.
-
     protected WrappedTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
         ElementType = elementType;
