@@ -18,5 +18,5 @@ public class PointerTypeAnalysisContext : WrappedTypeAnalysisContext
 
     public override string DefaultName => $"{ElementType.Name}*";
 
-    public sealed override bool IsValueType => true;
+    public sealed override bool IsValueType => false;
 }
