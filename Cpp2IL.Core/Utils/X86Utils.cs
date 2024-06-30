@@ -26,12 +26,31 @@ namespace Cpp2IL.Core.Utils
             var decoder = Decoder.Create(LibCpp2IlMain.Binary!.is32Bit ? 32 : 64, codeReader);
             decoder.IP = methodBase;
             var instructions = new InstructionList();
-            var endRip = decoder.IP + (uint) bytes.Length;
+            var endRip = decoder.IP + (uint)bytes.Length;
 
             while (decoder.IP < endRip)
                 instructions.Add(decoder.Decode());
 
             return instructions;
+        }
+
+        public static IEnumerable<Instruction> Iterate(Memory<byte> bytes, ulong methodBase)
+        {
+            return Iterate(bytes.AsEnumerable(), methodBase);
+        }
+
+        public static IEnumerable<Instruction> Iterate(IEnumerable<byte> bytes, ulong methodBase)
+        {
+            var codeReader = new EnumerableCodeReader(bytes);
+            var decoder = Decoder.Create(LibCpp2IlMain.Binary!.is32Bit ? 32 : 64, codeReader);
+            decoder.IP = methodBase;
+
+            decoder.Decode(out var instruction);
+            while (!instruction.IsInvalid)
+            {
+                yield return instruction;
+                decoder.Decode(out instruction);
+            }
         }
 
         public static Memory<byte> GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)
@@ -80,8 +99,8 @@ namespace Cpp2IL.Core.Utils
 
             while (rawArray[lastPos] == 0xCC && lastPos > rawAddr)
                 lastPos--;
-            var memArray =  rawArray.AsMemory((int) rawAddr, (int) (lastPos - rawAddr + 1));
-            
+            var memArray = rawArray.AsMemory((int)rawAddr, (int)(lastPos - rawAddr + 1));
+
             if (TryFindJumpTableStart(memArray, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
             {
                 // TODO: Figure out what to do with jumpTableElements, how do we handle returning it from this function?
@@ -93,8 +112,8 @@ namespace Cpp2IL.Core.Utils
                 */
                 memArray = memArray.Slice(0, startIndex);
             }
-            return memArray;
 
+            return memArray;
         }
 
         private static bool TryFindJumpTableStart(Memory<byte> methodBytes, ulong methodPtr, ulong nextMethodPtr, out int startIndex, out List<ulong> jumpTableElements)
@@ -102,9 +121,9 @@ namespace Cpp2IL.Core.Utils
             bool foundTable = false;
             startIndex = 0;
             jumpTableElements = new List<ulong>();
-            for (int i = (int) (methodPtr % 4); i < methodBytes.Length; i += 4)
+            for (int i = (int)(methodPtr % 4); i < methodBytes.Length; i += 4)
             {
-                var result = (ulong) methodBytes.Span.ReadUInt(i); 
+                var result = (ulong)methodBytes.Span.ReadUInt(i);
                 var possibleJumpAddress = result + 0x180000000; // image base
                 if (possibleJumpAddress > methodPtr && possibleJumpAddress < nextMethodPtr)
                 {
@@ -114,6 +133,7 @@ namespace Cpp2IL.Core.Utils
                         startIndex = i;
                         foundTable = true;
                     }
+
                     jumpTableElements.Add(result);
                 }
             }
@@ -144,7 +164,7 @@ namespace Cpp2IL.Core.Utils
                 if (addr >= startOfNextFunc)
                     break;
 
-                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong) rawAddr));
+                buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong)rawAddr));
 
                 ret = X86Utils.Disassemble(buff.ToArray(), functionStart);
 
@@ -228,6 +248,24 @@ namespace Cpp2IL.Core.Utils
             }
 
             return ret;
+        }
+
+        private class EnumerableCodeReader : CodeReader
+        {
+            private readonly IEnumerator<byte> _enumerator;
+
+            public EnumerableCodeReader(IEnumerable<byte> bytes)
+            {
+                _enumerator = bytes.GetEnumerator();
+            }
+
+            public override int ReadByte()
+            {
+                if (_enumerator.MoveNext())
+                    return _enumerator.Current;
+
+                return -1;
+            }
         }
     }
 }

@@ -147,6 +147,12 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         // ControlFlowGraph.Run();
         // InstructionSetIndependentNodes = AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
     }
+    
+    public void ReleaseAnalysisData()
+    {
+        ConvertedIsil = null;
+        ControlFlowGraph = null;
+    }
 
     public override string ToString() => $"Method: {Definition?.DeclaringType!.Name}::{Definition?.Name ?? "No definition"}";
 

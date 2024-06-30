@@ -19,7 +19,7 @@ public class InstructionSetIndependentInstruction : IsilOperandData
         OpCode.Validate(this);
     }
 
-    public override string ToString() => $"{InstructionIndex:000} {OpCode} {string.Join(", ", (IEnumerable<InstructionSetIndependentOperand>) Operands)}";
+    public override string ToString() => $"{InstructionIndex:000} {OpCode} {string.Join(", ", Operands)}";
 
     /// <summary>
     /// Marks the instruction as <see cref="IsilMnemonic.Invalid"/>.

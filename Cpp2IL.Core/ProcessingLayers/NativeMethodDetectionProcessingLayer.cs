@@ -52,6 +52,7 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
 
         if (m.ConvertedIsil is { Count: 0 })
         {
+            m.ReleaseAnalysisData();
             return;
         }
 
@@ -72,6 +73,8 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
                 }
             }
         }
+        
+        m.ReleaseAnalysisData();
     }
 
     private static bool TryGetAddressFromInstruction(InstructionSetIndependentInstruction instruction, out ulong address)

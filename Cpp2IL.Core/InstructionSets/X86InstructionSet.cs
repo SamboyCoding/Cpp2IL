@@ -13,6 +13,22 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class X86InstructionSet : Cpp2IlInstructionSet
 {
+    private static readonly MasmFormatter Formatter = new();
+    private static readonly StringOutput Output = new();
+
+    private static string FormatInstructionInternal(Instruction instruction)
+    {
+        Formatter.Format(instruction, Output);
+        return Output.ToStringAndReset();
+    }
+
+    public static string FormatInstruction(Instruction instruction)
+    {
+        lock (Formatter)
+        {
+            return FormatInstructionInternal(instruction);
+        }
+    }
 
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
 
@@ -20,18 +36,19 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
     public override string PrintAssembly(MethodAnalysisContext context)
     {
-        var insns = X86Utils.Disassemble(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
+        lock (Formatter)
+        {
+            var insns = X86Utils.Iterate(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
 
-        return string.Join("\n", insns);
+            return string.Join("\n", insns.Select(FormatInstructionInternal));
+        }
     }
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        var insns = X86Utils.Disassemble(context.RawBytes, context.UnderlyingPointer);
-
         var builder = new IsilBuilder();
 
-        foreach (var instruction in insns)
+        foreach (var instruction in X86Utils.Iterate(context.RawBytes, context.UnderlyingPointer))
         {
             ConvertInstructionStatement(instruction, builder, context);
         }
@@ -163,7 +180,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                         ret++; //For MethodInfo arg
                         return ret;
-                    }).ToArray();
+                    });
 
                     // if (parameterCounts.Max() != parameterCounts.Min())
                     // throw new("Cannot handle call to address with multiple managed methods of different parameter counts");
@@ -296,7 +313,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 builder.Interrupt(instruction.IP); // We'll add it but eliminate later
                 break;
             default:
-                builder.NotImplemented(instruction.IP, instruction.ToString());
+                builder.NotImplemented(instruction.IP, FormatInstruction(instruction));
                 break;
         }
     }

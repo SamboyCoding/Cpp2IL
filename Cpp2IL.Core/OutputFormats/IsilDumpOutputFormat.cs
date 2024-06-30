@@ -48,12 +48,13 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
 
                     try
                     {
-                        method.Analyze();
 
                         typeDump.AppendLine("Disassembly:");
                         typeDump.Append('\t').AppendLine(context.InstructionSet.PrintAssembly(method).Replace("\n", "\n\t"));
 
                         typeDump.AppendLine().AppendLine("ISIL:");
+                        
+                        method.Analyze();
 
                         if (method.ConvertedIsil == null || method.ConvertedIsil.Count == 0)
                         {
@@ -65,6 +66,8 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
                         {
                             typeDump.Append('\t').Append(isilInsn).AppendLine();
                         }
+                        
+                        method.ReleaseAnalysisData();
 
                         typeDump.AppendLine();
                     }

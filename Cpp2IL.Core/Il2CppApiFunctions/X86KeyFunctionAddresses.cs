@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Logging;
+using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
 using LibCpp2IL;
@@ -22,6 +23,13 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
             }
 
             return _cachedDisassembledBytes;
+        }
+
+        public override void Find(ApplicationAnalysisContext applicationAnalysisContext)
+        {
+            base.Find(applicationAnalysisContext);
+            
+            _cachedDisassembledBytes = null; //Clean up once we're done finding everything
         }
 
         protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)

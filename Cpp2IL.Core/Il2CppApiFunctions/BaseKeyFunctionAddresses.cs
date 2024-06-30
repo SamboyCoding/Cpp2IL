@@ -66,7 +66,7 @@ namespace Cpp2IL.Core.Il2CppApiFunctions
             Logger.VerboseNewline(ptr == 0 ? "Not found" : $"Found at 0x{ptr:X}");
         }
 
-        public void Find(ApplicationAnalysisContext applicationAnalysisContext)
+        public virtual void Find(ApplicationAnalysisContext applicationAnalysisContext)
         {
             _appContext = applicationAnalysisContext;
             Init(applicationAnalysisContext);

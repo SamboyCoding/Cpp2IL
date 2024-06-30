@@ -75,6 +75,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     {
                         AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
                     }
+                    m.ReleaseAnalysisData();
                     continue;
                 }
 
@@ -124,6 +125,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                     }
                 }
+                
+                m.ReleaseAnalysisData();
             }
         }
 
