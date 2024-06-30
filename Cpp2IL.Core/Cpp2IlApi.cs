@@ -19,6 +19,10 @@ namespace Cpp2IL.Core
     public static class Cpp2IlApi
     {
         public static ApplicationAnalysisContext? CurrentAppContext;
+        
+        public static Cpp2IlRuntimeArgs? RuntimeOptions;
+        
+        internal static bool LowMemoryMode => RuntimeOptions?.LowMemoryMode ?? false;
 
         [RequiresUnreferencedCode("Plugins are loaded dynamically.")]
         public static void Init(string pluginsDir = "Plugins")

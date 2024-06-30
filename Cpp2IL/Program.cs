@@ -468,6 +468,8 @@ namespace Cpp2IL
 
             result.OutputRootDirectory = options.OutputRootDir;
 
+            result.LowMemoryMode = options.LowMemoryMode; 
+
             // if(string.IsNullOrEmpty(options.OutputFormatId)) 
             // throw new SoftException("No output format specified, so nothing to do!");
 
@@ -522,7 +524,11 @@ namespace Cpp2IL
             try
             {
                 var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
-
+                
+                if(runtimeArgs.LowMemoryMode)
+                    //Force an early collection for all the zip shenanigans we may have just done
+                    GC.Collect();
+                
                 return MainWithArgs(runtimeArgs);
             }
             catch (SoftException e)
@@ -554,12 +560,14 @@ namespace Cpp2IL
         {
             if (!runtimeArgs.Valid)
                 throw new SoftException("Arguments have Valid = false");
+            
+            Cpp2IlApi.RuntimeOptions = runtimeArgs;
 
             var executionStart = DateTime.Now;
 
             runtimeArgs.OutputFormat?.OnOutputFormatSelected();
 
-            GCSettings.LatencyMode = GCLatencyMode.SustainedLowLatency;
+            GCSettings.LatencyMode = runtimeArgs.LowMemoryMode ? GCLatencyMode.Interactive : GCLatencyMode.SustainedLowLatency;
 
             if (runtimeArgs.WasmFrameworkJsFile != null)
                 try
@@ -578,6 +586,9 @@ namespace Cpp2IL
                 WasmFile.RemappedDynCallFunctions = null;
 
             Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
+            
+            if(runtimeArgs.LowMemoryMode)
+                GC.Collect();
 
             foreach (var (key, value) in runtimeArgs.ProcessingLayerConfigurationOptions)
                 Cpp2IlApi.CurrentAppContext.PutExtraData(key, value);
@@ -596,6 +607,9 @@ namespace Cpp2IL
 
             if (runtimeArgs.OutputFormat != null)
             {
+                if (runtimeArgs.LowMemoryMode)
+                    GC.Collect();
+                
                 Logger.InfoNewline($"Outputting as {runtimeArgs.OutputFormat.OutputFormatName} to {runtimeArgs.OutputRootDirectory}...");
                 runtimeArgs.OutputFormat.DoOutput(Cpp2IlApi.CurrentAppContext, runtimeArgs.OutputRootDirectory);
                 Logger.InfoNewline($"Finished outputting in {(DateTime.Now - outputStart).TotalMilliseconds}ms");
@@ -641,6 +655,9 @@ namespace Cpp2IL
                 }
 #endif
 
+                if (runtimeArgs.LowMemoryMode)
+                    GC.Collect();
+                
                 Logger.InfoNewline($"    {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
             }
         }

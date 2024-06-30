@@ -21,5 +21,7 @@ namespace Cpp2IL.Core
         
         public Cpp2IlOutputFormat? OutputFormat;
         public string OutputRootDirectory = null!;
+        
+        public bool LowMemoryMode;
     }
 }

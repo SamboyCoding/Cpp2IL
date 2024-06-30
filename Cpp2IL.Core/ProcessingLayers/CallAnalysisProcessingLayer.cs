@@ -128,6 +128,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 
                 m.ReleaseAnalysisData();
             }
+            
+            if(Cpp2IlApi.LowMemoryMode)
+                GC.Collect();
         }
 
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
@@ -169,6 +172,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     AttributeInjectionUtils.AddOneParameterAttribute(m, callsUnknownMethodsAttributeInfo, unknownCallCount);
                 }
             }
+            
+            if(Cpp2IlApi.LowMemoryMode)
+                GC.Collect();
         }
     }
 

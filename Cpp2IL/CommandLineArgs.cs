@@ -54,6 +54,9 @@ namespace Cpp2IL
 
         [Option("verbose", HelpText = "Enable Verbose Logging.")]
         public bool Verbose { get; set; }
+        
+        [Option("low-memory-mode", HelpText = "Enable Low Memory Mode. This will attempt to reduce memory usage at the cost of performance.")]
+        public bool LowMemoryMode { get; set; }
 
         [Option("wasm-framework-file", HelpText = "Path to the wasm *.framework.js file. Only needed if your binary is a WASM file. If provided, it can be used to remap obfuscated dynCall function names in order to correct method pointers.")]
         public string? WasmFrameworkFilePath { get; set; }

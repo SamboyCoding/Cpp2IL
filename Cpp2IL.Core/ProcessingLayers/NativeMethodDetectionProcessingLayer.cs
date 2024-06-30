@@ -28,7 +28,14 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
             {
                 AnalyzeMethod(appContext, m, nativeMethodInfoStack);
             }
+            
+            if(Cpp2IlApi.LowMemoryMode)
+                GC.Collect();
         }
+        
+        if(Cpp2IlApi.LowMemoryMode)
+            GC.Collect();
+        
         while (nativeMethodInfoStack.Count > 0)
         {
             (var address, var isVoid) = nativeMethodInfoStack.Pop();
