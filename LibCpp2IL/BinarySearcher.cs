@@ -79,10 +79,10 @@ namespace LibCpp2IL
         public IEnumerable<uint> FindAllStrings(string str) => FindAllBytes(Encoding.ASCII.GetBytes(str), 1);
 
         // Find 32-bit words
-        private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), _binary is WasmFile or NsoFile ? 1 : 4);
+        private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), _binary is NsoFile ? 1 : 4);
 
         // Find 64-bit words
-        private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), _binary is WasmFile or NsoFile ? 1 : 8);
+        private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), _binary is NsoFile ? 1 : 8);
 
         // Find words for the current binary size
         private IEnumerable<uint> FindAllWords(ulong word)
@@ -191,6 +191,9 @@ namespace LibCpp2IL
                             pCodegenModules = new();
                         else
                             LibLogger.VerboseNewline($"\t\t\tFound valid address for pCodegenModules after a backtrack of {backtrack}, module count is {LibCpp2IlMain.TheMetadata!.imageDefinitions.Length}");
+                    } else if (pCodegenModules.Count > 1)
+                    {
+                        LibLogger.VerboseNewline($"\t\t\tFound {pCodegenModules.Count} potential pCodegenModules addresses after a backtrack of {backtrack}, which is too many (> 1). Will try backtracking further.");
                     }
 
                     pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);

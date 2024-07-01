@@ -26,7 +26,7 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
 
             if (wasmDef == null)
             {
-                Logger.WarnNewline($"Could not find WASM definition for method {methodDefinition.Name}, probably incorrect signature calculation", "WasmInstructionSet");
+                Logger.WarnNewline($"Could not find WASM definition for method {methodDefinition.DeclaringType?.FullName}::{methodDefinition.Name}, probably incorrect signature calculation (signature was {WasmUtils.BuildSignature(methodDefinition)})", "WasmInstructionSet");
                 return Array.Empty<byte>();
             }
             

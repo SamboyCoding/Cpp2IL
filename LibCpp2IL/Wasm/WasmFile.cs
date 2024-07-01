@@ -39,7 +39,7 @@ namespace LibCpp2IL.Wasm
             LibLogger.VerboseNewline("\tWASM Magic and version match expectations. Reading sections...");
 
             var sanityCount = 0;
-            while(Position < RawLength && sanityCount < 1000)
+            while(Position < _raw.Length && sanityCount < 1000)
             {
                 var section = WasmSection.MakeSection(this);
                 Position = section.Pointer + (long) section.Size;
@@ -73,9 +73,9 @@ namespace LibCpp2IL.Wasm
             LibLogger.VerboseNewline($"\tGot dynCall coefficients for {DynCallCoefficients.Count} signatures");
         }
 
-        public override long RawLength => _raw.Length;
-        public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
-        public override byte[] GetRawBinaryContent() => _raw;
+        public override long RawLength => _memoryBlock.Bytes.Length;
+        public override byte GetByteAtRawAddress(ulong addr) => _memoryBlock.Bytes[addr];
+        public override byte[] GetRawBinaryContent() => _memoryBlock.Bytes;
 
         public WasmFunctionDefinition GetFunctionFromIndexAndSignature(ulong index, string signature)
         {
