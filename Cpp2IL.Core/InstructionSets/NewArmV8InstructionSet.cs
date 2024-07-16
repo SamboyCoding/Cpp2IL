@@ -73,22 +73,18 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     var operate= ConvertOperand(instruction, 1);
                     if (operate.Data is IsilMemoryOperand operand)
                     {
-                        var register=  operand.Base.Value;
+                        var register=  operand.Base!.Value;
                         // X19= X19, #0x30
-                        builder.Move(instruction.Address,register,operate);
-                        //X8 = X19
-                        builder.Move(instruction.Address,ConvertOperand(instruction,0),register);
+                        builder.Add(instruction.Address,register,register,  InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
+                        //X8 = [X19]
+                        builder.Move(instruction.Address,ConvertOperand(instruction,0),InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
+                            InstructionSetIndependentOperand.MakeRegister(register.ToString()!.ToUpperInvariant()),
+                            0)));
+                        break;
                     }
-                    else
-                    {
-                        // use default
-                        builder.Move(instruction.Address, ConvertOperand(instruction, 0), operate);
-                    }
+                   
                 }
-                else
-                {
-                    builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
-                }
+                builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Arm64Mnemonic.MOVN:
                 {
@@ -350,7 +346,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             if(reg == Arm64Register.INVALID)
                 //Offset only
                 return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(offset));
-
+           
             //TODO Handle more stuff here
             return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
                 InstructionSetIndependentOperand.MakeRegister(reg.ToString().ToUpperInvariant()),
