@@ -68,7 +68,27 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.LDR:
             case Arm64Mnemonic.LDRB:
                 //Load and move are (dest, src)
-                builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                if (instruction.MemIsPreIndexed) //  such as  X8, [X19,#0x30]! 
+                {
+                    var operate= ConvertOperand(instruction, 1);
+                    if (operate.Data is IsilMemoryOperand operand)
+                    {
+                        var register=  operand.Base.Value;
+                        // X19= X19, #0x30
+                        builder.Move(instruction.Address,register,operate);
+                        //X8 = X19
+                        builder.Move(instruction.Address,ConvertOperand(instruction,0),register);
+                    }
+                    else
+                    {
+                        // use default
+                        builder.Move(instruction.Address, ConvertOperand(instruction, 0), operate);
+                    }
+                }
+                else
+                {
+                    builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                }
                 break;
             case Arm64Mnemonic.MOVN:
                 {
