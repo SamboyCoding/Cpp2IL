@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Extensions;
@@ -81,9 +82,9 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 
     private static void AppendType(StringBuilder sb, TypeAnalysisContext type, int indent = 0)
     {
-        if (type.IsCompilerGeneratedBasedOnCustomAttributes)
+        // if (type.IsCompilerGeneratedBasedOnCustomAttributes)
             //Do not output compiler-generated types
-            return;
+            // return;
         
         //Custom attributes for type. Includes a trailing newline
         AppendCustomAttributes(sb, type, indent);
@@ -175,8 +176,41 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append(CsFileUtils.GetTypeName(field.FieldTypeContext.Name));
         sb.Append(' ');
         sb.Append(field.Name);
+
+        if (field.BackingData?.DefaultValue is {} defaultValue)
+        {
+            sb.Append(" = ");
+
+            if (defaultValue is string stringDefaultValue)
+                sb.Append('"').Append(stringDefaultValue).Append('"');
+            else
+                sb.Append(defaultValue);
+        }
+        
         sb.Append("; //Field offset: 0x");
         sb.Append(field.Offset.ToString("X"));
+
+        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0)
+        {
+            sb.Append(" || Has Field RVA: 0x");
+            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(field.BackingData!.Field.FieldIndex);
+            var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
+            sb.Append(pointer.ToString("X8"));
+
+            var actualValue = field.BackingData.Field.StaticArrayInitialValue;
+            if (actualValue is { Length: > 0 })
+            {
+                sb.Append(" || Field RVA Decoded (hex blob): [");
+                sb.Append(actualValue[0].ToString("X2"));
+                for (var i = 1; i < actualValue.Length; i++)
+                {
+                    var b = actualValue[i];
+                    sb.Append(' ').Append(b.ToString("X2"));
+                }
+
+                sb.Append(']');
+            }
+        }
         sb.AppendLine();
     }
     
@@ -285,7 +319,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         AppendCustomAttributes(sb, accessor, indent);
 
         sb.Append('\t', indent);
-        sb.Append(CsFileUtils.GetKeyWordsForMethod(accessor, true));
+        sb.Append(CsFileUtils.GetKeyWordsForMethod(accessor, true, true));
         sb.Append(' ');
         sb.Append(accessorType);
         sb.Append(" { } //Length: ");
