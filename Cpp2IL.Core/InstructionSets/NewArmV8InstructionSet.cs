@@ -6,6 +6,7 @@ using Disarm;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Disarm.InternalDisassembly;
@@ -171,14 +172,17 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             case Arm64Mnemonic.B:
                 var target = instruction.BranchTarget;
-                
                 if (target < context.UnderlyingPointer || target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
                 {
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
                     builder.Call(instruction.Address, instruction.BranchTarget, GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
                     builder.Return(instruction.Address, GetReturnRegisterForContext(context));
                 }
-
+                else
+                {
+                    //is call in method addr range just go to 
+                    builder.Goto(instruction.Address, instruction.BranchTarget);
+                }
                 break;
             case Arm64Mnemonic.BR:
                 // branches unconditionally to an address in a register, with a hint that this is not a subroutine return.
