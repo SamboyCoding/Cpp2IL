@@ -225,18 +225,6 @@ namespace Cpp2IL.Core.Utils
             return ret;
         }
 
-        public static bool BitsAreEqual(this BitArray first, BitArray second)
-        {
-            if (first.Count != second.Count)
-                return false;
-            
-            bool areDifferent = false;
-            for (int i = 0; i < first.Count && !areDifferent; i++)
-                areDifferent =  first.Get(i) != second.Get(i);
-
-            return !areDifferent;
-        }
-
         public static void ExecuteSerial<T>(IEnumerable<T> enumerable, Action<T> what)
         {
             foreach (var item in enumerable)
@@ -316,56 +304,6 @@ namespace Cpp2IL.Core.Utils
             InvalidPathChars.ForEach(c => input = input.Replace(c, '_'));
 
             return InvalidPathElements.Contains(input) ? $"__invalidwin32name_{input}__" : input;
-        }
-        
-        public static MemoryEnumerator<T> GetEnumerator<T>(this Memory<T> memory) => new(memory);
-        
-        public static MemoryEnumerable<T> AsEnumerable<T>(this Memory<T> memory) => new(memory);
-        
-        public class MemoryEnumerable<T> : IEnumerable<T>
-        {
-            private readonly Memory<T> _memory;
-            
-            public MemoryEnumerable(Memory<T> memory)
-            {
-                _memory = memory;
-            }
-            
-            public IEnumerator<T> GetEnumerator() => new MemoryEnumerator<T>(_memory);
-
-            IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
-        }
-
-        public class MemoryEnumerator<T> : IEnumerator<T>
-        {
-            private readonly Memory<T> _memory;
-            
-            private int _index = -1;
-            
-            public MemoryEnumerator(Memory<T> memory)
-            {
-                _memory = memory;
-            }
-            
-            public bool MoveNext()
-            {
-                _index++;
-                return _index < _memory.Length;
-            }
-            
-            public void Reset()
-            {
-                _index = -1;
-            }
-            
-            public T Current => _memory.Span[_index];
-
-            object? IEnumerator.Current => Current;
-            
-            public void Dispose()
-            {
-                // Nothing to dispose
-            }
         }
     }
 }
