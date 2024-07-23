@@ -8,5 +8,6 @@
         FieldInfo = 4,
         StringLiteral = 5,
         MethodRef = 6,
+        FieldRva = 7,
     }
 }
