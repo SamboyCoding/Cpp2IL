@@ -100,6 +100,21 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.STUR: // unscaled
             case Arm64Mnemonic.STRB:
                 //Store is (src, dest)
+                if (instruction.MemIsPreIndexed) //  such as STRB  X8, [X19,#0x30]! 
+                {
+                    var operate= ConvertOperand(instruction, 1);
+                    if (operate.Data is IsilMemoryOperand operand)
+                    {
+                        var register=  operand.Base!.Value;
+                        // X19= X19, #0x30
+                        builder.Add(instruction.Address,register,register,  InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
+                        
+                        builder.Move(instruction.Address,InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
+                            InstructionSetIndependentOperand.MakeRegister(register.ToString()!.ToUpperInvariant()),
+                            0)),ConvertOperand(instruction, 0));
+                        break;
+                    }
+                }
                 builder.Move(instruction.Address, ConvertOperand(instruction, 1), ConvertOperand(instruction, 0));
                 break;
             case Arm64Mnemonic.STP:
