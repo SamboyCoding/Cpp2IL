@@ -93,7 +93,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         else if(ParameterType.Byref == 1)
             result.Append("ref ");
 
-        result.Append(ParameterTypeContext.Name).Append(" ");
+        result.Append(CsFileUtils.GetTypeName(ParameterTypeContext.Name)).Append(' ');
 
         if (string.IsNullOrEmpty(ParameterName))
             result.Append("unnamed_param_").Append(ParamIndex);
@@ -101,7 +101,17 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
             result.Append(ParameterName);
 
         if (ParameterAttributes.HasFlag(ParameterAttributes.HasDefault))
-            result.Append(" = ").Append(DefaultValue?.ContainedDefaultValue ?? "null");
+        {
+            var defaultValue = DefaultValue!.ContainedDefaultValue;
+            if (defaultValue is string stringDefaultValue)
+                defaultValue = $"\"{stringDefaultValue}\"";
+            else if (defaultValue is bool boolDefaultValue)
+                defaultValue = boolDefaultValue.ToString().ToLowerInvariant();
+            else if (defaultValue is null)
+                defaultValue = "null";
+            
+            result.Append(" = ").Append(defaultValue);
+        }
 
         return result.ToString();
     }

@@ -111,20 +111,26 @@ public static class CsFileUtils
     /// </summary>
     /// <param name="method">The method to generate keywords for</param>
     /// <param name="skipSlotRelated">Skip slot-related modifiers like abstract, virtual, override</param>
-    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false)
+    /// <param name="skipKeywordsInvalidForAccessors">Skip the public and static keywords, as those aren't valid for property accessors</param>
+    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false, bool skipKeywordsInvalidForAccessors = false)
     {
         var sb = new StringBuilder();
         var attributes = method.Definition!.Attributes;
 
-        if (attributes.HasFlag(MethodAttributes.Public))
-            sb.Append("public ");
-        else if (attributes.HasFlag(MethodAttributes.Family))
-            sb.Append("protected ");
+        if (!skipKeywordsInvalidForAccessors)
+        {
+            if (attributes.HasFlag(MethodAttributes.Public))
+                sb.Append("public ");
+            else if (attributes.HasFlag(MethodAttributes.Family))
+                sb.Append("protected ");
+        }
+        
         if (attributes.HasFlag(MethodAttributes.Assembly))
             sb.Append("internal ");
         else if (attributes.HasFlag(MethodAttributes.Private))
             sb.Append("private ");
-        if (attributes.HasFlag(MethodAttributes.Static))
+        
+        if (!skipKeywordsInvalidForAccessors && attributes.HasFlag(MethodAttributes.Static))
             sb.Append("static ");
 
         if (method.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface) || skipSlotRelated)
@@ -276,6 +282,9 @@ public static class CsFileUtils
         if (originalName.Contains("`"))
             //Generics - remove `1 etc
             return originalName.Remove(originalName.IndexOf('`'), 2);
+
+        if (originalName[^1] == '&')
+            originalName = originalName[..^1]; //Remove trailing & for ref params
 
         return originalName switch
         {
