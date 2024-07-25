@@ -58,11 +58,31 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return builder.BackingStatementList;
     }
 
+    private bool IsUseZeroReg(Arm64Instruction instruction)
+    {
+        var left =ConvertOperand(instruction, 0);
+        var right= ConvertOperand(instruction, 1);
+        if (left.Type==InstructionSetIndependentOperand.OperandType.Register && right is { Type: InstructionSetIndependentOperand.OperandType.Register, Data: IsilRegisterOperand registerOperand })
+        {
+            if (registerOperand.RegisterName=="X31")
+            {
+                return true;
+            }
+        }
+        return false;
+    }
     private void ConvertInstructionStatement(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         switch (instruction.Mnemonic)
         {
             case Arm64Mnemonic.MOV:
+            {
+                builder.Move(instruction.Address, ConvertOperand(instruction, 0),
+                    IsUseZeroReg(instruction)
+                        ? InstructionSetIndependentOperand.MakeImmediate(0)
+                        : ConvertOperand(instruction, 1));
+                break;
+            }
             case Arm64Mnemonic.MOVZ:
             case Arm64Mnemonic.FMOV:
             case Arm64Mnemonic.SXTW: // move and sign extend Wn to Xd
@@ -100,7 +120,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.STUR: // unscaled
             case Arm64Mnemonic.STRB:
                 //Store is (src, dest)
-                if (instruction.MemIsPreIndexed) //  such as STRB  X8, [X19,#0x30]! 
+                if (instruction.MemIsPreIndexed) //  such as  X8, [X19,#0x30]! 
                 {
                     var operate= ConvertOperand(instruction, 1);
                     if (operate.Data is IsilMemoryOperand operand)
