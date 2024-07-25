@@ -1,10 +1,10 @@
 using System.Linq;
+using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.Tests;
 
-public class AccessibilityUtilsTests
+public class AccessibilityExtensionsTests
 {
     [Test]
     public void AccessibilityTests()

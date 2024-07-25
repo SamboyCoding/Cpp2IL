@@ -1,6 +1,6 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.ISIL;
@@ -166,6 +166,18 @@ namespace Cpp2IL.Core.Extensions
                 throw new ArgumentOutOfRangeException(nameof(start), $"start=[{start}], mem.Length=[{span.Length}]");
             fixed (byte* ptr = &span[start])
                 return *(uint*)ptr;
+        }
+
+        public static bool BitsAreEqual(this BitArray first, BitArray second)
+        {
+            if (first.Count != second.Count)
+                return false;
+            
+            bool areDifferent = false;
+            for (int i = 0; i < first.Count && !areDifferent; i++)
+                areDifferent =  first.Get(i) != second.Get(i);
+
+            return !areDifferent;
         }
     }
 }
