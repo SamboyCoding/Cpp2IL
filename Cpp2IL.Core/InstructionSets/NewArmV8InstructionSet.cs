@@ -89,23 +89,16 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.LDR:
             case Arm64Mnemonic.LDRB:
                 //Load and move are (dest, src)
-                if (instruction.MemIsPreIndexed) //  such as  X8, [X19,#0x30]! 
+                builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                if (instruction.MemIsPreIndexed)
                 {
                     var operate= ConvertOperand(instruction, 1);
                     if (operate.Data is IsilMemoryOperand operand)
                     {
                         var register=  operand.Base!.Value;
-                        // X19= X19, #0x30
                         builder.Add(instruction.Address,register,register,  InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
-                        //X8 = [X19]
-                        builder.Move(instruction.Address,ConvertOperand(instruction,0),InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
-                            InstructionSetIndependentOperand.MakeRegister(register.ToString()!.ToUpperInvariant()),
-                            0)));
-                        break;
                     }
-                   
                 }
-                builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Arm64Mnemonic.MOVN:
                 {
@@ -119,41 +112,61 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.STR:
             case Arm64Mnemonic.STUR: // unscaled
             case Arm64Mnemonic.STRB:
-                //Store is (src, dest)
-                if (instruction.MemIsPreIndexed) //  such as  X8, [X19,#0x30]! 
+                // //Store is (src, dest)
+                // if (instruction.MemIsPreIndexed) //  such as  X8, [X19,#0x30]! 
+                // {
+                //     var operate = ConvertOperand(instruction, 1);
+                //     if (operate.Data is IsilMemoryOperand operand)
+                //     {
+                //         var register = operand.Base!.Value;
+                //         // X19= X19, #0x30
+                //         builder.Add(instruction.Address, register, register,
+                //             InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
+                //
+                //         builder.Move(instruction.Address, InstructionSetIndependentOperand.MakeMemory(
+                //             new IsilMemoryOperand(
+                //                 InstructionSetIndependentOperand.MakeRegister(register.ToString()!.ToUpperInvariant()),
+                //                 0)), ConvertOperand(instruction, 0));
+                //         break;
+                //     }
+                // }
+
+            {
+                var emit = ConvertOperand(instruction, 0);
+                if (emit.Data is IsilRegisterOperand { RegisterName: "W31" })// it's mean use zero register
                 {
-                    var operate= ConvertOperand(instruction, 1);
-                    if (operate.Data is IsilMemoryOperand operand)
-                    {
-                        var register=  operand.Base!.Value;
-                        // X19= X19, #0x30
-                        builder.Add(instruction.Address,register,register,  InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
-                        
-                        builder.Move(instruction.Address,InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
-                            InstructionSetIndependentOperand.MakeRegister(register.ToString()!.ToUpperInvariant()),
-                            0)),ConvertOperand(instruction, 0));
-                        break;
-                    }
+                    builder.Move(instruction.Address,ConvertOperand(instruction,1),InstructionSetIndependentOperand.MakeImmediate(0));
+                    break;
                 }
+            }
                 builder.Move(instruction.Address, ConvertOperand(instruction, 1), ConvertOperand(instruction, 0));
                 break;
             case Arm64Mnemonic.STP:
                 // store pair of registers (reg1, reg2, dest)
                 {
                     var dest = ConvertOperand(instruction, 2);
+                    Logger.InfoNewline("ins "+instruction +" dest "+dest + " MemIs " +instruction.MemIsPreIndexed);
                     if (dest.Data is IsilRegisterOperand { RegisterName: "X31" }) // if stack
                     {
+                        var isMem = instruction.MemIsPreIndexed;
                         builder.Move(instruction.Address, dest, ConvertOperand(instruction, 0));
                         builder.Move(instruction.Address, dest, ConvertOperand(instruction, 1));
                     }
                     else if (dest.Data is IsilMemoryOperand memory)
                     {
+                        long oriOffset = memory.Addend;
                         var firstRegister = ConvertOperand(instruction, 0);
                         long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
                         builder.Move(instruction.Address, dest, firstRegister); // [REG + offset] = REG1
                         memory = new IsilMemoryOperand(memory.Base!.Value, memory.Addend + size);
                         dest = InstructionSetIndependentOperand.MakeMemory(memory);
                         builder.Move(instruction.Address, dest, ConvertOperand(instruction, 1)); // [REG + offset + size] = REG2
+                        if (instruction.MemIsPreIndexed)
+                        {
+                            //it's must be update Register
+                            var register = memory.Base.Value;
+                            builder.Add(instruction.Address,register, register,InstructionSetIndependentOperand.MakeImmediate(oriOffset));
+                        }
                     }
                     else // reg pointer
                     {
