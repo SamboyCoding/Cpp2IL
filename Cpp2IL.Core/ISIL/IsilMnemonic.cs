@@ -33,4 +33,5 @@ public enum IsilMnemonic
     Interrupt,
     NotImplemented,
     Invalid,
+    VirtualCall,
 }

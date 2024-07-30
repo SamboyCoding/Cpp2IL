@@ -61,11 +61,12 @@ public class IsilBuilder
             }
         }
     }
-
+    public void VirtualCall(ulong instructionAddress, InstructionSetIndependentOperand dest) => AddInstruction(new(InstructionSetIndependentOpCode.VirtualCall, instructionAddress, IsilFlowControl.Continue,dest));
     public void Move(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Move, instructionAddress, IsilFlowControl.Continue, dest, src));
 
     public void LoadAddress(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.LoadAddress, instructionAddress, IsilFlowControl.Continue, dest, src));
-
+    
+   
     public void ShiftStack(ulong instructionAddress, int amount) => AddInstruction(new(InstructionSetIndependentOpCode.ShiftStack, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(amount)));
 
     public void Push(ulong instructionAddress, InstructionSetIndependentOperand stackPointerRegister, InstructionSetIndependentOperand operand) => AddInstruction(new(InstructionSetIndependentOpCode.Push, instructionAddress, IsilFlowControl.Continue, stackPointerRegister, operand));
