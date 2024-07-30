@@ -113,33 +113,36 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.STUR: // unscaled
             case Arm64Mnemonic.STRB:
                 // //Store is (src, dest)
-                // if (instruction.MemIsPreIndexed) //  such as  X8, [X19,#0x30]! 
-                // {
-                //     var operate = ConvertOperand(instruction, 1);
-                //     if (operate.Data is IsilMemoryOperand operand)
-                //     {
-                //         var register = operand.Base!.Value;
-                //         // X19= X19, #0x30
-                //         builder.Add(instruction.Address, register, register,
-                //             InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
-                //
-                //         builder.Move(instruction.Address, InstructionSetIndependentOperand.MakeMemory(
-                //             new IsilMemoryOperand(
-                //                 InstructionSetIndependentOperand.MakeRegister(register.ToString()!.ToUpperInvariant()),
-                //                 0)), ConvertOperand(instruction, 0));
-                //         break;
-                //     }
-                // }
-
+                
             {
                 var emit = ConvertOperand(instruction, 0);
-                if (emit.Data is IsilRegisterOperand { RegisterName: "W31" })// it's mean use zero register
+                if (emit.Data is IsilRegisterOperand { RegisterName: "W31" }|| emit.Data is IsilRegisterOperand{RegisterName: "X31"})// it's mean use zero register
                 {
                     builder.Move(instruction.Address,ConvertOperand(instruction,1),InstructionSetIndependentOperand.MakeImmediate(0));
+                    if (instruction.MemIsPreIndexed)
+                    {
+                        var operate = ConvertOperand(instruction, 1);
+                        //it's must be update Register
+                        if (operate.Data is IsilMemoryOperand operand)
+                        {
+                            var register = operand.Base!.Value;
+                            builder.Add(instruction.Address,register, register,InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
+                        }
+                    }
                     break;
                 }
             }
                 builder.Move(instruction.Address, ConvertOperand(instruction, 1), ConvertOperand(instruction, 0));
+                if (instruction.MemIsPreIndexed)
+                {
+                    var operate = ConvertOperand(instruction, 1);
+                    //it's must be update Register
+                    if (operate.Data is IsilMemoryOperand operand)
+                    {
+                        var register = operand.Base!.Value;
+                        builder.Add(instruction.Address,register, register,InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
+                    }
+                }
                 break;
             case Arm64Mnemonic.STP:
                 // store pair of registers (reg1, reg2, dest)
@@ -326,7 +329,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 //Eor (aka xor) is (dest, src1, src2)
                 builder.Xor(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 break;
-
+            case Arm64Mnemonic.BLR:
+            {
+                //is virtual call we should parse from code detail if this fun has return value  you should add return value
+                // builder.VirtualCall(instruction,);
+                 builder.VirtualCall(instruction.Address,ConvertOperand(instruction,0));
+                break;
+            }
             default:
                 builder.NotImplemented(instruction.Address, $"Instruction {instruction.Mnemonic} not yet implemented.");
                 break;
