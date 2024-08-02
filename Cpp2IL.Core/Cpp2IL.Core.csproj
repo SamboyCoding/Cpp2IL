@@ -28,6 +28,12 @@
         <IsTrimmable>true</IsTrimmable>
     </PropertyGroup>
 
+    <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
+        <EmbeddedResource Include="TrimmerRoots.xml">
+            <LogicalName>ILLink.Descriptors.xml</LogicalName>
+        </EmbeddedResource>
+    </ItemGroup>
+
     <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net8.0'))">
         <IsAotCompatible>true</IsAotCompatible>
     </PropertyGroup>

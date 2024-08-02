@@ -1,0 +1,6 @@
+<linker>
+    <assembly fullname="Cpp2IL.Core">
+        <type fullname="Cpp2IL.Core.Cpp2IlApi" preserve="all" />
+        <type fullname="Cpp2IL.Core.Api.Cpp2IlPlugin" preserve="all" />
+    </assembly>
+</linker>
