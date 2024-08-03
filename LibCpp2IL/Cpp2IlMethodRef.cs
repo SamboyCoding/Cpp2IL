@@ -10,11 +10,13 @@ namespace LibCpp2IL
     {
         private readonly Il2CppMethodSpec _methodSpec;
         
+        
+        public Il2CppMethodSpec MethodSpec=>_methodSpec;
         public Il2CppTypeDefinition DeclaringType => BaseMethod.DeclaringType!;
         public Il2CppTypeReflectionData[] TypeGenericParams => _methodSpec.GenericClassParams;
         public Il2CppMethodDefinition BaseMethod => _methodSpec.MethodDefinition!;
         public Il2CppTypeReflectionData[] MethodGenericParams => _methodSpec.GenericMethodParams;
-
+    
         public ulong GenericVariantPtr;
 
         public Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
