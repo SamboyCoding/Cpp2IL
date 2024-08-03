@@ -5,9 +5,9 @@ using System.Reflection;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.Metadata;
 
-namespace Cpp2IL.Core.Utils;
+namespace Cpp2IL.Core.Extensions;
 
-public static class AccessibilityUtils
+internal static class AccessibilityExtensions
 {
     public static bool IsAccessibleTo(this TypeAnalysisContext referenceType, TypeAnalysisContext referencingType)
     {

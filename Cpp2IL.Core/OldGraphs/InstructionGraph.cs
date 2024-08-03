@@ -4,8 +4,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
+using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Il2CppApiFunctions;
-using Cpp2IL.Core.Utils;
 using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;

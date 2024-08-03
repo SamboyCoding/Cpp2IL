@@ -190,12 +190,12 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append("; //Field offset: 0x");
         sb.Append(field.Offset.ToString("X"));
 
-        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0)
+        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0 && field.BackingData != null)
         {
-            sb.Append(" || Has Field RVA: 0x");
-            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(field.BackingData!.Field.FieldIndex);
-            var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
-            sb.Append(pointer.ToString("X8"));
+            sb.Append(" || Has Field RVA (address hidden for diffability)");
+            // var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(field.BackingData.Field.FieldIndex);
+            // var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
+            // sb.Append(pointer.ToString("X8"));
 
             var actualValue = field.BackingData.Field.StaticArrayInitialValue;
             if (actualValue is { Length: > 0 })

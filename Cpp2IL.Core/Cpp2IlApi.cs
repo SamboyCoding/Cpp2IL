@@ -1,11 +1,8 @@
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
-using System.Text.RegularExpressions;
+using System.Runtime.CompilerServices;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Logging;
@@ -13,6 +10,8 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
+
+[assembly: InternalsVisibleTo("Cpp2IL.Core.Tests")]
 
 namespace Cpp2IL.Core
 {
