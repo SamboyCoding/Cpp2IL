@@ -146,12 +146,10 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             case Arm64Mnemonic.STP:
                 // store pair of registers (reg1, reg2, dest)
-                {
+            {
                     var dest = ConvertOperand(instruction, 2);
-                    Logger.InfoNewline("ins "+instruction +" dest "+dest + " MemIs " +instruction.MemIsPreIndexed);
                     if (dest.Data is IsilRegisterOperand { RegisterName: "X31" }) // if stack
                     {
-                        var isMem = instruction.MemIsPreIndexed;
                         builder.Move(instruction.Address, dest, ConvertOperand(instruction, 0));
                         builder.Move(instruction.Address, dest, ConvertOperand(instruction, 1));
                     }
@@ -160,10 +158,18 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         long oriOffset = memory.Addend;
                         var firstRegister = ConvertOperand(instruction, 0);
                         long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
-                        builder.Move(instruction.Address, dest, firstRegister); // [REG + offset] = REG1
+                        //if use X31 reg  it's mean use zero register
+                        builder.Move(instruction.Address, dest,
+                            firstRegister.Data is IsilRegisterOperand { RegisterName: "X31" }
+                                ? InstructionSetIndependentOperand.MakeImmediate(0)
+                                : firstRegister); // [REG + offset] = REG1
                         memory = new IsilMemoryOperand(memory.Base!.Value, memory.Addend + size);
                         dest = InstructionSetIndependentOperand.MakeMemory(memory);
-                        builder.Move(instruction.Address, dest, ConvertOperand(instruction, 1)); // [REG + offset + size] = REG2
+                        //if use X31 reg  it's mean use zero register
+                        builder.Move(instruction.Address, dest,
+                            ConvertOperand(instruction, 1).Data is IsilRegisterOperand { RegisterName: "X31" }
+                                ? InstructionSetIndependentOperand.MakeImmediate(0)
+                                : ConvertOperand(instruction, 1)); // [REG + offset + size] = REG2
                         if (instruction.MemIsPreIndexed)
                         {
                             //it's must be update Register
@@ -310,9 +316,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.SUB:
             case Arm64Mnemonic.SUBS: // settings flags
             case Arm64Mnemonic.FSUB:
-                //Sub is (dest, src1, src2)
+                   //Sub is (dest, src1, src2)
                 builder.Subtract(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
-                break;
+               break;
 
             case Arm64Mnemonic.AND:
             case Arm64Mnemonic.ANDS:
@@ -334,6 +340,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 //is virtual call we should parse from code detail if this fun has return value  you should add return value
                 // builder.VirtualCall(instruction,);
                  builder.VirtualCall(instruction.Address,ConvertOperand(instruction,0));
+                break;
+            }
+            case Arm64Mnemonic.SCVTF:
+            {
+                //Converts a single-precision floating-point value to a double-precision floating-point value
+                builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             }
             default:
