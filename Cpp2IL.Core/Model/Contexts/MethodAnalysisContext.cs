@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.ISIL.Intermediate;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
@@ -77,6 +79,12 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     //TODO Support custom attributes on return types (v31 feature)
     public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
 
+
+    private static List<IInstructionConverter> instructionConverters = new List<IInstructionConverter>()
+    {
+        new LoadStringConverter()
+    };
+
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
     {
         DeclaringType = parent;
@@ -108,6 +116,15 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         }
         else
             RawBytes = Array.Empty<byte>();
+
+        if ("GetName".Equals(DefaultName))
+        {
+            if ("Assembly-CSharp".Equals(DeclaringType?.DeclaringAssembly?.CleanAssemblyName))
+            {
+                Analyze();
+            }
+        }
+
     }
 
     protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(0, context)
@@ -133,13 +150,23 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
             return; //Nothing to do, empty function
 
         // Intermediate step to convert metadata usage. Ldstr Opcodes etc.
+        foreach (var instruction in ConvertedIsil)
+        {
+            foreach (var converter in instructionConverters)
+            {
+                converter.ConvertIfNeeded(instruction);
+            }
+        }
 
-        //TODO: Build control flow graph from ISIL
+
+        ISILControlFlowGraph iSILControlGraph = new ISILControlFlowGraph();
+        iSILControlGraph.Build(ConvertedIsil);
+
+        iSILControlGraph.GenerateGraph(this);
+
+        Debugger.Break();
 
 
-
-
-        // ControlFlowGraph = AppContext.InstructionSet.BuildGraphForMethod(this);
         //
         // if (ControlFlowGraph == null)
         //     return;

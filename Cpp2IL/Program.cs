@@ -22,7 +22,7 @@ using LibCpp2IL;
 namespace Cpp2IL
 {
     [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
-    internal class Program
+    public class Program
     {
         private static readonly List<string> PathsToDeleteOnExit = new();
 
@@ -513,6 +513,7 @@ namespace Cpp2IL
 
         public static int Main(string[] args)
         {
+            args = new[] { "--game-path=E:\\Windows\\Documents\\Coding\\UnityShenanigans\\TestProject\\New Unity Project\\Builds\\01", "--output-as=dummydll", "--exe-name=New Unity Project", "--verbose" };
             Console.WriteLine("===Cpp2IL by Samboy063===");
             Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
             Console.WriteLine($"Version {Cpp2IlVersionString}\n");
