@@ -76,8 +76,23 @@ namespace LibCpp2IL.MachO
             
             var dyldData = _loadCommands.FirstOrDefault(c => c.Command is LoadCommandId.LC_DYLD_INFO or LoadCommandId.LC_DYLD_INFO_ONLY)?.CommandData as MachODynamicLinkerCommand;
             var exports = dyldData?.Exports ?? Array.Empty<MachOExportEntry>();
+            // DEBUG
+            // var debugDict = new Dictionary<long, string>();
+            // for (int index = 0; index < exports.Length; ++index) {
+            //     var export = exports[index];
+            //     Console.WriteLine($"Export: {export.Name[1..]} -> 0x{export.Address:X}");
+            //     // detect duplicate
+            //     if (debugDict.ContainsKey(export.Address) && debugDict[export.Address] != export.Name[1..]) {
+            //         Console.WriteLine($"Duplicate: {export.Name[1..]} -> 0x{export.Address:X}");
+            //     }
+            //     debugDict[export.Address] = export.Name[1..];
+            // }
             _exportAddressesDict = exports.ToDictionary(e => e.Name[1..], e => e.Address); //Skip the first character, which is a leading underscore inserted by the compiler
-            _exportNamesDict = _exportAddressesDict.ToDictionary(kvp => kvp.Value, kvp => kvp.Key);
+            _exportNamesDict = new Dictionary<long, string>();
+            foreach (var export in exports) // there may be duplicate names
+            {
+                _exportNamesDict[export.Address] = export.Name[1..];
+            }
             
             LibLogger.VerboseNewline($"Found {_exportAddressesDict.Count} exports in the DYLD info load command.");
             
