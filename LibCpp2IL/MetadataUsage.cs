@@ -56,6 +56,33 @@ namespace LibCpp2IL
             }
         }
 
+        public Il2CppType AsIl2CppType()
+        {
+            if (_cachedType == null)
+            {
+                switch (Type)
+                {
+                    case MetadataUsageType.Type:
+                    case MetadataUsageType.TypeInfo:
+                        try
+                        {
+                            _cachedType = LibCpp2IlMain.Binary!.GetType((int) _value);
+                            _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)!;
+                            _cachedName = LibCpp2ILUtils.GetTypeReflectionData(_cachedType)?.ToString();
+                        }
+                        catch (Exception e)
+                        {
+                            throw new Exception($"Failed to convert this metadata usage to a type, but it is of type {Type}, with a value of {_value} (0x{_value:X}). There are {LibCpp2IlMain.Binary!.NumTypes} types", e);
+                        }
+
+                        break;
+                    default:
+                        throw new Exception($"Cannot cast metadata usage of kind {Type} to a Type");
+                }
+            }
+
+            return _cachedType!;
+        }
         public Il2CppTypeReflectionData AsType()
         {
             if (_cachedTypeReflectionData == null)
