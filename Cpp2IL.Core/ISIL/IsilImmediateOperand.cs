@@ -23,6 +23,11 @@ public readonly struct IsilImmediateOperand : IsilOperandData
         {
             //Ignore
         }
+
+        if (Value is string)
+        {
+            return "\"" + Value + "\"";
+        }
         
         return Value.ToString(CultureInfo.InvariantCulture);
     }
