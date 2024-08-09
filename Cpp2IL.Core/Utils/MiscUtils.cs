@@ -222,6 +222,9 @@ namespace Cpp2IL.Core.Utils
             if (ret <= current && upper == _allKnownFunctionStarts.Count - 1)
                 return 0;
 
+            if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(ret, out _))
+                return 0;
+
             return ret;
         }
 
