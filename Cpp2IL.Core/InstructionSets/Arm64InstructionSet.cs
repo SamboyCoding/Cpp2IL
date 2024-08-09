@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class Arm64InstructionSet : Cpp2IlInstructionSet
 {
-    public virtual IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
+    public virtual ISILControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
         return null!;
     }

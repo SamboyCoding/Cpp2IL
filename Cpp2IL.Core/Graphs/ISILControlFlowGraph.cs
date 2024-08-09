@@ -13,7 +13,7 @@ using Rubjerg.Graphviz;
 
 namespace Cpp2IL.Core.Graphs
 {
-    internal class ISILControlFlowGraph
+    public class ISILControlFlowGraph
     {
         public Block EntryBlock => entryBlock;
         public Block ExitBlock => exitBlock; 

@@ -13,7 +13,7 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class WasmInstructionSet : Cpp2IlInstructionSet
 {
-    public virtual IControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
+    public virtual ISILControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
     {
         return null!;
     }
