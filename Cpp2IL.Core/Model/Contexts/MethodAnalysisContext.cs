@@ -53,7 +53,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     /// <summary>
     /// The control flow graph for this method, if one is built.
     /// </summary>
-    public IControlFlowGraph? ControlFlowGraph;
+    public ISILControlFlowGraph? ControlFlowGraph;
 
     public List<ParameterAnalysisContext> Parameters = new();
 
