@@ -13,11 +13,6 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class ArmV7InstructionSet : Cpp2IlInstructionSet
 {
-    public virtual ISILControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
-    {
-        return null!;
-    }
-
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         if (ArmV7Utils.TryGetMethodBodyBytesFast(context.UnderlyingPointer, context is AttributeGeneratorMethodAnalysisContext) is { } ret)
