@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net7.0</TargetFramework>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<Nullable>enable</Nullable>
+		<DebugType>embedded</DebugType>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>compile; build</IncludeAssets>
+			<ExcludedAssets>runtime</ExcludedAssets>
+		</ProjectReference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Rubjerg.Graphviz" Version="2.0.2" />
+	</ItemGroup>
+
+</Project>

@@ -15,22 +15,6 @@ public class Block
     public List<Block> Predecessors;
     public List<Block> Successors;
 
-    // All dominators, excluding self
-    public BitList doms = new();
-
-    // Post dominators, excluding self
-    public BitList postDoms = new();
-
-    // Dominance frontier
-    public BitList domFrontier = new();
-
-    // Immediate dominator
-    public Block? idom;
-
-    // Immediate post dominator
-    public Block? iPostDom;
-
-
     public List<InstructionSetIndependentInstruction> isilInstructions;
 
     public int ID { get; set; }

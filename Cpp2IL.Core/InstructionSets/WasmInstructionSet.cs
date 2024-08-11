@@ -13,11 +13,6 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class WasmInstructionSet : Cpp2IlInstructionSet
 {
-    public virtual ISILControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
-    {
-        return null!;
-    }
-
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         if (context.Definition is { } methodDefinition)

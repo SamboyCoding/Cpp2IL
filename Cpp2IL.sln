@@ -41,6 +41,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cpp2IL.Core.Tests", "Cpp2IL
 EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Cpp2IL.Plugin.StrippedCodeRegSupport", "Cpp2IL.Plugin.StrippedCodeRegSupport\Cpp2IL.Plugin.StrippedCodeRegSupport.csproj", "{B2425628-0D69-44FA-AD34-997595512785}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Plugin.ControlFlowGraph", "Cpp2IL.Plugin.ControlFlowGraph\Cpp2IL.Plugin.ControlFlowGraph.csproj", "{29683659-D4B0-444B-8D35-F35309535EE6}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -87,6 +89,10 @@ Global
 		{B2425628-0D69-44FA-AD34-997595512785}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{B2425628-0D69-44FA-AD34-997595512785}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{B2425628-0D69-44FA-AD34-997595512785}.Release|Any CPU.Build.0 = Release|Any CPU
+		{29683659-D4B0-444B-8D35-F35309535EE6}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{29683659-D4B0-444B-8D35-F35309535EE6}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{29683659-D4B0-444B-8D35-F35309535EE6}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{29683659-D4B0-444B-8D35-F35309535EE6}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

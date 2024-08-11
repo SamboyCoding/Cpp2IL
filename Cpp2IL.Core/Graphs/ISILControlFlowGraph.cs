@@ -1,15 +1,9 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Net;
 using System.Text;
-using System.Threading.Tasks;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.Model.Contexts;
-using Rubjerg.Graphviz;
 
 namespace Cpp2IL.Core.Graphs
 {
@@ -167,7 +161,8 @@ namespace Cpp2IL.Core.Graphs
         {
             foreach (var block in blockSet)
             {
-                //block.doms
+
+                throw new NotImplementedException();
             }
         }
 
@@ -270,52 +265,6 @@ namespace Cpp2IL.Core.Graphs
         }
 
         protected void AddNode(Block block) => blockSet.Add(block);
-
-        private string GenerateGraphTitle(MethodAnalysisContext context)
-        {
-            StringBuilder stringBuilder = new StringBuilder();
-            stringBuilder.Append("Type: ");
-            stringBuilder.Append(context.DeclaringType?.FullName);
-            stringBuilder.Append("\n");
-            stringBuilder.Append("Method: ");
-            stringBuilder.Append(context.DefaultName);
-            stringBuilder.Append("\n");
-            return stringBuilder.ToString();
-        }
-
-        public void GenerateGraph(MethodAnalysisContext context)
-        {
-
-            RootGraph root = RootGraph.CreateNew(GraphType.Directed, "Graph");
-            root.SetAttribute("label", GenerateGraphTitle(context));
-            TraverseAndPreExecute(entryBlock, block => {
-                Node node = root.GetOrAddNode(block.ID.ToString());
-                if (block.BlockType == BlockType.Entry)
-                {
-                    node.SetAttribute("color", "green");
-                    node.SetAttribute("label", "Entry point");
-                }
-                else if (block.BlockType == BlockType.Exit)
-                {
-                    node.SetAttribute("color", "red");
-                    node.SetAttribute("label", "Exit point");
-                }
-                else
-                {
-                    node.SetAttribute("shape", "box");
-                    node.SetAttribute("label", block.ToString());
-                }
-                foreach (var succ in block.Successors)
-                {
-                    var target = root.GetOrAddNode(succ.ID.ToString());
-                    Edge edge = root.GetOrAddEdge(node, target);
-                }
-            });
-
-            root.ToDotFile("temp.dot");
-            root.ToPngFile("temp.png");
-            Process.Start("dot.exe", $"−Tcmapx temp.dot out.html");
-        }
 
         private void TraverseAndPreExecute(Block block, Action<Block> action)
         {
