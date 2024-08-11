@@ -3,12 +3,10 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Extensions;
-using Rubjerg.Graphviz;
 using System.Text;
 using Cpp2IL.Core.Graphs;
 using DotNetGraph.Core;
 using DotNetGraph.Extensions;
-using DotNetGraph.Attributes;
 using DotNetGraph.Compilation;
 
 namespace Cpp2IL.Plugin.ControlFlowGraph;
