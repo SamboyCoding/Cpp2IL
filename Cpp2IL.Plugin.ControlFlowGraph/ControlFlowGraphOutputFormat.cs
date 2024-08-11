@@ -22,7 +22,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
         outputRoot = Path.Combine(outputRoot, "CFGDump");
 
         var numAssemblies = context.Assemblies.Count;
-        var i = 0;
+        var i = 1;
         foreach (var assembly in context.Assemblies)
         {
             Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Definition.AssemblyName.Name}", "ControlFlowGraphOutputFormat");
