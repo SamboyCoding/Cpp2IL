@@ -20,7 +20,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
         outputRoot = Path.Combine(outputRoot, "IsilDump");
 
         var numAssemblies = context.Assemblies.Count;
-        var i = 0;
+        var i = 1;
         foreach (var assembly in context.Assemblies)
         {
             Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Definition.AssemblyName.Name}", "IsilOutputFormat");
