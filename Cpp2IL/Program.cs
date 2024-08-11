@@ -22,7 +22,6 @@ using LibCpp2IL;
 namespace Cpp2IL
 {
     [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
-    public class Program
     internal class Program
     {
         private static readonly List<string> PathsToDeleteOnExit = new();
