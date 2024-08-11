@@ -98,19 +98,30 @@ namespace Cpp2IL.Core.Graphs
                         else
                         {
                             AddDirectedEdge(currentBlock, exitBlock);
+                            currentBlock.CaculateBlockType();
                         }
                         break;
                     case IsilFlowControl.Continue:
                         currentBlock.AddInstruction(instructions[i]);
-                        if (isLast) { /* This shouldn't happen, we've either smashed into another method or random data such as a jump table */}
+                        if (isLast) { 
+                            // TODO: Investiage
+                            /* This shouldn't happen, we've either smashed into another method or random data such as a jump table */
+                        }
                         break;
                     case IsilFlowControl.MethodReturn:
                         currentBlock.AddInstruction(instructions[i]);
-                        var newNodeFromReturn = new Block() { ID = idCounter++ };
-                        AddNode(newNodeFromReturn);
-                        AddDirectedEdge(currentBlock, exitBlock);
-                        currentBlock.CaculateBlockType();
-                        currentBlock = newNodeFromReturn;
+                        if (!isLast) {
+                            var newNodeFromReturn = new Block() { ID = idCounter++ };
+                            AddNode(newNodeFromReturn);
+                            AddDirectedEdge(currentBlock, exitBlock);
+                            currentBlock.CaculateBlockType();
+                            currentBlock = newNodeFromReturn;
+                        } else
+                        {
+                            AddDirectedEdge(currentBlock, exitBlock);
+                            currentBlock.CaculateBlockType();
+                        }
+                        
                         break;
                     case IsilFlowControl.ConditionalJump:
                         currentBlock.AddInstruction(instructions[i]);
