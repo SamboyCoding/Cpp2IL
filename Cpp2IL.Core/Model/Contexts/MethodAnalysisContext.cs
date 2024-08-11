@@ -1,16 +1,13 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.ISIL.Intermediate;
+using Cpp2IL.Core.Graphs.Intermediate;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
-using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
 
@@ -80,9 +77,9 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
 
 
-    private static List<IInstructionConverter> instructionConverters = new List<IInstructionConverter>()
+    private static List<IBlockProcessor> blockProcessors = new List<IBlockProcessor>()
     {
-        new LoadStringConverter()
+        new StringProcessor()
     };
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
@@ -116,15 +113,6 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         }
         else
             RawBytes = Array.Empty<byte>();
-
-        if ("GetName".Equals(DefaultName))
-        {
-            if ("Assembly-CSharp".Equals(DeclaringType?.DeclaringAssembly?.CleanAssemblyName))
-            {
-                Analyze();
-            }
-        }
-
     }
 
     protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(0, context)
@@ -149,23 +137,17 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         if (ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
 
+        ControlFlowGraph = new ISILControlFlowGraph();
+        ControlFlowGraph.Build(ConvertedIsil);
+
         // Intermediate step to convert metadata usage. Ldstr Opcodes etc.
-        foreach (var instruction in ConvertedIsil)
+        foreach (var block in ControlFlowGraph.Blocks)
         {
-            foreach (var converter in instructionConverters)
+            foreach (var converter in blockProcessors)
             {
-                converter.ConvertIfNeeded(instruction);
+                converter.Process(block);
             }
         }
-
-
-        ISILControlFlowGraph iSILControlGraph = new ISILControlFlowGraph();
-        iSILControlGraph.Build(ConvertedIsil);
-
-        iSILControlGraph.GenerateGraph(this);
-
-        Debugger.Break();
-
 
         //
         // if (ControlFlowGraph == null)

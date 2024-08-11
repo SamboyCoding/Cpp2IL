@@ -14,11 +14,6 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class Arm64InstructionSet : Cpp2IlInstructionSet
 {
-    public virtual ISILControlFlowGraph BuildGraphForMethod(MethodAnalysisContext context)
-    {
-        return null!;
-    }
-
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         //Avoid use of capstone where possible
