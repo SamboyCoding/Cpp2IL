@@ -1,7 +1,7 @@
 using Cpp2IL.Core.ISIL;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Graphs.Intermediate
+namespace Cpp2IL.Core.Graphs.Processors
 {
     internal class StringProcessor : IBlockProcessor
     {
