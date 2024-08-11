@@ -140,7 +140,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         ControlFlowGraph = new ISILControlFlowGraph();
         ControlFlowGraph.Build(ConvertedIsil);
 
-        // Intermediate step to convert metadata usage. Ldstr Opcodes etc.
+        // Post step to convert metadata usage. Ldstr Opcodes etc.
         foreach (var block in ControlFlowGraph.Blocks)
         {
             foreach (var converter in blockProcessors)
@@ -148,13 +148,6 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
                 converter.Process(block);
             }
         }
-
-        //
-        // if (ControlFlowGraph == null)
-        //     return;
-        //
-        // ControlFlowGraph.Run();
-        // InstructionSetIndependentNodes = AppContext.InstructionSet.ControlFlowGraphToISIL(ControlFlowGraph, this);
     }
     
     public void ReleaseAnalysisData()
