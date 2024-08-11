@@ -1,11 +1,7 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using AsmResolver.Collections;
 using Cpp2IL.Core.ISIL;
-using Gee.External.Capstone;
-using Iced.Intel;
 
 namespace Cpp2IL.Core.Graphs;
 
