@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System;
+using System.Text;
 using LibCpp2IL.Metadata;
 
 #pragma warning disable 8618
@@ -30,6 +31,7 @@ namespace LibCpp2IL.Reflection
 
         private string GetPtrSuffix()
         {
+          
             return isPointer ? "*" : "";
         }
         

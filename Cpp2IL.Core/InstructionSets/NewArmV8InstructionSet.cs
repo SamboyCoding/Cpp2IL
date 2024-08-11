@@ -16,6 +16,7 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 {
+    private Arm64Instruction lastCmpInstruction;
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         if (context is not ConcreteGenericMethodAnalysisContext)
@@ -70,6 +71,41 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             }
         }
         return false;
+    }
+
+    private void FixMnemonicConditionCode(Arm64Instruction instruction, IsilBuilder builder)
+    {
+        if (instruction.MnemonicConditionCode==Arm64ConditionCode.LT)
+        {
+            builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0), ConvertOperand(lastCmpInstruction, 1));
+            builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
+            return;
+        }
+
+        if (instruction.MnemonicConditionCode==Arm64ConditionCode.CS)
+        {
+            //last instruction must be CMP
+            builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0), ConvertOperand(lastCmpInstruction, 1));
+            builder.JumpIfGreaterOrEqual( instruction.Address, instruction.BranchTarget);
+            return;
+        }
+
+        throw new Exception("Unknown condition code "+instruction.MnemonicConditionCode +" ins "+instruction);
+    }
+
+    private InstructionSetIndependentOperand FastLSL(InstructionSetIndependentOperand operand)
+    {
+        if (operand.Type==InstructionSetIndependentOperand.OperandType.Immediate)
+        {
+            if (operand.Data is IsilImmediateOperand data)
+            {
+                 var result= Math.Pow(2, Convert.ToInt64(data.Value));
+                 
+                return  InstructionSetIndependentOperand.MakeImmediate(result);
+            }   
+        }
+
+        throw new Exception(" not support FastLSL " + operand);
     }
     private void ConvertInstructionStatement(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
@@ -237,8 +273,15 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
                 else
                 {
-                    //is call in method addr range just go to 
-                    builder.Goto(instruction.Address, instruction.BranchTarget);
+                    if (instruction.MnemonicConditionCode != Arm64ConditionCode.NONE)
+                    {
+                        FixMnemonicConditionCode(instruction, builder);
+                    }
+                    else
+                    {
+                        //is call in method addr range just go to 
+                        builder.Goto(instruction.Address, instruction.BranchTarget);
+                    }
                 }
                 break;
             case Arm64Mnemonic.BR:
@@ -264,8 +307,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
             case Arm64Mnemonic.CMP:
                 // Compare: set flag (N or Z or C or V) = (reg1 - reg2)
-                // builder.Compare(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0));
-                goto default;
+                lastCmpInstruction = instruction; // Save this instruction for later use
+                // builder.Compare(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+               break;
 
             case Arm64Mnemonic.TBNZ:
                 // TBNZ R<t>, #imm, label
@@ -310,6 +354,23 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.ADDS: // settings flags
             case Arm64Mnemonic.FADD:
                 //Add is (dest, src1, src2)
+                if (instruction.Address==0x65225c)
+                {
+                    Logger.InfoNewline(" add === "+ConvertOperand(instruction,2) +" ori "+instruction + " in3 "+ConvertOperand(instruction,3));
+                }
+
+                if (instruction.FinalOpShiftType==Arm64ShiftType.LSL)
+                {
+                    var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                    var src = ConvertOperand(instruction, 2);
+                   var lsl=  ConvertOperand(instruction, 3);
+                   if (lsl.Type == InstructionSetIndependentOperand.OperandType.Immediate)
+                   {
+                       builder.Multiply(instruction.Address, temp,src,FastLSL(ConvertOperand(instruction,3)));
+                       builder.Add(instruction.Address,ConvertOperand(instruction,0),ConvertOperand(instruction,1),temp);
+                       break;
+                   }
+                }
                 builder.Add(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 break;
 
@@ -354,6 +415,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         }
     }
 
+    private void GetNearOperand(Arm64Instruction instruction)
+    {
+       var near=  ConvertOperand(instruction, 3);
+      
+    }
     private InstructionSetIndependentOperand ConvertOperand(Arm64Instruction instruction, int operand)
     {
         var kind = operand switch
