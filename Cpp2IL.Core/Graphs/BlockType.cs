@@ -23,7 +23,7 @@ public enum BlockType : byte
     // Exception or something raised
     Interrupt,
 
-    // Empty blocks that serve and entry and exit markers
+    // Empty blocks that serve as entry and exit markers
     Entry,
     Exit,
 }

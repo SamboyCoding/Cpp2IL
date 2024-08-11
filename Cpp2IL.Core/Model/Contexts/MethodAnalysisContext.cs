@@ -4,7 +4,7 @@ using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.Graphs.Intermediate;
+using Cpp2IL.Core.Graphs.Processors;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
