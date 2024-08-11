@@ -16,7 +16,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-		<PackageReference Include="Rubjerg.Graphviz" Version="2.0.2" />
+		<PackageReference Include="DotNetGraph" Version="3.2.0" />
 	</ItemGroup>
 
 </Project>

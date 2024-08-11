@@ -6,6 +6,10 @@ using Cpp2IL.Core.Extensions;
 using Rubjerg.Graphviz;
 using System.Text;
 using Cpp2IL.Core.Graphs;
+using DotNetGraph.Core;
+using DotNetGraph.Extensions;
+using DotNetGraph.Attributes;
+using DotNetGraph.Compilation;
 
 namespace Cpp2IL.Plugin.ControlFlowGraph;
 
@@ -25,7 +29,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
             var assemblyNameClean = assembly.CleanAssemblyName;
 
-            MiscUtils.ExecuteParallel(assembly.Types, type =>
+            MiscUtils.ExecuteParallel(assembly.Types, type  => 
             {
                 if (type is InjectedTypeAnalysisContext)
                     return;
@@ -47,7 +51,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
                             continue;
                         }
 
-                        WriteMethodGraph(outputRoot, method, GenerateGraph(method.ControlFlowGraph, method), assemblyNameClean);
+                        WriteMethodGraph(outputRoot, method, GenerateGraph(method.ControlFlowGraph, method), assemblyNameClean).Wait();
 
                         method.ReleaseAnalysisData();
                     }
@@ -72,41 +76,69 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
         return stringBuilder.ToString();
     }
 
-    public RootGraph GenerateGraph(ISILControlFlowGraph graph, MethodAnalysisContext method)
+    public DotGraph GenerateGraph(ISILControlFlowGraph graph, MethodAnalysisContext method)
     {
+        var directedGraph = new DotGraph()
+            .WithIdentifier("Graph")
+            .Directed()
+            .WithLabel(GenerateGraphTitle(method));
 
-        RootGraph root = RootGraph.CreateNew(GraphType.Directed, "Graph");
-        root.SetAttribute("label", GenerateGraphTitle(method));
+        var nodeCache = new Dictionary<int, DotNode>();
+        var edgeCache = new List<DotEdge>();
+        DotNode GetOrAddNode(int id) {
+            if (nodeCache.TryGetValue(id, out var node)) {
+                return node;
+            } 
+            var newNode = new DotNode().WithIdentifier(id.ToString());
+            directedGraph.Add(newNode);
+            nodeCache[id] = newNode;
+            return newNode;
+        }
+        DotEdge GetOrAddEdge(DotNode from, DotNode to) {
+            foreach (var edge in edgeCache)
+            {
+                if (edge.From == from.Identifier && edge.To == to.Identifier) { return edge; }
+            }
+            var newEdge = new DotEdge()
+                .From(from)
+                .To(to);
+            edgeCache.Add(newEdge);
+            directedGraph.Add(newEdge);
+            return newEdge;
+        }
+
+
         foreach (var block in graph.Blocks)
         {
-            Node node = root.GetOrAddNode(block.ID.ToString());
+            var node = GetOrAddNode(block.ID);
             if (block.BlockType == BlockType.Entry)
             {
-                node.SetAttribute("color", "green");
-                node.SetAttribute("label", "Entry point");
+                node.WithColor("green");
+                node.WithLabel("Entry point");
             }
             else if (block.BlockType == BlockType.Exit)
             {
-                node.SetAttribute("color", "red");
-                node.SetAttribute("label", "Exit point");
+                node.WithColor("red");
+                node.WithLabel("Exit point");
             }
             else
             {
-                node.SetAttribute("shape", "box");
-                node.SetAttribute("label", block.ToString());
+                node.WithShape("box");
+                node.WithLabel(block.ToString());
             }
             foreach (var succ in block.Successors)
             {
-                var target = root.GetOrAddNode(succ.ID.ToString());
-                Edge edge = root.GetOrAddEdge(node, target);
+                var target = GetOrAddNode(succ.ID);
+                GetOrAddEdge(node, target);
             }
         }
-        return root;
+        return directedGraph;
     }
 
     private static string GetFilePathForMethod(string outputRoot, MethodAnalysisContext method, string assemblyNameClean)
     {
         TypeAnalysisContext type = method.DeclaringType;
+
 
 
         //Get root assembly directory
@@ -166,7 +198,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
             methodFileName += "_";
             methodFileName += parameters;
         }
-        methodFileName += ".png";
+        methodFileName += ".dot";
 
         MiscUtils.InvalidPathChars.ForEach(c => methodFileName = methodFileName.Replace(c, '_'));
 
@@ -176,10 +208,17 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
         return Path.Combine(filename, methodFileName);
     }
 
-    private static void WriteMethodGraph(string outputRoot, MethodAnalysisContext method, RootGraph rootGraph, string assemblyNameClean)
+    private static async Task WriteMethodGraph(string outputRoot, MethodAnalysisContext method, DotGraph graph, string assemblyNameClean)
     {
         var file = GetFilePathForMethod(outputRoot, method, assemblyNameClean);
 
-        rootGraph.ToPngFile(file);
+        // Library doesn't provide a non async option :(
+        await using var writer = new StringWriter();
+        var context = new CompilationContext(writer, new CompilationOptions());
+        await graph.CompileAsync(context);
+        var result = writer.GetStringBuilder().ToString();
+
+        // Save it to a file
+        File.WriteAllText(file, result);
     }
 }
