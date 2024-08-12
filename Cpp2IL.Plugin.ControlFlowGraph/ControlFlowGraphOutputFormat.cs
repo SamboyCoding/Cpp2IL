@@ -77,7 +77,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
     public DotGraph GenerateGraph(ISILControlFlowGraph graph, MethodAnalysisContext method)
     {
         var directedGraph = new DotGraph()
-            .WithIdentifier("Graph")
+            .WithIdentifier("ControlFlowGraph")
             .Directed()
             .WithLabel(GenerateGraphTitle(method));
 
