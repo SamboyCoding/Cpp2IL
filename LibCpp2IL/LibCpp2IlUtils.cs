@@ -312,10 +312,9 @@ namespace LibCpp2IL
                         typeDefinition = LibCpp2IlMain.TheMetadata.typeDefs[type.Data.ClassIndex];
                     }
 
-                    var genericInst = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppGenericInst>(genericClass.Context.class_inst);
-                    var pointers = genericInst.Pointers;
-                    var genericParams = pointers
-                        .Select(pointer => LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointer))
+                    var genericInst = genericClass.Context.ClassInst;
+                    
+                    var genericParams = genericInst.Types
                         .Select(GetTypeReflectionData) //Recursive call here
                         .ToList();
 
