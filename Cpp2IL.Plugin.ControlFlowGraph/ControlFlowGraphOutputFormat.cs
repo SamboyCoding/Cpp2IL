@@ -203,7 +203,17 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
 
         //Combine the directory and filename
-        return Path.Combine(filename, methodFileName);
+        var fullPath = Path.Combine(filename, methodFileName);
+        
+        if(fullPath.Length > 260)
+        {
+            //Too long, trim it
+            fullPath = fullPath[..250];
+            
+            fullPath += ".dot";
+        }
+        
+        return fullPath;
     }
 
     private static async Task WriteMethodGraph(string outputRoot, MethodAnalysisContext method, DotGraph graph, string assemblyNameClean)
