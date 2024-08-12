@@ -125,6 +125,7 @@ public class IsilBuilder
     public void Invalid(ulong instructionAddress, string text) => AddInstruction(new(InstructionSetIndependentOpCode.Invalid, instructionAddress, IsilFlowControl.Continue, InstructionSetIndependentOperand.MakeImmediate(text)));
 
     public void Interrupt(ulong instructionAddress) => AddInstruction(new(InstructionSetIndependentOpCode.Interrupt, instructionAddress, IsilFlowControl.Interrupt));
+    public void Nop(ulong instructionAddress) => AddInstruction(new(InstructionSetIndependentOpCode.Nop, instructionAddress, IsilFlowControl.Continue));
 
     private InstructionSetIndependentOperand[] PrepareCallOperands(ulong dest, InstructionSetIndependentOperand[] args)
     {

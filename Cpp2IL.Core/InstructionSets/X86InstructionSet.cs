@@ -66,12 +66,22 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         switch (instruction.Mnemonic)
         {
             case Mnemonic.Mov:
+            case Mnemonic.Movzx: //For all intents and purposes we don't care about zero-extending
+            case Mnemonic.Movaps: //Movaps is basically just a mov but with the potential future detail that the size is dependent on reg size
+            case Mnemonic.Movups: //Movaps but unaligned
+            case Mnemonic.Movss: //Same as movaps but for floats
+            case Mnemonic.Movd: //Mov but specifically dword
+            case Mnemonic.Movq: //Mov but specifically qword
+            case Mnemonic.Movsd: //Mov but specifically double
+            case Mnemonic.Movdqa: //Movaps but multiple integers at once in theory
+            case Mnemonic.Cvtdq2ps: //Technically a convert double to single, but for analysis purposes we can just treat it as a move
                 builder.Move(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Lea:
                 builder.LoadAddress(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Xor:
+            case Mnemonic.Xorps: //xorps is just floating point xor
                 if (instruction.Op0Kind == OpKind.Register && instruction.Op1Kind == OpKind.Register && instruction.Op0Register == instruction.Op1Register)
                     builder.Move(instruction.IP, ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeImmediate(0));
                 else
@@ -84,9 +94,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 builder.ShiftRight(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.And:
+            case Mnemonic.Andps: //Floating point and
                 builder.And(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Or:
+            case Mnemonic.Orps: //Floating point or
                 builder.Or(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Not:
@@ -119,6 +131,16 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 }
                 else if (instruction.OpCount == 3) builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 else builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                break;
+            case Mnemonic.Mulss:
+            case Mnemonic.Vmulss:
+                if (instruction.OpCount == 3)
+                    builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                else if (instruction.OpCount == 2)
+                    builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                else 
+                    goto default;
+                
                 break;
             case Mnemonic.Ret:
                 if (context.IsVoid)
@@ -155,6 +177,34 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 else
                     builder.Add(instruction.IP,  left, left, right);
 
+                break;
+            case Mnemonic.Addss:
+            case Mnemonic.Subss:
+                //Addss and subss are just floating point add/sub, but we don't need to handle the stack stuff
+                //But we do need to handle 2 vs 3 operand forms
+                InstructionSetIndependentOperand dest;
+                InstructionSetIndependentOperand src1;
+                InstructionSetIndependentOperand src2;
+
+                if (instruction.OpCount == 3)
+                {
+                    //dest, src1, src2
+                    dest = ConvertOperand(instruction, 0);
+                    src1 = ConvertOperand(instruction, 1);
+                    src2 = ConvertOperand(instruction, 2);
+                } else if (instruction.OpCount == 2)
+                {
+                    //DestAndSrc1, Src2
+                    dest = ConvertOperand(instruction, 0);
+                    src1 = dest;
+                    src2 = ConvertOperand(instruction, 1);
+                } else 
+                    goto default;
+                
+                if (instruction.Mnemonic == Mnemonic.Subss)
+                    builder.Subtract(instruction.IP, dest, src1, src2);
+                else
+                    builder.Add(instruction.IP, dest, src1, src2);
                 break;
             case Mnemonic.Dec:
             case Mnemonic.Inc:
@@ -222,8 +272,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.Compare(instruction.IP, ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeImmediate(0));
                     break;
                 }
-                goto default;
+                
+                //Fall through to cmp, as test is just a cmp that doesn't set flags
+                goto case Mnemonic.Cmp;
             case Mnemonic.Cmp:
+            case Mnemonic.Comiss: //comiss is just a floating point compare
                 builder.Compare(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Jmp:
@@ -311,6 +364,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Int:
             case Mnemonic.Int3:
                 builder.Interrupt(instruction.IP); // We'll add it but eliminate later
+                break;
+            case Mnemonic.Nop:
+                //While this is literally a nop and there's in theory no point emitting anything for it, it could be used as a jump target.
+                //So we'll emit an ISIL nop for it.
+                builder.Nop(instruction.IP);
                 break;
             default:
                 builder.NotImplemented(instruction.IP, FormatInstruction(instruction));

@@ -42,6 +42,7 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode JumpIfLessOrEqual = new(IsilMnemonic.JumpIfLessOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
 
     public static readonly InstructionSetIndependentOpCode Interrupt = new(IsilMnemonic.Interrupt, 0);
+    public static readonly InstructionSetIndependentOpCode Nop = new(IsilMnemonic.Nop, 0);
 
     public static readonly InstructionSetIndependentOpCode NotImplemented = new(IsilMnemonic.NotImplemented, 1, InstructionSetIndependentOperand.OperandType.Immediate);
 

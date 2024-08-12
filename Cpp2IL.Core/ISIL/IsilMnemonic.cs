@@ -31,6 +31,7 @@ public enum IsilMnemonic
     JumpIfLessOrEqual,
     SignExtend,
     Interrupt,
+    Nop,
     NotImplemented,
     Invalid,
 }
