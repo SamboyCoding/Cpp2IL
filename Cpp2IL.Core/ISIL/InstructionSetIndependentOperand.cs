@@ -1,4 +1,5 @@
 using System;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.ISIL;
 
@@ -13,6 +14,9 @@ public readonly struct InstructionSetIndependentOperand
     public static InstructionSetIndependentOperand MakeStack(int value) => new(OperandType.StackOffset, new IsilStackOperand(value));
     public static InstructionSetIndependentOperand MakeInstruction(InstructionSetIndependentInstruction instruction) => new(OperandType.Instruction, instruction);
     public static InstructionSetIndependentOperand MakeVectorElement(string registerName, IsilVectorRegisterElementOperand.VectorElementWidth width, int index) => new(OperandType.Register, new IsilVectorRegisterElementOperand(registerName, width, index));
+
+    public static InstructionSetIndependentOperand MakeTypeMetadataUsage(Il2CppTypeReflectionData value) => new(OperandType.TypeMetadataUsage, new IsilTypeMetadataUsageOperand(value));
+
 
     private InstructionSetIndependentOperand(OperandType type, IsilOperandData data)
     {
@@ -36,11 +40,12 @@ public readonly struct InstructionSetIndependentOperand
         Register = 4,
         Memory = 8,
         Instruction = 16,
+        TypeMetadataUsage = 32,
         
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory | Instruction,
+        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage,
         
         
-        Any = Immediate | StackOffset | Register | Memory
+        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage
     }
 }

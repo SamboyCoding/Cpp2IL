@@ -79,7 +79,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     private static List<IBlockProcessor> blockProcessors = new List<IBlockProcessor>()
     {
-        new StringProcessor()
+        new MetadataProcessor(),
+        new CallProcessor(),
     };
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
@@ -145,7 +146,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         {
             foreach (var converter in blockProcessors)
             {
-                converter.Process(block);
+                converter.Process(block, AppContext);
             }
         }
     }

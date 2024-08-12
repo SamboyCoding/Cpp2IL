@@ -1,11 +1,12 @@
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Graphs.Processors
 {
-    internal class StringProcessor : IBlockProcessor
+    internal class MetadataProcessor : IBlockProcessor
     {
-        public void Process(Block block)
+        public void Process(Block block, ApplicationAnalysisContext appContext)
         {
             foreach (var instruction in block.isilInstructions)
             {
@@ -23,7 +24,15 @@ namespace Cpp2IL.Core.Graphs.Processors
                 {
                     var val = LibCpp2IlMain.GetLiteralByAddress((ulong)memoryOp.Addend);
                     if (val == null)
+                    {
+                        // Try instead check if its metadata usage
+                        var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
+                        if (metadataUsage != null)
+                        {
+                            instruction.Operands[1] = InstructionSetIndependentOperand.MakeTypeMetadataUsage(metadataUsage);
+                        }
                         continue;
+                    }
 
                     instruction.Operands[1] = InstructionSetIndependentOperand.MakeImmediate(val);
                 }
