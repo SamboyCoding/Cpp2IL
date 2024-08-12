@@ -73,7 +73,10 @@ namespace LibCpp2IL
         public static string? GetLiteralByAddress(ulong address)
         {
             var literal = GetLiteralGlobalByAddress(address);
-            return literal?.AsLiteral();
+            if (literal?.Type != MetadataUsageType.StringLiteral)
+                return null;
+            
+            return literal.AsLiteral();
         }
 
         public static MetadataUsage? GetRawTypeGlobalByAddress(ulong address)
