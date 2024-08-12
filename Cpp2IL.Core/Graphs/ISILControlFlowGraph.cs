@@ -72,7 +72,7 @@ namespace Cpp2IL.Core.Graphs
                             AddNode(newNodeFromJmp);
                             if (TryGetTargetJumpInstructionIndex(instructions[i], out uint jumpTargetIndex))
                             {
-                                var result = instructions.Any(instruction => instruction.InstructionIndex == jumpTargetIndex);
+                                // var result = instructions.Any(instruction => instruction.InstructionIndex == jumpTargetIndex);
                                 currentBlock.Dirty = true;
                             } else
                             {
@@ -214,13 +214,20 @@ namespace Cpp2IL.Core.Graphs
         {
             if (instruction == null)
                 return null;
-            foreach (var block in blockSet)
+            
+            for (var i = 0; i < blockSet.Count; i++)
             {
-                if (block.isilInstructions.Any(instr => instr == instruction))
+                var block = blockSet[i];
+                for (var j = 0; j < block.isilInstructions.Count; j++)
                 {
-                    return block;
+                    var instr = block.isilInstructions[j];
+                    if (instr == instruction)
+                    {
+                        return block;
+                    }
                 }
             }
+
             return null;
         }
 
