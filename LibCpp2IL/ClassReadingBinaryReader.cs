@@ -330,6 +330,26 @@ namespace LibCpp2IL
         {
             PositionShiftLock.Exit();
         }
+        
+        public ulong ReadNUintAtRawAddress(long offset)
+        {
+            if(offset > Length)
+                throw new EndOfStreamException($"ReadNUintAtRawAddress: Offset 0x{offset:X} is beyond the end of the stream (length 0x{Length:X})");
+            
+            GetLockOrThrow();
+
+            try
+            {
+                Position = offset;
+                return ReadNUint();
+            }
+            finally
+            {
+                ReleaseLock();
+                
+                TrackRead<ulong>((int)PointerSize, false);
+            }
+        }
 
         public ulong[] ReadNUintArrayAtRawAddress(long offset, int count)
         {

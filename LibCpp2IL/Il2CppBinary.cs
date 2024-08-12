@@ -356,8 +356,7 @@ namespace LibCpp2IL
 
         public ulong ReadPointerAtVirtualAddress(ulong addr)
         {
-            Position = MapVirtualAddressToRaw(addr);
-            return Reader.ReadNUint();
+            return Reader.ReadNUintAtRawAddress(MapVirtualAddressToRaw(addr));
         }
 
         public Il2CppGenericInst GetGenericInst(int index) => _genericInsts[index];
