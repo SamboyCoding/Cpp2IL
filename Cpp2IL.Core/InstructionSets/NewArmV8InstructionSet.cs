@@ -122,7 +122,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.MOVZ:
             case Arm64Mnemonic.FMOV:
             case Arm64Mnemonic.SXTW: // move and sign extend Wn to Xd
+            case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
+            case Arm64Mnemonic.LDRSW:
             case Arm64Mnemonic.LDRB:
                 //Load and move are (dest, src)
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
