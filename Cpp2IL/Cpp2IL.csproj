@@ -19,6 +19,10 @@
         <TrimMode>partial</TrimMode>
         <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>
+     
+     <ItemGroup  Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
+         <TrimmerRootAssembly Include="System.Runtime" />
+     </ItemGroup>
 
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
         <OutputPath>bin\x64\Debug\</OutputPath>
