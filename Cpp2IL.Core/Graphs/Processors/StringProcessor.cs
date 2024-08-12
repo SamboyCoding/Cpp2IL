@@ -12,18 +12,18 @@ namespace Cpp2IL.Core.Graphs.Processors
                 // TODO: Check if it shows up in any other
                 if (instruction.OpCode != InstructionSetIndependentOpCode.Move)
                 {
-                    return;
+                    continue;
                 }
                 if (instruction.Operands[0].Type != InstructionSetIndependentOperand.OperandType.Register || instruction.Operands[1].Type != InstructionSetIndependentOperand.OperandType.Memory)
                 {
-                    return;
+                    continue;
                 }
                 var memoryOp = (IsilMemoryOperand)instruction.Operands[1].Data;
                 if (memoryOp.Base == null && memoryOp.Index == null && memoryOp.Scale == 0)
                 {
                     var val = LibCpp2IlMain.GetLiteralByAddress((ulong)memoryOp.Addend);
                     if (val == null)
-                        return;
+                        continue;
 
                     instruction.Operands[1] = InstructionSetIndependentOperand.MakeImmediate(val);
                 }
