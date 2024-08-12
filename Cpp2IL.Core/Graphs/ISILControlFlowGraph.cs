@@ -11,11 +11,11 @@ namespace Cpp2IL.Core.Graphs
     {
         public Block EntryBlock => entryBlock;
         public Block ExitBlock => exitBlock; 
-        public int Count => blockSet != null ? blockSet.Count : 0;
+        public int Count => blockSet.Count;
         public Collection<Block> Blocks => blockSet;
 
 
-        private int idCounter = 0;
+        private int idCounter;
         private Collection<Block> blockSet;
         private Block exitBlock;
         private Block entryBlock;
@@ -39,7 +39,11 @@ namespace Cpp2IL.Core.Graphs
                 jumpInstructionIndex =  ((InstructionSetIndependentInstruction)instruction.Operands[0].Data).InstructionIndex;
                 return true;
             }
-            catch {  }
+            catch
+            {
+                // ignore
+            }
+
             return false;
         }
 
@@ -68,8 +72,7 @@ namespace Cpp2IL.Core.Graphs
                             AddNode(newNodeFromJmp);
                             if (TryGetTargetJumpInstructionIndex(instructions[i], out uint jumpTargetIndex))
                             {
-                                var result = instructions.Any(instruction =>
-                                instruction.InstructionIndex == jumpTargetIndex);
+                                var result = instructions.Any(instruction => instruction.InstructionIndex == jumpTargetIndex);
                                 currentBlock.Dirty = true;
                             } else
                             {
@@ -151,7 +154,7 @@ namespace Cpp2IL.Core.Graphs
                         // This could be a part of either 2 things, a jmp to a jump table (switch statement) or a tail call to another function maybe? I dunno
                         throw new NotImplementedException("Indirect branch not implemented currently");
                     default:
-                        throw new NotImplementedException(instructions[i].ToString() + " " + instructions[i].FlowControl);
+                        throw new NotImplementedException($"{instructions[i]} {instructions[i].FlowControl}");
                 }
             }
 
@@ -162,7 +165,7 @@ namespace Cpp2IL.Core.Graphs
                 
                 var node = blockSet[index];
                 if (node.Dirty)
-                    FixBlock(node, false);
+                    FixBlock(node);
             }
 
 
@@ -207,7 +210,7 @@ namespace Cpp2IL.Core.Graphs
                 block.isilInstructions.Remove(jump);
         }
 
-        protected Block? FindNodeByInstruction(InstructionSetIndependentInstruction instruction)
+        protected Block? FindNodeByInstruction(InstructionSetIndependentInstruction? instruction)
         {
             if (instruction == null)
                 return null;
