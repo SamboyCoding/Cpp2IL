@@ -92,8 +92,11 @@ namespace LibCpp2IL
             if (TheMetadata == null) return null;
 
             var typeGlobal = GetRawTypeGlobalByAddress(address);
+            
+            if (typeGlobal?.Type is not (MetadataUsageType.Type or MetadataUsageType.TypeInfo))
+                return null;
 
-            return typeGlobal?.AsType();
+            return typeGlobal.AsType();
         }
 
         public static MetadataUsage? GetRawFieldGlobalByAddress(ulong address)

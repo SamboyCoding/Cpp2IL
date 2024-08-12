@@ -14,8 +14,8 @@ public readonly struct InstructionSetIndependentOperand
     public static InstructionSetIndependentOperand MakeStack(int value) => new(OperandType.StackOffset, new IsilStackOperand(value));
     public static InstructionSetIndependentOperand MakeInstruction(InstructionSetIndependentInstruction instruction) => new(OperandType.Instruction, instruction);
     public static InstructionSetIndependentOperand MakeVectorElement(string registerName, IsilVectorRegisterElementOperand.VectorElementWidth width, int index) => new(OperandType.Register, new IsilVectorRegisterElementOperand(registerName, width, index));
-
     public static InstructionSetIndependentOperand MakeTypeMetadataUsage(TypeAnalysisContext value) => new(OperandType.TypeMetadataUsage, new IsilTypeMetadataUsageOperand(value));
+    public static InstructionSetIndependentOperand MakeMethodReference(MethodAnalysisContext value) => new(OperandType.MethodReference, new IsilMethodOperand(value));
 
 
     private InstructionSetIndependentOperand(OperandType type, IsilOperandData data)
@@ -41,11 +41,12 @@ public readonly struct InstructionSetIndependentOperand
         Memory = 8,
         Instruction = 16,
         TypeMetadataUsage = 32,
+        MethodReference = 64,
         
         MemoryOrStack = Memory | StackOffset,
-        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage,
+        NotStack = Immediate | Register | Memory | Instruction | TypeMetadataUsage | MethodReference,
         
         
-        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage
+        Any = Immediate | StackOffset | Register | Memory | TypeMetadataUsage | MethodReference
     }
 }

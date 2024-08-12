@@ -161,10 +161,13 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()
     {
-        if (_keyFunctionAddresses == null)
-            (_keyFunctionAddresses = InstructionSet.CreateKeyFunctionAddressesInstance()).Find(this);
+        lock (InstructionSet)
+        {
+            if (_keyFunctionAddresses == null)
+                (_keyFunctionAddresses = InstructionSet.CreateKeyFunctionAddressesInstance()).Find(this);
 
-        return _keyFunctionAddresses;
+            return _keyFunctionAddresses;
+        }
     }
 
     public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext? baseType)

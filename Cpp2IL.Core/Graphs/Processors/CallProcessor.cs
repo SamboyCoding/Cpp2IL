@@ -32,10 +32,15 @@ namespace Cpp2IL.Core.Graphs.Processors
                 HandleKeyFunction(methodAnalysisContext.AppContext, callInstruction, target, keyFunctionAddresses);
                 return;
             }
-            else
-            {
-                // TODO: We could possibly try to resolve some non de-duplicated managed methods early on?
-            }
+            
+            //Non-key function call. Try to find a single match
+            if (!methodAnalysisContext.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
+                return;
+            
+            if (targetMethods is not [{ } singleTargetMethod])
+                return;
+            
+            callInstruction.Operands[0] = InstructionSetIndependentOperand.MakeMethodReference(singleTargetMethod);
         }
 
         private void HandleKeyFunction(ApplicationAnalysisContext appContext, InstructionSetIndependentInstruction instruction, ulong target, BaseKeyFunctionAddresses kFA)
