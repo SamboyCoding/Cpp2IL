@@ -1,16 +1,16 @@
-using LibCpp2IL.Reflection;
+using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL
 {
     public readonly struct IsilTypeMetadataUsageOperand : IsilOperandData
     {
-        public readonly Il2CppTypeReflectionData TypeReflectionData;
+        public readonly TypeAnalysisContext TypeAnalysisContext;
 
-        public IsilTypeMetadataUsageOperand(Il2CppTypeReflectionData typeReflectionData)
+        public IsilTypeMetadataUsageOperand(TypeAnalysisContext typeAnalysisContext)
         {
-            TypeReflectionData = typeReflectionData;
+            TypeAnalysisContext = typeAnalysisContext;
         }
 
-        public override string ToString() => "typeof("+TypeReflectionData.ToString() + ")";
+        public override string ToString() => "typeof("+TypeAnalysisContext.FullName + ")";
     }
 }

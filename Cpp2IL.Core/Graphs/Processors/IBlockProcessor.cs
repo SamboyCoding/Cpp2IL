@@ -4,6 +4,6 @@ namespace Cpp2IL.Core.Graphs.Processors
 {
     internal interface IBlockProcessor
     {
-        public void Process(Block block, ApplicationAnalysisContext appContext);
+        public void Process(MethodAnalysisContext methodAnalysisContext, Block block);
     }
 }

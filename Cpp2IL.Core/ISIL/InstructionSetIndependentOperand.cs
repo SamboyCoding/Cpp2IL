@@ -1,5 +1,5 @@
 using System;
-using LibCpp2IL.Reflection;
+using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
 
@@ -15,7 +15,7 @@ public readonly struct InstructionSetIndependentOperand
     public static InstructionSetIndependentOperand MakeInstruction(InstructionSetIndependentInstruction instruction) => new(OperandType.Instruction, instruction);
     public static InstructionSetIndependentOperand MakeVectorElement(string registerName, IsilVectorRegisterElementOperand.VectorElementWidth width, int index) => new(OperandType.Register, new IsilVectorRegisterElementOperand(registerName, width, index));
 
-    public static InstructionSetIndependentOperand MakeTypeMetadataUsage(Il2CppTypeReflectionData value) => new(OperandType.TypeMetadataUsage, new IsilTypeMetadataUsageOperand(value));
+    public static InstructionSetIndependentOperand MakeTypeMetadataUsage(TypeAnalysisContext value) => new(OperandType.TypeMetadataUsage, new IsilTypeMetadataUsageOperand(value));
 
 
     private InstructionSetIndependentOperand(OperandType type, IsilOperandData data)

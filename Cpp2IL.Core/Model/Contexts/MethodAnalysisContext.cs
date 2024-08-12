@@ -146,7 +146,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         {
             foreach (var converter in blockProcessors)
             {
-                converter.Process(block, AppContext);
+                converter.Process(this, block);
             }
         }
     }
