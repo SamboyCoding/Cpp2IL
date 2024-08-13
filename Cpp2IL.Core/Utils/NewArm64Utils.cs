@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Disarm;
@@ -35,7 +35,7 @@ public static class NewArm64Utils
         var span = allBytes.AsSpan(pos, 4);
         List<Arm64Instruction> ret = new();
 
-        while ((count == -1 || ret.Count < count) && !ret.Any(i => i.Mnemonic is Arm64Mnemonic.B))
+        while ((count == -1 || ret.Count < count) && !ret.Any(i => i.Mnemonic is Arm64Mnemonic.B || i.Mnemonic is Arm64Mnemonic.INVALID))
         {
             ret = Disassemble(span, virtAddress);
 
