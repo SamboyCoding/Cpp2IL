@@ -87,36 +87,36 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
         //The last call is to Object::IsInst
             
         Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(typeIsInstanceOfType.MethodPointer, true);
+        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(typeIsInstanceOfType.MethodPointer, true);
 
-        var lastCall = instructions.LastOrDefault(i => i.Mnemonic == Mnemonic.Call);
+        var lastCall = instructions.LastOrDefault(i => i.Mnemonic == Arm64Mnemonic.BL);
 
-        if (lastCall.Mnemonic == Mnemonic.INVALID)
+        if (lastCall.Mnemonic == Arm64Mnemonic.INVALID)
         {
             Logger.VerboseNewline("Method does not match expected signature. Aborting.");
             return 0;
         }
-            
-        Logger.VerboseNewline($"Success. IsInst found at 0x{lastCall.NearBranchTarget:X}");
-        return lastCall.NearBranchTarget;
+           
+        Logger.VerboseNewline($"Success. IsInst found at 0x{lastCall.BranchTarget:X}");
+        return lastCall.BranchTarget;
     }
 
     protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
     {
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
+        var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(thunkPtr, true);
 
         try
         {
-            var target = prioritiseCall ? Mnemonic.Call : Mnemonic.Jmp;
+            var target = prioritiseCall ? Arm64Mnemonic.BL : Arm64Mnemonic.B;
             var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
 
-            if (matchingCall.Mnemonic == Mnemonic.INVALID)
+            if (matchingCall.Mnemonic == Arm64Mnemonic.INVALID)
             {
-                target = target == Mnemonic.Call ? Mnemonic.Jmp : Mnemonic.Call;
+                target = target == Arm64Mnemonic.BL ? Arm64Mnemonic.B : Arm64Mnemonic.BL;
                 matchingCall = instructions.First(i => i.Mnemonic == target);
             }
 
-            return matchingCall.NearBranchTarget;
+            return matchingCall.BranchTarget;
         }
         catch (Exception)
         {
