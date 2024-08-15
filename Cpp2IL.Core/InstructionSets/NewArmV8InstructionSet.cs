@@ -104,6 +104,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         // throw new Exception("Unknown condition code "+instruction.MnemonicConditionCode +" ins "+instruction);
     }
 
+   
     private InstructionSetIndependentOperand FastLSL(InstructionSetIndependentOperand operand)
     {
         if (operand.Type==InstructionSetIndependentOperand.OperandType.Immediate)
@@ -382,17 +383,27 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.ADDS: // settings flags
             case Arm64Mnemonic.FADD:
                 //Add is (dest, src1, src2)
-                if (instruction.FinalOpShiftType==Arm64ShiftType.LSL)
+                if (instruction.FinalOpShiftType != Arm64ShiftType.NONE)
                 {
-                    var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
-                    var src = ConvertOperand(instruction, 2);
-                   var lsl=  ConvertOperand(instruction, 3);
-                   if (lsl.Type == InstructionSetIndependentOperand.OperandType.Immediate)
-                   {
-                       builder.Multiply(instruction.Address, temp,src,FastLSL(ConvertOperand(instruction,3)));
-                       builder.Add(instruction.Address,ConvertOperand(instruction,0),ConvertOperand(instruction,1),temp);
-                       break;
-                   }
+                    if (instruction.FinalOpShiftType==Arm64ShiftType.LSL)
+                    {
+                        
+                        FixFinalOpIsIL(instruction,builder,context);
+                        break;
+                    }
+                    {
+                   
+                        throw new Exception("not support FinalOpShiftType "+instruction.FinalOpShiftType);
+                    }
+                }
+                if (instruction.FinalOpExtendType!=Arm64ExtendType.NONE)
+                {
+                    if (instruction.FinalOpExtendType==Arm64ExtendType.SXTW)
+                    {
+                        FixFinalOpIsIL(instruction,builder,context);
+                        break;
+                    }
+                    throw new Exception("not support FinalOpExtendType "+instruction.FinalOpExtendType);
                 }
                 builder.Add(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 break;
@@ -438,7 +449,19 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         }
     }
 
-   
+    private void FixFinalOpIsIL(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
+    {
+        var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+        var src = ConvertOperand(instruction, 2);
+        var lsl=  ConvertOperand(instruction, 3);
+        if (lsl.Type == InstructionSetIndependentOperand.OperandType.Immediate)
+        {
+            builder.Multiply(instruction.Address, temp,src,FastLSL(ConvertOperand(instruction,3)));
+            builder.Add(instruction.Address,ConvertOperand(instruction,0),ConvertOperand(instruction,1),temp);
+        }
+    }
+
+
     private InstructionSetIndependentOperand ConvertOperand(Arm64Instruction instruction, int operand)
     {
         var kind = operand switch
