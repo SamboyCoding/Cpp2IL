@@ -96,7 +96,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     {
                         continue;
                     }
-                    if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand)
+                    if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand && operand.Value is not string)
                     {
                         var address = operand.Value.ToUInt64(null);
                         if (appContext.MethodsByAddress.TryGetValue(address, out var list))
