@@ -86,7 +86,7 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
 
     private static bool TryGetAddressFromInstruction(InstructionSetIndependentInstruction instruction, out ulong address)
     {
-        if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand)
+        if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand && operand.Value is not string)
         {
             address = operand.Value.ToUInt64(null);
             return true;
