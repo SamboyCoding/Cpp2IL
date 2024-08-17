@@ -14,9 +14,11 @@ Uses [LibCpp2IL](LibCpp2IL) for the initial parsing and loading of metadata stru
 build artifacts if you want to do something yourself with IL2CPP metadata, and is released under the MIT license. The
 link above will take you to the documentation for LibCpp2IL.
 
-### Development Branch Notes
-
 Cpp2IL is currently undergoing a major rewrite. This branch represents work in progress, and is subject to change.
+
+At present, the ability to dump IL for method bodies has been disabled. If you need this, you can try an [older release](https://github.com/SamboyCoding/Cpp2IL/releases/tag/2022.0.7) (with [older README](https://github.com/SamboyCoding/Cpp2IL/tree/new-analysis)). Support has always been experimental, you may be better off using [il2cppdumper](https://github.com/Perfare/Il2CppDumper?tab=readme-ov-file), then using a dissassembler it makes scripts for.
+
+### Development Branch Notes
 
 CI builds for developers can be obtained from [My Nuget Feed](https://nuget.samboy.dev/). 
 
@@ -86,9 +88,9 @@ The release files can be downloaded from the Actions tab if you are signed into 
 which always point to the latest successful CI build. Note that the .NET Framework build is provided for compatibility with 
 wine/proton.
 
-- [Windows Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net6-win-x64.zip)
-- [Linux Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net6-linux-x64.zip)
-- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net6-osx-x64.zip)
+- [Windows Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net7-win-x64.zip)
+- [Linux Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net7-linux-x64.zip)
+- [Mac Native Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-net7-osx-x64.zip)
 - [.NET Framework 4.7.2 Windows Build](https://nightly.link/SamboyCoding/Cpp2IL/workflows/dotnet-core/development/Cpp2IL-Netframework472-Windows.zip)
 
 
@@ -112,7 +114,7 @@ If you do not wish for the output to be coloured, set the Environment Variable `
 
 ## Credits
 
-This application is built primarily using .NET 6.0, but a .NET Framework 4.7.2 build is also published for legacy purposes.
+This application is built primarily using .NET 7.0, but a .NET Framework 4.7.2 build is also published for legacy purposes.
 
 It uses the following libraries, for which I am very thankful:
 
@@ -127,11 +129,6 @@ It uses the following libraries, for which I am very thankful:
 - [xUnit](https://github.com/xunit/xunit) for the unit tests.
 - [IndexRange](https://github.com/bgrainger/IndexRange) to port System.Index and System.Range back to netstandard2.0.
 - [Nullable](https://github.com/manuelroemer/Nullable) to port nullable attributes back to netstandard2.0.
-
-In addition to the above, the GUI Project uses:
-- [Avalonia](https://github.com/AvaloniaUI/Avalonia) as a GUI framework.
-- [AvaloniaEdit](https://github.com/AvaloniaUI/AvaloniaEdit/) for the text editor.
-- [TextMateSharp](https://github.com/danipen/TextMateSharp) for the syntax highlighting.
 
 Finally, the OrbisPkg plugin uses [LibOrbisPkg](https://github.com/maxton/LibOrbisPkg), which is licensed under the LGPL, version 3.
 
