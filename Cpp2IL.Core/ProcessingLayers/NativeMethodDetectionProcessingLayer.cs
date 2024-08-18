@@ -55,15 +55,14 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
         if (m.UnderlyingPointer == 0)
             return;
 
-        m.Analyze();
+        var convertedIsil = appContext.InstructionSet.GetIsilFromMethod(m);
 
-        if (m.ConvertedIsil is { Count: 0 })
+        if (convertedIsil is { Count: 0 })
         {
-            m.ReleaseAnalysisData();
             return;
         }
 
-        foreach (var instruction in m.ConvertedIsil)
+        foreach (var instruction in convertedIsil)
         {
             if (instruction.OpCode == InstructionSetIndependentOpCode.Call)
             {
@@ -80,8 +79,6 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
                 }
             }
         }
-        
-        m.ReleaseAnalysisData();
     }
 
     private static bool TryGetAddressFromInstruction(InstructionSetIndependentInstruction instruction, out ulong address)

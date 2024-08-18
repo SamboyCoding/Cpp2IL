@@ -68,29 +68,28 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, deduplicatedMethodConstructor);
                 }
 
-                m.Analyze();
+                var convertedIsil = appContext.InstructionSet.GetIsilFromMethod(m);
 
-                if (m.ConvertedIsil is { Count: 0 })
+                if (convertedIsil is { Count: 0 })
                 {
                     if ((m.MethodAttributes & MethodAttributes.Abstract) == 0)
                     {
                         AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
                     }
-                    m.ReleaseAnalysisData();
                     continue;
                 }
 
-                if (m.ConvertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.Invalid))
+                if (convertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.Invalid))
                 {
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, invalidInstructionsConstructor);
                 }
 
-                if (m.ConvertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.NotImplemented))
+                if (convertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.NotImplemented))
                 {
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, unimplementedInstructionsConstructor);
                 }
 
-                foreach (var instruction in m.ConvertedIsil)
+                foreach (var instruction in convertedIsil)
                 {
                     if (instruction.OpCode != InstructionSetIndependentOpCode.Call && instruction.OpCode != InstructionSetIndependentOpCode.CallNoReturn)
                     {
@@ -126,8 +125,6 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         unknownCalls[m] = unknownCalls.GetOrDefault(m, 0) + 1;
                     }
                 }
-                
-                m.ReleaseAnalysisData();
             }
             
             if(Cpp2IlApi.LowMemoryMode)
