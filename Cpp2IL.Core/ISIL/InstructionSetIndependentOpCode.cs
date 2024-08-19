@@ -6,6 +6,7 @@ namespace Cpp2IL.Core.ISIL;
 
 public class InstructionSetIndependentOpCode
 {
+    
     public static readonly InstructionSetIndependentOpCode Move = new(IsilMnemonic.Move, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode LoadAddress = new(IsilMnemonic.LoadAddress, 2, InstructionSetIndependentOperand.OperandType.NotStack, InstructionSetIndependentOperand.OperandType.MemoryOrStack);
     public static readonly InstructionSetIndependentOpCode Call = new(IsilMnemonic.Call);
@@ -34,14 +35,17 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Return = new(IsilMnemonic.Return, 1, InstructionSetIndependentOperand.OperandType.NotStack);
 
     public static readonly InstructionSetIndependentOpCode Goto = new(IsilMnemonic.Goto, 1, InstructionSetIndependentOperand.OperandType.Instruction);
-
+    
     public static readonly InstructionSetIndependentOpCode JumpIfEqual = new(IsilMnemonic.JumpIfEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfNotEqual = new(IsilMnemonic.JumpIfNotEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfGreater = new(IsilMnemonic.JumpIfGreater, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfLess = new(IsilMnemonic.JumpIfLess, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfGreaterOrEqual = new(IsilMnemonic.JumpIfGreaterOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfLessOrEqual = new(IsilMnemonic.JumpIfLessOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
-
+    
+    public static readonly InstructionSetIndependentOpCode AssignIfNotEqual= new (IsilMnemonic.AssignIfNotEqual,3,InstructionSetIndependentOperand.OperandType.Instruction);
+    
+    
     public static readonly InstructionSetIndependentOpCode Interrupt = new(IsilMnemonic.Interrupt, 0);
 
     public static readonly InstructionSetIndependentOpCode NotImplemented = new(IsilMnemonic.NotImplemented, 1, InstructionSetIndependentOperand.OperandType.Immediate);
@@ -86,15 +90,18 @@ public class InstructionSetIndependentOpCode
 
         if (PermittedOperandTypes.Length == 0)
             return;
-
-        for (var i = 0; i < operands.Length; i++)
+        if (Mnemonic!=IsilMnemonic.AssignIfNotEqual)
         {
-            if ((operands[i].Type & PermittedOperandTypes[i]) == 0)
+            for (var i = 0; i < operands.Length; i++)
             {
-                instruction.Invalidate($"Operand {operands[i]} at index {i} (0-based) is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
-                return;
+                if ((operands[i].Type & PermittedOperandTypes[i]) == 0 )
+                {
+                    instruction.Invalidate($"Operand {operands[i]} at index {i} (0-based) is of type {operands[i].Type}, which is not permitted for this index of a {Mnemonic} instruction");
+                    return;
+                }
             }
         }
+       
     }
 
     public override string ToString() => Mnemonic.ToString();

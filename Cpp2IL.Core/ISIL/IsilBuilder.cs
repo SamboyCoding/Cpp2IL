@@ -98,7 +98,8 @@ public class IsilBuilder
     public void JumpIfEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfEqual, IsilFlowControl.ConditionalJump);
 
     public void JumpIfNotEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfNotEqual, IsilFlowControl.ConditionalJump);
-
+    
+  
     public void JumpIfGreater(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfGreater, IsilFlowControl.ConditionalJump);
 
     public void JumpIfLess(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfLess, IsilFlowControl.ConditionalJump);
@@ -106,7 +107,26 @@ public class IsilBuilder
     public void JumpIfGreaterOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfGreaterOrEqual, IsilFlowControl.ConditionalJump);
 
     public void JumpIfLessOrEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfLessOrEqual, IsilFlowControl.ConditionalJump);
-
+    
+    public void AssignIfNotEqual(ulong instructionAddress,InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+    {
+        AssignCondition(instructionAddress, InstructionSetIndependentOpCode.AssignIfNotEqual, dest, left, right);
+    }
+    
+    private void AssignCondition(ulong instructionAddress, InstructionSetIndependentOpCode opCode,InstructionSetIndependentOperand dest,
+        InstructionSetIndependentOperand left, InstructionSetIndependentOperand right)
+    {
+        var newInstruction = new InstructionSetIndependentInstruction(
+            opCode,
+            instructionAddress,
+            IsilFlowControl.Continue,
+            dest,
+            left,
+            right
+        );
+        AddInstruction(newInstruction);
+    }
     private void CreateJump(ulong instructionAddress, ulong target, InstructionSetIndependentOpCode independentOpCode, IsilFlowControl flowControl)
     {
         var newInstruction = new InstructionSetIndependentInstruction(
@@ -117,7 +137,7 @@ public class IsilBuilder
         AddInstruction(newInstruction);
         _jumpsToFix.Add((newInstruction, target));
     }
-
+    
 
     public void Compare(ulong instructionAddress, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Compare, instructionAddress, IsilFlowControl.Continue, left, right));
 

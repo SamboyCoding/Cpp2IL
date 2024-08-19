@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using Disarm;
 using Cpp2IL.Core.Api;
@@ -317,6 +318,26 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // branches unconditionally to an address in a register, with a hint that this is not a subroutine return.
                 builder.CallRegister(instruction.Address, ConvertOperand(instruction, 0), noReturn: true);
                 break;
+            case Arm64Mnemonic.CSEL:
+            {
+                if (lastCmpInstruction.Mnemonic == Arm64Mnemonic.ANDS)
+                {
+                    builder.And(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0),
+                        ConvertOperand(lastCmpInstruction, 1), ConvertOperand(lastCmpInstruction, 2));
+                    var dest = ConvertOperand(lastCmpInstruction, 0);
+                    builder.Compare(lastCmpInstruction.Address, dest,
+                    ConvertOperand(lastCmpInstruction, 2));
+                }
+
+                if (instruction.FinalOpConditionCode==Arm64ConditionCode.NE)
+                {
+                    builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
+                        ConvertOperand(instruction,2));
+                }
+                //Conditional select
+                // builder.Compare();
+                break;
+            }
             case Arm64Mnemonic.CBNZ:
             case Arm64Mnemonic.CBZ:
                 {
@@ -333,7 +354,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         builder.JumpIfNotEqual(instruction.Address, targetAddr);
                 }
                 break;
-
+          
             case Arm64Mnemonic.CMP:
                 // Compare: set flag (N or Z or C or V) = (reg1 - reg2)
                 lastCmpInstruction = instruction; // Save this instruction for later use
@@ -416,9 +437,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                break;
 
             case Arm64Mnemonic.AND:
+            {
+                builder.And(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                break;
+            }
             case Arm64Mnemonic.ANDS:
                 //And is (dest, src1, src2)
-                builder.And(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                lastCmpInstruction=instruction;
                 break;
 
             case Arm64Mnemonic.ORR:
@@ -442,6 +467,25 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 //Converts a single-precision floating-point value to a double-precision floating-point value
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
+            }
+            case Arm64Mnemonic.SBFM:
+            {
+              var bitmove0=  ConvertOperand(instruction, 2) ;
+              var bitmove1 = ConvertOperand(instruction, 3);
+              if (bitmove0.Data is IsilImmediateOperand bit0 && bitmove1.Data is IsilImmediateOperand bit1)
+              {
+                  if (bit0.Value.ToInt64(CultureInfo.InvariantCulture) ==
+                      bit1.Value.ToInt64(CultureInfo.InvariantCulture))
+                  {
+                      //it's just ASR Move
+                        var dest = ConvertOperand(instruction, 0);
+                        builder.Move(instruction.Address, dest, ConvertOperand(instruction, 1));
+                        builder.ShiftRight(instruction.Address,dest,bitmove0);
+                        break;
+                  }
+              }
+              // throw new Exception("not support SBFM");
+             goto default;
             }
             default:
                 builder.NotImplemented(instruction.Address, $"Instruction {instruction.Mnemonic} not yet implemented.");

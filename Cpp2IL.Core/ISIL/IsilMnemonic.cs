@@ -34,4 +34,5 @@ public enum IsilMnemonic
     NotImplemented,
     Invalid,
     VirtualCall,
+    AssignIfNotEqual,
 }

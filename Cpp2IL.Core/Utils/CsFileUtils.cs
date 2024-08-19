@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Logging;
@@ -15,8 +16,9 @@ public static class CsFileUtils
     /// Note this does not include the method name, the return type, or the parentheses around the parameters.
     /// </summary>
     /// <param name="method">The method to generate the parameter string for</param>
+    /// <param name="usingNamespaces"></param>
     /// <returns>A properly-formatted parameter string as described above.</returns>
-    public static string GetMethodParameterString(MethodAnalysisContext method)
+    public static string GetMethodParameterString(MethodAnalysisContext method, List<string> usingNamespaces=null)
     {
         var sb = new StringBuilder();
         var first = true;
@@ -26,7 +28,10 @@ public static class CsFileUtils
                 sb.Append(", ");
 
             first = false;
-
+            if (!usingNamespaces.Contains(paramData.ParameterTypeContext.Namespace))
+            {
+                usingNamespaces.Add(paramData.ParameterTypeContext.Namespace);
+            }
             sb.Append(paramData); //ToString on the ParameterData will do the right thing.
         }
 
