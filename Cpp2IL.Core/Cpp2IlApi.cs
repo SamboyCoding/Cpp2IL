@@ -27,6 +27,7 @@ namespace Cpp2IL.Core
         public static void Init(string pluginsDir = "Plugins")
         {
             Cpp2IlPluginManager.LoadFromDirectory(Path.Combine(Environment.CurrentDirectory, pluginsDir));
+            Cpp2IlPluginManager.LoadFromDirectory(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, pluginsDir));
             Cpp2IlPluginManager.InitAll();
         }
 
