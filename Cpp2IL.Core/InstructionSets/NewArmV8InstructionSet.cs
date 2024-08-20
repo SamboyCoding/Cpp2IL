@@ -100,6 +100,17 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0), ConvertOperand(lastCmpInstruction, 1));
                 builder.JumpIfNotEqual(instruction.Address, instruction.BranchTarget);
                 break;
+            case Arm64ConditionCode.GE:
+                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0), ConvertOperand(lastCmpInstruction, 1));
+                builder.JumpIfGreaterOrEqual(instruction.Address, instruction.BranchTarget);
+                break;
+            case Arm64ConditionCode.LS:
+                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0), ConvertOperand(lastCmpInstruction, 1));
+                builder.JumpIfLess(instruction.Address, instruction.BranchTarget);
+                break;
+            default:
+                throw new Exception(" not support condition code "+instruction.MnemonicConditionCode +" ins "+instruction);
+                break;
         }
         
         // throw new Exception("Unknown condition code "+instruction.MnemonicConditionCode +" ins "+instruction);
