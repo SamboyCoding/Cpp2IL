@@ -19,17 +19,17 @@ using AssetRipper.Primitives;
 using Cpp2IL.Core.Extensions;
 using LibCpp2IL;
 
-namespace Cpp2IL
+namespace Cpp2IL;
+
+[SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
+internal class Program
 {
-    [SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
-    internal class Program
+    private static readonly List<string> PathsToDeleteOnExit = [];
+
+    public static readonly string Cpp2IlVersionString = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
+
+    private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
     {
-        private static readonly List<string> PathsToDeleteOnExit = new();
-
-        public static readonly string Cpp2IlVersionString = typeof(Program).Assembly.GetCustomAttribute<AssemblyInformationalVersionAttribute>()!.InformationalVersion;
-
-        private static void ResolvePathsFromCommandLine(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
-        {
             if (string.IsNullOrEmpty(gamePath))
                 throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
 
@@ -52,8 +52,8 @@ namespace Cpp2IL
             }
         }
 
-        private static void HandleLinuxGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
-        {
+    private static void HandleLinuxGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
+    {
             //Linux game.
             args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.so");
             var exeName = Path.GetFileName(Directory.GetFiles(gamePath)
@@ -122,8 +122,8 @@ namespace Cpp2IL
             args.Valid = true;
         }
 
-        private static void HandleWindowsGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
-        {
+    private static void HandleWindowsGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
+    {
             //Windows game.
             args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.dll");
             var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
@@ -188,8 +188,8 @@ namespace Cpp2IL
             args.Valid = true;
         }
 
-        private static void HandleSingleApk(string gamePath, ref Cpp2IlRuntimeArgs args)
-        {
+    private static void HandleSingleApk(string gamePath, ref Cpp2IlRuntimeArgs args)
+    {
             //APK
             //Metadata: assets/bin/Data/Managed/Metadata
             //Binary: lib/(armeabi-v7a)|(arm64-v8a)/libil2cpp.so
@@ -255,8 +255,8 @@ namespace Cpp2IL
             args.Valid = true;
         }
 
-        private static void HandleXapk(string gamePath, ref Cpp2IlRuntimeArgs args)
-        {
+    private static void HandleXapk(string gamePath, ref Cpp2IlRuntimeArgs args)
+    {
             //XAPK file
             //Contains two APKs - one starting with `config.` and one with the package name
             //The config one is architecture-specific and so contains the binary
@@ -344,8 +344,8 @@ namespace Cpp2IL
             args.Valid = true;
         }
 
-        private static void HandleIpa(string gamePath, ref Cpp2IlRuntimeArgs args)
-        {
+    private static void HandleIpa(string gamePath, ref Cpp2IlRuntimeArgs args)
+    {
             //IPA
             //Metadata: Payload/AppName.app/Data/Managed/Metadata/global-metadata.dat
             //Binary: Payload/AppName.app/Frameworks/UnityFramework.framework/UnityFramework
@@ -411,10 +411,10 @@ namespace Cpp2IL
         }
 
 #if !NETFRAMEWORK
-        [DynamicDependency(DynamicallyAccessedMemberTypes.All, "Cpp2IL.CommandLineArgs", "Cpp2IL")]
+    [DynamicDependency(DynamicallyAccessedMemberTypes.All, "Cpp2IL.CommandLineArgs", "Cpp2IL")]
 #endif
-        private static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)
-        {
+    private static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)
+    {
             var parserResult = Parser.Default.ParseArguments<CommandLineArgs>(commandLine);
 
             if (parserResult is NotParsed<CommandLineArgs> notParsed && notParsed.Errors.Count() == 1 && notParsed.Errors.All(e => e.Tag is ErrorType.VersionRequestedError or ErrorType.HelpRequestedError))
@@ -470,8 +470,7 @@ namespace Cpp2IL
 
             result.LowMemoryMode = options.LowMemoryMode; 
 
-            // if(string.IsNullOrEmpty(options.OutputFormatId)) 
-            // throw new SoftException("No output format specified, so nothing to do!");
+            // if(string.IsNullOrEmpty(options.OutputFormatId))      // throw new SoftException("No output format specified, so nothing to do!");
 
             if (!string.IsNullOrEmpty(options.OutputFormatId))
             {
@@ -511,31 +510,31 @@ namespace Cpp2IL
             return result;
         }
 
-        public static int Main(string[] args)
+    public static int Main(string[] args)
+    {
+        Console.WriteLine("===Cpp2IL by Samboy063===");
+        Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
+        Console.WriteLine($"Version {Cpp2IlVersionString}\n");
+
+        ConsoleLogger.Initialize();
+
+        Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
+
+        try
         {
-            Console.WriteLine("===Cpp2IL by Samboy063===");
-            Console.WriteLine("A Tool to Reverse Unity's \"il2cpp\" Build Process.");
-            Console.WriteLine($"Version {Cpp2IlVersionString}\n");
-
-            ConsoleLogger.Initialize();
-
-            Logger.InfoNewline("Running on " + Environment.OSVersion.Platform);
-
-            try
-            {
-                var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
+            var runtimeArgs = GetRuntimeOptionsFromCommandLine(args);
                 
-                if(runtimeArgs.LowMemoryMode)
-                    //Force an early collection for all the zip shenanigans we may have just done
-                    GC.Collect();
+            if(runtimeArgs.LowMemoryMode)
+                //Force an early collection for all the zip shenanigans we may have just done
+                GC.Collect();
                 
-                return MainWithArgs(runtimeArgs);
-            }
-            catch (SoftException e)
-            {
-                Logger.ErrorNewline($"Execution Failed: {e.Message}");
-                return -1;
-            }
+            return MainWithArgs(runtimeArgs);
+        }
+        catch (SoftException e)
+        {
+            Logger.ErrorNewline($"Execution Failed: {e.Message}");
+            return -1;
+        }
 #if !DEBUG
             catch (DllSaveException e)
             {
@@ -554,10 +553,10 @@ namespace Cpp2IL
                 return -1;
             }
 #endif
-        }
+    }
 
-        public static int MainWithArgs(Cpp2IlRuntimeArgs runtimeArgs)
-        {
+    public static int MainWithArgs(Cpp2IlRuntimeArgs runtimeArgs)
+    {
             if (!runtimeArgs.Valid)
                 throw new SoftException("Arguments have Valid = false");
             
@@ -633,19 +632,19 @@ namespace Cpp2IL
             return 0;
         }
 
-        private static void RunProcessingLayers(Cpp2IlRuntimeArgs runtimeArgs, Action<Cpp2IlProcessingLayer> run)
+    private static void RunProcessingLayers(Cpp2IlRuntimeArgs runtimeArgs, Action<Cpp2IlProcessingLayer> run)
+    {
+        foreach (var processingLayer in runtimeArgs.ProcessingLayersToRun)
         {
-            foreach (var processingLayer in runtimeArgs.ProcessingLayersToRun)
-            {
-                var processorStart = DateTime.Now;
+            var processorStart = DateTime.Now;
 
-                Logger.InfoNewline($"    {processingLayer.Name}...");
+            Logger.InfoNewline($"    {processingLayer.Name}...");
 
 #if !DEBUG
                 try
                 {
 #endif
-                run(processingLayer);
+            run(processingLayer);
 #if !DEBUG
                 }
                 catch (Exception e)
@@ -655,15 +654,15 @@ namespace Cpp2IL
                 }
 #endif
 
-                if (runtimeArgs.LowMemoryMode)
-                    GC.Collect();
+            if (runtimeArgs.LowMemoryMode)
+                GC.Collect();
                 
-                Logger.InfoNewline($"    {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
-            }
+            Logger.InfoNewline($"    {processingLayer.Name} finished in {(DateTime.Now - processorStart).TotalMilliseconds}ms");
         }
+    }
 
-        private static void CleanupExtractedFiles()
-        {
+    private static void CleanupExtractedFiles()
+    {
             foreach (var p in PathsToDeleteOnExit)
             {
                 try
@@ -677,5 +676,4 @@ namespace Cpp2IL
                 }
             }
         }
-    }
 }

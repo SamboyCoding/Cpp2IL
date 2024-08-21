@@ -1,7 +1,6 @@
-namespace LibCpp2IL
+namespace LibCpp2IL;
+
+public interface IIl2CppTokenProvider
 {
-    public interface IIl2CppTokenProvider
-    {
-        public abstract uint Token { get; }
-    }
+    public abstract uint Token { get; }
 }

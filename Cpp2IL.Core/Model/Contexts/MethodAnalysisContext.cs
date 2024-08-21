@@ -52,7 +52,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     /// </summary>
     public ISILControlFlowGraph? ControlFlowGraph;
 
-    public List<ParameterAnalysisContext> Parameters = new();
+    public List<ParameterAnalysisContext> Parameters = [];
 
     /// <summary>
     /// Does this method return void?
@@ -77,11 +77,11 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
 
 
-    private static List<IBlockProcessor> blockProcessors = new List<IBlockProcessor>()
-    {
+    private static List<IBlockProcessor> blockProcessors =
+    [
         new MetadataProcessor(),
-        new CallProcessor(),
-    };
+        new CallProcessor()
+    ];
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
     {
@@ -129,7 +129,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
         if (UnderlyingPointer == 0)
         {
-            ConvertedIsil = new(0);
+            ConvertedIsil = [];
             return;
         }
 

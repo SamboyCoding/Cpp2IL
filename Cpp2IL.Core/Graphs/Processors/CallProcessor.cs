@@ -3,12 +3,12 @@ using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 
-namespace Cpp2IL.Core.Graphs.Processors
+namespace Cpp2IL.Core.Graphs.Processors;
+
+internal class CallProcessor : IBlockProcessor
 {
-    internal class CallProcessor : IBlockProcessor
+    public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
     {
-        public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
-        {
             if (block.BlockType != BlockType.Call)
                 return;
             var callInstruction = block.isilInstructions[^1];
@@ -43,8 +43,8 @@ namespace Cpp2IL.Core.Graphs.Processors
             callInstruction.Operands[0] = InstructionSetIndependentOperand.MakeMethodReference(singleTargetMethod);
         }
 
-        private void HandleKeyFunction(ApplicationAnalysisContext appContext, InstructionSetIndependentInstruction instruction, ulong target, BaseKeyFunctionAddresses kFA)
-        {
+    private void HandleKeyFunction(ApplicationAnalysisContext appContext, InstructionSetIndependentInstruction instruction, ulong target, BaseKeyFunctionAddresses kFA)
+    {
             // TODO: Handle labelling functions calls that match these in a more graceful manner
             var method = "";
             if (target == kFA.il2cpp_codegen_initialize_method || target == kFA.il2cpp_codegen_initialize_runtime_metadata)
@@ -167,5 +167,4 @@ namespace Cpp2IL.Core.Graphs.Processors
                 instruction.Operands[0] = InstructionSetIndependentOperand.MakeImmediate(method);
             }
         }
-    }
 }

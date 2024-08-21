@@ -75,7 +75,7 @@ public static class ArmV7Utils
         //Unmanaged function, look for first b or bl
         var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
         var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
-        List<ArmInstruction> ret = new();
+        List<ArmInstruction> ret = [];
             
         while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
         {

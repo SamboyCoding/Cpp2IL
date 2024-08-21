@@ -1,8 +1,7 @@
-namespace LibCpp2IL.Wasm
+namespace LibCpp2IL.Wasm;
+
+public struct WasmDynCallCoefficients
 {
-    public struct WasmDynCallCoefficients
-    {
-        public ulong andWith;
-        public ulong addConstant;
-    }
+    public ulong andWith;
+    public ulong addConstant;
 }

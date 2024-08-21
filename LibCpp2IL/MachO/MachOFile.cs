@@ -5,22 +5,22 @@ using System.Linq;
 using LibCpp2IL.Logging;
 using System.Diagnostics.CodeAnalysis;
 
-namespace LibCpp2IL.MachO
-{
-    public class MachOFile : Il2CppBinary
-    {
-        private byte[] _raw;
-        
-        private readonly MachOHeader _header;
-        private readonly MachOLoadCommand[] _loadCommands;
+namespace LibCpp2IL.MachO;
 
-        private readonly MachOSegmentCommand[] Segments64;
-        private readonly MachOSection[] Sections64;
-        private readonly Dictionary<string, long> _exportAddressesDict;
-        private readonly Dictionary<long, string> _exportNamesDict;
+public class MachOFile : Il2CppBinary
+{
+    private byte[] _raw;
         
-        public MachOFile(MemoryStream input) : base(input)
-        {
+    private readonly MachOHeader _header;
+    private readonly MachOLoadCommand[] _loadCommands;
+
+    private readonly MachOSegmentCommand[] Segments64;
+    private readonly MachOSection[] Sections64;
+    private readonly Dictionary<string, long> _exportAddressesDict;
+    private readonly Dictionary<long, string> _exportNamesDict;
+        
+    public MachOFile(MemoryStream input) : base(input)
+    {
             _raw = input.GetBuffer();
             
             LibLogger.Verbose("\tReading Mach-O header...");
@@ -75,7 +75,7 @@ namespace LibCpp2IL.MachO
             Sections64 = Segments64.SelectMany(s => s.Sections).ToArray();
             
             var dyldData = _loadCommands.FirstOrDefault(c => c.Command is LoadCommandId.LC_DYLD_INFO or LoadCommandId.LC_DYLD_INFO_ONLY)?.CommandData as MachODynamicLinkerCommand;
-            var exports = dyldData?.Exports ?? Array.Empty<MachOExportEntry>();
+            var exports = dyldData?.Exports ?? [];
             // DEBUG
             // var debugDict = new Dictionary<long, string>();
             // for (int index = 0; index < exports.Length; ++index) {
@@ -99,11 +99,11 @@ namespace LibCpp2IL.MachO
             LibLogger.VerboseNewline($"\tMach-O contains {Segments64.Length} segments, split into {Sections64.Length} sections.");
         }
 
-        public override long RawLength => _raw.Length;
-        public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
+    public override long RawLength => _raw.Length;
+    public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-        public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
-        {
+    public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
+    {
             var sec = Sections64.FirstOrDefault(s => s.Address <= uiAddr && uiAddr < s.Address + s.Size);
             
             if (sec == null)
@@ -115,8 +115,8 @@ namespace LibCpp2IL.MachO
             return (long) (sec.Offset + (uiAddr - sec.Address));
         }
 
-        public override ulong MapRawAddressToVirtual(uint offset)
-        {
+    public override ulong MapRawAddressToVirtual(uint offset)
+    {
             var sec = Sections64.FirstOrDefault(s => s.Offset <= offset && offset < s.Offset + s.Size);
             
             if (sec == null)
@@ -125,30 +125,30 @@ namespace LibCpp2IL.MachO
             return sec.Address + (offset - sec.Offset);
         }
 
-        public override ulong GetRva(ulong pointer)
-        {
+    public override ulong GetRva(ulong pointer)
+    {
             return pointer; //TODO?
         }
 
-        public override byte[] GetRawBinaryContent() => _raw;
+    public override byte[] GetRawBinaryContent() => _raw;
 
-        public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
-        {
+    public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
+    {
             if (!_exportAddressesDict.TryGetValue(toFind, out var addr))
                 return 0;
 
             return (ulong) addr;
         }
 
-        public override bool IsExportedFunction(ulong addr) => _exportNamesDict.ContainsKey((long) addr);
+    public override bool IsExportedFunction(ulong addr) => _exportNamesDict.ContainsKey((long) addr);
 
-        public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
-        {
+    public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
+    {
             return _exportNamesDict.TryGetValue((long) addr, out name);
         }
 
-        private MachOSection GetTextSection64()
-        {
+    private MachOSection GetTextSection64()
+    {
             var textSection = Sections64.FirstOrDefault(s => s.SectionName == "__text");
             
             if (textSection == null)
@@ -157,13 +157,12 @@ namespace LibCpp2IL.MachO
             return textSection;
         }
 
-        public override byte[] GetEntirePrimaryExecutableSection()
-        {
+    public override byte[] GetEntirePrimaryExecutableSection()
+    {
             var textSection = GetTextSection64();
 
             return _raw.SubArray((int) textSection.Offset, (int) textSection.Size);
         }
 
-        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => GetTextSection64().Address;
-    }
+    public override ulong GetVirtualAddressOfPrimaryExecutableSection() => GetTextSection64().Address;
 }

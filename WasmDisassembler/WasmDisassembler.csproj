@@ -6,7 +6,7 @@
         <DebugType>embedded</DebugType>
         <ImplicitUsings>enable</ImplicitUsings>
         <Nullable>enable</Nullable>
-        <LangVersion>10</LangVersion>
+        <LangVersion>12</LangVersion>
         <PackageId>Samboy063.WasmDisassembler</PackageId>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <GeneratePackageOnBuild>true</GeneratePackageOnBuild>

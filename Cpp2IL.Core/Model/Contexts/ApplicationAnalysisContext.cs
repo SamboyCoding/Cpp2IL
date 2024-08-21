@@ -43,7 +43,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// <summary>
     /// All the managed assemblies contained within the metadata file.
     /// </summary>
-    public readonly List<AssemblyAnalysisContext> Assemblies = new();
+    public readonly List<AssemblyAnalysisContext> Assemblies = [];
 
     /// <summary>
     /// A dictionary of all the managed assemblies, by their name.
@@ -112,7 +112,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             var ptr = InstructionSet.GetPointerForMethod(m);
 
             if (!MethodsByAddress.ContainsKey(ptr))
-                MethodsByAddress.Add(ptr, new());
+                MethodsByAddress.Add(ptr, []);
 
             MethodsByAddress[ptr].Add(m);
         });
@@ -129,7 +129,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
                 var ptr = InstructionSet.GetPointerForMethod(gm);
 
                 if (!MethodsByAddress.ContainsKey(ptr))
-                    MethodsByAddress[ptr] = new();
+                    MethodsByAddress[ptr] = [];
 
                 MethodsByAddress[ptr].Add(gm);
                 ConcreteGenericMethodsByRef[methodRef] = gm;

@@ -1,15 +1,15 @@
-namespace LibCpp2IL.Metadata
+namespace LibCpp2IL.Metadata;
+
+public class Il2CppCustomAttributeTypeRange : ReadableClass, IIl2CppTokenProvider
 {
-    public class Il2CppCustomAttributeTypeRange : ReadableClass, IIl2CppTokenProvider
+    [Version(Min = 24.1f)] public uint token;
+    public int start;
+    [Version(Max = 27.9f)] public int count; //Removed in v29
+        
+    public uint Token => token;
+        
+    public override void Read(ClassReadingBinaryReader reader)
     {
-        [Version(Min = 24.1f)] public uint token;
-        public int start;
-        [Version(Max = 27.9f)] public int count; //Removed in v29
-        
-        public uint Token => token;
-        
-        public override void Read(ClassReadingBinaryReader reader)
-        {
             if(IsAtLeast(24.1f))
                 token = reader.ReadUInt32();
             
@@ -18,5 +18,4 @@ namespace LibCpp2IL.Metadata
             if(IsLessThan(29f))
                 count = reader.ReadInt32();
         }
-    }
 }

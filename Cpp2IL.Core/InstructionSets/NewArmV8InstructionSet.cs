@@ -417,7 +417,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     {
         if (!contextBeingAnalyzed.AppContext.MethodsByAddress.TryGetValue(callAddr, out var methodsAtAddress))
             //TODO
-            return new List<InstructionSetIndependentOperand>();
+            return [];
         
         //For the sake of arguments, all we care about is the first method at the address, because they'll only be shared if they have the same signature.
         var contextBeingCalled = methodsAtAddress.First();

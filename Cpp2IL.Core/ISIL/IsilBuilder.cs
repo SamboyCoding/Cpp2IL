@@ -16,16 +16,16 @@ public class IsilBuilder
 
     public IsilBuilder()
     {
-        BackingStatementList = new();
+        BackingStatementList = [];
         InstructionAddressMap = new();
-        _jumpsToFix = new();
+        _jumpsToFix = [];
     }
 
     public IsilBuilder(List<InstructionSetIndependentInstruction> backingStatementList)
     {
         BackingStatementList = backingStatementList;
         InstructionAddressMap = new();
-        _jumpsToFix = new();
+        _jumpsToFix = [];
     }
 
     private void AddInstruction(InstructionSetIndependentInstruction instruction)
@@ -90,7 +90,11 @@ public class IsilBuilder
 
     public void CallRegister(ulong instructionAddress, InstructionSetIndependentOperand dest, bool noReturn = false) => AddInstruction(new(noReturn ? InstructionSetIndependentOpCode.CallNoReturn : InstructionSetIndependentOpCode.Call, instructionAddress, IsilFlowControl.MethodCall, dest));
 
-    public void Return(ulong instructionAddress, InstructionSetIndependentOperand? returnValue = null) => AddInstruction(new(InstructionSetIndependentOpCode.Return, instructionAddress, IsilFlowControl.MethodReturn, returnValue != null ? new[] { returnValue.Value } : Array.Empty<InstructionSetIndependentOperand>()));
+    public void Return(ulong instructionAddress, InstructionSetIndependentOperand? returnValue = null) => AddInstruction(new(InstructionSetIndependentOpCode.Return, instructionAddress, IsilFlowControl.MethodReturn, returnValue != null ?
+    [
+        returnValue.Value
+    ]
+    : []));
 
     public void Goto(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.Goto, IsilFlowControl.UnconditionalJump);
 

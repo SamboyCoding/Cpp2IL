@@ -16,18 +16,20 @@ public static class StableNameGenerator
 
     public static readonly ConcurrentDictionary<ITypeInfoProvider, string> RenamedTypes = new();
     
-    private static readonly string[] ClassAccessNames = {"Private", "Public", "NPublic", "NPrivate", "NProtected", "NInternal", "NFamAndAssem", "NFamOrAssem"};
+    private static readonly string[] ClassAccessNames = ["Private", "Public", "NPublic", "NPrivate", "NProtected", "NInternal", "NFamAndAssem", "NFamOrAssem"
+    ];
     
-    private static readonly string[] MemberAccessTypeLabels = { "CompilerControlled", "Private", "FamAndAssem", "Internal", "Protected", "FamOrAssem", "Public"};
+    private static readonly string[] MemberAccessTypeLabels = ["CompilerControlled", "Private", "FamAndAssem", "Internal", "Protected", "FamOrAssem", "Public"
+    ];
     private static readonly (MethodSemantics, string)[] SemanticsToCheck =
-    {
+    [
         (MethodSemantics.Setter, "_set"),
         (MethodSemantics.Getter, "_get"),
         (MethodSemantics.Other, "_oth"),
         (MethodSemantics.AddOn, "_add"),
         (MethodSemantics.RemoveOn, "_rem"),
-        (MethodSemantics.Fire, "_fire"),
-    };
+        (MethodSemantics.Fire, "_fire")
+    ];
 
     public static string? GetStableNameForTypeIfNeeded(ITypeInfoProvider type, bool includeMethodsForNonInterfaces)
     {
@@ -293,9 +295,9 @@ public static class StableNameGenerator
         }
 
         if (IsObfuscated(type.NameOrRename()))
-            return new() {"Obf"};
+            return ["Obf"];
 
-        return new() {type.NameOrRename()};
+        return [type.NameOrRename()];
     }
 
     //And this is the second, which takes into account byref and ptr types, as well as arrays

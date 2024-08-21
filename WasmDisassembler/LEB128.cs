@@ -2,20 +2,20 @@
 // See LICENSE file for details.
 // From https://github.com/rzubek/mini-leb128
 
-namespace WasmDisassembler
+namespace WasmDisassembler;
+
+/// <summary>
+/// Single-file utility to read and write integers in the LEB128 (7-bit little endian base-128) format.
+/// See https://en.wikipedia.org/wiki/LEB128 for details.
+/// </summary>
+public static class LEB128
 {
-    /// <summary>
-    /// Single-file utility to read and write integers in the LEB128 (7-bit little endian base-128) format.
-    /// See https://en.wikipedia.org/wiki/LEB128 for details.
-    /// </summary>
-    public static class LEB128
-    {
-        private const long SIGN_EXTEND_MASK = -1L;
-        private const int INT64_BITSIZE = (sizeof(long) * 8);
+    private const long SIGN_EXTEND_MASK = -1L;
+    private const int INT64_BITSIZE = (sizeof(long) * 8);
 
-        public static void WriteLEB128Signed (this Stream stream, long value) => WriteLEB128Signed(stream, value, out _);
+    public static void WriteLEB128Signed (this Stream stream, long value) => WriteLEB128Signed(stream, value, out _);
 
-        public static void WriteLEB128Signed (this Stream stream, long value, out int bytes) {
+    public static void WriteLEB128Signed (this Stream stream, long value, out int bytes) {
             bytes = 0;
             bool more = true;
 
@@ -32,9 +32,9 @@ namespace WasmDisassembler
             };
         }
 
-        public static void WriteLEB128Unsigned (this Stream stream, ulong value) => WriteLEB128Unsigned(stream, value, out _);
+    public static void WriteLEB128Unsigned (this Stream stream, ulong value) => WriteLEB128Unsigned(stream, value, out _);
 
-        public static void WriteLEB128Unsigned (this Stream stream, ulong value, out int bytes) {
+    public static void WriteLEB128Unsigned (this Stream stream, ulong value, out int bytes) {
             bytes = 0;
             bool more = true;
 
@@ -50,9 +50,9 @@ namespace WasmDisassembler
             };
         }
 
-        public static long ReadLEB128Signed (this Stream stream) => ReadLEB128Signed(stream, out _);
+    public static long ReadLEB128Signed (this Stream stream) => ReadLEB128Signed(stream, out _);
 
-        public static long ReadLEB128Signed (this Stream stream, out int bytes) {
+    public static long ReadLEB128Signed (this Stream stream, out int bytes) {
             bytes = 0;
 
             long value = 0;
@@ -80,9 +80,9 @@ namespace WasmDisassembler
             return value;
         }
 
-        public static ulong ReadLEB128Unsigned (this Stream stream) => ReadLEB128Unsigned(stream, out _);
+    public static ulong ReadLEB128Unsigned (this Stream stream) => ReadLEB128Unsigned(stream, out _);
 
-        public static ulong ReadLEB128Unsigned (this Stream stream, out int bytes) {
+    public static ulong ReadLEB128Unsigned (this Stream stream, out int bytes) {
             bytes = 0;
 
             ulong value = 0;
@@ -105,5 +105,4 @@ namespace WasmDisassembler
             return value;
         }
 
-    }
 }

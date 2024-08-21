@@ -2,7 +2,7 @@
 
     <PropertyGroup>
         <Nullable>enable</Nullable>
-        <LangVersion>9</LangVersion>
+        <LangVersion>12</LangVersion>
         <DebugType>embedded</DebugType>
         <PackageId>Samboy063.LibCpp2IL</PackageId>
         <Title>LibCpp2IL</Title>

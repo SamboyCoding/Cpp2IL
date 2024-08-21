@@ -1,14 +1,14 @@
 ﻿using System.Collections.Generic;
 using LibCpp2IL.Elf;
 
-namespace LibCpp2IL
+namespace LibCpp2IL;
+
+/// <summary>
+/// Full credit for most of this file goes to djKaty in the il2cppinspector project.
+/// </summary>
+internal static class MiniArm64Decompiler
 {
-    /// <summary>
-    /// Full credit for most of this file goes to djKaty in the il2cppinspector project.
-    /// </summary>
-    internal static class MiniArm64Decompiler
-    {
-        private static (uint reg, ulong page)? GetAdrp(uint inst, ulong pc) {
+    private static (uint reg, ulong page)? GetAdrp(uint inst, ulong pc) {
             if ((inst.Bits(24, 8) & 0b_1000_1111) != 1 << 7)
                 return null;
 
@@ -21,9 +21,9 @@ namespace LibCpp2IL
             return (reg, page + addend);
         }
 
-        // https://static.docs.arm.com/100878/0100/fundamentals_of_armv8_a_100878_0100_en.pdf states:
-        // Unlike ARMv7-A, there is no implied offset of 4 or 8 bytes
-        private static (uint reg, ulong addr)? GetAdr(uint inst, ulong pc) {
+    // https://static.docs.arm.com/100878/0100/fundamentals_of_armv8_a_100878_0100_en.pdf states:
+    // Unlike ARMv7-A, there is no implied offset of 4 or 8 bytes
+    private static (uint reg, ulong addr)? GetAdr(uint inst, ulong pc) {
             if (inst.Bits(24, 5) != 0b10000 || inst.Bits(31, 1) != 0)
                 return null;
 
@@ -37,7 +37,7 @@ namespace LibCpp2IL
             return (reg, pc + imm);
         }
 
-        private static (uint reg_n, uint reg_d, uint imm)? GetAdd64(uint inst) {
+    private static (uint reg_n, uint reg_d, uint imm)? GetAdd64(uint inst) {
             if (inst.Bits(22, 10) != 0b_1001_0001_00)
                 return null;
 
@@ -48,7 +48,7 @@ namespace LibCpp2IL
             return (regN, regD, imm);
         }
 
-        private static (uint reg_t, uint reg_n, uint simm)? GetLdr64ImmOffset(uint inst) {
+    private static (uint reg_t, uint reg_n, uint simm)? GetLdr64ImmOffset(uint inst) {
             if (inst.Bits(22, 10) != 0b_11_1110_0101)
                 return null;
 
@@ -59,10 +59,10 @@ namespace LibCpp2IL
             return (regT, regN, imm);
         }
 
-        public static bool IsB(uint inst) => inst.Bits(26, 6) == 0b_000101;
+    public static bool IsB(uint inst) => inst.Bits(26, 6) == 0b_000101;
 
-        public static Dictionary<uint, ulong> GetAddressesLoadedIntoRegisters(List<uint> funcBody, ulong baseAddress, ElfFile image)
-        {
+    public static Dictionary<uint, ulong> GetAddressesLoadedIntoRegisters(List<uint> funcBody, ulong baseAddress, ElfFile image)
+    {
             var ret = new Dictionary<uint, ulong>();
 
             var pc = baseAddress;
@@ -107,8 +107,8 @@ namespace LibCpp2IL
             return ret;
         }
 
-        public static List<uint> ReadFunctionAtRawAddress(ElfFile file, uint loc, uint maxLength)
-        {
+    public static List<uint> ReadFunctionAtRawAddress(ElfFile file, uint loc, uint maxLength)
+    {
             //Either we find a b (hard jump), or we exceed maxLength
 
             var ret = new List<uint>();
@@ -123,5 +123,4 @@ namespace LibCpp2IL
 
             return ret;
         }
-    }
 }

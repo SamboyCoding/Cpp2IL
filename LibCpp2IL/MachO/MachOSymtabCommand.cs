@@ -1,19 +1,19 @@
 ﻿using System;
 using System.Collections.Generic;
 
-namespace LibCpp2IL.MachO
-{
-    public class MachOSymtabCommand : ReadableClass
-    {
-        public uint SymbolTableOffset;
-        public uint NumSymbols;
-        public uint StringTableOffset;
-        public uint StringTableSize;
+namespace LibCpp2IL.MachO;
 
-        public MachOSymtabEntry[] Symbols = Array.Empty<MachOSymtabEntry>();
+public class MachOSymtabCommand : ReadableClass
+{
+    public uint SymbolTableOffset;
+    public uint NumSymbols;
+    public uint StringTableOffset;
+    public uint StringTableSize;
+
+    public MachOSymtabEntry[] Symbols = [];
         
-        public override void Read(ClassReadingBinaryReader reader)
-        {
+    public override void Read(ClassReadingBinaryReader reader)
+    {
             SymbolTableOffset = reader.ReadUInt32();
             NumSymbols = reader.ReadUInt32();
             StringTableOffset = reader.ReadUInt32();
@@ -32,5 +32,4 @@ namespace LibCpp2IL.MachO
 
             reader.BaseStream.Position = returnTo;
         }
-    }
 }

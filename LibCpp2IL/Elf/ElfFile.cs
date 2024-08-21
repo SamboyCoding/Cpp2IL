@@ -6,27 +6,27 @@ using System.Linq;
 using LibCpp2IL.Logging;
 using LibCpp2IL.PE;
 
-namespace LibCpp2IL.Elf
+namespace LibCpp2IL.Elf;
+
+public sealed class ElfFile : Il2CppBinary
 {
-    public sealed class ElfFile : Il2CppBinary
+    private byte[] _raw;
+    private List<IElfProgramHeaderEntry> _elfProgramHeaderEntries;
+    private readonly List<ElfSectionHeaderEntry> _elfSectionHeaderEntries;
+    private ElfFileIdent? _elfFileIdent;
+    private ElfFileHeader? _elfHeader;
+    private readonly List<ElfDynamicEntry> _dynamicSection = [];
+    private readonly List<ElfSymbolTableEntry> _symbolTable = [];
+    private readonly Dictionary<string, ElfSymbolTableEntry> _exportNameTable = new();
+    private readonly Dictionary<ulong, ElfSymbolTableEntry> _exportAddressTable = new();
+    private List<long>? _initializerPointers;
+
+    private readonly List<(ulong start, ulong end)> relocationBlocks = []; 
+
+    private long _globalOffset;
+
+    public ElfFile(MemoryStream input) : base(input)
     {
-        private byte[] _raw;
-        private List<IElfProgramHeaderEntry> _elfProgramHeaderEntries;
-        private readonly List<ElfSectionHeaderEntry> _elfSectionHeaderEntries;
-        private ElfFileIdent? _elfFileIdent;
-        private ElfFileHeader? _elfHeader;
-        private readonly List<ElfDynamicEntry> _dynamicSection = new();
-        private readonly List<ElfSymbolTableEntry> _symbolTable = new();
-        private readonly Dictionary<string, ElfSymbolTableEntry> _exportNameTable = new();
-        private readonly Dictionary<ulong, ElfSymbolTableEntry> _exportAddressTable = new();
-        private List<long>? _initializerPointers;
-
-        private readonly List<(ulong start, ulong end)> relocationBlocks = new(); 
-
-        private long _globalOffset;
-
-        public ElfFile(MemoryStream input) : base(input)
-        {
             _raw = input.GetBuffer();
 
             LibLogger.Verbose("\tReading Elf File Ident...");
@@ -67,7 +67,7 @@ namespace LibCpp2IL.Elf
             }
             catch (Exception)
             {
-                _elfSectionHeaderEntries = new();
+                _elfSectionHeaderEntries = [];
             }
 
             if (_elfHeader!.SectionNameSectionOffset >= 0 && _elfHeader.SectionNameSectionOffset < _elfSectionHeaderEntries.Count)
@@ -121,8 +121,8 @@ namespace LibCpp2IL.Elf
             LibLogger.VerboseNewline($"Got {_initializerPointers!.Count} OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         }
 
-        private void ReadAndValidateIdent()
-        {
+    private void ReadAndValidateIdent()
+    {
             _elfFileIdent = ReadReadable<ElfFileIdent>(0);
 
             if (_elfFileIdent.Magic != 0x464c457f) //Magic number
@@ -137,8 +137,8 @@ namespace LibCpp2IL.Elf
                 throw new FormatException($"ELF Version is not 1? File header has version {_elfFileIdent.Version}");
         }
 
-        private void ReadHeader()
-        {
+    private void ReadHeader()
+    {
             _elfHeader = ReadReadable<ElfFileHeader>(0x10);
 
             InstructionSetId = _elfHeader.Machine switch
@@ -154,23 +154,23 @@ namespace LibCpp2IL.Elf
                 throw new FormatException($"Full ELF header specifies version {_elfHeader.Version}, only supported version is 1.");
         }
 
-        private void ReadProgramHeaderTable()
-        {
+    private void ReadProgramHeaderTable()
+    {
             _elfProgramHeaderEntries = is32Bit
                 ? ReadReadableArrayAtRawAddr<ElfProgramHeaderEntry32>(_elfHeader!.pProgramHeader, _elfHeader.ProgramHeaderEntryCount).Cast<IElfProgramHeaderEntry>().ToList()
                 : ReadReadableArrayAtRawAddr<ElfProgramHeaderEntry64>(_elfHeader!.pProgramHeader, _elfHeader.ProgramHeaderEntryCount).Cast<IElfProgramHeaderEntry>().ToList();
         }
 
-        private IElfProgramHeaderEntry? GetProgramHeaderOfType(ElfProgramEntryType type) => _elfProgramHeaderEntries.FirstOrDefault(p => p.Type == type);
+    private IElfProgramHeaderEntry? GetProgramHeaderOfType(ElfProgramEntryType type) => _elfProgramHeaderEntries.FirstOrDefault(p => p.Type == type);
 
-        private IEnumerable<ElfSectionHeaderEntry> GetSections(ElfSectionEntryType type) => _elfSectionHeaderEntries.Where(s => s.Type == type);
+    private IEnumerable<ElfSectionHeaderEntry> GetSections(ElfSectionEntryType type) => _elfSectionHeaderEntries.Where(s => s.Type == type);
 
-        private ElfSectionHeaderEntry? GetSingleSection(ElfSectionEntryType type) => GetSections(type).FirstOrDefault();
+    private ElfSectionHeaderEntry? GetSingleSection(ElfSectionEntryType type) => GetSections(type).FirstOrDefault();
 
-        private ElfDynamicEntry? GetDynamicEntryOfType(ElfDynamicType type) => _dynamicSection.FirstOrDefault(d => d.Tag == type);
+    private ElfDynamicEntry? GetDynamicEntryOfType(ElfDynamicType type) => _dynamicSection.FirstOrDefault(d => d.Tag == type);
 
-        private void ProcessRelocations()
-        {
+    private void ProcessRelocations()
+    {
             try
             {
                 var rels = new HashSet<ElfRelocation>();
@@ -364,8 +364,8 @@ namespace LibCpp2IL.Elf
             }
         }
 
-        private void ProcessSymbols()
-        {
+    private void ProcessSymbols()
+    {
             var symbolTables = new List<(ulong offset, ulong count, ulong strings)>();
 
             //Look for .strtab
@@ -451,11 +451,11 @@ namespace LibCpp2IL.Elf
             }
         }
 
-        private void ProcessInitializers()
-        {
+    private void ProcessInitializers()
+    {
             if (!(GetDynamicEntryOfType(ElfDynamicType.DT_INIT_ARRAY) is { } dtInitArray) || !(GetDynamicEntryOfType(ElfDynamicType.DT_INIT_ARRAYSZ) is { } dtInitArraySz))
             {
-                _initializerPointers = new();
+                _initializerPointers = [];
                 return;
             }
 
@@ -470,8 +470,8 @@ namespace LibCpp2IL.Elf
             _initializerPointers = initArray.Select(a => MapVirtualAddressToRaw(a)).ToList();
         }
 
-        public override (ulong pCodeRegistration, ulong pMetadataRegistration) FindCodeAndMetadataReg(int methodCount, int typeDefinitionsCount)
-        {
+    public override (ulong pCodeRegistration, ulong pMetadataRegistration) FindCodeAndMetadataReg(int methodCount, int typeDefinitionsCount)
+    {
             //Let's just try and be cheap here and find them in the symbol table.
 
             LibLogger.Verbose("\tChecking ELF Symbol Table for code and/or meta reg...");
@@ -509,8 +509,8 @@ namespace LibCpp2IL.Elf
             return FindCodeAndMetadataRegDefaultBehavior(methodCount, typeDefinitionsCount);
         }
 
-        private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm32()
-        {
+    private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm32()
+    {
             //This is a little complicated, so:
             //All ARM instructions are four bytes.
             //We need to check for two out of a specific 6 instructions, so 24 (0x18) bytes.
@@ -535,8 +535,7 @@ namespace LibCpp2IL.Elf
                 if (!addSearchBytes.SequenceEqual(instructionBytes.Skip(0x10)))
                     continue;
 
-                //Check last three bytes of third instruction (so skip 9 bytes, read 3) 
-                if (!ldrSearchBytes.SequenceEqual(instructionBytes.Skip(9).Take(3)))
+                //Check last three bytes of third instruction (so skip 9 bytes, read 3)      if (!ldrSearchBytes.SequenceEqual(instructionBytes.Skip(9).Take(3)))
                     continue;
 
                 //Take the 8th byte, which contains our 'x' value, which specifies where the codereg function is.
@@ -617,8 +616,8 @@ namespace LibCpp2IL.Elf
             return (0, 0);
         }
 
-        private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm64()
-        {
+    private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegArm64()
+    {
             LibLogger.VerboseNewline($"\tARM-64 MODE: Checking {_initializerPointers!.Count} initializer pointers...");
             foreach (var initializerPointer in _initializerPointers)
             {
@@ -626,8 +625,7 @@ namespace LibCpp2IL.Elf
                 var func = MiniArm64Decompiler.ReadFunctionAtRawAddress(this, (uint)initializerPointer, 7);
 
                 //Don't accept anything longer than 7 instructions
-                //I.e. if it doesn't end with a jump we don't want it 
-                if (!MiniArm64Decompiler.IsB(func[^1]))
+                //I.e. if it doesn't end with a jump we don't want it      if (!MiniArm64Decompiler.IsB(func[^1]))
                     continue;
 
                 var registers = MiniArm64Decompiler.GetAddressesLoadedIntoRegisters(func, (ulong) (_globalOffset + initializerPointer), this);
@@ -662,8 +660,8 @@ namespace LibCpp2IL.Elf
             return (0, 0);
         }
 
-        private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegDefaultBehavior(int methodCount, int typeDefinitionsCount)
-        {
+    private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegDefaultBehavior(int methodCount, int typeDefinitionsCount)
+    {
             
                 LibLogger.VerboseNewline("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
                 var searcher = new BinarySearcher(this, methodCount, typeDefinitionsCount);
@@ -680,10 +678,10 @@ namespace LibCpp2IL.Elf
             
         }
 
-        public override long RawLength => _raw.Length;
+    public override long RawLength => _raw.Length;
 
-        public override long MapVirtualAddressToRaw(ulong addr, bool throwOnError = true)
-        {
+    public override long MapVirtualAddressToRaw(ulong addr, bool throwOnError = true)
+    {
             var section = _elfProgramHeaderEntries.FirstOrDefault(x => addr >= x.VirtualAddress && addr < x.VirtualAddress + x.VirtualSize);
 
             if (section == null)
@@ -702,8 +700,8 @@ namespace LibCpp2IL.Elf
             return (long) (addr - (section.VirtualAddress - section.RawAddress));
         }
 
-        public override ulong MapRawAddressToVirtual(uint offset)
-        {
+    public override ulong MapRawAddressToVirtual(uint offset)
+    {
             if (relocationBlocks.Any(b => b.start <= offset && b.end > offset))
                 throw new InvalidOperationException("Attempt to map a relocation block to a virtual address");
             
@@ -712,24 +710,24 @@ namespace LibCpp2IL.Elf
             return section.VirtualAddress + offset - section.RawAddress;
         }
 
-        public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
+    public override byte GetByteAtRawAddress(ulong addr) => _raw[addr];
 
-        public override ulong GetRva(ulong pointer) => (ulong) ((long) pointer - _globalOffset);
+    public override ulong GetRva(ulong pointer) => (ulong) ((long) pointer - _globalOffset);
 
-        public override byte[] GetRawBinaryContent() => _raw;
+    public override byte[] GetRawBinaryContent() => _raw;
 
-        public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
-        {
+    public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
+    {
             if (!_exportNameTable.TryGetValue(toFind, out var exportedSymbol))
                 return 0;
 
             return exportedSymbol.VirtualAddress;
         }
 
-        public override bool IsExportedFunction(ulong addr) => _exportAddressTable.ContainsKey(addr);
+    public override bool IsExportedFunction(ulong addr) => _exportAddressTable.ContainsKey(addr);
 
-        public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
-        {
+    public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
+    {
             if (_exportAddressTable.TryGetValue(addr, out var symbol))
             {
                 name = symbol.Name;
@@ -741,16 +739,15 @@ namespace LibCpp2IL.Elf
             }
         }
 
-        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
+    public override ulong GetVirtualAddressOfPrimaryExecutableSection() => _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
 
-        public override byte[] GetEntirePrimaryExecutableSection()
-        {
+    public override byte[] GetEntirePrimaryExecutableSection()
+    {
             var primarySection = _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text");
 
             if (primarySection == null)
-                return Array.Empty<byte>();
+                return [];
 
             return GetRawBinaryContent().SubArray((int)primarySection.RawAddress, (int)primarySection.Size);
         }
-    }
 }

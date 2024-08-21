@@ -3,40 +3,40 @@ using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
-namespace LibCpp2IL
+namespace LibCpp2IL;
+
+public class MetadataUsage
 {
-    public class MetadataUsage
+    public readonly MetadataUsageType Type;
+    public readonly ulong Offset;
+    private readonly uint _value;
+
+    private string? _cachedName;
+
+    private Il2CppType? _cachedType;
+    private Il2CppTypeReflectionData? _cachedTypeReflectionData;
+
+    private Il2CppMethodDefinition? _cachedMethod;
+
+    private Il2CppFieldDefinition? _cachedField;
+
+    private string? _cachedLiteral;
+
+    private Cpp2IlMethodRef? _cachedGenericMethod;
+
+    public MetadataUsage(MetadataUsageType type, ulong offset, uint value)
     {
-        public readonly MetadataUsageType Type;
-        public readonly ulong Offset;
-        private readonly uint _value;
-
-        private string? _cachedName;
-
-        private Il2CppType? _cachedType;
-        private Il2CppTypeReflectionData? _cachedTypeReflectionData;
-
-        private Il2CppMethodDefinition? _cachedMethod;
-
-        private Il2CppFieldDefinition? _cachedField;
-
-        private string? _cachedLiteral;
-
-        private Cpp2IlMethodRef? _cachedGenericMethod;
-
-        public MetadataUsage(MetadataUsageType type, ulong offset, uint value)
-        {
             Type = type;
             _value = value;
             Offset = offset;
         }
 
-        public uint RawValue => _value;
+    public uint RawValue => _value;
 
-        public object Value
+    public object Value
+    {
+        get
         {
-            get
-            {
                 switch (Type)
                 {
                     case MetadataUsageType.Type:
@@ -54,10 +54,10 @@ namespace LibCpp2IL
                         throw new ArgumentOutOfRangeException();
                 }
             }
-        }
+    }
 
-        public Il2CppTypeReflectionData AsType()
-        {
+    public Il2CppTypeReflectionData AsType()
+    {
             if (_cachedTypeReflectionData == null)
             {
                 switch (Type)
@@ -84,8 +84,8 @@ namespace LibCpp2IL
             return _cachedTypeReflectionData!;
         }
 
-        public Il2CppMethodDefinition AsMethod()
-        {
+    public Il2CppMethodDefinition AsMethod()
+    {
             if (_cachedMethod == null)
             {
                 switch (Type)
@@ -102,8 +102,8 @@ namespace LibCpp2IL
             return _cachedMethod!;
         }
 
-        public Il2CppFieldDefinition AsField()
-        {
+    public Il2CppFieldDefinition AsField()
+    {
             if (_cachedField == null)
             {
                 switch (Type)
@@ -121,8 +121,8 @@ namespace LibCpp2IL
             return _cachedField;
         }
 
-        public string AsLiteral()
-        {
+    public string AsLiteral()
+    {
             if (_cachedLiteral == null)
             {
                 switch (Type)
@@ -138,8 +138,8 @@ namespace LibCpp2IL
             return _cachedLiteral;
         }
 
-        public Cpp2IlMethodRef AsGenericMethodRef()
-        {
+    public Cpp2IlMethodRef AsGenericMethodRef()
+    {
             if (_cachedGenericMethod == null)
             {
                 switch (Type)
@@ -157,15 +157,15 @@ namespace LibCpp2IL
             return _cachedGenericMethod;
         }
 
-        public override string ToString()
-        {
+    public override string ToString()
+    {
             return $"Metadata Usage {{type={Type}, Value={Value}}}";
         }
 
-        public bool IsValid
+    public bool IsValid
+    {
+        get
         {
-            get
-            {
                 try
                 {
                     var _ = Value;
@@ -176,11 +176,11 @@ namespace LibCpp2IL
                     return false;
                 }
             }
-        }
+    }
         
 
-        public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address)
-        {
+    public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address)
+    {
             var encodedType = encoded & 0xE000_0000;
             var type = (MetadataUsageType) (encodedType >> 29);
             if (type <= MetadataUsageType.MethodRef && type >= MetadataUsageType.TypeInfo)
@@ -202,5 +202,4 @@ namespace LibCpp2IL
 
             return null;
         }
-    }
 }

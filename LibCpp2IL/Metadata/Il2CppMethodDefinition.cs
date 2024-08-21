@@ -6,51 +6,51 @@ using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
 using LibCpp2IL.Reflection;
 
-namespace LibCpp2IL.Metadata
+namespace LibCpp2IL.Metadata;
+
+public class Il2CppMethodDefinition : ReadableClass
 {
-    public class Il2CppMethodDefinition : ReadableClass
-    {
-        public int nameIndex;
-        public int declaringTypeIdx;
-        public int returnTypeIdx;
-        [Version(Min = 31)] public uint returnParameterToken;
-        public int parameterStart;
-        [Version(Max = 24)] public int customAttributeIndex;
-        public int genericContainerIndex;
-        [Version(Max = 24.15f)] public int methodIndex;
-        [Version(Max = 24.15f)] public int invokerIndex;
-        [Version(Max = 24.15f)] public int delegateWrapperIndex;
-        [Version(Max = 24.15f)] public int rgctxStartIndex;
-        [Version(Max = 24.15f)] public int rgctxCount;
-        public uint token;
-        public ushort flags;
-        public ushort iflags;
-        public ushort slot;
-        public ushort parameterCount;
-        [Version(Min = 29.2f, Max = 31)] public bool isUnmanagedCallersOnly; //uint8_t. Not present in v31 (I assume it will exist in some v31.1)
+    public int nameIndex;
+    public int declaringTypeIdx;
+    public int returnTypeIdx;
+    [Version(Min = 31)] public uint returnParameterToken;
+    public int parameterStart;
+    [Version(Max = 24)] public int customAttributeIndex;
+    public int genericContainerIndex;
+    [Version(Max = 24.15f)] public int methodIndex;
+    [Version(Max = 24.15f)] public int invokerIndex;
+    [Version(Max = 24.15f)] public int delegateWrapperIndex;
+    [Version(Max = 24.15f)] public int rgctxStartIndex;
+    [Version(Max = 24.15f)] public int rgctxCount;
+    public uint token;
+    public ushort flags;
+    public ushort iflags;
+    public ushort slot;
+    public ushort parameterCount;
+    [Version(Min = 29.2f, Max = 31)] public bool isUnmanagedCallersOnly; //uint8_t. Not present in v31 (I assume it will exist in some v31.1)
 
-        public MethodAttributes Attributes => (MethodAttributes) flags;
+    public MethodAttributes Attributes => (MethodAttributes) flags;
 
-        public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
+    public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
 
-        public int MethodIndex => LibCpp2IlReflection.GetMethodIndexFromMethod(this);
+    public int MethodIndex => LibCpp2IlReflection.GetMethodIndexFromMethod(this);
         
-        public string? Name { get;private set; }
+    public string? Name { get;private set; }
 
-        public string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
+    public string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
-        public Il2CppType? RawReturnType => LibCpp2IlMain.Binary?.GetType(returnTypeIdx);
+    public Il2CppType? RawReturnType => LibCpp2IlMain.Binary?.GetType(returnTypeIdx);
 
-        public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary.GetType(returnTypeIdx));
+    public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary.GetType(returnTypeIdx));
 
-        public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
+    public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs[declaringTypeIdx];
 
-        private ulong? _methodPointer = null;
+    private ulong? _methodPointer = null;
 
-        public ulong MethodPointer
+    public ulong MethodPointer
+    {
+        get
         {
-            get
-            {
                 if (!_methodPointer.HasValue)
                 {
                     if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
@@ -74,23 +74,23 @@ namespace LibCpp2IL.Metadata
 
                 return _methodPointer.Value;
             }
-        }
+    }
 
-        public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
+    public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
 
-        public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRva(MethodPointer);
+    public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRva(MethodPointer);
 
-        public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
+    public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
 
-        public Il2CppParameterDefinition[]? InternalParameterData
+    public Il2CppParameterDefinition[]? InternalParameterData
+    {
+        get
         {
-            get
-            {
                 if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null)
                     return null;
 
                 if (parameterStart < 0 || parameterCount == 0)
-                    return Array.Empty<Il2CppParameterDefinition>();
+                    return [];
 
                 var ret = new Il2CppParameterDefinition[parameterCount];
 
@@ -98,19 +98,19 @@ namespace LibCpp2IL.Metadata
 
                 return ret;
             }
-        }
+    }
 
-        public Il2CppType[]? InternalParameterTypes => InternalParameterData == null
-            ? null
-            : InternalParameterData.Select(paramDef => LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex))
-                .ToArray();
+    public Il2CppType[]? InternalParameterTypes => InternalParameterData == null
+        ? null
+        : InternalParameterData.Select(paramDef => LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex))
+            .ToArray();
 
-        private Il2CppParameterReflectionData[]? _cachedParameters;
+    private Il2CppParameterReflectionData[]? _cachedParameters;
 
-        public Il2CppParameterReflectionData[]? Parameters
+    public Il2CppParameterReflectionData[]? Parameters
+    {
+        get
         {
-            get
-            {
                 if (_cachedParameters == null && InternalParameterData != null)
                 {
                     _cachedParameters = InternalParameterData
@@ -133,20 +133,20 @@ namespace LibCpp2IL.Metadata
 
                 return _cachedParameters;
             }
-        }
+    }
 
-        public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
+    public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
 
-        public override string? ToString()
-        {
+    public override string? ToString()
+    {
             if (LibCpp2IlMain.TheMetadata == null) 
                 return base.ToString();
 
             return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
         }
 
-        public override void Read(ClassReadingBinaryReader reader)
-        {
+    public override void Read(ClassReadingBinaryReader reader)
+    {
             nameIndex = reader.ReadInt32();
             
             //Cache name now
@@ -186,5 +186,4 @@ namespace LibCpp2IL.Metadata
             if (IsAtLeast(29.2f) && IsLessThan(31))
                 isUnmanagedCallersOnly = reader.ReadByte() != 0;
         }
-    }
 }

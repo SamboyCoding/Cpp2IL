@@ -14,7 +14,7 @@
         <RepositoryType>git</RepositoryType>
         <RepositoryUrl>https://github.com/SamboyCoding/Cpp2IL.git</RepositoryUrl> 
         <TargetFramework>netstandard2.0</TargetFramework> 
-        <LangVersion>10</LangVersion>
+        <LangVersion>12</LangVersion>
         <VersionPrefix>0.1.0</VersionPrefix>
     </PropertyGroup>
 

@@ -5,52 +5,49 @@ using System.Linq;
 using System.Text;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Utils
+namespace Cpp2IL.Core.Utils;
+
+public static class MiscUtils
 {
-    public static class MiscUtils
+    private static List<ulong>? _allKnownFunctionStarts;
+
+    private static Dictionary<string, ulong> _primitiveSizes = new();
+
+    public static readonly List<char> InvalidPathChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
+
+    public static readonly HashSet<string> InvalidPathElements =
+    [
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        "COM1",
+        "COM2",
+        "COM3",
+        "COM4",
+        "COM5",
+        "COM6",
+        "COM7",
+        "COM8",
+        "COM9",
+        "LPT1",
+        "LPT2",
+        "LPT3",
+        "LPT4",
+        "LPT5",
+        "LPT6",
+        "LPT7",
+        "LPT8",
+        "LPT9"
+    ];
+
+    internal static void Reset()
     {
-        private static List<ulong>? _allKnownFunctionStarts;
-
-        private static Dictionary<string, ulong> _primitiveSizes = new();
-
-        public static readonly List<char> InvalidPathChars = new()
-        {
-            '<', '>', ':', '"', '/', '\\', '|', '?', '*'
-        };
-
-        public static readonly HashSet<string> InvalidPathElements = new()
-        {
-            "CON",
-            "PRN",
-            "AUX",
-            "NUL",
-            "COM1",
-            "COM2",
-            "COM3",
-            "COM4",
-            "COM5",
-            "COM6",
-            "COM7",
-            "COM8",
-            "COM9",
-            "LPT1",
-            "LPT2",
-            "LPT3",
-            "LPT4",
-            "LPT5",
-            "LPT6",
-            "LPT7",
-            "LPT8",
-            "LPT9"
-        };
-
-        internal static void Reset()
-        {
             _allKnownFunctionStarts = null;
         }
 
-        internal static void Init()
-        {
+    internal static void Init()
+    {
             _primitiveSizes = new(14)
             {
                 { "Byte", 1 },
@@ -71,8 +68,8 @@ namespace Cpp2IL.Core.Utils
         }
 
 
-        internal static string[] GetGenericParams(string input)
-        {
+    internal static string[] GetGenericParams(string input)
+    {
             if (!input.Contains('<'))
                 return input.Split(',');
 
@@ -100,8 +97,8 @@ namespace Cpp2IL.Core.Utils
             return ret.ToArray();
         }
 
-        public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
-        {
+    public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
+    {
             if (theDll.RawLength <= (long)rawAddr)
                 return null;
 
@@ -130,8 +127,8 @@ namespace Cpp2IL.Core.Utils
             return null;
         }
 
-        public static int GetSlotNum(int offset)
-        {
+    public static int GetSlotNum(int offset)
+    {
             var offsetInVtable = offset - Il2CppClassUsefulOffsets.VTABLE_OFFSET; //0x128 being the address of the vtable in an Il2CppClass
 
             if (offsetInVtable % 0x10 != 0 && offsetInVtable % 0x8 == 0)
@@ -147,31 +144,31 @@ namespace Cpp2IL.Core.Utils
             return -1;
         }
 
-        public static int GetPointerSizeBytes()
-        {
+    public static int GetPointerSizeBytes()
+    {
             return LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
         }
 
-        internal static byte[] RawBytes(IConvertible original) =>
-            original switch
-            {
-                bool b => BitConverter.GetBytes(b),
-                char c => BitConverter.GetBytes(c),
-                byte b => new [] {b},
-                sbyte sb => new[] {unchecked((byte) sb)},
-                ushort us => BitConverter.GetBytes(us),
-                short s => BitConverter.GetBytes(s),
-                uint ui => BitConverter.GetBytes(ui),
-                int i => BitConverter.GetBytes(i),
-                ulong ul => BitConverter.GetBytes(ul),
-                long l => BitConverter.GetBytes(l),
-                float f => BitConverter.GetBytes(f),
-                double d => BitConverter.GetBytes(d),
-                _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
-            };
-
-        private static void InitFunctionStarts()
+    internal static byte[] RawBytes(IConvertible original) =>
+        original switch
         {
+            bool b => BitConverter.GetBytes(b),
+            char c => BitConverter.GetBytes(c),
+            byte b => [b],
+            sbyte sb => [unchecked((byte) sb)],
+            ushort us => BitConverter.GetBytes(us),
+            short s => BitConverter.GetBytes(s),
+            uint ui => BitConverter.GetBytes(ui),
+            int i => BitConverter.GetBytes(i),
+            ulong ul => BitConverter.GetBytes(ul),
+            long l => BitConverter.GetBytes(l),
+            float f => BitConverter.GetBytes(f),
+            double d => BitConverter.GetBytes(d),
+            _ => throw new($"ReinterpretBytes: Cannot get byte array from {original} (type {original.GetType()}")
+        };
+
+    private static void InitFunctionStarts()
+    {
             _allKnownFunctionStarts = LibCpp2IlMain.TheMetadata!.methodDefs.Select(m => m.MethodPointer)
                 .Concat(LibCpp2IlMain.Binary!.ConcreteGenericImplementationsByAddress.Keys)
                 .Concat(SharedState.AttributeGeneratorStarts)
@@ -181,8 +178,8 @@ namespace Cpp2IL.Core.Utils
             _allKnownFunctionStarts.Sort();
         }
 
-        public static ulong GetAddressOfNextFunctionStart(ulong current)
-        {
+    public static ulong GetAddressOfNextFunctionStart(ulong current)
+    {
             if(_allKnownFunctionStarts == null)
                 InitFunctionStarts();
 
@@ -228,16 +225,16 @@ namespace Cpp2IL.Core.Utils
             return ret;
         }
 
-        public static void ExecuteSerial<T>(IEnumerable<T> enumerable, Action<T> what)
-        {
+    public static void ExecuteSerial<T>(IEnumerable<T> enumerable, Action<T> what)
+    {
             foreach (var item in enumerable)
             {
                 what(item);
             }
         }
 
-        public static void ExecuteParallel<T>(IEnumerable<T> enumerable, Action<T> what)
-        {
+    public static void ExecuteParallel<T>(IEnumerable<T> enumerable, Action<T> what)
+    {
             bool F2(T t)
             {
                 what(t);
@@ -250,19 +247,19 @@ namespace Cpp2IL.Core.Utils
                 .ToList();
         }
 
-        public static readonly string[] BlacklistedExecutableFilenames =
-        {
-            "UnityCrashHandler.exe",
+    public static readonly string[] BlacklistedExecutableFilenames =
+    [
+        "UnityCrashHandler.exe",
             "UnityCrashHandler32.exe",
             "UnityCrashHandler64.exe",
             "install.exe",
             "launch.exe",
             "MelonLoader.Installer.exe",
             "crashpad_handler.exe"
-        };
+    ];
 
-        public static string AnalyzeStackTracePointers(ulong[] pointers)
-        {
+    public static string AnalyzeStackTracePointers(ulong[] pointers)
+    {
             // var pointers = new ulong[] {0x52e6ba0, 0x52ad3a0, 0x11b09714, 0x40a990c, 0xd172c68, 0xa2c0514, 0x35ea45c, 0x1fc43208};
 
             var methodsSortedByPointer = LibCpp2IlMain.TheMetadata!.methodDefs.ToList();
@@ -297,16 +294,15 @@ namespace Cpp2IL.Core.Utils
             return string.Join("\n", stack);
         }
 
-        /// <summary>
-        /// Returns the input string with any invalid path characters removed.
-        /// </summary>
-        /// <param name="input">The string to clean up</param>
-        /// <returns>The input string with any characters that are invalid in the NTFS file system replaced with underscores, and additionally escaped if they collide with legacy dos device names.</returns>
-        public static string CleanPathElement(string input)
-        {
+    /// <summary>
+    /// Returns the input string with any invalid path characters removed.
+    /// </summary>
+    /// <param name="input">The string to clean up</param>
+    /// <returns>The input string with any characters that are invalid in the NTFS file system replaced with underscores, and additionally escaped if they collide with legacy dos device names.</returns>
+    public static string CleanPathElement(string input)
+    {
             InvalidPathChars.ForEach(c => input = input.Replace(c, '_'));
 
             return InvalidPathElements.Contains(input) ? $"__invalidwin32name_{input}__" : input;
         }
-    }
 }

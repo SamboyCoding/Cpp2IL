@@ -33,7 +33,7 @@ public static class NewArm64Utils
         var pos = (int)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
         var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
         var span = allBytes.AsSpan(pos, 4);
-        List<Arm64Instruction> ret = new();
+        List<Arm64Instruction> ret = [];
 
         while ((count == -1 || ret.Count < count) && !ret.Any(i => i.Mnemonic is Arm64Mnemonic.B || i.Mnemonic is Arm64Mnemonic.INVALID))
         {

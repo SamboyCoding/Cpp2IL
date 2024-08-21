@@ -64,7 +64,7 @@ public static class StreamExtensions
 
     public static string ReadUnicodeString(this BinaryReader reader)
     {
-        List<byte> bytes = new();
+        List<byte> bytes = [];
         var continueReading = true;
         var lastWasNull = false;
         while (continueReading)

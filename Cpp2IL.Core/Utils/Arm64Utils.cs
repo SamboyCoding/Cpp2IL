@@ -6,15 +6,15 @@ using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Utils
-{
-    public static class Arm64Utils
-    {
-        private static readonly ConcurrentDictionary<Arm64RegisterId, string> CachedArm64RegNamesNew = new();
-        private static CapstoneArm64Disassembler? _arm64Disassembler;
+namespace Cpp2IL.Core.Utils;
 
-        public static string GetRegisterNameNew(Arm64RegisterId registerId)
-        {
+public static class Arm64Utils
+{
+    private static readonly ConcurrentDictionary<Arm64RegisterId, string> CachedArm64RegNamesNew = new();
+    private static CapstoneArm64Disassembler? _arm64Disassembler;
+
+    public static string GetRegisterNameNew(Arm64RegisterId registerId)
+    {
             var key = registerId;
             if (registerId == Arm64RegisterId.Invalid)
                 return "";
@@ -90,8 +90,8 @@ namespace Cpp2IL.Core.Utils
             return ret;
         }
 
-        private static void InitArm64Decompilation()
-        {
+    private static void InitArm64Decompilation()
+    {
             var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary!.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
             disassembler.EnableInstructionDetails = true;
             disassembler.EnableSkipDataMode = true;
@@ -99,8 +99,8 @@ namespace Cpp2IL.Core.Utils
             _arm64Disassembler = disassembler;
         }
 
-        public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
-        {
+    public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
+    {
             if(_arm64Disassembler == null) 
                 InitArm64Decompilation();
 
@@ -133,7 +133,7 @@ namespace Cpp2IL.Core.Utils
             //Unmanaged function, look for first b or bl
             var pos = (int) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
             var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
-            List<Arm64Instruction> ret = new();
+            List<Arm64Instruction> ret = [];
             
             while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
             {
@@ -145,5 +145,4 @@ namespace Cpp2IL.Core.Utils
 
             return ret;
         }
-    }
 }

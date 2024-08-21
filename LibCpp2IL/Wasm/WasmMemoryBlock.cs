@@ -1,14 +1,14 @@
 using System.IO;
 using System.Linq;
 
-namespace LibCpp2IL.Wasm
-{
-    public class WasmMemoryBlock : ClassReadingBinaryReader
-    {
-        internal byte[] Bytes;
+namespace LibCpp2IL.Wasm;
 
-        private static MemoryStream BuildStream(WasmFile file)
-        {
+public class WasmMemoryBlock : ClassReadingBinaryReader
+{
+    internal byte[] Bytes;
+
+    private static MemoryStream BuildStream(WasmFile file)
+    {
             //Find the maximum byte in the data section that has a value
             var maxByte = file.DataSection.DataEntries
                 .Where(s => s.VirtualOffset != ulong.MaxValue)
@@ -30,10 +30,9 @@ namespace LibCpp2IL.Wasm
             return stream;
         }
 
-        public WasmMemoryBlock(WasmFile file) : base(BuildStream(file))
-        {
+    public WasmMemoryBlock(WasmFile file) : base(BuildStream(file))
+    {
             is32Bit = true;
             Bytes = ((MemoryStream) BaseStream).ToArray();
         }
-    }
 }

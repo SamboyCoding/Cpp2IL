@@ -1,15 +1,15 @@
-namespace LibCpp2IL.Wasm
-{
-    public class WasmDataSegment
-    {
-        public ulong Index;
-        public ConstantExpression? OffsetExpr;
-        public long FileOffset;
-        public ulong Size;
-        public byte[] Data;
+namespace LibCpp2IL.Wasm;
 
-        public WasmDataSegment(WasmFile readFrom)
-        {
+public class WasmDataSegment
+{
+    public ulong Index;
+    public ConstantExpression? OffsetExpr;
+    public long FileOffset;
+    public ulong Size;
+    public byte[] Data;
+
+    public WasmDataSegment(WasmFile readFrom)
+    {
             var mode = readFrom.ReadByte();
             if (mode == 2)
                 Index = readFrom.BaseStream.ReadLEB128Unsigned();
@@ -27,6 +27,5 @@ namespace LibCpp2IL.Wasm
             Data = readFrom.ReadByteArrayAtRawAddress(FileOffset, (int) Size);
         }
 
-        public ulong VirtualOffset => OffsetExpr?.Type != ConstantExpression.ConstantInstruction.I32_CONST ? ulong.MaxValue : (ulong) OffsetExpr.Value!;
-    }
+    public ulong VirtualOffset => OffsetExpr?.Type != ConstantExpression.ConstantInstruction.I32_CONST ? ulong.MaxValue : (ulong) OffsetExpr.Value!;
 }
