@@ -3,22 +3,22 @@ using System.Reflection;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
-namespace LibCpp2IL.BinaryStructures
-{
-    public class Il2CppType : ReadableClass
-    {
-        public ulong Datapoint;
-        public uint Bits;
-        public Union Data { get; set; } = null!; //Late-bound
-        public uint Attrs { get; set; }
-        public Il2CppTypeEnum Type { get; set; }
-        public uint NumMods { get; set; }
-        public uint Byref { get; set; }
-        public uint Pinned { get; set; }
-        public uint ValueType { get; set; }
+namespace LibCpp2IL.BinaryStructures;
 
-        private void InitUnionAndFlags()
-        {
+public class Il2CppType : ReadableClass
+{
+    public ulong Datapoint;
+    public uint Bits;
+    public Union Data { get; set; } = null!; //Late-bound
+    public uint Attrs { get; set; }
+    public Il2CppTypeEnum Type { get; set; }
+    public uint NumMods { get; set; }
+    public uint Byref { get; set; }
+    public uint Pinned { get; set; }
+    public uint ValueType { get; set; }
+
+    private void InitUnionAndFlags()
+    {
             Attrs = Bits & 0b1111_1111_1111_1111; //Lowest 16 bits
             Type = (Il2CppTypeEnum) ((Bits >> 16) & 0b1111_1111); //Bits 16-23
             Data = new Union {Dummy = Datapoint};
@@ -42,70 +42,70 @@ namespace LibCpp2IL.BinaryStructures
             }
         }
 
-        public class Union
-        {
-            public ulong Dummy;
-            public long ClassIndex => (long) Dummy;
-            public ulong Type => Dummy;
-            public ulong Array => Dummy;
-            public long GenericParameterIndex => (long) Dummy;
-            public ulong GenericClass => Dummy;
-        }
+    public class Union
+    {
+        public ulong Dummy;
+        public long ClassIndex => (long) Dummy;
+        public ulong Type => Dummy;
+        public ulong Array => Dummy;
+        public long GenericParameterIndex => (long) Dummy;
+        public ulong GenericClass => Dummy;
+    }
 
-        public Il2CppTypeDefinition AsClass()
-        {
+    public Il2CppTypeDefinition AsClass()
+    {
             if(Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
                 throw new Exception("Type is not a class, but a " + Type);
 
             return LibCpp2IlMain.TheMetadata!.typeDefs[Data.ClassIndex];
         }
 
-        public Il2CppType GetEncapsulatedType()
-        {
+    public Il2CppType GetEncapsulatedType()
+    {
             if(Type is not Il2CppTypeEnum.IL2CPP_TYPE_PTR and not Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)
                 throw new Exception("Type does not have a encapsulated type - it is not a pointer or an szarray");
 
             return LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(Data.Type);
         }
 
-        public Il2CppArrayType GetArrayType()
-        {
+    public Il2CppArrayType GetArrayType()
+    {
             if(Type is not Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
                 throw new Exception("Type is not an array");
             
             return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppArrayType>(Data.Array);
         }
 
-        public Il2CppType GetArrayElementType() => LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(GetArrayType().etype);
+    public Il2CppType GetArrayElementType() => LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(GetArrayType().etype);
         
-        public int GetArrayRank() => GetArrayType().rank;
+    public int GetArrayRank() => GetArrayType().rank;
 
-        public Il2CppGenericParameter GetGenericParameterDef()
-        {
+    public Il2CppGenericParameter GetGenericParameterDef()
+    {
             if(Type is not Il2CppTypeEnum.IL2CPP_TYPE_VAR and not Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
                 throw new Exception("Type is not a generic parameter");
             
             return LibCpp2IlMain.TheMetadata!.genericParameters[Data.GenericParameterIndex];
         }
 
-        public Il2CppGenericClass GetGenericClass()
-        {
+    public Il2CppGenericClass GetGenericClass()
+    {
             if(Type is not Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
                 throw new Exception("Type is not a generic class");
             
             return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppGenericClass>(Data.GenericClass);
         }
 
-        public override void Read(ClassReadingBinaryReader reader)
-        {
+    public override void Read(ClassReadingBinaryReader reader)
+    {
             Datapoint = reader.ReadNUint();
             Bits = reader.ReadUInt32();
             
             InitUnionAndFlags();
         }
 
-        public Il2CppTypeDefinition CoerceToUnderlyingTypeDefinition()
-        {
+    public Il2CppTypeDefinition CoerceToUnderlyingTypeDefinition()
+    {
             if(Type is Il2CppTypeEnum.IL2CPP_TYPE_VAR or Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
                 throw new("Can't get the type definition of a generic parameter");
 
@@ -118,8 +118,8 @@ namespace LibCpp2IL.BinaryStructures
             };
         }
 
-        public bool ThisOrElementIsGenericParam()
-        {
+    public bool ThisOrElementIsGenericParam()
+    {
             return Type switch
             {
                 Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => GetEncapsulatedType().ThisOrElementIsGenericParam(),
@@ -129,8 +129,8 @@ namespace LibCpp2IL.BinaryStructures
             };
         }
 
-        public string GetGenericParamName()
-        {
+    public string GetGenericParamName()
+    {
             if(!ThisOrElementIsGenericParam())
                 throw new("Type is not a generic parameter");
 
@@ -142,5 +142,4 @@ namespace LibCpp2IL.BinaryStructures
                 _ => $"{GetGenericParameterDef().Name}",
             };
         }
-    }
 }

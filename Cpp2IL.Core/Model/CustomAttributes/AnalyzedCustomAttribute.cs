@@ -17,17 +17,17 @@ public class AnalyzedCustomAttribute
     /// <summary>
     /// Any arguments that are passed to the constructor.
     /// </summary>
-    public readonly List<BaseCustomAttributeParameter> ConstructorParameters = new();
+    public readonly List<BaseCustomAttributeParameter> ConstructorParameters = [];
 
     /// <summary>
     /// Any fields that are set on the custom attribute.
     /// </summary>
-    public readonly List<CustomAttributeField> Fields = new();
+    public readonly List<CustomAttributeField> Fields = [];
     
     /// <summary>
     /// Any properties that are set on the custom attribute.
     /// </summary>
-    public readonly List<CustomAttributeProperty> Properties = new();
+    public readonly List<CustomAttributeProperty> Properties = [];
 
     /// <summary>
     /// Returns true if this custom attribute's constructor has any parameters.

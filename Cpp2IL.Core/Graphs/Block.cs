@@ -34,9 +34,9 @@ public class Block
     public Block()
     {
         BlockType = BlockType.Unknown;
-        Predecessors = new();
-        Successors = new();
-        isilInstructions = new();
+        Predecessors = [];
+        Successors = [];
+        isilInstructions = [];
         ID = -1;
     }
 

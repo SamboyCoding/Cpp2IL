@@ -53,7 +53,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     /// <summary>
     /// The analysis contexts for nested types within this type.
     /// </summary>
-    public List<TypeAnalysisContext> NestedTypes { get; internal set; } = new();
+    public List<TypeAnalysisContext> NestedTypes { get; internal set; } = [];
 
     protected override int CustomAttributeIndex => Definition!.CustomAttributeIndex;
 
@@ -73,7 +73,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public TypeAnalysisContext? BaseType => OverrideBaseType ?? (Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType));
 
-    public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? Array.Empty<TypeAnalysisContext>())!;
+    public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? [])!;
 
     public string FullName
     {
@@ -123,10 +123,10 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         }
         else
         {
-            Methods = new();
-            Properties = new();
-            Events = new();
-            Fields = new();
+            Methods = [];
+            Properties = [];
+            Events = [];
+            Fields = [];
         }
     }
 

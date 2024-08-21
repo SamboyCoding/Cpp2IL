@@ -25,7 +25,7 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        return new();
+        return [];
     }
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()

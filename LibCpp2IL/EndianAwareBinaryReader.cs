@@ -2,71 +2,71 @@
 using System.IO;
 using System.Text;
 
-namespace LibCpp2IL
+namespace LibCpp2IL;
+
+public class EndianAwareBinaryReader : BinaryReader
 {
-    public class EndianAwareBinaryReader : BinaryReader
-    {
-        protected bool ShouldReverseArrays = !BitConverter.IsLittleEndian; //Default to LE mode, so on LE systems, don't invert.
+    protected bool ShouldReverseArrays = !BitConverter.IsLittleEndian; //Default to LE mode, so on LE systems, don't invert.
 
-        public bool IsBigEndian { get; private set; } = false;
+    public bool IsBigEndian { get; private set; } = false;
         
-        private int _numBytesReadSinceLastCall = 0;
+    private int _numBytesReadSinceLastCall = 0;
 
-        public EndianAwareBinaryReader(Stream input) : base(input)
-        {
+    public EndianAwareBinaryReader(Stream input) : base(input)
+    {
         }
 
-        public EndianAwareBinaryReader(Stream input, Encoding encoding) : base(input, encoding)
-        {
+    public EndianAwareBinaryReader(Stream input, Encoding encoding) : base(input, encoding)
+    {
         }
 
-        public EndianAwareBinaryReader(Stream input, Encoding encoding, bool leaveOpen) : base(input, encoding, leaveOpen)
-        {
+    public EndianAwareBinaryReader(Stream input, Encoding encoding, bool leaveOpen) : base(input, encoding, leaveOpen)
+    {
         }
 
-        public void SetBigEndian()
-        {
+    public void SetBigEndian()
+    {
             ShouldReverseArrays = BitConverter.IsLittleEndian; //Set to BE mode, so on LE systems we invert.
             IsBigEndian = true;
         }
 
-        public override bool ReadBoolean()
-        {
+    public override bool ReadBoolean()
+    {
             _numBytesReadSinceLastCall += 1;
             
             return base.ReadBoolean();
         }
 
-        public sealed override byte ReadByte()
-        {
+    public sealed override byte ReadByte()
+    {
             _numBytesReadSinceLastCall += 1;
             
             return base.ReadByte();
         }
 
-        public sealed override byte[] ReadBytes(int count)
-        {
+    public sealed override byte[] ReadBytes(int count)
+    {
             _numBytesReadSinceLastCall += count;
             
             return base.ReadBytes(count);
         }
 
-        public sealed override char ReadChar()
-        {
+    public sealed override char ReadChar()
+    {
             _numBytesReadSinceLastCall += 2;
             
             return base.ReadChar();
         }
 
-        public sealed override char[] ReadChars(int count)
-        {
+    public sealed override char[] ReadChars(int count)
+    {
             _numBytesReadSinceLastCall += 2 * count;
             
             return base.ReadChars(count);
         }
 
-        public sealed override short ReadInt16()
-        {
+    public sealed override short ReadInt16()
+    {
             _numBytesReadSinceLastCall += 2;
             
             if (!ShouldReverseArrays)
@@ -75,8 +75,8 @@ namespace LibCpp2IL
             return this.ReadInt16WithReversedBits();
         }
 
-        public sealed override int ReadInt32()
-        {
+    public sealed override int ReadInt32()
+    {
             _numBytesReadSinceLastCall += 4;
             
             if (!ShouldReverseArrays)
@@ -85,8 +85,8 @@ namespace LibCpp2IL
             return this.ReadInt32WithReversedBits();
         }
 
-        public sealed override long ReadInt64()
-        {
+    public sealed override long ReadInt64()
+    {
             _numBytesReadSinceLastCall += 8;
             
             if (!ShouldReverseArrays)
@@ -95,8 +95,8 @@ namespace LibCpp2IL
             return this.ReadInt64WithReversedBits();
         }
 
-        public sealed override ushort ReadUInt16()
-        {
+    public sealed override ushort ReadUInt16()
+    {
             _numBytesReadSinceLastCall += 2;
             
             if (!ShouldReverseArrays)
@@ -105,8 +105,8 @@ namespace LibCpp2IL
             return this.ReadUInt16WithReversedBits();
         }
 
-        public sealed override uint ReadUInt32()
-        {
+    public sealed override uint ReadUInt32()
+    {
             _numBytesReadSinceLastCall += 4;
             
             if (!ShouldReverseArrays)
@@ -115,8 +115,8 @@ namespace LibCpp2IL
             return this.ReadUInt32WithReversedBits();
         }
 
-        public sealed override ulong ReadUInt64()
-        {
+    public sealed override ulong ReadUInt64()
+    {
             _numBytesReadSinceLastCall += 8;
             
             if (!ShouldReverseArrays)
@@ -125,8 +125,8 @@ namespace LibCpp2IL
             return this.ReadUInt64WithReversedBits();
         }
 
-        public sealed override float ReadSingle()
-        {
+    public sealed override float ReadSingle()
+    {
             _numBytesReadSinceLastCall += 4;
             
             if (!ShouldReverseArrays)
@@ -135,8 +135,8 @@ namespace LibCpp2IL
             return this.ReadSingleWithReversedBits();
         }
 
-        public sealed override double ReadDouble()
-        {
+    public sealed override double ReadDouble()
+    {
             _numBytesReadSinceLastCall += 8;
             
             if (!ShouldReverseArrays)
@@ -145,11 +145,10 @@ namespace LibCpp2IL
             return this.ReadDoubleWithReversedBits();
         }
         
-        protected int GetNumBytesReadSinceLastCallAndClear()
-        {
+    protected int GetNumBytesReadSinceLastCallAndClear()
+    {
             var numBytesRead = _numBytesReadSinceLastCall;
             _numBytesReadSinceLastCall = 0;
             return numBytesRead;
         }
-    }
 }

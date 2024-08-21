@@ -35,7 +35,7 @@ public static class Disassembler
         var opTypes = mnemonic.GetOperandTypes();
         if (opTypes.Length == 0)
         {
-            ret.Operands = Array.Empty<object>();
+            ret.Operands = [];
             return ret;
         }
 
@@ -48,7 +48,7 @@ public static class Disassembler
     {
         if (mnemonic is >= WasmMnemonic.I32Load and <= WasmMnemonic.I64Store32)
             //Align, offset
-            return new[] {typeof(LEB128), typeof(LEB128)};
+            return [typeof(LEB128), typeof(LEB128)];
 
         switch (mnemonic)
         {
@@ -62,20 +62,20 @@ public static class Disassembler
             case WasmMnemonic.LocalTee:
             case WasmMnemonic.BrIf:
             case WasmMnemonic.Br:
-                return new[] {typeof(byte)};
+                return [typeof(byte)];
             case WasmMnemonic.I32Const:
             case WasmMnemonic.I64Const:
             case WasmMnemonic.Call:
-                return new[] {typeof(LEB128)};
+                return [typeof(LEB128)];
             case WasmMnemonic.F32Const:
-                return new[] {typeof(float)};
+                return [typeof(float)];
             case WasmMnemonic.F64Const:
-                return new[] {typeof(double)};
+                return [typeof(double)];
             case WasmMnemonic.CallIndirect:
                 //Type, table
-                return new[] {typeof(LEB128), typeof(byte)};
+                return [typeof(LEB128), typeof(byte)];
             default:
-                return Array.Empty<Type>();
+                return [];
         }
     }
 

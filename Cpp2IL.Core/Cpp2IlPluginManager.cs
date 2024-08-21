@@ -12,7 +12,7 @@ namespace Cpp2IL.Core;
 
 public static class Cpp2IlPluginManager
 {
-    private static List<Cpp2IlPlugin> _loadedPlugins = new();
+    private static List<Cpp2IlPlugin> _loadedPlugins = [];
 
     [RequiresUnreferencedCode("Plugins are loaded dynamically.")]
     internal static void LoadFromDirectory(string pluginsDir)

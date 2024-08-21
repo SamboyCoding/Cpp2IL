@@ -21,7 +21,7 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     /// <summary>
     /// The analysis context objects for all types contained within the assembly, including those nested within a parent type.
     /// </summary>
-    public List<TypeAnalysisContext> Types = new();
+    public List<TypeAnalysisContext> Types = [];
 
     /// <summary>
     /// The analysis context objects for all types contained within the assembly which are not nested within a parent type.

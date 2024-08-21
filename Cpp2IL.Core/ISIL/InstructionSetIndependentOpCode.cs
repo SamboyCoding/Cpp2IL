@@ -57,7 +57,7 @@ public class InstructionSetIndependentOpCode
     {
         Mnemonic = mnemonic;
         MaxOperands = int.MaxValue;
-        PermittedOperandTypes = Array.Empty<InstructionSetIndependentOperand.OperandType>();
+        PermittedOperandTypes = [];
     }
 
     public InstructionSetIndependentOpCode(IsilMnemonic mnemonic, int maxOperands)

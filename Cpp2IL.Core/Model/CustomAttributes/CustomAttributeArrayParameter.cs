@@ -27,7 +27,7 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
 
     public Il2CppTypeEnum ArrType;
 
-    public List<BaseCustomAttributeParameter> ArrayElements = new();
+    public List<BaseCustomAttributeParameter> ArrayElements = [];
 
     public CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {

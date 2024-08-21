@@ -4,12 +4,12 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Graphs.Processors
+namespace Cpp2IL.Core.Graphs.Processors;
+
+internal class MetadataProcessor : IBlockProcessor
 {
-    internal class MetadataProcessor : IBlockProcessor
+    public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
     {
-        public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
-        {
             foreach (var instruction in block.isilInstructions)
             {
                 // TODO: Check if it shows up in any other
@@ -41,5 +41,4 @@ namespace Cpp2IL.Core.Graphs.Processors
                 }
             }
         }
-    }
 }

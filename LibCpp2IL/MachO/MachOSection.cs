@@ -1,28 +1,28 @@
 ﻿using System.Text;
 
-namespace LibCpp2IL.MachO
+namespace LibCpp2IL.MachO;
+
+public class MachOSection : ReadableClass
 {
-    public class MachOSection : ReadableClass
+    public string SectionName = "INVALID"; // 16 bytes
+    public string ContainingSegmentName = "INVALID"; // 16 bytes
+        
+    public ulong Address;
+    public ulong Size;
+        
+    public uint Offset;
+    public uint Alignment;
+    public uint RelocationOffset;
+    public uint NumberOfRelocations;
+    public MachOSectionFlags Flags;
+        
+    public uint Reserved1;
+    public uint Reserved2;
+        
+    public uint Reserved3; //64-bit only
+        
+    public override void Read(ClassReadingBinaryReader reader)
     {
-        public string SectionName = "INVALID"; // 16 bytes
-        public string ContainingSegmentName = "INVALID"; // 16 bytes
-        
-        public ulong Address;
-        public ulong Size;
-        
-        public uint Offset;
-        public uint Alignment;
-        public uint RelocationOffset;
-        public uint NumberOfRelocations;
-        public MachOSectionFlags Flags;
-        
-        public uint Reserved1;
-        public uint Reserved2;
-        
-        public uint Reserved3; //64-bit only
-        
-        public override void Read(ClassReadingBinaryReader reader)
-        {
             SectionName = Encoding.UTF8.GetString(reader.ReadByteArrayAtRawAddressNoLock(-1, 16)).TrimEnd('\0');
             ContainingSegmentName = Encoding.UTF8.GetString(reader.ReadByteArrayAtRawAddressNoLock(-1, 16)).TrimEnd('\0');
             
@@ -41,5 +41,4 @@ namespace LibCpp2IL.MachO
             if(!reader.is32Bit)
                 Reserved3 = reader.ReadUInt32();
         }
-    }
 }

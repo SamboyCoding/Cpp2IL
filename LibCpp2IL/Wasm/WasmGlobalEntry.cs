@@ -1,14 +1,13 @@
-namespace LibCpp2IL.Wasm
-{
-    public class WasmGlobalEntry
-    {
-        public WasmGlobalType Type;
-        public ConstantExpression Expression;
+namespace LibCpp2IL.Wasm;
 
-        public WasmGlobalEntry(WasmFile file)
-        {
-            Type = new(file);
-            Expression = new(file);
-        }
+public class WasmGlobalEntry
+{
+    public WasmGlobalType Type;
+    public ConstantExpression Expression;
+
+    public WasmGlobalEntry(WasmFile file)
+    {
+        Type = new(file);
+        Expression = new(file);
     }
 }

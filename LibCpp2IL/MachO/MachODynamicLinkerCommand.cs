@@ -1,24 +1,24 @@
 ﻿using System;
 
-namespace LibCpp2IL.MachO
+namespace LibCpp2IL.MachO;
+
+public class MachODynamicLinkerCommand : ReadableClass
 {
-    public class MachODynamicLinkerCommand : ReadableClass
+    public int RebaseOffset;
+    public int RebaseSize;
+    public int BindOffset;
+    public int BindSize;
+    public int WeakBindOffset;
+    public int WeakBindSize;
+    public int LazyBindOffset;
+    public int LazyBindSize;
+    public int ExportOffset;
+    public int ExportSize;
+        
+    public MachOExportEntry[] Exports = [];
+        
+    public override void Read(ClassReadingBinaryReader reader)
     {
-        public int RebaseOffset;
-        public int RebaseSize;
-        public int BindOffset;
-        public int BindSize;
-        public int WeakBindOffset;
-        public int WeakBindSize;
-        public int LazyBindOffset;
-        public int LazyBindSize;
-        public int ExportOffset;
-        public int ExportSize;
-        
-        public MachOExportEntry[] Exports = Array.Empty<MachOExportEntry>();
-        
-        public override void Read(ClassReadingBinaryReader reader)
-        {
             RebaseOffset = reader.ReadInt32();
             RebaseSize = reader.ReadInt32();
             BindOffset = reader.ReadInt32();
@@ -39,5 +39,4 @@ namespace LibCpp2IL.MachO
 
             reader.BaseStream.Position = returnTo;
         }
-    }
 }

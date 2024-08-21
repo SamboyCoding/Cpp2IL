@@ -7,47 +7,47 @@ using System.Reflection;
 using System.Text;
 using System.Threading;
 
-namespace LibCpp2IL
+namespace LibCpp2IL;
+
+public class ClassReadingBinaryReader : EndianAwareBinaryReader
 {
-    public class ClassReadingBinaryReader : EndianAwareBinaryReader
+    /// <summary>
+    /// Set this to true to enable storing of amount of bytes read of each readable structure.
+    /// </summary>
+    public static bool EnableReadableSizeInformation = false;
+
+    private SpinLock PositionShiftLock;
+
+    public bool is32Bit;
+    private MemoryStream? _memoryStream;
+
+    public ulong PointerSize => is32Bit ? 4ul : 8ul;
+
+    protected bool _hasFinishedInitialRead;
+    private bool _inReadableRead;
+    public ConcurrentDictionary<Type, int> BytesReadPerClass = new();
+
+
+    public ClassReadingBinaryReader(MemoryStream input) : base(input)
     {
-        /// <summary>
-        /// Set this to true to enable storing of amount of bytes read of each readable structure.
-        /// </summary>
-        public static bool EnableReadableSizeInformation = false;
-
-        private SpinLock PositionShiftLock;
-
-        public bool is32Bit;
-        private MemoryStream? _memoryStream;
-
-        public ulong PointerSize => is32Bit ? 4ul : 8ul;
-
-        protected bool _hasFinishedInitialRead;
-        private bool _inReadableRead;
-        public ConcurrentDictionary<Type, int> BytesReadPerClass = new();
-
-
-        public ClassReadingBinaryReader(MemoryStream input) : base(input)
-        {
             _memoryStream = input;
         }
 
-        public ClassReadingBinaryReader(Stream input) : base(input)
-        {
+    public ClassReadingBinaryReader(Stream input) : base(input)
+    {
             _memoryStream = null;
         }
 
-        public long Position
-        {
-            get => BaseStream.Position;
-            set => BaseStream.Position = value;
-        }
+    public long Position
+    {
+        get => BaseStream.Position;
+        set => BaseStream.Position = value;
+    }
         
-        public long Length => BaseStream.Length;
+    public long Length => BaseStream.Length;
 
-        internal virtual object? ReadPrimitive(Type type, bool overrideArchCheck = false)
-        {
+    internal virtual object? ReadPrimitive(Type type, bool overrideArchCheck = false)
+    {
             if (type == typeof(bool))
                 return ReadBoolean();
 
@@ -87,8 +87,8 @@ namespace LibCpp2IL
             return null;
         }
 
-        public uint ReadUnityCompressedUIntAtRawAddr(long offset, out int bytesRead)
-        {
+    public uint ReadUnityCompressedUIntAtRawAddr(long offset, out int bytesRead)
+    {
             GetLockOrThrow();
 
             try
@@ -101,8 +101,8 @@ namespace LibCpp2IL
             }
         }
 
-        protected internal uint ReadUnityCompressedUIntAtRawAddrNoLock(long offset, out int bytesRead)
-        {
+    protected internal uint ReadUnityCompressedUIntAtRawAddrNoLock(long offset, out int bytesRead)
+    {
             if (offset >= 0)
                 Position = offset;
 
@@ -143,11 +143,11 @@ namespace LibCpp2IL
             throw new Exception($"How did we even get here? Invalid compressed int first byte {b}");
         }
 
-        public int ReadUnityCompressedIntAtRawAddr(long position, out int bytesRead) 
-            => ReadUnityCompressedIntAtRawAddr(position, true, out bytesRead);
+    public int ReadUnityCompressedIntAtRawAddr(long position, out int bytesRead) 
+        => ReadUnityCompressedIntAtRawAddr(position, true, out bytesRead);
 
-        protected internal int ReadUnityCompressedIntAtRawAddr(long position, bool doLock, out int bytesRead)
-        {
+    protected internal int ReadUnityCompressedIntAtRawAddr(long position, bool doLock, out int bytesRead)
+    {
             //Ref libil2cpp, il2cpp\utils\ReadCompressedInt32
             uint unsigned;
             if (doLock)
@@ -166,13 +166,13 @@ namespace LibCpp2IL
             return (int) unsigned;
         }
 
-        private T InternalReadClass<T>(bool overrideArchCheck = false) where T : new()
-        {
+    private T InternalReadClass<T>(bool overrideArchCheck = false) where T : new()
+    {
             return (T) InternalReadClass(typeof(T), overrideArchCheck);
         }
 
-        private T InternalReadReadableClass<T>() where T : ReadableClass, new()
-        {
+    private T InternalReadReadableClass<T>() where T : ReadableClass, new()
+    {
             var t = new T();
 
             if (!_inReadableRead)
@@ -189,8 +189,8 @@ namespace LibCpp2IL
             return t;
         }
 
-        private object InternalReadClass(Type type, bool overrideArchCheck = false)
-        {
+    private object InternalReadClass(Type type, bool overrideArchCheck = false)
+    {
             if (type.IsPrimitive)
             {
                 return ReadAndConvertPrimitive(overrideArchCheck, type);
@@ -206,8 +206,8 @@ namespace LibCpp2IL
             throw new("Support for reading classes has been removed. Please inherit from ReadableClass and call ReadReadable on your local binary reader.");
         }
 
-        private object ReadAndConvertPrimitive(bool overrideArchCheck, Type type)
-        {
+    private object ReadAndConvertPrimitive(bool overrideArchCheck, Type type)
+    {
             var value = ReadPrimitive(type, overrideArchCheck);
 
             //32-bit fixes...
@@ -219,8 +219,8 @@ namespace LibCpp2IL
             return value!;
         }
 
-        public T[] ReadClassArrayAtRawAddr<T>(long offset, long count) where T : new()
-        {
+    public T[] ReadClassArrayAtRawAddr<T>(long offset, long count) where T : new()
+    {
             var t = new T[count];
 
             GetLockOrThrow();
@@ -242,10 +242,10 @@ namespace LibCpp2IL
             }
         }
 
-        public string ReadStringToNull(ulong offset) => ReadStringToNull((long) offset);
+    public string ReadStringToNull(ulong offset) => ReadStringToNull((long) offset);
 
-        public virtual string ReadStringToNull(long offset)
-        {
+    public virtual string ReadStringToNull(long offset)
+    {
             GetLockOrThrow();
 
             try
@@ -258,8 +258,8 @@ namespace LibCpp2IL
             }
         }
 
-        internal string ReadStringToNullNoLock(long offset)
-        {
+    internal string ReadStringToNullNoLock(long offset)
+    {
             var builder = new List<byte>();
 
             if(offset != -1)
@@ -280,11 +280,11 @@ namespace LibCpp2IL
             }
         }
 
-        public string ReadStringToNullAtCurrentPos()
-            => ReadStringToNullNoLock(-1);
+    public string ReadStringToNullAtCurrentPos()
+        => ReadStringToNullNoLock(-1);
 
-        public byte[] ReadByteArrayAtRawAddress(long offset, int count)
-        {
+    public byte[] ReadByteArrayAtRawAddress(long offset, int count)
+    {
             GetLockOrThrow();
 
             try
@@ -297,8 +297,8 @@ namespace LibCpp2IL
             }
         }
 
-        protected internal byte[] ReadByteArrayAtRawAddressNoLock(long offset, int count)
-        {
+    protected internal byte[] ReadByteArrayAtRawAddressNoLock(long offset, int count)
+    {
             if(offset != -1)
                 Position = offset;
             
@@ -317,8 +317,8 @@ namespace LibCpp2IL
             }
         }
 
-        protected internal void GetLockOrThrow()
-        {
+    protected internal void GetLockOrThrow()
+    {
             var obtained = false;
             PositionShiftLock.Enter(ref obtained);
 
@@ -326,13 +326,13 @@ namespace LibCpp2IL
                 throw new Exception("Failed to obtain lock");
         }
 
-        protected internal void ReleaseLock()
-        {
+    protected internal void ReleaseLock()
+    {
             PositionShiftLock.Exit();
         }
         
-        public ulong ReadNUintAtRawAddress(long offset)
-        {
+    public ulong ReadNUintAtRawAddress(long offset)
+    {
             if(offset > Length)
                 throw new EndOfStreamException($"ReadNUintAtRawAddress: Offset 0x{offset:X} is beyond the end of the stream (length 0x{Length:X})");
             
@@ -351,8 +351,8 @@ namespace LibCpp2IL
             }
         }
 
-        public ulong[] ReadNUintArrayAtRawAddress(long offset, int count)
-        {
+    public ulong[] ReadNUintArrayAtRawAddress(long offset, int count)
+    {
             if(offset > Length)
                 throw new EndOfStreamException($"ReadNUintArrayAtRawAddress: Offset 0x{offset:X} is beyond the end of the stream (length 0x{Length:X})");
             
@@ -385,23 +385,23 @@ namespace LibCpp2IL
         }
 
 
-        /// <summary>
-        /// Read a native-sized integer (i.e. 32 or 64 bit, depending on platform) at the current position
-        /// </summary>
-        public virtual long ReadNInt() => is32Bit ? ReadInt32() : ReadInt64();
+    /// <summary>
+    /// Read a native-sized integer (i.e. 32 or 64 bit, depending on platform) at the current position
+    /// </summary>
+    public virtual long ReadNInt() => is32Bit ? ReadInt32() : ReadInt64();
 
-        /// <summary>
-        /// Read a native-sized unsigned integer (i.e. 32 or 64 bit, depending on platform) at the current position
-        /// </summary>
-        public virtual ulong ReadNUint() => is32Bit ? ReadUInt32() : ReadUInt64();
+    /// <summary>
+    /// Read a native-sized unsigned integer (i.e. 32 or 64 bit, depending on platform) at the current position
+    /// </summary>
+    public virtual ulong ReadNUint() => is32Bit ? ReadUInt32() : ReadUInt64();
 
-        protected void WriteWord(int position, ulong word) => WriteWord(position, (long) word);
+    protected void WriteWord(int position, ulong word) => WriteWord(position, (long) word);
 
-        /// <summary>
-        /// Used for ELF Relocations.
-        /// </summary>
-        protected void WriteWord(int position, long word)
-        {
+    /// <summary>
+    /// Used for ELF Relocations.
+    /// </summary>
+    protected void WriteWord(int position, long word)
+    {
             if (_memoryStream == null)
                 throw new("WriteWord is not supported in non-memory-backed readers");
             
@@ -450,10 +450,10 @@ namespace LibCpp2IL
             }
         }
 
-        public T ReadReadableHereNoLock<T>() where T : ReadableClass, new() => InternalReadReadableClass<T>();
+    public T ReadReadableHereNoLock<T>() where T : ReadableClass, new() => InternalReadReadableClass<T>();
 
-        public T ReadReadable<T>(long offset = -1) where T : ReadableClass, new()
-        {
+    public T ReadReadable<T>(long offset = -1) where T : ReadableClass, new()
+    {
             GetLockOrThrow();
 
             if (offset >= 0)
@@ -474,8 +474,8 @@ namespace LibCpp2IL
             }
         }
 
-        public T[] ReadReadableArrayAtRawAddr<T>(long offset, long count) where T : ReadableClass, new()
-        {
+    public T[] ReadReadableArrayAtRawAddr<T>(long offset, long count) where T : ReadableClass, new()
+    {
             var t = new T[count];
 
             GetLockOrThrow();
@@ -496,8 +496,8 @@ namespace LibCpp2IL
             return t;
         }
         
-        public void FillReadableArrayHereNoLock<T>(T[] array, int startOffset = 0) where T : ReadableClass, new()
-        {
+    public void FillReadableArrayHereNoLock<T>(T[] array, int startOffset = 0) where T : ReadableClass, new()
+    {
             var initialPos = Position;
 
             try
@@ -515,8 +515,8 @@ namespace LibCpp2IL
             }
         }
 
-        public void TrackRead<T>(int bytesRead, bool trackIfInReadableRead = true, bool trackIfFinishedReading = false)
-        {
+    public void TrackRead<T>(int bytesRead, bool trackIfInReadableRead = true, bool trackIfFinishedReading = false)
+    {
             if(!EnableReadableSizeInformation)
                 return;
             
@@ -528,5 +528,4 @@ namespace LibCpp2IL
             
             BytesReadPerClass[typeof(T)] = BytesReadPerClass.GetOrDefault(typeof(T)) + bytesRead;
         }
-    }
 }

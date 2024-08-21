@@ -5,33 +5,33 @@ using System.Linq;
 using System.Text;
 using LibCpp2IL.Logging;
 
-namespace LibCpp2IL.PE
+namespace LibCpp2IL.PE;
+
+public sealed class PE : Il2CppBinary
 {
-    public sealed class PE : Il2CppBinary
-    {
-        //Initialized in constructor
-        internal readonly byte[] raw; //Internal for PlusSearch
+    //Initialized in constructor
+    internal readonly byte[] raw; //Internal for PlusSearch
 
-        //PE-Specific Stuff
-        internal readonly SectionHeader[] peSectionHeaders; //Internal for the one use in PlusSearch
-        internal readonly ulong peImageBase; //Internal for the one use in PlusSearch
-        private readonly OptionalHeader64? peOptionalHeader64;
-        private readonly OptionalHeader? peOptionalHeader32;
+    //PE-Specific Stuff
+    internal readonly SectionHeader[] peSectionHeaders; //Internal for the one use in PlusSearch
+    internal readonly ulong peImageBase; //Internal for the one use in PlusSearch
+    private readonly OptionalHeader64? peOptionalHeader64;
+    private readonly OptionalHeader? peOptionalHeader32;
 
-        //Disable null check because this stuff is initialized post-constructor
+    //Disable null check because this stuff is initialized post-constructor
 #pragma warning disable 8618
-        private uint[]? peExportedFunctionPointers;
-        private uint[] peExportedFunctionNamePtrs;
-        private ushort[] peExportedFunctionOrdinals;
+    private uint[]? peExportedFunctionPointers;
+    private uint[] peExportedFunctionNamePtrs;
+    private ushort[] peExportedFunctionOrdinals;
 
-        //Il2cpp binary fields:
+    //Il2cpp binary fields:
 
-        //Top-level structs
+    //Top-level structs
 
-        //Pointers
+    //Pointers
 
-        public PE(MemoryStream input) : base(input)
-        {
+    public PE(MemoryStream input) : base(input)
+    {
             raw = input.GetBuffer();
             LibLogger.Verbose("\tReading PE File Header...");
             var start = DateTime.Now;
@@ -70,8 +70,8 @@ namespace LibCpp2IL.PE
         }
 #pragma warning restore 8618
 
-        public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
-        {
+    public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
+    {
             if (uiAddr < peImageBase)
                 if (throwOnError)
                     throw new OverflowException($"Provided address, 0x{uiAddr:X}, was less than image base, 0x{peImageBase:X}");
@@ -104,16 +104,16 @@ namespace LibCpp2IL.PE
             return addr - (section.VirtualAddress - section.PointerToRawData);
         }
 
-        public override ulong MapRawAddressToVirtual(uint offset)
-        {
+    public override ulong MapRawAddressToVirtual(uint offset)
+    {
             var section = peSectionHeaders.First(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
 
             return peImageBase + section.VirtualAddress + offset - section.PointerToRawData;
         }
 
-        [MemberNotNull(nameof(peExportedFunctionPointers))]
-        private void LoadPeExportTable()
-        {
+    [MemberNotNull(nameof(peExportedFunctionPointers))]
+    private void LoadPeExportTable()
+    {
             uint addrExportTable;
             if (is32Bit)
             {
@@ -144,14 +144,14 @@ namespace LibCpp2IL.PE
             catch (EndOfStreamException)
             {
                 LibLogger.WarnNewline($"PE does not appear to contain a valid export table! It would be apparently located at virt address 0x{addrExportTable + peImageBase:X}, raw 0x{MapVirtualAddressToRaw(addrExportTable + peImageBase):X}, but that's beyond the end of the binary. No exported functions will be accessible.");
-                peExportedFunctionPointers = Array.Empty<uint>();
-                peExportedFunctionNamePtrs = Array.Empty<uint>();
-                peExportedFunctionOrdinals = Array.Empty<ushort>();
+                peExportedFunctionPointers = [];
+                peExportedFunctionNamePtrs = [];
+                peExportedFunctionOrdinals = [];
             }
         }
 
-        public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
-        {
+    public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
+    {
             if (peExportedFunctionPointers == null)
                 LoadPeExportTable();
 
@@ -171,8 +171,8 @@ namespace LibCpp2IL.PE
             return functionPointer + peImageBase;
         }
 
-        public override bool IsExportedFunction(ulong addr)
-        {
+    public override bool IsExportedFunction(ulong addr)
+    {
             if (addr <= peImageBase)
                 return false;
 
@@ -186,8 +186,8 @@ namespace LibCpp2IL.PE
             return Array.IndexOf(peExportedFunctionPointers, (uint)rva) >= 0;
         }
 
-        public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
-        {
+    public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
+    {
             if (addr <= peImageBase)
             {
                 return base.TryGetExportedFunctionName(addr, out name);
@@ -215,27 +215,26 @@ namespace LibCpp2IL.PE
             }
         }
 
-        public override ulong GetRva(ulong pointer)
-        {
+    public override ulong GetRva(ulong pointer)
+    {
             return pointer - peImageBase;
         }
 
-        public override byte[] GetEntirePrimaryExecutableSection()
-        {
+    public override byte[] GetEntirePrimaryExecutableSection()
+    {
             var primarySection = peSectionHeaders.FirstOrDefault(s => s.Name == ".text");
 
             if (primarySection == null)
-                return Array.Empty<byte>();
+                return [];
 
             return GetRawBinaryContent().SubArray((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
         }
 
-        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress + peImageBase ?? 0;
+    public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress + peImageBase ?? 0;
 
-        public override byte GetByteAtRawAddress(ulong addr) => raw[addr];
+    public override byte GetByteAtRawAddress(ulong addr) => raw[addr];
 
-        public override long RawLength => raw.Length;
+    public override long RawLength => raw.Length;
 
-        public override byte[] GetRawBinaryContent() => raw;
-    }
+    public override byte[] GetRawBinaryContent() => raw;
 }

@@ -379,7 +379,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
     {
         if (!dictionary.TryGetValue(key, out var list))
         {
-            list = new();
+            list = [];
             dictionary.Add(key, list);
         }
         list.Add(value);

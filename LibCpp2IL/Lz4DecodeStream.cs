@@ -1,37 +1,37 @@
 ﻿using System;
 using System.IO;
 
-namespace LibCpp2IL
+namespace LibCpp2IL;
+
+public class Lz4DecodeStream : Stream
 {
-    public class Lz4DecodeStream : Stream
+    private enum DecodePhase
     {
-        private enum DecodePhase
-        {
-            ReadToken,
-            ReadExLiteralLength,
-            CopyLiteral,
-            ReadMatch,
-            ReadExMatchLength,
-            CopyMatch,
+        ReadToken,
+        ReadExLiteralLength,
+        CopyLiteral,
+        ReadMatch,
+        ReadExMatchLength,
+        CopyMatch,
 
-            Finish,
-        }
+        Finish,
+    }
 
-        public Lz4DecodeStream(byte[] buffer, int offset, int length) : this(new MemoryStream(buffer, offset, length), length, false) { }
+    public Lz4DecodeStream(byte[] buffer, int offset, int length) : this(new MemoryStream(buffer, offset, length), length, false) { }
 
-        /// <summary>
-        /// Whole base stream is compressed data
-        /// </summary>
-        /// <param name="baseStream">Stream with compressed data</param>
-        public Lz4DecodeStream(Stream baseStream, bool leaveOpen = true) : this(baseStream, baseStream.Length, leaveOpen) { }
+    /// <summary>
+    /// Whole base stream is compressed data
+    /// </summary>
+    /// <param name="baseStream">Stream with compressed data</param>
+    public Lz4DecodeStream(Stream baseStream, bool leaveOpen = true) : this(baseStream, baseStream.Length, leaveOpen) { }
 
-        /// <summary>
-        /// Part of base stream is compressed data
-        /// </summary>
-        /// <param name="baseStream">Stream with compressed data</param>
-        /// <param name="compressedSize">Amount of comprassed data</param>
-        public Lz4DecodeStream(Stream baseStream, long compressedSize, bool leaveOpen = true)
-        {
+    /// <summary>
+    /// Part of base stream is compressed data
+    /// </summary>
+    /// <param name="baseStream">Stream with compressed data</param>
+    /// <param name="compressedSize">Amount of comprassed data</param>
+    public Lz4DecodeStream(Stream baseStream, long compressedSize, bool leaveOpen = true)
+    {
             if (compressedSize <= 0)
             {
                 throw new ArgumentException($"Compressed size {compressedSize} must be greater then 0");
@@ -44,28 +44,28 @@ namespace LibCpp2IL
             m_leaveOpen = leaveOpen;
         }
 
-        ~Lz4DecodeStream()
-        {
+    ~Lz4DecodeStream()
+    {
             Dispose(false);
         }
 
-        public override void Flush() { }
+    public override void Flush() { }
 
-        public override long Seek(long offset, SeekOrigin origin)
-        {
+    public override long Seek(long offset, SeekOrigin origin)
+    {
             throw new NotSupportedException();
         }
 
-        public override int Read(byte[] buffer, int offset, int count)
-        {
+    public override int Read(byte[] buffer, int offset, int count)
+    {
             using (MemoryStream stream = new MemoryStream(buffer, offset, count))
             {
                 return (int)Read(stream, count);
             }
         }
 
-        public long Read(Stream stream, long count)
-        {
+    public long Read(Stream stream, long count)
+    {
             if (stream == null)
             {
                 throw new ArgumentNullException(nameof(stream));
@@ -206,16 +206,16 @@ namespace LibCpp2IL
             }
         }
 
-        public void ReadBuffer(byte[] buffer, int offset, int count)
-        {
+    public void ReadBuffer(byte[] buffer, int offset, int count)
+    {
             using (MemoryStream stream = new MemoryStream(buffer, offset, count))
             {
                 ReadBuffer(stream, count);
             }
         }
 
-        public void ReadBuffer(Stream stream, long count)
-        {
+    public void ReadBuffer(Stream stream, long count)
+    {
             int read = (int)Read(stream, count);
             if (read != count)
             {
@@ -228,18 +228,18 @@ namespace LibCpp2IL
             }
         }
 
-        public override void Write(byte[] buffer, int offset, int count)
-        {
+    public override void Write(byte[] buffer, int offset, int count)
+    {
             throw new NotSupportedException();
         }
 
-        public override void SetLength(long value)
-        {
+    public override void SetLength(long value)
+    {
             throw new NotSupportedException();
         }
 
-        protected override void Dispose(bool disposing)
-        {
+    protected override void Dispose(bool disposing)
+    {
             if (!m_leaveOpen)
             {
                 m_baseStream.Dispose();
@@ -248,12 +248,12 @@ namespace LibCpp2IL
             base.Dispose(disposing);
         }
 
-        // =====================================
-        // Buffer processing
-        // =====================================
+    // =====================================
+    // Buffer processing
+    // =====================================
 
-        private int ReadInputByte()
-        {
+    private int ReadInputByte()
+    {
             if (m_inputBufferPosition == InputBufferCapacity)
             {
                 FillInputBuffer();
@@ -262,8 +262,8 @@ namespace LibCpp2IL
             return m_inputBuffer[m_inputBufferPosition++];
         }
 
-        private int ReadInputInt16()
-        {
+    private int ReadInputInt16()
+    {
             int available = InputBufferCapacity - m_inputBufferPosition;
             if (available == 0)
             {
@@ -280,8 +280,8 @@ namespace LibCpp2IL
             return ret;
         }
 
-        private void Write(Stream stream, int count)
-        {
+    private void Write(Stream stream, int count)
+    {
             while (count > 0)
             {
                 if (m_inputBufferPosition == InputBufferCapacity)
@@ -305,33 +305,33 @@ namespace LibCpp2IL
             }
         }
 
-        private void FillInputBuffer(int offset = 0)
-        {
-            int available = InputBufferCapacity - offset;
-            int count = available < m_inputLeft ? available : (int)m_inputLeft;
+    private void FillInputBuffer(int offset = 0)
+    {
+        int available = InputBufferCapacity - offset;
+        int count = available < m_inputLeft ? available : (int)m_inputLeft;
 
-            m_inputBufferPosition = 0;
-            while (count > 0)
+        m_inputBufferPosition = 0;
+        while (count > 0)
+        {
+            int read = m_baseStream.Read(m_inputBuffer, offset, count);
+            if (read == 0)
             {
-                int read = m_baseStream.Read(m_inputBuffer, offset, count);
-                if (read == 0)
-                {
 #if STREAMING_INPUT
 #error TODO: set processing to false and go to finish
 #else
-                    throw new Exception("No data left");
+                throw new Exception("No data left");
 #endif
-                }
-
-                m_position += read;
-                offset += read;
-                count -= read;
-                m_inputLeft -= read;
             }
-        }
 
-        private void FillOutputStream(Stream stream)
-        {
+            m_position += read;
+            offset += read;
+            count -= read;
+            m_inputLeft -= read;
+        }
+    }
+
+    private void FillOutputStream(Stream stream)
+    {
             int toWriteTotal = m_decodeBufferPosition - m_decodeBufferStart;
             int toEnd = DecodeBufferCapacity - m_decodeBufferStart;
             int toWrite = toEnd < toWriteTotal ? toEnd : toWriteTotal;
@@ -341,43 +341,42 @@ namespace LibCpp2IL
             m_decodeBufferStart = m_decodeBufferPosition;
         }
 
-        public bool IsDataLeft => m_phase == DecodePhase.CopyLiteral ? (m_literalLength != 0) : (m_matchLength != 0);
+    public bool IsDataLeft => m_phase == DecodePhase.CopyLiteral ? (m_literalLength != 0) : (m_matchLength != 0);
 
-        public override bool CanSeek => false;
-        public override bool CanRead => true;
-        public override bool CanWrite => false;
+    public override bool CanSeek => false;
+    public override bool CanRead => true;
+    public override bool CanWrite => false;
 
-        public override long Length { get; }
+    public override long Length { get; }
 
-        public override long Position
-        {
-            get => m_position;
-            set => throw new NotSupportedException();
-        }
-
-        private const int InputBufferCapacity = 4096;
-        private const int DecodeBufferCapacity = 0x10000;
-        private const int DecodeBufferMask = 0xFFFF;
-
-        private readonly byte[] m_inputBuffer = new byte[InputBufferCapacity];
-        private readonly byte[] m_decodeBuffer = new byte[DecodeBufferCapacity];
-
-        private readonly Stream m_baseStream;
-        private readonly bool m_leaveOpen;
-
-        private long m_position = 0;
-        private long m_inputLeft = 0;
-        private int m_inputBufferPosition = InputBufferCapacity;
-        private int m_decodeBufferPosition = 0;
-
-        /// <summary>
-        /// State within interruptable phases and across phase boundaries is kept here - again, so that we can punt out and restart freely
-        /// </summary>
-        private DecodePhase m_phase;
-
-        private int m_literalLength;
-        private int m_matchLength;
-        private int m_matchDestination;
-        private int m_decodeBufferStart;
+    public override long Position
+    {
+        get => m_position;
+        set => throw new NotSupportedException();
     }
+
+    private const int InputBufferCapacity = 4096;
+    private const int DecodeBufferCapacity = 0x10000;
+    private const int DecodeBufferMask = 0xFFFF;
+
+    private readonly byte[] m_inputBuffer = new byte[InputBufferCapacity];
+    private readonly byte[] m_decodeBuffer = new byte[DecodeBufferCapacity];
+
+    private readonly Stream m_baseStream;
+    private readonly bool m_leaveOpen;
+
+    private long m_position = 0;
+    private long m_inputLeft = 0;
+    private int m_inputBufferPosition = InputBufferCapacity;
+    private int m_decodeBufferPosition = 0;
+
+    /// <summary>
+    /// State within interruptable phases and across phase boundaries is kept here - again, so that we can punt out and restart freely
+    /// </summary>
+    private DecodePhase m_phase;
+
+    private int m_literalLength;
+    private int m_matchLength;
+    private int m_matchDestination;
+    private int m_decodeBufferStart;
 }

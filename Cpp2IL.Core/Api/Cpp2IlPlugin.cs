@@ -10,7 +10,7 @@ public abstract class Cpp2IlPlugin
 {
     protected readonly PluginLogger Logger;
     
-    private readonly List<string> temporaryFilePaths = new();
+    private readonly List<string> temporaryFilePaths = [];
 
     protected Cpp2IlPlugin()
     {

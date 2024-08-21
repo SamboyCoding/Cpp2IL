@@ -1,22 +1,22 @@
 using LibCpp2IL.Logging;
 
-namespace LibCpp2IL.Wasm
-{
-    public class WasmSection
-    {
-        public WasmSectionId Type;
-        public long Pointer;
-        public ulong Size;
+namespace LibCpp2IL.Wasm;
 
-        protected WasmSection(WasmSectionId type, long pointer, ulong size)
-        {
+public class WasmSection
+{
+    public WasmSectionId Type;
+    public long Pointer;
+    public ulong Size;
+
+    protected WasmSection(WasmSectionId type, long pointer, ulong size)
+    {
             Type = type;
             Pointer = pointer;
             Size = size;
         }
 
-        public static WasmSection MakeSection(WasmFile file)
-        {
+    public static WasmSection MakeSection(WasmFile file)
+    {
             var pos = file.Position;
             var id = (WasmSectionId) file.ReadByte();
             var size = file.BaseStream.ReadLEB128Unsigned();
@@ -38,5 +38,4 @@ namespace LibCpp2IL.Wasm
                 _ => new WasmSection(id, pos, size)
             };
         }
-    }
 }

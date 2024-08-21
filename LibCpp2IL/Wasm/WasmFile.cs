@@ -6,24 +6,24 @@ using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
 using WasmDisassembler;
 
-namespace LibCpp2IL.Wasm
+namespace LibCpp2IL.Wasm;
+
+public sealed class WasmFile : Il2CppBinary
 {
-    public sealed class WasmFile : Il2CppBinary
+    public static Dictionary<string, string>? RemappedDynCallFunctions;
+
+    public readonly List<WasmFunctionDefinition> FunctionTable = [];
+        
+    internal readonly List<WasmSection> Sections = [];
+        
+    private byte[] _raw;
+    private WasmMemoryBlock _memoryBlock;
+    private readonly Dictionary<string, WasmDynCallCoefficients> DynCallCoefficients = new();
+
+    public override ClassReadingBinaryReader Reader => _memoryBlock;
+
+    public WasmFile(MemoryStream input) : base(input)
     {
-        public static Dictionary<string, string>? RemappedDynCallFunctions;
-
-        public readonly List<WasmFunctionDefinition> FunctionTable = new();
-        
-        internal readonly List<WasmSection> Sections = new();
-        
-        private byte[] _raw;
-        private WasmMemoryBlock _memoryBlock;
-        private readonly Dictionary<string, WasmDynCallCoefficients> DynCallCoefficients = new();
-
-        public override ClassReadingBinaryReader Reader => _memoryBlock;
-
-        public WasmFile(MemoryStream input) : base(input)
-        {
             is32Bit = true;
             InstructionSetId = DefaultInstructionSets.WASM;
             _raw = input.GetBuffer();
@@ -73,12 +73,12 @@ namespace LibCpp2IL.Wasm
             LibLogger.VerboseNewline($"\tGot dynCall coefficients for {DynCallCoefficients.Count} signatures");
         }
 
-        public override long RawLength => _memoryBlock.Bytes.Length;
-        public override byte GetByteAtRawAddress(ulong addr) => _memoryBlock.Bytes[addr];
-        public override byte[] GetRawBinaryContent() => _memoryBlock.Bytes;
+    public override long RawLength => _memoryBlock.Bytes.Length;
+    public override byte GetByteAtRawAddress(ulong addr) => _memoryBlock.Bytes[addr];
+    public override byte[] GetRawBinaryContent() => _memoryBlock.Bytes;
 
-        public WasmFunctionDefinition GetFunctionFromIndexAndSignature(ulong index, string signature)
-        {
+    public WasmFunctionDefinition GetFunctionFromIndexAndSignature(ulong index, string signature)
+    {
             if (!DynCallCoefficients.TryGetValue(signature, out var coefficients))
                 throw new($"Can't get function with signature {signature}, as it's not defined in the binary");
 
@@ -92,21 +92,21 @@ namespace LibCpp2IL.Wasm
             return FunctionTable[(int) realIndex];
         }
 
-        internal WasmGlobalType[] GlobalTypes => ImportSection.Entries.Where(e => e.Kind == WasmExternalKind.EXT_GLOBAL).Select(e => e.GlobalEntry!).Concat(GlobalSection.Globals.Select(g => g.Type)).ToArray();
+    internal WasmGlobalType[] GlobalTypes => ImportSection.Entries.Where(e => e.Kind == WasmExternalKind.EXT_GLOBAL).Select(e => e.GlobalEntry!).Concat(GlobalSection.Globals.Select(g => g.Type)).ToArray();
 
-        internal WasmGlobalSection GlobalSection => (WasmGlobalSection) Sections.First(s => s.Type == WasmSectionId.SEC_GLOBAL);
-        internal WasmTypeSection TypeSection => (WasmTypeSection) Sections.First(s => s.Type == WasmSectionId.SEC_TYPE);
+    internal WasmGlobalSection GlobalSection => (WasmGlobalSection) Sections.First(s => s.Type == WasmSectionId.SEC_GLOBAL);
+    internal WasmTypeSection TypeSection => (WasmTypeSection) Sections.First(s => s.Type == WasmSectionId.SEC_TYPE);
         
-        internal WasmFunctionSection FunctionSection => (WasmFunctionSection) Sections.First(s => s.Type == WasmSectionId.SEC_FUNCTION);
+    internal WasmFunctionSection FunctionSection => (WasmFunctionSection) Sections.First(s => s.Type == WasmSectionId.SEC_FUNCTION);
         
-        internal WasmDataSection DataSection => (WasmDataSection) Sections.First(s => s.Type == WasmSectionId.SEC_DATA);
-        internal WasmCodeSection CodeSection => (WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE);
-        internal WasmImportSection ImportSection => (WasmImportSection) Sections.First(s => s.Type == WasmSectionId.SEC_IMPORT);
-        internal WasmElementSection ElementSection => (WasmElementSection) Sections.First(s => s.Type == WasmSectionId.SEC_ELEMENT);
-        internal WasmExportSection ExportSection => (WasmExportSection) Sections.First(s => s.Type == WasmSectionId.SEC_EXPORT);
+    internal WasmDataSection DataSection => (WasmDataSection) Sections.First(s => s.Type == WasmSectionId.SEC_DATA);
+    internal WasmCodeSection CodeSection => (WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE);
+    internal WasmImportSection ImportSection => (WasmImportSection) Sections.First(s => s.Type == WasmSectionId.SEC_IMPORT);
+    internal WasmElementSection ElementSection => (WasmElementSection) Sections.First(s => s.Type == WasmSectionId.SEC_ELEMENT);
+    internal WasmExportSection ExportSection => (WasmExportSection) Sections.First(s => s.Type == WasmSectionId.SEC_EXPORT);
 
-        private void CalculateDynCallOffsets()
-        {
+    private void CalculateDynCallOffsets()
+    {
             //Remap any exported functions we have remaps for
 
             if (RemappedDynCallFunctions != null)
@@ -189,8 +189,8 @@ namespace LibCpp2IL.Wasm
             }
         }
         
-        public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
-        {
+    public override long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true)
+    {
             // var data = DataSection;
             // var matchingEntry = data.DataEntries.FirstOrDefault(e => e.VirtualOffset <= uiAddr && e.VirtualOffset + (ulong) e.Data.Length > uiAddr);
             // if (matchingEntry != null)
@@ -207,8 +207,8 @@ namespace LibCpp2IL.Wasm
             return (long) uiAddr;
         }
 
-        public override ulong MapRawAddressToVirtual(uint offset)
-        {
+    public override ulong MapRawAddressToVirtual(uint offset)
+    {
             var data = DataSection;
             if (offset > data.Pointer && offset < data.Pointer + (long) data.Size)
             {
@@ -223,25 +223,24 @@ namespace LibCpp2IL.Wasm
             return offset;
         }
 
-        public override Stream BaseStream => _memoryBlock?.BaseStream ?? base.BaseStream;
+    public override Stream BaseStream => _memoryBlock?.BaseStream ?? base.BaseStream;
 
-        //Delegate to the memory block
-        internal override object? ReadPrimitive(Type type, bool overrideArchCheck = false) => _memoryBlock.ReadPrimitive(type, overrideArchCheck);
+    //Delegate to the memory block
+    internal override object? ReadPrimitive(Type type, bool overrideArchCheck = false) => _memoryBlock.ReadPrimitive(type, overrideArchCheck);
 
-        public override string ReadStringToNull(long offset) => _memoryBlock.ReadStringToNull(offset);
+    public override string ReadStringToNull(long offset) => _memoryBlock.ReadStringToNull(offset);
 
-        public override ulong GetRva(ulong pointer)
-        {
+    public override ulong GetRva(ulong pointer)
+    {
             return pointer;
         }
 
-        public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
-        {
+    public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
+    {
             return 0; //Never going to be anything useful, so don't bother looking
         }
 
-        public override byte[] GetEntirePrimaryExecutableSection() => ((WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE)).RawSectionContent;
+    public override byte[] GetEntirePrimaryExecutableSection() => ((WasmCodeSection) Sections.First(s => s.Type == WasmSectionId.SEC_CODE)).RawSectionContent;
 
-        public override ulong GetVirtualAddressOfPrimaryExecutableSection() => (ulong) Sections.First(s => s.Type == WasmSectionId.SEC_CODE).Pointer;
-    }
+    public override ulong GetVirtualAddressOfPrimaryExecutableSection() => (ulong) Sections.First(s => s.Type == WasmSectionId.SEC_CODE).Pointer;
 }

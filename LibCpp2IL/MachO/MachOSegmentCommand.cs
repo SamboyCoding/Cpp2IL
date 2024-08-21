@@ -1,28 +1,28 @@
 ﻿using System;
 using System.Text;
 
-namespace LibCpp2IL.MachO
-{
-    public class MachOSegmentCommand : ReadableClass
-    {
-        public string SegmentName = "INVALID"; // 16 bytes
-        
-        public ulong VirtualAddress;
-        public ulong VirtualSize;
-        public ulong FileOffset;
-        public ulong FileSize;
-        
-        public MachOVmProtection MaxProtection;
-        public MachOVmProtection InitialProtection;
-        
-        public uint NumSections;
-        
-        public MachOSegmentFlags Flags;
-        
-        public MachOSection[] Sections = Array.Empty<MachOSection>();
+namespace LibCpp2IL.MachO;
 
-        public override void Read(ClassReadingBinaryReader reader)
-        {
+public class MachOSegmentCommand : ReadableClass
+{
+    public string SegmentName = "INVALID"; // 16 bytes
+        
+    public ulong VirtualAddress;
+    public ulong VirtualSize;
+    public ulong FileOffset;
+    public ulong FileSize;
+        
+    public MachOVmProtection MaxProtection;
+    public MachOVmProtection InitialProtection;
+        
+    public uint NumSections;
+        
+    public MachOSegmentFlags Flags;
+        
+    public MachOSection[] Sections = [];
+
+    public override void Read(ClassReadingBinaryReader reader)
+    {
             SegmentName = Encoding.UTF8.GetString(reader.ReadByteArrayAtRawAddressNoLock(-1, 16)).TrimEnd('\0');
             
             VirtualAddress = reader.ReadNUint();
@@ -43,5 +43,4 @@ namespace LibCpp2IL.MachO
                 Sections[i] = reader.ReadReadableHereNoLock<MachOSection>();
             }
         }
-    }
 }

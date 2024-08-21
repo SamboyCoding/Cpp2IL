@@ -96,7 +96,7 @@ public abstract class HasCustomAttributes : HasToken
         if (AttributeTypeRange == null || AttributeTypeRange.count == 0)
         {
             RawIl2CppCustomAttributeData = Array.Empty<byte>();
-            AttributeTypes = new();
+            AttributeTypes = [];
             return; //No attributes
         }
 
@@ -171,7 +171,7 @@ public abstract class HasCustomAttributes : HasToken
 
         _hasAnalyzedCustomAttributeData = true;
         
-        CustomAttributes = new();
+        CustomAttributes = [];
         
         if (AppContext.MetadataVersion >= 29)
         {
@@ -236,7 +236,7 @@ public abstract class HasCustomAttributes : HasToken
         var startOfData = blobStream.Position;
         var perAttributeStartOffsets = new Dictionary<Il2CppMethodDefinition, long>();
 
-        CustomAttributes = new();
+        CustomAttributes = [];
         foreach (var constructor in constructors)
         {
             perAttributeStartOffsets[constructor] = blobStream.Position;

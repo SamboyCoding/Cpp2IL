@@ -36,7 +36,7 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
     
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        return new();
+        return [];
     }
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()

@@ -8,43 +8,43 @@ using AsmResolver.DotNet.Signatures;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 
-namespace Cpp2IL.Core.Utils.AsmResolver
+namespace Cpp2IL.Core.Utils.AsmResolver;
+
+public static class AsmResolverUtils
 {
-    public static class AsmResolverUtils
-    {
-        private static readonly Dictionary<string, (TypeDefinition typeDefinition, string[] genericParams)?> CachedTypeDefsByName = new();
-        private static readonly ConcurrentDictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
+    private static readonly Dictionary<string, (TypeDefinition typeDefinition, string[] genericParams)?> CachedTypeDefsByName = new();
+    private static readonly ConcurrentDictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
 
-        public static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
-        public static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
+    public static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
+    public static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
 
-        public static TypeDefinition GetPrimitiveTypeDef(Il2CppTypeEnum type) =>
-            type switch
-            {
-                Il2CppTypeEnum.IL2CPP_TYPE_OBJECT => TypeDefinitionsAsmResolver.Object,
-                Il2CppTypeEnum.IL2CPP_TYPE_VOID => TypeDefinitionsAsmResolver.Void,
-                Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN => TypeDefinitionsAsmResolver.Boolean,
-                Il2CppTypeEnum.IL2CPP_TYPE_CHAR => TypeDefinitionsAsmResolver.Char,
-                Il2CppTypeEnum.IL2CPP_TYPE_I1 => TypeDefinitionsAsmResolver.SByte,
-                Il2CppTypeEnum.IL2CPP_TYPE_U1 => TypeDefinitionsAsmResolver.Byte,
-                Il2CppTypeEnum.IL2CPP_TYPE_I2 => TypeDefinitionsAsmResolver.Int16,
-                Il2CppTypeEnum.IL2CPP_TYPE_U2 => TypeDefinitionsAsmResolver.UInt16,
-                Il2CppTypeEnum.IL2CPP_TYPE_I4 => TypeDefinitionsAsmResolver.Int32,
-                Il2CppTypeEnum.IL2CPP_TYPE_U4 => TypeDefinitionsAsmResolver.UInt32,
-                Il2CppTypeEnum.IL2CPP_TYPE_I => TypeDefinitionsAsmResolver.IntPtr,
-                Il2CppTypeEnum.IL2CPP_TYPE_U => TypeDefinitionsAsmResolver.UIntPtr,
-                Il2CppTypeEnum.IL2CPP_TYPE_I8 => TypeDefinitionsAsmResolver.Int64,
-                Il2CppTypeEnum.IL2CPP_TYPE_U8 => TypeDefinitionsAsmResolver.UInt64,
-                Il2CppTypeEnum.IL2CPP_TYPE_R4 => TypeDefinitionsAsmResolver.Single,
-                Il2CppTypeEnum.IL2CPP_TYPE_R8 => TypeDefinitionsAsmResolver.Double,
-                Il2CppTypeEnum.IL2CPP_TYPE_STRING => TypeDefinitionsAsmResolver.String,
-                Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF => TypeDefinitionsAsmResolver.TypedReference,
-                Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => TypeDefinitionsAsmResolver.Type,
-                _ => throw new ArgumentException($"Type is not a primitive - {type}", nameof(type))
-            };
-
-        public static TypeSignature GetTypeSignatureFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)
+    public static TypeDefinition GetPrimitiveTypeDef(Il2CppTypeEnum type) =>
+        type switch
         {
+            Il2CppTypeEnum.IL2CPP_TYPE_OBJECT => TypeDefinitionsAsmResolver.Object,
+            Il2CppTypeEnum.IL2CPP_TYPE_VOID => TypeDefinitionsAsmResolver.Void,
+            Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN => TypeDefinitionsAsmResolver.Boolean,
+            Il2CppTypeEnum.IL2CPP_TYPE_CHAR => TypeDefinitionsAsmResolver.Char,
+            Il2CppTypeEnum.IL2CPP_TYPE_I1 => TypeDefinitionsAsmResolver.SByte,
+            Il2CppTypeEnum.IL2CPP_TYPE_U1 => TypeDefinitionsAsmResolver.Byte,
+            Il2CppTypeEnum.IL2CPP_TYPE_I2 => TypeDefinitionsAsmResolver.Int16,
+            Il2CppTypeEnum.IL2CPP_TYPE_U2 => TypeDefinitionsAsmResolver.UInt16,
+            Il2CppTypeEnum.IL2CPP_TYPE_I4 => TypeDefinitionsAsmResolver.Int32,
+            Il2CppTypeEnum.IL2CPP_TYPE_U4 => TypeDefinitionsAsmResolver.UInt32,
+            Il2CppTypeEnum.IL2CPP_TYPE_I => TypeDefinitionsAsmResolver.IntPtr,
+            Il2CppTypeEnum.IL2CPP_TYPE_U => TypeDefinitionsAsmResolver.UIntPtr,
+            Il2CppTypeEnum.IL2CPP_TYPE_I8 => TypeDefinitionsAsmResolver.Int64,
+            Il2CppTypeEnum.IL2CPP_TYPE_U8 => TypeDefinitionsAsmResolver.UInt64,
+            Il2CppTypeEnum.IL2CPP_TYPE_R4 => TypeDefinitionsAsmResolver.Single,
+            Il2CppTypeEnum.IL2CPP_TYPE_R8 => TypeDefinitionsAsmResolver.Double,
+            Il2CppTypeEnum.IL2CPP_TYPE_STRING => TypeDefinitionsAsmResolver.String,
+            Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF => TypeDefinitionsAsmResolver.TypedReference,
+            Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => TypeDefinitionsAsmResolver.Type,
+            _ => throw new ArgumentException($"Type is not a primitive - {type}", nameof(type))
+        };
+
+    public static TypeSignature GetTypeSignatureFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)
+    {
             //Module is needed for generic params
             if (il2CppType == null)
                 throw new ArgumentNullException(nameof(il2CppType));
@@ -139,14 +139,14 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             return ret;
         }
 
-        /// <summary>
-        /// Imports the managed representation of the given il2cpp type using the given importer, and returns said type.
-        /// <br/><br/>
-        /// Prefer <see cref="GetTypeSignatureFromIl2CppType"/> where possible, only use this where an actual type reference is needed.
-        /// Such cases would include generic parameter constraints, base types/interfaces, and event types.
-        /// </summary>
-        public static ITypeDefOrRef ImportReferenceFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)
-        {
+    /// <summary>
+    /// Imports the managed representation of the given il2cpp type using the given importer, and returns said type.
+    /// <br/><br/>
+    /// Prefer <see cref="GetTypeSignatureFromIl2CppType"/> where possible, only use this where an actual type reference is needed.
+    /// Such cases would include generic parameter constraints, base types/interfaces, and event types.
+    /// </summary>
+    public static ITypeDefOrRef ImportReferenceFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)
+    {
             if (il2CppType == null)
                 throw new ArgumentNullException(nameof(il2CppType));
 
@@ -188,10 +188,10 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             }
         }
 
-        public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name) => TryLookupTypeDefByName(name)?.typeDefinition;
+    public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name) => TryLookupTypeDefByName(name)?.typeDefinition;
 
-        public static (TypeDefinition typeDefinition, string[] genericParams)? TryLookupTypeDefByName(string? name)
-        {
+    public static (TypeDefinition typeDefinition, string[] genericParams)? TryLookupTypeDefByName(string? name)
+    {
             if (name == null)
                 return null;
 
@@ -207,10 +207,10 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             return result;
         }
 
-        private static (TypeDefinition typeDefinition, string[] genericParams)? InternalTryLookupTypeDefByName(string name)
-        {
+    private static (TypeDefinition typeDefinition, string[] genericParams)? InternalTryLookupTypeDefByName(string name)
+    {
             if (TypeDefinitionsAsmResolver.GetPrimitive(name) is { } primitive)
-                return new(primitive, Array.Empty<string>());
+                return new(primitive, []);
 
             //The only real cases we end up here are:
             //From explicit override resolving, because that has to be done by name
@@ -272,8 +272,8 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             return new(definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
         }
 
-        public static ReferenceImporter GetImporter(this AssemblyDefinition assemblyDefinition)
-        {
+    public static ReferenceImporter GetImporter(this AssemblyDefinition assemblyDefinition)
+    {
             if (ImportersByAssembly.TryGetValue(assemblyDefinition, out var ret))
                 return ret;
 
@@ -282,16 +282,15 @@ namespace Cpp2IL.Core.Utils.AsmResolver
             return ret;
         }
 
-        public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type)
-        {
+    public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type)
+    {
             if (type is TypeSpecification spec)
                 return new TypeSpecification(importer.ImportTypeSignature(spec.Signature!));
 
             return importer.ImportType(type);
         }
 
-        public static bool IsManagedMethodWithBody(this MethodDefinition managedMethod) =>
-            managedMethod.Managed && !managedMethod.IsAbstract && !managedMethod.IsPInvokeImpl
-            && !managedMethod.IsInternalCall && !managedMethod.IsNative && !managedMethod.IsRuntime;
-    }
+    public static bool IsManagedMethodWithBody(this MethodDefinition managedMethod) =>
+        managedMethod.Managed && !managedMethod.IsAbstract && !managedMethod.IsPInvokeImpl
+        && !managedMethod.IsInternalCall && !managedMethod.IsNative && !managedMethod.IsRuntime;
 }

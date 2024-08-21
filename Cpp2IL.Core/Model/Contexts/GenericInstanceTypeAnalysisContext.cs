@@ -10,7 +10,7 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 {
     public TypeAnalysisContext GenericType { get; }
 
-    public List<TypeAnalysisContext> GenericArguments { get; } = new();
+    public List<TypeAnalysisContext> GenericArguments { get; } = [];
 
     public override string DefaultName => $"{GenericType.Name}<{string.Join(", ", GenericArguments.Select(a => a.Name))}>";
 

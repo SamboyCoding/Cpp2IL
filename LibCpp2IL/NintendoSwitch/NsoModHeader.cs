@@ -1,14 +1,13 @@
-﻿namespace LibCpp2IL.NintendoSwitch
+﻿namespace LibCpp2IL.NintendoSwitch;
+
+public class NsoModHeader
 {
-    public class NsoModHeader
-    {
-        public uint ModOffset;
-        public uint DynamicOffset;
-        public uint BssStart;
-        public uint BssEnd;
-        public uint EhFrameHdrStart;
-        public uint EhFrameHdrEnd;
+    public uint ModOffset;
+    public uint DynamicOffset;
+    public uint BssStart;
+    public uint BssEnd;
+    public uint EhFrameHdrStart;
+    public uint EhFrameHdrEnd;
         
-        public NsoSegmentHeader BssSegment = null!;
-    }
+    public NsoSegmentHeader BssSegment = null!;
 }

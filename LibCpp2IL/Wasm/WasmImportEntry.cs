@@ -1,23 +1,23 @@
 using System;
 
-namespace LibCpp2IL.Wasm
+namespace LibCpp2IL.Wasm;
+
+public class WasmImportEntry
 {
-    public class WasmImportEntry
+    public WasmString Module;
+    public WasmString Field;
+    public WasmExternalKind Kind;
+
+    public ulong FunctionEntry;
+    public WasmTableType? TableEntry;
+    public WasmResizableLimits? MemoryEntry;
+    public WasmGlobalType? GlobalEntry;
+
+    public long StartOffset;
+    public long EndOffset;
+
+    public WasmImportEntry(WasmFile readFrom)
     {
-        public WasmString Module;
-        public WasmString Field;
-        public WasmExternalKind Kind;
-
-        public ulong FunctionEntry;
-        public WasmTableType? TableEntry;
-        public WasmResizableLimits? MemoryEntry;
-        public WasmGlobalType? GlobalEntry;
-
-        public long StartOffset;
-        public long EndOffset;
-
-        public WasmImportEntry(WasmFile readFrom)
-        {
             Module = new(readFrom);
             Field = new(readFrom);
             Kind = (WasmExternalKind) readFrom.ReadByte();
@@ -41,6 +41,5 @@ namespace LibCpp2IL.Wasm
             }
         }
 
-        public override string ToString() => $"{Module}.{Field} (Type {Kind})";
-    }
+    public override string ToString() => $"{Module}.{Field} (Type {Kind})";
 }

@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver;
 
 public static class AsmResolverConstants
 {
-    public static readonly Constant Null = new(ElementType.Class, new(new byte[] {0, 0, 0, 0}));
+    public static readonly Constant Null = new(ElementType.Class, new([0, 0, 0, 0]));
     
     private static readonly Dictionary<int, Constant> IntegerCache = new();
     private static readonly Dictionary<byte, Constant> ByteCache = new();

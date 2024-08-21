@@ -4,26 +4,26 @@ using System.Text;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
-namespace LibCpp2IL.BinaryStructures
+namespace LibCpp2IL.BinaryStructures;
+
+public class Il2CppMethodSpec : ReadableClass
 {
-    public class Il2CppMethodSpec : ReadableClass
+    public int methodDefinitionIndex;
+    public int classIndexIndex;
+    public int methodIndexIndex;
+
+    public Il2CppMethodDefinition? MethodDefinition => LibCpp2IlMain.TheMetadata?.methodDefs[methodDefinitionIndex];
+
+    public Il2CppGenericInst? GenericClassInst => LibCpp2IlMain.Binary?.GetGenericInst(classIndexIndex);
+        
+    public Il2CppGenericInst? GenericMethodInst => LibCpp2IlMain.Binary?.GetGenericInst(methodIndexIndex);
+
+    public Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
+        
+    public Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
+
+    public override string ToString()
     {
-        public int methodDefinitionIndex;
-        public int classIndexIndex;
-        public int methodIndexIndex;
-
-        public Il2CppMethodDefinition? MethodDefinition => LibCpp2IlMain.TheMetadata?.methodDefs[methodDefinitionIndex];
-
-        public Il2CppGenericInst? GenericClassInst => LibCpp2IlMain.Binary?.GetGenericInst(classIndexIndex);
-        
-        public Il2CppGenericInst? GenericMethodInst => LibCpp2IlMain.Binary?.GetGenericInst(methodIndexIndex);
-
-        public Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex == -1 ? Array.Empty<Il2CppTypeReflectionData>() : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
-        
-        public Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex == -1 ? Array.Empty<Il2CppTypeReflectionData>() : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
-
-        public override string ToString()
-        {
             var sb = new StringBuilder();
 
             sb.Append(MethodDefinition?.ReturnType).Append(" ");
@@ -41,11 +41,10 @@ namespace LibCpp2IL.BinaryStructures
             return sb.ToString();
         }
 
-        public override void Read(ClassReadingBinaryReader reader)
-        {
+    public override void Read(ClassReadingBinaryReader reader)
+    {
             methodDefinitionIndex = reader.ReadInt32();
             classIndexIndex = reader.ReadInt32();
             methodIndexIndex = reader.ReadInt32();
         }
-    };
-}
+};
