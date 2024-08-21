@@ -1,6 +1,7 @@
 ﻿namespace Cpp2IL.Core.Model.Contexts;
 
-public abstract class HasCustomAttributesAndName : HasCustomAttributes
+public abstract class HasCustomAttributesAndName(uint token, ApplicationAnalysisContext appContext)
+    : HasCustomAttributes(token, appContext)
 {
     public abstract string DefaultName { get; }
     
@@ -9,8 +10,4 @@ public abstract class HasCustomAttributesAndName : HasCustomAttributes
     public string Name => OverrideName ?? DefaultName;
 
     public sealed override string CustomAttributeOwnerName => Name;
-
-    protected HasCustomAttributesAndName(uint token, ApplicationAnalysisContext appContext) : base(token, appContext)
-    {
-    }
 }

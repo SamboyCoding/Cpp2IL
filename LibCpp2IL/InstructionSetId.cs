@@ -1,13 +1,8 @@
 ﻿namespace LibCpp2IL;
 
-public class InstructionSetId
+public class InstructionSetId(string name)
 {
-    public string Name;
-
-    public InstructionSetId(string name)
-    {
-            Name = name;
-        }
+    public string Name = name;
 
     public override string ToString() => Name;
 }

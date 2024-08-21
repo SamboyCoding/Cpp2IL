@@ -1,13 +1,7 @@
 namespace LibCpp2IL.Wasm;
 
-public class WasmLocalEntry
+public class WasmLocalEntry(WasmFile file)
 {
-    public ulong Count;
-    public byte Type;
-
-    public WasmLocalEntry(WasmFile file)
-    {
-        Count = file.BaseStream.ReadLEB128Unsigned();
-        Type = file.ReadByte();
-    }
+    public ulong Count = file.BaseStream.ReadLEB128Unsigned();
+    public byte Type = file.ReadByte();
 }

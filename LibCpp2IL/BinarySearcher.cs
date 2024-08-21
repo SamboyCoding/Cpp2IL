@@ -11,20 +11,12 @@ using LibCpp2IL.Wasm;
 
 namespace LibCpp2IL;
 
-public class BinarySearcher
+public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefinitionsCount)
 {
-    private readonly Il2CppBinary _binary;
-    private readonly byte[] _binaryBytes;
-    private readonly int _methodCount; //Used for codereg location pre-2019
-    private readonly int _typeDefinitionsCount; //Used for metadata reg location in 24.5+
+    private readonly byte[] _binaryBytes = binary.GetRawBinaryContent();
 
-    public BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefinitionsCount)
-    {
-        _binary = binary;
-        _binaryBytes = binary.GetRawBinaryContent();
-        _methodCount = methodCount;
-        _typeDefinitionsCount = typeDefinitionsCount;
-    }
+    //Used for codereg location pre-2019
+    //Used for metadata reg location in 24.5+
 
     private static int FindSequence(byte[] haystack, byte[] needle, int requiredAlignment = 1, int startOffset = 0)
     {
@@ -63,7 +55,7 @@ public class BinarySearcher
     {
         LibLogger.VerboseNewline($"\t\t\tLooking for bytes: {string.Join(" ", signature.Select(b => b.ToString("x2")))}");
         var offset = 0;
-        var ptrSize = _binary.is32Bit ? 4 : 8;
+        var ptrSize = binary.is32Bit ? 4 : 8;
         while (offset != -1)
         {
             offset = FindSequence(_binaryBytes, signature, alignment != 0 ? alignment : ptrSize, offset);
@@ -79,19 +71,19 @@ public class BinarySearcher
     public IEnumerable<uint> FindAllStrings(string str) => FindAllBytes(Encoding.ASCII.GetBytes(str), 1);
 
     // Find 32-bit words
-    private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), _binary is NsoFile ? 1 : 4);
+    private IEnumerable<uint> FindAllDWords(uint word) => FindAllBytes(BitConverter.GetBytes(word), binary is NsoFile ? 1 : 4);
 
     // Find 64-bit words
-    private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), _binary is NsoFile ? 1 : 8);
+    private IEnumerable<uint> FindAllQWords(ulong word) => FindAllBytes(BitConverter.GetBytes(word), binary is NsoFile ? 1 : 8);
 
     // Find words for the current binary size
     private IEnumerable<uint> FindAllWords(ulong word)
-        => _binary.is32Bit ? FindAllDWords((uint) word) : FindAllQWords(word);
+        => binary.is32Bit ? FindAllDWords((uint) word) : FindAllQWords(word);
 
     private IEnumerable<ulong> MapOffsetsToVirt(IEnumerable<uint> offsets)
     {
         foreach (var offset in offsets)
-            if (_binary.TryMapRawAddressToVirtual(offset, out var word))
+            if (binary.TryMapRawAddressToVirtual(offset, out var word))
                 yield return word;
     }
 
@@ -110,9 +102,9 @@ public class BinarySearcher
     public ulong FindCodeRegistrationPre2019()
     {
         //First item in the CodeRegistration is the number of methods.
-        var vas = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(_methodCount), 1)).ToList();
+        var vas = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(methodCount), 1)).ToList();
 
-        LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {_methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong) _methodCount).Select(x => $"0x{x:X}"))}");
+        LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong) methodCount).Select(x => $"0x{x:X}"))}");
 
         if (vas.Count == 0)
             return 0;
@@ -120,7 +112,7 @@ public class BinarySearcher
         foreach (var va in vas)
         {
             LibLogger.VerboseNewline($"\t\t\tChecking for CodeRegistration at virtual address 0x{va:x}...");
-            var cr = _binary.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(va);
+            var cr = binary.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(va);
 
             if ((long) cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count)
                 return va;
@@ -135,7 +127,7 @@ public class BinarySearcher
     internal ulong FindCodeRegistrationPost2019()
     {
         //Works only on >=24.2
-        var mscorlibs = FindAllStrings("mscorlib.dll\0").Select(idx => _binary.MapRawAddressToVirtual(idx)).ToList();
+        var mscorlibs = FindAllStrings("mscorlib.dll\0").Select(idx => binary.MapRawAddressToVirtual(idx)).ToList();
 
         LibLogger.VerboseNewline($"\t\t\tFound {mscorlibs.Count} occurrences of mscorlib.dll: [{string.Join(", ", mscorlibs.Select(p => p.ToString("X")))}]");
 
@@ -153,7 +145,7 @@ public class BinarySearcher
             return 0;
         }
 
-        var ptrSize = (_binary.is32Bit ? 4u : 8u);
+        var ptrSize = (binary.is32Bit ? 4u : 8u);
 
         List<ulong>? pCodegenModules = null;
         if (LibCpp2IlMain.MetadataVersion < 27f)
@@ -184,8 +176,8 @@ public class BinarySearcher
                 //Sanity check the count, which is one pointer back
                 if (pCodegenModules.Count == 1)
                 {
-                    _binary.Reader.Position = _binary.MapVirtualAddressToRaw(pCodegenModules.First() - ptrSize);
-                    var moduleCount = _binary.Reader.ReadInt32();
+                    binary.Reader.Position = binary.MapVirtualAddressToRaw(pCodegenModules.First() - ptrSize);
+                    var moduleCount = binary.Reader.ReadInt32();
 
                     if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
                         pCodegenModules = [];
@@ -216,7 +208,7 @@ public class BinarySearcher
 
         //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
         //So, subtract the size of one pointer from that...
-        var bytesToGoBack = (ulong) Il2CppCodeRegistration.GetStructSize(_binary.is32Bit, LibCpp2IlMain.MetadataVersion) - ptrSize;
+        var bytesToGoBack = (ulong) Il2CppCodeRegistration.GetStructSize(binary.is32Bit, LibCpp2IlMain.MetadataVersion) - ptrSize;
 
         LibLogger.VerboseNewline($"\t\t\tpCodegenModules is the second-to-last field of the codereg struct. Therefore on this version and architecture, we need to subtract {bytesToGoBack} bytes from its address to get pCodeReg");
 
@@ -288,8 +280,8 @@ public class BinarySearcher
     public ulong FindMetadataRegistrationPre24_5()
     {
         //We're looking for TypeDefinitionsSizesCount, which is the 4th-to-last field
-        var sizeOfMr = (ulong) Il2CppMetadataRegistration.GetStructSize(_binary.is32Bit);
-        var ptrSize = _binary.is32Bit ? 4ul : 8ul;
+        var sizeOfMr = (ulong) Il2CppMetadataRegistration.GetStructSize(binary.is32Bit);
+        var ptrSize = binary.is32Bit ? 4ul : 8ul;
 
         var bytesToSubtract = sizeOfMr - ptrSize * 4;
 
@@ -301,7 +293,7 @@ public class BinarySearcher
 
         foreach (var potentialMetaRegPointer in potentialMetaRegPointers)
         {
-            var mr = _binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
+            var mr = binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
 
             if (mr.metadataUsagesCount == (ulong) LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length)
             {
@@ -317,11 +309,11 @@ public class BinarySearcher
 
     public ulong FindMetadataRegistrationPost24_5()
     {
-        var ptrSize = _binary.is32Bit ? 4ul : 8ul;
-        var sizeOfMr = (uint) Il2CppMetadataRegistration.GetStructSize(_binary.is32Bit);
+        var ptrSize = binary.is32Bit ? 4ul : 8ul;
+        var sizeOfMr = (uint) Il2CppMetadataRegistration.GetStructSize(binary.is32Bit);
 
-        LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{_typeDefinitionsCount:X}");
-        var ptrsToNumberOfTypes = FindAllMappedWords((ulong) _typeDefinitionsCount).ToList();
+        LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{typeDefinitionsCount:X}");
+        var ptrsToNumberOfTypes = FindAllMappedWords((ulong) typeDefinitionsCount).ToList();
 
         LibLogger.VerboseNewline($"\t\t\tFound {ptrsToNumberOfTypes.Count} instances of the number of type definitions: [{string.Join(", ", ptrsToNumberOfTypes.Select(p => p.ToString("X")))}]");
         var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4).ToList();
@@ -333,7 +325,7 @@ public class BinarySearcher
         {
             try
             {
-                var mrWords = _binary.ReadNUintArrayAtVirtualAddress(va, (int)mrFieldCount);
+                var mrWords = binary.ReadNUintArrayAtVirtualAddress(va, (int)mrFieldCount);
 
                 // Even field indices are counts, odd field indices are pointers
                 var ok = true;
@@ -358,7 +350,7 @@ public class BinarySearcher
                         }
                         else
                         {
-                            ok = _binary.TryMapVirtualAddressToRaw((ulong)mrWords[i], out _); //Can be mapped successfully to the binary.
+                            ok = binary.TryMapVirtualAddressToRaw((ulong)mrWords[i], out _); //Can be mapped successfully to the binary.
                             if (!ok)
                                 LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i}, which is 0x{mrWords[i]:X}, can't be mapped to the binary.");
                         }
@@ -370,7 +362,7 @@ public class BinarySearcher
 
                 if (ok)
                 {
-                    var metaReg = _binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(va);
+                    var metaReg = binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(va);
                     if (LibCpp2IlMain.MetadataVersion >= 27f && (metaReg.metadataUsagesCount != 0 || metaReg.metadataUsages != 0))
                     {
                         //Too many metadata usages - should be 0 on v27

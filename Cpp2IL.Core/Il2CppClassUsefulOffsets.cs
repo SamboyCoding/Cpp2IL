@@ -74,19 +74,11 @@ public static class Il2CppClassUsefulOffsets
             return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
         }
         
-    public class UsefulOffset
+    public class UsefulOffset(string name, uint offset, Type type, bool is32Bit)
     {
-        public UsefulOffset(string name, uint offset, Type type, bool is32Bit)
-        {
-                this.name = name;
-                this.offset = offset;
-                this.type = type;
-                this.is32Bit = is32Bit;
-            }
-
-        public string name;
-        public uint offset;
-        public Type type;
-        public bool is32Bit;
+        public string name = name;
+        public uint offset = offset;
+        public Type type = type;
+        public bool is32Bit = is32Bit;
     }
 }

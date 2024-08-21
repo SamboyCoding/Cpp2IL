@@ -10,7 +10,7 @@ using LibCpp2IL.Metadata;
 
 namespace LibCpp2IL;
 
-public abstract class Il2CppBinary : ClassReadingBinaryReader
+public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReader(input)
 {
     public delegate void RegistrationStructLocationFailureHandler(Il2CppBinary binary, Il2CppMetadata metadata, ref Il2CppCodeRegistration? codeReg, ref Il2CppMetadataRegistration? metaReg);
         
@@ -24,7 +24,7 @@ public abstract class Il2CppBinary : ClassReadingBinaryReader
     public readonly Dictionary<ulong, List<Cpp2IlMethodRef>> ConcreteGenericImplementationsByAddress = new();
     public ulong[] TypeDefinitionSizePointers = [];
 
-    private readonly long _maxMetadataUsages;
+    private readonly long _maxMetadataUsages = LibCpp2IlMain.TheMetadata!.GetMaxMetadataUsages();
     private Il2CppMetadataRegistration _metadataRegistration = null!;
     private Il2CppCodeRegistration _codeRegistration = null!;
 
@@ -47,11 +47,6 @@ public abstract class Il2CppBinary : ClassReadingBinaryReader
     private Dictionary<string, Il2CppCodeGenModule> _codeGenModulesByName = new(); //24.2+
     private Dictionary<int, ulong> _genericMethodDictionary = new();
     private readonly Dictionary<ulong, Il2CppType> _typesByAddress = new();
-
-    protected Il2CppBinary(MemoryStream input) : base(input)
-    {
-            _maxMetadataUsages = LibCpp2IlMain.TheMetadata!.GetMaxMetadataUsages();
-        }
 
     public abstract long RawLength { get; }
     public int NumTypes => _types.Length;

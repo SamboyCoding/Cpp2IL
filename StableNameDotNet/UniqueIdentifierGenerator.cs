@@ -69,16 +69,10 @@ public class UniqueIdentifierGenerator
     public string GenerateUniqueName()
         => string.Join("", _resultSet.Take(MaxInputs).Select(x => x.Value));
 
-    private struct Input : IComparable<Input>
+    private struct Input(string value, float weight) : IComparable<Input>
     {
-        public string Value;
-        public float Weight;
-
-        public Input(string value, float weight)
-        {
-            Value = value;
-            Weight = weight;
-        }
+        public string Value = value;
+        public float Weight = weight;
 
         public int CompareTo(Input other)
         {

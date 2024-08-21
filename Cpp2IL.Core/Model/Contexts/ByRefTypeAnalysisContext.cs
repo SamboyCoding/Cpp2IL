@@ -2,12 +2,9 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class ByRefTypeAnalysisContext : WrappedTypeAnalysisContext
+public class ByRefTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom)
+    : WrappedTypeAnalysisContext(elementType, referencedFrom)
 {
-    public ByRefTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom) : base(elementType, referencedFrom)
-    {
-    }
-
     public ByRefTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
         : this(default(TypeAnalysisContext)!, referencedFrom)
     {

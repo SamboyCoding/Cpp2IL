@@ -3,14 +3,9 @@ using System.Globalization;
 
 namespace Cpp2IL.Core.ISIL;
 
-public readonly struct IsilImmediateOperand : IsilOperandData
+public readonly struct IsilImmediateOperand(IConvertible value) : IsilOperandData
 {
-    public readonly IConvertible Value;
-
-    public IsilImmediateOperand(IConvertible value)
-    {
-        Value = value;
-    }
+    public readonly IConvertible Value = value;
 
     public override string ToString()
     {

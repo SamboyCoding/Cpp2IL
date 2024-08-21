@@ -1,20 +1,16 @@
 namespace Cpp2IL.Core.ISIL;
 
-public class IsilCondition
+public class IsilCondition(
+    InstructionSetIndependentOperand left,
+    InstructionSetIndependentOperand right,
+    InstructionSetIndependentOpCode opCode)
 {
-    public InstructionSetIndependentOperand Left;
-    public InstructionSetIndependentOperand Right;
-    public InstructionSetIndependentOpCode OpCode;
+    public InstructionSetIndependentOperand Left = left;
+    public InstructionSetIndependentOperand Right = right;
+    public InstructionSetIndependentOpCode OpCode = opCode;
 
     public bool IsAnd; //E.g. x86 TEST instruction vs CMP
 
-    public IsilCondition(InstructionSetIndependentOperand left, InstructionSetIndependentOperand right, InstructionSetIndependentOpCode opCode)
-    {
-        Left = left;
-        Right = right;
-        OpCode = opCode;
-    }
-    
     public IsilCondition MarkAsAnd()
     {
         IsAnd = true;        

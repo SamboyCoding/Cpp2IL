@@ -4,14 +4,9 @@ using System.Reflection;
 
 namespace StableNameDotNet.Providers;
 
-public class PointerTypeInfoProviderWrapper : ITypeInfoProvider
+public class PointerTypeInfoProviderWrapper(ITypeInfoProvider elementTypeProvider) : ITypeInfoProvider
 {
-    public ITypeInfoProvider ElementTypeProvider { get; }
-
-    public PointerTypeInfoProviderWrapper(ITypeInfoProvider elementTypeProvider)
-    {
-        ElementTypeProvider = elementTypeProvider;
-    }
+    public ITypeInfoProvider ElementTypeProvider { get; } = elementTypeProvider;
 
     public ITypeInfoProvider? DeclaringTypeInfoProvider => ElementTypeProvider.DeclaringTypeInfoProvider;
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy() => ElementTypeProvider.GetBaseTypeHierarchy();

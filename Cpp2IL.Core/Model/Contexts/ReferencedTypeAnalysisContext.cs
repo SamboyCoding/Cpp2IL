@@ -5,17 +5,14 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents any kind of type context that is not a basic type definition. This includes generic instantiations, byref/pointer types, arrays, etc.
 /// </summary>
-public abstract class ReferencedTypeAnalysisContext : TypeAnalysisContext
+public abstract class ReferencedTypeAnalysisContext(AssemblyAnalysisContext referencedFrom)
+    : TypeAnalysisContext(null, referencedFrom)
 {
     public abstract Il2CppTypeEnum Type { get; } //Must be set by derived classes
 
     protected override int CustomAttributeIndex => -1;
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringAssembly;
-
-    protected ReferencedTypeAnalysisContext(AssemblyAnalysisContext referencedFrom) : base(null, referencedFrom)
-    {
-    }
 
     public override string ToString()
     {

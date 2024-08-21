@@ -3,18 +3,15 @@ using System.Globalization;
 
 namespace Cpp2IL.Core.ISIL;
 
-public readonly struct IsilVectorRegisterElementOperand : IsilOperandData
+public readonly struct IsilVectorRegisterElementOperand(
+    string registerName,
+    IsilVectorRegisterElementOperand.VectorElementWidth width,
+    int index)
+    : IsilOperandData
 {
-    public readonly string RegisterName;
-    public readonly VectorElementWidth Width;
-    public readonly int Index;
-
-    public IsilVectorRegisterElementOperand(string registerName, VectorElementWidth width, int index)
-    {
-        RegisterName = registerName;
-        Width = width;
-        Index = index;
-    }
+    public readonly string RegisterName = registerName;
+    public readonly VectorElementWidth Width = width;
+    public readonly int Index = index;
 
     public override string ToString()
     {

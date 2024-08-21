@@ -3,13 +3,9 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class ArrayTypeAnalysisContext : WrappedTypeAnalysisContext
+public class ArrayTypeAnalysisContext(TypeAnalysisContext elementType, int rank, AssemblyAnalysisContext referencedFrom)
+    : WrappedTypeAnalysisContext(elementType, referencedFrom)
 {
-    public ArrayTypeAnalysisContext(TypeAnalysisContext elementType, int rank, AssemblyAnalysisContext referencedFrom) : base(elementType, referencedFrom)
-    {
-        Rank = rank;
-    }
-
     public ArrayTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
         : this(referencedFrom.ResolveIl2CppType(rawType.GetArrayElementType()), rawType.GetArrayRank(), referencedFrom)
     {
@@ -21,5 +17,5 @@ public class ArrayTypeAnalysisContext : WrappedTypeAnalysisContext
 
     public sealed override bool IsValueType => false;
 
-    public int Rank { get; }
+    public int Rank { get; } = rank;
 }
