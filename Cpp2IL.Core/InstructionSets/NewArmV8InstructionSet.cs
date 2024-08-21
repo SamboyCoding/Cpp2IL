@@ -329,6 +329,21 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // branches unconditionally to an address in a register, with a hint that this is not a subroutine return.
                 builder.CallRegister(instruction.Address, ConvertOperand(instruction, 0), noReturn: true);
                 break;
+            case Arm64Mnemonic.CSET:
+            {   
+                builder.Compare(lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0), ConvertOperand(lastCmpInstruction, 1));
+                if (instruction.FinalOpConditionCode==Arm64ConditionCode.NE)
+                {
+                    builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0), 
+                        InstructionSetIndependentOperand.MakeImmediate(0),
+                        InstructionSetIndependentOperand.MakeImmediate(1));
+                }
+                else
+                {
+                    throw new Exception("not support CSET condition code "+instruction.FinalOpConditionCode);
+                }
+                break;
+            }
             case Arm64Mnemonic.CSEL:
             {
                 if (lastCmpInstruction.Mnemonic == Arm64Mnemonic.ANDS)
@@ -477,6 +492,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             {
                 //Converts a single-precision floating-point value to a double-precision floating-point value
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                break;
+            }
+            case Arm64Mnemonic.MADD:
+            {
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                builder.Multiply(instruction.Address, temp, ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
+                builder.Add(instruction.Address,ConvertOperand(instruction,0),temp,ConvertOperand(instruction,3));
                 break;
             }
             case Arm64Mnemonic.SBFM:
