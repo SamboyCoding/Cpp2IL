@@ -7,13 +7,13 @@ namespace Cpp2IL.Core.Graphs;
 
 public class Block
 {
-    public BlockType BlockType { get; set; }
-    public List<Block> Predecessors;
-    public List<Block> Successors;
+    public BlockType BlockType { get; set; } = BlockType.Unknown;
+    public List<Block> Predecessors = [];
+    public List<Block> Successors = [];
 
-    public List<InstructionSetIndependentInstruction> isilInstructions;
+    public List<InstructionSetIndependentInstruction> isilInstructions = [];
 
-    public int ID { get; set; }
+    public int ID { get; set; } = -1;
 
     public bool Dirty { get; set; }
     public bool Visited = false;
@@ -29,15 +29,6 @@ public class Block
             stringBuilder.AppendLine(instruction.ToString());
         }
         return stringBuilder.ToString();
-    }
-
-    public Block()
-    {
-        BlockType = BlockType.Unknown;
-        Predecessors = [];
-        Successors = [];
-        isilInstructions = [];
-        ID = -1;
     }
 
     public void AddInstruction(InstructionSetIndependentInstruction instruction)

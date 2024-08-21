@@ -4,14 +4,9 @@ using System.Reflection;
 
 namespace StableNameDotNet.Providers;
 
-public class GenericParameterTypeInfoProviderWrapper : ITypeInfoProvider
+public class GenericParameterTypeInfoProviderWrapper(string genericParameterName) : ITypeInfoProvider
 {
-    public readonly string GenericParameterName;
-
-    public GenericParameterTypeInfoProviderWrapper(string genericParameterName)
-    {
-        GenericParameterName = genericParameterName;
-    }
+    public readonly string GenericParameterName = genericParameterName;
 
     public ITypeInfoProvider? DeclaringTypeInfoProvider => null;
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy() => Array.Empty<ITypeInfoProvider>();

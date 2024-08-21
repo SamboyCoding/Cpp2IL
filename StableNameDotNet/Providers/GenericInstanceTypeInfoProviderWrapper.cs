@@ -3,16 +3,13 @@ using System.Reflection;
 
 namespace StableNameDotNet.Providers;
 
-public class GenericInstanceTypeInfoProviderWrapper : ITypeInfoProvider
+public class GenericInstanceTypeInfoProviderWrapper(
+    ITypeInfoProvider elementTypeProvider,
+    ITypeInfoProvider[] genericTypeProviders)
+    : ITypeInfoProvider
 {
-    public ITypeInfoProvider ElementTypeProvider { get; }
-    public ITypeInfoProvider[] GenericTypeProviders { get; }
-
-    public GenericInstanceTypeInfoProviderWrapper(ITypeInfoProvider elementTypeProvider, ITypeInfoProvider[] genericTypeProviders)
-    {
-        ElementTypeProvider = elementTypeProvider;
-        GenericTypeProviders = genericTypeProviders;
-    }
+    public ITypeInfoProvider ElementTypeProvider { get; } = elementTypeProvider;
+    public ITypeInfoProvider[] GenericTypeProviders { get; } = genericTypeProviders;
 
     public ITypeInfoProvider? DeclaringTypeInfoProvider => ElementTypeProvider.DeclaringTypeInfoProvider;
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy() => ElementTypeProvider.GetBaseTypeHierarchy();

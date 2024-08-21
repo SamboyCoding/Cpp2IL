@@ -1,15 +1,8 @@
 namespace LibCpp2IL.Wasm;
 
-public class WasmExportEntry
+public class WasmExportEntry(WasmFile file)
 {
-    public WasmString Name;
-    public WasmExternalKind Kind;
-    public ulong Index;
-
-    public WasmExportEntry(WasmFile file)
-    {
-            Name = new(file);
-            Kind = (WasmExternalKind) file.ReadByte();
-            Index = file.BaseStream.ReadLEB128Unsigned();
-        }
+    public WasmString Name = new(file);
+    public WasmExternalKind Kind = (WasmExternalKind) file.ReadByte();
+    public ulong Index = file.BaseStream.ReadLEB128Unsigned();
 }

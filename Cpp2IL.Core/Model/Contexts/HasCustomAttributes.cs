@@ -16,7 +16,8 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// A base class to represent any type which has, or can have, custom attributes.
 /// </summary>
-public abstract class HasCustomAttributes : HasToken
+public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext appContext)
+    : HasToken(token, appContext)
 {
     private bool _hasAnalyzedCustomAttributeData;
     
@@ -70,10 +71,6 @@ public abstract class HasCustomAttributes : HasToken
 
     
 #pragma warning disable CS8618 //Non-null member is not initialized.
-    protected HasCustomAttributes(uint token, ApplicationAnalysisContext appContext) : base(token, appContext)
-    {
-        
-    }
 #pragma warning restore CS8618
 
     protected void InitCustomAttributeData()

@@ -7,12 +7,12 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 /// <summary>
 /// A class which represents a managed custom attribute applied to some object (type, member, assembly).
 /// </summary>
-public class AnalyzedCustomAttribute
+public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
 {
     /// <summary>
     /// The constructor that is being used to create this custom attribute.
     /// </summary>
-    public readonly MethodAnalysisContext Constructor;
+    public readonly MethodAnalysisContext Constructor = constructor;
     
     /// <summary>
     /// Any arguments that are passed to the constructor.
@@ -40,11 +40,6 @@ public class AnalyzedCustomAttribute
     public bool IsSuitableForEmission => !HasAnyParameters || ConstructorParameters.Count == Constructor.ParameterCount;
 
     public bool AnyFieldsOrPropsSet => Fields.Count + Properties.Count > 0;
-
-    public AnalyzedCustomAttribute(MethodAnalysisContext constructor)
-    {
-        Constructor = constructor;
-    }
 
     public override string ToString()
     {

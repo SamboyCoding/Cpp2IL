@@ -6,16 +6,13 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// Represents any type which is just a wrapper with additional info around an element type.
 /// For example, pointers, byref types, arrays.
 /// </summary>
-public abstract class WrappedTypeAnalysisContext : ReferencedTypeAnalysisContext
+public abstract class WrappedTypeAnalysisContext(
+    TypeAnalysisContext elementType,
+    AssemblyAnalysisContext referencedFrom) : ReferencedTypeAnalysisContext(referencedFrom)
 {
-    public virtual TypeAnalysisContext ElementType { get; }
+    public virtual TypeAnalysisContext ElementType { get; } = elementType;
 
     public override string DefaultNs => ElementType.Namespace;
-
-    protected WrappedTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
-    {
-        ElementType = elementType;
-    }
 
     public static WrappedTypeAnalysisContext Create(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
     {

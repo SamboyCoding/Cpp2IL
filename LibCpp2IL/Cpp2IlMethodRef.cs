@@ -6,40 +6,33 @@ using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL;
 
-public class Cpp2IlMethodRef
+public class Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
 {
-    private readonly Il2CppMethodSpec _methodSpec;
-        
     public Il2CppTypeDefinition DeclaringType => BaseMethod.DeclaringType!;
-    public Il2CppTypeReflectionData[] TypeGenericParams => _methodSpec.GenericClassParams;
-    public Il2CppMethodDefinition BaseMethod => _methodSpec.MethodDefinition!;
-    public Il2CppTypeReflectionData[] MethodGenericParams => _methodSpec.GenericMethodParams;
+    public Il2CppTypeReflectionData[] TypeGenericParams => methodSpec.GenericClassParams;
+    public Il2CppMethodDefinition BaseMethod => methodSpec.MethodDefinition!;
+    public Il2CppTypeReflectionData[] MethodGenericParams => methodSpec.GenericMethodParams;
 
     public ulong GenericVariantPtr;
 
-    public Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
-    {
-        _methodSpec = methodSpec;
-            
-        // var declaringTypeGenericParams = Array.Empty<Il2CppTypeReflectionData>();
-        // if (methodSpec.classIndexIndex != -1)
-        // {
-        //     var classInst = methodSpec.GenericClassInst;
-        //     declaringTypeGenericParams = LibCpp2ILUtils.GetGenericTypeParams(classInst!)!;
-        // }
-        //
-        // var genericMethodParameters = Array.Empty<Il2CppTypeReflectionData>();
-        // if (methodSpec.methodIndexIndex != -1)
-        // {
-        //     var methodInst = methodSpec.GenericMethodInst;
-        //     genericMethodParameters = LibCpp2ILUtils.GetGenericTypeParams(methodInst!)!;
-        // }
-        //
-        // BaseMethod = methodSpec.MethodDefinition!;
-        // DeclaringType = methodSpec.MethodDefinition!.DeclaringType!;
-        // TypeGenericParams = declaringTypeGenericParams;
-        // MethodGenericParams = genericMethodParameters;
-    }
+    // var declaringTypeGenericParams = Array.Empty<Il2CppTypeReflectionData>();
+    // if (methodSpec.classIndexIndex != -1)
+    // {
+    //     var classInst = methodSpec.GenericClassInst;
+    //     declaringTypeGenericParams = LibCpp2ILUtils.GetGenericTypeParams(classInst!)!;
+    // }
+    //
+    // var genericMethodParameters = Array.Empty<Il2CppTypeReflectionData>();
+    // if (methodSpec.methodIndexIndex != -1)
+    // {
+    //     var methodInst = methodSpec.GenericMethodInst;
+    //     genericMethodParameters = LibCpp2ILUtils.GetGenericTypeParams(methodInst!)!;
+    // }
+    //
+    // BaseMethod = methodSpec.MethodDefinition!;
+    // DeclaringType = methodSpec.MethodDefinition!.DeclaringType!;
+    // TypeGenericParams = declaringTypeGenericParams;
+    // MethodGenericParams = genericMethodParameters;
 
     public override string ToString()
     {

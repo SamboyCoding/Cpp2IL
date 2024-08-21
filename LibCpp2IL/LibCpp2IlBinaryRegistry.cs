@@ -78,19 +78,15 @@ public static class LibCpp2IlBinaryRegistry
             return binary;
         }
 
-    private class RegisteredBinary
+    private class RegisteredBinary(
+        string name,
+        string source,
+        Func<byte[], bool> verificationFunc,
+        Func<MemoryStream, Il2CppBinary> factoryFunc)
     {
-        public string Name;
-        public string Source;
-        public Func<byte[], bool> IsValid;
-        public Func<MemoryStream, Il2CppBinary> FactoryFunc;
-
-        public RegisteredBinary(string name, string source, Func<byte[], bool> verificationFunc, Func<MemoryStream, Il2CppBinary> factoryFunc)
-        {
-                Source = source;
-                Name = name;
-                IsValid = verificationFunc;
-                FactoryFunc = factoryFunc;
-            }
+        public string Name = name;
+        public string Source = source;
+        public Func<byte[], bool> IsValid = verificationFunc;
+        public Func<MemoryStream, Il2CppBinary> FactoryFunc = factoryFunc;
     }
 }

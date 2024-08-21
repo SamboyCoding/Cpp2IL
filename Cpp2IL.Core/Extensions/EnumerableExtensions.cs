@@ -21,35 +21,21 @@ internal static class EnumerableExtensions
     
     public static MemoryEnumerator<T> GetEnumerator<T>(this Memory<T> memory) => new(memory);
 
-    public class MemoryEnumerable<T> : IEnumerable<T>
+    public class MemoryEnumerable<T>(Memory<T> memory) : IEnumerable<T>
     {
-        private readonly Memory<T> _memory;
-            
-        public MemoryEnumerable(Memory<T> memory)
-        {
-            _memory = memory;
-        }
-            
-        public IEnumerator<T> GetEnumerator() => new MemoryEnumerator<T>(_memory);
+        public IEnumerator<T> GetEnumerator() => new MemoryEnumerator<T>(memory);
 
         IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
     }
 
-    public class MemoryEnumerator<T> : IEnumerator<T>
+    public class MemoryEnumerator<T>(Memory<T> memory) : IEnumerator<T>
     {
-        private readonly Memory<T> _memory;
-            
         private int _index = -1;
-            
-        public MemoryEnumerator(Memory<T> memory)
-        {
-            _memory = memory;
-        }
-            
+
         public bool MoveNext()
         {
             _index++;
-            return _index < _memory.Length;
+            return _index < memory.Length;
         }
             
         public void Reset()
@@ -57,7 +43,7 @@ internal static class EnumerableExtensions
             _index = -1;
         }
             
-        public T Current => _memory.Span[_index];
+        public T Current => memory.Span[_index];
 
         object? IEnumerator.Current => Current;
             

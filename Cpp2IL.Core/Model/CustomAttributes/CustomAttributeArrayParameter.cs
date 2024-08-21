@@ -20,7 +20,8 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 ///
 /// Then read the ArrayElements list and output each one. Remember to type-prefix if ArrType is Object.
 /// </summary>
-public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
+public class CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index)
+    : BaseCustomAttributeParameter(owner, kind, index)
 {
     public bool IsNullArray;
     public Il2CppType? EnumType;
@@ -28,10 +29,6 @@ public class CustomAttributeArrayParameter : BaseCustomAttributeParameter
     public Il2CppTypeEnum ArrType;
 
     public List<BaseCustomAttributeParameter> ArrayElements = [];
-
-    public CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
-    {
-    }
 
     public override void ReadFromV29Blob(BinaryReader reader, ApplicationAnalysisContext context)
     {

@@ -250,14 +250,9 @@ public static class X86Utils
         return ret;
     }
 
-    private class EnumerableCodeReader : CodeReader
+    private class EnumerableCodeReader(IEnumerable<byte> bytes) : CodeReader
     {
-        private readonly IEnumerator<byte> _enumerator;
-
-        public EnumerableCodeReader(IEnumerable<byte> bytes)
-        {
-            _enumerator = bytes.GetEnumerator();
-        }
+        private readonly IEnumerator<byte> _enumerator = bytes.GetEnumerator();
 
         public override int ReadByte()
         {
