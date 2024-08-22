@@ -153,6 +153,9 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         if (name.Length >= 4 && name[^4] == '.' && name[^3] == 'd')
             //Trim .dll extension
             name = name[..^4];
+        else if (name.Length >= 6 && name[^6] == '.' && name[^5] == 'w')
+            //Trim .winmd extension
+            name = name[..^6];
 
         return AssembliesByName[name];
     }
