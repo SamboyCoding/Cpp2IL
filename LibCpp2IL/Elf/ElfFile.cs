@@ -535,7 +535,8 @@ public sealed class ElfFile : Il2CppBinary
                 if (!addSearchBytes.SequenceEqual(instructionBytes.Skip(0x10)))
                     continue;
 
-                //Check last three bytes of third instruction (so skip 9 bytes, read 3)      if (!ldrSearchBytes.SequenceEqual(instructionBytes.Skip(9).Take(3)))
+                //Check last three bytes of third instruction (so skip 9 bytes, read 3)
+                if (!ldrSearchBytes.SequenceEqual(instructionBytes.Skip(9).Take(3)))
                     continue;
 
                 //Take the 8th byte, which contains our 'x' value, which specifies where the codereg function is.
@@ -625,7 +626,8 @@ public sealed class ElfFile : Il2CppBinary
                 var func = MiniArm64Decompiler.ReadFunctionAtRawAddress(this, (uint)initializerPointer, 7);
 
                 //Don't accept anything longer than 7 instructions
-                //I.e. if it doesn't end with a jump we don't want it      if (!MiniArm64Decompiler.IsB(func[^1]))
+                //I.e. if it doesn't end with a jump we don't want it
+                if (!MiniArm64Decompiler.IsB(func[^1]))
                     continue;
 
                 var registers = MiniArm64Decompiler.GetAddressesLoadedIntoRegisters(func, (ulong) (_globalOffset + initializerPointer), this);
