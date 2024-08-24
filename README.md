@@ -1,6 +1,7 @@
 # Cpp2IL
 
 [![NuGet](https://img.shields.io/nuget/v/Samboy063.Cpp2IL.Core)](https://www.nuget.org/packages/Samboy063.Cpp2IL.Core/)
+[![Coverage Status](https://coveralls.io/repos/github/SamboyCoding/Cpp2IL/badge.svg?branch=development)](https://coveralls.io/github/SamboyCoding/Cpp2IL?branch=development)
 
 ### Need Help? Join [the discord](https://discord.gg/XdggT7XZXm)!
 
