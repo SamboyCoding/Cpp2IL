@@ -108,7 +108,7 @@ jobs:
       - name: Run Tests
         run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
       - name: Upload Coverage
-        uses: coverallsapp/github-action@2.3.0
+        uses: coverallsapp/github-action@v2.3.0
         with:
             github-token: ${{ secrets.GITHUB_TOKEN }}
             files: ./lcov.info
