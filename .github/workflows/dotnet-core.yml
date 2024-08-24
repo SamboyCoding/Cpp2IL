@@ -111,7 +111,7 @@ jobs:
         uses: coverallsapp/github-action@v2.3.0
         with:
             github-token: ${{ secrets.GITHUB_TOKEN }}
-            files: ./lcov.info
+            files: ./Cpp2IL.Core.Tests/lcov.info ./LibCpp2ILTests/lcov.info
       - name: Publish StableNameDotNet
         if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./StableNameDotNet/bin/Release/*.nupkg
