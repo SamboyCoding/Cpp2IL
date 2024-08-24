@@ -41,6 +41,7 @@ internal static class AccessibilityExtensions
                     }
                 }
             }
+
             return true;
         }
         else if (referenceType.DeclaringAssembly.Definition.IsDependencyOf(referencingType.DeclaringAssembly.Definition))
@@ -66,8 +67,10 @@ internal static class AccessibilityExtensions
                     }
                 }
             }
+
             return true;
         }
+
         return false;
     }
 
@@ -92,8 +95,10 @@ internal static class AccessibilityExtensions
             {
                 return index;
             }
+
             index++;
         }
+
         return -1;
     }
 
@@ -118,6 +123,7 @@ internal static class AccessibilityExtensions
                 return true;
             current = current.BaseType;
         }
+
         return false;
     }
 

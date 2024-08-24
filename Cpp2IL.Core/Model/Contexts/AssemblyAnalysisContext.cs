@@ -17,7 +17,7 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     /// The raw assembly metadata, such as its name, version, etc.
     /// </summary>
     public Il2CppAssemblyDefinition Definition;
-    
+
     /// <summary>
     /// The analysis context objects for all types contained within the assembly, including those nested within a parent type.
     /// </summary>
@@ -34,17 +34,17 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     /// Null prior to 24.2
     /// </summary>
     public Il2CppCodeGenModule? CodeGenModule;
-    
+
     protected override int CustomAttributeIndex => Definition.CustomAttributeIndex;
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => this;
 
-    public override string CustomAttributeOwnerName => Definition.AssemblyName.Name; 
+    public override string CustomAttributeOwnerName => Definition.AssemblyName.Name;
 
     private readonly Dictionary<string, TypeAnalysisContext> TypesByName = new();
-    
+
     private readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
-    
+
     /// <summary>
     /// Get assembly name without the extension and with any invalid path characters or elements removed.
     /// </summary>
@@ -53,12 +53,12 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
     {
         Definition = assemblyDefinition;
-        
+
         if (AppContext.MetadataVersion >= 24.2f)
             CodeGenModule = AppContext.Binary.GetCodegenModuleByName(Definition.Image.Name!);
-        
+
         InitCustomAttributeData();
-        
+
         foreach (var il2CppTypeDefinition in Definition.Image.Types!)
         {
             var typeContext = new TypeAnalysisContext(il2CppTypeDefinition, this);
@@ -69,9 +69,9 @@ public class AssemblyAnalysisContext : HasCustomAttributes
 
         foreach (var type in Types)
         {
-            if(type.Definition!.NestedTypeCount < 1)
+            if (type.Definition!.NestedTypeCount < 1)
                 continue;
-            
+
             type.NestedTypes = type.Definition.NestedTypes!.Select(n => GetTypeByFullName(n.FullName!) ?? throw new($"Unable to find nested type by name {n.FullName}"))
                 .Peek(t => t.DeclaringType = type)
                 .ToList();

@@ -13,14 +13,14 @@ public static class SharedState
 
     internal static void Clear()
     {
-            AsmResolverUtils.GenericParamsByIndexNew.Clear();
+        AsmResolverUtils.GenericParamsByIndexNew.Clear();
 
-            AsmResolverUtils.TypeDefsByIndex.Clear();
-            
-            TypeDefinitionsAsmResolver.Reset();
+        AsmResolverUtils.TypeDefsByIndex.Clear();
 
-            ConcreteImplementations.Clear();
+        TypeDefinitionsAsmResolver.Reset();
 
-            AttributeGeneratorStarts.Clear();
-        }
+        ConcreteImplementations.Clear();
+
+        AttributeGeneratorStarts.Clear();
+    }
 }

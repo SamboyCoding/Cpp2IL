@@ -24,16 +24,16 @@ public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvid
     {
         Definition = definition;
         DeclaringType = parent;
-        
+
         InitCustomAttributeData();
 
         Adder = parent.GetMethod(definition.Adder);
         Remover = parent.GetMethod(definition.Remover);
         Invoker = parent.GetMethod(definition.Invoker);
     }
-    
+
     public override string ToString() => $"Event: {Definition.DeclaringType!.Name}::{Definition.Name}";
-    
+
     #region StableNameDotNet Impl
 
     public ITypeInfoProvider EventTypeInfoProvider => Definition.RawType!.ThisOrElementIsGenericParam()

@@ -39,7 +39,7 @@ public abstract class Cpp2IlInstructionSet
     /// </summary>
     /// <returns>A subclass of <see cref="BaseKeyFunctionAddresses"/> specific to this instruction set</returns>
     public abstract BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance();
-    
+
     /// <summary>
     /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available. 
     /// </summary>

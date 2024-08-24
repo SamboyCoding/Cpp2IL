@@ -18,7 +18,7 @@ internal static class EnumerableExtensions
     }
 
     public static MemoryEnumerable<T> AsEnumerable<T>(this Memory<T> memory) => new(memory);
-    
+
     public static MemoryEnumerator<T> GetEnumerator<T>(this Memory<T> memory) => new(memory);
 
     public class MemoryEnumerable<T>(Memory<T> memory) : IEnumerable<T>
@@ -37,16 +37,16 @@ internal static class EnumerableExtensions
             _index++;
             return _index < memory.Length;
         }
-            
+
         public void Reset()
         {
             _index = -1;
         }
-            
+
         public T Current => memory.Span[_index];
 
         object? IEnumerator.Current => Current;
-            
+
         public void Dispose()
         {
             // Nothing to dispose

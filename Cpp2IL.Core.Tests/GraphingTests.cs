@@ -6,6 +6,7 @@ namespace Cpp2IL.Core.Tests;
 public class GraphingTests
 {
     ISILControlFlowGraph graph;
+
     [SetUp]
     public void Setup()
     {

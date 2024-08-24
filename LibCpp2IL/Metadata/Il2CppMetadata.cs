@@ -112,11 +112,12 @@ public class Il2CppMetadata : ClassReadingBinaryReader
                 actualVersion = 29.1f; //2022.1.0b7 introduces v29.1 which adds two new pointers to codereg
             else
                 actualVersion = 29; //2021.3.0 introduces v29
-        } else if (version == 31)
+        }
+        else if (version == 31)
         {
             //2022.3.33 introduces v31. Unity why would you bump this on a minor version.
             //Adds one new field (return type token) to method def
-            actualVersion = 31; 
+            actualVersion = 31;
         }
         else actualVersion = version;
 
@@ -297,7 +298,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     {
         //First things first, we're going to be moving the position around a lot, so we need to lock. 
         GetLockOrThrow();
-            
+
         Position = offset;
 
         try
@@ -307,8 +308,8 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             var first = ReadReadableHereNoLock<T>();
 
             //How many bytes did we read?
-            var elementSize = (int) (Position - offset);
-                
+            var elementSize = (int)(Position - offset);
+
             //For build report purposes, we track that many bytes. FillReadableArrayHereNoLock will add the rest.
             TrackRead<T>(elementSize);
 
@@ -321,7 +322,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
 
             //And finally, read the rest of the elements, starting at index 1.
             FillReadableArrayHereNoLock(arr, 1);
-                
+
             return arr;
         }
         finally
@@ -356,7 +357,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
         if (metadataUsageDic == null)
             //V27+
             return 0;
-            
+
         return metadataUsageDic.Max(x => x.Value.Max(y => y.Key)) + 1;
     }
 
@@ -385,7 +386,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     {
         var fieldDef = fieldDefs[fieldIdx];
         var fieldType = LibCpp2IlMain.Binary!.GetType(fieldDef.typeIndex);
-        if ((fieldType.Attrs & (int) FieldAttributes.HasFieldRVA) != 0)
+        if ((fieldType.Attrs & (int)FieldAttributes.HasFieldRVA) != 0)
         {
             var fieldDefault = GetFieldDefaultValueFromIndex(fieldIdx);
 
@@ -440,14 +441,14 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             return attributeTypeRanges[customAttributeIndex];
         }
 
-        var target = new Il2CppCustomAttributeTypeRange {token = token};
+        var target = new Il2CppCustomAttributeTypeRange { token = token };
 
         if (imageDef.customAttributeStart < 0)
             throw new("Image has customAttributeStart < 0");
         if (imageDef.customAttributeStart + imageDef.customAttributeCount > attributeTypeRanges.Count)
             throw new($"Image has customAttributeStart + customAttributeCount > attributeTypeRanges.Count ({imageDef.customAttributeStart + imageDef.customAttributeCount} > {attributeTypeRanges.Count})");
 
-        idx = attributeTypeRanges.BinarySearch(imageDef.customAttributeStart, (int) imageDef.customAttributeCount, target, new TokenComparer());
+        idx = attributeTypeRanges.BinarySearch(imageDef.customAttributeStart, (int)imageDef.customAttributeCount, target, new TokenComparer());
 
         return idx < 0 ? null : attributeTypeRanges[idx];
     }
@@ -455,7 +456,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     public string GetStringLiteralFromIndex(uint index)
     {
         var stringLiteral = stringLiterals[index];
-            
-        return Encoding.UTF8.GetString(ReadByteArrayAtRawAddress(metadataHeader.stringLiteralDataOffset + stringLiteral.dataIndex, (int) stringLiteral.length));
+
+        return Encoding.UTF8.GetString(ReadByteArrayAtRawAddress(metadataHeader.stringLiteralDataOffset + stringLiteral.dataIndex, (int)stringLiteral.length));
     }
 }

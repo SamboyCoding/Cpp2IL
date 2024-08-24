@@ -1,6 +1,7 @@
 namespace LibCpp2IL.Wasm;
 
-public enum WasmSectionId: byte {
+public enum WasmSectionId : byte
+{
     SEC_CUSTOM,
     SEC_TYPE,
     SEC_IMPORT,

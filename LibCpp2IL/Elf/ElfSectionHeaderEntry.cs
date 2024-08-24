@@ -17,15 +17,15 @@ public class ElfSectionHeaderEntry : ReadableClass
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            NameOffset = reader.ReadUInt32();
-            Type = (ElfSectionEntryType) reader.ReadUInt32();
-            Flags = (ElfSectionHeaderFlags) reader.ReadNInt();
-            VirtualAddress = reader.ReadNUint();
-            RawAddress = reader.ReadNUint();
-            Size = reader.ReadNUint();
-            LinkedSectionIndex = reader.ReadInt32();
-            SectionInfo = reader.ReadInt32();
-            Alignment = reader.ReadNInt();
-            EntrySize = reader.ReadNInt();
-        }
+        NameOffset = reader.ReadUInt32();
+        Type = (ElfSectionEntryType)reader.ReadUInt32();
+        Flags = (ElfSectionHeaderFlags)reader.ReadNInt();
+        VirtualAddress = reader.ReadNUint();
+        RawAddress = reader.ReadNUint();
+        Size = reader.ReadNUint();
+        LinkedSectionIndex = reader.ReadInt32();
+        SectionInfo = reader.ReadInt32();
+        Alignment = reader.ReadNInt();
+        EntrySize = reader.ReadNInt();
+    }
 }

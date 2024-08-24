@@ -34,7 +34,7 @@ public class SimpleConsoleLogger
     private static void WritePrelude(string level, string source)
     {
         var message = $"[{level}] [{source}] ";
-            
+
         Console.Write(message);
     }
 }

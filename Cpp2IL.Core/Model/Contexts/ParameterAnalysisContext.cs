@@ -47,7 +47,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// <summary>
     /// The ParameterAttributes of this parameter.
     /// </summary>
-    public ParameterAttributes ParameterAttributes => (ParameterAttributes) ParameterType.Attrs;
+    public ParameterAttributes ParameterAttributes => (ParameterAttributes)ParameterType.Attrs;
 
     /// <summary>
     /// True if this parameter is passed by reference.
@@ -83,14 +83,14 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         if (!AppContext.HasFinishedInitializing)
             //Cannot safely access ParameterTypeContext.Name if we haven't finished initializing as it may require doing system type lookups etc.
             return $"Parameter {Name} (ordinal {ParamIndex}) of {DeclaringMethod}";
-        
+
         var result = new StringBuilder();
 
         if (ParameterAttributes.HasFlag(ParameterAttributes.Out))
             result.Append("out ");
         else if (ParameterAttributes.HasFlag(ParameterAttributes.In))
             result.Append("in ");
-        else if(ParameterType.Byref == 1)
+        else if (ParameterType.Byref == 1)
             result.Append("ref ");
 
         result.Append(CsFileUtils.GetTypeName(ParameterTypeContext.Name)).Append(' ');
@@ -109,7 +109,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
                 defaultValue = boolDefaultValue.ToString().ToLowerInvariant();
             else if (defaultValue is null)
                 defaultValue = "null";
-            
+
             result.Append(" = ").Append(defaultValue);
         }
 
@@ -118,10 +118,10 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
     #region StableNameDotNet implementation
 
-    public ITypeInfoProvider ParameterTypeInfoProvider 
+    public ITypeInfoProvider ParameterTypeInfoProvider
         => Definition!.RawType!.ThisOrElementIsGenericParam()
-        ? new GenericParameterTypeInfoProviderWrapper(Definition.RawType!.GetGenericParamName())
-        : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition.RawType);
+            ? new GenericParameterTypeInfoProviderWrapper(Definition.RawType!.GetGenericParamName())
+            : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition.RawType);
 
     public string ParameterName => Name;
 

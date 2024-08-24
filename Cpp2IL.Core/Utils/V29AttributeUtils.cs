@@ -19,11 +19,11 @@ public static class V29AttributeUtils
         using var reader = new BinaryReader(stream, Encoding.UTF8, true);
         var indices = new uint[count];
 
-        for (var i = 0; i < count; i++) 
+        for (var i = 0; i < count; i++)
             indices[i] = reader.ReadUInt32();
-        
-        if(ClassReadingBinaryReader.EnableReadableSizeInformation)
-            context.Metadata.TrackRead<AnalyzedCustomAttribute>((int) (4 * count), trackIfFinishedReading: true);
+
+        if (ClassReadingBinaryReader.EnableReadableSizeInformation)
+            context.Metadata.TrackRead<AnalyzedCustomAttribute>((int)(4 * count), trackIfFinishedReading: true);
 
         return indices.Select(i => context.Metadata.methodDefs[i]).ToArray();
     }
@@ -37,14 +37,14 @@ public static class V29AttributeUtils
         var numCtorArgs = stream.ReadUnityCompressedUint();
         var numFields = stream.ReadUnityCompressedUint();
         var numProps = stream.ReadUnityCompressedUint();
-        
-        if(numCtorArgs + numFields + numProps == 0)
+
+        if (numCtorArgs + numFields + numProps == 0)
             return ret;
 
         using var reader = new BinaryReader(stream, Encoding.Unicode, true);
-        
+
         //Read constructor params
-        for (var i = 0; i < numCtorArgs; i++) 
+        for (var i = 0; i < numCtorArgs; i++)
             ret.ConstructorParameters.Add(ReadBlob(reader, context, ret, CustomAttributeParameterKind.ConstructorParam, i));
 
         //Read fields
@@ -53,7 +53,7 @@ public static class V29AttributeUtils
             var value = ReadBlob(reader, context, ret, CustomAttributeParameterKind.Field, i);
             var fieldIndex = stream.ReadUnityCompressedInt();
             var field = ResolveMemberFromIndex(stream, constructor, context, fieldIndex, t => t.Fields);
-            
+
             ret.Fields.Add(new(field, value));
         }
 
@@ -63,12 +63,12 @@ public static class V29AttributeUtils
             var value = ReadBlob(reader, context, ret, CustomAttributeParameterKind.Property, i);
             var propIndex = stream.ReadUnityCompressedInt();
             var property = ResolveMemberFromIndex(stream, constructor, context, propIndex, t => t.Properties);
-            
+
             ret.Properties.Add(new(property, value));
         }
-        
-        if(ClassReadingBinaryReader.EnableReadableSizeInformation)
-            context.Metadata.TrackRead<AnalyzedCustomAttribute>((int) (stream.Position - startPos), trackIfFinishedReading: true);
+
+        if (ClassReadingBinaryReader.EnableReadableSizeInformation)
+            context.Metadata.TrackRead<AnalyzedCustomAttribute>((int)(stream.Position - startPos), trackIfFinishedReading: true);
 
         return ret;
     }
@@ -99,7 +99,7 @@ public static class V29AttributeUtils
     private static BaseCustomAttributeParameter ReadBlob(BinaryReader reader, ApplicationAnalysisContext context, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index)
     {
         var ret = ReadTypeAndConstructParameter(reader, context, owner, kind, index);
-        
+
         ret.ReadFromV29Blob(reader, context);
 
         return ret;
@@ -107,7 +107,7 @@ public static class V29AttributeUtils
 
     private static BaseCustomAttributeParameter ReadTypeAndConstructParameter(BinaryReader reader, ApplicationAnalysisContext context, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index)
     {
-        var rawTypeEnum = (Il2CppTypeEnum) reader.ReadByte();
+        var rawTypeEnum = (Il2CppTypeEnum)reader.ReadByte();
 
         return ConstructParameterForType(reader, context, rawTypeEnum, owner, kind, index);
     }

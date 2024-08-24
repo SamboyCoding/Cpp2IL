@@ -24,13 +24,13 @@ public class ElfProgramHeaderEntry64 : ReadableClass, IElfProgramHeaderEntry
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            _internalType = (ElfProgramEntryType) reader.ReadUInt32();
-            _internalFlags = (ElfProgramHeaderFlags) reader.ReadUInt32();
-            _internalOffsetRaw = reader.ReadUInt64();
-            _internalVirtualAddr = reader.ReadUInt64();
-            _internalPhysicalAddr = reader.ReadUInt64();
-            _internalSizeRaw = reader.ReadUInt64();
-            _internalSizeVirtual = reader.ReadUInt64();
-            _internalAlign = reader.ReadInt64();
-        }
+        _internalType = (ElfProgramEntryType)reader.ReadUInt32();
+        _internalFlags = (ElfProgramHeaderFlags)reader.ReadUInt32();
+        _internalOffsetRaw = reader.ReadUInt64();
+        _internalVirtualAddr = reader.ReadUInt64();
+        _internalPhysicalAddr = reader.ReadUInt64();
+        _internalSizeRaw = reader.ReadUInt64();
+        _internalSizeVirtual = reader.ReadUInt64();
+        _internalAlign = reader.ReadInt64();
+    }
 }

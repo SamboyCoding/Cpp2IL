@@ -17,7 +17,7 @@ public readonly struct IsilVectorRegisterElementOperand(
     {
         return $"{RegisterName}.{Width}[{Index}]";
     }
-    
+
     public enum VectorElementWidth
     {
         B, //Byte

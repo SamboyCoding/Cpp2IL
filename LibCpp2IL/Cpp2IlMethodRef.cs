@@ -46,8 +46,8 @@ public class Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
             sb.Append("<").Append(string.Join(", ", TypeGenericParams.AsEnumerable())).Append(">");
 
         sb.Append(".").Append(BaseMethod.Name);
-            
-        if(MethodGenericParams.Length > 0)
+
+        if (MethodGenericParams.Length > 0)
             sb.Append("<").Append(string.Join(", ", MethodGenericParams.AsEnumerable())).Append(">");
 
         return sb.ToString();

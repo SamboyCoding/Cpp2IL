@@ -12,15 +12,15 @@ public class WasmFunctionBody
 
     public WasmFunctionBody(WasmFile file)
     {
-            BodySize = file.BaseStream.ReadLEB128Unsigned();
-            var bodyStartOffset = file.Position;
-            LocalCount = file.BaseStream.ReadLEB128Unsigned();
-            for (var i = 0UL; i < LocalCount; i++)
-            {
-                Locals.Add(new(file));
-            }
-
-            InstructionsOffset = file.Position;
-            Instructions = file.ReadByteArrayAtRawAddress(InstructionsOffset, (int) (bodyStartOffset + (long) BodySize - InstructionsOffset));
+        BodySize = file.BaseStream.ReadLEB128Unsigned();
+        var bodyStartOffset = file.Position;
+        LocalCount = file.BaseStream.ReadLEB128Unsigned();
+        for (var i = 0UL; i < LocalCount; i++)
+        {
+            Locals.Add(new(file));
         }
+
+        InstructionsOffset = file.Position;
+        Instructions = file.ReadByteArrayAtRawAddress(InstructionsOffset, (int)(bodyStartOffset + (long)BodySize - InstructionsOffset));
+    }
 }

@@ -6,7 +6,7 @@ public class WasmElementSegment
 {
     public byte Flags;
     public ElementSegmentMode Mode;
-        
+
     public ulong TableIdx;
     public ConstantExpression? Offset;
     public ulong Count;
@@ -32,7 +32,8 @@ public class WasmElementSegment
             //Active segment
             Mode = ElementSegmentMode.Active;
             Offset = new(file);
-        } else if ((Flags & 2) == 0)
+        }
+        else if ((Flags & 2) == 0)
             Mode = ElementSegmentMode.Passive;
         else
             Mode = ElementSegmentMode.Declarative;
@@ -50,7 +51,7 @@ public class WasmElementSegment
             if ((Flags & 4) == 0)
                 ElemKind = typeCode;
             else
-                ElemType = (WasmTypeEnum) typeCode;
+                ElemType = (WasmTypeEnum)typeCode;
         }
 
         Count = file.BaseStream.ReadLEB128Unsigned();
@@ -74,7 +75,7 @@ public class WasmElementSegment
             }
         }
     }
-        
+
     public enum ElementSegmentMode
     {
         Active,

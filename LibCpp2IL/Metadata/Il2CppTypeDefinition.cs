@@ -65,21 +65,21 @@ public class Il2CppTypeDefinition : ReadableClass
     public bool HasCctor => (Bitfield >> 3 & 0x1) == 1;
     public bool IsBlittable => (Bitfield >> 4 & 0x1) == 1;
     public bool IsImportOrWindowsRuntime => (Bitfield >> 5 & 0x1) == 1;
-    public uint PackingSize => ((Il2CppPackingSizeEnum) (Bitfield >> 6 & 0xF)).NumericalValue();
+    public uint PackingSize => ((Il2CppPackingSizeEnum)(Bitfield >> 6 & 0xF)).NumericalValue();
     public bool PackingSizeIsDefault => (Bitfield >> 10 & 0x1) == 1;
     public bool ClassSizeIsDefault => (Bitfield >> 11 & 0x1) == 1;
-    public uint SpecifiedPackingSize => ((Il2CppPackingSizeEnum) (Bitfield >> 12 & 0xF)).NumericalValue();
+    public uint SpecifiedPackingSize => ((Il2CppPackingSizeEnum)(Bitfield >> 12 & 0xF)).NumericalValue();
     public bool IsByRefLike => (Bitfield >> 16 & 0x1) == 1;
 
-    public TypeAttributes Attributes => (TypeAttributes) Flags;
+    public TypeAttributes Attributes => (TypeAttributes)Flags;
 
     public Il2CppTypeDefinitionSizes RawSizes
     {
         get
         {
-                var sizePtr = LibCpp2IlMain.Binary!.TypeDefinitionSizePointers[TypeIndex];
-                return LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppTypeDefinitionSizes>(sizePtr);
-            }
+            var sizePtr = LibCpp2IlMain.Binary!.TypeDefinitionSizePointers[TypeIndex];
+            return LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppTypeDefinitionSizes>(sizePtr);
+        }
     }
 
     public int Size => RawSizes.native_size;
@@ -88,25 +88,25 @@ public class Il2CppTypeDefinition : ReadableClass
     {
         get
         {
-                if (InterfaceOffsetsStart < 0) return [];
+            if (InterfaceOffsetsStart < 0) return [];
 
-                return LibCpp2IlMain.TheMetadata!.interfaceOffsets.SubArray(InterfaceOffsetsStart, InterfaceOffsetsCount);
-            }
+            return LibCpp2IlMain.TheMetadata!.interfaceOffsets.SubArray(InterfaceOffsetsStart, InterfaceOffsetsCount);
+        }
     }
 
     public MetadataUsage?[] VTable
     {
         get
         {
-                if (VtableStart < 0) return [];
+            if (VtableStart < 0) return [];
 
-                return LibCpp2IlMain.TheMetadata!.VTableMethodIndices.SubArray(VtableStart, VtableCount).Select(v => MetadataUsage.DecodeMetadataUsage(v, 0)).ToArray();
-            }
+            return LibCpp2IlMain.TheMetadata!.VTableMethodIndices.SubArray(VtableStart, VtableCount).Select(v => MetadataUsage.DecodeMetadataUsage(v, 0)).ToArray();
+        }
     }
 
     public int TypeIndex => LibCpp2IlReflection.GetTypeIndexFromType(this);
 
-    public bool IsAbstract => ((TypeAttributes) Flags & TypeAttributes.Abstract) != 0;
+    public bool IsAbstract => ((TypeAttributes)Flags & TypeAttributes.Abstract) != 0;
 
     public bool IsInterface => ((TypeAttributes)Flags & TypeAttributes.Interface) != 0;
 
@@ -116,15 +116,15 @@ public class Il2CppTypeDefinition : ReadableClass
     {
         get
         {
-                if (_cachedDeclaringAssembly == null)
-                {
-                    if (LibCpp2IlMain.TheMetadata == null) return null;
+            if (_cachedDeclaringAssembly == null)
+            {
+                if (LibCpp2IlMain.TheMetadata == null) return null;
 
-                    LibCpp2ILUtils.PopulateDeclaringAssemblyCache();
-                }
-
-                return _cachedDeclaringAssembly;
+                LibCpp2ILUtils.PopulateDeclaringAssemblyCache();
             }
+
+            return _cachedDeclaringAssembly;
+        }
         internal set => _cachedDeclaringAssembly = value;
     }
 
@@ -134,42 +134,42 @@ public class Il2CppTypeDefinition : ReadableClass
     {
         get
         {
-                if (LibCpp2IlMain.MetadataVersion < 24.2f)
-                {
-                    //No codegen modules here.
-                    return LibCpp2IlMain.TheMetadata!.RgctxDefinitions.Skip(RgctxStartIndex).Take(RgctxCount).ToArray();
-                }
-
-                var cgm = CodeGenModule;
-
-                if (cgm == null)
-                    return [];
-
-                var rangePair = cgm.RGCTXRanges.FirstOrDefault(r => r.token == Token);
-
-                if (rangePair == null)
-                    return [];
-
-                return LibCpp2IlMain.Binary!.GetRgctxDataForPair(cgm, rangePair);
+            if (LibCpp2IlMain.MetadataVersion < 24.2f)
+            {
+                //No codegen modules here.
+                return LibCpp2IlMain.TheMetadata!.RgctxDefinitions.Skip(RgctxStartIndex).Take(RgctxCount).ToArray();
             }
+
+            var cgm = CodeGenModule;
+
+            if (cgm == null)
+                return [];
+
+            var rangePair = cgm.RGCTXRanges.FirstOrDefault(r => r.token == Token);
+
+            if (rangePair == null)
+                return [];
+
+            return LibCpp2IlMain.Binary!.GetRgctxDataForPair(cgm, rangePair);
+        }
     }
 
     public ulong[] RgctxMethodPointers
     {
         get
         {
-                var index = LibCpp2IlMain.Binary!.GetCodegenModuleIndexByName(DeclaringAssembly!.Name!);
+            var index = LibCpp2IlMain.Binary!.GetCodegenModuleIndexByName(DeclaringAssembly!.Name!);
 
-                if (index < 0)
-                    return [];
+            if (index < 0)
+                return [];
 
-                var pointers = LibCpp2IlMain.Binary!.GetCodegenModuleMethodPointers(index);
+            var pointers = LibCpp2IlMain.Binary!.GetCodegenModuleMethodPointers(index);
 
-                return RgctXs
-                    .Where(r => r.type == Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_METHOD)
-                    .Select(r => pointers[r.MethodIndex])
-                    .ToArray();
-            }
+            return RgctXs
+                .Where(r => r.type == Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_METHOD)
+                .Select(r => pointers[r.MethodIndex])
+                .ToArray();
+        }
     }
 
     private string? _cachedNamespace;
@@ -178,11 +178,11 @@ public class Il2CppTypeDefinition : ReadableClass
     {
         get
         {
-                if (_cachedNamespace == null)
-                    _cachedNamespace = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(NamespaceIndex);
+            if (_cachedNamespace == null)
+                _cachedNamespace = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(NamespaceIndex);
 
-                return _cachedNamespace;
-            }
+            return _cachedNamespace;
+        }
     }
 
     private string? _cachedName;
@@ -191,25 +191,25 @@ public class Il2CppTypeDefinition : ReadableClass
     {
         get
         {
-                if (_cachedName == null)
-                    _cachedName = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(NameIndex);
+            if (_cachedName == null)
+                _cachedName = LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(NameIndex);
 
-                return _cachedName;
-            }
+            return _cachedName;
+        }
     }
 
     public string? FullName
     {
         get
         {
-                if (LibCpp2IlMain.TheMetadata == null)
-                    return null;
+            if (LibCpp2IlMain.TheMetadata == null)
+                return null;
 
-                if (DeclaringType != null)
-                    return $"{DeclaringType.FullName}/{Name}";
+            if (DeclaringType != null)
+                return $"{DeclaringType.FullName}/{Name}";
 
-                return $"{(string.IsNullOrEmpty(Namespace) ? "" : $"{Namespace}.")}{Name}";
-            }
+            return $"{(string.IsNullOrEmpty(Namespace) ? "" : $"{Namespace}.")}{Name}";
+        }
     }
 
     public Il2CppType? RawBaseType => ParentIndex == -1 ? null : LibCpp2IlMain.Binary!.GetType(ParentIndex);
@@ -220,24 +220,24 @@ public class Il2CppTypeDefinition : ReadableClass
     {
         get
         {
-                if (LibCpp2IlMain.TheMetadata == null)
-                    return null;
+            if (LibCpp2IlMain.TheMetadata == null)
+                return null;
 
-                if (FirstFieldIdx < 0 || FieldCount == 0)
-                    return [];
+            if (FirstFieldIdx < 0 || FieldCount == 0)
+                return [];
 
-                var ret = new Il2CppFieldDefinition[FieldCount];
+            var ret = new Il2CppFieldDefinition[FieldCount];
 
-                Array.Copy(LibCpp2IlMain.TheMetadata.fieldDefs, FirstFieldIdx, ret, 0, FieldCount);
+            Array.Copy(LibCpp2IlMain.TheMetadata.fieldDefs, FirstFieldIdx, ret, 0, FieldCount);
 
-                return ret;
-            }
+            return ret;
+        }
     }
 
     public FieldAttributes[]? FieldAttributes => Fields?
         .Select(f => f.typeIndex)
         .Select(idx => LibCpp2IlMain.Binary!.GetType(idx))
-        .Select(t => (FieldAttributes) t.Attrs)
+        .Select(t => (FieldAttributes)t.Attrs)
         .ToArray();
 
     public object?[]? FieldDefaults => Fields?
@@ -250,67 +250,67 @@ public class Il2CppTypeDefinition : ReadableClass
     {
         get
         {
-                var fields = Fields;
-                var attributes = FieldAttributes;
-                var defaults = FieldDefaults;
+            var fields = Fields;
+            var attributes = FieldAttributes;
+            var defaults = FieldDefaults;
 
-                if (fields == null || attributes == null || defaults == null)
-                    return null;
+            if (fields == null || attributes == null || defaults == null)
+                return null;
 
-                var ret = new Il2CppFieldReflectionData[FieldCount];
-                for (var i = 0; i < FieldCount; i++)
-                {
-                    ret[i] = new(
-                        fields[i],
-                        attributes![i],
-                        defaults![i],
-                        i,
-                        LibCpp2IlMain.Binary!.GetFieldOffsetFromIndex(TypeIndex, i, fields[i].FieldIndex, IsValueType, attributes[i].HasFlag(System.Reflection.FieldAttributes.Static))
-                    );
-                }
-
-                return ret;
+            var ret = new Il2CppFieldReflectionData[FieldCount];
+            for (var i = 0; i < FieldCount; i++)
+            {
+                ret[i] = new(
+                    fields[i],
+                    attributes![i],
+                    defaults![i],
+                    i,
+                    LibCpp2IlMain.Binary!.GetFieldOffsetFromIndex(TypeIndex, i, fields[i].FieldIndex, IsValueType, attributes[i].HasFlag(System.Reflection.FieldAttributes.Static))
+                );
             }
+
+            return ret;
+        }
     }
 
     public Il2CppMethodDefinition[]? Methods
     {
         get
         {
-                if (LibCpp2IlMain.TheMetadata == null)
-                    return null;
+            if (LibCpp2IlMain.TheMetadata == null)
+                return null;
 
-                if (FirstMethodIdx < 0 || MethodCount == 0)
-                    return [];
+            if (FirstMethodIdx < 0 || MethodCount == 0)
+                return [];
 
-                var ret = new Il2CppMethodDefinition[MethodCount];
+            var ret = new Il2CppMethodDefinition[MethodCount];
 
-                Array.Copy(LibCpp2IlMain.TheMetadata.methodDefs, FirstMethodIdx, ret, 0, MethodCount);
+            Array.Copy(LibCpp2IlMain.TheMetadata.methodDefs, FirstMethodIdx, ret, 0, MethodCount);
 
-                return ret;
-            }
+            return ret;
+        }
     }
 
     public Il2CppPropertyDefinition[]? Properties
     {
         get
         {
-                if (LibCpp2IlMain.TheMetadata == null)
-                    return null;
+            if (LibCpp2IlMain.TheMetadata == null)
+                return null;
 
-                if (FirstPropertyId < 0 || PropertyCount == 0)
-                    return [];
+            if (FirstPropertyId < 0 || PropertyCount == 0)
+                return [];
 
-                var ret = new Il2CppPropertyDefinition[PropertyCount];
+            var ret = new Il2CppPropertyDefinition[PropertyCount];
 
-                Array.Copy(LibCpp2IlMain.TheMetadata.propertyDefs, FirstPropertyId, ret, 0, PropertyCount);
+            Array.Copy(LibCpp2IlMain.TheMetadata.propertyDefs, FirstPropertyId, ret, 0, PropertyCount);
 
-                return ret.Select(p =>
-                {
-                    p.DeclaringType = this;
-                    return p;
-                }).ToArray();
-            }
+            return ret.Select(p =>
+            {
+                p.DeclaringType = this;
+                return p;
+            }).ToArray();
+        }
     }
 
     public Il2CppEventDefinition[]? Events => LibCpp2IlMain.TheMetadata == null
@@ -345,57 +345,57 @@ public class Il2CppTypeDefinition : ReadableClass
 
     public override string? ToString()
     {
-            if (LibCpp2IlMain.TheMetadata == null) 
-                return base.ToString();
+        if (LibCpp2IlMain.TheMetadata == null)
+            return base.ToString();
 
-            return $"Il2CppTypeDefinition[namespace='{Namespace}', name='{Name}', parentType={BaseType?.ToString() ?? "null"}, assembly={DeclaringAssembly}]";
-        }
+        return $"Il2CppTypeDefinition[namespace='{Namespace}', name='{Name}', parentType={BaseType?.ToString() ?? "null"}, assembly={DeclaringAssembly}]";
+    }
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            NameIndex = reader.ReadInt32();
-            NamespaceIndex = reader.ReadInt32();
+        NameIndex = reader.ReadInt32();
+        NamespaceIndex = reader.ReadInt32();
 
-            if (IsAtMost(24f))
-                CustomAttributeIndex = reader.ReadInt32();
+        if (IsAtMost(24f))
+            CustomAttributeIndex = reader.ReadInt32();
 
-            ByvalTypeIndex = reader.ReadInt32();
+        ByvalTypeIndex = reader.ReadInt32();
 
-            if (IsLessThan(27f))
-                ByrefTypeIndex = reader.ReadInt32();
+        if (IsLessThan(27f))
+            ByrefTypeIndex = reader.ReadInt32();
 
-            DeclaringTypeIndex = reader.ReadInt32();
-            ParentIndex = reader.ReadInt32();
-            ElementTypeIndex = reader.ReadInt32();
+        DeclaringTypeIndex = reader.ReadInt32();
+        ParentIndex = reader.ReadInt32();
+        ElementTypeIndex = reader.ReadInt32();
 
-            if (IsAtMost(24.15f))
-            {
-                RgctxStartIndex = reader.ReadInt32();
-                RgctxCount = reader.ReadInt32();
-            }
-
-            GenericContainerIndex = reader.ReadInt32();
-            Flags = reader.ReadUInt32();
-
-            FirstFieldIdx = reader.ReadInt32();
-            FirstMethodIdx = reader.ReadInt32();
-            FirstEventId = reader.ReadInt32();
-            FirstPropertyId = reader.ReadInt32();
-            NestedTypesStart = reader.ReadInt32();
-            InterfacesStart = reader.ReadInt32();
-            VtableStart = reader.ReadInt32();
-            InterfaceOffsetsStart = reader.ReadInt32();
-
-            MethodCount = reader.ReadUInt16();
-            PropertyCount = reader.ReadUInt16();
-            FieldCount = reader.ReadUInt16();
-            EventCount = reader.ReadUInt16();
-            NestedTypeCount = reader.ReadUInt16();
-            VtableCount = reader.ReadUInt16();
-            InterfacesCount = reader.ReadUInt16();
-            InterfaceOffsetsCount = reader.ReadUInt16();
-
-            Bitfield = reader.ReadUInt32();
-            Token = reader.ReadUInt32();
+        if (IsAtMost(24.15f))
+        {
+            RgctxStartIndex = reader.ReadInt32();
+            RgctxCount = reader.ReadInt32();
         }
+
+        GenericContainerIndex = reader.ReadInt32();
+        Flags = reader.ReadUInt32();
+
+        FirstFieldIdx = reader.ReadInt32();
+        FirstMethodIdx = reader.ReadInt32();
+        FirstEventId = reader.ReadInt32();
+        FirstPropertyId = reader.ReadInt32();
+        NestedTypesStart = reader.ReadInt32();
+        InterfacesStart = reader.ReadInt32();
+        VtableStart = reader.ReadInt32();
+        InterfaceOffsetsStart = reader.ReadInt32();
+
+        MethodCount = reader.ReadUInt16();
+        PropertyCount = reader.ReadUInt16();
+        FieldCount = reader.ReadUInt16();
+        EventCount = reader.ReadUInt16();
+        NestedTypeCount = reader.ReadUInt16();
+        VtableCount = reader.ReadUInt16();
+        InterfacesCount = reader.ReadUInt16();
+        InterfaceOffsetsCount = reader.ReadUInt16();
+
+        Bitfield = reader.ReadUInt32();
+        Token = reader.ReadUInt32();
+    }
 }

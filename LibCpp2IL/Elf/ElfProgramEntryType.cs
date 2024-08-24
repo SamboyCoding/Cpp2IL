@@ -1,6 +1,6 @@
 ﻿namespace LibCpp2IL.Elf;
 
-public enum ElfProgramEntryType: uint
+public enum ElfProgramEntryType : uint
 {
     PT_NONE = 0,
     PT_LOAD = 1,

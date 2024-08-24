@@ -12,61 +12,61 @@ internal static class GenericInstantiation
         switch (type)
         {
             case GenericParameterTypeAnalysisContext genericParameterTypeAnalysisContext:
+            {
+                var index = genericParameterTypeAnalysisContext.Index;
+                return genericParameterTypeAnalysisContext.Type switch
                 {
-                    var index = genericParameterTypeAnalysisContext.Index;
-                    return genericParameterTypeAnalysisContext.Type switch
-                    {
-                        Il2CppTypeEnum.IL2CPP_TYPE_VAR => genericTypeParameters[index],
-                        _ => genericMethodParameters[index],
-                    };
-                }
+                    Il2CppTypeEnum.IL2CPP_TYPE_VAR => genericTypeParameters[index],
+                    _ => genericMethodParameters[index],
+                };
+            }
             case SzArrayTypeAnalysisContext szArrayTypeAnalysisContext:
-                {
-                    var elementType = Instantiate(szArrayTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
-                    return elementType == szArrayTypeAnalysisContext.ElementType
-                        ? szArrayTypeAnalysisContext
-                        : new SzArrayTypeAnalysisContext(elementType, szArrayTypeAnalysisContext.DeclaringAssembly);
-                }
+            {
+                var elementType = Instantiate(szArrayTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
+                return elementType == szArrayTypeAnalysisContext.ElementType
+                    ? szArrayTypeAnalysisContext
+                    : new SzArrayTypeAnalysisContext(elementType, szArrayTypeAnalysisContext.DeclaringAssembly);
+            }
             case ArrayTypeAnalysisContext arrayTypeAnalysisContext:
-                {
-                    var elementType = Instantiate(arrayTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
-                    return elementType == arrayTypeAnalysisContext.ElementType
-                        ? arrayTypeAnalysisContext
-                        : new ArrayTypeAnalysisContext(elementType, arrayTypeAnalysisContext.Rank, arrayTypeAnalysisContext.DeclaringAssembly);
-                }
+            {
+                var elementType = Instantiate(arrayTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
+                return elementType == arrayTypeAnalysisContext.ElementType
+                    ? arrayTypeAnalysisContext
+                    : new ArrayTypeAnalysisContext(elementType, arrayTypeAnalysisContext.Rank, arrayTypeAnalysisContext.DeclaringAssembly);
+            }
             case ByRefTypeAnalysisContext byReferenceTypeAnalysisContext:
-                {
-                    var elementType = Instantiate(byReferenceTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
-                    return elementType == byReferenceTypeAnalysisContext.ElementType
-                        ? byReferenceTypeAnalysisContext
-                        : new ByRefTypeAnalysisContext(elementType, byReferenceTypeAnalysisContext.DeclaringAssembly);
-                }
+            {
+                var elementType = Instantiate(byReferenceTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
+                return elementType == byReferenceTypeAnalysisContext.ElementType
+                    ? byReferenceTypeAnalysisContext
+                    : new ByRefTypeAnalysisContext(elementType, byReferenceTypeAnalysisContext.DeclaringAssembly);
+            }
             case PointerTypeAnalysisContext pointerTypeAnalysisContext:
-                {
-                    var elementType = Instantiate(pointerTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
-                    return elementType == pointerTypeAnalysisContext.ElementType
-                        ? pointerTypeAnalysisContext
-                        : new PointerTypeAnalysisContext(elementType, pointerTypeAnalysisContext.DeclaringAssembly);
-                }
+            {
+                var elementType = Instantiate(pointerTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
+                return elementType == pointerTypeAnalysisContext.ElementType
+                    ? pointerTypeAnalysisContext
+                    : new PointerTypeAnalysisContext(elementType, pointerTypeAnalysisContext.DeclaringAssembly);
+            }
             case GenericInstanceTypeAnalysisContext genericInstanceTypeAnalysisContext:
+            {
+                var genericType = Instantiate(genericInstanceTypeAnalysisContext.GenericType, genericTypeParameters, genericMethodParameters);
+
+                var createNew = genericType != genericInstanceTypeAnalysisContext.GenericType;
+
+                var genericArguments = new TypeAnalysisContext[genericInstanceTypeAnalysisContext.GenericArguments.Count];
+                for (var i = 0; i < genericInstanceTypeAnalysisContext.GenericArguments.Count; i++)
                 {
-                    var genericType = Instantiate(genericInstanceTypeAnalysisContext.GenericType, genericTypeParameters, genericMethodParameters);
-
-                    var createNew = genericType != genericInstanceTypeAnalysisContext.GenericType;
-
-                    var genericArguments = new TypeAnalysisContext[genericInstanceTypeAnalysisContext.GenericArguments.Count];
-                    for (var i = 0; i < genericInstanceTypeAnalysisContext.GenericArguments.Count; i++)
-                    {
-                        var genericArgument = genericInstanceTypeAnalysisContext.GenericArguments[i];
-                        var instantiatedGenericArgument = Instantiate(genericArgument, genericTypeParameters, genericMethodParameters);
-                        genericArguments[i] = instantiatedGenericArgument;
-                        createNew |= instantiatedGenericArgument != genericArgument;
-                    }
-
-                    return createNew
-                        ? new GenericInstanceTypeAnalysisContext(genericType, genericArguments, genericInstanceTypeAnalysisContext.DeclaringAssembly)
-                        : genericInstanceTypeAnalysisContext;
+                    var genericArgument = genericInstanceTypeAnalysisContext.GenericArguments[i];
+                    var instantiatedGenericArgument = Instantiate(genericArgument, genericTypeParameters, genericMethodParameters);
+                    genericArguments[i] = instantiatedGenericArgument;
+                    createNew |= instantiatedGenericArgument != genericArgument;
                 }
+
+                return createNew
+                    ? new GenericInstanceTypeAnalysisContext(genericType, genericArguments, genericInstanceTypeAnalysisContext.DeclaringAssembly)
+                    : genericInstanceTypeAnalysisContext;
+            }
             default:
                 return type;
         }

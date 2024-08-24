@@ -15,10 +15,10 @@ public class Il2CppFieldRef : ReadableClass
     public Il2CppTypeDefinition? DeclaringTypeDefinition => LibCpp2IlMain.TheMetadata?.typeDefs[DeclaringType!.Data.ClassIndex];
 
     public Il2CppFieldDefinition? FieldDefinition => LibCpp2IlMain.TheMetadata?.fieldDefs[DeclaringTypeDefinition!.FirstFieldIdx + fieldIndex];
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
-            typeIndex = reader.ReadInt32();
-            fieldIndex = reader.ReadInt32();
-        }
+        typeIndex = reader.ReadInt32();
+        fieldIndex = reader.ReadInt32();
+    }
 }

@@ -20,24 +20,24 @@ public class Il2CppGenericContainer : ReadableClass
     {
         get
         {
-                if(genericParameterCount == 0)
-                    yield break;
-                
-                var end = genericParameterStart + genericParameterCount;
-                for (var i = genericParameterStart; i < end; i++)
-                {
-                    var p = LibCpp2IlMain.TheMetadata!.genericParameters[i];
-                    p.Index = i;
-                    yield return p;
-                }
+            if (genericParameterCount == 0)
+                yield break;
+
+            var end = genericParameterStart + genericParameterCount;
+            for (var i = genericParameterStart; i < end; i++)
+            {
+                var p = LibCpp2IlMain.TheMetadata!.genericParameters[i];
+                p.Index = i;
+                yield return p;
             }
+        }
     }
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            ownerIndex = reader.ReadInt32();
-            genericParameterCount = reader.ReadInt32();
-            isGenericMethod = reader.ReadInt32();
-            genericParameterStart = reader.ReadInt32();
-        }
+        ownerIndex = reader.ReadInt32();
+        genericParameterCount = reader.ReadInt32();
+        isGenericMethod = reader.ReadInt32();
+        genericParameterStart = reader.ReadInt32();
+    }
 }

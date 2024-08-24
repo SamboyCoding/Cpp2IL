@@ -24,7 +24,7 @@ public static class TypeDefinitionsAsmResolver
     public static TypeDefinition Double;
     public static TypeDefinition IntPtr;
     public static TypeDefinition UIntPtr;
-        
+
     public static TypeDefinition Object;
     public static TypeDefinition IConvertible;
     public static TypeDefinition ValueType;
@@ -43,7 +43,7 @@ public static class TypeDefinitionsAsmResolver
     public static void Reset()
     {
         _primitiveTypeMappings.Clear();
-            
+
         Boolean = null!;
         SByte = null!;
         Byte = null!;
@@ -58,7 +58,7 @@ public static class TypeDefinitionsAsmResolver
         Double = null!;
         IntPtr = null!;
         UIntPtr = null!;
-            
+
         Object = null!;
         IConvertible = null!;
         ValueType = null!;
@@ -81,7 +81,7 @@ public static class TypeDefinitionsAsmResolver
 
         return null;
     }
-        
+
     public static void CacheNeededTypeDefinitions()
     {
         Object = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Object")!;
@@ -112,7 +112,7 @@ public static class TypeDefinitionsAsmResolver
         TypedReference = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.TypedReference")!;
         IConvertible = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!;
         MethodInfo = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.MethodInfo")!;
-            
+
 
         _primitiveTypeMappings = new Dictionary<string, TypeDefinition>
         {

@@ -9,7 +9,7 @@ namespace Cpp2IL.Core.Api;
 public abstract class Cpp2IlPlugin
 {
     protected readonly PluginLogger Logger;
-    
+
     private readonly List<string> temporaryFilePaths = [];
 
     protected Cpp2IlPlugin()
@@ -24,16 +24,16 @@ public abstract class Cpp2IlPlugin
         temporaryFilePaths.Add(ret);
         return ret;
     }
-    
+
     public abstract string Name { get; }
     public abstract string Description { get; }
-    
+
     public abstract void OnLoad();
 
-    protected void RegisterBinaryFormat<T>(string name, Func<byte[], bool> isValid, Func<MemoryStream, T> factory) where T : Il2CppBinary => 
+    protected void RegisterBinaryFormat<T>(string name, Func<byte[], bool> isValid, Func<MemoryStream, T> factory) where T : Il2CppBinary =>
         LibCpp2IlBinaryRegistry.Register(name, Name, isValid, factory);
-    
-    protected void RegisterBinaryRegistrationFuncFallbackHandler(Il2CppBinary.RegistrationStructLocationFailureHandler handler) => 
+
+    protected void RegisterBinaryRegistrationFuncFallbackHandler(Il2CppBinary.RegistrationStructLocationFailureHandler handler) =>
         Il2CppBinary.OnRegistrationStructLocationFailure += handler;
 
     /// <summary>
@@ -51,6 +51,7 @@ public abstract class Cpp2IlPlugin
         {
             File.Delete(file);
         }
+
         OnFinish();
     }
 
@@ -59,6 +60,5 @@ public abstract class Cpp2IlPlugin
     /// </summary>
     protected virtual void OnFinish()
     {
-        
     }
 }

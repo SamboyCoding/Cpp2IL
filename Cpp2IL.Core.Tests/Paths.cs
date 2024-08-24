@@ -1,4 +1,5 @@
 namespace Cpp2IL.Core.Tests;
+
 public static class Paths
 {
     public const string TestProjectDirectory = "../../../";

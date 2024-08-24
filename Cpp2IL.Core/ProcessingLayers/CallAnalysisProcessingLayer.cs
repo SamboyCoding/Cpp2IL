@@ -16,6 +16,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 {
     public override string Name => "Call Analyzer";
     public override string Id => "callanalyzer";
+
     /// <summary>
     /// We don't want 1000 attributes on a single method
     /// </summary>
@@ -76,6 +77,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     {
                         AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
                     }
+
                     continue;
                 }
 
@@ -95,6 +97,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     {
                         continue;
                     }
+
                     if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand && operand.Value is not string)
                     {
                         var address = operand.Value.ToUInt64(null);
@@ -126,8 +129,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     }
                 }
             }
-            
-            if(Cpp2IlApi.LowMemoryMode)
+
+            if (Cpp2IlApi.LowMemoryMode)
                 GC.Collect();
         }
 
@@ -161,17 +164,19 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         AddAttribute(callsAttributeInfo, m, calledMethod);
                     }
                 }
+
                 if (deduplicatedCalls.TryGetValue(m, out var deduplicatedCallCount))
                 {
                     AttributeInjectionUtils.AddOneParameterAttribute(m, callsDeduplicatedMethodsAttributeInfo, deduplicatedCallCount);
                 }
+
                 if (unknownCallCount > 0)
                 {
                     AttributeInjectionUtils.AddOneParameterAttribute(m, callsUnknownMethodsAttributeInfo, unknownCallCount);
                 }
             }
-            
-            if(Cpp2IlApi.LowMemoryMode)
+
+            if (Cpp2IlApi.LowMemoryMode)
                 GC.Collect();
         }
     }
@@ -258,7 +263,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         TypeAnalysisContext? returnType;
         if (targetMethod is NativeMethodAnalysisContext)
         {
-            returnType = null;//Native methods don't have identifiable return types.
+            returnType = null; //Native methods don't have identifiable return types.
         }
         else if (targetMethod.InjectedReturnType is not null)
         {
@@ -276,6 +281,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         {
             returnType = targetMethod.ReturnTypeContext;
         }
+
         if (returnType is not null)
         {
             if (returnType.IsAccessibleTo(annotatedMethod.DeclaringType!) && !returnType.HasAnyGenericParameters())
@@ -295,7 +301,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         AttributeInjectionUtils.AddAttribute(
             annotatedMethod,
             callsAttributeInfo.Item1,
-            ((IEnumerable<(FieldAnalysisContext, object)>)[typeField, memberField])
+            ((IEnumerable<(FieldAnalysisContext, object)>) [typeField, memberField])
             .MaybeAppend(typeParametersField)
             .MaybeAppend(parametersField)
             .MaybeAppend(returnTypeField));
@@ -382,6 +388,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
             list = [];
             dictionary.Add(key, list);
         }
+
         list.Add(value);
     }
 }

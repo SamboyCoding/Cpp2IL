@@ -15,12 +15,17 @@ public static class StableNameGenerator
     public static Regex? ObfuscatedNameRegex;
 
     public static readonly ConcurrentDictionary<ITypeInfoProvider, string> RenamedTypes = new();
-    
-    private static readonly string[] ClassAccessNames = ["Private", "Public", "NPublic", "NPrivate", "NProtected", "NInternal", "NFamAndAssem", "NFamOrAssem"
+
+    private static readonly string[] ClassAccessNames =
+    [
+        "Private", "Public", "NPublic", "NPrivate", "NProtected", "NInternal", "NFamAndAssem", "NFamOrAssem"
     ];
-    
-    private static readonly string[] MemberAccessTypeLabels = ["CompilerControlled", "Private", "FamAndAssem", "Internal", "Protected", "FamOrAssem", "Public"
+
+    private static readonly string[] MemberAccessTypeLabels =
+    [
+        "CompilerControlled", "Private", "FamAndAssem", "Internal", "Protected", "FamOrAssem", "Public"
     ];
+
     private static readonly (MethodSemantics, string)[] SemanticsToCheck =
     [
         (MethodSemantics.Setter, "_set"),
@@ -52,7 +57,7 @@ public static class StableNameGenerator
 
         var classifier = type.TypeAttributes.HasFlag(TypeAttributes.Interface) ? "Interface" : type.IsValueType ? "Struct" : "Class";
         var unobfuscatedInterfaces = type.Interfaces.Where(i => !IsObfuscated(i.OriginalTypeName)).ToList();
-        var accessName = ClassAccessNames[(int) (type.TypeAttributes & TypeAttributes.VisibilityMask)];
+        var accessName = ClassAccessNames[(int)(type.TypeAttributes & TypeAttributes.VisibilityMask)];
 
         var nameBuilder = new StringBuilder();
 
@@ -132,17 +137,17 @@ public static class StableNameGenerator
             {
                 uniqueNameGenerator.PushInput(methodInfoProvider.MethodName);
                 uniqueNameGenerator.PushInputs(methodInfoProvider.ReturnType.FormatTypeNameForType());
-                
+
                 foreach (var parameterInfoProvider in methodInfoProvider.ParameterInfoProviders)
                 {
                     uniqueNameGenerator.PushInput(parameterInfoProvider.ParameterName);
                     uniqueNameGenerator.PushInputs(parameterInfoProvider.ParameterTypeInfoProvider.FormatTypeNameForType());
-                    
-                    if(uniqueNameGenerator.IsFull)
+
+                    if (uniqueNameGenerator.IsFull)
                         break;
                 }
-                
-                if(uniqueNameGenerator.IsFull)
+
+                if (uniqueNameGenerator.IsFull)
                     break;
             }
         }
@@ -150,7 +155,7 @@ public static class StableNameGenerator
         nameBuilder.Append(uniqueNameGenerator.GenerateUniqueName());
 
         if (type.GenericParameterCount > 0)
-            if(type.OriginalTypeName.Contains('`') || type.DeclaringTypeInfoProvider == null || type.DeclaringTypeInfoProvider?.GenericParameterCount != type.GenericParameterCount)
+            if (type.OriginalTypeName.Contains('`') || type.DeclaringTypeInfoProvider == null || type.DeclaringTypeInfoProvider?.GenericParameterCount != type.GenericParameterCount)
                 nameBuilder.Append('`').Append(type.GenericParameterCount);
 
         return nameBuilder.ToString();
@@ -188,23 +193,23 @@ public static class StableNameGenerator
         foreach (var (semantic, str) in SemanticsToCheck)
             if (semantics.HasFlag(semantic))
                 nameBuilder.Append(str);
-        
+
         //Return type
         nameBuilder.Append('_');
         nameBuilder.Append(method.ReturnType.FormatTypeNameForMember());
-        
+
         //Params
         foreach (var parameterInfoProvider in method.ParameterInfoProviders)
         {
             nameBuilder.Append('_');
             nameBuilder.Append(parameterInfoProvider.ParameterTypeInfoProvider.FormatTypeNameForMember());
         }
-        
+
         //TODO _PDM suffix
-        
+
         return nameBuilder.ToString();
     }
-    
+
     public static string? GetStableNameForFieldIfNeeded(IFieldInfoProvider field)
     {
         return IsObfuscated(field.FieldName) ? GetStableNameForField(field) : null;
@@ -215,15 +220,15 @@ public static class StableNameGenerator
         //Field_ prefix
         var nameBuilder = new StringBuilder();
         nameBuilder.Append("field_");
-        
+
         //Accessibility
         var attribs = field.FieldAttributes;
         nameBuilder.Append(MemberAccessTypeLabels[(int)(attribs & FieldAttributes.FieldAccessMask)]);
-        
+
         //Any other keywords
         if (attribs.HasFlag(FieldAttributes.Static))
             nameBuilder.Append("_Static");
-        
+
         //Type
         nameBuilder.Append('_');
         nameBuilder.Append(field.FieldTypeInfoProvider.FormatTypeNameForMember());
@@ -241,10 +246,10 @@ public static class StableNameGenerator
         //prop_ prefix
         var nameBuilder = new StringBuilder();
         nameBuilder.Append("prop_");
-        
+
         //Type
         nameBuilder.Append(property.PropertyTypeInfoProvider.FormatTypeNameForMember());
-        
+
         return nameBuilder.ToString();
     }
 
@@ -258,10 +263,10 @@ public static class StableNameGenerator
         //event_ prefix
         var nameBuilder = new StringBuilder();
         nameBuilder.Append("event_");
-        
+
         //Type
         nameBuilder.Append(evt.EventTypeInfoProvider.FormatTypeNameForMember());
-        
+
         return nameBuilder.ToString();
     }
 
@@ -283,11 +288,7 @@ public static class StableNameGenerator
                 typeName = typeName.Substring(0, i);
 
             var genericArgs = type.GenericArgumentInfoProviders.ToList();
-            var ret = new List<string>
-            {
-                typeName,
-                genericArgs.Count.ToString()
-            };
+            var ret = new List<string> { typeName, genericArgs.Count.ToString() };
 
             ret.AddRange(genericArgs.SelectMany(FormatTypeNameForType));
 
@@ -340,7 +341,7 @@ public static class StableNameGenerator
     private static string NameOrRename(this ITypeInfoProvider typeName)
     {
         if (RenamedTypes.TryGetValue(typeName, out var rename))
-            return (rename.StableHash() % (ulong) Math.Pow(10, UniqueIdentifierGenerator.NumCharsToTakeFromEachInput)).ToString();
+            return (rename.StableHash() % (ulong)Math.Pow(10, UniqueIdentifierGenerator.NumCharsToTakeFromEachInput)).ToString();
 
         return typeName.OriginalTypeName;
     }

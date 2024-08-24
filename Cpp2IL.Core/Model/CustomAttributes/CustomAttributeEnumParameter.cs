@@ -26,10 +26,10 @@ public class CustomAttributeEnumParameter : BaseCustomAttributeParameter
     {
         var enumTypeDef = EnumType.AsClass();
         var matchingField = enumTypeDef.Fields?.FirstOrDefault(f => Equals(f.DefaultValue?.Value, UnderlyingPrimitiveParameter.PrimitiveValue));
-        
-        if(matchingField != null)
+
+        if (matchingField != null)
             return $"{enumTypeDef.Name}::{matchingField.Name} ({UnderlyingPrimitiveParameter.PrimitiveValue})";
-        
+
         return UnderlyingPrimitiveParameter.ToString();
     }
 }

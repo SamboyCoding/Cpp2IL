@@ -26,7 +26,7 @@ public class WasmMappingOutputFormat : Cpp2IlOutputFormat
         foreach (var assemblyAnalysisContext in context.Assemblies)
         {
             output.Append("// ").Append(assemblyAnalysisContext.Definition.AssemblyName.Name).Append(".dll").AppendLine().AppendLine();
-            
+
             foreach (var typeAnalysisContext in assemblyAnalysisContext.Types)
             foreach (var methodAnalysisContext in typeAnalysisContext.Methods)
             {

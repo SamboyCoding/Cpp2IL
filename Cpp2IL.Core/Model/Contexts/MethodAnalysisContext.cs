@@ -150,7 +150,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
             }
         }
     }
-    
+
     public void ReleaseAnalysisData()
     {
         ConvertedIsil = null;
@@ -196,7 +196,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
                         return MethodSemantics.Fire;
                 }
             }
-            
+
             return 0;
         }
     }

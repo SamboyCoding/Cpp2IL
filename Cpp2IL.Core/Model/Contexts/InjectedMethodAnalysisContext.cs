@@ -18,12 +18,12 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
         InjectedReturnType = returnType;
         IsStatic = isStatic;
         Attributes = attributes;
-        
+
         for (var i = 0; i < injectedParameterTypes.Length; i++)
         {
             var injectedParameterType = injectedParameterTypes[i];
             var injectedParameterName = injectedParameterNames?[i];
-            
+
             Parameters.Add(new InjectedParameterAnalysisContext(injectedParameterName, injectedParameterType, this));
         }
     }

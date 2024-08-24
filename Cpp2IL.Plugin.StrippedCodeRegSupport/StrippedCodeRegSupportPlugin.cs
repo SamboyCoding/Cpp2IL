@@ -5,16 +5,17 @@ using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
-[assembly:RegisterCpp2IlPlugin(typeof(StrippedCodeRegSupportPlugin))]
+[assembly: RegisterCpp2IlPlugin(typeof(StrippedCodeRegSupportPlugin))]
 
 namespace Cpp2IL.Plugin.StrippedCodeRegSupport;
 
 public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
 {
     private const float MinSupportedMetadataVersion = 27f;
-    
+
     public override string Name => "Stripped CodeReg Support";
     public override string Description => "Aims to help support games with CodeRegistration structs that have been inlined away by the compiler.";
+
     public override void OnLoad()
     {
         RegisterBinaryRegistrationFuncFallbackHandler(OnReadFail);
@@ -25,7 +26,7 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
         if (codereg != null)
             //We already have a CodeRegistration, so we don't need to do anything.
             return;
-        
+
         //We don't have a CodeRegistration, so we need to try and find one.
         Logger.InfoNewline("Received read failure for CodeRegistration, implying it may have been stripped. Attempting to work around...");
 
@@ -38,7 +39,7 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
         //All we NEED to find is pCodegenModules - the rest of the CodeRegistration struct isn't critical to a successful dump.
         //We can piggyback off BinarySearcher:
         var searcher = new BinarySearcher(binary, metadata.methodDefs.Length, metadata.typeDefs.Length);
-        
+
         var mscorlibs = searcher.FindAllStrings("mscorlib.dll\0").Select(binary.MapRawAddressToVirtual).ToList();
 
         Logger.VerboseNewline($"Found {mscorlibs.Count} occurrences of mscorlib.dll: [{string.Join(", ", mscorlibs.Select(p => p.ToString("X")))}]");
@@ -49,15 +50,15 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
 
         //This gives us the address of the CodeGenModule struct for mscorlib.dll, which is *somewhere* in the CodeGenModules list - near the end, but rarely AT the end.
         var pMscorlibCodegenEntryInCodegenModulesList = searcher.FindAllMappedWords(pMscorlibCodegenModule).ToList(); //CodeGenModules list address will be in here
-        
-        var moduleCount = (ulong) metadata.AssemblyDefinitions.Length;
+
+        var moduleCount = (ulong)metadata.AssemblyDefinitions.Length;
 
         for (var i = 0; i < pMscorlibCodegenEntryInCodegenModulesList.Count; i++)
         {
             var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList[i];
 
             var startOfCodegenModulesList = FindCodeGenModulesListFromMscorlib(binary, pSomewhereInCodegenModules, moduleCount, out var endOfCodegenModulesList);
-            
+
             //Try to read the first entry as a codegen module pointer.
             var firstModulePtr = binary.ReadPointerAtVirtualAddress(startOfCodegenModulesList);
             if (firstModulePtr == 0)
@@ -65,13 +66,13 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
                 Logger.VerboseNewline($"Found start of CodeGenModules list at 0x{startOfCodegenModulesList:X}, but first entry is null. Continuing search...");
                 continue;
             }
-            
+
             //Now try to read that as a CGM
             Il2CppCodeGenModule? firstModule = null;
             try
             {
                 firstModule = binary.ReadReadableAtVirtualAddress<Il2CppCodeGenModule>(firstModulePtr);
-                if (firstModule?.Name is not {} name || string.IsNullOrWhiteSpace(name) || name.Any(c => !char.IsAscii(c)))
+                if (firstModule?.Name is not { } name || string.IsNullOrWhiteSpace(name) || name.Any(c => !char.IsAscii(c)))
                 {
                     Logger.VerboseNewline($"Discarding CodeGenModules list at 0x{startOfCodegenModulesList:X} because first module name is invalid.");
                     continue;
@@ -87,7 +88,7 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
 
             //Now we can return a dummy CodeRegistration struct with the correct values.
             codereg = new() { codeGenModulesCount = (uint)moduleCount, addrCodeGenModulePtrs = startOfCodegenModulesList };
-            
+
             return;
         }
     }

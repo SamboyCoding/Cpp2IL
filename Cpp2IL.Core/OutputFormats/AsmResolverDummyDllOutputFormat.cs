@@ -178,9 +178,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
         var ourAssembly = new AssemblyDefinition(assemblyNameString, version)
         {
-            HashAlgorithm = (AssemblyHashAlgorithm)assemblyDefinition.AssemblyName.hash_alg,
-            Attributes = (AssemblyAttributes)assemblyDefinition.AssemblyName.flags,
-            Culture = assemblyDefinition.AssemblyName.Culture,
+            HashAlgorithm = (AssemblyHashAlgorithm)assemblyDefinition.AssemblyName.hash_alg, Attributes = (AssemblyAttributes)assemblyDefinition.AssemblyName.flags, Culture = assemblyDefinition.AssemblyName.Culture,
             //TODO find a way to set hash? or not needed
         };
 
@@ -188,7 +186,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         var moduleName = imageDefinition.Name;
         if (moduleName == "__Generated")
             moduleName += ".dll"; //__Generated doesn't have a .dll extension in the metadata but it is still of course a DLL
-        
+
         var managedModule = new ModuleDefinition(moduleName, new(corLib ?? ourAssembly)) //Use either ourself as corlib, if we are corlib, otherwise the provided one
         {
             MetadataResolver = metadataResolver
@@ -207,16 +205,16 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
             //We *are* the corlib, so cache defs now
             TypeDefinitionsAsmResolver.CacheNeededTypeDefinitions();
         }
-        
+
         //We can get issues with consumers of the API if the base type is not set correctly for value types or enums, so we set it here (as early as possible) if we can
         foreach (var assemblyContextType in assemblyContext.Types)
         {
-            if(assemblyContextType.Definition is not {} def || assemblyContextType.GetExtraData<TypeDefinition>("AsmResolverType") is not {} asmResolverType)
+            if (assemblyContextType.Definition is not { } def || assemblyContextType.GetExtraData<TypeDefinition>("AsmResolverType") is not { } asmResolverType)
                 continue;
-            
-            if(def.IsValueType)
+
+            if (def.IsValueType)
                 asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.ValueType);
-            else if(def.IsEnumType)
+            else if (def.IsEnumType)
                 asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.Enum);
         }
 

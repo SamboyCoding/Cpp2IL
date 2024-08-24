@@ -9,7 +9,7 @@ public class AttributeAnalysisProcessingLayer : Cpp2IlProcessingLayer
 {
     public override string Name => "CustomAttribute Analyzer";
     public override string Id => "attributeanalyzer";
-    
+
     public override void Process(ApplicationAnalysisContext appContext, Action<int, int>? progressCallback = null)
     {
         var total = appContext.Assemblies.Count + appContext.AllTypes.Select(t => 1 + t.Events.Count + t.Fields.Count + t.Methods.Count + t.Properties.Count).Sum();

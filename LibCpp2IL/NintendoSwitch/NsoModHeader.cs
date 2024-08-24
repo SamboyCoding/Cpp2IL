@@ -8,6 +8,6 @@ public class NsoModHeader
     public uint BssEnd;
     public uint EhFrameHdrStart;
     public uint EhFrameHdrEnd;
-        
+
     public NsoSegmentHeader BssSegment = null!;
 }

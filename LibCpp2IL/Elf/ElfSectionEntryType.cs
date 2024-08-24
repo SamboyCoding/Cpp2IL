@@ -1,6 +1,6 @@
 ﻿namespace LibCpp2IL.Elf;
 
-public enum ElfSectionEntryType: uint
+public enum ElfSectionEntryType : uint
 {
     SHT_NONE = 0,
     SHT_PROGBITS = 1,

@@ -26,7 +26,7 @@ public enum ElfDynamicType : long
     DT_BIND_NOW = 0x18,
     DT_INIT_ARRAY = 0x19,
     DT_FINI_ARRAY = 0x1A,
-    DT_INIT_ARRAYSZ =  0x1B,
+    DT_INIT_ARRAYSZ = 0x1B,
     DT_FINI_ARRAYSZ = 0x1C,
     DT_RUNPATH = 0x1D,
     DT_FLAGS = 0x1E,

@@ -6,7 +6,7 @@ public class WasmElementSection : WasmSection
 {
     public ulong ElementCount;
     public readonly List<WasmElementSegment> Elements = [];
-        
+
     internal WasmElementSection(WasmSectionId type, long pointer, ulong size, WasmFile file) : base(type, pointer, size)
     {
         ElementCount = file.BaseStream.ReadLEB128Unsigned();

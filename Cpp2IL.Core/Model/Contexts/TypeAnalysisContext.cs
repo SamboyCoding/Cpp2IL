@@ -81,7 +81,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         {
             if (DeclaringType != null)
                 return DeclaringType.FullName + "." + Name;
-            
+
             if (string.IsNullOrEmpty(Namespace))
                 return Name;
 
@@ -101,7 +101,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
             return string.IsNullOrEmpty(ns) ? "" : Path.Combine(ns.Split('.'));
         }
     }
-    
+
     /// <summary>
     /// Returns the top-level type this type is nested inside. If this type is not nested, will return this type.
     /// </summary>
@@ -148,9 +148,9 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
             return Definition.FullName!;
 
         var ret = new StringBuilder();
-        if(OverrideNs != null)
+        if (OverrideNs != null)
             ret.Append(OverrideNs).Append('.');
-        
+
         ret.Append(Name);
 
         return ret.ToString();

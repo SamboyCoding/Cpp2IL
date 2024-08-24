@@ -42,39 +42,40 @@ public static class MiscExtensions
 
     public static bool IsConditionalMove(this Instruction instruction)
     {
-            switch (instruction.Mnemonic)
-            {
-                case Mnemonic.Cmove:
-                case Mnemonic.Cmovne:
-                case Mnemonic.Cmovs:
-                case Mnemonic.Cmovns:
-                case Mnemonic.Cmovg:
-                case Mnemonic.Cmovge:
-                case Mnemonic.Cmovl:
-                case Mnemonic.Cmovle:
-                case Mnemonic.Cmova:
-                case Mnemonic.Cmovae:
-                case Mnemonic.Cmovb:
-                case Mnemonic.Cmovbe:
-                    return true;
-                default:
-                    return false;
-            }
+        switch (instruction.Mnemonic)
+        {
+            case Mnemonic.Cmove:
+            case Mnemonic.Cmovne:
+            case Mnemonic.Cmovs:
+            case Mnemonic.Cmovns:
+            case Mnemonic.Cmovg:
+            case Mnemonic.Cmovge:
+            case Mnemonic.Cmovl:
+            case Mnemonic.Cmovle:
+            case Mnemonic.Cmova:
+            case Mnemonic.Cmovae:
+            case Mnemonic.Cmovb:
+            case Mnemonic.Cmovbe:
+                return true;
+            default:
+                return false;
         }
+    }
+
     public static Stack<T> Clone<T>(this Stack<T> original)
     {
-            var arr = new T[original.Count];
-            original.CopyTo(arr, 0);
-            Array.Reverse(arr);
-            return new Stack<T>(arr);
-        }
+        var arr = new T[original.Count];
+        original.CopyTo(arr, 0);
+        Array.Reverse(arr);
+        return new Stack<T>(arr);
+    }
 
     public static List<T> Clone<T>(this List<T> original)
     {
-            var arr = new T[original.Count];
-            original.CopyTo(arr, 0);
-            return [..arr];
-        }
+        var arr = new T[original.Count];
+        original.CopyTo(arr, 0);
+        return [..arr];
+    }
 
     public static Dictionary<T1, T2> Clone<T1, T2>(this Dictionary<T1, T2> original) where T1 : notnull
         => new(original);
@@ -83,100 +84,100 @@ public static class MiscExtensions
 
     public static T RemoveAndReturn<T>(this List<T> data, int index)
     {
-            var result = data[index];
-            data.RemoveAt(index);
-            return result;
-        }
+        var result = data[index];
+        data.RemoveAt(index);
+        return result;
+    }
 
     public static IEnumerable<T> Repeat<T>(this T t, int count)
     {
-            for (int i = 0; i < count; i++)
-            {
-                yield return t;
-            }
+        for (int i = 0; i < count; i++)
+        {
+            yield return t;
         }
+    }
 
     public static string Repeat(this string source, int count)
     {
-            var res = new StringBuilder();
-            for (var i = 0; i < count; i++)
-            {
-                res.Append(source);
-            }
-
-            return res.ToString();
+        var res = new StringBuilder();
+        for (var i = 0; i < count; i++)
+        {
+            res.Append(source);
         }
+
+        return res.ToString();
+    }
 
     internal static T[] SubArray<T>(this T[] source, Range range)
     {
-            if (!range.Start.IsFromEnd && !range.End.IsFromEnd)
-                if (range.Start.Value > range.End.Value)
-                    throw new Exception($"Range {range} - Start must be less than end, when both are fixed offsets");
+        if (!range.Start.IsFromEnd && !range.End.IsFromEnd)
+            if (range.Start.Value > range.End.Value)
+                throw new Exception($"Range {range} - Start must be less than end, when both are fixed offsets");
 
-            var (offset, len) = range.GetOffsetAndLength(source.Length);
-            var dest = new T[len];
+        var (offset, len) = range.GetOffsetAndLength(source.Length);
+        var dest = new T[len];
 
-            Array.Copy(source, offset, dest, 0, len);
+        Array.Copy(source, offset, dest, 0, len);
 
-            return dest;
-        }
+        return dest;
+    }
 
     public static T? GetValueSafely<T>(this T[] arr, int i) where T : class
     {
-            if (i >= arr.Length)
-                return null;
+        if (i >= arr.Length)
+            return null;
 
-            return arr[i];
-        }
+        return arr[i];
+    }
 
     public static bool IsImmediate(this OpKind opKind) => opKind is >= OpKind.Immediate8 and <= OpKind.Immediate32to64;
 
 
     public static void TrimEndWhile<T>(this List<T> instructions, Func<T, bool> predicate)
     {
-            var i = instructions.Count - 1;
-            for (; i >= 0; i--)
+        var i = instructions.Count - 1;
+        for (; i >= 0; i--)
+        {
+            if (!predicate(instructions[i]))
             {
-                if (!predicate(instructions[i]))
-                {
-                    break;
-                }
+                break;
             }
-
-            var toRemove = instructions.Count - 1 - i;
-
-            if (toRemove <= 0)
-                return;
-
-            instructions.RemoveRange(i, toRemove);
         }
+
+        var toRemove = instructions.Count - 1 - i;
+
+        if (toRemove <= 0)
+            return;
+
+        instructions.RemoveRange(i, toRemove);
+    }
 
     public static IEnumerable<T> Peek<T>(this IEnumerable<T> enumerable, Action<T> action)
     {
-            return enumerable.Select(t =>
-            {
-                action(t);
-                return t;
-            });
-        }
-        
+        return enumerable.Select(t =>
+        {
+            action(t);
+            return t;
+        });
+    }
+
     public static unsafe uint ReadUInt(this Span<byte> span, int start)
     {
-            if (start >= span.Length)
-                throw new ArgumentOutOfRangeException(nameof(start), $"start=[{start}], mem.Length=[{span.Length}]");
-            fixed (byte* ptr = &span[start])
-                return *(uint*)ptr;
-        }
+        if (start >= span.Length)
+            throw new ArgumentOutOfRangeException(nameof(start), $"start=[{start}], mem.Length=[{span.Length}]");
+        fixed (byte* ptr = &span[start])
+            return *(uint*)ptr;
+    }
 
     public static bool BitsAreEqual(this BitArray first, BitArray second)
     {
-            if (first.Count != second.Count)
-                return false;
-            
-            bool areDifferent = false;
-            for (int i = 0; i < first.Count && !areDifferent; i++)
-                areDifferent =  first.Get(i) != second.Get(i);
+        if (first.Count != second.Count)
+            return false;
 
-            return !areDifferent;
-        }
+        bool areDifferent = false;
+        for (int i = 0; i < first.Count && !areDifferent; i++)
+            areDifferent = first.Get(i) != second.Get(i);
+
+        return !areDifferent;
+    }
 }

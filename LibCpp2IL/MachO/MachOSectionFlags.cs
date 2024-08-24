@@ -9,7 +9,7 @@ public enum MachOSectionFlags : uint
     ATTRIBUTES_BITMASK = 0xFFFFF00,
     USER_ATTRIBUTES_BITMASK = 0xFF000000, //User-set attributes
     SYSTEM_ATTRIBUTES_BITMASK = 0x00FFFF00, //System-set attributes
-        
+
     TYPE_REGULAR = 0x0,
     TYPE_ZEROFILL = 0x1, //Zero-fill on demand
     TYPE_CSTRING_LITERALS = 0x2, //Only literal C strings
@@ -33,7 +33,7 @@ public enum MachOSectionFlags : uint
     TYPE_THREAD_LOCAL_VARIABLE_POINTERS = 0x14, // Pointers to thread local variable descriptors
     TYPE_THREAD_LOCAL_INIT_FUNCTION_POINTERS = 0x15, // Pointers functions to call to initialize TLV values
     TYPE_INIT_FUNC_OFFSETS = 0x16, // 32-bit offsets to initialization functions
-        
+
     ATTR_PURE_INSTRUCTIONS = 0x80000000, // Section contains only true machine instructions
     ATTR_NO_TOC = 0x40000000, // Section contains coalesced symbols that are not to be in a ranlib table of contents
     ATTR_STRIP_STATIC_SYMS = 0x20000000, // Ok to strip static symbols in this section in files with the MH_DYLDLINK flag
@@ -41,7 +41,7 @@ public enum MachOSectionFlags : uint
     ATTR_LIVE_SUPPORT = 0x08000000, // Blocks are live if they reference live blocks
     ATTR_SELF_MODIFYING_CODE = 0x04000000, // Used with i386 code stubs written on by dyld
     ATTR_DEBUG = 0x02000000, // A debug section
-        
+
     ATTR_SOME_INSTRUCTIONS = 0x00000400, // Section contains some machine instructions
     ATTR_EXT_RELOC = 0x00000200, // Section has external relocation entries
     ATTR_LOC_RELOC = 0x00000100, // Section has local relocation entries

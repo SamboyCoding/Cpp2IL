@@ -13,7 +13,7 @@ public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
     /// The constructor that is being used to create this custom attribute.
     /// </summary>
     public readonly MethodAnalysisContext Constructor = constructor;
-    
+
     /// <summary>
     /// Any arguments that are passed to the constructor.
     /// </summary>
@@ -23,7 +23,7 @@ public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
     /// Any fields that are set on the custom attribute.
     /// </summary>
     public readonly List<CustomAttributeField> Fields = [];
-    
+
     /// <summary>
     /// Any properties that are set on the custom attribute.
     /// </summary>
@@ -48,9 +48,9 @@ public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
         var attributeTypeName = Constructor.DeclaringType!.Name!;
 
         const string suffix = "Attribute";
-        if(attributeTypeName.EndsWith(suffix))
+        if (attributeTypeName.EndsWith(suffix))
             attributeTypeName = attributeTypeName[..^suffix.Length];
-        
+
         sb.Append(attributeTypeName);
 
         if (HasAnyParameters || AnyFieldsOrPropsSet)
@@ -62,12 +62,12 @@ public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
         if (ConstructorParameters.Count + Fields.Count + Properties.Count > 0)
         {
             var needComma = false;
-            
+
             foreach (var param in ConstructorParameters)
             {
                 if (needComma)
                     sb.Append(", ");
-                
+
                 sb.Append(param);
                 needComma = true;
             }
@@ -76,20 +76,19 @@ public class AnalyzedCustomAttribute(MethodAnalysisContext constructor)
             {
                 if (needComma)
                     sb.Append(", ");
-                
+
                 sb.Append(field);
                 needComma = true;
             }
-            
-            foreach(var prop in Properties)
+
+            foreach (var prop in Properties)
             {
                 if (needComma)
                     sb.Append(", ");
-                
+
                 sb.Append(prop);
                 needComma = true;
             }
-
         }
 
         if (HasAnyParameters || AnyFieldsOrPropsSet)

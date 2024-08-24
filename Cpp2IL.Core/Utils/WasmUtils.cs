@@ -18,15 +18,15 @@ public static class WasmUtils
     public static string BuildSignature(Il2CppMethodDefinition definition)
     {
         var instanceParam = definition.IsStatic ? "" : "i";
-            
+
         //Something still off about p/invoke functions. They do have methodinfo args, but something is wrong somewhere.
-            
+
         return $"{GetSignatureLetter(definition.ReturnType!)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.Type, p.IsRefOrOut)))}i"; //Add an extra i on the end for the method info param
     }
 
     private static char GetSignatureLetter(Il2CppTypeReflectionData type, bool isRefOrOut = false)
     {
-        if(isRefOrOut)
+        if (isRefOrOut)
             //ref/out params are passed as pointers 
             return 'i';
 
@@ -48,10 +48,10 @@ public static class WasmUtils
 
     public static string GetGhidraFunctionName(WasmFunctionDefinition functionDefinition)
     {
-        var index = functionDefinition.IsImport 
-            ? ((WasmFile) LibCpp2IlMain.Binary!).FunctionTable.IndexOf(functionDefinition) 
+        var index = functionDefinition.IsImport
+            ? ((WasmFile)LibCpp2IlMain.Binary!).FunctionTable.IndexOf(functionDefinition)
             : functionDefinition.FunctionTableIndex;
-            
+
         return $"unnamed_function_{index}";
     }
 
@@ -73,7 +73,7 @@ public static class WasmUtils
         var signature = BuildSignature(definition);
         try
         {
-            return ((WasmFile) LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(definition.MethodPointer, signature);
+            return ((WasmFile)LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(definition.MethodPointer, signature);
         }
         catch (Exception e)
         {
@@ -90,7 +90,7 @@ public static class WasmUtils
             try
             {
                 var wasmDef = GetWasmDefinition(methodDefinition);
-                var index = ((WasmFile) LibCpp2IlMain.Binary!).FunctionTable.IndexOf(wasmDef);
+                var index = ((WasmFile)LibCpp2IlMain.Binary!).FunctionTable.IndexOf(wasmDef);
 
                 if (!MethodDefinitionIndices.TryGetValue(index, out var mDefs))
                     MethodDefinitionIndices[index] = mDefs = [];
@@ -106,7 +106,7 @@ public static class WasmUtils
 
     public static List<Il2CppMethodDefinition>? GetMethodDefinitionsAtIndex(int index)
     {
-        if(MethodDefinitionIndices.Count == 0)
+        if (MethodDefinitionIndices.Count == 0)
             CalculateAllMethodDefinitionIndices();
 
         if (MethodDefinitionIndices.TryGetValue(index, out var methodDefinitions))
@@ -124,7 +124,7 @@ public static class WasmUtils
             return (dynCall_viffiiii = Module["dynCall_viffiiii"] = Module["asm"]["Wo"]).apply(null, arguments)
          }
         */
-            
+
         var ret = new Dictionary<string, string>();
         var matches = DynCallRemappingRegex.Matches(frameworkJsFile);
         foreach (Match match in matches)
@@ -133,7 +133,7 @@ public static class WasmUtils
             //Group 2 is the remapped name, e.g Wo
             var origName = match.Groups[1];
             var remappedName = match.Groups[2];
-                
+
             ret[remappedName.Value] = origName.Value;
         }
 

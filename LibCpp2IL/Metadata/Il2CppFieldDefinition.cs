@@ -22,47 +22,47 @@ public class Il2CppFieldDefinition : ReadableClass
 
     public override string? ToString()
     {
-            if (LibCpp2IlMain.TheMetadata == null) 
-                return base.ToString();
+        if (LibCpp2IlMain.TheMetadata == null)
+            return base.ToString();
 
-            return $"Il2CppFieldDefinition[Name={Name}, FieldType={FieldType}]";
-        }
+        return $"Il2CppFieldDefinition[Name={Name}, FieldType={FieldType}]";
+    }
 
     public byte[] StaticArrayInitialValue
     {
         get
         {
-                if (FieldType is not {isArray: false, isPointer: false, isType: true, isGenericType: false})
-                    return [];
+            if (FieldType is not { isArray: false, isPointer: false, isType: true, isGenericType: false })
+                return [];
 
-                if (FieldType.baseType!.Name?.StartsWith("__StaticArrayInitTypeSize=") != true)
-                    return [];
+            if (FieldType.baseType!.Name?.StartsWith("__StaticArrayInitTypeSize=") != true)
+                return [];
 
-                var length = int.Parse(FieldType.baseType!.Name.Replace("__StaticArrayInitTypeSize=", ""));
-                var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(FieldIndex);
+            var length = int.Parse(FieldType.baseType!.Name.Replace("__StaticArrayInitTypeSize=", ""));
+            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(FieldIndex);
 
-                var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
+            var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
 
-                if (pointer <= 0) return [];
+            if (pointer <= 0) return [];
 
-                var results = LibCpp2IlMain.TheMetadata.ReadByteArrayAtRawAddress(pointer, length);
+            var results = LibCpp2IlMain.TheMetadata.ReadByteArrayAtRawAddress(pointer, length);
 
-                return results;
-            }
+            return results;
+        }
     }
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            nameIndex = reader.ReadInt32();
+        nameIndex = reader.ReadInt32();
 
-            //Cache name now
-            var pos = reader.Position;
-            Name = ((Il2CppMetadata) reader).ReadStringFromIndexNoReadLock(nameIndex);
-            reader.Position = pos;
+        //Cache name now
+        var pos = reader.Position;
+        Name = ((Il2CppMetadata)reader).ReadStringFromIndexNoReadLock(nameIndex);
+        reader.Position = pos;
 
-            typeIndex = reader.ReadInt32();
-            if (IsAtMost(24f))
-                customAttributeIndex = reader.ReadInt32();
-            token = reader.ReadUInt32();
-        }
+        typeIndex = reader.ReadInt32();
+        if (IsAtMost(24f))
+            customAttributeIndex = reader.ReadInt32();
+        token = reader.ReadUInt32();
+    }
 }

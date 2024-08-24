@@ -9,15 +9,15 @@ public class ElfFileIdent : ReadableClass
     public byte OSAbi; //Probably ignore.
     public byte AbiVersion;
     //7 bytes of padding here.
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
-            Magic = reader.ReadInt32();
-            Architecture = reader.ReadByte();
-            Endianness = reader.ReadByte();
-            Version = reader.ReadByte();
-            OSAbi = reader.ReadByte();
-            AbiVersion = reader.ReadByte();
-            reader.ReadBytes(7);
-        }
+        Magic = reader.ReadInt32();
+        Architecture = reader.ReadByte();
+        Endianness = reader.ReadByte();
+        Version = reader.ReadByte();
+        OSAbi = reader.ReadByte();
+        AbiVersion = reader.ReadByte();
+        reader.ReadBytes(7);
+    }
 }

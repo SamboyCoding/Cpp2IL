@@ -14,10 +14,10 @@ public class Il2CppRGCTXDefinition : ReadableClass
     public Il2CppMethodSpec? MethodSpec => LibCpp2IlMain.Binary?.GetMethodSpec(MethodIndex);
 
     public Il2CppTypeReflectionData? Type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(TypeIndex));
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
-            type = (Il2CppRGCTXDataType)reader.ReadInt32();
-            _rawIndex = reader.ReadInt32();
-        }
+        type = (Il2CppRGCTXDataType)reader.ReadInt32();
+        _rawIndex = reader.ReadInt32();
+    }
 }

@@ -30,28 +30,28 @@ public class Il2CppTypeReflectionData
 
     private string GetPtrSuffix()
     {
-            return isPointer ? "*" : "";
-        }
-        
+        return isPointer ? "*" : "";
+    }
+
     public override string ToString()
     {
-            if (isArray)
-                return arrayType + "[]".Repeat(arrayRank) + GetPtrSuffix();
-            
-            if (!isType)
-                return variableGenericParamName + GetPtrSuffix();
-            
-            if (!isGenericType)
-                return baseType!.FullName! + GetPtrSuffix();
+        if (isArray)
+            return arrayType + "[]".Repeat(arrayRank) + GetPtrSuffix();
 
-            var builder = new StringBuilder(baseType!.FullName + "<");
-            foreach (var genericParam in genericParams)
-            {
-                builder.Append(genericParam).Append(", ");
-            }
+        if (!isType)
+            return variableGenericParamName + GetPtrSuffix();
 
-            builder.Remove(builder.Length - 2, 2);
-            builder.Append(">");
-            return builder + GetPtrSuffix();
+        if (!isGenericType)
+            return baseType!.FullName! + GetPtrSuffix();
+
+        var builder = new StringBuilder(baseType!.FullName + "<");
+        foreach (var genericParam in genericParams)
+        {
+            builder.Append(genericParam).Append(", ");
         }
+
+        builder.Remove(builder.Length - 2, 2);
+        builder.Append(">");
+        return builder + GetPtrSuffix();
+    }
 }

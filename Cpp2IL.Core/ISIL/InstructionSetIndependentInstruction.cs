@@ -9,7 +9,7 @@ public class InstructionSetIndependentInstruction : IsilOperandData
     public ulong ActualAddress;
     public uint InstructionIndex = 0;
     public IsilFlowControl FlowControl;
-    
+
     public InstructionSetIndependentInstruction(InstructionSetIndependentOpCode opCode, ulong address, IsilFlowControl flowControl, params InstructionSetIndependentOperand[] operands)
     {
         OpCode = opCode;

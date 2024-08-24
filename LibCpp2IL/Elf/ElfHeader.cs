@@ -21,18 +21,18 @@ public class ElfFileHeader : ReadableClass
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            Type = (ElfFileType) reader.ReadInt16();
-            Machine = reader.ReadInt16();
-            Version = reader.ReadInt32();
-            pEntryPoint = reader.ReadNInt();
-            pProgramHeader = reader.ReadNInt();
-            pSectionHeader = reader.ReadNInt();
-            Flags = reader.ReadInt32();
-            HeaderSize = reader.ReadInt16();
-            ProgramHeaderEntrySize = reader.ReadInt16();
-            ProgramHeaderEntryCount = reader.ReadInt16();
-            SectionHeaderEntrySize = reader.ReadInt16();
-            SectionHeaderEntryCount = reader.ReadInt16();
-            SectionNameSectionOffset = reader.ReadInt16();
-        }
+        Type = (ElfFileType)reader.ReadInt16();
+        Machine = reader.ReadInt16();
+        Version = reader.ReadInt32();
+        pEntryPoint = reader.ReadNInt();
+        pProgramHeader = reader.ReadNInt();
+        pSectionHeader = reader.ReadNInt();
+        Flags = reader.ReadInt32();
+        HeaderSize = reader.ReadInt16();
+        ProgramHeaderEntrySize = reader.ReadInt16();
+        ProgramHeaderEntryCount = reader.ReadInt16();
+        SectionHeaderEntrySize = reader.ReadInt16();
+        SectionHeaderEntryCount = reader.ReadInt16();
+        SectionNameSectionOffset = reader.ReadInt16();
+    }
 }

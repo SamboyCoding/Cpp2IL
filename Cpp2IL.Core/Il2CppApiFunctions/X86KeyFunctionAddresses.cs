@@ -28,7 +28,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     public override void Find(ApplicationAnalysisContext applicationAnalysisContext)
     {
         base.Find(applicationAnalysisContext);
-            
+
         _cachedDisassembledBytes = null; //Clean up once we're done finding everything
     }
 
@@ -45,13 +45,13 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
             if (addressesToIgnore.Contains(matchingJmp.IP)) continue;
 
             //Find this instruction in the raw file
-            var offsetInPe = (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(matchingJmp.IP);
-            if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.Binary!.RawLength - 1))
+            var offsetInPe = (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(matchingJmp.IP);
+            if (offsetInPe == 0 || offsetInPe == (ulong)(LibCpp2IlMain.Binary!.RawLength - 1))
                 continue;
 
             //get next and previous bytes
             var previousByte = LibCpp2IlMain.Binary.GetByteAtRawAddress(offsetInPe - 1);
-            var nextByte = LibCpp2IlMain.Binary.GetByteAtRawAddress(offsetInPe + (ulong) matchingJmp.Length);
+            var nextByte = LibCpp2IlMain.Binary.GetByteAtRawAddress(offsetInPe + (ulong)matchingJmp.Length);
 
             //Double-cc = thunk
             if (previousByte == 0xCC && nextByte == 0xCC)
@@ -87,12 +87,12 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
             Logger.VerboseNewline("Type or method not found, aborting.");
             return 0;
         }
-            
+
         //IsInstanceOfType is a very simple ICall, that looks like this:
         //  Il2CppClass* klass = vm::Class::FromIl2CppType(type->type.type);
         //  return il2cpp::vm::Object::IsInst(obj, klass) != NULL;
         //The last call is to Object::IsInst
-            
+
         Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
         var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(typeIsInstanceOfType.MethodPointer, true);
 
@@ -103,7 +103,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
             Logger.VerboseNewline("Method does not match expected signature. Aborting.");
             return 0;
         }
-            
+
         Logger.VerboseNewline($"Success. IsInst found at 0x{lastCall.NearBranchTarget:X}");
         return lastCall.NearBranchTarget;
     }

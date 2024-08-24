@@ -14,7 +14,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     public sealed override ulong UnderlyingPointer => MethodRef.GenericVariantPtr;
 
     public override bool IsStatic => BaseMethodContext.IsStatic;
-    
+
     public override bool IsVoid => BaseMethodContext.IsVoid;
 
     public override string DefaultName => BaseMethodContext.DefaultName;
@@ -34,7 +34,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         MethodRef = methodRef;
         DeclaringAsm = declaringAssembly;
         BaseMethodContext = ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!);
-        
+
         foreach (var parameter in BaseMethodContext.Parameters)
         {
             var parameterType = parameter.ParameterTypeContext;
@@ -48,20 +48,20 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
                 : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, BaseMethodContext));
         }
 
-        if(UnderlyingPointer != 0)
+        if (UnderlyingPointer != 0)
             RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
     }
 
     private static AssemblyAnalysisContext ResolveDeclaringAssembly(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context)
     {
         return context.GetAssemblyByName(methodRef.DeclaringType.DeclaringAssembly!.Name!)
-            ?? throw new($"Unable to resolve declaring assembly {methodRef.DeclaringType.DeclaringAssembly.Name} for generic method {methodRef}");
+               ?? throw new($"Unable to resolve declaring assembly {methodRef.DeclaringType.DeclaringAssembly.Name} for generic method {methodRef}");
     }
 
     private static TypeAnalysisContext ResolveDeclaringType(Cpp2IlMethodRef methodRef, AssemblyAnalysisContext declaringAssembly)
     {
         var baseType = declaringAssembly.AppContext.ResolveContextForType(methodRef.DeclaringType)
-            ?? throw new($"Unable to resolve declaring type {methodRef.DeclaringType.FullName} for generic method {methodRef}");
+                       ?? throw new($"Unable to resolve declaring type {methodRef.DeclaringType.FullName} for generic method {methodRef}");
 
         var genericParams = ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly);
 
@@ -74,7 +74,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         for (var i = 0; i < array.Length; i++)
         {
             ret[i] = array[i].ToContext(declaringAssembly)
-                ?? throw new($"Unable to resolve generic parameter {array[i]} for generic method.");
+                     ?? throw new($"Unable to resolve generic parameter {array[i]} for generic method.");
         }
 
         return ret;
@@ -83,6 +83,6 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     private static MethodAnalysisContext ResolveBaseMethod(Cpp2IlMethodRef methodRef, TypeAnalysisContext declaringType)
     {
         return declaringType.GetMethod(methodRef.BaseMethod)
-            ?? throw new($"Unable to resolve base method {methodRef.BaseMethod} for generic method {methodRef}");
+               ?? throw new($"Unable to resolve base method {methodRef.BaseMethod} for generic method {methodRef}");
     }
 }

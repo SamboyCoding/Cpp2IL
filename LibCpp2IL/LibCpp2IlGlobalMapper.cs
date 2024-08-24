@@ -30,7 +30,7 @@ public static class LibCpp2IlGlobalMapper
 
     internal static void MapGlobalIdentifiers(Il2CppMetadata metadata, Il2CppBinary cppAssembly)
     {
-        if(LibCpp2IlMain.MetadataVersion < 27f)
+        if (LibCpp2IlMain.MetadataVersion < 27f)
             MapGlobalIdentifiersPre27(metadata, cppAssembly);
         else
             MapGlobalIdentifiersPost27(metadata, cppAssembly);
@@ -49,49 +49,49 @@ public static class LibCpp2IlGlobalMapper
         //Type 4 => FieldInfo
         //Type 5 => StringLiteral
         //Type 6 => MethodRef
-            
+
         //Type references
-            
+
         //We non-null assert here because this function is only called pre-27, when this is guaranteed to be non-null
-        TypeRefs = metadata.metadataUsageDic![(uint) MetadataUsageType.TypeInfo]
+        TypeRefs = metadata.metadataUsageDic![(uint)MetadataUsageType.TypeInfo]
             .Select(kvp => new MetadataUsage(MetadataUsageType.Type, cppAssembly.GetRawMetadataUsage(kvp.Key), kvp.Value))
             .ToList();
 
         //More type references
-        TypeRefs.AddRange(metadata.metadataUsageDic[(uint) MetadataUsageType.Type]
+        TypeRefs.AddRange(metadata.metadataUsageDic[(uint)MetadataUsageType.Type]
             .Select(kvp => new MetadataUsage(MetadataUsageType.Type, cppAssembly.GetRawMetadataUsage(kvp.Key), kvp.Value))
         );
 
         //Method references
-        MethodRefs = metadata.metadataUsageDic[(uint) MetadataUsageType.MethodDef]
+        MethodRefs = metadata.metadataUsageDic[(uint)MetadataUsageType.MethodDef]
             .Select(kvp => new MetadataUsage(MetadataUsageType.MethodDef, cppAssembly.GetRawMetadataUsage(kvp.Key), kvp.Value))
             .ToList();
 
         //Field references
-        FieldRefs = metadata.metadataUsageDic[(uint) MetadataUsageType.FieldInfo]
+        FieldRefs = metadata.metadataUsageDic[(uint)MetadataUsageType.FieldInfo]
             .Select(kvp => new MetadataUsage(MetadataUsageType.FieldInfo, cppAssembly.GetRawMetadataUsage(kvp.Key), kvp.Value))
             .ToList();
 
         //Literals
-        Literals = metadata.metadataUsageDic[(uint) MetadataUsageType.StringLiteral]
+        Literals = metadata.metadataUsageDic[(uint)MetadataUsageType.StringLiteral]
             .Select(kvp => new MetadataUsage(MetadataUsageType.StringLiteral, cppAssembly.GetRawMetadataUsage(kvp.Key), kvp.Value)).ToList();
 
         //Generic method references
-        foreach (var (metadataUsageIdx, methodSpecIdx) in metadata.metadataUsageDic[(uint) MetadataUsageType.MethodRef]) //kIl2CppMetadataUsageMethodRef
+        foreach (var (metadataUsageIdx, methodSpecIdx) in metadata.metadataUsageDic[(uint)MetadataUsageType.MethodRef]) //kIl2CppMetadataUsageMethodRef
         {
             MethodRefs.Add(new MetadataUsage(MetadataUsageType.MethodRef, cppAssembly.GetRawMetadataUsage(metadataUsageIdx), methodSpecIdx));
         }
-            
-        foreach (var globalIdentifier in TypeRefs) 
+
+        foreach (var globalIdentifier in TypeRefs)
             TypeRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
-            
-        foreach (var globalIdentifier in MethodRefs) 
+
+        foreach (var globalIdentifier in MethodRefs)
             MethodRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
-            
-        foreach (var globalIdentifier in FieldRefs) 
+
+        foreach (var globalIdentifier in FieldRefs)
             FieldRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
-            
-        foreach (var globalIdentifier in Literals) 
+
+        foreach (var globalIdentifier in Literals)
             LiteralsByAddress[globalIdentifier.Offset] = globalIdentifier;
     }
 
@@ -99,13 +99,13 @@ public static class LibCpp2IlGlobalMapper
     {
         if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(address, out var raw) || raw >= LibCpp2IlMain.Binary.RawLength)
             return null;
-            
+
         var encoded = LibCpp2IlMain.Binary.ReadPointerAtVirtualAddress(address);
         var metadataUsage = MetadataUsage.DecodeMetadataUsage(encoded, address);
 
         if (metadataUsage?.IsValid != true)
             return null;
-            
+
         return metadataUsage;
     }
 }

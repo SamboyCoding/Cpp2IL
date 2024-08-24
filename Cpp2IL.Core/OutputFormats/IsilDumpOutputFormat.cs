@@ -15,6 +15,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
 {
     public override string OutputFormatId => "isil";
     public override string OutputFormatName => "ISIL Dump";
+
     public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         outputRoot = Path.Combine(outputRoot, "IsilDump");
@@ -31,8 +32,8 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
             {
                 if (type is InjectedTypeAnalysisContext)
                     return;
-                
-                if(type.Methods.Count == 0)
+
+                if (type.Methods.Count == 0)
                     return;
 
                 var typeDump = new StringBuilder();
@@ -48,12 +49,11 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
 
                     try
                     {
-
                         typeDump.AppendLine("Disassembly:");
                         typeDump.Append('\t').AppendLine(context.InstructionSet.PrintAssembly(method).Replace("\n", "\n\t"));
 
                         typeDump.AppendLine().AppendLine("ISIL:");
-                        
+
                         method.Analyze();
 
                         if (method.ConvertedIsil == null || method.ConvertedIsil.Count == 0)
@@ -66,7 +66,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
                         {
                             typeDump.Append('\t').Append(isilInsn).AppendLine();
                         }
-                        
+
                         method.ReleaseAnalysisData();
 
                         typeDump.AppendLine();
@@ -98,7 +98,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
             .Peek(n => MiscUtils.InvalidPathChars.ForEach(c => n = n.Replace(c, '_')))
             .Select(n => MiscUtils.InvalidPathElements.Contains(n) ? $"__illegalwin32name_{n}__" : n)
             .ToArray();
-        
+
         //Ok so we have the namespace directory. Now we need to join all the declaring type hierarchy together for a filename.
         var declaringTypeHierarchy = new List<string>();
         var declaringType = type.DeclaringType;
@@ -113,7 +113,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
 
         //Join the hierarchy together with _NestedType_ separators
         string filename;
-        if(declaringTypeHierarchy.Count > 0)
+        if (declaringTypeHierarchy.Count > 0)
             filename = $"{string.Join("_NestedType_", declaringTypeHierarchy)}_NestedType_{type.Name}.txt";
         else
             filename = $"{type.Name}.txt";

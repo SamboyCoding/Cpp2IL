@@ -4,10 +4,10 @@ public class ElfRelEntry : ReadableClass
 {
     public ulong Offset;
     public ulong Info;
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
-            Offset = reader.ReadNUint();
-            Info = reader.ReadNUint();
-        }
+        Offset = reader.ReadNUint();
+        Info = reader.ReadNUint();
+    }
 }

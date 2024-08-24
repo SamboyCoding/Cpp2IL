@@ -9,7 +9,7 @@ public static class Il2CppMethodInfoUsefulOffsets
 {
     public const int X86_KLASS_OFFSET = 0x00; //TODO
     public const int X86_64_KLASS_OFFSET = 0x18;
-        
+
     public static readonly List<UsefulOffset> UsefulOffsets =
     [
         new UsefulOffset("klass", X86_KLASS_OFFSET, typeof(ushort), true),
@@ -29,7 +29,7 @@ public static class Il2CppMethodInfoUsefulOffsets
 
         return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
     }
-        
+
     public class UsefulOffset(string name, uint offset, Type type, bool is32Bit)
     {
         public string name = name;

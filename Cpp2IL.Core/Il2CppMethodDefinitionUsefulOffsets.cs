@@ -9,7 +9,7 @@ public static class Il2CppMethodDefinitionUsefulOffsets
 {
     public const int X86_SLOT_OFFSET = 0x00; //TODO
     public const int X86_64_SLOT_OFFSET = 0x48;
-        
+
     public static readonly List<UsefulOffset> UsefulOffsets =
     [
         new UsefulOffset("slot", X86_SLOT_OFFSET, typeof(ushort), true),
@@ -28,11 +28,11 @@ public static class Il2CppMethodDefinitionUsefulOffsets
 
     public static string? GetOffsetName(uint offset)
     {
-            var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
+        var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
 
-            return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
-        }
-        
+        return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
+    }
+
     public class UsefulOffset(string name, uint offset, Type type, bool is32Bit)
     {
         public string name = name;

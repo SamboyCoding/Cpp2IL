@@ -24,8 +24,8 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
         _useEzDiffMode = appContext.GetExtraData<string>("attr-injector-use-ez-diff") != null;
 
         InjectAttributeAttribute(appContext);
-        
-        if (!_useEzDiffMode) 
+
+        if (!_useEzDiffMode)
             InjectTokenAttribute(appContext);
 
         InjectAddressAttribute(appContext);

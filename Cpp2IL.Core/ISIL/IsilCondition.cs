@@ -13,7 +13,7 @@ public class IsilCondition(
 
     public IsilCondition MarkAsAnd()
     {
-        IsAnd = true;        
+        IsAnd = true;
         return this;
     }
 

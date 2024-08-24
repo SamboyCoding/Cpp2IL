@@ -9,12 +9,12 @@ namespace Cpp2IL.Core.Utils.AsmResolver;
 public static class AsmResolverConstants
 {
     public static readonly Constant Null = new(ElementType.Class, new([0, 0, 0, 0]));
-    
+
     private static readonly Dictionary<int, Constant> IntegerCache = new();
     private static readonly Dictionary<byte, Constant> ByteCache = new();
-    
+
     private static readonly Constant SingleZero = Constant.FromValue(0.0F);
-    
+
     private static readonly Constant BoolFalse = Constant.FromValue(false);
     private static readonly Constant BoolTrue = Constant.FromValue(true);
 
@@ -23,7 +23,7 @@ public static class AsmResolverConstants
         for (var i = 0; i < 16; i++)
         {
             IntegerCache[i] = Constant.FromValue(i);
-            ByteCache[(byte) i] = Constant.FromValue((byte) i);
+            ByteCache[(byte)i] = Constant.FromValue((byte)i);
         }
     }
 
@@ -33,10 +33,10 @@ public static class AsmResolverConstants
         {
             string s => new(ElementType.String, new(Encoding.Unicode.GetBytes(s))),
             bool b => b ? BoolTrue : BoolFalse,
-            byte and >= 0 and < 16 => ByteCache[(byte) @from],
+            byte and >= 0 and < 16 => ByteCache[(byte)@from],
             float and 0 => SingleZero,
-            >= 0 and < 16 => IntegerCache[(int) from], 
-            _ => CreateNewConstant((IConvertible) from),
+            >= 0 and < 16 => IntegerCache[(int)from],
+            _ => CreateNewConstant((IConvertible)from),
         };
     }
 

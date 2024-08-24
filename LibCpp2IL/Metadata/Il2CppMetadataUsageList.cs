@@ -4,7 +4,7 @@ public class Il2CppMetadataUsageList : ReadableClass
 {
     public uint start;
     public uint count;
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
         start = reader.ReadUInt32();

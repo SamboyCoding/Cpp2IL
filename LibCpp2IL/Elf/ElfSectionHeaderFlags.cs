@@ -15,7 +15,7 @@ public enum ElfSectionHeaderFlags : long
     SHF_OS_NONCONFORMING = 0x100,
     SHF_GROUP = 0x200,
     SHF_TLS = 0x400,
-        
+
     SHF_MASKOS = 0x0FF0_0000,
     SHF_MASKPROC = 0xF000_0000,
     SHF_ORDERED = 0x4000_0000,

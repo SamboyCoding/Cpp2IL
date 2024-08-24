@@ -10,13 +10,13 @@ public class MachOLoadCommand : ReadableClass
 
     public ReadableClass? CommandData;
     public byte[]? UnknownCommandData = null;
-        
-        
+
+
     public string? UnknownDataAsString => UnknownCommandData == null ? null : Encoding.UTF8.GetString(UnknownCommandData);
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
-        Command = (LoadCommandId) reader.ReadUInt32();
+        Command = (LoadCommandId)reader.ReadUInt32();
         CommandSize = reader.ReadUInt32();
 
         switch (Command)
@@ -39,7 +39,7 @@ public class MachOLoadCommand : ReadableClass
                 break;
             }
             default:
-                UnknownCommandData = reader.ReadByteArrayAtRawAddressNoLock(-1, (int) CommandSize - 8); // -8 because we've already read the 8 bytes of the header
+                UnknownCommandData = reader.ReadByteArrayAtRawAddressNoLock(-1, (int)CommandSize - 8); // -8 because we've already read the 8 bytes of the header
                 break;
         }
     }

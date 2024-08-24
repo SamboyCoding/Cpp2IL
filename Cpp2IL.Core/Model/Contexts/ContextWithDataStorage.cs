@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 public abstract class ContextWithDataStorage
 {
     private Dictionary<string, object> _dataStorage = new();
-    
+
     /// <summary>
     /// Store the given data value in this context, associated with the given key.
     /// </summary>

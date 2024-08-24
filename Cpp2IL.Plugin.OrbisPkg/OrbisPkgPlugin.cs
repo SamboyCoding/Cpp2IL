@@ -8,7 +8,7 @@ using LibOrbisPkg.PFS;
 using LibOrbisPkg.PKG;
 using LibOrbisPkg.Util;
 
-[assembly:RegisterCpp2IlPlugin(typeof(OrbisPkgPlugin))]
+[assembly: RegisterCpp2IlPlugin(typeof(OrbisPkgPlugin))]
 
 namespace Cpp2IL.Plugin.OrbisPkg;
 
@@ -140,18 +140,18 @@ public class OrbisPkgPlugin : Cpp2IlPlugin
             else if (file.name == "globalgamemanagers")
             {
                 Logger.Verbose("Found ggm file - extracting unity version...");
-                
+
                 //Read first ~0x40 bytes
                 var ggmStream = file.GetView();
-                var count = (int) Math.Min(0x40, file.size);
+                var count = (int)Math.Min(0x40, file.size);
                 var ggmBytes = ArrayPool<byte>.Shared.Rent(count);
-                
+
                 ggmStream.Read(0, ggmBytes, 0, count);
-                
+
                 args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
                 Logger.VerboseNewline($"Got version {args.UnityVersion}");
                 foundVersion = true;
-                
+
                 ArrayPool<byte>.Shared.Return(ggmBytes);
             }
             else if (file.name == "data.unity3d")
@@ -159,16 +159,16 @@ public class OrbisPkgPlugin : Cpp2IlPlugin
                 Logger.Verbose("Found data.unity3d file - extracting unity version...");
                 var tempFile = Path.GetTempFileName();
                 file.Save(tempFile, true);
-                
+
                 using (var s = File.OpenRead(tempFile))
                     args.UnityVersion = Cpp2IlApi.GetVersionFromDataUnity3D(s);
-                
+
                 Logger.VerboseNewline($"Got version {args.UnityVersion}");
                 foundVersion = true;
                 File.Delete(tempFile);
             }
         }
-        
+
         args.Valid = foundMeta && foundBin && foundVersion;
 
         return args.Valid;

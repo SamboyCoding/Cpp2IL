@@ -15,6 +15,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 {
     public override string OutputFormatId => "cfg";
     public override string OutputFormatName => "CFG Dump";
+
     public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         outputRoot = Path.Combine(outputRoot, "CFGDump");
@@ -27,7 +28,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
             var assemblyNameClean = assembly.CleanAssemblyName;
 
-            MiscUtils.ExecuteParallel(assembly.Types, type  => 
+            MiscUtils.ExecuteParallel(assembly.Types, type =>
             {
                 if (type is InjectedTypeAnalysisContext)
                     return;
@@ -83,20 +84,27 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
         var nodeCache = new Dictionary<int, DotNode>();
         var edgeCache = new List<DotEdge>();
-        DotNode GetOrAddNode(int id) {
-            if (nodeCache.TryGetValue(id, out var node)) {
+
+        DotNode GetOrAddNode(int id)
+        {
+            if (nodeCache.TryGetValue(id, out var node))
+            {
                 return node;
-            } 
+            }
+
             var newNode = new DotNode().WithIdentifier(id.ToString());
             directedGraph.Add(newNode);
             nodeCache[id] = newNode;
             return newNode;
         }
-        DotEdge GetOrAddEdge(DotNode from, DotNode to) {
+
+        DotEdge GetOrAddEdge(DotNode from, DotNode to)
+        {
             foreach (var edge in edgeCache)
             {
                 if (edge.From == from.Identifier && edge.To == to.Identifier) { return edge; }
             }
+
             var newEdge = new DotEdge()
                 .From(from)
                 .To(to);
@@ -124,19 +132,20 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
                 node.WithShape("box");
                 node.WithLabel(block.ToString());
             }
+
             foreach (var succ in block.Successors)
             {
                 var target = GetOrAddNode(succ.ID);
                 GetOrAddEdge(node, target);
             }
         }
+
         return directedGraph;
     }
 
     private static string GetFilePathForMethod(string outputRoot, MethodAnalysisContext method, string assemblyNameClean)
     {
         TypeAnalysisContext type = method.DeclaringType;
-
 
 
         //Get root assembly directory
@@ -187,7 +196,6 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
             Directory.CreateDirectory(filename);
 
 
-
         var methodFileName = method.DefaultName;
 
         var parameters = string.Join("_", method.Parameters.Select(p => p.ParameterTypeContext.Name));
@@ -196,23 +204,23 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
             methodFileName += "_";
             methodFileName += parameters;
         }
+
         methodFileName += ".dot";
 
         MiscUtils.InvalidPathChars.ForEach(c => methodFileName = methodFileName.Replace(c, '_'));
 
 
-
         //Combine the directory and filename
         var fullPath = Path.Combine(filename, methodFileName);
-        
-        if(fullPath.Length > 260)
+
+        if (fullPath.Length > 260)
         {
             //Too long, trim it
             fullPath = fullPath[..250];
-            
+
             fullPath += ".dot";
         }
-        
+
         return fullPath;
     }
 

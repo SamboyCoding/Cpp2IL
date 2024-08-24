@@ -38,8 +38,8 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
             if (addressesToIgnore.Contains(matchingJmp.Address)) continue;
 
             //Find this instruction in the raw file
-            var offsetInPe = (ulong) LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(matchingJmp.Address);
-            if (offsetInPe == 0 || offsetInPe == (ulong) (LibCpp2IlMain.Binary.RawLength - 1))
+            var offsetInPe = (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(matchingJmp.Address);
+            if (offsetInPe == 0 || offsetInPe == (ulong)(LibCpp2IlMain.Binary.RawLength - 1))
                 continue;
 
             //get next and previous bytes
@@ -80,12 +80,12 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
             Logger.VerboseNewline("Type or method not found, aborting.");
             return 0;
         }
-            
+
         //IsInstanceOfType is a very simple ICall, that looks like this:
         //  Il2CppClass* klass = vm::Class::FromIl2CppType(type->type.type);
         //  return il2cpp::vm::Object::IsInst(obj, klass) != NULL;
         //The last call is to Object::IsInst
-            
+
         Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
         var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(typeIsInstanceOfType.MethodPointer, true);
 
@@ -96,7 +96,7 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
             Logger.VerboseNewline("Method does not match expected signature. Aborting.");
             return 0;
         }
-           
+
         Logger.VerboseNewline($"Success. IsInst found at 0x{lastCall.BranchTarget:X}");
         return lastCall.BranchTarget;
     }

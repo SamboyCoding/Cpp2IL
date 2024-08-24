@@ -7,7 +7,7 @@ public class ElfDynamicEntry : ReadableClass
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            Tag = (ElfDynamicType) reader.ReadNInt();
-            Value = reader.ReadNUint();
-        }
+        Tag = (ElfDynamicType)reader.ReadNInt();
+        Value = reader.ReadNUint();
+    }
 }

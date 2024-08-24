@@ -24,7 +24,7 @@ public class Il2CppParameterReflectionData
             result.Append("out ");
         else if (Attributes.HasFlag(ParameterAttributes.In))
             result.Append("in ");
-        else if(RawType.Byref == 1)
+        else if (RawType.Byref == 1)
             result.Append("ref ");
 
         result.Append(Type).Append(" ");

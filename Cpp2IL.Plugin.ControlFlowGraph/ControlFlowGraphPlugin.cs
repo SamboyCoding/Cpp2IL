@@ -10,6 +10,7 @@ public class ControlFlowGraphPlugin : Cpp2IlPlugin
 {
     public override string Name => "Control Flow Graph Plugin";
     public override string Description => "Adds an output format which generates control flow graph dot files for methods";
+
     public override void OnLoad()
     {
         OutputFormatRegistry.Register<ControlFlowGraphOutputFormat>();

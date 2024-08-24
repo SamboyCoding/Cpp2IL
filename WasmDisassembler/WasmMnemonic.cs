@@ -198,16 +198,18 @@ public enum WasmMnemonic : byte
     F32Reinterpret_I32,
     F64Reinterpret_I64,
     LastValid = F64Reinterpret_I64,
-    
+
     Proposed_I32Extend8_S, //0xC0
     Proposed_I32Extend16_S,
     Proposed_I64Extend8_S,
     Proposed_I64Extend16_S,
     Proposed_I64Extend32_S,
+
     //Reserved: 0xC5-CF
     Proposed_RefNull = 0xD0,
     Proposed_RefIsNull,
     Proposed_RefFunc,
+
     //Reserved: 0xD3-FB,
     Proposed_FC_Extensions = 0xFC,
     Proposed_SIMD,

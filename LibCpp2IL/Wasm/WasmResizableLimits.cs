@@ -8,10 +8,10 @@ public class WasmResizableLimits
 
     public WasmResizableLimits(WasmFile readFrom)
     {
-            Flags = readFrom.ReadByte();
-            Initial = readFrom.BaseStream.ReadLEB128Unsigned();
-            
-            if(Flags == 1)
-                Max = readFrom.BaseStream.ReadLEB128Unsigned();
-        }
+        Flags = readFrom.ReadByte();
+        Initial = readFrom.BaseStream.ReadLEB128Unsigned();
+
+        if (Flags == 1)
+            Max = readFrom.BaseStream.ReadLEB128Unsigned();
+    }
 }

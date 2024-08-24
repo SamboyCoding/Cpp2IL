@@ -17,6 +17,7 @@ public static class Il2CppTypeReflectionDataToContext
             {
                 return null;
             }
+
             pointerElementType = new ArrayTypeAnalysisContext(arrayElementType, reflectionData.arrayRank, assembly);
         }
         else if (!reflectionData.isType)
@@ -34,6 +35,7 @@ public static class Il2CppTypeReflectionDataToContext
             {
                 return null;
             }
+
             var genericParams = new TypeAnalysisContext[reflectionData.genericParams.Length];
             for (var i = 0; i < reflectionData.genericParams.Length; i++)
             {
@@ -42,8 +44,10 @@ public static class Il2CppTypeReflectionDataToContext
                 {
                     return null;
                 }
+
                 genericParams[i] = param;
             }
+
             pointerElementType = new GenericInstanceTypeAnalysisContext(baseType, genericParams, assembly);
         }
 

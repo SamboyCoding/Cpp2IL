@@ -62,7 +62,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     private void ConvertInstructionStatement(Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         // var callNoReturn = false; // stub, see case Mnemonic.Call
-        
+
         switch (instruction.Mnemonic)
         {
             case Mnemonic.Mov:
@@ -126,11 +126,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                             break;
                     }
+
                     // if got to here, it didn't work
                     goto default;
                 }
                 else if (instruction.OpCount == 3) builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 else builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+
                 break;
             case Mnemonic.Mulss:
             case Mnemonic.Vmulss:
@@ -138,9 +140,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 else if (instruction.OpCount == 2)
                     builder.Multiply(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
-                else 
+                else
                     goto default;
-                
+
                 break;
             case Mnemonic.Ret:
                 if (context.IsVoid)
@@ -165,7 +167,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 //Special case - stack shift
                 if (instruction.Op0Register == Register.RSP && instruction.Op1Kind.IsImmediate())
                 {
-                    var amount = (int) instruction.GetImmediate(1);
+                    var amount = (int)instruction.GetImmediate(1);
                     builder.ShiftStack(instruction.IP, isSubtract ? -amount : amount);
                     break;
                 }
@@ -175,7 +177,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 if (isSubtract)
                     builder.Subtract(instruction.IP, left, left, right);
                 else
-                    builder.Add(instruction.IP,  left, left, right);
+                    builder.Add(instruction.IP, left, left, right);
 
                 break;
             case Mnemonic.Addss:
@@ -192,15 +194,17 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     dest = ConvertOperand(instruction, 0);
                     src1 = ConvertOperand(instruction, 1);
                     src2 = ConvertOperand(instruction, 2);
-                } else if (instruction.OpCount == 2)
+                }
+                else if (instruction.OpCount == 2)
                 {
                     //DestAndSrc1, Src2
                     dest = ConvertOperand(instruction, 0);
                     src1 = dest;
                     src2 = ConvertOperand(instruction, 1);
-                } else 
+                }
+                else
                     goto default;
-                
+
                 if (instruction.Mnemonic == Mnemonic.Subss)
                     builder.Subtract(instruction.IP, dest, src1, src2);
                 else
@@ -248,7 +252,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     parameterCount -= registerParams.Count; //Subtract the 4 params we can fit in registers
 
                     //Generate and append stack operands
-                    var ptrSize = (int) context.AppContext.Binary.PointerSize;
+                    var ptrSize = (int)context.AppContext.Binary.PointerSize;
                     registerParams = registerParams.Concat(Enumerable.Range(0, parameterCount).Select(p => p * ptrSize).Select(InstructionSetIndependentOperand.MakeStack)).ToList();
 
                     builder.Call(instruction.IP, target, registerParams.ToArray());
@@ -265,6 +269,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     var paramRegisters = new[] { "rcx", "rdx", "r8", "r9" }.Select(InstructionSetIndependentOperand.MakeRegister).ToArray();
                     builder.Call(instruction.IP, target, paramRegisters);
                 }
+
                 break;
             case Mnemonic.Test:
                 if (instruction.Op0Kind == OpKind.Register && instruction.Op1Kind == OpKind.Register && instruction.Op0Register == instruction.Op1Register)
@@ -272,7 +277,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.Compare(instruction.IP, ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeImmediate(0));
                     break;
                 }
-                
+
                 //Fall through to cmp, as test is just a cmp that doesn't set flags
                 goto case Mnemonic.Cmp;
             case Mnemonic.Cmp:
@@ -284,7 +289,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 {
                     var jumpTarget = instruction.NearBranchTarget;
 
-                    var methodEnd = instruction.IP + (ulong) context.RawBytes.Length;
+                    var methodEnd = instruction.IP + (ulong)context.RawBytes.Length;
                     var methodStart = context.UnderlyingPointer;
 
                     if (jumpTarget < methodStart || jumpTarget > methodEnd)
@@ -298,6 +303,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         break;
                     }
                 }
+
                 goto default;
             case Mnemonic.Je:
                 if (instruction.Op0Kind != OpKind.Register)
@@ -307,6 +313,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfEqual(instruction.IP, jumpTarget);
                     break;
                 }
+
                 goto default;
             case Mnemonic.Jne:
                 if (instruction.Op0Kind != OpKind.Register)
@@ -316,6 +323,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfNotEqual(instruction.IP, jumpTarget);
                     break;
                 }
+
                 goto default;
             case Mnemonic.Jg:
             case Mnemonic.Ja:
@@ -326,6 +334,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfGreater(instruction.IP, jumpTarget);
                     break;
                 }
+
                 goto default;
             case Mnemonic.Jl:
             case Mnemonic.Jb:
@@ -336,6 +345,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfLess(instruction.IP, jumpTarget);
                     break;
                 }
+
                 goto default;
             case Mnemonic.Jge:
             case Mnemonic.Jae:
@@ -346,6 +356,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfGreaterOrEqual(instruction.IP, jumpTarget);
                     break;
                 }
+
                 goto default;
             case Mnemonic.Jle:
             case Mnemonic.Jbe:
@@ -356,6 +367,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfLessOrEqual(instruction.IP, jumpTarget);
                     break;
                 }
+
                 goto default;
             case Mnemonic.Xchg:
                 // There was supposed to be a push-mov-pop set but instructionAddress said no
@@ -386,7 +398,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         if (kind.IsImmediate())
             return InstructionSetIndependentOperand.MakeImmediate(instruction.GetImmediate(operand));
         if (kind == OpKind.Memory && instruction.MemoryBase == Register.RSP)
-            return InstructionSetIndependentOperand.MakeStack((int) instruction.MemoryDisplacement32);
+            return InstructionSetIndependentOperand.MakeStack((int)instruction.MemoryDisplacement32);
 
         //Memory
         //Most complex to least complex

@@ -10,8 +10,8 @@ public struct WasmInstruction
     public override string ToString()
     {
         if (Operands.Length == 0)
-            return $"0x{Ip:X} {Mnemonic}"; 
-        
+            return $"0x{Ip:X} {Mnemonic}";
+
         return $"0x{Ip:X} {Mnemonic} {string.Join(", ", Operands)}";
     }
 }

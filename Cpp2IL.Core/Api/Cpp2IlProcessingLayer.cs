@@ -23,7 +23,6 @@ public abstract class Cpp2IlProcessingLayer
     /// <param name="layers">A list of all layers that will run, which you can modify freely. Only layers left in this list once all layers return from PreProcess will have Process called.</param>
     public virtual void PreProcess(ApplicationAnalysisContext context, List<Cpp2IlProcessingLayer> layers)
     {
-        
     }
 
     /// <summary>

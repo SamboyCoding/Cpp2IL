@@ -98,7 +98,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         SystemTypes = new(this);
 
         PopulateMethodsByAddressTable();
-        
+
         HasFinishedInitializing = true;
     }
 
@@ -124,15 +124,15 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             try
             {
 #endif
-                var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
+            var gm = new ConcreteGenericMethodAnalysisContext(methodRef, this);
 
-                var ptr = InstructionSet.GetPointerForMethod(gm);
+            var ptr = InstructionSet.GetPointerForMethod(gm);
 
-                if (!MethodsByAddress.ContainsKey(ptr))
-                    MethodsByAddress[ptr] = [];
+            if (!MethodsByAddress.ContainsKey(ptr))
+                MethodsByAddress[ptr] = [];
 
-                MethodsByAddress[ptr].Add(gm);
-                ConcreteGenericMethodsByRef[methodRef] = gm;
+            MethodsByAddress[ptr].Add(gm);
+            ConcreteGenericMethodsByRef[methodRef] = gm;
 #if !DEBUG
             }
             catch (Exception e)

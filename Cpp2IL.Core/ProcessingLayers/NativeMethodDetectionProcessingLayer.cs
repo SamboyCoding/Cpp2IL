@@ -21,21 +21,21 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
             "Cpp2ILInjected",
             "CppNativeMethods",
             null,
-            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Abstract | TypeAttributes.Sealed);//public static class
+            TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Abstract | TypeAttributes.Sealed); //public static class
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
         {
             foreach (var m in assemblyAnalysisContext.Types.SelectMany(t => t.Methods))
             {
                 AnalyzeMethod(appContext, m, nativeMethodInfoStack);
             }
-            
-            if(Cpp2IlApi.LowMemoryMode)
+
+            if (Cpp2IlApi.LowMemoryMode)
                 GC.Collect();
         }
-        
-        if(Cpp2IlApi.LowMemoryMode)
+
+        if (Cpp2IlApi.LowMemoryMode)
             GC.Collect();
-        
+
         while (nativeMethodInfoStack.Count > 0)
         {
             (var address, var isVoid) = nativeMethodInfoStack.Pop();
@@ -88,6 +88,7 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
             address = operand.Value.ToUInt64(null);
             return true;
         }
+
         address = default;
         return false;
     }

@@ -15,8 +15,9 @@ public class UniqueIdentifierGenerator
     /// The number of characters from each input to use in the unique name. Do NOT change this without also calling <see cref="StableNameGenerator.ResetForNewConfig"/>
     /// </summary>
     public static int NumCharsToTakeFromEachInput = 2;
+
     public static int MaxInputs = 10;
-        
+
     private readonly object _lock = new();
 
     private readonly Dictionary<string, int> _inputOccurrenceCounts = new();
@@ -55,7 +56,7 @@ public class UniqueIdentifierGenerator
             return true;
         }
     }
-        
+
     /// <summary>
     /// Adds all of the inputs in the given collection to the generator.
     /// </summary>

@@ -10,42 +10,42 @@ public static class LibLogger
 
     internal static void InfoNewline(string message)
     {
-            Info($"{message}{Environment.NewLine}");
-        }
+        Info($"{message}{Environment.NewLine}");
+    }
 
     internal static void Info(string message)
     {
-            Writer.Info(message);
-        }
+        Writer.Info(message);
+    }
 
     internal static void WarnNewline(string message)
     {
-            Warn($"{message}{Environment.NewLine}");
-        }
+        Warn($"{message}{Environment.NewLine}");
+    }
 
     internal static void Warn(string message)
     {
-            Writer.Warn(message);
-        }
+        Writer.Warn(message);
+    }
 
     internal static void ErrorNewline(string message)
     {
-            Error($"{message}{Environment.NewLine}");
-        }
+        Error($"{message}{Environment.NewLine}");
+    }
 
     internal static void Error(string message)
     {
-            Writer.Error(message);
-        }
+        Writer.Error(message);
+    }
 
     internal static void VerboseNewline(string message)
     {
-            Verbose($"{message}{Environment.NewLine}");
-        }
+        Verbose($"{message}{Environment.NewLine}");
+    }
 
     internal static void Verbose(string message)
     {
-            if (ShowVerbose)
-                Writer.Verbose(message);
-        }
+        if (ShowVerbose)
+            Writer.Verbose(message);
+    }
 }

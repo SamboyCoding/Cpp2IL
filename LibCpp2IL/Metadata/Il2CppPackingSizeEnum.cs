@@ -2,7 +2,7 @@
 
 namespace LibCpp2IL.Metadata;
 
-public enum Il2CppPackingSizeEnum :uint
+public enum Il2CppPackingSizeEnum : uint
 {
     Zero,
     One,

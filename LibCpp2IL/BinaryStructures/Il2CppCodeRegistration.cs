@@ -12,47 +12,47 @@ public class Il2CppCodeRegistration : ReadableClass
         //Unfortunately, this struct is not a fixed size, so we have to do some manual calculations.
         var size = 0;
         var ptrSize = isBinary32Bit ? 4 : 8;
-            
+
         if (metadataVersion <= 24.15f)
             //methodPointers
             size += 2 * ptrSize;
-            
+
         //reversePInvokeWrappers and genericMethodPointers
         size += 4 * ptrSize;
-            
+
         if (metadataVersion is (>= 24.5f and < 27f) or >= 27.1f)
             //genericAdjustorThunks
             size += ptrSize;
-            
+
         //invokerPointers
         size += 2 * ptrSize;
-            
+
         if (metadataVersion <= 24.5f)
             //customAttributes
             size += 2 * ptrSize;
-            
+
         //unresolvedVirtualCallPointers
         size += 2 * ptrSize;
-            
+
         if (metadataVersion >= 29.1f)
             //unresolvedInstanceCallPointers and unresolvedStaticCallPointers
             size += 2 * ptrSize;
-            
+
         if (metadataVersion >= 23f)
             //interopData
             size += 2 * ptrSize;
-            
+
         if (metadataVersion >= 24.3f)
             //windowsRuntimeFactoryTable
             size += 2 * ptrSize;
-            
+
         if (metadataVersion >= 24.2f)
             //addrCodeGenModulePtrs
             size += 2 * ptrSize;
-            
+
         return size;
     }
-        
+
     [Version(Max = 24.15f)] public ulong methodPointersCount;
     [Version(Max = 24.15f)] public ulong methodPointers;
 
@@ -78,15 +78,11 @@ public class Il2CppCodeRegistration : ReadableClass
     public ulong unresolvedVirtualCallCount; //Renamed to unresolvedIndirectCallCount in v29.1
     public ulong unresolvedVirtualCallPointers;
 
-    [Version(Min = 29.1f)] 
-    public ulong unresolvedInstanceCallPointers;
-    [Version(Min = 29.1f)] 
-    public ulong unresolvedStaticCallPointers;
+    [Version(Min = 29.1f)] public ulong unresolvedInstanceCallPointers;
+    [Version(Min = 29.1f)] public ulong unresolvedStaticCallPointers;
 
-    [Version(Min = 23)]
-    public ulong interopDataCount;
-    [Version(Min = 23)]
-    public ulong interopData;
+    [Version(Min = 23)] public ulong interopDataCount;
+    [Version(Min = 23)] public ulong interopData;
 
     [Version(Min = 24.3f)] public ulong windowsRuntimeFactoryCount;
     [Version(Min = 24.3f)] public ulong windowsRuntimeFactoryTable;

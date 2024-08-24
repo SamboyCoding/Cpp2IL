@@ -33,11 +33,11 @@ public static class Extensions
         dict.Add(key, value);
         return value;
     }
-        
-    public static string Join(this IEnumerable<string> strings, string separator = "") 
+
+    public static string Join(this IEnumerable<string> strings, string separator = "")
         => string.Join(separator, strings);
 
 
-    public static ulong StableHash(this string str) 
+    public static ulong StableHash(this string str)
         => str.Aggregate<char, ulong>(0, (current, c) => current * 37 + c);
 }

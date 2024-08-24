@@ -6,7 +6,7 @@ namespace Cpp2IL.Core.Utils.AsmResolver;
 internal class Il2CppAssemblyResolver : IAssemblyResolver
 {
     internal readonly Dictionary<string, AssemblyDefinition> DummyAssemblies = new();
-            
+
     public AssemblyDefinition? Resolve(AssemblyDescriptor assembly)
     {
         if (DummyAssemblies.TryGetValue(assembly.Name!, out var ret))

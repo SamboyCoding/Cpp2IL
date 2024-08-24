@@ -32,7 +32,7 @@ public readonly struct IsilMemoryOperand : IsilOperandData
     public IsilMemoryOperand(InstructionSetIndependentOperand @base)
     {
         Debug.Assert(@base.Type == InstructionSetIndependentOperand.OperandType.Register);
-        
+
         Base = @base;
     }
 
@@ -44,7 +44,7 @@ public readonly struct IsilMemoryOperand : IsilOperandData
     public IsilMemoryOperand(InstructionSetIndependentOperand @base, long addend)
     {
         Debug.Assert(@base.Type == InstructionSetIndependentOperand.OperandType.Register);
-        
+
         Base = @base;
         Addend = addend;
     }
@@ -78,7 +78,7 @@ public readonly struct IsilMemoryOperand : IsilOperandData
         Debug.Assert(@base.Type == InstructionSetIndependentOperand.OperandType.Register);
         Debug.Assert(index.Type == InstructionSetIndependentOperand.OperandType.Register);
         Debug.Assert(scale > 0);
-        
+
         Base = @base;
         Index = index;
         Addend = addend;
@@ -95,26 +95,26 @@ public readonly struct IsilMemoryOperand : IsilOperandData
             ret.Append(Base);
             needsPlus = true;
         }
-        
-        if(Addend != 0)
+
+        if (Addend != 0)
         {
             if (needsPlus)
                 ret.Append(Addend > 0 ? '+' : '-');
-            
-            if(Addend > 0x10000)
+
+            if (Addend > 0x10000)
                 ret.AppendFormat("0x{0:X}", Math.Abs(Addend));
             else
                 ret.Append(Math.Abs(Addend));
             needsPlus = true;
         }
-        
+
         if (Index != null)
         {
             if (needsPlus)
                 ret.Append("+");
             ret.Append(Index);
-            
-            if(Scale > 1)
+
+            if (Scale > 1)
             {
                 ret.Append("*");
                 ret.Append(Scale);

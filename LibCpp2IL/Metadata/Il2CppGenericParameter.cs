@@ -22,16 +22,16 @@ public class Il2CppGenericParameter : ReadableClass
             .Take(constraintsCount)
             .Select(LibCpp2IlMain.Binary!.GetType)
             .ToArray();
-        
+
     public int Index { get; internal set; }
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
-            ownerIndex = reader.ReadInt32();
-            nameIndex = reader.ReadInt32();
-            constraintsStart = reader.ReadInt16();
-            constraintsCount = reader.ReadInt16();
-            genericParameterIndexInOwner = reader.ReadUInt16();
-            flags = reader.ReadUInt16();
-        }
+        ownerIndex = reader.ReadInt32();
+        nameIndex = reader.ReadInt32();
+        constraintsStart = reader.ReadInt16();
+        constraintsCount = reader.ReadInt16();
+        genericParameterIndexInOwner = reader.ReadUInt16();
+        flags = reader.ReadUInt16();
+    }
 }

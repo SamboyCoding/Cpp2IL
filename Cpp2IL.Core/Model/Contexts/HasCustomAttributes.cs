@@ -20,7 +20,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     : HasToken(token, appContext)
 {
     private bool _hasAnalyzedCustomAttributeData;
-    
+
     /// <summary>
     /// On V29, stores the custom attribute blob. Pre-29, stores the bytes for the custom attribute generator function.
     /// </summary>
@@ -61,15 +61,15 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     /// Returns this member's assembly context for use in custom attribute reconstruction.
     /// </summary>
     public abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
-    
+
     public abstract string CustomAttributeOwnerName { get; }
-    
-    public bool IsCompilerGeneratedBasedOnCustomAttributes => 
-        CustomAttributes?.Any(a => a.Constructor.DeclaringType!.FullName.Contains("CompilerGeneratedAttribute")) 
+
+    public bool IsCompilerGeneratedBasedOnCustomAttributes =>
+        CustomAttributes?.Any(a => a.Constructor.DeclaringType!.FullName.Contains("CompilerGeneratedAttribute"))
         ?? AttributeTypes?.Any(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_CLASS && t.AsClass().FullName!.Contains("CompilerGeneratedAttribute"))
         ?? false;
 
-    
+
 #pragma warning disable CS8618 //Non-null member is not initialized.
 #pragma warning restore CS8618
 
@@ -78,13 +78,13 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         if (AppContext.MetadataVersion >= 29)
         {
             var offsets = GetV29BlobOffsets();
-            
-            if(!offsets.HasValue)
+
+            if (!offsets.HasValue)
                 return;
 
             var (blobStart, blobEnd) = offsets.Value;
-            RawIl2CppCustomAttributeData = AppContext.Metadata.ReadByteArrayAtRawAddress(blobStart, (int) (blobEnd - blobStart));
-            
+            RawIl2CppCustomAttributeData = AppContext.Metadata.ReadByteArrayAtRawAddress(blobStart, (int)(blobEnd - blobStart));
+
             return;
         }
 
@@ -118,7 +118,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         {
             var baseAddress = CustomAttributeAssembly.CodeGenModule!.customAttributeCacheGenerator;
             var relativeIndex = rangeIndex - CustomAttributeAssembly.Definition.Image.customAttributeStart;
-            var ptrToAddress = baseAddress + (ulong) relativeIndex * AppContext.Binary.PointerSize;
+            var ptrToAddress = baseAddress + (ulong)relativeIndex * AppContext.Binary.PointerSize;
             generatorPtr = AppContext.Binary.ReadPointerAtVirtualAddress(ptrToAddress);
         }
 
@@ -135,11 +135,11 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
     private (long blobStart, long blobEnd)? GetV29BlobOffsets()
     {
-        var target = new Il2CppCustomAttributeDataRange() {token = Token};
+        var target = new Il2CppCustomAttributeDataRange() { token = Token };
         var caIndex = AppContext.Metadata.AttributeDataRanges.BinarySearch
         (
             CustomAttributeAssembly.Definition.Image.customAttributeStart,
-            (int) CustomAttributeAssembly.Definition.Image.customAttributeCount,
+            (int)CustomAttributeAssembly.Definition.Image.customAttributeCount,
             target,
             new TokenComparer()
         );
@@ -163,13 +163,13 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     /// </summary>
     public void AnalyzeCustomAttributeData(bool allowAnalysis = true)
     {
-        if(_hasAnalyzedCustomAttributeData)
+        if (_hasAnalyzedCustomAttributeData)
             return;
 
         _hasAnalyzedCustomAttributeData = true;
-        
+
         CustomAttributes = [];
-        
+
         if (AppContext.MetadataVersion >= 29)
         {
             AnalyzeCustomAttributeDataV29();
@@ -193,25 +193,26 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         }
 
         //Basically, extract actions from the analysis, and compare with the type list we have to resolve parameters and populate the CustomAttributes list.
-        
+
         foreach (var il2CppType in AttributeTypes!) //Assert nonnull because we're pre-29 at this point
         {
             var typeDef = il2CppType.AsClass();
             var attributeTypeContext = AppContext.ResolveContextForType(typeDef) ?? throw new("Unable to find type " + typeDef.FullName);
-            
+
             AnalyzedCustomAttribute attribute;
-            if(attributeTypeContext.Methods.FirstOrDefault(c => c.MethodName == ".ctor" && c.Definition!.parameterCount == 0) is { } constructor)
+            if (attributeTypeContext.Methods.FirstOrDefault(c => c.MethodName == ".ctor" && c.Definition!.parameterCount == 0) is { } constructor)
             {
                 attribute = new(constructor);
             }
-            else if(attributeTypeContext.Methods.FirstOrDefault(c => c.MethodName == ".ctor") is {} anyConstructor)
+            else if (attributeTypeContext.Methods.FirstOrDefault(c => c.MethodName == ".ctor") is { } anyConstructor)
             {
                 //TODO change this to actual constructor w/ params once anaylsis is available
                 attribute = new(anyConstructor);
-            } else 
+            }
+            else
                 //No constructor - shouldn't happen?
                 continue;
-            
+
             //Add the attribute, even if we don't have constructor params, so it can be read regardless
             CustomAttributes.Add(attribute);
         }
@@ -222,9 +223,9 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     /// </summary>
     private void AnalyzeCustomAttributeDataV29()
     {
-        if(RawIl2CppCustomAttributeData.Length == 0)
+        if (RawIl2CppCustomAttributeData.Length == 0)
             return;
-        
+
         using var blobStream = new MemoryStream(RawIl2CppCustomAttributeData.ToArray());
         var attributeCount = blobStream.ReadUnityCompressedUint();
         var constructors = V29AttributeUtils.ReadConstructors(blobStream, attributeCount, AppContext);
@@ -237,7 +238,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         foreach (var constructor in constructors)
         {
             perAttributeStartOffsets[constructor] = blobStream.Position;
-            
+
             var attributeTypeContext = AppContext.ResolveContextForType(constructor.DeclaringType!) ?? throw new($"Unable to find type {constructor.DeclaringType!.FullName}");
             var attributeMethodContext = attributeTypeContext.GetMethod(constructor) ?? throw new($"Unable to find method {constructor.Name} in type {attributeTypeContext.Definition?.FullName}");
 
@@ -254,7 +255,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
                 Logger.ErrorNewline($"The exception message was {e.Message}", "CA Restore");
 
                 throw;
-            } 
+            }
         }
     }
 }

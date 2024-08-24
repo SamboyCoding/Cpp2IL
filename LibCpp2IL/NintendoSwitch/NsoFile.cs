@@ -18,7 +18,7 @@ public sealed class NsoFile : Il2CppBinary
     private readonly bool _isTextCompressed;
     private readonly bool _isRoDataCompressed;
     private readonly bool _isDataCompressed;
-        
+
     private NsoModHeader _modHeader = null!;
     private ElfDynamicSymbol64[] _symbolTable = null!;
     private List<NsoSegmentHeader> segments = [];
@@ -33,13 +33,7 @@ public sealed class NsoFile : Il2CppBinary
         InstructionSetId = DefaultInstructionSets.ARM_V8;
 
         LibLogger.VerboseNewline("\tReading NSO Early Header...");
-        _header = new()
-        {
-            Magic = ReadUInt32(),
-            Version = ReadUInt32(),
-            Reserved = ReadUInt32(),
-            Flags = ReadUInt32()
-        };
+        _header = new() { Magic = ReadUInt32(), Version = ReadUInt32(), Reserved = ReadUInt32(), Flags = ReadUInt32() };
 
         if (_header.Magic != 0x304F534E)
             throw new($"NSO file should have a magic number of 0x304F534E, got 0x{_header.Magic:X}");
@@ -52,34 +46,19 @@ public sealed class NsoFile : Il2CppBinary
 
         LibLogger.VerboseNewline($"\tCompression flags: text: {_isTextCompressed}, rodata: {_isRoDataCompressed}, data: {_isDataCompressed}.");
 
-        _header.TextSegment = new()
-        {
-            FileOffset = ReadUInt32(),
-            MemoryOffset = ReadUInt32(),
-            DecompressedSize = ReadUInt32()
-        };
+        _header.TextSegment = new() { FileOffset = ReadUInt32(), MemoryOffset = ReadUInt32(), DecompressedSize = ReadUInt32() };
         segments.Add(_header.TextSegment);
 
         LibLogger.VerboseNewline($"\tRead text segment header ok. Reading rodata segment header...");
 
         _header.ModuleOffset = ReadUInt32();
-        _header.RoDataSegment = new()
-        {
-            FileOffset = ReadUInt32(),
-            MemoryOffset = ReadUInt32(),
-            DecompressedSize = ReadUInt32()
-        };
+        _header.RoDataSegment = new() { FileOffset = ReadUInt32(), MemoryOffset = ReadUInt32(), DecompressedSize = ReadUInt32() };
         segments.Add(_header.RoDataSegment);
 
         LibLogger.VerboseNewline($"\tRead rodata segment header OK. Reading data segment header...");
 
         _header.ModuleFileSize = ReadUInt32();
-        _header.DataSegment = new()
-        {
-            FileOffset = ReadUInt32(),
-            MemoryOffset = ReadUInt32(),
-            DecompressedSize = ReadUInt32()
-        };
+        _header.DataSegment = new() { FileOffset = ReadUInt32(), MemoryOffset = ReadUInt32(), DecompressedSize = ReadUInt32() };
         segments.Add(_header.DataSegment);
 
         LibLogger.VerboseNewline($"\tRead data segment OK. Reading post-segment fields...");
@@ -93,21 +72,9 @@ public sealed class NsoFile : Il2CppBinary
 
         LibLogger.VerboseNewline("\tRead post-segment fields OK. Reading Dynamic section and Api Info offsets...");
 
-        _header.ApiInfo = new()
-        {
-            RegionRoDataOffset = ReadUInt32(),
-            RegionSize = ReadUInt32()
-        };
-        _header.DynStr = new()
-        {
-            RegionRoDataOffset = ReadUInt32(),
-            RegionSize = ReadUInt32()
-        };
-        _header.DynSym = new()
-        {
-            RegionRoDataOffset = ReadUInt32(),
-            RegionSize = ReadUInt32()
-        };
+        _header.ApiInfo = new() { RegionRoDataOffset = ReadUInt32(), RegionSize = ReadUInt32() };
+        _header.DynStr = new() { RegionRoDataOffset = ReadUInt32(), RegionSize = ReadUInt32() };
+        _header.DynSym = new() { RegionRoDataOffset = ReadUInt32(), RegionSize = ReadUInt32() };
 
         LibLogger.VerboseNewline($"\tRead offsets OK. Reading hashes...");
 
@@ -131,7 +98,7 @@ public sealed class NsoFile : Il2CppBinary
     private void ReadModHeader()
     {
         LibLogger.VerboseNewline($"\tNSO is decompressed. Reading MOD segment header...");
-            
+
         _modHeader = new();
 
         //Location of real mod header must be at .text + 4
@@ -144,15 +111,10 @@ public sealed class NsoFile : Il2CppBinary
         _modHeader.DynamicOffset = ReadUInt32() + _modHeader.ModOffset;
         _modHeader.BssStart = ReadUInt32();
         _modHeader.BssEnd = ReadUInt32();
-            
+
         //Construct the bss segment information from the fields we just read
-        _modHeader.BssSegment = new()
-        {
-            FileOffset = _modHeader.BssStart,
-            MemoryOffset = _modHeader.BssStart,
-            DecompressedSize = _modHeader.BssEnd - _modHeader.BssStart
-        };
-            
+        _modHeader.BssSegment = new() { FileOffset = _modHeader.BssStart, MemoryOffset = _modHeader.BssStart, DecompressedSize = _modHeader.BssEnd - _modHeader.BssStart };
+
         _modHeader.EhFrameHdrStart = ReadUInt32();
         _modHeader.EhFrameHdrEnd = ReadUInt32();
     }
@@ -160,9 +122,9 @@ public sealed class NsoFile : Il2CppBinary
     private void ReadDynamicSection()
     {
         LibLogger.VerboseNewline($"\tReading NSO Dynamic section...");
-            
+
         Position = MapVirtualAddressToRaw(_modHeader.DynamicOffset);
-            
+
         //This is mostly a sanity check so we don't read the entire damn file 16 bytes at a time
         //This will be way more than we need in general (like, 100 times more)
         var endOfData = _header.DataSegment.MemoryOffset + _header.DataSegment.DecompressedSize;
@@ -181,7 +143,7 @@ public sealed class NsoFile : Il2CppBinary
     private void ReadSymbolTable()
     {
         LibLogger.Verbose($"\tReading NSO symbol table...");
-            
+
         var hash = GetDynamicEntry(ElfDynamicType.DT_HASH);
 
         if (hash == null)
@@ -189,21 +151,21 @@ public sealed class NsoFile : Il2CppBinary
             LibLogger.WarnNewline("\tNo DT_HASH found in NSO, symbols will not be resolved");
             return;
         }
-            
+
         Position = MapVirtualAddressToRaw(hash.Value);
         ReadUInt32(); //Ignored
         var symbolCount = ReadUInt32();
 
         var symTab = GetDynamicEntry(ElfDynamicType.DT_SYMTAB);
-            
+
         if (symTab == null)
         {
             LibLogger.WarnNewline("\tNo DT_SYMTAB found in NSO, symbols will not be resolved");
             return;
         }
-            
-        _symbolTable = ReadReadableArrayAtVirtualAddress<ElfDynamicSymbol64>((ulong) MapVirtualAddressToRaw(symTab.Value), symbolCount);
-            
+
+        _symbolTable = ReadReadableArrayAtVirtualAddress<ElfDynamicSymbol64>((ulong)MapVirtualAddressToRaw(symTab.Value), symbolCount);
+
         LibLogger.VerboseNewline($"Got {_symbolTable.Length} symbols");
     }
 
@@ -215,16 +177,16 @@ public sealed class NsoFile : Il2CppBinary
         {
             var dtRela = GetDynamicEntry(ElfDynamicType.DT_RELA) ?? throw new("No relocations found in NSO");
             var dtRelaSize = GetDynamicEntry(ElfDynamicType.DT_RELASZ) ?? throw new("No relocation size entry found in NSO");
-            relaEntries = ReadReadableArrayAtVirtualAddress<ElfRelaEntry>(dtRela.Value, (long) (dtRelaSize.Value / 24)); //24 being sizeof(ElfRelaEntry) on 64-bit
+            relaEntries = ReadReadableArrayAtVirtualAddress<ElfRelaEntry>(dtRela.Value, (long)(dtRelaSize.Value / 24)); //24 being sizeof(ElfRelaEntry) on 64-bit
         }
         catch
         {
             //If we don't have relocations, that's fine.
             return;
         }
-            
+
         LibLogger.VerboseNewline($"\tApplying {relaEntries.Length} relocations from DT_RELA...");
-            
+
         foreach (var elfRelaEntry in relaEntries)
         {
             switch (elfRelaEntry.Type)
@@ -232,10 +194,10 @@ public sealed class NsoFile : Il2CppBinary
                 case ElfRelocationType.R_AARCH64_ABS64:
                 case ElfRelocationType.R_AARCH64_GLOB_DAT:
                     var symbol = _symbolTable[elfRelaEntry.Symbol];
-                    WriteWord((int) MapVirtualAddressToRaw(elfRelaEntry.Offset), symbol.Value + elfRelaEntry.Addend);
+                    WriteWord((int)MapVirtualAddressToRaw(elfRelaEntry.Offset), symbol.Value + elfRelaEntry.Addend);
                     break;
                 case ElfRelocationType.R_AARCH64_RELATIVE:
-                    WriteWord((int) MapVirtualAddressToRaw(elfRelaEntry.Offset), elfRelaEntry.Addend);
+                    WriteWord((int)MapVirtualAddressToRaw(elfRelaEntry.Offset), elfRelaEntry.Addend);
                     break;
                 default:
                     LibLogger.WarnNewline($"Unknown relocation type {elfRelaEntry.Type}");
@@ -243,7 +205,7 @@ public sealed class NsoFile : Il2CppBinary
             }
         }
     }
-        
+
     public ElfDynamicEntry? GetDynamicEntry(ElfDynamicType tag) => dynamicEntries.Find(x => x.Tag == tag);
 
     [SuppressMessage("ReSharper", "MustUseReturnValue")]
@@ -251,7 +213,7 @@ public sealed class NsoFile : Il2CppBinary
     {
         if (!IsCompressed)
             return this;
-            
+
         LibLogger.InfoNewline("\tDecompressing NSO file...");
 
         var unCompressedStream = new MemoryStream();
@@ -353,7 +315,7 @@ public sealed class NsoFile : Il2CppBinary
                 throw new InvalidOperationException($"NSO: Address 0x{addr:X} is not present in any of the segments. Known segment ends are (hex) {string.Join(", ", segments.Select(s => (s.MemoryOffset + s.DecompressedSize).ToString("X")))}");
             else
                 return VirtToRawInvalidNoMatch;
-            
+
         return (long)(addr - (segment.MemoryOffset + NsoGlobalOffset) + segment.FileOffset);
     }
 
@@ -364,6 +326,7 @@ public sealed class NsoFile : Il2CppBinary
         {
             return 0;
         }
+
         return offset - segment.FileOffset + (NsoGlobalOffset + segment.MemoryOffset);
     }
 

@@ -39,41 +39,41 @@ public static class Il2CppClassUsefulOffsets
 
     public static bool IsStaticFieldsPtr(uint offset)
     {
-            return GetOffsetName(offset) == "static_fields";
-        }
+        return GetOffsetName(offset) == "static_fields";
+    }
 
     public static bool IsInterfaceOffsetsPtr(uint offset)
     {
-            return GetOffsetName(offset) == "interfaceOffsets";
-        }
-        
+        return GetOffsetName(offset) == "interfaceOffsets";
+    }
+
     public static bool IsInterfaceOffsetsCount(uint offset)
     {
-            return GetOffsetName(offset) == "interface_offsets_count";
-        }
+        return GetOffsetName(offset) == "interface_offsets_count";
+    }
 
     public static bool IsRGCTXDataPtr(uint offset)
     {
-            return GetOffsetName(offset) == "rgctx_data";
-        }
+        return GetOffsetName(offset) == "rgctx_data";
+    }
 
     public static bool IsElementTypePtr(uint offset)
     {
-            return GetOffsetName(offset) == "elementType";
-        }
+        return GetOffsetName(offset) == "elementType";
+    }
 
     public static bool IsPointerIntoVtable(uint offset)
     {
-            return offset >= VTABLE_OFFSET;
-        }
+        return offset >= VTABLE_OFFSET;
+    }
 
     public static string? GetOffsetName(uint offset)
     {
-            var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
+        var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
 
-            return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
-        }
-        
+        return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
+    }
+
     public class UsefulOffset(string name, uint offset, Type type, bool is32Bit)
     {
         public string name = name;

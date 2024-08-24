@@ -95,9 +95,9 @@ public class CustomAttributePrimitiveParameter : BaseCustomAttributeParameter
 
     public override string ToString()
     {
-        if(PrimitiveValue is string s)
+        if (PrimitiveValue is string s)
             return $"\"{s.EscapeString()}\"";
-        
+
         return PrimitiveValue?.ToString(CultureInfo.InvariantCulture) ?? "null";
     }
 }

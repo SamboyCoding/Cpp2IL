@@ -20,14 +20,14 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
         if (true || context is not ConcreteGenericMethodAnalysisContext)
         {
             //Managed method or attr gen => grab raw byte range between a and b
-            var startOfNextFunction = (int) MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer) - 1;
-            var ptrAsInt = (int) context.UnderlyingPointer;
+            var startOfNextFunction = (int)MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer) - 1;
+            var ptrAsInt = (int)context.UnderlyingPointer;
             var count = startOfNextFunction - ptrAsInt;
 
             if (startOfNextFunction > 0)
                 return LibCpp2IlMain.Binary!.GetRawBinaryContent().AsMemory(ptrAsInt, count);
         }
-        
+
         var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
         return instructions.SelectMany(i => i.Bytes).ToArray();
@@ -43,7 +43,7 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
     public override string PrintAssembly(MethodAnalysisContext context)
     {
         var sb = new StringBuilder();
-        
+
         var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
 
         var first = true;
@@ -51,7 +51,7 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
         {
             if (!first)
                 sb.AppendLine();
-            
+
             first = false;
             sb.Append("0x").Append(instruction.Address.ToString("X")).Append(" ").Append(instruction.Mnemonic).Append(" ").Append(instruction.Operand);
         }

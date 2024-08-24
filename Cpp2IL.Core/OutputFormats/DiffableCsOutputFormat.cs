@@ -15,9 +15,10 @@ namespace Cpp2IL.Core.OutputFormats;
 public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 {
     public static bool IncludeMethodLength = false;
-    
+
     public override string OutputFormatId => "diffable-cs";
     public override string OutputFormatName => "Diffable C#";
+
     public override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         //General principle of diffable CS:
@@ -25,7 +26,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         //- Attributes in alphabetical order
         //- Members in alphabetical order and in nested type-field-event-prop-method member order
         //- No info on addresses or tokens as these change with every rebuild
-        
+
         //The idea is to make it as easy as possible for software like WinMerge, github, etc, to diff the two versions of the code and show the user exactly what changed.
 
         outputRoot = Path.Combine(outputRoot, "DiffableCs");
@@ -38,7 +39,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 
         Logger.InfoNewline("Building C# files and directory structure...", "DiffableCsOutputFormat");
         var files = BuildOutput(context, outputRoot);
-        
+
         Logger.InfoNewline("Writing C# files...", "DiffableCsOutputFormat");
         foreach (var (filePath, fileContent) in files)
         {
@@ -49,7 +50,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     private static Dictionary<string, StringBuilder> BuildOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         var ret = new Dictionary<string, StringBuilder>();
-        
+
         foreach (var assembly in context.Assemblies)
         {
             var asmPath = Path.Combine(outputRoot, assembly.CleanAssemblyName);
@@ -57,41 +58,41 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 
             foreach (var type in assembly.TopLevelTypes)
             {
-                if(type is InjectedTypeAnalysisContext)
+                if (type is InjectedTypeAnalysisContext)
                     continue;
-                
+
                 var path = Path.Combine(asmPath, type.NamespaceAsSubdirs, MiscUtils.CleanPathElement(type.Name + ".cs"));
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
                 var sb = new StringBuilder();
-                
+
                 //Namespace at top of file
-                if(!string.IsNullOrEmpty(type.Namespace))
+                if (!string.IsNullOrEmpty(type.Namespace))
                     sb.AppendLine($"namespace {type.Namespace};").AppendLine();
                 else
                     sb.AppendLine("//Type is in global namespace").AppendLine();
-                
+
                 AppendType(sb, type);
 
                 ret[path] = sb;
             }
         }
-        
+
         return ret;
     }
 
     private static void AppendType(StringBuilder sb, TypeAnalysisContext type, int indent = 0)
     {
         // if (type.IsCompilerGeneratedBasedOnCustomAttributes)
-            //Do not output compiler-generated types
-            // return;
-        
+        //Do not output compiler-generated types
+        // return;
+
         //Custom attributes for type. Includes a trailing newline
         AppendCustomAttributes(sb, type, indent);
-        
+
         //Type declaration line
         sb.Append('\t', indent);
-        
+
         sb.Append(CsFileUtils.GetKeyWordsForType(type));
         sb.Append(' ');
         sb.Append(CsFileUtils.GetTypeName(type.Name));
@@ -100,7 +101,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append('\t', indent);
         sb.Append('{');
         sb.AppendLine();
-        
+
         //Type declaration done, increase indent
         indent++;
 
@@ -120,7 +121,6 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         }
         else
         {
-
             //Nested classes, alphabetical order
             var nestedTypes = type.NestedTypes.Clone();
             nestedTypes.SortByExtractedKey(t => t.Name);
@@ -153,22 +153,22 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             foreach (var method in methods)
                 AppendMethod(sb, method, indent);
         }
-        
+
         //Decrease indent, close brace
         indent--;
         sb.Append('\t', indent);
         sb.Append('}');
         sb.AppendLine().AppendLine();
     }
-    
+
     private static void AppendField(StringBuilder sb, FieldAnalysisContext field, int indent)
     {
-        if(field is InjectedFieldAnalysisContext)
+        if (field is InjectedFieldAnalysisContext)
             return;
-        
+
         //Custom attributes for field. Includes a trailing newline
         AppendCustomAttributes(sb, field, indent);
-        
+
         //Field declaration line
         sb.Append('\t', indent);
         sb.Append(CsFileUtils.GetKeyWordsForField(field));
@@ -177,7 +177,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append(' ');
         sb.Append(field.Name);
 
-        if (field.BackingData?.DefaultValue is {} defaultValue)
+        if (field.BackingData?.DefaultValue is { } defaultValue)
         {
             sb.Append(" = ");
 
@@ -186,7 +186,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             else
                 sb.Append(defaultValue);
         }
-        
+
         sb.Append("; //Field offset: 0x");
         sb.Append(field.Offset.ToString("X"));
 
@@ -211,14 +211,15 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
                 sb.Append(']');
             }
         }
+
         sb.AppendLine();
     }
-    
+
     private static void AppendEvent(StringBuilder sb, EventAnalysisContext evt, int indent)
     {
         //Custom attributes for event. Includes a trailing newline
         AppendCustomAttributes(sb, evt, indent);
-        
+
         //Event declaration line
         sb.Append('\t', indent);
         sb.Append(CsFileUtils.GetKeyWordsForEvent(evt));
@@ -229,14 +230,14 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append('\t', indent);
         sb.Append('{');
         sb.AppendLine();
-        
+
         //Add/Remove/Invoke
         indent++;
-        if(evt.Adder != null)
+        if (evt.Adder != null)
             AppendAccessor(sb, evt.Adder, "add", indent);
-        if(evt.Remover != null)
+        if (evt.Remover != null)
             AppendAccessor(sb, evt.Remover, "remove", indent);
-        if(evt.Invoker != null)
+        if (evt.Invoker != null)
             AppendAccessor(sb, evt.Invoker, "fire", indent);
         indent--;
 
@@ -244,12 +245,12 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append('}');
         sb.AppendLine().AppendLine();
     }
-    
+
     private static void AppendProperty(StringBuilder sb, PropertyAnalysisContext prop, int indent)
     {
         //Custom attributes for property. Includes a trailing newline
         AppendCustomAttributes(sb, prop, indent);
-        
+
         //Property declaration line
         sb.Append('\t', indent);
         sb.Append(CsFileUtils.GetKeyWordsForProperty(prop));
@@ -261,28 +262,28 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append('\t', indent);
         sb.Append('{');
         sb.AppendLine();
-        
+
         //Get/Set
         indent++;
-        if(prop.Getter != null)
+        if (prop.Getter != null)
             AppendAccessor(sb, prop.Getter, "get", indent);
-        if(prop.Setter != null)
+        if (prop.Setter != null)
             AppendAccessor(sb, prop.Setter, "set", indent);
         indent--;
-        
+
         sb.Append('\t', indent);
         sb.Append('}');
         sb.AppendLine().AppendLine();
     }
-    
+
     private static void AppendMethod(StringBuilder sb, MethodAnalysisContext method, int indent)
     {
-        if(method is InjectedMethodAnalysisContext)
+        if (method is InjectedMethodAnalysisContext)
             return;
-        
+
         //Custom attributes for method. Includes a trailing newline
         AppendCustomAttributes(sb, method, indent);
-        
+
         //Method declaration line
         sb.Append('\t', indent);
         sb.Append(CsFileUtils.GetKeyWordsForMethod(method));
@@ -327,6 +328,6 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.AppendLine();
     }
 
-    private static void AppendCustomAttributes(StringBuilder sb, HasCustomAttributes owner, int indent) 
+    private static void AppendCustomAttributes(StringBuilder sb, HasCustomAttributes owner, int indent)
         => sb.Append(CsFileUtils.GetCustomAttributeStrings(owner, indent, true, true));
 }

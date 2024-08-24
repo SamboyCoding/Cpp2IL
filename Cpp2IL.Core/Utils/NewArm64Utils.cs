@@ -68,7 +68,7 @@ public static class NewArm64Utils
 
         return ret;
     }
-    
+
     public static Arm64Instruction LastValid(this List<Arm64Instruction> list)
     {
         for (var i = list.Count - 1; i >= 0; i--)

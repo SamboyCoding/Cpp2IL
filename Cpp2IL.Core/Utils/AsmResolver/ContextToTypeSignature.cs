@@ -6,6 +6,7 @@ using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Utils.AsmResolver;
+
 public static class ContextToTypeSignature
 {
     private static TypeDefinition GetTypeDefinition(this TypeAnalysisContext context)

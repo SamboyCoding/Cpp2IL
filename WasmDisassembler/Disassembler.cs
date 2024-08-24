@@ -10,15 +10,15 @@ public static class Disassembler
         using var reader = new BinaryReader(s);
         while (s.Position < s.Length)
         {
-            var ip = virtualAddress + (uint) s.Position;
-            var mnemonic = (WasmMnemonic) reader.ReadByte();
+            var ip = virtualAddress + (uint)s.Position;
+            var mnemonic = (WasmMnemonic)reader.ReadByte();
 
             if (mnemonic > WasmMnemonic.LastValid)
                 throw new($"Encountered invalid mnemonic {mnemonic} at ip 0x{ip:X}, byte array position {s.Position}.");
 
             var instruction = reader.ReadInstruction(mnemonic);
             instruction.Ip = ip;
-            instruction.NextIp = virtualAddress + (uint) s.Position; //Next ip is position we go into the next instruction with
+            instruction.NextIp = virtualAddress + (uint)s.Position; //Next ip is position we go into the next instruction with
             ret.Add(instruction);
         }
 
@@ -27,10 +27,7 @@ public static class Disassembler
 
     private static WasmInstruction ReadInstruction(this BinaryReader reader, WasmMnemonic mnemonic)
     {
-        var ret = new WasmInstruction
-        {
-            Mnemonic = mnemonic,
-        };
+        var ret = new WasmInstruction { Mnemonic = mnemonic, };
 
         var opTypes = mnemonic.GetOperandTypes();
         if (opTypes.Length == 0)

@@ -1,6 +1,6 @@
 ﻿namespace LibCpp2IL;
 
-public enum MetadataUsageType: uint
+public enum MetadataUsageType : uint
 {
     TypeInfo = 1,
     Type = 2,

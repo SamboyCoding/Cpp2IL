@@ -11,12 +11,12 @@ public class Il2CppInterfaceOffset : ReadableClass
 
     public override string ToString()
     {
-            return $"InterfaceOffsetPair({typeIndex}/{type?.ToString() ?? "unknown type"} => {offset})";
-        }
+        return $"InterfaceOffsetPair({typeIndex}/{type?.ToString() ?? "unknown type"} => {offset})";
+    }
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            typeIndex = reader.ReadInt32();
-            offset = reader.ReadInt32();
-        }
+        typeIndex = reader.ReadInt32();
+        offset = reader.ReadInt32();
+    }
 }

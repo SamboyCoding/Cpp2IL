@@ -38,7 +38,7 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
 
     public override string ToString()
     {
-        if(Type == null)
+        if (Type == null)
             return "(Type) null";
 
         if (Type.Type.IsIl2CppPrimitive())
@@ -50,7 +50,7 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
             var typeContext = Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(Type);
             return $"typeof({typeContext.GetCSharpSourceString()})";
         }
-        
+
         //Basic class/struct
         return $"typeof({Type.AsClass().Name})";
     }

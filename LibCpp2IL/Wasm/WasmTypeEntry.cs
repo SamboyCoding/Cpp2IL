@@ -12,10 +12,10 @@ public class WasmTypeEntry
 
     public WasmTypeEntry(WasmFile file)
     {
-            Form = file.ReadByte();
-            ParamCount = file.BaseStream.ReadLEB128Unsigned();
-            ParamTypes = file.ReadByteArrayAtRawAddress(file.Position, (int) ParamCount).Select(b => (WasmTypeEnum) b).ToArray();
-            ReturnCount = file.BaseStream.ReadLEB128Unsigned();
-            ReturnTypes = file.ReadByteArrayAtRawAddress(file.Position, (int) ReturnCount).Select(b => (WasmTypeEnum) b).ToArray();
-        }
+        Form = file.ReadByte();
+        ParamCount = file.BaseStream.ReadLEB128Unsigned();
+        ParamTypes = file.ReadByteArrayAtRawAddress(file.Position, (int)ParamCount).Select(b => (WasmTypeEnum)b).ToArray();
+        ReturnCount = file.BaseStream.ReadLEB128Unsigned();
+        ReturnTypes = file.ReadByteArrayAtRawAddress(file.Position, (int)ReturnCount).Select(b => (WasmTypeEnum)b).ToArray();
+    }
 }

@@ -18,16 +18,17 @@ public class Block
     public bool Dirty { get; set; }
     public bool Visited = false;
 
-    
 
-    public override string ToString() { 
+    public override string ToString()
+    {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.AppendLine("Type: " + BlockType);
         stringBuilder.AppendLine();
-        foreach(var instruction in isilInstructions)
+        foreach (var instruction in isilInstructions)
         {
             stringBuilder.AppendLine(instruction.ToString());
         }
+
         return stringBuilder.ToString();
     }
 
@@ -39,7 +40,8 @@ public class Block
     public void CaculateBlockType()
     {
         // This enum is kind of redundant, can be possibly swapped for IsilFlowControl and no need for BlockType?
-        if (isilInstructions.Count > 0) {
+        if (isilInstructions.Count > 0)
+        {
             var instruction = isilInstructions.Last();
             switch (instruction.FlowControl)
             {
@@ -68,7 +70,6 @@ public class Block
                     BlockType = BlockType.Unknown;
                     break;
             }
-
         }
     }
 }

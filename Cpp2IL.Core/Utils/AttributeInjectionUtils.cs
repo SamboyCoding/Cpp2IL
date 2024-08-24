@@ -105,14 +105,14 @@ public static class AttributeInjectionUtils
             newAttribute.ConstructorParameters.Add(enumParameter);
             newAttribute.Properties.Add(new(allowMultipleProperty, new CustomAttributePrimitiveParameter(allowMultiple, newAttribute, CustomAttributeParameterKind.Property, 1)));
             injectedType.AnalyzeCustomAttributeData();
-            injectedType.CustomAttributes!.Add(newAttribute);//Nullability checked above
+            injectedType.CustomAttributes!.Add(newAttribute); //Nullability checked above
         }
     }
 
     public static void AddZeroParameterAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor)
     {
         var newAttribute = new AnalyzedCustomAttribute(constructor);
-        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
+        customAttributeHolder.CustomAttributes!.Add(newAttribute); //Nullability checked elsewhere
     }
 
     public static void AddOneParameterAttribute(HasCustomAttributes customAttributeHolder, (MethodAnalysisContext, FieldAnalysisContext) attributeInfo, object fieldValue)
@@ -124,7 +124,7 @@ public static class AttributeInjectionUtils
     {
         var newAttribute = new AnalyzedCustomAttribute(constructor);
         newAttribute.Fields.Add(new(field, MakeFieldParameter(fieldValue, newAttribute, 0)));
-        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
+        customAttributeHolder.CustomAttributes!.Add(newAttribute); //Nullability checked elsewhere
     }
 
     public static void AddTwoParameterAttribute(HasCustomAttributes customAttributeHolder, (MethodAnalysisContext, FieldAnalysisContext, FieldAnalysisContext) attributeInfo, object fieldValue1, object fieldValue2)
@@ -137,7 +137,7 @@ public static class AttributeInjectionUtils
         var newAttribute = new AnalyzedCustomAttribute(constructor);
         newAttribute.Fields.Add(new(field1, MakeFieldParameter(fieldValue1, newAttribute, 0)));
         newAttribute.Fields.Add(new(field2, MakeFieldParameter(fieldValue2, newAttribute, 1)));
-        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
+        customAttributeHolder.CustomAttributes!.Add(newAttribute); //Nullability checked elsewhere
     }
 
     public static void AddAttribute(HasCustomAttributes customAttributeHolder, MethodAnalysisContext constructor, params (FieldAnalysisContext, object)[] fields)
@@ -154,7 +154,8 @@ public static class AttributeInjectionUtils
             newAttribute.Fields.Add(new(field.Item1, MakeFieldParameter(field.Item2, newAttribute, i)));
             i++;
         }
-        customAttributeHolder.CustomAttributes!.Add(newAttribute);//Nullability checked elsewhere
+
+        customAttributeHolder.CustomAttributes!.Add(newAttribute); //Nullability checked elsewhere
     }
 
     private static Il2CppType GetAttributeTargetsType(AssemblyAnalysisContext mscorlibAssembly)
@@ -181,11 +182,7 @@ public static class AttributeInjectionUtils
         {
             Il2CppType type => new CustomAttributeTypeParameter(type, owner, parameterKind, index),
             TypeAnalysisContext type => new InjectedCustomAttributeTypeParameter(type, owner, parameterKind, index),
-            TypeAnalysisContext?[] types => new CustomAttributeArrayParameter(owner, parameterKind, index)
-            {
-                ArrType = Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX,
-                ArrayElements = types.Select(t => (BaseCustomAttributeParameter)new InjectedCustomAttributeTypeParameter(t, owner, CustomAttributeParameterKind.ArrayElement, index)).ToList()
-            },
+            TypeAnalysisContext?[] types => new CustomAttributeArrayParameter(owner, parameterKind, index) { ArrType = Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX, ArrayElements = types.Select(t => (BaseCustomAttributeParameter)new InjectedCustomAttributeTypeParameter(t, owner, CustomAttributeParameterKind.ArrayElement, index)).ToList() },
             object?[] objects => new CustomAttributeArrayParameter(owner, parameterKind, index)
             {
                 ArrType = Il2CppTypeEnum.IL2CPP_TYPE_OBJECT,

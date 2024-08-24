@@ -29,13 +29,13 @@ public class Il2CppMethodDefinition : ReadableClass
     public ushort parameterCount;
     [Version(Min = 29.2f, Max = 31)] public bool isUnmanagedCallersOnly; //uint8_t. Not present in v31 (I assume it will exist in some v31.1)
 
-    public MethodAttributes Attributes => (MethodAttributes) flags;
+    public MethodAttributes Attributes => (MethodAttributes)flags;
 
     public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
 
     public int MethodIndex => LibCpp2IlReflection.GetMethodIndexFromMethod(this);
-        
-    public string? Name { get;private set; }
+
+    public string? Name { get; private set; }
 
     public string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
@@ -51,29 +51,29 @@ public class Il2CppMethodDefinition : ReadableClass
     {
         get
         {
-                if (!_methodPointer.HasValue)
+            if (!_methodPointer.HasValue)
+            {
+                if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
                 {
-                    if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
-                    {
-                        LibLogger.WarnNewline($"Couldn't get method pointer for {Name}. Binary is {LibCpp2IlMain.Binary}, Meta is {LibCpp2IlMain.TheMetadata}, DeclaringType is {DeclaringType}");
-                        return 0;
-                    }
-
-                    var asmIdx = 0; //Not needed pre-24.2
-                    if (LibCpp2IlMain.MetadataVersion >= 27)
-                    {
-                        asmIdx = LibCpp2IlMain.Binary.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
-                    }
-                    else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
-                    {
-                        asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
-                    }
-
-                    _methodPointer = LibCpp2IlMain.Binary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
+                    LibLogger.WarnNewline($"Couldn't get method pointer for {Name}. Binary is {LibCpp2IlMain.Binary}, Meta is {LibCpp2IlMain.TheMetadata}, DeclaringType is {DeclaringType}");
+                    return 0;
                 }
 
-                return _methodPointer.Value;
+                var asmIdx = 0; //Not needed pre-24.2
+                if (LibCpp2IlMain.MetadataVersion >= 27)
+                {
+                    asmIdx = LibCpp2IlMain.Binary.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
+                }
+                else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                {
+                    asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
+                }
+
+                _methodPointer = LibCpp2IlMain.Binary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
             }
+
+            return _methodPointer.Value;
+        }
     }
 
     public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
@@ -86,18 +86,18 @@ public class Il2CppMethodDefinition : ReadableClass
     {
         get
         {
-                if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null)
-                    return null;
+            if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null)
+                return null;
 
-                if (parameterStart < 0 || parameterCount == 0)
-                    return [];
+            if (parameterStart < 0 || parameterCount == 0)
+                return [];
 
-                var ret = new Il2CppParameterDefinition[parameterCount];
+            var ret = new Il2CppParameterDefinition[parameterCount];
 
-                Array.Copy(LibCpp2IlMain.TheMetadata.parameterDefs, parameterStart, ret, 0, parameterCount);
+            Array.Copy(LibCpp2IlMain.TheMetadata.parameterDefs, parameterStart, ret, 0, parameterCount);
 
-                return ret;
-            }
+            return ret;
+        }
     }
 
     public Il2CppType[]? InternalParameterTypes => InternalParameterData == null
@@ -111,79 +111,79 @@ public class Il2CppMethodDefinition : ReadableClass
     {
         get
         {
-                if (_cachedParameters == null && InternalParameterData != null)
-                {
-                    _cachedParameters = InternalParameterData
-                        .Select((paramDef, idx) =>
+            if (_cachedParameters == null && InternalParameterData != null)
+            {
+                _cachedParameters = InternalParameterData
+                    .Select((paramDef, idx) =>
+                    {
+                        var paramType = LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex);
+                        var paramFlags = (ParameterAttributes)paramType.Attrs;
+                        var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(parameterStart + idx) : null;
+                        return new Il2CppParameterReflectionData
                         {
-                            var paramType = LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex);
-                            var paramFlags = (ParameterAttributes) paramType.Attrs;
-                            var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(parameterStart + idx) : null;
-                            return new Il2CppParameterReflectionData
-                            {
-                                Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
-                                ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
-                                Attributes = paramFlags,
-                                RawType = paramType,
-                                DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex),
-                                ParameterIndex = idx,
-                            };
-                        }).ToArray();
-                }
-
-                return _cachedParameters;
+                            Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
+                            ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
+                            Attributes = paramFlags,
+                            RawType = paramType,
+                            DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex),
+                            ParameterIndex = idx,
+                        };
+                    }).ToArray();
             }
+
+            return _cachedParameters;
+        }
     }
 
     public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
 
     public override string? ToString()
     {
-            if (LibCpp2IlMain.TheMetadata == null) 
-                return base.ToString();
+        if (LibCpp2IlMain.TheMetadata == null)
+            return base.ToString();
 
-            return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
-        }
+        return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
+    }
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            nameIndex = reader.ReadInt32();
-            
-            //Cache name now
-            var pos = reader.Position;
-            Name = ((Il2CppMetadata) reader).ReadStringFromIndexNoReadLock(nameIndex);
-            reader.Position = pos;
-            
-            declaringTypeIdx = reader.ReadInt32();
-            returnTypeIdx = reader.ReadInt32();
-            
-            if(IsAtLeast(31))
-                returnParameterToken = reader.ReadUInt32();
-            
-            parameterStart = reader.ReadInt32();
+        nameIndex = reader.ReadInt32();
 
-            if (IsAtMost(24))
-                customAttributeIndex = reader.ReadInt32();
+        //Cache name now
+        var pos = reader.Position;
+        Name = ((Il2CppMetadata)reader).ReadStringFromIndexNoReadLock(nameIndex);
+        reader.Position = pos;
 
-            genericContainerIndex = reader.ReadInt32();
+        declaringTypeIdx = reader.ReadInt32();
+        returnTypeIdx = reader.ReadInt32();
 
-            if (IsAtMost(24.15f))
-            {
-                methodIndex = reader.ReadInt32();
-                invokerIndex = reader.ReadInt32();
-                delegateWrapperIndex = reader.ReadInt32();
-                rgctxStartIndex = reader.ReadInt32();
-                rgctxCount = reader.ReadInt32();
-            }
+        if (IsAtLeast(31))
+            returnParameterToken = reader.ReadUInt32();
 
-            token = reader.ReadUInt32();
+        parameterStart = reader.ReadInt32();
 
-            flags = reader.ReadUInt16();
-            iflags = reader.ReadUInt16();
-            slot = reader.ReadUInt16();
-            parameterCount = reader.ReadUInt16();
-            
-            if (IsAtLeast(29.2f) && IsLessThan(31))
-                isUnmanagedCallersOnly = reader.ReadByte() != 0;
+        if (IsAtMost(24))
+            customAttributeIndex = reader.ReadInt32();
+
+        genericContainerIndex = reader.ReadInt32();
+
+        if (IsAtMost(24.15f))
+        {
+            methodIndex = reader.ReadInt32();
+            invokerIndex = reader.ReadInt32();
+            delegateWrapperIndex = reader.ReadInt32();
+            rgctxStartIndex = reader.ReadInt32();
+            rgctxCount = reader.ReadInt32();
         }
+
+        token = reader.ReadUInt32();
+
+        flags = reader.ReadUInt16();
+        iflags = reader.ReadUInt16();
+        slot = reader.ReadUInt16();
+        parameterCount = reader.ReadUInt16();
+
+        if (IsAtLeast(29.2f) && IsLessThan(31))
+            isUnmanagedCallersOnly = reader.ReadByte() != 0;
+    }
 }

@@ -52,7 +52,7 @@ internal static class ConsoleLogger
         var message = $"[{level}] [{source}] ";
         if (!DisableColor)
             message = message.Pastel(color);
-            
+
         Console.Write(message);
     }
 

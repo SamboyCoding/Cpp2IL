@@ -36,7 +36,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
     public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.IndexInParent, BackingData.Field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
 
     public virtual TypeAnalysisContext FieldTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(FieldType)
-        ?? throw new($"Field type {FieldType} could not be resolved.");
+                                                           ?? throw new($"Field type {FieldType} could not be resolved.");
 
 
     public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.Field.token ?? 0, parent.AppContext)

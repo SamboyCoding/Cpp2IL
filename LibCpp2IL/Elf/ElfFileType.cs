@@ -1,6 +1,6 @@
 ﻿namespace LibCpp2IL.Elf;
 
-public enum ElfFileType: ushort
+public enum ElfFileType : ushort
 {
     ET_NONE = 0,
     ET_REL = 1,

@@ -8,7 +8,7 @@ namespace Cpp2IL.Core.Utils;
 
 public static class Il2CppTypeToContext
 {
-    private static TypeAnalysisContext GetPrimitive(this SystemTypesContext context, Il2CppTypeEnum type) => 
+    private static TypeAnalysisContext GetPrimitive(this SystemTypesContext context, Il2CppTypeEnum type) =>
         type switch
         {
             Il2CppTypeEnum.IL2CPP_TYPE_OBJECT => context.SystemObjectType,
@@ -32,8 +32,8 @@ public static class Il2CppTypeToContext
             Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => context.SystemTypeType,
             _ => throw new ArgumentException("Type is not a primitive", nameof(type))
         };
-    
-    
+
+
     [return: NotNullIfNotNull("type")]
     public static TypeAnalysisContext? ResolveIl2CppType(this AssemblyAnalysisContext context, Il2CppType? type)
     {
@@ -41,10 +41,10 @@ public static class Il2CppTypeToContext
             return null;
 
         TypeAnalysisContext ret;
-        
+
         if (type.Type.IsIl2CppPrimitive())
             ret = context.AppContext.SystemTypes.GetPrimitive(type.Type);
-        else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE) 
+        else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
             ret = context.AppContext.ResolveContextForType(type.AsClass()) ?? throw new($"Could not resolve type context for type {type.AsClass().FullName}");
         else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
             ret = new GenericInstanceTypeAnalysisContext(type, context);
@@ -56,7 +56,7 @@ public static class Il2CppTypeToContext
         if (type.Byref == 1)
             //Byref types need to be wrapped in a byref context so that we don't have incorrect method signatures.
             ret = ret.MakeByReferenceType();
-        
+
         return ret;
     }
 }

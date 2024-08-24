@@ -8,7 +8,7 @@ public class Cpp2IlRuntimeArgs
 {
     //To determine easily if this struct is the default one or not.
     public bool Valid;
-        
+
     //Core variables
     public UnityVersion UnityVersion;
     public string PathToAssembly = null!;
@@ -18,9 +18,9 @@ public class Cpp2IlRuntimeArgs
 
     public List<Cpp2IlProcessingLayer> ProcessingLayersToRun = [];
     public readonly Dictionary<string, string> ProcessingLayerConfigurationOptions = new();
-        
+
     public Cpp2IlOutputFormat? OutputFormat;
     public string OutputRootDirectory = null!;
-        
+
     public bool LowMemoryMode;
 }

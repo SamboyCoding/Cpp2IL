@@ -31,7 +31,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
         var needleLength = needleSpan.Length;
         var endIdx = haystack.Length - needleLength;
         var checkAlignment = requiredAlignment > 1;
-            
+
         while (0 <= nextMatchIdx && nextMatchIdx <= endIdx)
         {
             //If we're not aligned, skip this match
@@ -61,7 +61,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
             offset = FindSequence(_binaryBytes, signature, alignment != 0 ? alignment : ptrSize, offset);
             if (offset != -1)
             {
-                yield return (uint) offset;
+                yield return (uint)offset;
                 offset += ptrSize;
             }
         }
@@ -78,7 +78,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
 
     // Find words for the current binary size
     private IEnumerable<uint> FindAllWords(ulong word)
-        => binary.is32Bit ? FindAllDWords((uint) word) : FindAllQWords(word);
+        => binary.is32Bit ? FindAllDWords((uint)word) : FindAllQWords(word);
 
     private IEnumerable<ulong> MapOffsetsToVirt(IEnumerable<uint> offsets)
     {
@@ -104,7 +104,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
         //First item in the CodeRegistration is the number of methods.
         var vas = MapOffsetsToVirt(FindAllBytes(BitConverter.GetBytes(methodCount), 1)).ToList();
 
-        LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong) methodCount).Select(x => $"0x{x:X}"))}");
+        LibLogger.VerboseNewline($"\t\t\tFound {vas.Count} instances of the method count {methodCount}, as bytes {string.Join(", ", BitConverter.GetBytes((ulong)methodCount).Select(x => $"0x{x:X}"))}");
 
         if (vas.Count == 0)
             return 0;
@@ -114,9 +114,9 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
             LibLogger.VerboseNewline($"\t\t\tChecking for CodeRegistration at virtual address 0x{va:x}...");
             var cr = binary.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(va);
 
-            if ((long) cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count)
+            if ((long)cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count)
                 return va;
-                
+
             LibLogger.VerboseNewline($"\t\t\t\tNot a valid CodeRegistration - custom attribute count is {cr.customAttributeCount}, expecting {LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count}");
         }
 
@@ -165,8 +165,8 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
             var numModuleDefs = LibCpp2IlMain.TheMetadata!.imageDefinitions.Length;
             var initialBacktrack = numModuleDefs - 10;
 
-            pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize * (ulong) initialBacktrack);
-                
+            pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize * (ulong)initialBacktrack);
+
             //Slightly experimental, but we're gonna try backtracking most of the way through the number of modules. Not all the way because we don't want to overshoot.
             int backtrack;
             for (backtrack = initialBacktrack; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
@@ -183,7 +183,8 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
                         pCodegenModules = [];
                     else
                         LibLogger.VerboseNewline($"\t\t\tFound valid address for pCodegenModules after a backtrack of {backtrack}, module count is {LibCpp2IlMain.TheMetadata!.imageDefinitions.Length}");
-                } else if (pCodegenModules.Count > 1)
+                }
+                else if (pCodegenModules.Count > 1)
                 {
                     LibLogger.VerboseNewline($"\t\t\tFound {pCodegenModules.Count} potential pCodegenModules addresses after a backtrack of {backtrack}, which is too many (> 1). Will try backtracking further.");
                 }
@@ -208,7 +209,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
 
         //We have pCodegenModules which *should* be x-reffed in the last pointer of Il2CppCodeRegistration.
         //So, subtract the size of one pointer from that...
-        var bytesToGoBack = (ulong) Il2CppCodeRegistration.GetStructSize(binary.is32Bit, LibCpp2IlMain.MetadataVersion) - ptrSize;
+        var bytesToGoBack = (ulong)Il2CppCodeRegistration.GetStructSize(binary.is32Bit, LibCpp2IlMain.MetadataVersion) - ptrSize;
 
         LibLogger.VerboseNewline($"\t\t\tpCodegenModules is the second-to-last field of the codereg struct. Therefore on this version and architecture, we need to subtract {bytesToGoBack} bytes from its address to get pCodeReg");
 
@@ -225,7 +226,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
                 LibLogger.VerboseNewline($"\t\t\tOnly found one codegen module pointer, so assuming it's correct and returning pCodeReg = 0x{address:X}");
                 return address;
             }
-                
+
             LibLogger.Verbose($"\t\t\tConsidering potential code registration at 0x{address:X}...");
 
             var codeReg = LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(address);
@@ -247,7 +248,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
         var success = true;
         foreach (var keyValuePair in fieldsByName)
         {
-            var fieldValue = (ulong) keyValuePair.Value.GetValue(codeReg)!;
+            var fieldValue = (ulong)keyValuePair.Value.GetValue(codeReg)!;
 
             if (fieldValue == 0)
                 continue; //Allow zeroes
@@ -280,7 +281,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
     public ulong FindMetadataRegistrationPre24_5()
     {
         //We're looking for TypeDefinitionsSizesCount, which is the 4th-to-last field
-        var sizeOfMr = (ulong) Il2CppMetadataRegistration.GetStructSize(binary.is32Bit);
+        var sizeOfMr = (ulong)Il2CppMetadataRegistration.GetStructSize(binary.is32Bit);
         var ptrSize = binary.is32Bit ? 4ul : 8ul;
 
         var bytesToSubtract = sizeOfMr - ptrSize * 4;
@@ -295,7 +296,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
         {
             var mr = binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
 
-            if (mr.metadataUsagesCount == (ulong) LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length)
+            if (mr.metadataUsagesCount == (ulong)LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length)
             {
                 LibLogger.VerboseNewline($"\t\t\tFound and selected probably valid metadata registration at 0x{potentialMetaRegPointer:X}.");
                 return potentialMetaRegPointer;
@@ -310,10 +311,10 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
     public ulong FindMetadataRegistrationPost24_5()
     {
         var ptrSize = binary.is32Bit ? 4ul : 8ul;
-        var sizeOfMr = (uint) Il2CppMetadataRegistration.GetStructSize(binary.is32Bit);
+        var sizeOfMr = (uint)Il2CppMetadataRegistration.GetStructSize(binary.is32Bit);
 
         LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{typeDefinitionsCount:X}");
-        var ptrsToNumberOfTypes = FindAllMappedWords((ulong) typeDefinitionsCount).ToList();
+        var ptrsToNumberOfTypes = FindAllMappedWords((ulong)typeDefinitionsCount).ToList();
 
         LibLogger.VerboseNewline($"\t\t\tFound {ptrsToNumberOfTypes.Count} instances of the number of type definitions: [{string.Join(", ", ptrsToNumberOfTypes.Select(p => p.ToString("X")))}]");
         var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4).ToList();

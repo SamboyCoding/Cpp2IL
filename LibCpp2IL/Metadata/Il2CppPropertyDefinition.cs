@@ -22,14 +22,14 @@ public class Il2CppPropertyDefinition : ReadableClass, IIl2CppTokenProvider
     {
         get
         {
-                if (_type != null)
-                    return _type;
-
-                if (LibCpp2IlMain.TheMetadata == null) return null;
-
-                _type = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(t => t.Properties!.Contains(this));
+            if (_type != null)
                 return _type;
-            }
+
+            if (LibCpp2IlMain.TheMetadata == null) return null;
+
+            _type = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(t => t.Properties!.Contains(this));
+            return _type;
+        }
         internal set => _type = value;
     }
 
@@ -48,20 +48,20 @@ public class Il2CppPropertyDefinition : ReadableClass, IIl2CppTokenProvider
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-            nameIndex = reader.ReadInt32();
+        nameIndex = reader.ReadInt32();
 
-            //Cache name now
-            var pos = reader.Position;
-            Name = ((Il2CppMetadata) reader).ReadStringFromIndexNoReadLock(nameIndex);
-            reader.Position = pos;
+        //Cache name now
+        var pos = reader.Position;
+        Name = ((Il2CppMetadata)reader).ReadStringFromIndexNoReadLock(nameIndex);
+        reader.Position = pos;
 
-            get = reader.ReadInt32();
-            set = reader.ReadInt32();
-            attrs = reader.ReadUInt32();
+        get = reader.ReadInt32();
+        set = reader.ReadInt32();
+        attrs = reader.ReadUInt32();
 
-            if (IsAtMost(24f))
-                customAttributeIndex = reader.ReadInt32();
+        if (IsAtMost(24f))
+            customAttributeIndex = reader.ReadInt32();
 
-            token = reader.ReadUInt32();
-        }
+        token = reader.ReadUInt32();
+    }
 }

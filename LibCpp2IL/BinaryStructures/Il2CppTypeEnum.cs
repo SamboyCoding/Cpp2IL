@@ -40,7 +40,7 @@ public enum Il2CppTypeEnum
     IL2CPP_TYPE_PINNED = 0x45, /* Local var that points to pinned object */
 
     IL2CPP_TYPE_ENUM = 0x55, /* an enumeration */
-    IL2CPP_TYPE_IL2CPP_TYPE_INDEX = 0xFF,  /* an index into IL2CPP type metadata table */
+    IL2CPP_TYPE_IL2CPP_TYPE_INDEX = 0xFF, /* an index into IL2CPP type metadata table */
 }
 
 public static class Il2CppTypeEnumExtensions
@@ -50,14 +50,14 @@ public static class Il2CppTypeEnumExtensions
         {
             //VOID-STRING is all primitive - this covers void, bool, char, all integer and float types, and string
             >= Il2CppTypeEnum.IL2CPP_TYPE_VOID and <= Il2CppTypeEnum.IL2CPP_TYPE_STRING => true,
-                
+
             //IntPtr and UIntPtr are also primitive
             Il2CppTypeEnum.IL2CPP_TYPE_I => true,
             Il2CppTypeEnum.IL2CPP_TYPE_U => true,
-                
+
             //Object is considered primitive in il2cpp metadata
             Il2CppTypeEnum.IL2CPP_TYPE_OBJECT => true,
-                
+
             //TypedByRef is also primitive
             Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF => true,
             Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => true,

@@ -6,5 +6,5 @@ public readonly struct IsilTypeMetadataUsageOperand(TypeAnalysisContext typeAnal
 {
     public readonly TypeAnalysisContext TypeAnalysisContext = typeAnalysisContext;
 
-    public override string ToString() => "typeof("+TypeAnalysisContext.FullName + ")";
+    public override string ToString() => "typeof(" + TypeAnalysisContext.FullName + ")";
 }

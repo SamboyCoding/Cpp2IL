@@ -9,7 +9,7 @@ public class FileHeader : ReadableClass
     public uint NumberOfSymbols;
     public ushort SizeOfOptionalHeader;
     public ushort Characteristics;
-        
+
     public override void Read(ClassReadingBinaryReader reader)
     {
         Machine = reader.ReadUInt16();
