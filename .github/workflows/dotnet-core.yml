@@ -104,9 +104,14 @@ jobs:
       - name: Install dependencies
         run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Build all
-        run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} 
+        run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
       - name: Run Tests
-        run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
+        run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
+      - name: Upload Coverage
+        uses: coverallsapp/github-action@2.3.0
+        with:
+            github-token: ${{ secrets.GITHUB_TOKEN }}
+            files: ./lcov.info
       - name: Publish StableNameDotNet
         if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./StableNameDotNet/bin/Release/*.nupkg
