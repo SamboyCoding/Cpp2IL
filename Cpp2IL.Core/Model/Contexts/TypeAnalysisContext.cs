@@ -98,7 +98,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         get
         {
             var ns = Namespace;
-            return string.IsNullOrEmpty(ns) ? "" : Path.Combine(ns.Split('.'));
+            return string.IsNullOrEmpty(ns) ? "" : Path.Combine(MiscUtils.CleanPathElement(ns).Split('.'));
         }
     }
 
