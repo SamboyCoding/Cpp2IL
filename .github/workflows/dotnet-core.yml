@@ -107,7 +107,6 @@ jobs:
         run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} 
       - name: Run Tests
         run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
-        working-directory: LibCpp2ILTests
       - name: Publish StableNameDotNet
         if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./StableNameDotNet/bin/Release/*.nupkg
