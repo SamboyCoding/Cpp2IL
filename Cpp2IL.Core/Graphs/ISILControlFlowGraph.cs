@@ -289,41 +289,4 @@ public class ISILControlFlowGraph
     }
 
     protected void AddNode(Block block) => blockSet.Add(block);
-
-    private void TraverseAndPreExecute(Block block, Action<Block> action)
-    {
-        block.Visited = true;
-        action(block);
-        foreach (var successor in block.Successors)
-            if (!successor.Visited)
-                TraverseAndPreExecute(successor, action);
-    }
-
-    public string Print(bool instructions = false)
-    {
-        var sb = new StringBuilder();
-        foreach (var node in blockSet)
-        {
-            /*
-            sb.Append("=========================\n");
-            sb.Append(
-                $"ID: {node.ID}, FC: {node.FlowControl}, Successors:{string.Join(",", node.Successors.Select(i => i.ID))}, Predecessors:{string.Join(",", node.Predecessors.Select(i => i.ID))}");
-            if (node.IsConditionalBranch)
-                sb.Append($", Condition: {node.Condition?.ConditionString ?? "Null"}");
-            if (node.Instructions.Count > 0)
-                sb.Append($", Address {node.GetFormattedInstructionAddress(node.Instructions.First())}");
-            sb.Append($", Number of Statements: {node.Statements.Count}");
-            sb.Append("\n");
-            if (instructions)
-                foreach (var instruction in node.Instructions)
-                    sb.AppendLine(instruction?.ToString());
-            else
-                foreach (var v in node.Statements)
-                    sb.Append(v.GetTextDump(0));
-            sb.Append('\n');
-            */
-        }
-
-        return sb.ToString();
-    }
 }

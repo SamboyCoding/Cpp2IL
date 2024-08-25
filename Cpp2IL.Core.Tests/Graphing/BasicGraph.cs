@@ -1,16 +1,16 @@
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 
-namespace Cpp2IL.Core.Tests;
+namespace Cpp2IL.Core.Tests.Graphing;
 
-public class GraphingTests
+public class BasicGraph
 {
     ISILControlFlowGraph graph;
 
     [SetUp]
     public void Setup()
     {
-        IsilBuilder isilBuilder = new IsilBuilder();
+        var isilBuilder = new IsilBuilder();
 
         isilBuilder.ShiftStack(0x0000, -40);
         isilBuilder.Compare(0x0001, InstructionSetIndependentOperand.MakeRegister("test1"), InstructionSetIndependentOperand.MakeRegister("test2"));

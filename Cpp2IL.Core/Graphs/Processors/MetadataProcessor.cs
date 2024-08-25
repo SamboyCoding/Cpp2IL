@@ -31,7 +31,7 @@ internal class MetadataProcessor : IBlockProcessor
                 {
                     // Try instead check if its type metadata usage
                     var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
-                    if (metadataUsage != null)
+                    if (metadataUsage != null && methodAnalysisContext.DeclaringType is not null)
                     {
                         var typeAnalysisContext = metadataUsage.ToContext(methodAnalysisContext.DeclaringType!.DeclaringAssembly);
                         if (typeAnalysisContext != null)
