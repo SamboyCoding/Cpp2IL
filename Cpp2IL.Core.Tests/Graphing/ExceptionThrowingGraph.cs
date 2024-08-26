@@ -65,8 +65,7 @@ public class ExceptionThrowingGraph
 
         isilBuilder.FixJumps();
 
-        graph = new();
-        graph.Build(isilBuilder.BackingStatementList);
+        graph = ISILControlFlowGraph.Build(isilBuilder.BackingStatementList);
     }
 
     [Test]

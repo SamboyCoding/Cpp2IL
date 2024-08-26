@@ -138,8 +138,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         if (ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
 
-        ControlFlowGraph = new ISILControlFlowGraph();
-        ControlFlowGraph.Build(ConvertedIsil);
+        
+        ControlFlowGraph = ISILControlFlowGraph.Build(ConvertedIsil);
 
         // Post step to convert metadata usage. Ldstr Opcodes etc.
         foreach (var block in ControlFlowGraph.Blocks)

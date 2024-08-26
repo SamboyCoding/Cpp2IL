@@ -8,9 +8,9 @@ namespace Cpp2IL.Core.Graphs.Processors;
 
 internal class MetadataProcessor : IBlockProcessor
 {
-    public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
+    public void Process(MethodAnalysisContext methodAnalysisContext, Block<InstructionSetIndependentInstruction> block)
     {
-        foreach (var instruction in block.isilInstructions)
+        foreach (var instruction in block.Instructions)
         {
             // TODO: Check if it shows up in any other
             if (instruction.OpCode != InstructionSetIndependentOpCode.Move)
@@ -33,6 +33,7 @@ internal class MetadataProcessor : IBlockProcessor
                     var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
                     if (metadataUsage != null && methodAnalysisContext.DeclaringType is not null)
                     {
+                        
                         var typeAnalysisContext = metadataUsage.ToContext(methodAnalysisContext.DeclaringType!.DeclaringAssembly);
                         if (typeAnalysisContext != null)
                             instruction.Operands[1] = InstructionSetIndependentOperand.MakeTypeMetadataUsage(typeAnalysisContext);

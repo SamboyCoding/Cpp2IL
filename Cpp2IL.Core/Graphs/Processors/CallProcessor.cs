@@ -7,11 +7,11 @@ namespace Cpp2IL.Core.Graphs.Processors;
 
 internal class CallProcessor : IBlockProcessor
 {
-    public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
+    public void Process(MethodAnalysisContext methodAnalysisContext, Block<InstructionSetIndependentInstruction> block)
     {
         if (block.BlockType != BlockType.Call)
             return;
-        var callInstruction = block.isilInstructions[^1];
+        var callInstruction = block.Instructions[^1];
         if (callInstruction == null)
             return;
         if (callInstruction.OpCode != InstructionSetIndependentOpCode.Call)
