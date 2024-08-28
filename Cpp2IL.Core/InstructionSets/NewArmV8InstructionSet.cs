@@ -176,7 +176,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 {
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
                     builder.Call(instruction.Address, instruction.BranchTarget, GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
-                    builder.Return(instruction.Address, GetReturnRegisterForContext(context));
+                    //builder.Return(instruction.Address, GetReturnRegisterForContext(context));
                 }
 
                 break;

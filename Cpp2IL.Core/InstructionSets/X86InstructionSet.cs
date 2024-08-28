@@ -258,7 +258,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.Call(instruction.IP, target, registerParams.ToArray());
 
                     //Discard the consumed stack space
-                    builder.ShiftStack(instruction.IP, -parameterCount * 8);
+                    //builder.ShiftStack(instruction.IP, -parameterCount * 8);
                 }
                 else
                 {

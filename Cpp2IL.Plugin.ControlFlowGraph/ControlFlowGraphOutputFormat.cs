@@ -2,12 +2,14 @@ using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
+using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Extensions;
 using System.Text;
 using Cpp2IL.Core.Graphs;
 using DotNetGraph.Core;
 using DotNetGraph.Extensions;
 using DotNetGraph.Compilation;
+using Cpp2IL.Core.Graphs.Analysis;
 
 namespace Cpp2IL.Plugin.ControlFlowGraph;
 
@@ -61,6 +63,8 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
                 }
             });
         }
+        Logger.InfoNewline($"StackAnalyzer unbalanced: {StackAnalyzer.unbalancedStackCount}");
+        Logger.InfoNewline($"StackAnalyzer balanced: {StackAnalyzer.balanacedStackCount}");
     }
 
     private string GenerateGraphTitle(MethodAnalysisContext context)
@@ -82,17 +86,19 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
             .Directed()
             .WithLabel(GenerateGraphTitle(method));
 
-        var nodeCache = new Dictionary<int, DotNode>();
+        var nodeCache = new Dictionary<Block<InstructionSetIndependentInstruction>, DotNode>();
         var edgeCache = new List<DotEdge>();
 
-        DotNode GetOrAddNode(int id)
+        uint idCounter = 0;
+        DotNode GetOrAddNode(Block<InstructionSetIndependentInstruction> id)
         {
+            
             if (nodeCache.TryGetValue(id, out var node))
             {
                 return node;
             }
 
-            var newNode = new DotNode().WithIdentifier(id.ToString());
+            var newNode = new DotNode().WithIdentifier(idCounter++.ToString());
             directedGraph.Add(newNode);
             nodeCache[id] = newNode;
             return newNode;
@@ -116,7 +122,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
         foreach (var block in graph.Blocks)
         {
-            var node = GetOrAddNode(block.ID);
+            var node = GetOrAddNode(block);
             if (block.BlockType == BlockType.Entry)
             {
                 node.WithColor("green");
@@ -135,7 +141,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
             foreach (var succ in block.Successors)
             {
-                var target = GetOrAddNode(succ.ID);
+                var target = GetOrAddNode(succ);
                 GetOrAddEdge(node, target);
             }
         }
