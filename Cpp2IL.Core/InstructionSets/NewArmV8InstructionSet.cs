@@ -131,6 +131,30 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
         throw new Exception(" not support FastLSL " + operand);
     }
+
+    private int GetRegisterSize(string reg)
+    {
+        if (reg.StartsWith("W"))
+        {
+            return 4;
+        }
+
+        if (reg.StartsWith("X"))
+        {
+            return 8;
+        }
+
+        if (reg.StartsWith("S"))
+        {
+            return 4;
+        }
+
+        if (reg.StartsWith("V"))
+        {
+            return 8;
+        }
+        throw new Exception("not support register size "+reg +" in GetRegisterSize");
+    }
     private void ConvertInstructionStatement(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         switch (instruction.Mnemonic)
@@ -234,7 +258,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     {
                         long oriOffset = memory.Addend;
                         var firstRegister = ConvertOperand(instruction, 0);
-                        long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
+                        long size=  GetRegisterSize(((IsilRegisterOperand)firstRegister.Data).RegisterName);
+                        // long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
                         //if use X31 reg  it's mean use zero register
                         builder.Move(instruction.Address, dest,
                             firstRegister.Data is IsilRegisterOperand { RegisterName: "X31" }
