@@ -144,10 +144,10 @@ public static class CsFileUtils
         }
         else if (attributes.HasFlag(MethodAttributes.Abstract))
             sb.Append("abstract ");
-        else if (attributes.HasFlag(MethodAttributes.NewSlot))
-            sb.Append("override ");
         else if (attributes.HasFlag(MethodAttributes.Virtual))
             sb.Append("virtual ");
+        else if (attributes.HasFlag(MethodAttributes.NewSlot))
+            sb.Append("override ");
 
 
         return sb.ToString().Trim();

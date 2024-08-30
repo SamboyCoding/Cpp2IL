@@ -49,7 +49,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
         
         var builder = new IsilBuilder();
-
+        
         foreach (var instruction in insns)
         {
             ConvertInstructionStatement(instruction, builder, context);
@@ -172,9 +172,16 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.SXTW: // move and sign extend Wn to Xd
             case Arm64Mnemonic.LDUR:
             case Arm64Mnemonic.LDR:
+           
             case Arm64Mnemonic.LDRSW:
             case Arm64Mnemonic.LDRB:
                 //Load and move are (dest, src)
+           
+                var b=  Arm64InsFixer.CheckFix(instruction,builder); //Fix instruction parser error use Capstone
+                if (b)
+                {
+                    break;
+                }
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 if (instruction.MemIsPreIndexed)
                 {
@@ -331,6 +338,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             case Arm64Mnemonic.B:
                 var target = instruction.BranchTarget;
+                
                 if (target < context.UnderlyingPointer || target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
                 {
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
@@ -346,6 +354,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     else
                     {
                         //is call in method addr range just go to 
+                        if (context.RawBytes.Length==4) //it's inline call
+                        {
+                            //we need parser this call method
+                            builder.Call(instruction.Address, instruction.BranchTarget, GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+                            break;
+                        }
                         builder.Goto(instruction.Address, instruction.BranchTarget);
                     }
                 }
