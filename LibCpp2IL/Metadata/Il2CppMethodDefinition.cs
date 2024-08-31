@@ -27,7 +27,6 @@ public class Il2CppMethodDefinition : ReadableClass
     public ushort iflags;
     public ushort slot;
     public ushort parameterCount;
-    [Version(Min = 29.2f, Max = 31)] public bool isUnmanagedCallersOnly; //uint8_t. Not present in v31 (I assume it will exist in some v31.1)
 
     public MethodAttributes Attributes => (MethodAttributes)flags;
 
@@ -137,6 +136,10 @@ public class Il2CppMethodDefinition : ReadableClass
 
     public Il2CppGenericContainer? GenericContainer => genericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[genericContainerIndex];
 
+    public bool IsUnmanagedCallersOnly => (iflags & 0xF000) != 0;
+    
+    public MethodImplAttributes MethodImplAttributes => (MethodImplAttributes)(iflags & ~0xF000);
+
     public override string? ToString()
     {
         if (LibCpp2IlMain.TheMetadata == null)
@@ -182,8 +185,5 @@ public class Il2CppMethodDefinition : ReadableClass
         iflags = reader.ReadUInt16();
         slot = reader.ReadUInt16();
         parameterCount = reader.ReadUInt16();
-
-        if (IsAtLeast(29.2f) && IsLessThan(31))
-            isUnmanagedCallersOnly = reader.ReadByte() != 0;
     }
 }
