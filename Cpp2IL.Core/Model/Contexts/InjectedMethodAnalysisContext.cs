@@ -24,7 +24,7 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
             var injectedParameterType = injectedParameterTypes[i];
             var injectedParameterName = injectedParameterNames?[i];
 
-            Parameters.Add(new InjectedParameterAnalysisContext(injectedParameterName, injectedParameterType, this));
+            Parameters.Add(new InjectedParameterAnalysisContext(injectedParameterName, injectedParameterType, i, this));
         }
     }
 }

@@ -35,8 +35,9 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         DeclaringAsm = declaringAssembly;
         BaseMethodContext = ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!);
 
-        foreach (var parameter in BaseMethodContext.Parameters)
+        for (var i = 0; i < BaseMethodContext.Parameters.Count; i++)
         {
+            var parameter = BaseMethodContext.Parameters[i];
             var parameterType = parameter.ParameterTypeContext;
             var instantiatedType = GenericInstantiation.Instantiate(
                 parameter.ParameterTypeContext,
@@ -45,7 +46,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
             Parameters.Add(parameterType == instantiatedType
                 ? parameter
-                : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, BaseMethodContext));
+                : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, i, BaseMethodContext));
         }
 
         if (UnderlyingPointer != 0)
