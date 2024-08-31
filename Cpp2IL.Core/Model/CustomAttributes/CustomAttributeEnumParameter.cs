@@ -1,6 +1,7 @@
 using System.IO;
 using System.Linq;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
@@ -10,6 +11,8 @@ public class CustomAttributeEnumParameter : BaseCustomAttributeParameter
     public readonly Il2CppType EnumType;
     public readonly Il2CppType UnderlyingPrimitiveType;
     public readonly CustomAttributePrimitiveParameter UnderlyingPrimitiveParameter;
+    
+    public TypeAnalysisContext EnumTypeContext => Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(EnumType);
 
     public CustomAttributeEnumParameter(Il2CppType enumType, ApplicationAnalysisContext context, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {

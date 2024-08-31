@@ -7,7 +7,7 @@ public class Cpp2IlApiTests
     [Test]
     public void UnityVersionIsCorrectlyDeterminedFromGlobalGameManagers()
     {
-        var version = Cpp2IlApi.DetermineUnityVersion(null, Paths.SimpleGame.DataDirectory);
+        var version = Cpp2IlApi.DetermineUnityVersion(null, Paths.Simple2019Game.DataDirectory);
         Assert.That(version.Equals(2019, 4, 34));
     }
 }

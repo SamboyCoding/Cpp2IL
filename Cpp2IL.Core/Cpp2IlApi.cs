@@ -110,13 +110,15 @@ public static class Cpp2IlApi
         Logger.InfoNewline($"Application model created in {(DateTime.Now - start).TotalMilliseconds}ms");
     }
 
-    private static void ResetInternalState()
+    public static void ResetInternalState()
     {
         SharedState.Clear();
 
         MiscUtils.Reset();
 
         LibCpp2IlMain.Reset();
+
+        CurrentAppContext = null;
     }
 
     // public static void PopulateConcreteImplementations()
