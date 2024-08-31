@@ -47,7 +47,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// <summary>
     /// The ParameterAttributes of this parameter.
     /// </summary>
-    public ParameterAttributes ParameterAttributes => (ParameterAttributes)ParameterType.Attrs;
+    public virtual ParameterAttributes ParameterAttributes => (ParameterAttributes)ParameterType.Attrs;
 
     /// <summary>
     /// True if this parameter is passed by reference.
