@@ -25,6 +25,7 @@ public class SystemTypesContext
     public TypeAnalysisContext SystemTypedReferenceType { get; }
     public TypeAnalysisContext SystemTypeType { get; }
     public TypeAnalysisContext SystemAttributeType { get; }
+    public TypeAnalysisContext? UnmanagedCallersOnlyAttributeType { get; }
 
     public SystemTypesContext(ApplicationAnalysisContext appContext)
     {
@@ -62,5 +63,7 @@ public class SystemTypesContext
 
         SystemExceptionType = systemAssembly.GetTypeByFullName("System.Exception")!;
         SystemAttributeType = systemAssembly.GetTypeByFullName("System.Attribute")!;
+        
+        UnmanagedCallersOnlyAttributeType = systemAssembly.GetTypeByFullName("System.Runtime.InteropServices.UnmanagedCallersOnlyAttribute");
     }
 }

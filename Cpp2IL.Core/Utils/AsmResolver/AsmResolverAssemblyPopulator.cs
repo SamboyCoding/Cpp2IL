@@ -406,7 +406,16 @@ public static class AsmResolverAssemblyPopulator
             var managedMethod = new MethodDefinition(methodCtx.MethodName, (MethodAttributes)methodCtx.Attributes, signature);
 
             if (methodCtx.Definition != null)
-                managedMethod.ImplAttributes = (MethodImplAttributes)methodCtx.Definition.iflags;
+            {
+                managedMethod.ImplAttributes = (MethodImplAttributes)methodCtx.Definition.MethodImplAttributes;
+                if (methodCtx.Definition.IsUnmanagedCallersOnly && typeContext.AppContext.SystemTypes.UnmanagedCallersOnlyAttributeType != null)
+                {
+                    var unmanagedCallersOnlyType = typeContext.AppContext.SystemTypes.UnmanagedCallersOnlyAttributeType.GetExtraData<TypeDefinition>("AsmResolverType");
+                    if(unmanagedCallersOnlyType != null)
+                        managedMethod.CustomAttributes.Add(new CustomAttribute((ICustomAttributeType)importer.ImportMethod(unmanagedCallersOnlyType.GetConstructor()!), new()));
+                }
+
+            }
 
             //Add parameter definitions if we have them so we get names, defaults, out params, etc
             foreach (var parameterDefinition in parameterDefinitions)
