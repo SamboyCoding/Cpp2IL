@@ -11,3 +11,5 @@ obj/
 *.user
 
 launchsettings.json
+
+artifacts/
