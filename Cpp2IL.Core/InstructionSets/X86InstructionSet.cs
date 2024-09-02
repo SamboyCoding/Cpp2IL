@@ -5,12 +5,15 @@ using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.InstructionSets;
 
+// This is honestly an X64InstructionSet by all means. Everything here screams "I AM X64".
 public class X86InstructionSet : Cpp2IlInstructionSet
 {
     private static readonly MasmFormatter Formatter = new();
@@ -61,20 +64,20 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
     private void ConvertInstructionStatement(Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
-        // var callNoReturn = false; // stub, see case Mnemonic.Call
+        var callNoReturn = false;
 
         switch (instruction.Mnemonic)
         {
             case Mnemonic.Mov:
-            case Mnemonic.Movzx: //For all intents and purposes we don't care about zero-extending
-            case Mnemonic.Movaps: //Movaps is basically just a mov but with the potential future detail that the size is dependent on reg size
-            case Mnemonic.Movups: //Movaps but unaligned
-            case Mnemonic.Movss: //Same as movaps but for floats
-            case Mnemonic.Movd: //Mov but specifically dword
-            case Mnemonic.Movq: //Mov but specifically qword
-            case Mnemonic.Movsd: //Mov but specifically double
-            case Mnemonic.Movdqa: //Movaps but multiple integers at once in theory
-            case Mnemonic.Cvtdq2ps: //Technically a convert double to single, but for analysis purposes we can just treat it as a move
+            case Mnemonic.Movzx: // For all intents and purposes we don't care about zero-extending
+            case Mnemonic.Movaps: // Movaps is basically just a mov but with the potential future detail that the size is dependent on reg size
+            case Mnemonic.Movups: // Movaps but unaligned
+            case Mnemonic.Movss: // Same as movaps but for floats
+            case Mnemonic.Movd: // Mov but specifically dword
+            case Mnemonic.Movq: // Mov but specifically qword
+            case Mnemonic.Movsd: // Mov but specifically double
+            case Mnemonic.Movdqa: // Movaps but multiple integers at once in theory
+            case Mnemonic.Cvtdq2ps: // Technically a convert double to single, but for analysis purposes we can just treat it as a move
                 builder.Move(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Lea:
@@ -107,8 +110,8 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Imul:
                 if (instruction.OpCount == 1)
                 {
-                    int OpSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
-                    switch (OpSize) // TODO I don't know how to work with dual registers here in Iced, I left hints though
+                    int opSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
+                    switch (opSize) // TODO: I don't know how to work with dual registers here, I left hints though
                     {
                         case 1: // Op0 * AL -> AX
                             builder.Multiply(instruction.IP, Register.AX.MakeIndependent(), ConvertOperand(instruction, 0), Register.AL.MakeIndependent());
@@ -145,10 +148,18 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                 break;
             case Mnemonic.Ret:
+                // TODO: Verify correctness of operation with Vectors.
+
+                // On x32, this will require better engineering since ulongs are handled somehow differently (return in 2 registers, I think?)
+                // The x64 prototype should work.
+                // Are st* registers even used in il2cpp games?
+
                 if (context.IsVoid)
                     builder.Return(instruction.IP);
+                else if (context.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
+                    builder.Return(instruction.IP, InstructionSetIndependentOperand.MakeRegister("xmm0"));
                 else
-                    builder.Return(instruction.IP, InstructionSetIndependentOperand.MakeRegister("rax")); //TODO Support xmm0
+                    builder.Return(instruction.IP, InstructionSetIndependentOperand.MakeRegister("rax"));
                 break;
             case Mnemonic.Push:
                 //var operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
@@ -164,7 +175,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Add:
                 var isSubtract = instruction.Mnemonic == Mnemonic.Sub;
 
-                //Special case - stack shift
+                // Special case - stack shift
                 if (instruction.Op0Register == Register.RSP && instruction.Op1Kind.IsImmediate())
                 {
                     var amount = (int)instruction.GetImmediate(1);
@@ -182,8 +193,8 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 break;
             case Mnemonic.Addss:
             case Mnemonic.Subss:
-                //Addss and subss are just floating point add/sub, but we don't need to handle the stack stuff
-                //But we do need to handle 2 vs 3 operand forms
+                // Addss and subss are just floating point add/sub, but we don't need to handle the stack stuff
+                // But we do need to handle 2 vs 3 operand forms
                 InstructionSetIndependentOperand dest;
                 InstructionSetIndependentOperand src1;
                 InstructionSetIndependentOperand src2;
@@ -210,64 +221,69 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 else
                     builder.Add(instruction.IP, dest, src1, src2);
                 break;
+            // The following pair of instructions does not update the Carry Flag (CF):
             case Mnemonic.Dec:
+                builder.Subtract(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeImmediate(1));
+                break;
             case Mnemonic.Inc:
-                // no CF
-                var isDec = instruction.Mnemonic == Mnemonic.Dec;
-                var im = InstructionSetIndependentOperand.MakeImmediate(1);
-                if (isDec) builder.Subtract(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), im);
-                else builder.Add(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), im);
+                builder.Add(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeImmediate(1));
                 break;
             case Mnemonic.Call:
                 // We don't try and resolve which method is being called, but we do need to know how many parameters it has
                 // I would hope that all of these methods have the same number of arguments, else how can they be inlined?
-                // TODO: Handle CallNoReturn(I have no idea how due to instructionAddress constantly being a limitation)
+
                 var target = instruction.NearBranchTarget;
-                if (context.AppContext.MethodsByAddress.ContainsKey(target))
+
+                if (context.AppContext.MethodsByAddress.TryGetValue(target, out var possibleMethods))
                 {
-                    var possibleMethods = context.AppContext.MethodsByAddress[target];
-                    var parameterCounts = possibleMethods.Select(p =>
+                    if (possibleMethods.Count == 1)
                     {
-                        var ret = p.Parameters.Count;
-                        if (!p.IsStatic)
-                            ret++; //This arg
-
-                        ret++; //For MethodInfo arg
-                        return ret;
-                    });
-
-                    // if (parameterCounts.Max() != parameterCounts.Min())
-                    // throw new("Cannot handle call to address with multiple managed methods of different parameter counts");
-
-                    var parameterCount = parameterCounts.Max();
-                    var registerParams = new[] { "rcx", "rdx", "r8", "r9" }.Select(InstructionSetIndependentOperand.MakeRegister).ToList();
-
-                    if (parameterCount <= registerParams.Count)
-                    {
-                        builder.Call(instruction.IP, target, registerParams.GetRange(0, parameterCount).ToArray());
-                        return;
+                        builder.Call(instruction.IP, target, X64CallingConventionResolver.ResolveForManaged(possibleMethods[0]));
                     }
+                    else
+                    {
+                        MethodAnalysisContext ctx = null!;
+                        var lpars = -1;
 
-                    //Need to use stack
-                    parameterCount -= registerParams.Count; //Subtract the 4 params we can fit in registers
+                        // Very naive approach, folds with structs in parameters if GCC is used:
+                        foreach (var method in possibleMethods)
+                        {
+                            var pars = method.ParameterCount;
+                            if (method.IsStatic) pars++;
+                            if (pars > lpars)
+                            {
+                                lpars = pars;
+                                ctx = method;
+                            }
+                        }
 
-                    //Generate and append stack operands
-                    var ptrSize = (int)context.AppContext.Binary.PointerSize;
-                    registerParams = registerParams.Concat(Enumerable.Range(0, parameterCount).Select(p => p * ptrSize).Select(InstructionSetIndependentOperand.MakeStack)).ToList();
+                        // On post-analysis, you can discard methods according to the registers used, see X64CallingConventionResolver.
+                        // This is less effective on GCC because MSVC doesn't overlap registers.
 
-                    builder.Call(instruction.IP, target, registerParams.ToArray());
-
-                    //Discard the consumed stack space
-                    builder.ShiftStack(instruction.IP, -parameterCount * 8);
+                        builder.Call(instruction.IP, target, X64CallingConventionResolver.ResolveForManaged(ctx));
+                    }
                 }
                 else
                 {
-                    //This isn't a managed method, so for now we don't know its parameter count.
-                    //Add all four of the registers, I guess. If there are any functions that take more than 4 params,
-                    //we'll have to do something else here.
-                    //These can be converted to dedicated ISIL instructions for specific API functions at a later stage. (by a post-processing step)
-                    var paramRegisters = new[] { "rcx", "rdx", "r8", "r9" }.Select(InstructionSetIndependentOperand.MakeRegister).ToArray();
-                    builder.Call(instruction.IP, target, paramRegisters);
+                    // This isn't a managed method, so for now we don't know its parameter count.
+                    // This will need to be rewritten if we ever stumble upon an unmanaged method that accepts more than 4 parameters.
+                    // These can be converted to dedicated ISIL instructions for specific API functions at a later stage. (by a post-processing step)
+
+                    builder.Call(instruction.IP, target, X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, target));
+                }
+
+                if (callNoReturn)
+                {
+                    // Our function decided to jump into a thunk or do a funny return.
+                    // We will insert a return after the call.
+                    // According to common sense, such callee must have the same return value as the caller, unless it's __noreturn.
+                    // I hope someone else will catch up on this and figure out non-returning functions.
+
+                    // TODO: Determine whether a function is an actual thunk and it's *technically better* to duplicate code for it, or if it's a regular retcall.
+                    // Basic implementation may use context.AppContext.MethodsByAddress, but this doesn't catch thunks only.
+                    // For example, SWDT often calls gc::GarbageCollector::SetWriteBarrier through a long jmp chain. That's a whole function, not just a thunk.
+
+                    goto case Mnemonic.Ret;
                 }
 
                 break;
@@ -294,8 +310,8 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                     if (jumpTarget < methodStart || jumpTarget > methodEnd)
                     {
-                        // callNoReturn = true;
-                        goto case Mnemonic.Call; // This is like 99% likely a non returning call, jump to case to avoid code duplication
+                        callNoReturn = true;
+                        goto case Mnemonic.Call;
                     }
                     else
                     {
@@ -375,11 +391,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 break;
             case Mnemonic.Int:
             case Mnemonic.Int3:
-                builder.Interrupt(instruction.IP); // We'll add it but eliminate later
+                builder.Interrupt(instruction.IP); // We'll add it but eliminate later, can be used as a hint since compilers only emit it in normally unreachable code or in error handlers
                 break;
             case Mnemonic.Nop:
-                //While this is literally a nop and there's in theory no point emitting anything for it, it could be used as a jump target.
-                //So we'll emit an ISIL nop for it.
+                // While this is literally a nop and there's in theory no point emitting anything for it, it could be used as a jump target.
+                // So we'll emit an ISIL nop for it.
                 builder.Nop(instruction.IP);
                 break;
             default:
