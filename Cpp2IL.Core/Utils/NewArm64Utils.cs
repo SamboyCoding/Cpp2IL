@@ -40,7 +40,7 @@ public static class NewArm64Utils
                !ret.Any( Predicate)) // 条件分支指令)
         {
             ret = Disassemble(span, virtAddress);
-            Logger.InfoNewline("parser ins "+ret[^1] +" MnemonicConditionCode"+ret[^1].MnemonicConditionCode);
+            // Logger.InfoNewline("parser ins "+ret[^1] +" MnemonicConditionCode"+ret[^1].MnemonicConditionCode);
             //All arm64 instructions are 4 bytes
             span = allBytes.AsSpan(pos, span.Length + 4);
         }

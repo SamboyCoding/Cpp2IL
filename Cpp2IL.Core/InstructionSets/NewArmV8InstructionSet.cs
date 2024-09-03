@@ -66,10 +66,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         var right= ConvertOperand(instruction, 1);
         if (left.Type==InstructionSetIndependentOperand.OperandType.Register && right is { Type: InstructionSetIndependentOperand.OperandType.Register, Data: IsilRegisterOperand registerOperand })
         {
-            if (registerOperand.RegisterName=="X31")
+            if (registerOperand.RegisterName is "X31" or "W31")
             {
                 return true;
             }
+           
         }
         return false;
     }
