@@ -1,6 +1,7 @@
 ﻿using System;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
+using Disarm;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using Arm64Instruction = Disarm.Arm64Instruction;
@@ -15,6 +16,11 @@ public class Arm64InsFixer
     
     public static bool CheckFix( Arm64Instruction instruction,IsilBuilder builder)
     {
+        if (instruction.Mnemonic==Arm64Mnemonic.MOVZ)
+        {
+            return false;
+        }
+        
         var address= Cpp2IlApi.CurrentAppContext.Binary.MapVirtualAddressToRaw(instruction.Address);
         var data=   Cpp2IlApi.CurrentAppContext.Binary.GetRawBinaryContent().AsMemory((int)address, 4);
         using (var disassembler= new CapstoneArm64Disassembler(Arm64DisassembleMode.Arm))
@@ -30,8 +36,7 @@ public class Arm64InsFixer
                      // Logger.InfoNewline("===================================LDR " + ins + "   =  ori " +Arm64InsExtensions.FixString(instruction));
                      
                      Logger.ErrorNewline("find Error parser ins "+ins  +"  =  error "+Arm64InsExtensions.FixString(instruction) +" addr "+instruction.Address.ToString("X"));
-                     CreateFixBuilder(builder,ins,instruction.Address);
-                     return true;
+                   return  CreateFixBuilder(builder,ins,instruction.Address);
                  }
             }
         }
@@ -39,12 +44,17 @@ public class Arm64InsFixer
         return false;
     }
 
-    private static void CreateFixBuilder(IsilBuilder builder, Gee.External.Capstone.Arm64.Arm64Instruction ins,
+    private static bool CreateFixBuilder(IsilBuilder builder, Gee.External.Capstone.Arm64.Arm64Instruction ins,
         ulong address)
     {
         if (ins.Mnemonic=="ldr")
         {
             var baseReg = ins.Details.Operands[0];
+            if (baseReg.Register.Name.StartsWith("d")
+                || baseReg.Register.Name.StartsWith("s"))
+            {
+                return false;
+            }
             //memory reg
             var memoryReg = ins.Details.Operands[1].Memory.Base.Name.ToUpperInvariant();
             builder.Move((ulong)address,InstructionSetIndependentOperand.MakeRegister(baseReg.Register.Name.ToUpperInvariant()),
@@ -52,6 +62,7 @@ public class Arm64InsFixer
                     InstructionSetIndependentOperand.MakeRegister(memoryReg))));
             builder.Add((ulong)address,InstructionSetIndependentOperand.MakeRegister(memoryReg),
                 InstructionSetIndependentOperand.MakeRegister(memoryReg),InstructionSetIndependentOperand.MakeImmediate(ins.Details.Operands[2].Immediate));
+            return true;
         }
         else
         {

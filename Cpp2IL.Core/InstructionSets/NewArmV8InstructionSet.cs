@@ -176,12 +176,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.LDRSW:
             case Arm64Mnemonic.LDRB:
                 //Load and move are (dest, src)
-           
-                var b=  Arm64InsFixer.CheckFix(instruction,builder); //Fix instruction parser error use Capstone
-                if (b)
-                {
-                    break;
-                }
+            
+                // var b=  Arm64InsFixer.CheckFix(instruction,builder); //Fix instruction parser error use Capstone
+                // if (b)
+                // {
+                //     break;
+                // }
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 if (instruction.MemIsPreIndexed)
                 {
@@ -338,7 +338,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             case Arm64Mnemonic.B:
                 var target = instruction.BranchTarget;
-                
+                Logger.InfoNewline("target :"+target.ToString("X") +" ins "+instruction +" methodEnd "+ (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X"));
                 if (target < context.UnderlyingPointer || target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
                 {
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
@@ -376,6 +376,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0), 
                         InstructionSetIndependentOperand.MakeImmediate(0),
                         InstructionSetIndependentOperand.MakeImmediate(1));
+                }else if (instruction.FinalOpConditionCode==Arm64ConditionCode.EQ)
+                {
+                    builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0), 
+                        InstructionSetIndependentOperand.MakeImmediate(1),
+                        InstructionSetIndependentOperand.MakeImmediate(0));
                 }
                 else
                 {
@@ -408,7 +413,17 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 {
                     //Compare and branch if (non-)zero
                     var targetAddr = (ulong)((long)instruction.Address + instruction.Op1Imm);
+                    Logger.InfoNewline("targetAddr :"+targetAddr.ToString("X") +" ins "+instruction +" methodEnd "+ (context.UnderlyingPointer + (ulong)context.RawBytes.Length).ToString("X"));
 
+                    if (targetAddr < context.UnderlyingPointer || targetAddr > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
+                    {
+                        //if CBZ jump is out method  it's null Check for args we don't care about
+                        if (instruction.Mnemonic==Arm64Mnemonic.CBZ)
+                        {   
+                            break;
+                        }
+                        throw new Exception("not support CBNZ out method");
+                    }
                     //Compare to zero...
                     builder.Compare(instruction.Address, ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeImmediate(0));
 

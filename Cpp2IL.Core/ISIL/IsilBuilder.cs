@@ -57,7 +57,7 @@ public class IsilBuilder
             }
             else
             {
-                tuple.Item1.Invalidate("Jump target not found in method.");
+                tuple.Item1.Invalidate("Jump target not found in method." +tuple.Item1.ActualAddress.ToString("X"));
             }
         }
     }
