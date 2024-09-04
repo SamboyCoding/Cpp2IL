@@ -87,7 +87,9 @@ public class IsilBuilder
     public void Or(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand left, InstructionSetIndependentOperand right) => AddInstruction(new(InstructionSetIndependentOpCode.Or, instructionAddress, IsilFlowControl.Continue, dest, left, right));
 
     public void Not(ulong instructionAddress, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Not, instructionAddress, IsilFlowControl.Continue, src));
+    public void Neg(ulong instructionAddress, InstructionSetIndependentOperand src) => AddInstruction(new(InstructionSetIndependentOpCode.Neg, instructionAddress, IsilFlowControl.Continue, src));
     public void Multiply(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src1, InstructionSetIndependentOperand src2) => AddInstruction(new(InstructionSetIndependentOpCode.Multiply, instructionAddress, IsilFlowControl.Continue, dest, src1, src2));
+    public void Divide(ulong instructionAddress, InstructionSetIndependentOperand dest, InstructionSetIndependentOperand src1, InstructionSetIndependentOperand src2) => AddInstruction(new(InstructionSetIndependentOpCode.Divide, instructionAddress, IsilFlowControl.Continue, dest, src1, src2));
 
     public void Call(ulong instructionAddress, ulong dest, params InstructionSetIndependentOperand[] args) => AddInstruction(new(InstructionSetIndependentOpCode.Call, instructionAddress, IsilFlowControl.MethodCall, PrepareCallOperands(dest, args)));
 
@@ -103,6 +105,10 @@ public class IsilBuilder
     public void Goto(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.Goto, IsilFlowControl.UnconditionalJump);
 
     public void JumpIfEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfEqual, IsilFlowControl.ConditionalJump);
+    
+    public void JumpIfSign(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfSign, IsilFlowControl.ConditionalJump);
+    
+    public void JumpIfNotSign(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfNotSign, IsilFlowControl.ConditionalJump);
 
     public void JumpIfNotEqual(ulong instructionAddress, ulong target) => CreateJump(instructionAddress, target, InstructionSetIndependentOpCode.JumpIfNotEqual, IsilFlowControl.ConditionalJump);
 

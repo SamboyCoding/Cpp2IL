@@ -21,6 +21,7 @@ public class InstructionSetIndependentOpCode
     public static readonly InstructionSetIndependentOpCode Or = new(IsilMnemonic.Or, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Xor = new(IsilMnemonic.Xor, 3, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
     public static readonly InstructionSetIndependentOpCode Not = new(IsilMnemonic.Not, 1, InstructionSetIndependentOperand.OperandType.NotStack);
+    public static readonly InstructionSetIndependentOpCode Neg = new(IsilMnemonic.Neg, 1, InstructionSetIndependentOperand.OperandType.NotStack);
 
     public static readonly InstructionSetIndependentOpCode Compare = new(IsilMnemonic.Compare, 2, InstructionSetIndependentOperand.OperandType.Any, InstructionSetIndependentOperand.OperandType.Any);
 
@@ -38,6 +39,8 @@ public class InstructionSetIndependentOpCode
 
     public static readonly InstructionSetIndependentOpCode JumpIfEqual = new(IsilMnemonic.JumpIfEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfNotEqual = new(IsilMnemonic.JumpIfNotEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
+    public static readonly InstructionSetIndependentOpCode JumpIfSign = new(IsilMnemonic.JumpIfSign, 1, InstructionSetIndependentOperand.OperandType.Instruction);
+    public static readonly InstructionSetIndependentOpCode JumpIfNotSign = new(IsilMnemonic.JumpIfNotSign, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfGreater = new(IsilMnemonic.JumpIfGreater, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfLess = new(IsilMnemonic.JumpIfLess, 1, InstructionSetIndependentOperand.OperandType.Instruction);
     public static readonly InstructionSetIndependentOpCode JumpIfGreaterOrEqual = new(IsilMnemonic.JumpIfGreaterOrEqual, 1, InstructionSetIndependentOperand.OperandType.Instruction);
