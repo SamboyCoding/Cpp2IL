@@ -26,11 +26,21 @@ public  static class Arm64InsExtensions
 
         if (instruction.MemOffset != 0)
         {
-            if (instruction.MemOffset is < 0 and >-0x10)
+            if (instruction.MemOffset  < 0 )
             {
-                sb
-                    .Append(instruction.MemOffset < 0 ? ", #-" : ", #")
-                    .Append(Math.Abs(instruction.MemOffset).ToString("X").ToLowerInvariant()); 
+                if (instruction.MemOffset >-0x10)
+                {
+                    sb
+                        .Append("#")
+                        .Append(Math.Abs(instruction.MemOffset).ToString("X").ToLowerInvariant()); 
+                }
+                else
+                {
+                    sb
+                        .Append("#0x")
+                        .Append(Math.Abs(instruction.MemOffset).ToString("X").ToLowerInvariant()); 
+                }
+            
             }
             else
             {
@@ -42,7 +52,7 @@ public  static class Arm64InsExtensions
                 }
                 else
                 {
-                    sb.Append(", #").Append(instruction.MemOffset.ToString().ToLowerInvariant());
+                    sb.Append(", #").Append(instruction.MemOffset.ToString("X").ToLowerInvariant());
                 }
               
             }

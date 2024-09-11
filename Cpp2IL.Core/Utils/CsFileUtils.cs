@@ -103,8 +103,8 @@ public static class CsFileUtils
             if (attributes.HasFlag(FieldAttributes.Static))
                 sb.Append("static ");
 
-            if (attributes.HasFlag(FieldAttributes.InitOnly))
-                sb.Append("readonly ");
+            // if (attributes.HasFlag(FieldAttributes.InitOnly))
+            //     sb.Append("readonly ");
         }
 
         return sb.ToString().Trim();

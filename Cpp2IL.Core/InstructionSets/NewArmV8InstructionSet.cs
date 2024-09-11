@@ -183,6 +183,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 // {
                 //     break;
                 // }
+                
                 builder.Move(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 if (instruction.MemIsPreIndexed)
                 {
@@ -193,7 +194,26 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         builder.Add(instruction.Address,register,register,  InstructionSetIndependentOperand.MakeImmediate(operand.Addend));
                     }
                 }
+
+                if (instruction.MemIndexMode==Arm64MemoryIndexMode.PostIndex)
+                {
+                    var operate= ConvertOperand(instruction, 1);
+                    if (operate.Data is IsilMemoryOperand operand)
+                    {
+                        var register=  operand.Base!.Value;
+                        builder.Add(instruction.Address,register,register,  InstructionSetIndependentOperand.MakeImmediate(instruction.MemOffset));
+                    }
+                }
                 break;
+            case Arm64Mnemonic.MOVK:
+            {
+                // dest = (dest & ~(0xFFFF << shift)) | (imm << shift)
+                var dest = ConvertOperand(instruction, 0);
+                var temp = InstructionSetIndependentOperand.MakeRegister("TEMP");
+                builder.Move( instruction.Address, temp, dest);
+                builder.Add(instruction.Address,dest,temp,ConvertOperand(instruction,1));
+                break;
+            }
             case Arm64Mnemonic.MOVN:
                 {
                     // dest = ~src
@@ -402,8 +422,19 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
                 if (instruction.FinalOpConditionCode==Arm64ConditionCode.NE)
                 {
+                    throw new Exception("   NOT SUPPORT CSEL NE" +instruction);
+                    // builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
+                        // ConvertOperand(instruction,2));
+                }
+                else if (instruction.FinalOpConditionCode==Arm64ConditionCode.EQ)
+                {
+                    builder.Compare( lastCmpInstruction.Address, ConvertOperand(lastCmpInstruction, 0), ConvertOperand(lastCmpInstruction, 1));
                     builder.AssignIfNotEqual(instruction.Address, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1),
                         ConvertOperand(instruction,2));
+                }
+                else
+                {
+                    throw new Exception("not support CSEL condition code "+instruction.FinalOpConditionCode);
                 }
                 //Conditional select
                 // builder.Compare();
@@ -653,6 +684,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         if (kind == Arm64OperandKind.Memory)
         {
             var reg = instruction.MemBase;
+           
             var offset = instruction.MemOffset;
             var isPreIndexed = instruction.MemIsPreIndexed;
             var addReg = instruction.MemAddendReg;
@@ -672,6 +704,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
                     InstructionSetIndependentOperand.MakeRegister(reg.ToString().ToUpperInvariant()),
                     addRegister));
+            }
+
+            if (instruction.MemIndexMode==Arm64MemoryIndexMode.PostIndex)
+            {
+
+               return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
+                    InstructionSetIndependentOperand.MakeRegister(reg.ToString().ToUpperInvariant())));
             }
             return InstructionSetIndependentOperand.MakeMemory(new IsilMemoryOperand(
                 InstructionSetIndependentOperand.MakeRegister(reg.ToString().ToUpperInvariant()),
