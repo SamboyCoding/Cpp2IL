@@ -9,7 +9,7 @@ using Cpp2IL.Core.Graphs;
 using DotNetGraph.Core;
 using DotNetGraph.Extensions;
 using DotNetGraph.Compilation;
-using Cpp2IL.Core.Graphs.Analysis;
+using Cpp2IL.Core.Graphs.Analysis.Stack;
 
 namespace Cpp2IL.Plugin.ControlFlowGraph;
 
