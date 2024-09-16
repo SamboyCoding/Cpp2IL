@@ -49,7 +49,8 @@ public class Il2CppRGCTXDefinition : ReadableClass
         type = IsLessThan(29) ? (Il2CppRGCTXDataType)reader.ReadInt32() : (Il2CppRGCTXDataType)reader.ReadInt64();
         if (IsLessThan(27.2f))
         {
-            _defData = reader.ReadReadable<Il2CppRGCTXDefinitionData>();
+            _defData = new Il2CppRGCTXDefinitionData();
+            _defData.Read(reader);
         }
         else
         {
