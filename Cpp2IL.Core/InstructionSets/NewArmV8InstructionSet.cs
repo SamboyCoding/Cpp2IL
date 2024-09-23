@@ -310,7 +310,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     else // reg pointer
                     {
                         var firstRegister = ConvertOperand(instruction, 0);
-                        long size = ((IsilRegisterOperand)firstRegister.Data).RegisterName[0] == 'W' ? 4 : 8;
+                        long size=  GetRegisterSize(((IsilRegisterOperand)firstRegister.Data).RegisterName);
                         builder.Move(instruction.Address, dest, firstRegister);
                         builder.Add(instruction.Address, dest, dest, InstructionSetIndependentOperand.MakeImmediate(size));
                         builder.Move(instruction.Address, dest, ConvertOperand(instruction, 1));
