@@ -34,6 +34,6 @@ public sealed class NativeMethodAnalysisContext : MethodAnalysisContext
             DefaultName = $"NativeMethod_0x{UnderlyingPointer:X}";
         }
 
-        RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+        rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
     }
 }

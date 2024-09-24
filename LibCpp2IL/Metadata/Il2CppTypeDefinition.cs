@@ -338,6 +338,8 @@ public class Il2CppTypeDefinition : ReadableClass
             .ToArray();
 
     public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || DeclaringTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(DeclaringTypeIndex).Data.ClassIndex];
+    
+    public Il2CppTypeDefinition? ElementType => LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null || ElementTypeIndex < 0 ? null : LibCpp2IlMain.TheMetadata.typeDefs[LibCpp2IlMain.Binary.GetType(ElementTypeIndex).Data.ClassIndex];
 
     public Il2CppGenericContainer? GenericContainer => GenericContainerIndex < 0 ? null : LibCpp2IlMain.TheMetadata?.genericContainers[GenericContainerIndex];
 

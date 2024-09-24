@@ -109,6 +109,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     {
         Assemblies.SelectMany(a => a.Types).SelectMany(t => t.Methods).ToList().ForEach(m =>
         {
+            m.EnsureRawBytes();
             var ptr = InstructionSet.GetPointerForMethod(m);
 
             if (!MethodsByAddress.ContainsKey(ptr))

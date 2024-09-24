@@ -71,9 +71,26 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
+    public TypeAnalysisContext? EnumUnderlyingType => Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.EnumUnderlyingType);
+
     public TypeAnalysisContext? BaseType => OverrideBaseType ?? (Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType));
 
     public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? [])!;
+    
+    public bool IsPrimitive
+    {
+        get
+        {
+            if (Definition == null)
+                return false;
+
+            if (Definition.RawBaseType?.Type.IsIl2CppPrimitive() == true)
+                return true;
+            
+            //Might still be TYPE_CLASS but yet int or something, so check it directly
+            return AppContext.SystemTypes.IsPrimitive(this);
+        }
+    }
 
     public string FullName
     {

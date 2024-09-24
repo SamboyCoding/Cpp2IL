@@ -44,7 +44,7 @@ public class WasmMappingOutputFormat : Cpp2IlOutputFormat
 
                 try
                 {
-                    var wasmDef = WasmUtils.GetWasmDefinition(methodAnalysisContext.Definition);
+                    var wasmDef = WasmUtils.GetWasmDefinition(methodAnalysisContext);
                     var ghidraName = WasmUtils.GetGhidraFunctionName(wasmDef);
 
                     output.AppendLine(ghidraName);

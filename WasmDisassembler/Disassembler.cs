@@ -115,7 +115,7 @@ public static class Disassembler
             return reader.ReadDouble();
 
         if (type == typeof(LEB128))
-            return reader.BaseStream.ReadLEB128Unsigned();
+            return reader.BaseStream.ReadLEB128Signed();
 
         throw new($"Bad primitive type: {type}");
     }

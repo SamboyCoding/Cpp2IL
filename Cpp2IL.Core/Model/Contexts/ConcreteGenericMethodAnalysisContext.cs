@@ -50,7 +50,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         }
 
         if (UnderlyingPointer != 0)
-            RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+            rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
     }
 
     private static AssemblyAnalysisContext ResolveDeclaringAssembly(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context)

@@ -40,7 +40,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     /// <summary>
     /// The raw method body as machine code in the active instruction set.
     /// </summary>
-    public Memory<byte> RawBytes;
+    public Memory<byte> RawBytes => rawMethodBody ??= InitRawBytes();
 
     /// <summary>
     /// The first-stage-analyzed Instruction-Set-Independent Language Instructions.
@@ -75,6 +75,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     //TODO Support custom attributes on return types (v31 feature)
     public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
+    
+    protected Memory<byte>? rawMethodBody;
 
 
     private static List<IBlockProcessor> blockProcessors =
@@ -92,20 +94,6 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         {
             InitCustomAttributeData();
 
-            //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't support default interface methods so idk what's going on here.
-            //E.g. UnityEngine.Purchasing.AppleCore.dll: UnityEngine.Purchasing.INativeAppleStore::SetUnityPurchasingCallback on among us (itch.io build)
-            if (Definition.MethodPointer != 0 && !Definition.Attributes.HasFlag(MethodAttributes.Abstract))
-            {
-                RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
-
-                if (RawBytes.Length == 0)
-                {
-                    Logger.VerboseNewline("\t\t\tUnexpectedly got 0-byte method body for " + this + $". Pointer was 0x{Definition.MethodPointer:X}", "MAC");
-                }
-            }
-            else
-                RawBytes = Array.Empty<byte>();
-
             for (var i = 0; i < Definition.InternalParameterData!.Length; i++)
             {
                 var parameterDefinition = Definition.InternalParameterData![i];
@@ -113,12 +101,36 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
             }
         }
         else
-            RawBytes = Array.Empty<byte>();
+            rawMethodBody = Array.Empty<byte>();
+    }
+    
+    public void EnsureRawBytes()
+    {
+        rawMethodBody ??= InitRawBytes();
+    }
+
+    private Memory<byte> InitRawBytes()
+    {
+        //Some abstract methods (on interfaces, no less) apparently have a body? Unity doesn't support default interface methods so idk what's going on here.
+        //E.g. UnityEngine.Purchasing.AppleCore.dll: UnityEngine.Purchasing.INativeAppleStore::SetUnityPurchasingCallback on among us (itch.io build)
+        if (Definition != null && Definition.MethodPointer != 0 && !Definition.Attributes.HasFlag(MethodAttributes.Abstract))
+        {
+            var ret = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
+
+            if (ret.Length == 0)
+            {
+                Logger.VerboseNewline("\t\t\tUnexpectedly got 0-byte method body for " + this + $". Pointer was 0x{Definition.MethodPointer:X}", "MAC");
+            }
+
+            return ret;
+        }
+        else
+            return Array.Empty<byte>();
     }
 
     protected MethodAnalysisContext(ApplicationAnalysisContext context) : base(0, context)
     {
-        RawBytes = Array.Empty<byte>();
+        rawMethodBody = Array.Empty<byte>();
     }
 
     [MemberNotNull(nameof(ConvertedIsil))]

@@ -12,6 +12,6 @@ public class AttributeGeneratorMethodAnalysisContext : MethodAnalysisContext
     {
         UnderlyingPointer = pointer;
         AssociatedMember = associatedMember;
-        RawBytes = AppContext.InstructionSet.GetRawBytesForMethod(this, true);
+        rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, true);
     }
 }

@@ -80,13 +80,16 @@ public sealed class WasmFile : Il2CppBinary
     public WasmFunctionDefinition GetFunctionFromIndexAndSignature(ulong index, string signature)
     {
         if (!DynCallCoefficients.TryGetValue(signature, out var coefficients))
+        {
+            // LibLogger.WarnNewline($"Can't get function with signature {signature}, as it's not defined in the binary");
             throw new($"Can't get function with signature {signature}, as it's not defined in the binary");
+        }
 
         //Calculate adjusted dyncall index
-        index = (index & coefficients.andWith) + coefficients.addConstant;
+        index = (ulong)((long)(index & coefficients.andWith) + coefficients.addConstant);
 
         //Use element section to look up real index
-        var realIndex = ElementSection.Elements[0].FunctionIndices![(int)index - 1]; //Minus 1 because the first element in the actual memory layout is FFFFFFFF
+        var realIndex = ElementSection.Elements[0].FunctionIndices![(int)index]; //Minus 1 because the first element in the actual memory layout is FFFFFFFF
 
         //Look up real index in function table
         return FunctionTable[(int)realIndex];
@@ -130,21 +133,21 @@ public sealed class WasmFile : Il2CppBinary
             var disassembled = Disassembler.Disassemble(funcBody, (uint)function.InstructionsOffset);
 
             //Find the consts, ands, and adds
-            var relevantInstructions = disassembled.Where(i => i.Mnemonic is WasmMnemonic.I32Const or WasmMnemonic.I32And or WasmMnemonic.I32Add).ToArray();
+            var relevantInstructions = disassembled.Where(i => i.Mnemonic is WasmMnemonic.I32Const or WasmMnemonic.I32And or WasmMnemonic.I32Add or WasmMnemonic.I32Sub).ToArray();
 
             ulong andWith;
-            ulong add;
+            long add;
 
             if (relevantInstructions.Length == 2)
             {
                 if (relevantInstructions[^1].Mnemonic == WasmMnemonic.I32And)
                 {
-                    andWith = (ulong)relevantInstructions[0].Operands[0];
+                    andWith = (ulong)(long)relevantInstructions[0].Operands[0];
                     add = 0;
                 }
                 else if (relevantInstructions[^1].Mnemonic == WasmMnemonic.I32Add)
                 {
-                    add = (ulong)relevantInstructions[0].Operands[0];
+                    add = (long)relevantInstructions[0].Operands[0];
                     andWith = int.MaxValue;
                 }
                 else
@@ -156,14 +159,23 @@ public sealed class WasmFile : Il2CppBinary
             else if (relevantInstructions.Length == 4)
             {
                 //Should be const, and, const, add
-                if (!relevantInstructions.Select(i => i.Mnemonic).SequenceEqual(new[] { WasmMnemonic.I32Const, WasmMnemonic.I32And, WasmMnemonic.I32Const, WasmMnemonic.I32Add }))
+                var mnemonics = relevantInstructions.Select(i => i.Mnemonic).ToArray();
+                var isAddVariant = mnemonics.SequenceEqual([WasmMnemonic.I32Const, WasmMnemonic.I32And, WasmMnemonic.I32Const, WasmMnemonic.I32Add]);
+                var isSubVariant = mnemonics.SequenceEqual([WasmMnemonic.I32Const, WasmMnemonic.I32And, WasmMnemonic.I32Const, WasmMnemonic.I32Sub]);
+                if (!isAddVariant && !isSubVariant)
                 {
-                    LibLogger.WarnNewline($"\t\tCouldn't calculate coefficients for {signature}, got mnemonics {string.Join(", ", relevantInstructions.Select(i => i.Mnemonic))}, expecting I32Const, I32And, I32Const, I32Add");
+                    LibLogger.WarnNewline($"\t\tCouldn't calculate coefficients for {signature}, got mnemonics {string.Join(", ", relevantInstructions.Select(i => i.Mnemonic))}, expecting I32Const, I32And, I32Const, (I32Add|I32Sub)");
                     continue;
                 }
 
-                andWith = (ulong)relevantInstructions[0].Operands[0];
-                add = (ulong)relevantInstructions[2].Operands[0];
+                andWith = (ulong)(long)relevantInstructions[0].Operands[0];
+                add = (long)relevantInstructions[2].Operands[0];
+
+                if (isSubVariant)
+                {
+                    add = -add;
+                    LibLogger.WarnNewline($"\t\tCoefficient for {signature} using I32Sub not I32Add, this may not work!");
+                }
             }
             else if (disassembled.All(d => d.Mnemonic is WasmMnemonic.LocalGet or WasmMnemonic.CallIndirect or WasmMnemonic.End))
             {
