@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -50,6 +51,11 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     /// </summary>
     public string CleanAssemblyName => MiscUtils.CleanPathElement(Definition.AssemblyName.Name);
 
+    private static string[] blackList = new string[]
+    {
+        "System.__Il2CppComObject",
+        "System.__Il2CppComDelegate",
+    };
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
     {
         Definition = assemblyDefinition;
@@ -61,6 +67,11 @@ public class AssemblyAnalysisContext : HasCustomAttributes
         
         foreach (var il2CppTypeDefinition in Definition.Image.Types!)
         {
+            if (blackList.Contains(il2CppTypeDefinition.FullName))
+            {
+                continue;
+            }
+                // Logger.InfoNewline( "Processing type " + il2CppTypeDefinition.FullName);
             var typeContext = new TypeAnalysisContext(il2CppTypeDefinition, this);
             Types.Add(typeContext);
             TypesByName[il2CppTypeDefinition.FullName!] = typeContext;

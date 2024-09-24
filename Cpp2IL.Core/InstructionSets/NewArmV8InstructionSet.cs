@@ -224,6 +224,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
                 break;
             case Arm64Mnemonic.STR:
+                case Arm64Mnemonic.STRH:
             case Arm64Mnemonic.STUR: // unscaled
             case Arm64Mnemonic.STRB:
                 // //Store is (src, dest)
