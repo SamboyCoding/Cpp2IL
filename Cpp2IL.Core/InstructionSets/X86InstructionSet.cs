@@ -65,6 +65,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     private void ConvertInstructionStatement(Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)
     {
         var callNoReturn = false;
+        int operandSize;
 
         switch (instruction.Mnemonic)
         {
@@ -238,14 +239,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.Return(instruction.IP, InstructionSetIndependentOperand.MakeRegister("rax"));
                 break;
             case Mnemonic.Push:
-                //var operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
-                builder.Push(instruction.IP, InstructionSetIndependentOperand.MakeRegister("rsp"), ConvertOperand(instruction, 0));
-                //builder.ShiftStack(instruction.IP, -operandSize);
+                operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
+                builder.ShiftStack(instruction.IP, -operandSize);
+                builder.Move(instruction.IP, InstructionSetIndependentOperand.MakeStack(0), ConvertOperand(instruction, 0));
                 break;
             case Mnemonic.Pop:
-                //var operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
-                //builder.ShiftStack(instruction.IP, operandSize);
-                builder.Pop(instruction.IP, InstructionSetIndependentOperand.MakeRegister("rsp"), ConvertOperand(instruction, 0));
+                operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
+                builder.Move(instruction.IP, ConvertOperand(instruction, 0), InstructionSetIndependentOperand.MakeStack(0));
+                builder.ShiftStack(instruction.IP, operandSize);
                 break;
             case Mnemonic.Sub:
             case Mnemonic.Add:
