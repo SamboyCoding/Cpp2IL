@@ -314,6 +314,10 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             //Now we can work out how many elements there are.
             var numElements = length / elementSize;
 
+            if (numElements == 0) {
+                return [];
+            }
+
             //And so we can allocate an array of that length, and assign the first element.
             var arr = new T[numElements];
             arr[0] = first;
