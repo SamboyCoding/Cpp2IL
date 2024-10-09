@@ -60,6 +60,7 @@
 
     <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
         <!--Supplementary packages to provide modern runtime features on netstandard2-->
+		<PackageReference Include="System.Text.Json" Version="8.0.4" />
         <PackageReference Include="System.ValueTuple" Version="4.5.0" />
     </ItemGroup>
 
