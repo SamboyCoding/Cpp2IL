@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using AsmResolver.DotNet;
@@ -12,11 +13,21 @@ namespace Cpp2IL.Core.Utils.AsmResolver;
 
 public static class AsmResolverUtils
 {
-    private static readonly Dictionary<string, (TypeDefinition typeDefinition, string[] genericParams)?> CachedTypeDefsByName = new();
+    private static readonly Dictionary<string, TypeDefinition?> CachedTypeDefsByName = new();
+    private static readonly Dictionary<string, TypeSignature?> CachedTypeSignaturesByName = new();
     private static readonly ConcurrentDictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
 
     public static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
     public static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
+
+    internal static void Reset()
+    {
+        CachedTypeDefsByName.Clear();
+        CachedTypeSignaturesByName.Clear();
+        ImportersByAssembly.Clear();
+        TypeDefsByIndex.Clear();
+        GenericParamsByIndexNew.Clear();
+    }
 
     public static TypeDefinition GetPrimitiveTypeDef(Il2CppTypeEnum type) =>
         type switch
@@ -188,29 +199,54 @@ public static class AsmResolverUtils
         }
     }
 
-    public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name) => TryLookupTypeDefByName(name)?.typeDefinition;
-
-    public static (TypeDefinition typeDefinition, string[] genericParams)? TryLookupTypeDefByName(string? name)
+    public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name)
     {
         if (name == null)
             return null;
+
+        if (TypeDefinitionsAsmResolver.GetPrimitive(name) is { } primitive)
+            return primitive;
 
         var key = name.ToLower(CultureInfo.InvariantCulture);
 
         if (CachedTypeDefsByName.TryGetValue(key, out var ret))
             return ret;
 
-        var result = InternalTryLookupTypeDefByName(name);
+        var definedType = Cpp2IlApi.CurrentAppContext!.AllTypes.FirstOrDefault(t => t.Definition != null && string.Equals(t.Definition.FullName, name, StringComparison.OrdinalIgnoreCase));
 
-        CachedTypeDefsByName[key] = result;
+        //Try subclasses
+        definedType ??= Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t =>
+        {
+            return t.Definition?.FullName != null
+                && t.Definition.FullName.Contains('/')
+                && string.Equals(t.Definition.FullName.Replace('/', '.'), name, StringComparison.OrdinalIgnoreCase);
+        });
+
+        return definedType?.GetExtraData<TypeDefinition>("AsmResolverType");
+    }
+
+    public static TypeSignature? TryLookupTypeSignatureByName(string? name, ReadOnlySpan<string> genericParameterNames = default)
+    {
+        if (name == null)
+            return null;
+
+        var key = name.ToLower(CultureInfo.InvariantCulture);
+
+        if (genericParameterNames.Length == 0 && CachedTypeSignaturesByName.TryGetValue(key, out var ret))
+            return ret;
+
+        var result = InternalTryLookupTypeSignatureByName(name, genericParameterNames);
+
+        if (genericParameterNames.Length == 0)
+            CachedTypeSignaturesByName[key] = result;
 
         return result;
     }
 
-    private static (TypeDefinition typeDefinition, string[] genericParams)? InternalTryLookupTypeDefByName(string name)
+    private static TypeSignature? InternalTryLookupTypeSignatureByName(string name, ReadOnlySpan<string> genericParameterNames = default)
     {
         if (TypeDefinitionsAsmResolver.GetPrimitive(name) is { } primitive)
-            return new(primitive, []);
+            return primitive.ToTypeSignature();
 
         //The only real cases we end up here are:
         //From explicit override resolving, because that has to be done by name
@@ -219,57 +255,62 @@ public static class AsmResolverUtils
         //And during exception helper location, which is always a system type.
         //So really the only remapping we should have to handle is during explicit override restoration.
 
-        var definedType = Cpp2IlApi.CurrentAppContext!.AllTypes.FirstOrDefault(t => t.Definition != null && string.Equals(t.Definition.FullName, name, StringComparison.OrdinalIgnoreCase));
-
-        if (name.EndsWith("[]"))
+        if (name.EndsWith("[]", StringComparison.Ordinal))
         {
             var without = name[..^2];
-            var result = TryLookupTypeDefByName(without);
-            return result;
+            var result = InternalTryLookupTypeSignatureByName(without, genericParameterNames);
+            return result?.MakeSzArrayType();
         }
 
-        //Generics are dumb.
-        var genericParams = Array.Empty<string>();
-        if (definedType == null && name.Contains("<"))
+        var parsedType = Parse(name);
+
+        // Arrays should be handled above
+        Debug.Assert(parsedType.Suffix is "");
+
+        var genericParameterIndex = genericParameterNames.IndexOf(parsedType.BaseType);
+        if (genericParameterIndex >= 0)
+            return new GenericParameterSignature(GenericParameterType.Type, genericParameterIndex);
+
+        var baseType = TryLookupTypeDefKnownNotGeneric(parsedType.BaseType);
+        if (baseType == null)
+            return null;
+
+        if (parsedType.GenericArguments.Length == 0)
+            return baseType.ToTypeSignature();
+
+        var typeArguments = new TypeSignature[parsedType.GenericArguments.Length];
+        for (var i = 0; i < parsedType.GenericArguments.Length; i++)
         {
-            //Replace < > with the number of generic params after a `
-            genericParams = MiscUtils.GetGenericParams(name[(name.IndexOf("<", StringComparison.Ordinal) + 1)..^1]);
-            name = name[..name.IndexOf("<", StringComparison.Ordinal)];
-            if (!name.Contains("`"))
-                name = name + "`" + (genericParams.Length);
-
-            definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => t.Definition?.FullName == name);
+            var typeArgument = InternalTryLookupTypeSignatureByName(parsedType.GenericArguments[i], genericParameterNames);
+            if (typeArgument == null)
+                return null;
+            typeArguments[i] = typeArgument;
         }
 
-        if (definedType != null) return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
+        return baseType.MakeGenericInstanceType(typeArguments);
+    }
 
-        //It's possible they didn't specify a `System.` prefix
-        var searchString = $"System.{name}";
-        definedType = Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t => string.Equals(t.Definition?.FullName, searchString, StringComparison.OrdinalIgnoreCase));
+    private readonly record struct ParsedTypeString(string BaseType, string Suffix, string[] GenericArguments);
 
-        if (definedType != null) return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
+    private static ParsedTypeString Parse(string name)
+    {
+        var firstAngleBracket = name.IndexOf('<');
+        if (firstAngleBracket < 0)
+        {
+            var firstSquareBracket = name.IndexOf('[');
+            if (firstSquareBracket < 0)
+                return new ParsedTypeString(name, "", []);
+            else
+                return new ParsedTypeString(name[..firstSquareBracket], name[(firstSquareBracket + 1)..], []);
+        }
 
-        //Still not got one? Ok, is there only one match for non FQN?
-        var matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => string.Equals(t.Definition?.Name, name, StringComparison.OrdinalIgnoreCase)).ToList();
-        if (matches.Count == 1)
-            definedType = matches.First();
+        var lastAngleBracket = name.LastIndexOf('>');
+        var genericParams = MiscUtils.GetGenericParams(name[(firstAngleBracket + 1)..(lastAngleBracket)]);
 
-        if (definedType != null)
-            return (definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
+        var baseType = $"{name[..firstAngleBracket]}`{genericParams.Length}";
+        var suffix = name[(lastAngleBracket + 1)..];
 
-        if (!name.Contains("."))
-            return null;
-
-        searchString = name;
-        //Try subclasses
-        matches = Cpp2IlApi.CurrentAppContext.AllTypes.Where(t => t.Definition != null && t.Definition.FullName!.Replace('/', '.').EndsWith(searchString)).ToList();
-        if (matches.Count == 1)
-            definedType = matches.First();
-
-        if (definedType == null)
-            return null;
-
-        return new(definedType.GetExtraData<TypeDefinition>("AsmResolverType")!, genericParams);
+        return new ParsedTypeString(baseType, suffix, genericParams);
     }
 
     public static ReferenceImporter GetImporter(this AssemblyDefinition assemblyDefinition)
