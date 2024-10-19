@@ -17,6 +17,8 @@ public static class LibCpp2IlReflection
     private static readonly Dictionary<Il2CppFieldDefinition, int> FieldIndices = new();
     private static readonly Dictionary<Il2CppPropertyDefinition, int> PropertyIndices = new();
 
+    private static readonly Dictionary<Il2CppFieldDefinition, Il2CppTypeDefinition> FieldDeclaringTypes = new();
+
     private static readonly Dictionary<Il2CppTypeEnum, Il2CppType> PrimitiveTypeCache = new();
     public static readonly Dictionary<Il2CppTypeEnum, Il2CppTypeDefinition> PrimitiveTypeDefinitions = new();
     private static readonly Dictionary<long, Il2CppType> Il2CppTypeCache = new();
@@ -32,6 +34,7 @@ public static class LibCpp2IlReflection
         MethodIndices.Clear();
         FieldIndices.Clear();
         PropertyIndices.Clear();
+        FieldDeclaringTypes.Clear();
         PrimitiveTypeCache.Clear();
         PrimitiveTypeDefinitions.Clear();
         Il2CppTypeCache.Clear();
@@ -195,6 +198,30 @@ public static class LibCpp2IlReflection
         }
 
         return PropertyIndices[propertyDefinition];
+    }
+
+    public static Il2CppTypeDefinition GetDeclaringTypeFromField(Il2CppFieldDefinition fieldDefinition)
+    {
+        if (LibCpp2IlMain.TheMetadata == null) return null!;
+
+        if (FieldDeclaringTypes.Count == 0)
+        {
+            lock (FieldDeclaringTypes)
+            {
+                if (FieldDeclaringTypes.Count == 0)
+                {
+                    foreach (var declaringType in LibCpp2IlMain.TheMetadata.typeDefs)
+                    {
+                        foreach (var field in declaringType.Fields ?? [])
+                        {
+                            FieldDeclaringTypes[field] = declaringType;
+                        }
+                    }
+                }
+            }
+        }
+
+        return FieldDeclaringTypes[fieldDefinition];
     }
 
     public static Il2CppType? GetTypeFromDefinition(Il2CppTypeDefinition definition)
