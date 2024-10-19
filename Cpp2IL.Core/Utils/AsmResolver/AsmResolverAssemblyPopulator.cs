@@ -562,9 +562,6 @@ public static class AsmResolverAssemblyPopulator
             if (Utf8String.IsNullOrEmpty(method.Name))
                 continue;
 
-            // Explicit interface implementation
-            // Note: This does not handle all cases.
-            // Specifically, it does not handle the case where the interface has multiple methods with the same name.
             var periodLastIndex = method.Name.LastIndexOf('.');
             if (periodLastIndex < 0 || !method.IsPrivate || !method.IsVirtual || !method.IsFinal || !method.IsNewSlot)
             {
@@ -578,8 +575,12 @@ public static class AsmResolverAssemblyPopulator
                 : [];
             var interfaceType = AsmResolverUtils.TryLookupTypeSignatureByName(interfaceName, genericParameterNames);
 
+            if (interfaceType is null)
+                continue;
+
+            var ambiguous = false;
             IMethodDefOrRef? interfaceMethod = null;
-            var underlyingInterface = interfaceType?.GetUnderlyingTypeDefOrRef();
+            var underlyingInterface = interfaceType.GetUnderlyingTypeDefOrRef();
             foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
             {
                 if (interfaceMethodDef.Name != methodName)
@@ -587,12 +588,37 @@ public static class AsmResolverAssemblyPopulator
 
                 if (interfaceMethod is not null)
                 {
-                    // Ambiguity. Checking the method signature would be required to disambiguate.
+                    // Ambiguity. Checking the method signature will be required to disambiguate.
                     interfaceMethod = null;
+                    ambiguous = true;
                     break;
                 }
 
-                interfaceMethod = new MemberReference(interfaceType?.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+                // This has the implicit assumption that the method signatures match.
+                // This is a reasonable assumption because there's no other method to match (with this name).
+                interfaceMethod = new MemberReference(interfaceType.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+            }
+
+            if (ambiguous)
+            {
+                // Ambiguities are very rare, so we only bother signature checking when we have to.
+
+                var signature = method.Signature;
+                if (signature is null)
+                    continue;
+
+                var genericContext = GenericContext.FromType(interfaceType);
+                foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
+                {
+                    if (interfaceMethodDef.Name != methodName)
+                        continue;
+
+                    if (Equals(signature, interfaceMethodDef.Signature, genericContext))
+                    {
+                        interfaceMethod = new MemberReference(interfaceType?.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+                        break;
+                    }
+                }
             }
 
             if (interfaceMethod != null)
@@ -602,4 +628,40 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
+    // These equals methods will likely be removable in the future.
+    // AsmResolver will likely provide a better way to compare method signatures inside GenericContexts.
+
+    private static bool Equals(MethodSignature? x, MethodSignature? y, GenericContext yGenericContext)
+    {
+        if (x == y)
+            return true;
+
+        if (x == null || y == null)
+            return false;
+
+        return x.Attributes == y.Attributes
+            && x.GenericParameterCount == y.GenericParameterCount
+            && Equals(x.ReturnType, y.ReturnType, yGenericContext)
+            && Equals(x.ParameterTypes, y.ParameterTypes, yGenericContext)
+            && Equals(x.SentinelParameterTypes, y.SentinelParameterTypes, yGenericContext);
+    }
+
+    private static bool Equals(TypeSignature x, TypeSignature y, GenericContext yGenericContext)
+    {
+        return SignatureComparer.Default.Equals(x, y.InstantiateGenericTypes(yGenericContext));
+    }
+
+    private static bool Equals(IList<TypeSignature> x, IList<TypeSignature> y, GenericContext yGenericContext)
+    {
+        if (x.Count != y.Count)
+            return false;
+
+        for (var i = 0; i < x.Count; i++)
+        {
+            if (!Equals(x[i], y[i], yGenericContext))
+                return false;
+        }
+
+        return true;
+    }
 }
