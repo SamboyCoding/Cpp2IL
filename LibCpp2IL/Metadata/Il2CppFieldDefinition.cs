@@ -20,6 +20,8 @@ public class Il2CppFieldDefinition : ReadableClass
 
     public Il2CppFieldDefaultValue? DefaultValue => LibCpp2IlMain.TheMetadata?.GetFieldDefaultValue(this);
 
+    public Il2CppTypeDefinition DeclaringType => LibCpp2IlReflection.GetDeclaringTypeFromField(this);
+
     public override string? ToString()
     {
         if (LibCpp2IlMain.TheMetadata == null)
