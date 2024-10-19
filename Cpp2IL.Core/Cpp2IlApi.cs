@@ -8,6 +8,7 @@ using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
+using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL;
 using LibCpp2IL.Logging;
 
@@ -115,6 +116,8 @@ public static class Cpp2IlApi
         SharedState.Clear();
 
         MiscUtils.Reset();
+
+        AsmResolverUtils.Reset();
 
         LibCpp2IlMain.Reset();
 

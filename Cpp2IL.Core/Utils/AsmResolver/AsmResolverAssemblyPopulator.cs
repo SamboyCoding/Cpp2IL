@@ -526,4 +526,80 @@ public static class AsmResolverAssemblyPopulator
             ilTypeDefinition.Events.Add(managedEvent);
         }
     }
+
+    public static void InferExplicitInterfaceImplementations(AssemblyAnalysisContext asmContext)
+    {
+        var managedAssembly = asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + asmContext);
+
+        var importer = managedAssembly.GetImporter();
+
+        foreach (var typeContext in asmContext.Types)
+        {
+            if (IsTypeContextModule(typeContext))
+                continue;
+
+            var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.Definition?.FullName}");
+
+#if !DEBUG
+            try
+#endif
+            {
+                InferExplicitInterfaceImplementations(managedType, importer);
+            }
+#if !DEBUG
+            catch (Exception e)
+            {
+                throw new Exception($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {asmContext.Definition.AssemblyName.Name}", e);
+            }
+#endif
+        }
+    }
+
+    private static void InferExplicitInterfaceImplementations(TypeDefinition type, ReferenceImporter importer)
+    {
+        foreach (var method in type.Methods)
+        {
+            if (Utf8String.IsNullOrEmpty(method.Name))
+                continue;
+
+            // Explicit interface implementation
+            // Note: This does not handle all cases.
+            // Specifically, it does not handle the case where the interface has multiple methods with the same name.
+            var periodLastIndex = method.Name.LastIndexOf('.');
+            if (periodLastIndex < 0 || !method.IsPrivate || !method.IsVirtual || !method.IsFinal || !method.IsNewSlot)
+            {
+                continue;
+            }
+
+            var methodName = method.Name.Value[(periodLastIndex + 1)..];
+            var interfaceName = method.Name.Value[..periodLastIndex];
+            var genericParameterNames = type.GenericParameters.Count > 0
+                ? type.GenericParameters.Select(p => (string?)p.Name ?? "").ToArray()
+                : [];
+            var interfaceType = AsmResolverUtils.TryLookupTypeSignatureByName(interfaceName, genericParameterNames);
+
+            IMethodDefOrRef? interfaceMethod = null;
+            var underlyingInterface = interfaceType?.GetUnderlyingTypeDefOrRef();
+            foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
+            {
+                if (interfaceMethodDef.Name != methodName)
+                    continue;
+
+                if (interfaceMethod is not null)
+                {
+                    // Ambiguity. Checking the method signature would be required to disambiguate.
+                    interfaceMethod = null;
+                    break;
+                }
+
+                interfaceMethod = new MemberReference(interfaceType?.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+            }
+
+            if (interfaceMethod != null)
+            {
+                type.MethodImplementations.Add(new MethodImplementation(importer.ImportMethod(interfaceMethod), method));
+            }
+        }
+    }
+
 }
