@@ -603,17 +603,13 @@ public static class AsmResolverAssemblyPopulator
             {
                 // Ambiguities are very rare, so we only bother signature checking when we have to.
 
-                var signature = method.Signature;
-                if (signature is null)
-                    continue;
-
                 var genericContext = GenericContext.FromType(interfaceType);
                 foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
                 {
                     if (interfaceMethodDef.Name != methodName)
                         continue;
 
-                    if (Equals(signature, interfaceMethodDef.Signature, genericContext))
+                    if (SignatureComparer.Default.Equals(method.Signature, interfaceMethodDef.Signature?.InstantiateGenericTypes(genericContext)))
                     {
                         interfaceMethod = new MemberReference(interfaceType?.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
                         break;
@@ -626,42 +622,5 @@ public static class AsmResolverAssemblyPopulator
                 type.MethodImplementations.Add(new MethodImplementation(importer.ImportMethod(interfaceMethod), method));
             }
         }
-    }
-
-    // These equals methods will likely be removable in the future.
-    // AsmResolver will likely provide a better way to compare method signatures inside GenericContexts.
-
-    private static bool Equals(MethodSignature? x, MethodSignature? y, GenericContext yGenericContext)
-    {
-        if (x == y)
-            return true;
-
-        if (x == null || y == null)
-            return false;
-
-        return x.Attributes == y.Attributes
-            && x.GenericParameterCount == y.GenericParameterCount
-            && Equals(x.ReturnType, y.ReturnType, yGenericContext)
-            && Equals(x.ParameterTypes, y.ParameterTypes, yGenericContext)
-            && Equals(x.SentinelParameterTypes, y.SentinelParameterTypes, yGenericContext);
-    }
-
-    private static bool Equals(TypeSignature x, TypeSignature y, GenericContext yGenericContext)
-    {
-        return SignatureComparer.Default.Equals(x, y.InstantiateGenericTypes(yGenericContext));
-    }
-
-    private static bool Equals(IList<TypeSignature> x, IList<TypeSignature> y, GenericContext yGenericContext)
-    {
-        if (x.Count != y.Count)
-            return false;
-
-        for (var i = 0; i < x.Count; i++)
-        {
-            if (!Equals(x[i], y[i], yGenericContext))
-                return false;
-        }
-
-        return true;
     }
 }
