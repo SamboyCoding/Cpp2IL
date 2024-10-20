@@ -562,9 +562,6 @@ public static class AsmResolverAssemblyPopulator
             if (Utf8String.IsNullOrEmpty(method.Name))
                 continue;
 
-            // Explicit interface implementation
-            // Note: This does not handle all cases.
-            // Specifically, it does not handle the case where the interface has multiple methods with the same name.
             var periodLastIndex = method.Name.LastIndexOf('.');
             if (periodLastIndex < 0 || !method.IsPrivate || !method.IsVirtual || !method.IsFinal || !method.IsNewSlot)
             {
@@ -578,8 +575,12 @@ public static class AsmResolverAssemblyPopulator
                 : [];
             var interfaceType = AsmResolverUtils.TryLookupTypeSignatureByName(interfaceName, genericParameterNames);
 
+            if (interfaceType is null)
+                continue;
+
+            var ambiguous = false;
             IMethodDefOrRef? interfaceMethod = null;
-            var underlyingInterface = interfaceType?.GetUnderlyingTypeDefOrRef();
+            var underlyingInterface = interfaceType.GetUnderlyingTypeDefOrRef();
             foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
             {
                 if (interfaceMethodDef.Name != methodName)
@@ -587,12 +588,33 @@ public static class AsmResolverAssemblyPopulator
 
                 if (interfaceMethod is not null)
                 {
-                    // Ambiguity. Checking the method signature would be required to disambiguate.
+                    // Ambiguity. Checking the method signature will be required to disambiguate.
                     interfaceMethod = null;
+                    ambiguous = true;
                     break;
                 }
 
-                interfaceMethod = new MemberReference(interfaceType?.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+                // This has the implicit assumption that the method signatures match.
+                // This is a reasonable assumption because there's no other method to match (with this name).
+                interfaceMethod = new MemberReference(interfaceType.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+            }
+
+            if (ambiguous)
+            {
+                // Ambiguities are very rare, so we only bother signature checking when we have to.
+
+                var genericContext = GenericContext.FromType(interfaceType);
+                foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
+                {
+                    if (interfaceMethodDef.Name != methodName)
+                        continue;
+
+                    if (SignatureComparer.Default.Equals(method.Signature, interfaceMethodDef.Signature?.InstantiateGenericTypes(genericContext)))
+                    {
+                        interfaceMethod = new MemberReference(interfaceType?.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+                        break;
+                    }
+                }
             }
 
             if (interfaceMethod != null)
@@ -601,5 +623,4 @@ public static class AsmResolverAssemblyPopulator
             }
         }
     }
-
 }
