@@ -195,10 +195,8 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
         var memberField = (callsAttributeInfo.Item2[1], targetMethod.Name);
 
-        var concreteMethod = targetMethod as ConcreteGenericMethodAnalysisContext;
-
         (FieldAnalysisContext, object)? typeParametersField;
-        if (concreteMethod is not null)
+        if (targetMethod is ConcreteGenericMethodAnalysisContext concreteMethod)
         {
             if (concreteMethod.MethodRef.MethodGenericParams.Length > 0)
             {
@@ -268,10 +266,6 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         else if (targetMethod.InjectedReturnType is not null)
         {
             returnType = targetMethod.InjectedReturnType;
-        }
-        else if (concreteMethod is { BaseMethodContext: { Definition: not null } or { InjectedReturnType: not null } })
-        {
-            returnType = concreteMethod.BaseMethodContext.ReturnTypeContext;
         }
         else if (targetMethod.Definition is null)
         {

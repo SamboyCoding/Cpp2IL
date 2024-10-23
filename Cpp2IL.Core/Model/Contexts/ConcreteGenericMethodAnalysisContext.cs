@@ -35,19 +35,24 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         DeclaringAsm = declaringAssembly;
         BaseMethodContext = ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!);
 
+        var genericTypeParameters = ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly);
+        var genericMethodParameters = ResolveTypeArray(methodRef.MethodGenericParams, declaringAssembly);
+
         for (var i = 0; i < BaseMethodContext.Parameters.Count; i++)
         {
             var parameter = BaseMethodContext.Parameters[i];
             var parameterType = parameter.ParameterTypeContext;
             var instantiatedType = GenericInstantiation.Instantiate(
                 parameter.ParameterTypeContext,
-                ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly),
-                ResolveTypeArray(methodRef.MethodGenericParams, declaringAssembly));
+                genericTypeParameters,
+                genericMethodParameters);
 
             Parameters.Add(parameterType == instantiatedType
                 ? parameter
                 : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, i, BaseMethodContext));
         }
+
+        InjectedReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnTypeContext, genericTypeParameters, genericMethodParameters);
 
         if (UnderlyingPointer != 0)
             rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
@@ -64,6 +69,9 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         var baseType = declaringAssembly.AppContext.ResolveContextForType(methodRef.DeclaringType)
                        ?? throw new($"Unable to resolve declaring type {methodRef.DeclaringType.FullName} for generic method {methodRef}");
 
+        if (methodRef.TypeGenericParams.Length == 0)
+            return baseType;
+
         var genericParams = ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly);
 
         return new GenericInstanceTypeAnalysisContext(baseType, genericParams, declaringAssembly);
@@ -71,6 +79,9 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
     private static TypeAnalysisContext[] ResolveTypeArray(Il2CppTypeReflectionData[] array, AssemblyAnalysisContext declaringAssembly)
     {
+        if (array.Length == 0)
+            return [];
+
         var ret = new TypeAnalysisContext[array.Length];
         for (var i = 0; i < array.Length; i++)
         {
