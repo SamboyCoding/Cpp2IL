@@ -20,7 +20,12 @@ public static class X64CallingConventionResolver
 
     const int ptrSize = 8;
 
-    private static bool IsXMM(ParameterAnalysisContext par) => par.ParameterType.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8;
+    private static bool IsXMM(ParameterAnalysisContext par)
+    {
+        var parameterType = par.ParameterTypeContext;
+        return parameterType == parameterType.AppContext.SystemTypes.SystemSingleType
+            || parameterType == parameterType.AppContext.SystemTypes.SystemDoubleType;
+    }
 
     public static InstructionSetIndependentOperand[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
     {
