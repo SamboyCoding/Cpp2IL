@@ -73,7 +73,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
                 if (convertedIsil is { Count: 0 })
                 {
-                    if ((m.MethodAttributes & MethodAttributes.Abstract) == 0)
+                    if ((m.Attributes & MethodAttributes.Abstract) == 0)
                     {
                         AttributeInjectionUtils.AddZeroParameterAttribute(m, analysisNotSupportedConstructor);
                     }
