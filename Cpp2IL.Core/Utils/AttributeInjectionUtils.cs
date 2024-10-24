@@ -95,7 +95,7 @@ public static class AttributeInjectionUtils
         var mscorlibAssembly = appContext.GetAssemblyByName("mscorlib") ?? throw new("Could not find mscorlib");
         var targetsEnumType = GetAttributeTargetsType(mscorlibAssembly);
         var usageAttribute = mscorlibAssembly.GetTypeByFullName($"System.{nameof(AttributeUsageAttribute)}") ?? throw new("Could not find AttributeUsageAttribute");
-        var usageConstructor = usageAttribute.Methods.First(m => (m.MethodAttributes & MethodAttributes.MemberAccessMask) == MethodAttributes.Public && m.Name == ".ctor");
+        var usageConstructor = usageAttribute.Methods.First(m => (m.Attributes & MethodAttributes.MemberAccessMask) == MethodAttributes.Public && m.Name == ".ctor");
         var allowMultipleProperty = usageAttribute.Properties.First(p => p.Name == nameof(AttributeUsageAttribute.AllowMultiple));
         foreach (var injectedType in multiAssemblyInjectedType.InjectedTypes)
         {

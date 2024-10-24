@@ -79,7 +79,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     protected Memory<byte>? rawMethodBody;
 
 
-    private static List<IBlockProcessor> blockProcessors =
+    private static readonly List<IBlockProcessor> blockProcessors =
     [
         new MetadataProcessor(),
         new CallProcessor()
@@ -103,7 +103,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         else
             rawMethodBody = Array.Empty<byte>();
     }
-    
+
+    [MemberNotNull(nameof(rawMethodBody))]
     public void EnsureRawBytes()
     {
         rawMethodBody ??= InitRawBytes();
@@ -173,17 +174,18 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     #region StableNameDot implementation
 
-    public ITypeInfoProvider ReturnType =>
+    ITypeInfoProvider IMethodInfoProvider.ReturnType =>
         Definition!.RawReturnType!.ThisOrElementIsGenericParam()
             ? new GenericParameterTypeInfoProviderWrapper(Definition.RawReturnType!.GetGenericParamName())
             : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition!.RawReturnType);
 
-    public IEnumerable<IParameterInfoProvider> ParameterInfoProviders => Parameters;
-    public string MethodName => Name;
+    IEnumerable<IParameterInfoProvider> IMethodInfoProvider.ParameterInfoProviders => Parameters;
 
-    public MethodAttributes MethodAttributes => Attributes;
+    string IMethodInfoProvider.MethodName => Name;
 
-    public MethodSemantics MethodSemantics
+    MethodAttributes IMethodInfoProvider.MethodAttributes => Attributes;
+
+    MethodSemantics IMethodInfoProvider.MethodSemantics
     {
         get
         {

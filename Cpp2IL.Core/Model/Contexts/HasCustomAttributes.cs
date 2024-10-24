@@ -200,11 +200,11 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
             var attributeTypeContext = AppContext.ResolveContextForType(typeDef) ?? throw new("Unable to find type " + typeDef.FullName);
 
             AnalyzedCustomAttribute attribute;
-            if (attributeTypeContext.Methods.FirstOrDefault(c => c.MethodName == ".ctor" && c.Definition!.parameterCount == 0) is { } constructor)
+            if (attributeTypeContext.Methods.FirstOrDefault(c => c.Name == ".ctor" && c.Definition!.parameterCount == 0) is { } constructor)
             {
                 attribute = new(constructor);
             }
-            else if (attributeTypeContext.Methods.FirstOrDefault(c => c.MethodName == ".ctor") is { } anyConstructor)
+            else if (attributeTypeContext.Methods.FirstOrDefault(c => c.Name == ".ctor") is { } anyConstructor)
             {
                 //TODO change this to actual constructor w/ params once anaylsis is available
                 attribute = new(anyConstructor);
