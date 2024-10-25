@@ -35,8 +35,8 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         DeclaringAsm = declaringAssembly;
         BaseMethodContext = ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!);
 
-        var genericTypeParameters = ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly);
-        var genericMethodParameters = ResolveTypeArray(methodRef.MethodGenericParams, declaringAssembly);
+        var genericTypeParameters = ResolveTypeGenericParameters();
+        var genericMethodParameters = ResolveMethodGenericParameters();
 
         for (var i = 0; i < BaseMethodContext.Parameters.Count; i++)
         {
@@ -57,6 +57,10 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         if (UnderlyingPointer != 0)
             rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
     }
+
+    public TypeAnalysisContext[] ResolveTypeGenericParameters() => ResolveTypeArray(MethodRef.TypeGenericParams, DeclaringAsm);
+
+    public TypeAnalysisContext[] ResolveMethodGenericParameters() => ResolveTypeArray(MethodRef.MethodGenericParams, DeclaringAsm);
 
     private static AssemblyAnalysisContext ResolveDeclaringAssembly(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context)
     {

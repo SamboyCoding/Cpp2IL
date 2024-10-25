@@ -161,7 +161,32 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return AssembliesByName[name];
     }
 
-    public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition typeDefinition) => GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.GetTypeByDefinition(typeDefinition);
+    public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition? typeDefinition)
+    {
+        return typeDefinition is not null
+            ? GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.GetTypeByDefinition(typeDefinition)
+            : null;
+    }
+
+    public MethodAnalysisContext? ResolveContextForMethod(Il2CppMethodDefinition? methodDefinition)
+    {
+        return ResolveContextForType(methodDefinition?.DeclaringType)?.Methods.FirstOrDefault(m => m.Definition == methodDefinition);
+    }
+
+    public FieldAnalysisContext? ResolveContextForField(Il2CppFieldDefinition? field)
+    {
+        return ResolveContextForType(field?.DeclaringType)?.Fields.FirstOrDefault(f => f.BackingData?.Field == field);
+    }
+
+    public EventAnalysisContext? ResolveContextForEvent(Il2CppEventDefinition? eventDefinition)
+    {
+        return ResolveContextForType(eventDefinition?.DeclaringType)?.Events.FirstOrDefault(e => e.Definition == eventDefinition);
+    }
+
+    public PropertyAnalysisContext? ResolveContextForProperty(Il2CppPropertyDefinition? propertyDefinition)
+    {
+        return ResolveContextForType(propertyDefinition?.DeclaringType)?.Properties.FirstOrDefault(p => p.Definition == propertyDefinition);
+    }
 
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()
     {
