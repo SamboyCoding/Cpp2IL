@@ -20,7 +20,7 @@
         <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>
      
-     <ItemGroup  Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
+     <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
          <TrimmerRootAssembly Include="System.Runtime" />
      </ItemGroup>
 
@@ -30,7 +30,7 @@
 
     <ItemGroup>
         <PackageReference Include="CommandLineParser" Version="2.9.1" />
-        <PackageReference Include="Pastel" Version="4.2.0" />
+        <PackageReference Include="Pastel" Version="5.1.0" />
         <PackageReference Include="PolySharp" Version="1.14.1">
           <PrivateAssets>all</PrivateAssets>
           <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

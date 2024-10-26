@@ -17,7 +17,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4.0.0
+      - uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: 6.x
       - id: git-vars
@@ -58,7 +58,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4.0.0
+      - uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: 6.x
       - name: Install dependencies
@@ -77,7 +77,7 @@ jobs:
     if: github.repository == 'SamboyCoding/Cpp2IL'
     steps:
       - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4.0.0
+      - uses: actions/setup-dotnet@v4.1.0
         with:
           dotnet-version: 6.x
       - id: git-vars
@@ -108,7 +108,7 @@ jobs:
       - name: Run Tests
         run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
       - name: Upload Coverage
-        uses: coverallsapp/github-action@v2.3.0
+        uses: coverallsapp/github-action@v2.3.4
         with:
             github-token: ${{ secrets.GITHUB_TOKEN }}
             files: ./Cpp2IL.Core.Tests/lcov.info ./LibCpp2ILTests/lcov.info
