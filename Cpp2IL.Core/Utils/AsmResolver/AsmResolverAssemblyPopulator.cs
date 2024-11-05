@@ -596,7 +596,7 @@ public static class AsmResolverAssemblyPopulator
 
                 // This has the implicit assumption that the method signatures match.
                 // This is a reasonable assumption because there's no other method to match (with this name).
-                interfaceMethod = new MemberReference(interfaceType.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+                interfaceMethod = new MemberReference(importer.ImportType(interfaceType.ToTypeDefOrRef()), interfaceMethodDef.Name, interfaceMethodDef.Signature);
             }
 
             if (ambiguous)
@@ -611,7 +611,7 @@ public static class AsmResolverAssemblyPopulator
 
                     if (SignatureComparer.Default.Equals(method.Signature, interfaceMethodDef.Signature?.InstantiateGenericTypes(genericContext)))
                     {
-                        interfaceMethod = new MemberReference(interfaceType?.ToTypeDefOrRef(), interfaceMethodDef.Name, interfaceMethodDef.Signature);
+                        interfaceMethod = new MemberReference(importer.ImportTypeOrNull(interfaceType?.ToTypeDefOrRef()), interfaceMethodDef.Name, interfaceMethodDef.Signature);
                         break;
                     }
                 }
