@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
 using Cpp2IL.Core.Model.Contexts;
@@ -26,27 +26,27 @@ public static class ContextToMethodDescriptor
 
     public static IMethodDescriptor ToMethodDescriptor(this MethodAnalysisContext context, ModuleDefinition parentModule)
     {
-        if (context is ConcreteGenericMethodAnalysisContext concreteMethod)
-        {
-            var memberReference = new MemberReference(
-                concreteMethod.DeclaringType?.ToTypeSignature(parentModule).ToTypeDefOrRef(),
-                concreteMethod.Name,
-                concreteMethod.BaseMethodContext.ToMethodSignature(parentModule));
+        return context is ConcreteGenericMethodAnalysisContext concreteMethod
+            ? concreteMethod.ToMethodDescriptor(parentModule)
+            : parentModule.DefaultImporter.ImportMethod(context.GetMethodDefinition());
+    }
 
-            var methodGenericParameters = concreteMethod.ResolveMethodGenericParameters();
-            if (methodGenericParameters.Length == 0)
-            {
-                return parentModule.DefaultImporter.ImportMethod(memberReference);
-            }
-            else
-            {
-                var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature(parentModule)).ToArray();
-                return parentModule.DefaultImporter.ImportMethod(memberReference.MakeGenericInstanceMethod(typeSignatures));
-            }
+    public static IMethodDescriptor ToMethodDescriptor(this ConcreteGenericMethodAnalysisContext context, ModuleDefinition parentModule)
+    {
+        var memberReference = new MemberReference(
+            context.DeclaringType?.ToTypeSignature(parentModule).ToTypeDefOrRef(),
+            context.Name,
+            context.BaseMethodContext.ToMethodSignature(parentModule));
+
+        var methodGenericParameters = context.ResolveMethodGenericParameters();
+        if (methodGenericParameters.Length == 0)
+        {
+            return parentModule.DefaultImporter.ImportMethod(memberReference);
         }
         else
         {
-            return parentModule.DefaultImporter.ImportMethod(context.GetMethodDefinition());
+            var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature(parentModule)).ToArray();
+            return parentModule.DefaultImporter.ImportMethod(memberReference.MakeGenericInstanceMethod(typeSignatures));
         }
     }
 }
