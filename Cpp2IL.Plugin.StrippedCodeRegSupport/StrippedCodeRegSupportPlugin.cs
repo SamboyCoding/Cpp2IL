@@ -104,7 +104,6 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
         while (binary.ReadNUint() != 0)
         {
             endOfCodegenModulesList += pointerSize;
-            binary.Position += (long)pointerSize;
         }
 
         //We're at the end, so walk one back to get the last valid pointer.
