@@ -1,4 +1,4 @@
-﻿using System.Linq;
+using System.Linq;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
@@ -8,18 +8,17 @@ namespace LibCpp2IL
 {
     public class Cpp2IlMethodRef
     {
-        private readonly Il2CppMethodSpec _methodSpec;
-        
+        public Il2CppMethodSpec MethodSpec { get; }
         public Il2CppTypeDefinition DeclaringType => BaseMethod.DeclaringType!;
-        public Il2CppTypeReflectionData[] TypeGenericParams => _methodSpec.GenericClassParams;
-        public Il2CppMethodDefinition BaseMethod => _methodSpec.MethodDefinition!;
-        public Il2CppTypeReflectionData[] MethodGenericParams => _methodSpec.GenericMethodParams;
+        public Il2CppTypeReflectionData[] TypeGenericParams => MethodSpec.GenericClassParams;
+        public Il2CppMethodDefinition BaseMethod => MethodSpec.MethodDefinition!;
+        public Il2CppTypeReflectionData[] MethodGenericParams => MethodSpec.GenericMethodParams;
 
         public ulong GenericVariantPtr;
 
         public Cpp2IlMethodRef(Il2CppMethodSpec methodSpec)
         {
-            _methodSpec = methodSpec;
+            MethodSpec = methodSpec;
             
             // var declaringTypeGenericParams = Array.Empty<Il2CppTypeReflectionData>();
             // if (methodSpec.classIndexIndex != -1)

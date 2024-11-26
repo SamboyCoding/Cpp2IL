@@ -152,7 +152,7 @@ namespace Il2CppDumper
                                     {
                                         GenerateMethodInfo(methodInfoName, structTypeName, rgctxs);
                                     }
-                                    (var methodSpecTypeName, var methodSpecMethodName) = GetMethodSpecName(methodSpec, true);
+                                    (var methodSpecTypeName, var methodSpecMethodName) = GetMethodSpecName(methodSpec.MethodSpec, true);
                                     var methodFullName = methodSpecTypeName + "$$" + methodSpecMethodName;
                                     scriptMethod.Name = methodFullName;
 
@@ -169,7 +169,7 @@ namespace Il2CppDumper
                                     if ((methodDef.flags & METHOD_ATTRIBUTE_STATIC) == 0)
                                     {
                                         string thisType;
-                                        if (methodSpec.classIndexIndex != -1)
+                                        if (methodSpec.MethodSpec.classIndexIndex != -1)
                                         {
                                             var typeBaseName = structNameDic[typeDef];
                                             var typeToReplaceName = FixName(typeName);
@@ -229,17 +229,17 @@ namespace Il2CppDumper
             if (LibCpp2IlMain.MetadataVersion >= 24.2)
             {
                 orderedPointers = new List<ulong>();
-                foreach (var pair in il2Cpp.codeGenModuleMethodPointers)
+                for (var i = 0; i < il2Cpp.CodeGenModulesCount; i++)
                 {
-                    orderedPointers.AddRange(pair.Value);
+                    orderedPointers.AddRange(il2Cpp.GetCodegenModuleMethodPointers(i));
                 }
             }
             else
             {
-                orderedPointers = il2Cpp.methodPointers.ToList();
+                orderedPointers = il2Cpp._methodPointers.ToList();
             }
-            orderedPointers.AddRange(il2Cpp.genericMethodPointers);
-            orderedPointers.AddRange(il2Cpp.invokerPointers);
+            orderedPointers.AddRange(il2Cpp._genericMethodPointers);
+            orderedPointers.AddRange(il2Cpp._invokerPointers);
             if (LibCpp2IlMain.MetadataVersion < 29)
             {
                 orderedPointers.AddRange(il2Cpp.AllCustomAttributeGenerators);
@@ -281,7 +281,7 @@ namespace Il2CppDumper
                                 var decodedIndex = metadata.GetDecodedMethodIndex(encodedToken);
                                 if (metadataValue == ((usage << 29) | (decodedIndex << 1)) + 1)
                                 {
-                                    var va = il2Cpp.MapRTVA(addr);
+                                    var va = il2Cpp.MapRawAddressToVirtual((uint)addr);
                                     if (va > 0)
                                     {
                                         switch ((MetadataUsageType)usage)

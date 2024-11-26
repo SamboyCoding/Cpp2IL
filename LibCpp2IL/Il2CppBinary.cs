@@ -30,7 +30,7 @@ namespace LibCpp2IL
 
         private ulong[] _methodPointers = Array.Empty<ulong>();
         private ulong[] _genericMethodPointers = Array.Empty<ulong>();
-        // private ulong[] _invokerPointers = Array.Empty<ulong>();
+        private ulong[] _invokerPointers = Array.Empty<ulong>();
         private ulong[]? _customAttributeGenerators = Array.Empty<ulong>(); //Pre-27 only
         private long[] _fieldOffsets = Array.Empty<long>();
         private ulong[] _metadataUsages = Array.Empty<ulong>(); //Pre-27 only
@@ -55,6 +55,7 @@ namespace LibCpp2IL
 
         public abstract long RawLength { get; }
         public int NumTypes => _types.Length;
+        public int CodeGenModulesCount => _codeGenModules.Length;
 
         public Il2CppType[] AllTypes => _types;
 
@@ -108,10 +109,10 @@ namespace LibCpp2IL
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
             // These aren't actually used right now, and if we have a limited code reg (e.g. heavily inlined linux games) we can't read them anyway
-            // LibLogger.Verbose("\tReading invoker pointers...");
-            // start = DateTime.Now;
-            // _invokerPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.invokerPointers, (long)_codeRegistration.invokerPointersCount);
-            // LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.Verbose("\tReading invoker pointers...");
+            start = DateTime.Now;
+            _invokerPointers = ReadNUintArrayAtVirtualAddress(_codeRegistration.invokerPointers, (long)_codeRegistration.invokerPointersCount);
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
             InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 

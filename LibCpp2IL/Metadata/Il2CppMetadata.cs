@@ -360,12 +360,12 @@ namespace LibCpp2IL.Metadata
             return metadataUsageDic.Max(x => x.Value.Max(y => y.Key)) + 1;
         }
 
-        private uint GetEncodedIndexType(uint index)
+        public uint GetEncodedIndexType(uint index)
         {
             return (index & 0xE0000000) >> 29;
         }
 
-        private uint GetDecodedMethodIndex(uint index)
+        public uint GetDecodedMethodIndex(uint index)
         {
             return index & 0x1FFFFFFFU;
         }
