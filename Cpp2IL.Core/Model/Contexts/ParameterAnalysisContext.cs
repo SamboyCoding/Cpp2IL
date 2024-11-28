@@ -37,7 +37,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// <summary>
     /// The human-readable display value of the parameter type.
     /// </summary>
-    public string ReadableTypeName => LibCpp2ILUtils.GetTypeReflectionData(ParameterType).ToString();
+    public string ReadableTypeName => ParameterTypeContext.FullName;
 
     /// <summary>
     /// The human-readable display value of the parameter, as it would appear in a c# method declaration.

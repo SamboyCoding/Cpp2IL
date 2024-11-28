@@ -466,6 +466,8 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
         return false;
     }
 
+    public virtual IEnumerable<KeyValuePair<string, ulong>> GetExportedFunctions() => [];
+
     public abstract byte[] GetEntirePrimaryExecutableSection();
 
     public abstract ulong GetVirtualAddressOfPrimaryExecutableSection();

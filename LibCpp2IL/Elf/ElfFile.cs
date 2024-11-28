@@ -739,6 +739,11 @@ public sealed class ElfFile : Il2CppBinary
         }
     }
 
+    public override IEnumerable<KeyValuePair<string, ulong>> GetExportedFunctions()
+    {
+        return _exportNameTable.Select(kv => new KeyValuePair<string, ulong>(kv.Key, kv.Value.VirtualAddress));
+    }
+
     public override ulong GetVirtualAddressOfPrimaryExecutableSection() => _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
 
     public override byte[] GetEntirePrimaryExecutableSection()

@@ -10,6 +10,7 @@ using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
+using System.Linq;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -66,6 +67,10 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
 
     public override string DefaultName => Definition?.Name ?? throw new("Subclasses of MethodAnalysisContext should override DefaultName");
+
+    public string FullName => DeclaringType == null ? Name : $"{DeclaringType.FullName}::{Name}";
+
+    public string FullNameWithSignature => $"{ReturnTypeContext.FullName} {FullName}({string.Join(", ", Parameters.Select(p => p.HumanReadableSignature))})";
 
     public virtual MethodAttributes Attributes => Definition?.Attributes ?? throw new("Subclasses of MethodAnalysisContext should override Attributes");
 
@@ -170,7 +175,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
         ControlFlowGraph = null;
     }
 
-    public override string ToString() => $"Method: {Definition?.DeclaringType!.Name}::{Definition?.Name ?? "No definition"}";
+    public override string ToString() => $"Method: {FullName}";
 
     #region StableNameDot implementation
 

@@ -147,6 +147,11 @@ public class MachOFile : Il2CppBinary
         return _exportNamesDict.TryGetValue((long)addr, out name);
     }
 
+    public override IEnumerable<KeyValuePair<string, ulong>> GetExportedFunctions()
+    {
+        return _exportAddressesDict.Select(pair => new KeyValuePair<string, ulong>(pair.Key, (ulong)pair.Value));
+    }
+
     private MachOSection GetTextSection64()
     {
         var textSection = Sections64.FirstOrDefault(s => s.SectionName == "__text");

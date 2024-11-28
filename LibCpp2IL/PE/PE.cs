@@ -1,8 +1,8 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Linq;
-using System.Text;
 using LibCpp2IL.Logging;
 
 namespace LibCpp2IL.PE;
@@ -212,6 +212,21 @@ public sealed class PE : Il2CppBinary
             var rawStringAddress = MapVirtualAddressToRaw(peExportedFunctionNamePtrs[index] + peImageBase);
             name = ReadStringToNull(rawStringAddress);
             return true;
+        }
+    }
+
+    public override IEnumerable<KeyValuePair<string, ulong>> GetExportedFunctions()
+    {
+        if (peExportedFunctionPointers == null)
+            LoadPeExportTable();
+
+        for (var i = 0; i < peExportedFunctionPointers.Length; i++)
+        {
+            var functionPointer = peExportedFunctionPointers[i];
+            var namePointer = peExportedFunctionNamePtrs[i];
+
+            var name = ReadStringToNull(MapVirtualAddressToRaw(namePointer + peImageBase));
+            yield return new(name, functionPointer + peImageBase);
         }
     }
 
