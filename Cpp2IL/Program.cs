@@ -35,7 +35,9 @@ internal class Program
 
         Logger.VerboseNewline("Beginning path resolution...");
 
-        if (Directory.Exists(gamePath) && File.Exists(Path.Combine(gamePath, "GameAssembly.so")))
+        if (Directory.Exists(gamePath) && File.Exists(Path.Combine(gamePath, "Contents/Frameworks/GameAssembly.dylib")))
+            HandleMacOSGamePath(gamePath, inputExeName, ref args);
+        else if (Directory.Exists(gamePath) && File.Exists(Path.Combine(gamePath, "GameAssembly.so")))
             HandleLinuxGamePath(gamePath, inputExeName, ref args);
         else if (Directory.Exists(gamePath))
             HandleWindowsGamePath(gamePath, inputExeName, ref args);
@@ -50,6 +52,73 @@ internal class Program
             if (!Cpp2IlPluginManager.TryProcessGamePath(gamePath, ref args))
                 throw new SoftException($"Could not find a valid unity game at {gamePath}");
         }
+    }
+
+    private static void HandleMacOSGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
+    {
+        //macOS game.
+        args.PathToAssembly = Path.Combine(gamePath, "Contents", "Frameworks", "GameAssembly.dylib");
+        var exeName = Path.GetFileName(Directory.GetFiles(Path.Combine(gamePath, "Contents", "MacOS"))
+            .FirstOrDefault(f => MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
+
+        exeName = inputExeName ?? exeName;
+
+        Logger.VerboseNewline($"Trying HandleMacOSGamePath as provided bundle contains GameAssembly.dylib, potential GA is {args.PathToAssembly} and executable {exeName}");
+
+        if (exeName == null)
+            throw new SoftException("Failed to locate any executable in the provided game directory. Make sure the path is correct, and if you *really* know what you're doing (and know it's not supported), use the force options, documented if you provide --help.");
+
+        var unityPlayerPath = Path.Combine(gamePath, "Contents", "MacOS", exeName);
+        var gameDataPath = Path.Combine(gamePath, "Contents", "Resources", "Data");
+        args.PathToMetadata = Path.Combine(gameDataPath, "il2cpp_data", "Metadata", "global-metadata.dat");
+
+        if (!File.Exists(args.PathToAssembly) || !File.Exists(unityPlayerPath) || !File.Exists(args.PathToMetadata))
+            throw new SoftException("Invalid game-path or exe-name specified. Failed to find one of the following:\n" +
+                                    $"\t{args.PathToAssembly}\n" +
+                                    $"\t{unityPlayerPath}\n" +
+                                    $"\t{args.PathToMetadata}\n");
+
+        Logger.VerboseNewline($"Found probable macOS game at path: {gamePath}. Attempting to get unity version...");
+
+        var uv = Cpp2IlApi.DetermineUnityVersion(unityPlayerPath, gameDataPath);
+        Logger.VerboseNewline($"First-attempt unity version detection gave: {uv}");
+
+        if (uv == default)
+        {
+            Logger.Warn("Could not determine unity version, probably due to not running on windows and not having any assets files to determine it from. Enter unity version, if known, in the format of (xxxx.x.x), else nothing to fail: ");
+            var userInputUv = Console.ReadLine();
+
+            if (!string.IsNullOrEmpty(userInputUv))
+                uv = UnityVersion.Parse(userInputUv);
+
+            if (uv == default)
+                throw new SoftException("Failed to determine unity version. If you're not running on windows, I need a globalgamemanagers file or a data.unity3d file, or you need to use the force options.");
+        }
+
+        args.UnityVersion = uv;
+
+        if (args.UnityVersion.Major < 4)
+        {
+            Logger.WarnNewline($"Fail once: Unity version of provided executable is {args.UnityVersion}. This is probably not the correct version. Retrying with alternative method...");
+
+            var readUnityVersionFrom = Path.Combine(gameDataPath, "globalgamemanagers");
+            if (File.Exists(readUnityVersionFrom))
+                args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(File.ReadAllBytes(readUnityVersionFrom));
+            else
+            {
+                readUnityVersionFrom = Path.Combine(gameDataPath, "data.unity3d");
+                using var stream = File.OpenRead(readUnityVersionFrom);
+
+                args.UnityVersion = Cpp2IlApi.GetVersionFromDataUnity3D(stream);
+            }
+        }
+
+        Logger.InfoNewline($"Determined game's unity version to be {args.UnityVersion}");
+
+        if (args.UnityVersion.Major <= 4)
+            throw new SoftException($"Unable to determine a valid unity version (got {args.UnityVersion})");
+
+        args.Valid = true;
     }
 
     private static void HandleLinuxGamePath(string gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
