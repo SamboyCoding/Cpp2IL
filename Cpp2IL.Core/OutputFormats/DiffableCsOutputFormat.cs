@@ -43,7 +43,14 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         Logger.InfoNewline("Writing C# files...", "DiffableCsOutputFormat");
         foreach (var (filePath, fileContent) in files)
         {
-            File.WriteAllText(filePath, fileContent.ToString());
+            try
+            {
+                File.WriteAllText(filePath, fileContent.ToString());
+            }
+            catch (Exception exception)
+            {
+                Logger.WarnNewline($"Unable to write {Path.GetFileName(filePath)}: {exception.Message}", "DiffableCsOutputFormat");
+            }
         }
     }
 
