@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -44,14 +43,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         Logger.InfoNewline("Writing C# files...", "DiffableCsOutputFormat");
         foreach (var (filePath, fileContent) in files)
         {
-            try
-            {
-                File.WriteAllText(filePath, fileContent.ToString());
-            }
-            catch (Exception exception)
-            {
-                Logger.WarnNewline($"Unable to write {Path.GetFileName(filePath)}: {exception.Message}", "DiffableCsOutputFormat");
-            }
+            File.WriteAllText(filePath, fileContent.ToString());
         }
     }
 
@@ -191,6 +183,8 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 
             if (defaultValue is string stringDefaultValue)
                 sb.Append('"').Append(stringDefaultValue).Append('"');
+            else if (defaultValue is char charDefaultValue)
+                sb.Append("'\\u").Append(((int)charDefaultValue).ToString("X")).Append("'");
             else
                 sb.Append(defaultValue);
         }
