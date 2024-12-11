@@ -28,7 +28,7 @@ public class Il2CppAssemblyNameDefinition : ReadableClass
     {
         get
         {
-            var result = LibCpp2IlMain.TheMetadata!.GetBytesFromIndex(publicKeyIndex);
+            var result = LibCpp2IlMain.TheMetadata!.GetByteArrayFromIndex(publicKeyIndex);
             return result.Length == 0 ? null : result;
         }
     }
