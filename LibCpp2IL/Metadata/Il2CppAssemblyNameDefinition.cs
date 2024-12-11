@@ -24,7 +24,28 @@ public class Il2CppAssemblyNameDefinition : ReadableClass
     public string Name => LibCpp2IlMain.TheMetadata!.GetStringFromIndex(nameIndex);
     public string Culture => LibCpp2IlMain.TheMetadata!.GetStringFromIndex(cultureIndex);
 
-    public string PublicKey => LibCpp2IlMain.TheMetadata!.GetStringFromIndex(publicKeyIndex);
+    public byte[]? PublicKey
+    {
+        get
+        {
+            var result = LibCpp2IlMain.TheMetadata!.GetBytesFromIndex(publicKeyIndex);
+            return result.Length == 0 ? null : result;
+        }
+    }
+
+    /// <summary>
+    /// This returns the public key token as a byte array, or null if the token is 0.
+    /// </summary>
+    /// <remarks>
+    /// Returning null is necessary to match the behavior of AsmResolver.
+    /// </remarks>
+    public byte[]? PublicKeyToken
+    {
+        get
+        {
+            return publicKeyToken == default ? null : BitConverter.GetBytes(publicKeyToken);
+        }
+    }
 
     public string HashValue => LibCpp2IlMain.MetadataVersion > 24.3f ? "NULL" : LibCpp2IlMain.TheMetadata!.GetStringFromIndex(hashValueIndex);
 

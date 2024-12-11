@@ -426,6 +426,18 @@ public class Il2CppMetadata : ClassReadingBinaryReader
         }
     }
 
+    /// <summary>
+    /// Read a byte array from the string data section of the metadata.
+    /// </summary>
+    /// <param name="index">The offset relative to the start of the string section.</param>
+    /// <returns>The </returns>
+    public byte[] GetBytesFromIndex(int index)
+    {
+        var offset = metadataHeader.stringOffset + index;
+        var count = ReadUnityCompressedUIntAtRawAddr(offset, out var bytesRead);
+        return ReadByteArrayAtRawAddress(offset + bytesRead, (int)count);
+    }
+
     internal string ReadStringFromIndexNoReadLock(int index)
     {
         if (!_cachedStrings.ContainsKey(index))

@@ -302,7 +302,8 @@ public class ClassReadingBinaryReader : EndianAwareBinaryReader
         if (offset != -1)
             Position = offset;
 
-        var initialPos = Position;
+        if (count == 0)
+            return [];
 
         try
         {
