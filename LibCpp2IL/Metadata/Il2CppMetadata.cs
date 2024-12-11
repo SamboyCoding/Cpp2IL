@@ -411,8 +411,6 @@ public class Il2CppMetadata : ClassReadingBinaryReader
         return metadataHeader.fieldAndParameterDefaultValueDataOffset + index;
     }
 
-    private ConcurrentDictionary<int, string> _cachedStrings = new ConcurrentDictionary<int, string>();
-
     /// <summary>
     /// Read a byte array from the string data section of the metadata.
     /// </summary>
@@ -424,6 +422,8 @@ public class Il2CppMetadata : ClassReadingBinaryReader
         var count = ReadUnityCompressedUIntAtRawAddr(offset, out var bytesRead);
         return ReadByteArrayAtRawAddress(offset + bytesRead, (int)count);
     }
+
+    private ConcurrentDictionary<int, string> _cachedStrings = new ConcurrentDictionary<int, string>();
 
     public string GetStringFromIndex(int index)
     {
