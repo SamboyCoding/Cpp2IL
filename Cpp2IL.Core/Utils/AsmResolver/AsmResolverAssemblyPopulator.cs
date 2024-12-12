@@ -401,7 +401,9 @@ public static class AsmResolverAssemblyPopulator
             }
 
 
-            var signature = methodCtx.IsStatic ? MethodSignature.CreateStatic(returnType, parameterTypes) : MethodSignature.CreateInstance(returnType, parameterTypes);
+            var signature = methodCtx.IsStatic
+                ? MethodSignature.CreateStatic(returnType, methodCtx.GenericParameterCount, parameterTypes)
+                : MethodSignature.CreateInstance(returnType, methodCtx.GenericParameterCount, parameterTypes);
 
             var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes)methodCtx.Attributes, signature);
 

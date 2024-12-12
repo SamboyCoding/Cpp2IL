@@ -17,11 +17,9 @@ public static class ContextToMethodDescriptor
         var returnType = context.ReturnTypeContext.ToTypeSignature(parentModule);
         var parameters = context.Parameters.Select(p => p.ToTypeSignature(parentModule));
 
-        var genericParameterCount = context.Definition?.GenericContainer?.genericParameterCount ?? 0;
-
         return context.IsStatic
-            ? MethodSignature.CreateStatic(returnType, genericParameterCount, parameters)
-            : MethodSignature.CreateInstance(returnType, genericParameterCount, parameters);
+            ? MethodSignature.CreateStatic(returnType, context.GenericParameterCount, parameters)
+            : MethodSignature.CreateInstance(returnType, context.GenericParameterCount, parameters);
     }
 
     public static IMethodDescriptor ToMethodDescriptor(this MethodAnalysisContext context, ModuleDefinition parentModule)
