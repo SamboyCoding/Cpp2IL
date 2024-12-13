@@ -11,28 +11,6 @@ namespace LibCpp2IL;
 
 public static class LibCpp2ILUtils
 {
-    private static readonly Dictionary<int, string> TypeString = new Dictionary<int, string>
-    {
-        { 1, "void" },
-        { 2, "bool" },
-        { 3, "char" },
-        { 4, "sbyte" },
-        { 5, "byte" },
-        { 6, "short" },
-        { 7, "ushort" },
-        { 8, "int" },
-        { 9, "uint" },
-        { 10, "long" },
-        { 11, "ulong" },
-        { 12, "float" },
-        { 13, "double" },
-        { 14, "string" },
-        { 22, "TypedReference" },
-        { 24, "IntPtr" },
-        { 25, "UIntPtr" },
-        { 28, "object" }
-    };
-
     private static readonly Dictionary<string, ulong> PrimitiveSizes = new()
     {
         { "Byte", 1 },
@@ -49,6 +27,29 @@ public static class LibCpp2ILUtils
         { "Double", 8 },
         { "IntPtr", 8 },
         { "UIntPtr", 8 },
+    };
+
+    public static string GetTypeName(Il2CppTypeEnum type) => (int)type switch
+    {
+        1 => "void",
+        2 => "bool",
+        3 => "char",
+        4 => "sbyte",
+        5 => "byte",
+        6 => "short",
+        7 => "ushort",
+        8 => "int",
+        9 => "uint",
+        10 => "long",
+        11 => "ulong",
+        12 => "float",
+        13 => "double",
+        14 => "string",
+        22 => "TypedReference",
+        24 => "IntPtr",
+        25 => "UIntPtr",
+        28 => "object",
+        _ => throw new ArgumentOutOfRangeException(nameof(type), type, null)
     };
 
     internal static string GetTypeName(Il2CppMetadata metadata, Il2CppBinary cppAssembly, Il2CppTypeDefinition typeDef, bool fullName = false)
@@ -159,7 +160,7 @@ public static class LibCpp2ILUtils
                 break;
             }
             default:
-                ret = TypeString[(int)type.Type];
+                ret = GetTypeName(type.Type);
                 break;
         }
 

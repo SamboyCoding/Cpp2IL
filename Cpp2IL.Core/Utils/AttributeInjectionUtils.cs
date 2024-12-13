@@ -181,8 +181,8 @@ public static class AttributeInjectionUtils
         return value switch
         {
             Il2CppType type => new CustomAttributeTypeParameter(type, owner, parameterKind, index),
-            TypeAnalysisContext type => new InjectedCustomAttributeTypeParameter(type, owner, parameterKind, index),
-            TypeAnalysisContext?[] types => new CustomAttributeArrayParameter(owner, parameterKind, index) { ArrType = Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX, ArrayElements = types.Select(t => (BaseCustomAttributeParameter)new InjectedCustomAttributeTypeParameter(t, owner, CustomAttributeParameterKind.ArrayElement, index)).ToList() },
+            TypeAnalysisContext type => new CustomAttributeTypeParameter(type, owner, parameterKind, index),
+            TypeAnalysisContext?[] types => new CustomAttributeArrayParameter(owner, parameterKind, index) { ArrType = Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX, ArrayElements = types.Select(t => (BaseCustomAttributeParameter)new CustomAttributeTypeParameter(t, owner, CustomAttributeParameterKind.ArrayElement, index)).ToList() },
             object?[] objects => new CustomAttributeArrayParameter(owner, parameterKind, index)
             {
                 ArrType = Il2CppTypeEnum.IL2CPP_TYPE_OBJECT,

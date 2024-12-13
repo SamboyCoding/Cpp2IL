@@ -1,4 +1,6 @@
-﻿namespace Cpp2IL.Core.Model.Contexts;
+using LibCpp2IL.BinaryStructures;
+
+namespace Cpp2IL.Core.Model.Contexts;
 
 public class SystemTypesContext
 {
@@ -83,5 +85,51 @@ public class SystemTypesContext
                context == SystemDoubleType || 
                context == SystemIntPtrType ||
                context == SystemUIntPtrType;
+    }
+
+    public bool TryGetIl2CppTypeEnum(TypeAnalysisContext context, out Il2CppTypeEnum value)
+    {
+        if (context == SystemBooleanType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN;
+        else if (context == SystemCharType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_CHAR;
+        else if (context == SystemSByteType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_I1;
+        else if (context == SystemByteType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_U1;
+        else if (context == SystemInt16Type)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_I2;
+        else if (context == SystemUInt16Type)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_U2;
+        else if (context == SystemInt32Type)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_I4;
+        else if (context == SystemUInt32Type)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_U4;
+        else if (context == SystemInt64Type)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_I8;
+        else if (context == SystemUInt64Type)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_U8;
+        else if (context == SystemSingleType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_R4;
+        else if (context == SystemDoubleType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_R8;
+        else if (context == SystemIntPtrType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_I;
+        else if (context == SystemUIntPtrType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_U;
+        else if (context == SystemStringType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_STRING;
+        else if (context == SystemTypedReferenceType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF;
+        else if (context == SystemObjectType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_OBJECT;
+        else if (context == SystemVoidType)
+            value = Il2CppTypeEnum.IL2CPP_TYPE_VOID;
+        else
+        {
+            value = default;
+            return false;
+        }
+        return true;
     }
 }

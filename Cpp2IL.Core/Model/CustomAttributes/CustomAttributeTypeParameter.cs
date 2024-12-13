@@ -12,13 +12,25 @@ namespace Cpp2IL.Core.Model.CustomAttributes;
 /// </summary>
 public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
 {
-    public Il2CppType? Type;
+    private Il2CppType? _type;
+    private TypeAnalysisContext? _typeContext;
 
-    public override TypeAnalysisContext? TypeContext => Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(Type);
+    public override TypeAnalysisContext? TypeContext
+    {
+        get
+        {
+            return _typeContext ??= Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(_type);
+        }
+    }
 
     public CustomAttributeTypeParameter(Il2CppType? type, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {
-        Type = type;
+        _type = type;
+    }
+
+    public CustomAttributeTypeParameter(TypeAnalysisContext? type, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
+    {
+        _typeContext = type;
     }
 
     public CustomAttributeTypeParameter(AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
@@ -29,29 +41,28 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
     {
         var typeIndex = reader.BaseStream.ReadUnityCompressedInt();
         if (typeIndex == -1)
-            Type = null;
+            _type = null;
         else
         {
-            Type = context.Binary.GetType(typeIndex);
+            _type = context.Binary.GetType(typeIndex);
         }
+        _typeContext = null;
     }
 
     public override string ToString()
     {
-        if (Type == null)
+        if (TypeContext == null)
             return "(Type) null";
 
-        if (Type.Type.IsIl2CppPrimitive())
-            return $"typeof({LibCpp2ILUtils.GetTypeName(Owner.Constructor.AppContext.Metadata, Owner.Constructor.AppContext.Binary, Type)}";
+        if (TypeContext.IsPrimitive)
+            return $"typeof({LibCpp2ILUtils.GetTypeName(TypeContext.Type)}";
 
-        if (Type.Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+        if (TypeContext is ReferencedTypeAnalysisContext)
         {
-            //Some sort of wrapper type, like a generic parameter or a generic instance.
-            var typeContext = Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(Type);
-            return $"typeof({typeContext.GetCSharpSourceString()})";
+            return $"typeof({TypeContext.GetCSharpSourceString()})";
         }
 
         //Basic class/struct
-        return $"typeof({Type.AsClass().Name})";
+        return $"typeof({TypeContext.Name})";
     }
 }
