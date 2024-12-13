@@ -91,7 +91,7 @@ public static class AsmResolverUtils
                 break;
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
                 ret = GetTypeSignatureFromIl2CppType(module, il2CppType.GetArrayElementType())
-                    .MakeArrayType(il2CppType.GetArrayRank());
+                    .MakeArrayTypeWithLowerBounds(il2CppType.GetArrayRank());
                 break;
             case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
                 ret = GetTypeSignatureFromIl2CppType(module, il2CppType.GetEncapsulatedType())
@@ -340,4 +340,13 @@ public static class AsmResolverUtils
     public static bool IsManagedMethodWithBody(this MethodDefinition managedMethod) =>
         managedMethod.Managed && !managedMethod.IsAbstract && !managedMethod.IsPInvokeImpl
         && !managedMethod.IsInternalCall && !managedMethod.IsNative && !managedMethod.IsRuntime;
+
+    internal static ArrayTypeSignature MakeArrayTypeWithLowerBounds(this TypeSignature elementType, int rank)
+    {
+        var result = new ArrayTypeSignature(elementType, rank);
+        for (var i = 0; i < rank; i++)
+            result.Dimensions[i] = new ArrayDimension(null, 0);
+
+        return result;
+    }
 }

@@ -61,7 +61,7 @@ public static class ContextToTypeSignature
 
     public static TypeSignature ToTypeSignature(this ArrayTypeAnalysisContext context, ModuleDefinition parentModule)
     {
-        return context.ElementType.ToTypeSignature(parentModule).MakeArrayType(context.Rank);
+        return context.ElementType.ToTypeSignature(parentModule).MakeArrayTypeWithLowerBounds(context.Rank);
     }
 
     public static TypeSignature ToTypeSignature(this ParameterAnalysisContext context, ModuleDefinition parentModule)
