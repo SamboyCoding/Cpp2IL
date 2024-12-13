@@ -32,7 +32,10 @@ public class Il2CppAssemblyNameDefinition : ReadableClass
         {
             if (IsAtLeast(24.4f) || Is(24.15f))
             {
-                // 2019.4.15 and later or from 2018.4.34 until 2019
+                // 2018.4.34 until 2019 (24.15)
+                // 2019.4.15 until 2020 (24.4)
+                // 2020.1.11 until 2020.2.0 (24.4)
+                // 2020.2.0b7 and later (27+)
                 var result = LibCpp2IlMain.TheMetadata!.GetByteArrayFromIndex(publicKeyIndex);
                 return result.Length == 0 ? null : result;
             }
