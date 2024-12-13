@@ -155,6 +155,7 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
         var attributeAttributes = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "AttributeAttribute", appContext.SystemTypes.SystemAttributeType);
 
         var attributeTypeFields = attributeAttributes.InjectFieldToAllAssemblies("Type", appContext.SystemTypes.SystemTypeType, FieldAttributes.Public);
+        var attributeNameFields = attributeAttributes.InjectFieldToAllAssemblies("Name", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
         var attributeRvaFields = attributeAttributes.InjectFieldToAllAssemblies("RVA", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
         var attributeOffsetFields = attributeAttributes.InjectFieldToAllAssemblies("Offset", appContext.SystemTypes.SystemStringType, FieldAttributes.Public);
 
@@ -162,7 +163,10 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
         foreach (var assemblyAnalysisContext in appContext.Assemblies)
         {
+            // Todo: Remove nameField because typeField makes it redundant. It only remains for backwards compatibility with Il2CppInterop.
+            // https://github.com/BepInEx/Il2CppInterop/blob/9d4599dc78d69ede49a2ee96a1ccf41eec02db5b/Il2CppInterop.Generator/Passes/Pass70GenerateProperties.cs#L46
             var typeField = attributeTypeFields[assemblyAnalysisContext];
+            var nameField = attributeNameFields[assemblyAnalysisContext];
             var rvaField = attributeRvaFields[assemblyAnalysisContext];
             var offsetField = attributeOffsetFields[assemblyAnalysisContext];
 
@@ -176,11 +180,11 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
                     .Append(ctx))
                 .Append(assemblyAnalysisContext);
 
-            MiscUtils.ExecuteParallel(toProcess, c => ProcessCustomAttributesForContext(c, typeField, rvaField, offsetField, attributeConstructor));
+            MiscUtils.ExecuteParallel(toProcess, c => ProcessCustomAttributesForContext(c, typeField, nameField, rvaField, offsetField, attributeConstructor));
         }
     }
 
-    private static void ProcessCustomAttributesForContext(HasCustomAttributes context, FieldAnalysisContext typeField, FieldAnalysisContext rvaField, FieldAnalysisContext offsetField, MethodAnalysisContext ctor)
+    private static void ProcessCustomAttributesForContext(HasCustomAttributes context, FieldAnalysisContext typeField, FieldAnalysisContext nameField, FieldAnalysisContext rvaField, FieldAnalysisContext offsetField, MethodAnalysisContext ctor)
     {
         if (_useEzDiffMode)
             context.CustomAttributes = [];
@@ -211,8 +215,9 @@ public class AttributeInjectorProcessingLayer : Cpp2IlProcessingLayer
 
             //Add the 3 fields to the replacement attribute
             replacementAttribute.Fields.Add(new(typeField, new CustomAttributeTypeParameter(attribute.Constructor.DeclaringType, replacementAttribute, CustomAttributeParameterKind.Field, 0)));
-            replacementAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{generatorRva:X}", replacementAttribute, CustomAttributeParameterKind.Field, 1)));
-            replacementAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offsetInBinary:X}", replacementAttribute, CustomAttributeParameterKind.Field, 2)));
+            replacementAttribute.Fields.Add(new(nameField, new CustomAttributePrimitiveParameter(attribute.Constructor.DeclaringType!.Name, replacementAttribute, CustomAttributeParameterKind.Field, 1)));
+            replacementAttribute.Fields.Add(new(rvaField, new CustomAttributePrimitiveParameter($"0x{generatorRva:X}", replacementAttribute, CustomAttributeParameterKind.Field, 2)));
+            replacementAttribute.Fields.Add(new(offsetField, new CustomAttributePrimitiveParameter($"0x{offsetInBinary:X}", replacementAttribute, CustomAttributeParameterKind.Field, 3)));
 
             //Replace the original attribute with the replacement attribute
             context.CustomAttributes[index] = replacementAttribute;
