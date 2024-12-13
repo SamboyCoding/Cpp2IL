@@ -30,6 +30,10 @@ public class Il2CppAssemblyNameDefinition : ReadableClass
     {
         get
         {
+            // The difference between these two options can be seen in the header files.
+            // const uint8_t* public_key;
+            // const char* public_key;
+
             if (IsAtLeast(24.4f) || Is(24.15f))
             {
                 // 2018.4.34 until 2019 (24.15)
