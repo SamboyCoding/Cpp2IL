@@ -358,7 +358,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                 var target = instruction.NearBranchTarget;
 
-                if (context.AppContext.MethodsByAddress.TryGetValue(target, out var possibleMethods))
+                if (instruction.Op0Kind == OpKind.Register)
+                {
+                    builder.CallRegister(instruction.IP, ConvertOperand(instruction, 0));
+                }
+                else if (context.AppContext.MethodsByAddress.TryGetValue(target, out var possibleMethods))
                 {
                     if (possibleMethods.Count == 1)
                     {
