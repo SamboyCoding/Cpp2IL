@@ -32,7 +32,7 @@ public static class ContextToTypeSignature
 
     public static TypeSignature ToTypeSignature(this GenericParameterTypeAnalysisContext context, ModuleDefinition parentModule)
     {
-        return new GenericParameterSignature(context.Type == Il2CppTypeEnum.IL2CPP_TYPE_VAR ? GenericParameterType.Type : GenericParameterType.Method, context.Index);
+        return new GenericParameterSignature(parentModule, context.Type == Il2CppTypeEnum.IL2CPP_TYPE_VAR ? GenericParameterType.Type : GenericParameterType.Method, context.Index);
     }
 
     public static TypeSignature ToTypeSignature(this WrappedTypeAnalysisContext context, ModuleDefinition parentModule) => context switch
