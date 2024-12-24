@@ -5,6 +5,7 @@ using System.Linq;
 using System.Text.RegularExpressions;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Logging;
+using Cpp2IL.Core.Model.Contexts;
 using Iced.Intel;
 using LibCpp2IL;
 
@@ -34,6 +35,11 @@ public static class X86Utils
         return instructions;
     }
 
+    public static InstructionList Disassemble(MethodAnalysisContext context)
+    {
+        return Disassemble(context.RawBytes, context.UnderlyingPointer);
+    }
+
     public static IEnumerable<Instruction> Iterate(Memory<byte> bytes, ulong methodBase)
     {
         return Iterate(bytes.AsEnumerable(), methodBase);
@@ -51,6 +57,11 @@ public static class X86Utils
             yield return instruction;
             decoder.Decode(out instruction);
         }
+    }
+
+    public static IEnumerable<Instruction> Iterate(MethodAnalysisContext context)
+    {
+        return Iterate(context.RawBytes, context.UnderlyingPointer);
     }
 
     public static Memory<byte> GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)

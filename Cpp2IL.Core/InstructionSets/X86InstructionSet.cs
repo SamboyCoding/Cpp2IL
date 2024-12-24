@@ -51,7 +51,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     {
         var builder = new IsilBuilder();
 
-        foreach (var instruction in X86Utils.Iterate(context.RawBytes, context.UnderlyingPointer))
+        foreach (var instruction in X86Utils.Iterate(context))
         {
             ConvertInstructionStatement(instruction, builder, context);
         }
