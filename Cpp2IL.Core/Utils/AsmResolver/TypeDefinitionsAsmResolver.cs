@@ -111,7 +111,7 @@ public static class TypeDefinitionsAsmResolver
         Type = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Type")!;
         TypedReference = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.TypedReference")!;
         IConvertible = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.IConvertible")!;
-        MethodInfo = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.MethodInfo")!;
+        MethodInfo = AsmResolverUtils.TryLookupTypeDefKnownNotGeneric("System.Reflection.MethodInfo")!;
 
 
         _primitiveTypeMappings = new Dictionary<string, TypeDefinition>
