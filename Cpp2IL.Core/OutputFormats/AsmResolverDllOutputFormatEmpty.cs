@@ -1,6 +1,6 @@
 using AsmResolver.DotNet;
+using AssetRipper.CIL;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils.AsmResolver;
 
 namespace Cpp2IL.Core.OutputFormats;
 
