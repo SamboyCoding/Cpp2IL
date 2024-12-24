@@ -101,7 +101,7 @@ public static class MiscUtils
 
     public static string? TryGetLiteralAt(Il2CppBinary theDll, ulong rawAddr)
     {
-        if (theDll.RawLength <= (long)rawAddr)
+        if ((ulong)theDll.RawLength <= rawAddr)
             return null;
 
         var c = Convert.ToChar(theDll.GetByteAtRawAddress(rawAddr));
