@@ -137,6 +137,13 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     {
         ulong generatorPtr;
         if (AppContext.MetadataVersion < 27)
+        {
+            if (rangeIndex < 0)
+            {
+                RawIl2CppCustomAttributeData = Array.Empty<byte>();
+                return;
+            }
+
             try
             {
                 generatorPtr = AppContext.Binary.GetCustomAttributeGenerator(rangeIndex);
@@ -147,6 +154,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
                 RawIl2CppCustomAttributeData = Array.Empty<byte>();
                 return;
             }
+        }
         else
         {
             var baseAddress = CustomAttributeAssembly.CodeGenModule!.customAttributeCacheGenerator;
@@ -204,7 +212,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
         //Basically, extract actions from the analysis, and compare with the type list we have to resolve parameters and populate the CustomAttributes list.
 
-        foreach (var il2CppType in AttributeTypes!) //Assert nonnull because we're pre-29 at this point
+        foreach (var il2CppType in AttributeTypes ?? []) //Can be null for injected objects
         {
             var typeDef = il2CppType.AsClass();
             var attributeTypeContext = AppContext.ResolveContextForType(typeDef) ?? throw new("Unable to find type " + typeDef.FullName);
