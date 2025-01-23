@@ -34,7 +34,7 @@ public class WasmMemoryBlock : ClassReadingBinaryReader
 
     public WasmMemoryBlock(WasmFile file) : base(BuildStream(file))
     {
-        MetadataVersion = file.MetadataVersion;
+        MetadataVersion = file.MetadataVersion <= 0 ? LibCpp2IlMain.MetadataVersion : file.MetadataVersion;
         is32Bit = true;
         Bytes = ((MemoryStream)BaseStream).ToArray();
     }
