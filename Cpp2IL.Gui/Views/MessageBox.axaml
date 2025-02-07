@@ -1,0 +1,18 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Cpp2IL.Gui.MessageBox"
+        Title="Cpp2IL Error"
+        Width="570"
+        Height="350">
+    <Grid Margin="20" RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*">
+        <TextBlock x:Name="ErrorText" Grid.Row="0" HorizontalAlignment="Center" FontSize="20">Error</TextBlock>
+        <ScrollViewer Margin="20" Padding="20" Grid.Row="1" HorizontalScrollBarVisibility="Auto"
+                      VerticalScrollBarVisibility="Visible" MaxHeight="200" Height="200" MaxWidth="400" Width="400">
+            <TextBlock x:Name="ExceptionText" Text="Exception" />
+        </ScrollViewer>
+        <Button Padding="10" Grid.Row="2" Click="Close" HorizontalAlignment="Center">OK</Button>
+    </Grid>
+</Window>

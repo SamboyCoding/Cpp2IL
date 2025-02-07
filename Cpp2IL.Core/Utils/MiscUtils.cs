@@ -264,7 +264,9 @@ public static class MiscUtils
         "install.exe",
         "launch.exe",
         "MelonLoader.Installer.exe",
-        "crashpad_handler.exe"
+        "crashpad_handler.exe",
+        "EOSBootstrapper.exe",
+        "start_protected_game.exe"
     ];
 
     public static string AnalyzeStackTracePointers(ulong[] pointers)

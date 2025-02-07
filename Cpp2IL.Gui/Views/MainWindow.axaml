@@ -1,0 +1,43 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+        x:Class="Cpp2IL.Gui.MainWindow"
+        Title="Cpp2IL">
+    <Panel>
+        <TabControl x:Name="Tabs" Margin="2">
+            <TabItem Header="Game" TabIndex="0">
+                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*">
+                    <TextBlock Padding="50" Grid.Row="0" HorizontalAlignment="Center" FontSize="50">Cpp2IL</TextBlock>
+                    <TextBlock Padding="10" HorizontalAlignment="Center" Grid.Row="1" FontSize="20">Select game</TextBlock>
+                    <Grid HorizontalAlignment="Center" Grid.Row="2" ColumnDefinitions="*,*">
+                        <Button Padding="10" Margin="10" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                Grid.Column="0"
+                                Click="ShowFileBrowser">
+                            Browse (file)
+                        </Button>
+                        <Button Padding="10" Margin="10" HorizontalAlignment="Center" VerticalAlignment="Stretch"
+                                Grid.Column="1"
+                                Click="ShowFolderBrowser">
+                            Browse (folder)
+                        </Button>
+                    </Grid>
+                </Grid>
+            </TabItem>
+            <TabItem Header="Settings" TabIndex="1">
+                <Grid RowDefinitions="Auto,Auto,Auto" ColumnDefinitions="*">
+                    <Grid Grid.Row="0" VerticalAlignment="Center" HorizontalAlignment="Center"
+                          ColumnDefinitions="Auto,Auto" RowDefinitions="*" Width="200">
+                        <TextBlock VerticalAlignment="Center" Margin="10" Grid.Column="0">Output format</TextBlock>
+                        <ComboBox x:Name="OutputFormat" Margin="10" Grid.Column="1" Width="200" MaxWidth="200"
+                                  PropertyChanged="SetOutputFormat">
+                        </ComboBox>
+                    </Grid>
+                    <Button HorizontalAlignment="Center" Grid.Row="1" Click="ShowOutputFolderBrowser">Select output directory</Button>
+                    <Button HorizontalAlignment="Center" Grid.Row="2" Click="Run">Run (this takes some time)</Button>
+                </Grid>
+            </TabItem>
+        </TabControl>
+    </Panel>
+</Window>

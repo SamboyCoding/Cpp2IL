@@ -47,6 +47,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Plugin.ControlFlowGr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Plugin.Pdb", "Cpp2IL.Plugin.Pdb\Cpp2IL.Plugin.Pdb.csproj", "{ED407C97-534B-476C-8CCC-BF9D2FB5458A}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Gui", "Cpp2IL.Gui\Cpp2IL.Gui.csproj", "{68456481-F57E-4B82-B5AB-772712501AE0}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -101,6 +103,10 @@ Global
 		{ED407C97-534B-476C-8CCC-BF9D2FB5458A}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{ED407C97-534B-476C-8CCC-BF9D2FB5458A}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{ED407C97-534B-476C-8CCC-BF9D2FB5458A}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68456481-F57E-4B82-B5AB-772712501AE0}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68456481-F57E-4B82-B5AB-772712501AE0}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68456481-F57E-4B82-B5AB-772712501AE0}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68456481-F57E-4B82-B5AB-772712501AE0}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
