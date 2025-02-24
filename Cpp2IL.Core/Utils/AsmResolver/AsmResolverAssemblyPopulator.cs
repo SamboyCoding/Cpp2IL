@@ -558,6 +558,9 @@ public static class AsmResolverAssemblyPopulator
 
     private static void AddExplicitInterfaceImplementations(TypeDefinition type, TypeAnalysisContext typeContext, ReferenceImporter importer)
     {
+        List<(PropertyDefinition InterfaceProperty, TypeSignature InterfaceType, MethodDefinition Method)>? getMethodsToCreate = null;
+        List<(PropertyDefinition InterfaceProperty, TypeSignature InterfaceType, MethodDefinition Method)>? setMethodsToCreate = null;
+
         foreach (var methodContext in typeContext.Methods)
         {
             if ((methodContext.Attributes & System.Reflection.MethodAttributes.MemberAccessMask) != System.Reflection.MethodAttributes.Private)
@@ -570,7 +573,59 @@ public static class AsmResolverAssemblyPopulator
                     var interfaceMethod = (IMethodDefOrRef)overrideContext.ToMethodDescriptor(importer.TargetModule);
                     var method = methodContext.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {methodContext}");
                     type.MethodImplementations.Add(new MethodImplementation(interfaceMethod, method));
+                    var interfaceMethodResolved = interfaceMethod.Resolve();
+                    if (interfaceMethodResolved != null)
+                    {
+                        if (interfaceMethodResolved.IsGetMethod && !method.IsGetMethod)
+                        {
+                            getMethodsToCreate ??= [];
+                            var interfacePropertyResolved = interfaceMethodResolved.DeclaringType!.Properties.First(p => p.Semantics.Contains(interfaceMethodResolved.Semantics));
+                            getMethodsToCreate.Add((interfacePropertyResolved, interfaceMethod.DeclaringType!.ToTypeSignature(), method));
+                        }
+                        else if (interfaceMethodResolved.IsSetMethod && !method.IsSetMethod)
+                        {
+                            setMethodsToCreate ??= [];
+                            var interfacePropertyResolved = interfaceMethodResolved.DeclaringType!.Properties.First(p => p.Semantics.Contains(interfaceMethodResolved.Semantics));
+                            setMethodsToCreate.Add((interfacePropertyResolved, interfaceMethod.DeclaringType!.ToTypeSignature(), method));
+                        }
+                    }
                 }
+            }
+        }
+
+        // Il2Cpp doesn't include properties for explicit interface implementations, so we have to create them ourselves.
+        if (getMethodsToCreate is not null)
+        {
+            foreach (var entry in getMethodsToCreate)
+            {
+                var (interfaceProperty, interfaceType, getMethod) = entry;
+                var setMethod = setMethodsToCreate?
+                    .FirstOrDefault(e => e.InterfaceProperty == interfaceProperty && SignatureComparer.Default.Equals(e.InterfaceType, interfaceType))
+                    .Method;
+
+                var name = $"{interfaceType.FullName}.{interfaceProperty.Name}";
+                var propertySignature = getMethod.IsStatic
+                    ? PropertySignature.CreateStatic(getMethod.Signature!.ReturnType, getMethod.Signature.ParameterTypes)
+                    : PropertySignature.CreateInstance(getMethod.Signature!.ReturnType, getMethod.Signature.ParameterTypes);
+                var property = new PropertyDefinition(name, interfaceProperty.Attributes, propertySignature);
+                type.Properties.Add(property);
+                property.SetSemanticMethods(getMethod, setMethod);
+            }
+        }
+        if (setMethodsToCreate is not null)
+        {
+            foreach (var entry in setMethodsToCreate)
+            {
+                var (interfaceProperty, interfaceType, setMethod) = entry;
+                if (getMethodsToCreate?.Any(e => e.InterfaceProperty == interfaceProperty && SignatureComparer.Default.Equals(e.InterfaceType, interfaceType)) == true)
+                    continue;
+                var name = $"{interfaceType.FullName}.{interfaceProperty.Name}";
+                var propertySignature = setMethod.IsStatic
+                    ? PropertySignature.CreateStatic(setMethod.Signature!.ParameterTypes[^1], setMethod.Signature.ParameterTypes.Take(setMethod.Signature.ParameterTypes.Count - 1))
+                    : PropertySignature.CreateInstance(setMethod.Signature!.ParameterTypes[^1], setMethod.Signature.ParameterTypes.Take(setMethod.Signature.ParameterTypes.Count - 1));
+                var property = new PropertyDefinition(name, interfaceProperty.Attributes, propertySignature);
+                type.Properties.Add(property);
+                property.SetSemanticMethods(null, setMethod);
             }
         }
     }
