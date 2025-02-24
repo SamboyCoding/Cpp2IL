@@ -105,7 +105,8 @@ public static class AttributeInjectionUtils
             newAttribute.ConstructorParameters.Add(enumParameter);
             newAttribute.Properties.Add(new(allowMultipleProperty, new CustomAttributePrimitiveParameter(allowMultiple, newAttribute, CustomAttributeParameterKind.Property, 1)));
             injectedType.AnalyzeCustomAttributeData();
-            injectedType.CustomAttributes!.Add(newAttribute); //Nullability checked above
+            injectedType.CustomAttributes ??= [];
+            injectedType.CustomAttributes.Add(newAttribute);
         }
     }
 

@@ -36,7 +36,7 @@ public static class ContextToMethodDescriptor
             context.Name,
             context.BaseMethodContext.ToMethodSignature(parentModule));
 
-        var methodGenericParameters = context.ResolveMethodGenericParameters();
+        var methodGenericParameters = context.MethodGenericParameters;
         if (methodGenericParameters.Length == 0)
         {
             return parentModule.DefaultImporter.ImportMethod(memberReference);

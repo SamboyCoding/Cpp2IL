@@ -203,6 +203,11 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         return new(this, DeclaringAssembly);
     }
 
+    public GenericInstanceTypeAnalysisContext MakeGenericInstanceType(IEnumerable<TypeAnalysisContext> genericArguments)
+    {
+        return new(this, genericArguments, DeclaringAssembly);
+    }
+
     public PointerTypeAnalysisContext MakePointerType()
     {
         return new(this, DeclaringAssembly);

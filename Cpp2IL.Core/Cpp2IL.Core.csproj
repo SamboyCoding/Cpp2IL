@@ -40,8 +40,8 @@
 
     <ItemGroup>
         <!--Needed for DLL output-->
-        <PackageReference Include="AsmResolver.DotNet" Version="6.0.0-beta.1" />
-        <PackageReference Include="AssetRipper.CIL" Version="1.1.2" />
+        <PackageReference Include="AsmResolver.DotNet" Version="6.0.0-beta.2" />
+        <PackageReference Include="AssetRipper.CIL" Version="1.1.5" />
         
         <!--For ARM64 dissassembly-->
         <PackageReference Include="Disarm" Version="2022.1.0-master.57" />

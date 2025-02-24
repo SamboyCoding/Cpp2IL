@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
@@ -11,6 +12,8 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
     public TypeAnalysisContext GenericType { get; }
 
     public List<TypeAnalysisContext> GenericArguments { get; } = [];
+
+    public override TypeAttributes TypeAttributes => GenericType.TypeAttributes;
 
     public override string DefaultName => $"{GenericType.Name}<{string.Join(", ", GenericArguments.Select(a => a.Name))}>";
 

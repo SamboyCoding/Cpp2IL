@@ -92,7 +92,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 #endif
 
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
-        MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.InferExplicitInterfaceImplementations);
+        MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.AddExplicitInterfaceImplementations);
         MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");

@@ -198,20 +198,20 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         (FieldAnalysisContext, object)? typeParametersField;
         if (targetMethod is ConcreteGenericMethodAnalysisContext concreteMethod)
         {
-            if (concreteMethod.MethodRef.MethodGenericParams.Length > 0)
+            if (concreteMethod.MethodGenericParameters.Length > 0)
             {
-                var parameters = new object?[concreteMethod.MethodRef.MethodGenericParams.Length];
+                var parameters = new object?[concreteMethod.MethodGenericParameters.Length];
 
                 for (var i = 0; i < parameters.Length; i++)
                 {
-                    var parameterType = concreteMethod.MethodRef.MethodGenericParams[i].ToContext(concreteMethod.DeclaringType!.DeclaringAssembly, i);
-                    if (parameterType is not null && parameterType.IsAccessibleTo(annotatedMethod.DeclaringType!))
+                    var parameterType = concreteMethod.MethodGenericParameters[i];
+                    if (parameterType.IsAccessibleTo(annotatedMethod.DeclaringType!))
                     {
                         parameters[i] = parameterType;
                     }
                     else
                     {
-                        parameters[i] = parameterType?.FullName;
+                        parameters[i] = parameterType.FullName;
                     }
                 }
 

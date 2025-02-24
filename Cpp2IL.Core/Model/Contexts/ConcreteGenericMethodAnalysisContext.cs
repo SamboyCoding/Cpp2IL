@@ -1,6 +1,8 @@
+using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -8,10 +10,14 @@ namespace Cpp2IL.Core.Model.Contexts;
 public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 {
     public readonly AssemblyAnalysisContext DeclaringAsm;
-    public readonly Cpp2IlMethodRef MethodRef;
+    public readonly Cpp2IlMethodRef? MethodRef;
     public readonly MethodAnalysisContext BaseMethodContext;
 
-    public sealed override ulong UnderlyingPointer => MethodRef.GenericVariantPtr;
+    public TypeAnalysisContext[] TypeGenericParameters { get; }
+
+    public TypeAnalysisContext[] MethodGenericParameters { get; }
+
+    public sealed override ulong UnderlyingPointer => MethodRef?.GenericVariantPtr ?? default;
 
     public override bool IsStatic => BaseMethodContext.IsStatic;
 
@@ -29,14 +35,42 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     }
 
     private ConcreteGenericMethodAnalysisContext(Cpp2IlMethodRef methodRef, AssemblyAnalysisContext declaringAssembly)
-        : base(null, ResolveDeclaringType(methodRef, declaringAssembly))
+        : this(
+              methodRef,
+              ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!),
+              ResolveDeclaringType(methodRef, declaringAssembly),
+              ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly),
+              ResolveTypeArray(methodRef.MethodGenericParams, declaringAssembly),
+              declaringAssembly)
+    {
+    }
+
+    public ConcreteGenericMethodAnalysisContext(MethodAnalysisContext baseMethod, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters)
+        : this(
+              null,
+              baseMethod,
+              typeGenericParameters.Length > 0 ? baseMethod.DeclaringType!.MakeGenericInstanceType(typeGenericParameters) : baseMethod.DeclaringType!,
+              typeGenericParameters,
+              methodGenericParameters,
+              baseMethod.CustomAttributeAssembly)
+    {
+    }
+
+    private ConcreteGenericMethodAnalysisContext(Cpp2IlMethodRef? methodRef, MethodAnalysisContext baseMethodContext, TypeAnalysisContext declaringType, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters, AssemblyAnalysisContext declaringAssembly)
+        : base(null, declaringType)
     {
         MethodRef = methodRef;
         DeclaringAsm = declaringAssembly;
-        BaseMethodContext = ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!);
+        BaseMethodContext = baseMethodContext;
 
-        var genericTypeParameters = ResolveTypeGenericParameters();
-        var genericMethodParameters = ResolveMethodGenericParameters();
+        TypeGenericParameters = typeGenericParameters;
+        MethodGenericParameters = methodGenericParameters;
+
+        // For the purpose of generic instantiation, we need an array of method generic parameters, even if none are provided.
+        if (methodGenericParameters.Length == 0 && baseMethodContext.GenericParameterCount > 0)
+            methodGenericParameters = Enumerable.Range(0, baseMethodContext.GenericParameterCount)
+                .Select(i => new GenericParameterTypeAnalysisContext("T", i, Il2CppTypeEnum.IL2CPP_TYPE_MVAR, declaringAssembly))
+                .ToArray();
 
         for (var i = 0; i < BaseMethodContext.Parameters.Count; i++)
         {
@@ -44,23 +78,19 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
             var parameterType = parameter.ParameterTypeContext;
             var instantiatedType = GenericInstantiation.Instantiate(
                 parameter.ParameterTypeContext,
-                genericTypeParameters,
-                genericMethodParameters);
+                typeGenericParameters,
+                methodGenericParameters);
 
             Parameters.Add(parameterType == instantiatedType
                 ? parameter
                 : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, i, BaseMethodContext));
         }
 
-        InjectedReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnTypeContext, genericTypeParameters, genericMethodParameters);
+        InjectedReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnTypeContext, typeGenericParameters, methodGenericParameters);
 
         if (UnderlyingPointer != 0)
             rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
     }
-
-    public TypeAnalysisContext[] ResolveTypeGenericParameters() => ResolveTypeArray(MethodRef.TypeGenericParams, DeclaringAsm);
-
-    public TypeAnalysisContext[] ResolveMethodGenericParameters() => ResolveTypeArray(MethodRef.MethodGenericParams, DeclaringAsm);
 
     private static AssemblyAnalysisContext ResolveDeclaringAssembly(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context)
     {

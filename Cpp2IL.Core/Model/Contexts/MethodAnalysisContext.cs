@@ -11,6 +11,7 @@ using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
 using System.Linq;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -80,11 +81,84 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     public int GenericParameterCount => Definition?.GenericContainer?.genericParameterCount ?? 0;
 
+    private ushort Slot => Definition?.slot ?? ushort.MaxValue;
+
     //TODO Support custom attributes on return types (v31 feature)
     public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
     
     protected Memory<byte>? rawMethodBody;
 
+    /// <summary>
+    /// The set of methods which this method overrides.
+    /// </summary>
+    public virtual IEnumerable<MethodAnalysisContext> Overrides
+    {
+        get
+        {
+            if (Definition == null)
+                return [];
+
+            var declaringTypeDefinition = DeclaringType?.Definition;
+            if (declaringTypeDefinition == null)
+                return [];
+
+            var vtable = declaringTypeDefinition.VTable;
+            if (vtable == null)
+                return [];
+
+            return GetOverriddenMethods(declaringTypeDefinition, vtable);
+
+            static void GetParentTypeAndSlot(Il2CppTypeDefinition declaringTypeDefinition, int vtableIndex, out Il2CppTypeReflectionData? parentType, out int slot)
+            {
+                var interfaceOffsets = declaringTypeDefinition.InterfaceOffsets;
+                for (var i = interfaceOffsets.Length - 1; i >= 0; i--)
+                {
+                    var interfaceOffset = interfaceOffsets[i];
+                    if (vtableIndex >= interfaceOffset.offset)
+                    {
+                        slot = vtableIndex - interfaceOffsets[i].offset;
+                        parentType = interfaceOffset.Type;
+                        return;
+                    }
+                }
+
+                parentType = declaringTypeDefinition.BaseType;
+                slot = vtableIndex;
+            }
+
+            IEnumerable<MethodAnalysisContext> GetOverriddenMethods(Il2CppTypeDefinition declaringTypeDefinition, MetadataUsage?[] vtable)
+            {
+                for (var i = 0; i < vtable.Length; ++i)
+                {
+                    var vtableEntry = vtable[i];
+                    if (vtableEntry is null or { Type: not MetadataUsageType.MethodDef })
+                        continue;
+
+                    if (vtableEntry.AsMethod() != Definition)
+                        continue;
+
+                    GetParentTypeAndSlot(declaringTypeDefinition, i, out var parentType, out var slot);
+
+                    var parentTypeContext = parentType?.ToContext(CustomAttributeAssembly);
+                    if (parentTypeContext == null)
+                        continue;
+
+                    if (parentTypeContext is GenericInstanceTypeAnalysisContext genericInstanceType)
+                    {
+                        var parentMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
+                        if (parentMethod is not null)
+                            yield return new ConcreteGenericMethodAnalysisContext(parentMethod, genericInstanceType.GenericArguments.ToArray(), []);
+                    }
+                    else
+                    {
+                        var parentMethod = parentTypeContext.Methods.FirstOrDefault(m => m.Slot == slot);
+                        if (parentMethod is not null)
+                            yield return parentMethod;
+                    }
+                }
+            }
+        }
+    }
 
     private static readonly List<IBlockProcessor> blockProcessors =
     [

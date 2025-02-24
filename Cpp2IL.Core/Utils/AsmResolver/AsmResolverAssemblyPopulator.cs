@@ -374,8 +374,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var methodDef = methodCtx.Definition;
 
-            var rawReturnType = methodDef != null ? methodDef.RawReturnType! : LibCpp2IlReflection.GetTypeFromDefinition(methodCtx.InjectedReturnType!.Definition ?? throw new("Injected methods with injected return types not supported at the moment."))!;
-            var returnType = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, rawReturnType));
+            var returnType = importer.ImportTypeSignature(methodCtx.ReturnTypeContext.ToTypeSignature(importer.TargetModule));
 
             var paramData = methodCtx.Parameters;
             var parameterTypes = new TypeSignature[paramData.Count];
@@ -529,7 +528,7 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    public static void InferExplicitInterfaceImplementations(AssemblyAnalysisContext asmContext)
+    public static void AddExplicitInterfaceImplementations(AssemblyAnalysisContext asmContext)
     {
         var managedAssembly = asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + asmContext);
 
@@ -546,7 +545,7 @@ public static class AsmResolverAssemblyPopulator
             try
 #endif
             {
-                InferExplicitInterfaceImplementations(managedType, importer);
+                AddExplicitInterfaceImplementations(managedType, typeContext, importer);
             }
 #if !DEBUG
             catch (Exception e)
@@ -557,71 +556,21 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void InferExplicitInterfaceImplementations(TypeDefinition type, ReferenceImporter importer)
+    private static void AddExplicitInterfaceImplementations(TypeDefinition type, TypeAnalysisContext typeContext, ReferenceImporter importer)
     {
-        foreach (var method in type.Methods)
+        foreach (var methodContext in typeContext.Methods)
         {
-            if (Utf8String.IsNullOrEmpty(method.Name))
+            if ((methodContext.Attributes & System.Reflection.MethodAttributes.MemberAccessMask) != System.Reflection.MethodAttributes.Private)
                 continue;
 
-            var periodLastIndex = method.Name.LastIndexOf('.');
-            if (periodLastIndex < 0 || !method.IsPrivate || !method.IsVirtual || !method.IsFinal || !method.IsNewSlot)
+            foreach (var overrideContext in methodContext.Overrides)
             {
-                continue;
-            }
-
-            var methodName = method.Name.Value[(periodLastIndex + 1)..];
-            var interfaceName = method.Name.Value[..periodLastIndex];
-            var genericParameterNames = type.GenericParameters.Count > 0
-                ? type.GenericParameters.Select(p => (string?)p.Name ?? "").ToArray()
-                : [];
-            var interfaceType = AsmResolverUtils.TryLookupTypeSignatureByName(interfaceName, genericParameterNames);
-
-            if (interfaceType is null)
-                continue;
-
-            var ambiguous = false;
-            IMethodDefOrRef? interfaceMethod = null;
-            var underlyingInterface = interfaceType.GetUnderlyingTypeDefOrRef();
-            foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
-            {
-                if (interfaceMethodDef.Name != methodName)
-                    continue;
-
-                if (interfaceMethod is not null)
+                if (overrideContext.DeclaringType?.IsInterface ?? false)
                 {
-                    // Ambiguity. Checking the method signature will be required to disambiguate.
-                    interfaceMethod = null;
-                    ambiguous = true;
-                    break;
+                    var interfaceMethod = (IMethodDefOrRef)overrideContext.ToMethodDescriptor(importer.TargetModule);
+                    var method = methodContext.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {methodContext}");
+                    type.MethodImplementations.Add(new MethodImplementation(interfaceMethod, method));
                 }
-
-                // This has the implicit assumption that the method signatures match.
-                // This is a reasonable assumption because there's no other method to match (with this name).
-                interfaceMethod = new MemberReference(importer.ImportType(interfaceType.ToTypeDefOrRef()), interfaceMethodDef.Name, interfaceMethodDef.Signature);
-            }
-
-            if (ambiguous)
-            {
-                // Ambiguities are very rare, so we only bother signature checking when we have to.
-
-                var genericContext = GenericContext.FromType(interfaceType);
-                foreach (var interfaceMethodDef in (underlyingInterface as TypeDefinition)?.Methods ?? [])
-                {
-                    if (interfaceMethodDef.Name != methodName)
-                        continue;
-
-                    if (SignatureComparer.Default.Equals(method.Signature, interfaceMethodDef.Signature?.InstantiateGenericTypes(genericContext)))
-                    {
-                        interfaceMethod = new MemberReference(importer.ImportTypeOrNull(interfaceType?.ToTypeDefOrRef()), interfaceMethodDef.Name, interfaceMethodDef.Signature);
-                        break;
-                    }
-                }
-            }
-
-            if (interfaceMethod != null)
-            {
-                type.MethodImplementations.Add(new MethodImplementation(importer.ImportMethod(interfaceMethod), method));
             }
         }
     }
