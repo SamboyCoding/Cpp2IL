@@ -1,3 +1,4 @@
+using System;
 using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
@@ -13,9 +14,26 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     public readonly Cpp2IlMethodRef? MethodRef;
     public readonly MethodAnalysisContext BaseMethodContext;
 
+    /// <summary>
+    /// The generic parameters for the <see cref="BaseMethodContext"/> declaring type.
+    /// </summary>
+    /// <remarks>
+    /// If not empty, <see cref="MethodAnalysisContext.DeclaringType"/> is a <see cref="GenericInstanceTypeAnalysisContext"/>.
+    /// </remarks>
     public TypeAnalysisContext[] TypeGenericParameters { get; }
 
+    /// <summary>
+    /// The generic parameters for the <see cref="BaseMethodContext"/>.
+    /// </summary>
+    /// <remarks>
+    /// These may be empty if <see cref="BaseMethodContext"/> has no generic parameters or if <see cref="IsPartialInstantiation"/>.
+    /// </remarks>
     public TypeAnalysisContext[] MethodGenericParameters { get; }
+
+    /// <summary>
+    /// If true, this is a generic method on a <see cref="GenericInstanceTypeAnalysisContext"/>, but it does not specify any <see cref="MethodGenericParameters"/>.
+    /// </summary>
+    public bool IsPartialInstantiation => MethodGenericParameters.Length == 0 && BaseMethodContext.GenericParameterCount > 0;
 
     public sealed override ulong UnderlyingPointer => MethodRef?.GenericVariantPtr ?? default;
 
@@ -45,6 +63,15 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     {
     }
 
+    /// <summary>
+    /// Generically instantiate a method.
+    /// </summary>
+    /// <param name="baseMethod">The method definition on which this instantiation is based.</param>
+    /// <param name="typeGenericParameters">The type parameters for the declaring type, if any. These must always be specified.</param>
+    /// <param name="methodGenericParameters">
+    /// The type parameters for the base method, if any.
+    /// These may be omitted (<see cref="IsPartialInstantiation"/> == <see langword="true"/>).
+    /// </param>
     public ConcreteGenericMethodAnalysisContext(MethodAnalysisContext baseMethod, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters)
         : this(
               null,
@@ -54,6 +81,11 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
               methodGenericParameters,
               baseMethod.CustomAttributeAssembly)
     {
+        if (baseMethod.DeclaringType!.GenericParameterCount != typeGenericParameters.Length)
+            throw new ArgumentException("The number of type generic parameters must match the number of generic parameters on the declaring type.");
+
+        if (methodGenericParameters.Length > 0 && baseMethod.GenericParameterCount != methodGenericParameters.Length)
+            throw new ArgumentException("The number of method generic parameters must match the number of generic parameters on the base method.");
     }
 
     private ConcreteGenericMethodAnalysisContext(Cpp2IlMethodRef? methodRef, MethodAnalysisContext baseMethodContext, TypeAnalysisContext declaringType, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters, AssemblyAnalysisContext declaringAssembly)
