@@ -98,7 +98,12 @@ public sealed class ElfFile : Il2CppBinary
 
         //Get dynamic section.
         if (GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is { } dynamicSegment)
-            _dynamicSection = ReadReadableArrayAtRawAddr<ElfDynamicEntry>((long)dynamicSegment.RawAddress, (int)dynamicSegment.RawSize / (is32Bit ? 8 : 16)).ToList();
+        {
+            // NOTE: Do not use .RawAddress here, as it is not guaranteed to point to the actual dynamic table being used.
+            // The dynamic table should be mapped by one of the preceding PT_LOAD entries.
+            // Source: phdr_table_get_dynamic_section, https://cs.android.com/android/platform/superproject/main/+/main:bionic/linker/linker_phdr.cpp
+            _dynamicSection = ReadReadableArrayAtVirtualAddress<ElfDynamicEntry>(dynamicSegment.VirtualAddress, (int)dynamicSegment.RawSize / (is32Bit ? 8 : 16)).ToList();
+        }
 
         LibLogger.VerboseNewline("\tFinding Relocations...");
         start = DateTime.Now;
