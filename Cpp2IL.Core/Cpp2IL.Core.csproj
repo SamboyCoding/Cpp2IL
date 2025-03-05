@@ -65,7 +65,8 @@
 
     <ItemGroup>
         <ProjectReference Include="..\LibCpp2IL\LibCpp2IL.csproj" />
-        
+        <ProjectReference Include="..\Decompiler\Decompiler.csproj"/>
+
         <!--Future: Consider moving to its own project and moving the impl in cpp2il to a plugin-->
         <ProjectReference Include="..\StableNameDotNet\StableNameDotNet.csproj" />
     </ItemGroup>

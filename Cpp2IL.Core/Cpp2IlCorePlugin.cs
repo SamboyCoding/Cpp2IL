@@ -16,7 +16,8 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
 {
     public override string Name => "Cpp2IL Built-In";
 
-    public override string Description => "Core Cpp2IL plugin containing built-in instruction sets, binaries, and other core functionality.";
+    public override string Description =>
+        "Core Cpp2IL plugin containing built-in instruction sets, binaries, and other core functionality.";
 
     public override void OnLoad()
     {
@@ -50,6 +51,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         OutputFormatRegistry.Register<IsilDumpOutputFormat>();
         OutputFormatRegistry.Register<WasmMappingOutputFormat>();
         OutputFormatRegistry.Register<WasmNameSectionOutputFormat>();
+        OutputFormatRegistry.Register<DecompilerDebugOutputFormat>();
 
         Logger.VerboseNewline("\tRegistering built-in processing layers", "Core Plugin");
 
@@ -61,7 +63,8 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         ProcessingLayerRegistry.Register<DeobfuscationMapProcessingLayer>();
 
         var elapsed = DateTime.Now - start;
-        Logger.VerboseNewline($"Core plugin loaded in {elapsed.Ticks} ticks ({elapsed.TotalMilliseconds}ms)", "Core Plugin");
+        Logger.VerboseNewline($"Core plugin loaded in {elapsed.Ticks} ticks ({elapsed.TotalMilliseconds}ms)",
+            "Core Plugin");
     }
 
     private sealed class AsmResolverDllOutputFormatLegacy : AsmResolverDllOutputFormatDefault

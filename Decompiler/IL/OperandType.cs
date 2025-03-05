@@ -1,0 +1,52 @@
+﻿namespace Decompiler.IL;
+
+/// <summary>
+/// All operand types.
+/// </summary>
+public enum OperandType
+{
+    /// <summary>
+    /// A number (int).
+    /// </summary>
+    Int,
+
+    /// <summary>
+    /// A number (long).
+    /// </summary>
+    Long,
+
+    /// <summary>
+    /// A string.
+    /// </summary>
+    String,
+
+    /// <summary>
+    /// Branch target (code).
+    /// </summary>
+    BranchTarget,
+
+    /// <summary>
+    /// A register.
+    /// </summary>
+    Register,
+
+    /// <summary>
+    /// Offset on the stack.
+    /// </summary>
+    StackOffset,
+
+    /// <summary>
+    /// Method reference.
+    /// </summary>
+    Method,
+
+    /// <summary>
+    /// Nested instruction.
+    /// </summary>
+    Instruction,
+
+    /// <summary>
+    /// Memory location.
+    /// </summary>
+    Memory
+}
