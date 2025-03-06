@@ -6,7 +6,7 @@ namespace Decompiler;
 /// <summary>
 /// A method definition.
 /// </summary>
-public class Method(MethodDefinition definition, List<Instruction> instructions)
+public class Method(MethodDefinition definition, List<Instruction>? instructions, List<IOperand> parameters)
 {
     /// <summary>
     /// The method definition.
@@ -16,7 +16,12 @@ public class Method(MethodDefinition definition, List<Instruction> instructions)
     /// <summary>
     /// All instructions.
     /// </summary>
-    public List<Instruction> Instructions = instructions;
+    public List<Instruction> Instructions = instructions ?? [];
+
+    /// <summary>
+    /// Parameter locations.
+    /// </summary>
+    public List<IOperand> Parameters = parameters;
 
     public override string ToString() => Definition.Name!;
 }

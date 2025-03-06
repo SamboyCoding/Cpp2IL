@@ -22,5 +22,6 @@ public class Instruction(int index, OpCode opcode, params IOperand?[] operands) 
 
     public OperandType Type => OperandType.Instruction;
 
-    public override string ToString() => $"({Index} {OpCode} {string.Join(", ", Operands)})";
+    public override string ToString() =>
+        $"({Index} {OpCode} {string.Join(", ", Operands.Select(o => o == null ? "null" : o.ToString()))})";
 }

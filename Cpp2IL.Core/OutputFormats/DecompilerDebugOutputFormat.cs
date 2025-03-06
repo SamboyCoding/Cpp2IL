@@ -9,17 +9,19 @@ using AssetRipper.CIL;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
+using Cpp2IL.Core.Utils.AsmResolver;
 using Decompiler;
 using Decompiler.IL;
 
 namespace Cpp2IL.Core.OutputFormats;
 
+// i know, there is a lot of platform specific stuff in here
 public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 {
-    public struct InstructionIndex(uint index, ulong address) : IOperand
+    public struct InstructionIndex(ulong address) : IOperand
     {
         public OperandType Type => OperandType.Int;
-        public uint Index = index;
         public ulong Address = address;
     }
 
@@ -76,34 +78,30 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         _module = methodDefinition.Module!;
 
         var isil = methodContext.AppContext.InstructionSet.GetIsilFromMethod(methodContext);
-        var decompilerIl = TranslateIsilToDecompilerIl(isil, out var addressMap);
+        var decompilerIl = TranslateIsilToDecompilerIl(isil, methodDefinition, methodContext);
 
-        var method = new Method(methodDefinition, decompilerIl);
+        var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
+        var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
 
-        if ((_isIlPrinted == 0) && (isil.Count > 10))
+        var method = new Method(methodDefinition, decompilerIl, decompilerParams);
+
+        if ((_isIlPrinted == 0) && (isil.Count > 20))
         {
             Interlocked.Increment(ref _isIlPrinted);
 
-            Logger.InfoNewline(
-                $"ISIL and decompiler IL for {methodContext.DeclaringType?.Name}.{methodContext.Name}:",
+            Logger.InfoNewline($"Method: {methodDefinition.DeclaringType!.FullName}.{methodDefinition.Name}",
                 "DecompilerDebug");
-
-            foreach (var instruction in isil)
-            {
-                Logger.InfoNewline($"    {instruction}", "DecompilerDebug");
-
-                var il = addressMap.Where(i => i.Item1 == instruction.InstructionIndex).Select(i => i.Item2).ToList();
-                foreach (var instruction2 in il)
-                    Logger.InfoNewline($"        {instruction2}", "DecompilerDebug");
-            }
+            Logger.InfoNewline($"ISIL:\n    {string.Join("\n    ", isil)}", "DecompilerDebug");
+            Logger.InfoNewline($"Decompiler IL:\n    {string.Join("\n    ", decompilerIl)}", "DecompilerDebug");
         }
     }
 
     private static List<Instruction> TranslateIsilToDecompilerIl(List<InstructionSetIndependentInstruction> isil,
-        out List<(uint, Instruction)> indexMap)
+        MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
-        var indexMap2 = new List<(uint, Instruction)>();
+        var addressMap = new List<(ulong, Instruction)>();
         var instructions = new List<Instruction>();
+        var appContext = methodContext.AppContext;
 
         foreach (var instruction in isil)
         {
@@ -140,10 +138,47 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                         break;
                     }
 
-                    Add(
-                        new Instruction(-1, OpCode.Call,
-                            new UlongOperand((ulong)((IsilImmediateOperand)instruction.Operands[0].Data).Value)),
-                        instruction);
+                    var address = ((ulong)((IsilImmediateOperand)instruction.Operands[0].Data).Value);
+                    MethodAnalysisContext? calledMethod = null;
+
+                    if (appContext.MethodsByAddress.TryGetValue(address, out var possibleMethods))
+                    {
+                        if (possibleMethods.Count == 1)
+                        {
+                            calledMethod = possibleMethods[0];
+                        }
+                        else
+                        {
+                            var lpars = -1;
+
+                            foreach (var possible in possibleMethods)
+                            {
+                                var pars = possible.ParameterCount;
+                                if (possible.IsStatic) pars++;
+                                if (pars > lpars)
+                                {
+                                    lpars = pars;
+                                    calledMethod = possible;
+                                }
+                            }
+                        }
+                    }
+
+                    if (calledMethod == null)
+                    {
+                        Add(new Instruction(-1, OpCode.Unknown, new StringOperand($"Method not found: {instruction}")),
+                            instruction);
+                        break;
+                    }
+
+                    var definition = calledMethod.ToMethodDescriptor(methodDefinition.Module!).Resolve()!;
+                    var isVoid = calledMethod.IsVoid;
+
+                    var callParams = new[] { isVoid ? null : operands[1], new MethodOperand(definition) }
+                        .Concat(operands.Skip(isVoid ? 1 : 2))
+                        .ToArray();
+
+                    Add(new Instruction(-1, OpCode.Call, callParams), instruction);
                     break;
 
                 case IsilMnemonic.Exchange:
@@ -234,7 +269,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 case IsilMnemonic.Pop:
                     Add(
                         new Instruction(-1, OpCode.Unknown,
-                            new StringOperand($"Somehow Cpp2IL didn't translate {instruction} to move!")), instruction);
+                            new StringOperand($"Somehow Cpp2IL didn't translate {instruction} to ISIL!")), instruction);
                     break;
 
                 case IsilMnemonic.Return:
@@ -340,13 +375,13 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 // try because it could be a tail call or something weird
                 try
                 {
-                    instruction.Operands[0] = new BranchTarget(indexMap2.First(i => i.Item1 == target.Index).Item2);
+                    instruction.Operands[0] = new BranchTarget(addressMap.First(i => i.Item1 == target.Address).Item2);
                 }
                 catch (Exception e)
                 {
                     instruction.OpCode = OpCode.Unknown;
                     instruction.Operands =
-                        [new StringOperand($"Branch target not found: @{target.Index}:{target.Address:X}")];
+                        [new StringOperand($"Branch target not found: @{target.Address:X}")];
                 }
             }
         }
@@ -355,12 +390,11 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         for (var i = 0; i < instructions.Count; i++)
             instructions[i].Index = i;
 
-        indexMap = indexMap2;
         return instructions;
 
         void Add(Instruction newInstruction, InstructionSetIndependentInstruction instruction)
         {
-            indexMap2.Add((instruction.InstructionIndex, newInstruction));
+            addressMap.Add((instruction.ActualAddress, newInstruction));
             instructions.Add(newInstruction);
         }
     }
@@ -399,47 +433,57 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                 return new RegisterOperand(number, register.RegisterName);
             }
-            case IsilMemoryOperand memory: // read from memory (except when dontRead is true, then return address)
-                IOperand? @base = null;
+            case IsilMemoryOperand memory:
+                IOperand? newOperand = null;
+                var needsPlus = false;
+
                 if (memory.Base != null)
-                    @base = TranslateOperand((InstructionSetIndependentOperand)memory.Base!);
-                IOperand? memIndex = null;
-                if (memory.Index != null)
-                    memIndex = TranslateOperand((InstructionSetIndependentOperand)memory.Index!);
-                IOperand? addend = null;
+                {
+                    newOperand = TranslateOperand((InstructionSetIndependentOperand)memory.Base);
+                    needsPlus = true;
+                }
+
                 if (memory.Addend != 0)
-                    addend = new LongOperand(memory.Addend);
-                IOperand? scale = null;
-                if (memory.Scale != 0)
-                    scale = new IntOperand(memory.Scale);
+                {
+                    if (needsPlus)
+                    {
+                        var opCode = memory.Addend > 0 ? OpCode.Add : OpCode.Subtract;
+                        newOperand = new Instruction(-1, opCode, newOperand, new LongOperand(memory.Addend));
+                    }
+                    else
+                    {
+                        newOperand = new LongOperand(memory.Addend);
+                    }
 
-                IOperand newOperand;
+                    needsPlus = true;
+                }
 
-                // addend
-                if (memory is { Base: null, Index: null, Scale: 0 })
-                    newOperand = addend!;
-                // base
-                else if (memory is { Index: null, Addend: 0, Scale: 0 })
-                    newOperand = @base!;
-                // base + addend
-                else if (memory is { Index: null, Scale: 0 })
-                    newOperand = new Instruction(-1, OpCode.Add, @base, addend);
-                // base + (addend * scale)
-                else if (memory is { Addend: 0 })
-                    newOperand = new Instruction(-1, OpCode.Add, @base,
-                        new Instruction(-1, OpCode.Multiply, addend, scale));
-                // (base + addend) + (index * scale)
-                else
-                    newOperand = new Instruction(-1, OpCode.Add, new Instruction(-1, OpCode.Add, @base, addend),
-                        new Instruction(-1, OpCode.Multiply, memIndex, scale));
+                if (memory.Index != null)
+                {
+                    if (needsPlus)
+                    {
+                        newOperand = new Instruction(-1, OpCode.Add, newOperand,
+                            TranslateOperand((InstructionSetIndependentOperand)memory.Index));
+                    }
+                    else
+                    {
+                        newOperand = TranslateOperand((InstructionSetIndependentOperand)memory.Index);
+                    }
 
+                    if (memory.Scale > 1)
+                    {
+                        newOperand = new Instruction(-1, OpCode.Multiply, newOperand, new IntOperand(memory.Scale));
+                    }
+                }
+
+                // move destination shouldn't be read instruction
                 if (addReadInstruction)
                     newOperand = new Instruction(-1, OpCode.Read, newOperand);
 
-                return newOperand;
+                return newOperand!;
 
-            case InstructionSetIndependentInstruction instruction2:
-                return new InstructionIndex(instruction2.InstructionIndex, instruction2.ActualAddress);
+            case InstructionSetIndependentInstruction instruction:
+                return new InstructionIndex(instruction.ActualAddress);
         }
 
         return new StringOperand($"Unknown operand: {operand}");
