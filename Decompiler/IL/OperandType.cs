@@ -16,6 +16,11 @@ public enum OperandType
     Long,
 
     /// <summary>
+    /// A number (ulong).
+    /// </summary>
+    Ulong,
+
+    /// <summary>
     /// A string.
     /// </summary>
     String,

@@ -16,20 +16,14 @@ namespace Cpp2IL.Core.OutputFormats;
 
 public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 {
-    public struct AddressBranchTarget(ulong address) : IOperand
+    public struct InstructionIndex(uint index, ulong address) : IOperand
     {
         public OperandType Type => OperandType.Int;
+        public uint Index = index;
         public ulong Address = address;
     }
 
-    public struct MethodAddress(ulong address) : IOperand
-    {
-        public OperandType Type => OperandType.Int;
-        public ulong Address = address;
-        public override string ToString() => Address.ToString("X");
-    }
-
-    public override string OutputFormatId => "decompile-debug";
+    public override string OutputFormatId => "decompiler-debug";
     public override string OutputFormatName => "Output format to debug/test the decompiler";
 
     private static ConcurrentDictionary<string, int> _registerNumbers = [];
@@ -82,21 +76,33 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         _module = methodDefinition.Module!;
 
         var isil = methodContext.AppContext.InstructionSet.GetIsilFromMethod(methodContext);
-        var decompilerIl = TranslateIsilToDecompilerIl(isil);
+        var decompilerIl = TranslateIsilToDecompilerIl(isil, out var addressMap);
 
         var method = new Method(methodDefinition, decompilerIl);
 
-        if ((_isIlPrinted == 0) && (decompilerIl.Count > 10))
+        if ((_isIlPrinted == 0) && (isil.Count > 10))
         {
             Interlocked.Increment(ref _isIlPrinted);
+
             Logger.InfoNewline(
-                $"Decompiler IL for {methodContext.DeclaringType?.Name}.{methodContext.Name}:\n    {string.Join(Environment.NewLine + "    ", decompilerIl)}");
+                $"ISIL and decompiler IL for {methodContext.DeclaringType?.Name}.{methodContext.Name}:",
+                "DecompilerDebug");
+
+            foreach (var instruction in isil)
+            {
+                Logger.InfoNewline($"    {instruction}", "DecompilerDebug");
+
+                var il = addressMap.Where(i => i.Item1 == instruction.InstructionIndex).Select(i => i.Item2).ToList();
+                foreach (var instruction2 in il)
+                    Logger.InfoNewline($"        {instruction2}", "DecompilerDebug");
+            }
         }
     }
 
-    private static List<Instruction> TranslateIsilToDecompilerIl(List<InstructionSetIndependentInstruction> isil)
+    private static List<Instruction> TranslateIsilToDecompilerIl(List<InstructionSetIndependentInstruction> isil,
+        out List<(uint, Instruction)> indexMap)
     {
-        var addressMap = new List<(ulong, Instruction)>();
+        var indexMap2 = new List<(uint, Instruction)>();
         var instructions = new List<Instruction>();
 
         foreach (var instruction in isil)
@@ -134,14 +140,10 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                         break;
                     }
 
-                    var isVoid = instruction.OpCode.Mnemonic == IsilMnemonic.CallNoReturn;
-
-                    Add(new Instruction(-1, OpCode.Call,
-                        new IOperand?[]
-                        {
-                            isVoid ? null : operandsNoRead[1],
-                            new MethodAddress((ulong)((IsilImmediateOperand)instruction.Operands[0].Data).Value)
-                        }.Concat(operands.Skip(isVoid ? 1 : 2).ToArray()).ToArray()), instruction);
+                    Add(
+                        new Instruction(-1, OpCode.Call,
+                            new UlongOperand((ulong)((IsilImmediateOperand)instruction.Operands[0].Data).Value)),
+                        instruction);
                     break;
 
                 case IsilMnemonic.Exchange:
@@ -333,17 +335,18 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         {
             if (instruction.Operands.Count == 0) continue;
 
-            if (instruction.Operands[0] is AddressBranchTarget target)
+            if (instruction.Operands[0] is InstructionIndex target)
             {
                 // try because it could be a tail call or something weird
                 try
                 {
-                    instruction.Operands[0] = new BranchTarget(addressMap.First(i => i.Item1 == target.Address).Item2);
+                    instruction.Operands[0] = new BranchTarget(indexMap2.First(i => i.Item1 == target.Index).Item2);
                 }
                 catch (Exception e)
                 {
                     instruction.OpCode = OpCode.Unknown;
-                    instruction.Operands = [new StringOperand($"Branch target not found: {target.Address:X}")];
+                    instruction.Operands =
+                        [new StringOperand($"Branch target not found: @{target.Index}:{target.Address:X}")];
                 }
             }
         }
@@ -352,11 +355,12 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         for (var i = 0; i < instructions.Count; i++)
             instructions[i].Index = i;
 
+        indexMap = indexMap2;
         return instructions;
 
         void Add(Instruction newInstruction, InstructionSetIndependentInstruction instruction)
         {
-            addressMap.Add((instruction.ActualAddress, newInstruction));
+            indexMap2.Add((instruction.InstructionIndex, newInstruction));
             instructions.Add(newInstruction);
         }
     }
@@ -435,7 +439,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 return newOperand;
 
             case InstructionSetIndependentInstruction instruction2:
-                return new AddressBranchTarget(instruction2.ActualAddress);
+                return new InstructionIndex(instruction2.InstructionIndex, instruction2.ActualAddress);
         }
 
         return new StringOperand($"Unknown operand: {operand}");
