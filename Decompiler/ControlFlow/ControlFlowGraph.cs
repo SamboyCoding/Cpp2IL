@@ -1,0 +1,252 @@
+﻿using Decompiler.IL;
+
+namespace Decompiler.ControlFlow;
+
+/// <summary>
+/// A control flow graph.
+/// </summary>
+public class ControlFlowGraph
+{
+    /// <summary>
+    /// All blocks of the graph.
+    /// </summary>
+    public List<Block> Blocks;
+
+    /// <summary>
+    /// The entry block.
+    /// </summary>
+    public Block EntryBlock;
+
+    /// <summary>
+    /// The exit block.
+    /// </summary>
+    public Block ExitBlock;
+
+    /// <summary>
+    /// All instructions.
+    /// </summary>
+    public List<Instruction> AllInstructions => GetAllInstructions();
+
+    private int _nextId;
+
+    private ControlFlowGraph()
+    {
+        EntryBlock = new Block() { Id = _nextId++ };
+        ExitBlock = new Block() { Id = _nextId++ };
+        Blocks = [EntryBlock, ExitBlock];
+    }
+
+    /// <summary>
+    /// Builds a control flow graph from instructions.
+    /// </summary>
+    /// <param name="instructions">All instructions.</param>
+    public static ControlFlowGraph Build(List<Instruction> instructions)
+    {
+        var cfg = new ControlFlowGraph();
+
+        var currentBlock = new Block() { Id = cfg._nextId++ };
+
+        cfg.Blocks.Add(currentBlock);
+        AddDirectedEdge(cfg.EntryBlock, currentBlock);
+
+        for (var i = 0; i < instructions.Count; i++)
+        {
+            var instruction = instructions[i];
+            var isLast = i == instructions.Count - 1;
+
+            switch (instruction.OpCode)
+            {
+                case OpCode.Jump:
+                case OpCode.ConditionalJump:
+                    currentBlock.AddInstruction(instruction);
+
+                    if (!isLast)
+                    {
+                        var newBlock = new Block() { Id = cfg._nextId++ };
+                        cfg.Blocks.Add(newBlock);
+
+                        if (instruction.OpCode == OpCode.ConditionalJump)
+                            AddDirectedEdge(currentBlock, newBlock);
+
+                        currentBlock.IsDirty = true;
+                        currentBlock = newBlock;
+                    }
+                    else
+                    {
+                        AddDirectedEdge(currentBlock, cfg.ExitBlock);
+
+                        if (instruction.OpCode == OpCode.Jump)
+                            currentBlock.IsDirty = true;
+                    }
+
+                    break;
+
+                case OpCode.Return:
+                case OpCode.Call:
+                case OpCode.Unknown:
+                    currentBlock.AddInstruction(instruction);
+
+                    if (!isLast)
+                    {
+                        var newBlock = new Block() { Id = cfg._nextId++ };
+                        cfg.Blocks.Add(newBlock);
+                        AddDirectedEdge(currentBlock, newBlock);
+                        currentBlock = newBlock;
+                    }
+                    else
+                    {
+                        AddDirectedEdge(currentBlock, cfg.ExitBlock);
+                    }
+
+                    break;
+
+                default:
+                    currentBlock.AddInstruction(instruction);
+                    break;
+            }
+        }
+
+        for (var i = 0; i < cfg.Blocks.Count; i++)
+        {
+            var block = cfg.Blocks[i];
+
+            if (block.IsDirty)
+                cfg.SplitTargetBlock(block);
+        }
+
+        return cfg;
+    }
+
+    /// <summary>
+    /// Initially blocks are split by calls, this merges those blocks.
+    /// </summary>
+    public void MergeCallBlocks()
+    {
+        for (var i = 0; i < Blocks.Count - 1; i++)
+        {
+            var block = Blocks[i];
+            if (!block.IsCall) continue;
+            var nextBlock = block.Successors[0];
+
+            // Make sure that the next block only has one predecessor (this)
+            if (nextBlock.Predecessors.Count != 1 || nextBlock.Predecessors[0] != block) continue;
+
+            // Merge blocks
+            block.Instructions.AddRange(nextBlock.Instructions);
+            block.Successors = nextBlock.Successors;
+
+            // Update the predecessors of the new successors
+            foreach (var successor in nextBlock.Successors)
+            {
+                for (var j = 0; j < successor.Predecessors.Count; j++)
+                {
+                    if (successor.Predecessors[j] == nextBlock)
+                        successor.Predecessors[j] = block;
+                }
+            }
+
+            // Remove the merged block
+            Blocks.RemoveAt(i + 1);
+            i--;
+        }
+    }
+
+    private List<Instruction> GetAllInstructions()
+    {
+        var instructions = new List<Instruction>();
+        var visited = new HashSet<Block>();
+        var queue = new Queue<Block>();
+
+        queue.Enqueue(EntryBlock);
+        visited.Add(EntryBlock);
+
+        while (queue.Count > 0)
+        {
+            var block = queue.Dequeue();
+            instructions.AddRange(block.Instructions);
+
+            foreach (var successor in block.Successors)
+            {
+                if (visited.Add(successor))
+                    queue.Enqueue(successor);
+            }
+        }
+
+        return instructions;
+    }
+
+    private void SplitTargetBlock(Block block)
+    {
+        if (block.IsFallThrough)
+            return;
+
+        // Get the branch target block
+        var branch = block.Instructions.Last();
+        var target = (BranchTarget)branch.Operands[0]!;
+        var targetBlock = GetBlockByInstruction(target.Instruction);
+
+        // Split it at the target instruction
+        var index = targetBlock!.Instructions.FindIndex(i => i == target!.Instruction);
+        var targetBlock2 = SplitAndCreate(targetBlock, index);
+        AddDirectedEdge(block, targetBlock2);
+
+        block.IsDirty = false;
+    }
+
+    private Block? GetBlockByInstruction(Instruction instruction)
+    {
+        foreach (var block in Blocks)
+        {
+            if (block.Instructions.Any(i => i == instruction))
+                return block;
+        }
+
+        return null;
+    }
+
+    private Block SplitAndCreate(Block target, int index)
+    {
+        if (index == 0)
+            return target;
+
+        var newBlock = new Block() { Id = _nextId++ };
+
+        // Take the instructions for the second part
+        var instructions = target.Instructions.GetRange(index, target.Instructions.Count - index);
+        target.Instructions.RemoveRange(index, target.Instructions.Count - index);
+
+        // Add those to the newNode
+        newBlock.Instructions.AddRange(instructions);
+
+        // Transfer successors
+        newBlock.Successors = target.Successors;
+
+        if (target.IsDirty)
+            newBlock.IsDirty = true;
+
+        target.IsDirty = false;
+        target.Successors = [];
+
+        // Correct the predecessors for all the successors
+        foreach (var successor in newBlock.Successors)
+        {
+            for (var i = 0; i < successor.Predecessors.Count; i++)
+            {
+                if (successor.Predecessors[i].Id == target.Id)
+                    successor.Predecessors[i] = newBlock;
+            }
+        }
+
+        // Add new block and connect it
+        Blocks.Add(newBlock);
+        AddDirectedEdge(target, newBlock);
+
+        return newBlock;
+    }
+
+    private static void AddDirectedEdge(Block from, Block to)
+    {
+        from.Successors.Add(to);
+        to.Predecessors.Add(from);
+    }
+}

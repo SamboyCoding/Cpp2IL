@@ -1,18 +1,22 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
+using System.Text;
 using System.Threading;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
 using AssetRipper.CIL;
+using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
 using Decompiler;
+using Decompiler.ControlFlow;
 using Decompiler.IL;
+using Logger = Cpp2IL.Core.Logging.Logger;
 
 namespace Cpp2IL.Core.OutputFormats;
 
@@ -30,8 +34,6 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
     private static ConcurrentDictionary<string, int> _registerNumbers = [];
     private static ModuleDefinition _module;
-
-    private static int _isIlPrinted; // it's int so that i can do Interlocked.Increment because it's parallel
 
     private static readonly InstructionSetIndependentOperand IsilCarryFlag =
         InstructionSetIndependentOperand.MakeRegister("cf");
@@ -77,23 +79,83 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         methodDefinition.CilMethodBody = new CilMethodBody(methodDefinition);
         _module = methodDefinition.Module!;
 
-        var isil = methodContext.AppContext.InstructionSet.GetIsilFromMethod(methodContext);
-        var decompilerIl = TranslateIsilToDecompilerIl(isil, methodDefinition, methodContext);
-
-        var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
-        var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
-
-        var method = new Method(methodDefinition, decompilerIl, decompilerParams);
-
-        if ((_isIlPrinted == 0) && (isil.Count > 20))
+        try
         {
-            Interlocked.Increment(ref _isIlPrinted);
+            var isil = methodContext.AppContext.InstructionSet.GetIsilFromMethod(methodContext);
+            var decompilerIl = TranslateIsilToDecompilerIl(isil, methodDefinition, methodContext);
 
-            Logger.InfoNewline($"Method: {methodDefinition.DeclaringType!.FullName}.{methodDefinition.Name}",
-                "DecompilerDebug");
-            Logger.InfoNewline($"ISIL:\n    {string.Join("\n    ", isil)}", "DecompilerDebug");
-            Logger.InfoNewline($"Decompiler IL:\n    {string.Join("\n    ", decompilerIl)}", "DecompilerDebug");
+            var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
+            var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
+
+            var method = new Method(methodDefinition, decompilerIl, decompilerParams);
+
+            var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
+            WriteControlFlowGraph(method.ControlFlowGraph, methodContext, outputPath);
         }
+        catch (Exception e)
+        {
+            Logger.ErrorNewline(e.ToString(), "Decompiler Debug");
+        }
+    }
+
+    private static void WriteControlFlowGraph(ControlFlowGraph graph, MethodAnalysisContext method, string outputPath)
+    {
+        var sb = new StringBuilder();
+        var edges = new List<(int, int)>();
+
+        sb.AppendLine("digraph ControlFlowGraph {");
+        sb.AppendLine("    \"label\"=\"Control flow graph\"");
+
+        foreach (var block in graph.Blocks)
+        {
+            if (block == graph.EntryBlock || block == graph.ExitBlock)
+            {
+                var isEntry = block == graph.EntryBlock;
+                sb.AppendLine($"""
+                               	{block.Id} [
+                               		"color"="{(isEntry ? "green" : "red")}"
+                               		"label"="{(isEntry ? "Entry" : "Exit")} ({block.Id})"
+                               	]
+                               """);
+            }
+            else
+            {
+                sb.AppendLine($"""
+                               	{block.Id} [
+                               		"shape"="box"
+                               		"label"="Block {block.Id}\n\n{string.Join("\\n", block.Instructions).Replace("\"", "\\\"")}"
+                               	]
+                               """);
+            }
+
+            edges.AddRange(block.Successors.Select(b => (block.Id, b.Id)));
+        }
+
+        foreach (var edge in edges)
+            sb.AppendLine($"    {edge.Item1} -> {edge.Item2}");
+
+        sb.AppendLine("}");
+
+        var assemblyName = MiscUtils.CleanPathElement(method.DeclaringType!.DeclaringAssembly.CleanAssemblyName);
+        var typePath =
+            Path.Combine(method.DeclaringType!.FullName.Split('.').Select(MiscUtils.CleanPathElement).ToArray());
+        var directoryPath = Path.Combine(outputPath, assemblyName, typePath);
+        var methodName = MiscUtils.CleanPathElement(method.Name + "_" + string.Join("_",
+            method.Parameters.Select(p => MiscUtils.CleanPathElement(p.ParameterTypeContext.Name))));
+        var path = Path.Combine(directoryPath, methodName) + ".dot";
+
+        // Too long
+        if (path.Length > 260)
+        {
+            path = path[..250];
+            path += ".dot";
+        }
+
+        var directory = Path.GetDirectoryName(path)!;
+        if (!Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
+
+        File.WriteAllText(path, sb.ToString());
     }
 
     private static List<Instruction> TranslateIsilToDecompilerIl(List<InstructionSetIndependentInstruction> isil,

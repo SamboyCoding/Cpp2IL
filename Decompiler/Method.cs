@@ -1,5 +1,6 @@
 ﻿using AsmResolver.DotNet;
 using Decompiler.IL;
+using Decompiler.ControlFlow;
 
 namespace Decompiler;
 
@@ -14,14 +15,19 @@ public class Method(MethodDefinition definition, List<Instruction>? instructions
     public MethodDefinition Definition = definition;
 
     /// <summary>
-    /// All instructions.
-    /// </summary>
-    public List<Instruction> Instructions = instructions ?? [];
-
-    /// <summary>
     /// Parameter locations.
     /// </summary>
     public List<IOperand> Parameters = parameters;
+
+    /// <summary>
+    /// The control flow graph.
+    /// </summary>
+    public ControlFlowGraph ControlFlowGraph = ControlFlowGraph.Build(instructions ?? []);
+
+    /// <summary>
+    /// All instructions.
+    /// </summary>
+    public List<Instruction> Instructions => ControlFlowGraph.AllInstructions;
 
     public override string ToString() => Definition.Name!;
 }
