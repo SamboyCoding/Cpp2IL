@@ -8,7 +8,6 @@ using System.Threading;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
 using AssetRipper.CIL;
-using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
@@ -34,6 +33,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
     private static ConcurrentDictionary<string, int> _registerNumbers = [];
     private static ModuleDefinition _module;
+    private static Decompiler.Decompiler _decompiler = new();
 
     private static readonly InstructionSetIndependentOperand IsilCarryFlag =
         InstructionSetIndependentOperand.MakeRegister("cf");
@@ -88,13 +88,20 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
 
             var method = new Method(methodDefinition, decompilerIl, decompilerParams);
+            _decompiler.Decompile(method);
 
             var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
             WriteControlFlowGraph(method.ControlFlowGraph, methodContext, outputPath);
+
+            if (method.Warnings.Count > 0)
+                Logger.InfoNewline(
+                    $"Warnings for {methodContext.DeclaringType!.FullName}.{method.Definition.Name}: {string.Join(", ", method.Warnings)}",
+                    "Decompiler Debug");
         }
         catch (Exception e)
         {
             Logger.ErrorNewline(e.ToString(), "Decompiler Debug");
+            Decompiler.Decompiler.ReplaceBodyWithException(methodDefinition, $"Decompilation failed: {e}");
         }
     }
 

@@ -29,5 +29,16 @@ public class Method(MethodDefinition definition, List<Instruction>? instructions
     /// </summary>
     public List<Instruction> Instructions => ControlFlowGraph.AllInstructions;
 
+    /// <summary>
+    /// Decompiler warnings.
+    /// </summary>
+    public List<string> Warnings = [];
+
+    /// <summary>
+    /// Adds a new warning to the method.
+    /// </summary>
+    /// <param name="warning">The warning.</param>
+    public void AddWarning(string warning) => Warnings.Add(warning);
+
     public override string ToString() => Definition.Name!;
 }

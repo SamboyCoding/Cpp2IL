@@ -1,4 +1,5 @@
-﻿using System.Text;
+﻿using System.Diagnostics;
+using System.Text;
 using Decompiler.IL;
 
 namespace Decompiler.ControlFlow;
@@ -6,6 +7,7 @@ namespace Decompiler.ControlFlow;
 /// <summary>
 /// A block in the control flow graph.
 /// </summary>
+[DebuggerDisplay("Id = {Id}")]
 public class Block
 {
     /// <summary>
