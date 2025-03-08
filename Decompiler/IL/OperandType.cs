@@ -46,6 +46,11 @@ public enum OperandType
     Method,
 
     /// <summary>
+    /// Method that was not found.
+    /// </summary>
+    UnknownMethod,
+
+    /// <summary>
     /// Nested instruction.
     /// </summary>
     Instruction,

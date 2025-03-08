@@ -4,6 +4,7 @@ namespace Decompiler.ControlFlow;
 
 /// <summary>
 /// A control flow graph.
+/// Taken from https://github.com/SamboyCoding/Cpp2IL/blob/development/Cpp2IL.Core/Graphs/ISILControlFlowGraph.cs
 /// </summary>
 public class ControlFlowGraph
 {
@@ -126,6 +127,7 @@ public class ControlFlowGraph
         {
             var block = Blocks[i];
             if (!block.IsCall) continue;
+            if (block.Successors.Count == 0) continue;
             var nextBlock = block.Successors[0];
 
             // Make sure that the next block only has one predecessor (this)
@@ -148,6 +150,40 @@ public class ControlFlowGraph
             // Remove the merged block
             Blocks.RemoveAt(i + 1);
             i--;
+        }
+    }
+
+    /// <summary>
+    /// Removes all nop instructions from the graph.
+    /// </summary>
+    public void RemoveNops()
+    {
+        var visited = new HashSet<Block>();
+        var queue = new Queue<Block>();
+
+        queue.Enqueue(EntryBlock);
+        visited.Add(EntryBlock);
+
+        while (queue.Count > 0)
+        {
+            var block = queue.Dequeue();
+
+            for (var i = 0; i < block.Instructions.Count; i++)
+            {
+                var instruction = block.Instructions[i];
+
+                if (instruction.OpCode == OpCode.Nop)
+                {
+                    block.Instructions.Remove(instruction);
+                    i--;
+                }
+            }
+
+            foreach (var successor in block.Successors)
+            {
+                if (visited.Add(successor))
+                    queue.Enqueue(successor);
+            }
         }
     }
 

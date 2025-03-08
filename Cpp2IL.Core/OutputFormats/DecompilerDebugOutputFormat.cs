@@ -33,7 +33,6 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
     private static ConcurrentDictionary<string, int> _registerNumbers = [];
     private static ModuleDefinition _module;
-    private static Decompiler.Decompiler _decompiler = new();
 
     private static readonly InstructionSetIndependentOperand IsilCarryFlag =
         InstructionSetIndependentOperand.MakeRegister("cf");
@@ -87,21 +86,22 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
             var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
 
-            var method = new Method(methodDefinition, decompilerIl, decompilerParams);
-            _decompiler.Decompile(method);
+            var archSize = methodContext.AppContext.Binary.is32Bit ? 4 : 8;
+            var method = new Method(methodDefinition, decompilerIl, decompilerParams, archSize);
+            Decompiler.Decompiler.Decompile(method);
 
             var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
             WriteControlFlowGraph(method.ControlFlowGraph, methodContext, outputPath);
 
             if (method.Warnings.Count > 0)
                 Logger.InfoNewline(
-                    $"Warnings for {methodContext.DeclaringType!.FullName}.{method.Definition.Name}: {string.Join(", ", method.Warnings)}",
+                    $"{methodContext.DeclaringType!.FullName}.{method.Definition.Name}: {string.Join(", ", method.Warnings)}",
                     "Decompiler Debug");
         }
         catch (Exception e)
         {
-            Logger.ErrorNewline(e.ToString(), "Decompiler Debug");
-            Decompiler.Decompiler.ReplaceBodyWithException(methodDefinition, $"Decompilation failed: {e}");
+            Decompiler.Decompiler.ReplaceBodyWithException(methodDefinition, "Decompilation failed: " + e);
+            Logger.ErrorNewline("Decompilation failed: " + e, "Decompiler Debug");
         }
     }
 
@@ -235,8 +235,16 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                     if (calledMethod == null)
                     {
-                        Add(new Instruction(-1, OpCode.Unknown, new StringOperand($"Method not found: {instruction}")),
-                            instruction);
+                        var isVoid2 = (instruction.OpCode == InstructionSetIndependentOpCode.CallNoReturn);
+
+                        var callParams2 = new[]
+                            {
+                                isVoid2 ? null : operands[1], new UnknownMethodOperand(address.ToString("X"))
+                            }
+                            .Concat(operands.Skip(isVoid2 ? 1 : 2))
+                            .ToArray();
+
+                        Add(new Instruction(-1, OpCode.Call, callParams2), instruction);
                         break;
                     }
 

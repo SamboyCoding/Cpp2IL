@@ -2,32 +2,23 @@
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.PE.DotNet.Cil;
-using Decompiler.Transforms;
+using Decompiler.Stack;
 
 namespace Decompiler;
 
 /// <summary>
 /// The main decompiler class.
 /// </summary>
-public class Decompiler
+public static class Decompiler
 {
-    /// <summary>
-    /// All transforms applied to methods.
-    /// </summary>
-    public List<ITransform> Transforms =
-    [
-    ];
-
     /// <summary>
     /// Decompiles a single method to .NET's IL (CIL), there's no return value because this sets the body.
     /// </summary>
     /// <param name="method">The method.</param>
-    public void Decompile(Method method)
+    public static void Decompile(Method method)
     {
         var definition = method.Definition;
-
-        foreach (var transform in Transforms)
-            transform.Apply(method);
+        StackAnalyzer.Analyze(method);
     }
 
     /// <summary>
