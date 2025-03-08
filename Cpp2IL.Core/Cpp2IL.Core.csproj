@@ -40,7 +40,7 @@
 
     <ItemGroup>
         <!--Needed for DLL output-->
-        <PackageReference Include="AsmResolver.DotNet" Version="6.0.0-beta.2" />
+        <PackageReference Include="AsmResolver.DotNet" Version="6.0.0-beta.3" />
         <PackageReference Include="AssetRipper.CIL" Version="1.1.5" />
         
         <!--For ARM64 dissassembly-->
@@ -55,7 +55,7 @@
         <!--Not used at runtime, but needed for the build-->
         <PackageReference Include="Microsoft.SourceLink.GitHub" Version="8.0.0" PrivateAssets="All" />
 
-        <PackageReference Include="PolySharp" Version="1.14.1" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
+        <PackageReference Include="PolySharp" Version="1.15.0" PrivateAssets="all" IncludeAssets="runtime; build; native; contentfiles; analyzers; buildtransitive" />
     </ItemGroup>
 
     <ItemGroup Condition="'$(TargetFramework)' == 'netstandard2.0'">
