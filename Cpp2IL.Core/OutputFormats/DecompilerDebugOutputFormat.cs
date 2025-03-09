@@ -15,6 +15,7 @@ using Cpp2IL.Core.Utils.AsmResolver;
 using Decompiler;
 using Decompiler.ControlFlow;
 using Decompiler.IL;
+using LibCpp2IL.BinaryStructures;
 using Logger = Cpp2IL.Core.Logging.Logger;
 
 namespace Cpp2IL.Core.OutputFormats;
@@ -25,6 +26,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
     public struct InstructionIndex(ulong address) : IOperand
     {
         public OperandType Type => OperandType.Int;
+        public int Size { get; set; }
         public ulong Address = address;
     }
 
@@ -32,25 +34,23 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
     public override string OutputFormatName => "Output format to debug/test the decompiler";
 
     private static ConcurrentDictionary<string, int> _registerNumbers = [];
-    private static ModuleDefinition _module;
+    private ModuleDefinition _module;
 
-    private static readonly InstructionSetIndependentOperand IsilCarryFlag =
-        InstructionSetIndependentOperand.MakeRegister("cf");
+    private Decompiler.Decompiler _decompiler = new();
 
-    private static readonly InstructionSetIndependentOperand IsilOverflowFlag =
-        InstructionSetIndependentOperand.MakeRegister("of");
+    public static int SuccessCount;
+    public static int TotalCount;
 
-    private static readonly InstructionSetIndependentOperand IsilSignFlag =
-        InstructionSetIndependentOperand.MakeRegister("sf");
+    private static bool _dontActuallyWriteFiles = false;
 
-    private static readonly InstructionSetIndependentOperand IsilZeroFlag =
-        InstructionSetIndependentOperand.MakeRegister("zf");
-
-    private static readonly InstructionSetIndependentOperand IsilParityFlag =
-        InstructionSetIndependentOperand.MakeRegister("pf");
-
-    private static readonly InstructionSetIndependentOperand IsilTempRegister =
-        InstructionSetIndependentOperand.MakeRegister("tmp");
+    private static readonly InstructionSetIndependentOperand IsilCarryFlag = InstructionSetIndependentOperand.MakeRegister("cf");
+    private static readonly InstructionSetIndependentOperand IsilOverflowFlag = InstructionSetIndependentOperand.MakeRegister("of");
+    private static readonly InstructionSetIndependentOperand IsilSignFlag = InstructionSetIndependentOperand.MakeRegister("sf");
+    private static readonly InstructionSetIndependentOperand IsilZeroFlag = InstructionSetIndependentOperand.MakeRegister("zf");
+    private static readonly InstructionSetIndependentOperand IsilParityFlag = InstructionSetIndependentOperand.MakeRegister("pf");
+    private static readonly InstructionSetIndependentOperand IsilTempRegister = InstructionSetIndependentOperand.MakeRegister("tmp");
+    private static readonly InstructionSetIndependentOperand IsilXmm0Register = InstructionSetIndependentOperand.MakeRegister("xmm0");
+    private static readonly InstructionSetIndependentOperand IsilRaxRegister = InstructionSetIndependentOperand.MakeRegister("rax");
 
     // cached registers
     private static IOperand _carryFlag;
@@ -59,6 +59,8 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
     private static IOperand _zeroFlag;
     private static IOperand _parityFlag;
     private static IOperand _tempRegister;
+    private static IOperand _xmm0Register;
+    private static IOperand _raxRegister;
 
     public override void OnOutputFormatSelected()
     {
@@ -70,6 +72,8 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         _zeroFlag = TranslateOperand(IsilZeroFlag);
         _parityFlag = TranslateOperand(IsilParityFlag);
         _tempRegister = TranslateOperand(IsilTempRegister);
+        _xmm0Register = TranslateOperand(IsilXmm0Register);
+        _raxRegister = TranslateOperand(IsilRaxRegister);
     }
 
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
@@ -77,6 +81,8 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         if (!methodDefinition.IsManagedMethodWithBody()) return;
         methodDefinition.CilMethodBody = new CilMethodBody(methodDefinition);
         _module = methodDefinition.Module!;
+
+        Interlocked.Increment(ref TotalCount);
 
         try
         {
@@ -86,22 +92,17 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
             var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
 
-            var archSize = methodContext.AppContext.Binary.is32Bit ? 4 : 8;
-            var method = new Method(methodDefinition, decompilerIl, decompilerParams, archSize);
-            Decompiler.Decompiler.Decompile(method);
+            var method = new Method(methodDefinition, decompilerIl, decompilerParams);
+            _decompiler.Decompile(method);
 
             var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
             WriteControlFlowGraph(method.ControlFlowGraph, methodContext, outputPath);
 
-            if (method.Warnings.Count > 0)
-                Logger.InfoNewline(
-                    $"{methodContext.DeclaringType!.FullName}.{method.Definition.Name}: {string.Join(", ", method.Warnings)}",
-                    "Decompiler Debug");
+            Interlocked.Increment(ref SuccessCount);
         }
         catch (Exception e)
         {
             Decompiler.Decompiler.ReplaceBodyWithException(methodDefinition, "Decompilation failed: " + e);
-            Logger.ErrorNewline("Decompilation failed: " + e, "Decompiler Debug");
         }
     }
 
@@ -158,11 +159,14 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             path += ".dot";
         }
 
-        var directory = Path.GetDirectoryName(path)!;
-        if (!Directory.Exists(directory))
-            Directory.CreateDirectory(directory);
+        if (!_dontActuallyWriteFiles)
+        {
+            var directory = Path.GetDirectoryName(path)!;
+            if (!Directory.Exists(directory))
+                Directory.CreateDirectory(directory);
 
-        File.WriteAllText(path, sb.ToString());
+            File.WriteAllText(path, sb.ToString());
+        }
     }
 
     private static List<Instruction> TranslateIsilToDecompilerIl(List<InstructionSetIndependentInstruction> isil,
@@ -237,10 +241,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     {
                         var isVoid2 = (instruction.OpCode == InstructionSetIndependentOpCode.CallNoReturn);
 
-                        var callParams2 = new[]
-                            {
-                                isVoid2 ? null : operands[1], new UnknownMethodOperand(address.ToString("X"))
-                            }
+                        var callParams2 = new[] { isVoid2 ? null : operands[1], new UnknownMethodOperand(address.ToString("X")) }
                             .Concat(operands.Skip(isVoid2 ? 1 : 2))
                             .ToArray();
 
@@ -425,6 +426,15 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     break;
 
                 case IsilMnemonic.Interrupt:
+                    // Should interrupt return?
+                    if (methodContext.IsVoid)
+                        Add(new Instruction(-1, OpCode.Return), instruction);
+                    else if (methodContext.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
+                        Add(new Instruction(-1, OpCode.Return, _xmm0Register), instruction);
+                    else
+                        Add(new Instruction(-1, OpCode.Return, _raxRegister), instruction);
+                    break;
+
                 case IsilMnemonic.Nop:
                     // these could be branch targets so these need to be added
                     Add(new Instruction(-1, OpCode.Nop), instruction);

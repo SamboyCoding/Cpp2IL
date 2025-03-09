@@ -52,6 +52,9 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         }
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
+        Logger.InfoNewline(
+            $"{(Math.Round(((decimal)DecompilerDebugOutputFormat.SuccessCount / DecompilerDebugOutputFormat.TotalCount) * 1000) / 1000) * 100}% successfully decompiled ({DecompilerDebugOutputFormat.SuccessCount} / {DecompilerDebugOutputFormat.TotalCount})",
+            "DllOutput");
     }
 
     public List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
@@ -179,10 +182,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
         var ourAssembly = new AssemblyDefinition(assemblyNameString, version)
         {
-            HashAlgorithm = (AssemblyHashAlgorithm)assemblyDefinition.AssemblyName.hash_alg,
-            Attributes = (AssemblyAttributes)assemblyDefinition.AssemblyName.flags,
-            Culture = assemblyDefinition.AssemblyName.Culture,
-            PublicKey = assemblyDefinition.AssemblyName.PublicKey,
+            HashAlgorithm = (AssemblyHashAlgorithm)assemblyDefinition.AssemblyName.hash_alg, Attributes = (AssemblyAttributes)assemblyDefinition.AssemblyName.flags, Culture = assemblyDefinition.AssemblyName.Culture, PublicKey = assemblyDefinition.AssemblyName.PublicKey,
         };
 
         //Setting the corlib module allows element types in references to that assembly to be set correctly without us having to manually set them.

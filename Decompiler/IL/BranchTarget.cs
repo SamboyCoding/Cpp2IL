@@ -1,4 +1,6 @@
-﻿namespace Decompiler.IL;
+﻿using Decompiler.ControlFlow;
+
+namespace Decompiler.IL;
 
 /// <summary>
 /// Branch target operand.
@@ -11,6 +13,11 @@ public class BranchTarget(Instruction instruction) : IOperand
     /// The target instruction.
     /// </summary>
     public Instruction Instruction = instruction;
+
+    /// <summary>
+    /// The target block.
+    /// </summary>
+    public Block? Block;
 
     public override string ToString() => $"@{Instruction}";
 }

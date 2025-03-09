@@ -1,24 +1,35 @@
-﻿using System.Diagnostics;
-using AsmResolver.DotNet;
+﻿using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.PE.DotNet.Cil;
-using Decompiler.Stack;
+using Decompiler.Transforms;
 
 namespace Decompiler;
 
 /// <summary>
 /// The main decompiler class.
 /// </summary>
-public static class Decompiler
+public class Decompiler
 {
+    /// <summary>
+    /// All transforms applied to methods.
+    /// </summary>
+    public List<ITransform> Transforms =
+    [
+        new RemoveUnreachableBlocks(),
+        new StackAnalyzer(),
+        new FixTailCall()
+    ];
+
     /// <summary>
     /// Decompiles a single method to .NET's IL (CIL), there's no return value because this sets the body.
     /// </summary>
     /// <param name="method">The method.</param>
-    public static void Decompile(Method method)
+    public void Decompile(Method method)
     {
         var definition = method.Definition;
-        StackAnalyzer.Analyze(method);
+
+        foreach (var transform in Transforms)
+            transform.Apply(method);
     }
 
     /// <summary>

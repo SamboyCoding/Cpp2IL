@@ -43,12 +43,12 @@ public class ControlFlowGraph
     /// <param name="instructions">All instructions.</param>
     public static ControlFlowGraph Build(List<Instruction> instructions)
     {
-        var cfg = new ControlFlowGraph();
+        var graph = new ControlFlowGraph();
 
-        var currentBlock = new Block() { Id = cfg._nextId++ };
+        var currentBlock = new Block() { Id = graph._nextId++ };
 
-        cfg.Blocks.Add(currentBlock);
-        AddDirectedEdge(cfg.EntryBlock, currentBlock);
+        graph.Blocks.Add(currentBlock);
+        AddDirectedEdge(graph.EntryBlock, currentBlock);
 
         for (var i = 0; i < instructions.Count; i++)
         {
@@ -63,8 +63,8 @@ public class ControlFlowGraph
 
                     if (!isLast)
                     {
-                        var newBlock = new Block() { Id = cfg._nextId++ };
-                        cfg.Blocks.Add(newBlock);
+                        var newBlock = new Block() { Id = graph._nextId++ };
+                        graph.Blocks.Add(newBlock);
 
                         if (instruction.OpCode == OpCode.ConditionalJump)
                             AddDirectedEdge(currentBlock, newBlock);
@@ -74,7 +74,7 @@ public class ControlFlowGraph
                     }
                     else
                     {
-                        AddDirectedEdge(currentBlock, cfg.ExitBlock);
+                        AddDirectedEdge(currentBlock, graph.ExitBlock);
 
                         if (instruction.OpCode == OpCode.Jump)
                             currentBlock.IsDirty = true;
@@ -83,20 +83,36 @@ public class ControlFlowGraph
                     break;
 
                 case OpCode.Return:
+                    currentBlock.AddInstruction(instruction);
+
+                    if (!isLast)
+                    {
+                        var newBlock = new Block() { Id = graph._nextId++ };
+                        graph.Blocks.Add(newBlock);
+                        AddDirectedEdge(currentBlock, graph.ExitBlock);
+                        currentBlock = newBlock;
+                    }
+                    else
+                    {
+                        AddDirectedEdge(currentBlock, graph.ExitBlock);
+                    }
+
+                    break;
+
                 case OpCode.Call:
                 case OpCode.Unknown:
                     currentBlock.AddInstruction(instruction);
 
                     if (!isLast)
                     {
-                        var newBlock = new Block() { Id = cfg._nextId++ };
-                        cfg.Blocks.Add(newBlock);
+                        var newBlock = new Block() { Id = graph._nextId++ };
+                        graph.Blocks.Add(newBlock);
                         AddDirectedEdge(currentBlock, newBlock);
                         currentBlock = newBlock;
                     }
                     else
                     {
-                        AddDirectedEdge(currentBlock, cfg.ExitBlock);
+                        AddDirectedEdge(currentBlock, graph.ExitBlock);
                     }
 
                     break;
@@ -107,15 +123,24 @@ public class ControlFlowGraph
             }
         }
 
-        for (var i = 0; i < cfg.Blocks.Count; i++)
+        for (var i = 0; i < graph.Blocks.Count; i++)
         {
-            var block = cfg.Blocks[i];
+            var block = graph.Blocks[i];
 
             if (block.IsDirty)
-                cfg.SplitTargetBlock(block);
+                graph.SplitTargetBlock(block);
         }
 
-        return cfg;
+        foreach (var block in graph.Blocks)
+        {
+            foreach (var instruction in block.Instructions)
+            {
+                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTarget target)
+                    target.Block = graph.GetBlockByInstruction(target.Instruction);
+            }
+        }
+
+        return graph;
     }
 
     /// <summary>
@@ -150,40 +175,6 @@ public class ControlFlowGraph
             // Remove the merged block
             Blocks.RemoveAt(i + 1);
             i--;
-        }
-    }
-
-    /// <summary>
-    /// Removes all nop instructions from the graph.
-    /// </summary>
-    public void RemoveNops()
-    {
-        var visited = new HashSet<Block>();
-        var queue = new Queue<Block>();
-
-        queue.Enqueue(EntryBlock);
-        visited.Add(EntryBlock);
-
-        while (queue.Count > 0)
-        {
-            var block = queue.Dequeue();
-
-            for (var i = 0; i < block.Instructions.Count; i++)
-            {
-                var instruction = block.Instructions[i];
-
-                if (instruction.OpCode == OpCode.Nop)
-                {
-                    block.Instructions.Remove(instruction);
-                    i--;
-                }
-            }
-
-            foreach (var successor in block.Successors)
-            {
-                if (visited.Add(successor))
-                    queue.Enqueue(successor);
-            }
         }
     }
 

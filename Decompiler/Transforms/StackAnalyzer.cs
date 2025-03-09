@@ -2,35 +2,45 @@
 using Decompiler.ControlFlow;
 using Decompiler.IL;
 
-namespace Decompiler.Stack;
+namespace Decompiler.Transforms;
 
 /// <summary>
 /// Analyzes the stack and replaces it with registers.
 /// Taken from https://github.com/SamboyCoding/Cpp2IL/blob/development-gompo-ast/Cpp2IL.Core/Graphs/Analysis/Stack/StackAnalyzer.cs
 /// </summary>
-public class StackAnalyzer
+public class StackAnalyzer : ITransform
 {
+    [DebuggerDisplay("Size = {Size}")]
     private class StackEntry
     {
         public int Size;
-        public void Push() => Size++;
-        public void Pop() => Size--;
         public StackEntry Copy() => new() { Size = this.Size };
     }
 
     private HashSet<Block> _visited = [];
     private Dictionary<Block, StackEntry> _inComingDelta = [];
+    private Dictionary<Block, StackEntry> _outGoingDelta = [];
     private Dictionary<Instruction, StackEntry> _instructionsState = [];
 
-    private StackAnalyzer() { }
-
-    public static void Analyze(Method method)
+    public void Apply(Method method)
     {
-        var graph = method.ControlFlowGraph;
-        var archSize = method.ArchSize;
+        _visited.Clear();
+        _inComingDelta.Clear();
+        _outGoingDelta.Clear();
+        _instructionsState.Clear();
 
-        var analyzer = new StackAnalyzer { _inComingDelta = { [graph.EntryBlock] = new StackEntry() } };
-        analyzer.TraverseGraph(graph.EntryBlock, archSize, graph);
+        var graph = method.ControlFlowGraph;
+
+        _inComingDelta = new Dictionary<Block, StackEntry>() { { graph.EntryBlock, new StackEntry() } };
+
+        TraverseGraph(graph.EntryBlock, graph, method);
+
+        var outDelta = _outGoingDelta[graph.ExitBlock];
+        if (outDelta.Size != 0)
+        {
+            var outText = outDelta.Size < 0 ? "-" + (-outDelta.Size).ToString("X") : outDelta.Size.ToString("X");
+            method.AddWarning($"Method ends with non empty stack! ({outText})");
+        }
 
         foreach (var block in graph.Blocks)
         {
@@ -54,7 +64,7 @@ public class StackAnalyzer
                     {
                         if (offset.Offset != 0) continue;
 
-                        var currentPos = (analyzer._instructionsState[instruction].Size) * archSize;
+                        var currentPos = _instructionsState[instruction].Size;
                         previous.Operands[1] = new StackOffsetOperand(currentPos);
                     }
                 }
@@ -64,40 +74,30 @@ public class StackAnalyzer
 
             if (!block.IsCall) continue;
 
-            // Sometimes there are unreachable blocks so this could fail because TraverseGraph only visits successors
-            try
+            // Correct offsets for call params
+            var callInstruction = block.Instructions.Last();
+            var stackSize = _instructionsState[callInstruction].Size;
+
+            for (var i = 0; i < callInstruction.Operands.Count; i++)
             {
-                // Correct offsets for call params
-                var callInstruction = block.Instructions.Last();
+                var op = callInstruction.Operands[i];
+                if (op == null) continue;
 
-                var stackSize = analyzer._instructionsState[callInstruction].Size * archSize;
-
-                for (var i = 0; i < callInstruction.Operands.Count; i++)
+                if (op.Type == OperandType.StackOffset)
                 {
-                    var op = callInstruction.Operands[i];
-                    if (op == null) continue;
-
-                    if (op.Type == OperandType.StackOffset)
-                    {
-                        var actual = stackSize - ((StackOffsetOperand)op).Offset;
-                        callInstruction.Operands[i] = new StackOffsetOperand(actual);
-                    }
+                    var actual = stackSize - ((StackOffsetOperand)op).Offset;
+                    callInstruction.Operands[i] = new StackOffsetOperand(actual);
                 }
-            }
-            catch (Exception)
-            {
-                // ignored
             }
         }
 
-        method.RemoveNops();
-        method.MergeCallBlocks();
+        graph.MergeCallBlocks();
 
         ReplaceStackWithRegisters(method);
     }
 
     // Traverse the graph and calculate the stack state for each block and instruction
-    private void TraverseGraph(Block block, int archSize, ControlFlowGraph graph)
+    private void TraverseGraph(Block block, ControlFlowGraph graph, Method method)
     {
         var blockDelta = _inComingDelta[block].Copy();
 
@@ -108,22 +108,21 @@ public class StackAnalyzer
             _instructionsState[instruction] = previous;
 
             if (instruction.OpCode != OpCode.ShiftStack) continue;
-
-            var value = ((IntOperand)instruction.Operands[0]!).Value;
+            var offset = ((IntOperand)instruction.Operands[0]!).Value;
 
             previous = previous.Copy();
 
             // Change stack state
-            for (var i = 0; i < Math.Abs(value / archSize); i++)
-            {
-                if (value < 0)
-                    previous.Push();
-                else
-                    previous.Pop();
-            }
+            previous.Size += offset;
         }
 
         blockDelta = previous;
+
+        // Tail call
+        if (block is { IsCall: true, Successors.Count: 1 } && block.Successors[0] == graph.ExitBlock)
+            blockDelta.Size = 0;
+
+        _outGoingDelta[block] = blockDelta;
 
         // Traverse successors
         foreach (var successor in block.Successors)
@@ -132,10 +131,19 @@ public class StackAnalyzer
             {
                 _inComingDelta[successor] = blockDelta;
                 _visited.Add(successor);
-                TraverseGraph(successor, archSize, graph);
+                TraverseGraph(successor, graph, method);
             }
             else
             {
+                var expectedDelta = _inComingDelta[successor];
+
+                if (expectedDelta.Size != blockDelta.Size)
+                {
+                    var expectedText = expectedDelta.Size < 0 ? "-" + (-expectedDelta.Size).ToString("X") : expectedDelta.Size.ToString("X");
+                    var actualText = blockDelta.Size < 0 ? "-" + (-blockDelta.Size).ToString("X") : blockDelta.Size.ToString("X");
+                    method.AddWarning($"Unbalanced stack! expected: {expectedText}, actual: {actualText}");
+                }
+
                 _inComingDelta[successor] = blockDelta;
             }
         }
@@ -181,8 +189,10 @@ public class StackAnalyzer
                 var operand = instruction.Operands[i];
 
                 if (operand is StackOffsetOperand offset)
-                    instruction.Operands[i] =
-                        new RegisterOperand(offsetToRegister[offset.Offset], $"stack_{offset.Offset:X}");
+                {
+                    var name = offset.Offset < 0 ? "m" + (-offset.Offset).ToString("X") : offset.Offset.ToString("X");
+                    instruction.Operands[i] = new RegisterOperand(offsetToRegister[offset.Offset], $"stack_{name}");
+                }
             }
         }
     }

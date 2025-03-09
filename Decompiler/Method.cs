@@ -7,11 +7,7 @@ namespace Decompiler;
 /// <summary>
 /// A method definition.
 /// </summary>
-public class Method(
-    MethodDefinition definition,
-    List<Instruction>? instructions,
-    List<IOperand> parameters,
-    int archSize)
+public class Method(MethodDefinition definition, List<Instruction>? instructions, List<IOperand> parameters)
 {
     /// <summary>
     /// The method definition.
@@ -22,11 +18,6 @@ public class Method(
     /// Parameter locations.
     /// </summary>
     public List<IOperand> Parameters = parameters;
-
-    /// <summary>
-    /// Architecture size, 4 for 32 bit and 8 for 64 bit.
-    /// </summary>
-    public int ArchSize = archSize;
 
     /// <summary>
     /// The control flow graph.
@@ -52,16 +43,6 @@ public class Method(
         if (!Warnings.Contains(warning))
             Warnings.Add(warning);
     }
-
-    /// <summary>
-    /// Removes all nop instructions.
-    /// </summary>
-    public void RemoveNops() => ControlFlowGraph.RemoveNops();
-
-    /// <summary>
-    /// Initially blocks are split by calls, this merges those blocks.
-    /// </summary>
-    public void MergeCallBlocks() => ControlFlowGraph.MergeCallBlocks();
 
     public override string ToString() => Definition.Name!;
 }
