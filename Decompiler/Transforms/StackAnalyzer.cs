@@ -20,30 +20,16 @@ public class StackAnalyzer : ITransform
     private HashSet<Block> _visited = [];
     private Dictionary<Block, StackEntry> _inComingDelta = [];
     private Dictionary<Block, StackEntry> _outGoingDelta = [];
-    private Dictionary<Instruction, StackEntry> _instructionsState = [];
+    private Dictionary<Instruction, StackEntry> _instructionState = [];
 
     public void Apply(Method method)
     {
         _visited.Clear();
         _inComingDelta.Clear();
         _outGoingDelta.Clear();
-        _instructionsState.Clear();
+        _instructionState.Clear();
 
         var graph = method.ControlFlowGraph;
-
-        // If something moves value into stack pointer, try to trace back where that value came from
-        foreach (var instruction in method.Instructions)
-        {
-            if (instruction.OpCode != OpCode.Move) continue;
-            if (instruction.Operands[0] is not RegisterOperand { IsStackPointer: true }) continue;
-
-            var src = (RegisterOperand)instruction.Operands[0]!;
-
-            var block = graph.GetBlockByInstruction(instruction)!;
-            var value = TraceRegisterValue(block, block.Instructions.Count, src, 0, 25) ?? new IntOperand(0);
-
-            instruction.Operands[1] = value;
-        }
 
         _inComingDelta = new Dictionary<Block, StackEntry> { { graph.EntryBlock, new StackEntry() } };
 
@@ -74,12 +60,17 @@ public class StackAnalyzer : ITransform
                     instruction.Operands = [];
 
                     // Correct stack offset for previous move instruction if it matches (push/pop combo)
-                    if (previous is { OpCode: OpCode.Move } && previous.Operands[0] is StackOffsetOperand offset)
+                    if (previous is { OpCode: OpCode.Move })
                     {
-                        if (offset.Offset != 0) continue;
+                        var operandIndex = 0;
 
-                        var currentPos = _instructionsState[instruction].Size;
-                        previous.Operands[0] = new StackOffsetOperand(currentPos);
+                        if (previous.Operands[0] is StackOffsetOperand offset)
+                            operandIndex = 0;
+                        if (previous.Operands[1] is StackOffsetOperand offset2)
+                            operandIndex = 1;
+
+                        var actualOffset = _instructionState[instruction].Size;
+                        previous.Operands[operandIndex] = new StackOffsetOperand(actualOffset);
                     }
                 }
 
@@ -90,7 +81,7 @@ public class StackAnalyzer : ITransform
 
             // Correct offsets for call params
             var callInstruction = block.Instructions.Last();
-            var stackSize = _instructionsState[callInstruction].Size;
+            var stackSize = _instructionState[callInstruction].Size;
 
             for (var i = 0; i < callInstruction.Operands.Count; i++)
             {
@@ -109,47 +100,6 @@ public class StackAnalyzer : ITransform
         graph.RemoveNops();
     }
 
-    private static IOperand? TraceRegisterValue(Block block, int index, IOperand register, int depth, int maxDepth)
-    {
-        if (depth > maxDepth)
-            return null;
-
-        for (var i = index - 1; i >= 0; i--)
-        {
-            var instruction = block.Instructions[i];
-
-            if (instruction.OpCode == OpCode.Move)
-            {
-                var dest = instruction.Operands[1];
-                var src = instruction.Operands[0];
-
-                if (src != null && dest != null && dest.Equals(register))
-                {
-                    // Constant
-                    if (src.Type is OperandType.Int or OperandType.Long or OperandType.Ulong)
-                        return src;
-
-                    // Go back further
-                    if (src.Type is OperandType.Register)
-                        return TraceRegisterValue(block, i, src, depth + 1, maxDepth);
-
-                    return null;
-                }
-            }
-        }
-
-        // Try to get it from predecessors
-        foreach (var pred in block.Predecessors)
-        {
-            var value = TraceRegisterValue(pred, pred.Instructions.Count, register, depth + 1, maxDepth);
-            if (value != null)
-                return value;
-        }
-
-        return null;
-    }
-
-
     // Traverse the graph and calculate the stack state for each block and instruction
     private void TraverseGraph(Block block, ControlFlowGraph graph, Method method)
     {
@@ -159,7 +109,7 @@ public class StackAnalyzer : ITransform
 
         foreach (var instruction in block.Instructions)
         {
-            _instructionsState[instruction] = previous;
+            _instructionState[instruction] = previous;
 
             if (instruction.OpCode == OpCode.ShiftStack)
             {
