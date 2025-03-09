@@ -31,6 +31,20 @@ public class StackAnalyzer : ITransform
 
         var graph = method.ControlFlowGraph;
 
+        // If something moves value into stack pointer, try to trace back where that value came from
+        foreach (var instruction in method.Instructions)
+        {
+            if (instruction.OpCode != OpCode.Move) continue;
+            if (instruction.Operands[0] is not RegisterOperand { IsStackPointer: true }) continue;
+
+            var src = (RegisterOperand)instruction.Operands[0]!;
+
+            var block = graph.GetBlockByInstruction(instruction)!;
+            var value = TraceRegisterValue(block, block.Instructions.Count, src, 0, 25) ?? new IntOperand(0);
+
+            instruction.Operands[1] = value;
+        }
+
         _inComingDelta = new Dictionary<Block, StackEntry> { { graph.EntryBlock, new StackEntry() } };
 
         TraverseGraph(graph.EntryBlock, graph, method);
@@ -93,9 +107,48 @@ public class StackAnalyzer : ITransform
 
         graph.MergeCallBlocks();
         graph.RemoveNops();
-
-        ReplaceStackWithRegisters(method);
     }
+
+    private static IOperand? TraceRegisterValue(Block block, int index, IOperand register, int depth, int maxDepth)
+    {
+        if (depth > maxDepth)
+            return null;
+
+        for (var i = index - 1; i >= 0; i--)
+        {
+            var instruction = block.Instructions[i];
+
+            if (instruction.OpCode == OpCode.Move)
+            {
+                var dest = instruction.Operands[1];
+                var src = instruction.Operands[0];
+
+                if (src != null && dest != null && dest.Equals(register))
+                {
+                    // Constant
+                    if (src.Type is OperandType.Int or OperandType.Long or OperandType.Ulong)
+                        return src;
+
+                    // Go back further
+                    if (src.Type is OperandType.Register)
+                        return TraceRegisterValue(block, i, src, depth + 1, maxDepth);
+
+                    return null;
+                }
+            }
+        }
+
+        // Try to get it from predecessors
+        foreach (var pred in block.Predecessors)
+        {
+            var value = TraceRegisterValue(pred, pred.Instructions.Count, register, depth + 1, maxDepth);
+            if (value != null)
+                return value;
+        }
+
+        return null;
+    }
+
 
     // Traverse the graph and calculate the stack state for each block and instruction
     private void TraverseGraph(Block block, ControlFlowGraph graph, Method method)
@@ -155,54 +208,6 @@ public class StackAnalyzer : ITransform
                 }
 
                 _inComingDelta[successor] = blockDelta;
-            }
-        }
-    }
-
-    private static void ReplaceStackWithRegisters(Method method)
-    {
-        // Get all offsets without duplicates
-        var offsets = new List<int>();
-        foreach (var operand in method.Instructions.SelectMany(instruction => instruction.Operands))
-        {
-            if (operand is StackOffsetOperand offset)
-            {
-                if (!offsets.Contains(offset.Offset))
-                    offsets.Add(offset.Offset);
-            }
-        }
-
-        // Get max register number
-        var maxRegisterNumber = 0;
-        foreach (var operand in method.Instructions.SelectMany(instruction => instruction.Operands))
-        {
-            if (operand is RegisterOperand register)
-            {
-                if (register.Number > maxRegisterNumber)
-                    maxRegisterNumber = register.Number;
-            }
-        }
-
-        // Map offsets to registers
-        var offsetToRegister = new Dictionary<int, int>();
-        for (var i = 0; i < offsets.Count; i++)
-        {
-            var offset = offsets[i];
-            offsetToRegister.Add(offset, maxRegisterNumber + i + 1);
-        }
-
-        // Replace stack offset operands
-        foreach (var instruction in method.Instructions)
-        {
-            for (var i = 0; i < instruction.Operands.Count; i++)
-            {
-                var operand = instruction.Operands[i];
-
-                if (operand is StackOffsetOperand offset)
-                {
-                    var name = offset.Offset < 0 ? "m" + (-offset.Offset).ToString("X") : offset.Offset.ToString("X");
-                    instruction.Operands[i] = new RegisterOperand(offsetToRegister[offset.Offset], $"stack_{name}");
-                }
             }
         }
     }

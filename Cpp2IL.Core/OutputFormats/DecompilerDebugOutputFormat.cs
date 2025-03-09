@@ -531,8 +531,9 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     _registerNumbers[register.RegisterName] = _registerNumbers.Count;
 
                 var number = _registerNumbers[register.RegisterName];
+                var isStackPointer = register.RegisterName is "sp" or "esp" or "rsp";
 
-                return new RegisterOperand(number, register.RegisterName);
+                return new RegisterOperand(number, register.RegisterName, isStackPointer);
             }
             case IsilMemoryOperand memory:
                 IOperand? newOperand = null;

@@ -319,7 +319,7 @@ public class ControlFlowGraph
         block.IsDirty = false;
     }
 
-    private Block? GetBlockByInstruction(Instruction instruction)
+    public Block? GetBlockByInstruction(Instruction instruction)
     {
         foreach (var block in Blocks)
         {
