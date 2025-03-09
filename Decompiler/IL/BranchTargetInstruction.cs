@@ -3,21 +3,16 @@
 namespace Decompiler.IL;
 
 /// <summary>
-/// Branch target operand.
+/// Branch target instruction operand.
 /// </summary>
-public class BranchTarget(Instruction instruction) : IOperand
+public class BranchTargetInstruction(Instruction instruction) : IOperand
 {
-    public OperandType Type => OperandType.BranchTarget;
+    public OperandType Type => OperandType.BranchTargetInstruction;
 
     /// <summary>
     /// The target instruction.
     /// </summary>
     public Instruction Instruction = instruction;
-
-    /// <summary>
-    /// The target block.
-    /// </summary>
-    public Block? Block;
 
     public override string ToString() => $"@{Instruction}";
 }

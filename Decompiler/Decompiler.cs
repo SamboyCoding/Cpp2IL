@@ -16,8 +16,7 @@ public class Decompiler
     public List<ITransform> Transforms =
     [
         new RemoveUnreachableBlocks(),
-        new StackAnalyzer(),
-        new FixTailCall()
+        new StackAnalyzer()
     ];
 
     /// <summary>

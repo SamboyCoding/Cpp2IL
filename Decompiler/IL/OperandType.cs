@@ -26,9 +26,14 @@ public enum OperandType
     String,
 
     /// <summary>
-    /// Branch target (code).
+    /// Branch target instruction (code).
     /// </summary>
-    BranchTarget,
+    BranchTargetInstruction,
+
+    /// <summary>
+    /// Branch target block (code).
+    /// </summary>
+    BranchTargetBlock,
 
     /// <summary>
     /// A register.
@@ -53,10 +58,5 @@ public enum OperandType
     /// <summary>
     /// Nested instruction.
     /// </summary>
-    Instruction,
-
-    /// <summary>
-    /// Memory location.
-    /// </summary>
-    Memory
+    Instruction
 }

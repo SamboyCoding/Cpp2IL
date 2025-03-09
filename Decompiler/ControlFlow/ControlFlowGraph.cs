@@ -143,8 +143,8 @@ public class ControlFlowGraph
         {
             foreach (var instruction in block.Instructions)
             {
-                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTarget target)
-                    target.Block = graph.GetBlockByInstruction(target.Instruction);
+                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTargetInstruction target)
+                    instruction.Operands[0] = new BranchTargetBlock(graph.GetBlockByInstruction(target.Instruction)!);
             }
         }
 
@@ -210,6 +210,73 @@ public class ControlFlowGraph
         }
     }
 
+    /// <summary>
+    /// Removes all nop instructions from the graph.
+    /// </summary>
+    public void RemoveNops()
+    {
+        var visited = new HashSet<Block>();
+        var queue = new Queue<Block>();
+
+        queue.Enqueue(EntryBlock);
+        visited.Add(EntryBlock);
+
+        while (queue.Count > 0)
+        {
+            var block = queue.Dequeue();
+
+            for (var i = 0; i < block.Instructions.Count; i++)
+            {
+                var instruction = block.Instructions[i];
+                if (instruction.OpCode != OpCode.Nop) continue;
+                block.Instructions.RemoveAt(i);
+                i--;
+            }
+
+            foreach (var successor in block.Successors)
+            {
+                if (visited.Add(successor))
+                    queue.Enqueue(successor);
+            }
+        }
+
+        RemoveEmptyBlocks();
+    }
+
+    /// <summary>
+    /// Removes all blocks that don't have any instructions.
+    /// </summary>
+    public void RemoveEmptyBlocks()
+    {
+        var emptyBlocks = Blocks.Where(b => b.Instructions.Count == 0).ToList();
+
+        foreach (var block in emptyBlocks)
+        {
+            if (block == EntryBlock || block == ExitBlock)
+                continue;
+
+            foreach (var pred in block.Predecessors)
+            {
+                pred.Successors.Remove(block);
+                pred.Successors.AddRange(block.Successors);
+            }
+
+            foreach (var succ in block.Successors)
+            {
+                succ.Predecessors.Remove(block);
+                succ.Predecessors.AddRange(block.Predecessors);
+            }
+
+            Blocks.Remove(block);
+        }
+
+        foreach (var block in Blocks)
+        {
+            block.Successors = block.Successors.Distinct().ToList();
+            block.Predecessors = block.Predecessors.Distinct().ToList();
+        }
+    }
+
     private List<Instruction> GetAllInstructions()
     {
         var instructions = new List<Instruction>();
@@ -241,7 +308,7 @@ public class ControlFlowGraph
 
         // Get the branch target block
         var branch = block.Instructions.Last();
-        var target = (BranchTarget)branch.Operands[0]!;
+        var target = (BranchTargetInstruction)branch.Operands[0]!;
         var targetBlock = GetBlockByInstruction(target.Instruction);
 
         // Split it at the target instruction

@@ -92,6 +92,7 @@ public class StackAnalyzer : ITransform
         }
 
         graph.MergeCallBlocks();
+        graph.RemoveNops();
 
         ReplaceStackWithRegisters(method);
     }

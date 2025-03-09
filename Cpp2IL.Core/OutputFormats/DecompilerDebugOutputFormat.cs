@@ -94,6 +94,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
 
             var method = new Method(methodDefinition, decompilerIl, decompilerParams);
+            method.ControlFlowGraph.RemoveNops();
             _decompiler.Decompile(method);
 
             var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
@@ -475,7 +476,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 // try because it could be a tail call or something weird
                 try
                 {
-                    instruction.Operands[0] = new BranchTarget(addressMap.First(i => i.Item1 == target.Address).Item2);
+                    instruction.Operands[0] = new BranchTargetInstruction(addressMap.First(i => i.Item1 == target.Address).Item2);
                 }
                 catch (Exception e)
                 {

@@ -25,7 +25,7 @@ public class Method(MethodDefinition definition, List<Instruction>? instructions
     public ControlFlowGraph ControlFlowGraph = ControlFlowGraph.Build(instructions ?? []);
 
     /// <summary>
-    /// All instructions.
+    /// Gets all instructions from the control flow graph.
     /// </summary>
     public List<Instruction> Instructions => ControlFlowGraph.AllInstructions;
 
