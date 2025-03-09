@@ -178,6 +178,46 @@ public class ControlFlowGraph
         }
     }
 
+    /// <summary>
+    /// Removes all nop instructions from the graph.
+    /// </summary>
+    public void RemoveNops()
+    {
+        // Set target blocks
+        foreach (var block in Blocks)
+        {
+            foreach (var instruction in block.Instructions)
+            {
+                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTarget target)
+                    target.Block = GetBlockByInstruction(target.Instruction);
+            }
+        }
+
+        // Remove nops
+        foreach (var block in Blocks)
+        {
+            for (var i = 0; i < block.Instructions.Count; i++)
+            {
+                var instruction = block.Instructions[i];
+                if (instruction.OpCode == OpCode.Nop)
+                {
+                    block.Instructions.RemoveAt(i);
+                    i--;
+                }
+            }
+        }
+
+        // Set target instructions
+        foreach (var block in Blocks)
+        {
+            foreach (var instruction in block.Instructions)
+            {
+                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTarget target)
+                    target.Instruction = target.Block!.Instructions[0];
+            }
+        }
+    }
+
     private List<Instruction> GetAllInstructions()
     {
         var instructions = new List<Instruction>();
