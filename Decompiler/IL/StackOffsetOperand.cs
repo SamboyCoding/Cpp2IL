@@ -12,5 +12,5 @@ public struct StackOffsetOperand(int offset) : IOperand
     /// </summary>
     public int Offset = offset;
 
-    public override string ToString() => $"stack[{Offset:X}]";
+    public override string ToString() => $"stack[{(Offset < 0 ? ("-" + (-Offset).ToString("X")) : Offset.ToString("X"))}]";
 }

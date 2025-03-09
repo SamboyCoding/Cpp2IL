@@ -21,6 +21,7 @@ namespace Cpp2IL.Core.OutputFormats;
 public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 {
     private AssemblyDefinition? MostRecentCorLib { get; set; }
+    public bool NoParallel = false;
 
     public sealed override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
@@ -96,7 +97,16 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.AddExplicitInterfaceImplementations);
-        MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
+
+        if (NoParallel)
+        {
+            foreach (var assembly in context.Assemblies)
+                FillMethodBodies(assembly);
+        }
+        else
+        {
+            MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
+        }
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 

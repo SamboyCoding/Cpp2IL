@@ -31,7 +31,7 @@ public class StackAnalyzer : ITransform
 
         var graph = method.ControlFlowGraph;
 
-        _inComingDelta = new Dictionary<Block, StackEntry>() { { graph.EntryBlock, new StackEntry() } };
+        _inComingDelta = new Dictionary<Block, StackEntry> { { graph.EntryBlock, new StackEntry() } };
 
         TraverseGraph(graph.EntryBlock, graph, method);
 
@@ -39,7 +39,7 @@ public class StackAnalyzer : ITransform
         if (outDelta.Size != 0)
         {
             var outText = outDelta.Size < 0 ? "-" + (-outDelta.Size).ToString("X") : outDelta.Size.ToString("X");
-            method.AddWarning($"Method ends with non empty stack! ({outText})");
+            method.AddWarning($"Method ends with non empty stack, the output will probably be wrong! ({outText})");
         }
 
         foreach (var block in graph.Blocks)
@@ -65,7 +65,7 @@ public class StackAnalyzer : ITransform
                         if (offset.Offset != 0) continue;
 
                         var currentPos = _instructionsState[instruction].Size;
-                        previous.Operands[1] = new StackOffsetOperand(currentPos);
+                        previous.Operands[0] = new StackOffsetOperand(currentPos);
                     }
                 }
 
@@ -92,7 +92,6 @@ public class StackAnalyzer : ITransform
         }
 
         graph.MergeCallBlocks();
-        graph.RemoveNops();
 
         ReplaceStackWithRegisters(method);
     }
@@ -108,19 +107,28 @@ public class StackAnalyzer : ITransform
         {
             _instructionsState[instruction] = previous;
 
-            if (instruction.OpCode != OpCode.ShiftStack) continue;
-            var offset = ((IntOperand)instruction.Operands[0]!).Value;
+            if (instruction.OpCode == OpCode.ShiftStack)
+            {
+                var offset = ((IntOperand)instruction.Operands[0]!).Value;
 
-            previous = previous.Copy();
+                previous = previous.Copy();
 
-            // Change stack state
-            previous.Size += offset;
+                // Change stack state
+                previous.Size += offset;
+            }
+            else if (instruction.OpCode == OpCode.TailCall)
+            {
+                previous = previous.Copy();
+
+                // Tail calls clear stack
+                previous.Size = 0;
+            }
         }
 
         blockDelta = previous;
 
-        // Tail call
-        if (block is { IsCall: true, Successors.Count: 1 } && block.Successors[0] == graph.ExitBlock)
+        // Tail calls clear stack
+        if (block.IsTailCall)
             blockDelta.Size = 0;
 
         _outGoingDelta[block] = blockDelta;
@@ -142,7 +150,7 @@ public class StackAnalyzer : ITransform
                 {
                     var expectedText = expectedDelta.Size < 0 ? "-" + (-expectedDelta.Size).ToString("X") : expectedDelta.Size.ToString("X");
                     var actualText = blockDelta.Size < 0 ? "-" + (-blockDelta.Size).ToString("X") : blockDelta.Size.ToString("X");
-                    method.AddWarning($"Unbalanced stack! expected: {expectedText}, actual: {actualText}");
+                    method.AddWarning($"Unbalanced stack, the output will probably be wrong! expected: {expectedText}, actual: {actualText}");
                 }
 
                 _inComingDelta[successor] = blockDelta;

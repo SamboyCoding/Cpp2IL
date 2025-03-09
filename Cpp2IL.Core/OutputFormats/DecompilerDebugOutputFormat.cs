@@ -65,6 +65,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
     public override void OnOutputFormatSelected()
     {
         base.OnOutputFormatSelected();
+        NoParallel = true; // parallel makes it fail often
 
         _carryFlag = TranslateOperand(IsilCarryFlag);
         _overflowFlag = TranslateOperand(IsilOverflowFlag);
@@ -103,6 +104,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         catch (Exception e)
         {
             Decompiler.Decompiler.ReplaceBodyWithException(methodDefinition, "Decompilation failed: " + e);
+            Logger.ErrorNewline(e.ToString());
         }
     }
 
@@ -176,8 +178,10 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         var instructions = new List<Instruction>();
         var appContext = methodContext.AppContext;
 
-        foreach (var instruction in isil)
+        for (var i = 0; i < isil.Count; i++)
         {
+            var instruction = isil[i];
+
             // when it's memory, write should be used instead of move
             var moveOp = OpCode.Nop;
             if (instruction.Operands.Length > 0)
@@ -210,6 +214,15 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                             instruction);
                         break;
                     }
+
+                    // If it's last instruction then it's tail call
+                    var isTailCall = i == isil.Count - 1;
+
+                    // Call -> interrupt
+                    if (!isTailCall)
+                        isTailCall = isil[i + 1].OpCode.Mnemonic == IsilMnemonic.Interrupt;
+
+                    opCode = isTailCall ? OpCode.TailCall : OpCode.Call;
 
                     var address = ((ulong)((IsilImmediateOperand)instruction.Operands[0].Data).Value);
                     MethodAnalysisContext? calledMethod = null;
@@ -245,7 +258,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                             .Concat(operands.Skip(isVoid2 ? 1 : 2))
                             .ToArray();
 
-                        Add(new Instruction(-1, OpCode.Call, callParams2), instruction);
+                        Add(new Instruction(-1, opCode, callParams2), instruction);
                         break;
                     }
 
@@ -256,7 +269,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                         .Concat(operands.Skip(isVoid ? 1 : 2))
                         .ToArray();
 
-                    Add(new Instruction(-1, OpCode.Call, callParams), instruction);
+                    Add(new Instruction(-1, opCode, callParams), instruction);
                     break;
 
                 case IsilMnemonic.Exchange:

@@ -100,6 +100,7 @@ public class ControlFlowGraph
                     break;
 
                 case OpCode.Call:
+                case OpCode.TailCall:
                 case OpCode.Unknown:
                     currentBlock.AddInstruction(instruction);
 
@@ -107,7 +108,12 @@ public class ControlFlowGraph
                     {
                         var newBlock = new Block() { Id = graph._nextId++ };
                         graph.Blocks.Add(newBlock);
-                        AddDirectedEdge(currentBlock, newBlock);
+
+                        if (instruction.OpCode == OpCode.TailCall)
+                            AddDirectedEdge(currentBlock, graph.ExitBlock);
+                        else
+                            AddDirectedEdge(currentBlock, newBlock);
+
                         currentBlock = newBlock;
                     }
                     else
@@ -131,6 +137,8 @@ public class ControlFlowGraph
                 graph.SplitTargetBlock(block);
         }
 
+        graph.ConnectBlocksWithoutSuccessorsToExit();
+
         foreach (var block in graph.Blocks)
         {
             foreach (var instruction in block.Instructions)
@@ -141,6 +149,30 @@ public class ControlFlowGraph
         }
 
         return graph;
+    }
+
+    // I don't know why this even happens
+    private void ConnectBlocksWithoutSuccessorsToExit()
+    {
+        var visited = new HashSet<Block>();
+        var queue = new Queue<Block>();
+
+        queue.Enqueue(EntryBlock);
+        visited.Add(EntryBlock);
+
+        while (queue.Count > 0)
+        {
+            var block = queue.Dequeue();
+
+            if (block.Successors.Count == 0 && block != EntryBlock && block != ExitBlock)
+                AddDirectedEdge(block, ExitBlock);
+
+            foreach (var successor in block.Successors)
+            {
+                if (visited.Add(successor))
+                    queue.Enqueue(successor);
+            }
+        }
     }
 
     /// <summary>
@@ -175,46 +207,6 @@ public class ControlFlowGraph
             // Remove the merged block
             Blocks.RemoveAt(i + 1);
             i--;
-        }
-    }
-
-    /// <summary>
-    /// Removes all nop instructions from the graph.
-    /// </summary>
-    public void RemoveNops()
-    {
-        // Set target blocks
-        foreach (var block in Blocks)
-        {
-            foreach (var instruction in block.Instructions)
-            {
-                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTarget target)
-                    target.Block = GetBlockByInstruction(target.Instruction);
-            }
-        }
-
-        // Remove nops
-        foreach (var block in Blocks)
-        {
-            for (var i = 0; i < block.Instructions.Count; i++)
-            {
-                var instruction = block.Instructions[i];
-                if (instruction.OpCode == OpCode.Nop)
-                {
-                    block.Instructions.RemoveAt(i);
-                    i--;
-                }
-            }
-        }
-
-        // Set target instructions
-        foreach (var block in Blocks)
-        {
-            foreach (var instruction in block.Instructions)
-            {
-                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTarget target)
-                    target.Instruction = target.Block!.Instructions[0];
-            }
         }
     }
 

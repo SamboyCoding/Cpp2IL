@@ -46,6 +46,11 @@ public class Block
     public bool IsCall => Instructions.Count != 0 && Instructions.Last().OpCode == OpCode.Call;
 
     /// <summary>
+    /// Is the last instruction tail call?
+    /// </summary>
+    public bool IsTailCall => Instructions.Count != 0 && Instructions.Last().OpCode == OpCode.TailCall;
+
+    /// <summary>
     /// Adds an instruction to the block.
     /// </summary>
     /// <param name="instruction">The instruction.</param>

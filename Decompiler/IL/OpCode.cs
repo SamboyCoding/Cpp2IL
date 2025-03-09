@@ -13,6 +13,7 @@ public enum OpCode
     Read,
 
     Call,
+    TailCall,
     Return,
 
     Jump,
