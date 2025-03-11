@@ -41,6 +41,8 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
     public static int SuccessCount;
     public static int TotalCount;
 
+    private int _maxInstructionCount = 3000;
+
     private static bool _dontActuallyWriteFiles = false;
 
     private static readonly InstructionSetIndependentOperand IsilCarryFlag = InstructionSetIndependentOperand.MakeRegister("cf");
@@ -84,10 +86,18 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         _module = methodDefinition.Module!;
 
         Interlocked.Increment(ref TotalCount);
+        Logger.InfoNewline($"Decompiling {methodContext.FullName}...", "Decompiler Debug");
 
         try
         {
             var isil = methodContext.AppContext.InstructionSet.GetIsilFromMethod(methodContext);
+
+            if (isil.Count > _maxInstructionCount)
+            {
+                Logger.WarnNewline($"Too many instructions in {methodContext.FullName} ({isil.Count}), skipping", "Decompiler Debug");
+                return;
+            }
+
             var decompilerIl = TranslateIsilToDecompilerIl(isil, methodDefinition, methodContext);
 
             var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
@@ -105,7 +115,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         catch (Exception e)
         {
             Decompiler.Decompiler.ReplaceBodyWithException(methodDefinition, "Decompilation failed: " + e);
-            Logger.ErrorNewline(e.ToString());
+            Logger.ErrorNewline(e.ToString(), "Decompiler Debug");
         }
     }
 
@@ -531,9 +541,8 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     _registerNumbers[register.RegisterName] = _registerNumbers.Count;
 
                 var number = _registerNumbers[register.RegisterName];
-                var isStackPointer = register.RegisterName is "sp" or "esp" or "rsp";
 
-                return new RegisterOperand(number, register.RegisterName, isStackPointer);
+                return new RegisterOperand(number, register.RegisterName);
             }
             case IsilMemoryOperand memory:
                 IOperand? newOperand = null;

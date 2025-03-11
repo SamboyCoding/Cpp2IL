@@ -5,159 +5,142 @@ using Decompiler.IL;
 namespace Decompiler.Transforms;
 
 /// <summary>
-/// Analyzes the stack and replaces it with registers.
-/// Taken from https://github.com/SamboyCoding/Cpp2IL/blob/development-gompo-ast/Cpp2IL.Core/Graphs/Analysis/Stack/StackAnalyzer.cs
+/// Analyzes the stack and removes shift stack instructions.
 /// </summary>
 public class StackAnalyzer : ITransform
 {
     [DebuggerDisplay("Size = {Size}")]
-    private class StackEntry
+    private class StackState
     {
         public int Size;
-        public StackEntry Copy() => new() { Size = this.Size };
+        public StackState Copy() => new() { Size = this.Size };
     }
 
-    private HashSet<Block> _visited = [];
-    private Dictionary<Block, StackEntry> _inComingDelta = [];
-    private Dictionary<Block, StackEntry> _outGoingDelta = [];
-    private Dictionary<Instruction, StackEntry> _instructionState = [];
+    private Dictionary<Block, StackState> _inComingState = [];
+    private Dictionary<Block, StackState> _outGoingState = [];
+    private Dictionary<Instruction, StackState> _instructionState = [];
+
+    /// <summary>
+    /// Max allowed count of blocks to visit (-1 for no limit).
+    /// </summary>
+    public int MaxBlockVisitCount = -1;
 
     public void Apply(Method method)
     {
-        _visited.Clear();
-        _inComingDelta.Clear();
-        _outGoingDelta.Clear();
-        _instructionState.Clear();
-
         var graph = method.ControlFlowGraph;
 
-        _inComingDelta = new Dictionary<Block, StackEntry> { { graph.EntryBlock, new StackEntry() } };
+        _inComingState = new Dictionary<Block, StackState> { { graph.EntryBlock, new StackState() } };
+        _outGoingState.Clear();
+        _instructionState.Clear();
 
-        TraverseGraph(graph.EntryBlock, graph, method);
+        TraverseGraph(graph);
 
-        var outDelta = _outGoingDelta[graph.ExitBlock];
+        var outDelta = _outGoingState[graph.ExitBlock];
         if (outDelta.Size != 0)
         {
             var outText = outDelta.Size < 0 ? "-" + (-outDelta.Size).ToString("X") : outDelta.Size.ToString("X");
-            method.AddWarning($"Method ends with non empty stack, the output will probably be wrong! ({outText})");
+            method.AddWarning($"Method ends with non empty stack ({outText}), the output could be wrong!");
         }
 
-        foreach (var block in graph.Blocks)
-        {
-            Instruction? previous = null;
-
-            foreach (var instruction in block.Instructions)
-            {
-                /*
-                 *   Push/Pop
-                 *       ShiftStack -operandSize
-                 *       Move stack[0], operand
-                 */
-                if (instruction.OpCode == OpCode.ShiftStack)
-                {
-                    // Nop the shift stack instruction
-                    instruction.OpCode = OpCode.Nop;
-                    instruction.Operands = [];
-
-                    // Correct stack offset for previous move instruction if it matches (push/pop combo)
-                    if (previous is { OpCode: OpCode.Move })
-                    {
-                        var operandIndex = 0;
-
-                        if (previous.Operands[0] is StackOffsetOperand offset)
-                            operandIndex = 0;
-                        if (previous.Operands[1] is StackOffsetOperand offset2)
-                            operandIndex = 1;
-
-                        var actualOffset = _instructionState[instruction].Size;
-                        previous.Operands[operandIndex] = new StackOffsetOperand(actualOffset);
-                    }
-                }
-
-                previous = instruction;
-            }
-
-            if (!block.IsCall) continue;
-
-            // Correct offsets for call params
-            var callInstruction = block.Instructions.Last();
-            var stackSize = _instructionState[callInstruction].Size;
-
-            for (var i = 0; i < callInstruction.Operands.Count; i++)
-            {
-                var op = callInstruction.Operands[i];
-                if (op == null) continue;
-
-                if (op.Type == OperandType.StackOffset)
-                {
-                    var actual = stackSize - ((StackOffsetOperand)op).Offset;
-                    callInstruction.Operands[i] = new StackOffsetOperand(actual);
-                }
-            }
-        }
+        CorrectOffsets(graph);
 
         graph.MergeCallBlocks();
         graph.RemoveNops();
     }
 
-    // Traverse the graph and calculate the stack state for each block and instruction
-    private void TraverseGraph(Block block, ControlFlowGraph graph, Method method)
+    private void CorrectOffsets(ControlFlowGraph graph)
     {
-        var blockDelta = _inComingDelta[block].Copy();
-
-        var previous = blockDelta;
-
-        foreach (var instruction in block.Instructions)
+        foreach (var block in graph.Blocks)
         {
-            _instructionState[instruction] = previous;
-
-            if (instruction.OpCode == OpCode.ShiftStack)
+            foreach (var instruction in block.Instructions)
             {
-                var offset = ((IntOperand)instruction.Operands[0]!).Value;
-
-                previous = previous.Copy();
-
-                // Change stack state
-                previous.Size += offset;
-            }
-            else if (instruction.OpCode == OpCode.TailCall)
-            {
-                previous = previous.Copy();
-
-                // Tail calls clear stack
-                previous.Size = 0;
-            }
-        }
-
-        blockDelta = previous;
-
-        // Tail calls clear stack
-        if (block.IsTailCall)
-            blockDelta.Size = 0;
-
-        _outGoingDelta[block] = blockDelta;
-
-        // Traverse successors
-        foreach (var successor in block.Successors)
-        {
-            if (!_visited.Contains(successor))
-            {
-                _inComingDelta[successor] = blockDelta;
-                _visited.Add(successor);
-                TraverseGraph(successor, graph, method);
-            }
-            else
-            {
-                var expectedDelta = _inComingDelta[successor];
-
-                if (expectedDelta.Size != blockDelta.Size)
+                if (instruction is { OpCode: OpCode.ShiftStack })
                 {
-                    var expectedText = expectedDelta.Size < 0 ? "-" + (-expectedDelta.Size).ToString("X") : expectedDelta.Size.ToString("X");
-                    var actualText = blockDelta.Size < 0 ? "-" + (-blockDelta.Size).ToString("X") : blockDelta.Size.ToString("X");
-                    method.AddWarning($"Unbalanced stack, the output will probably be wrong! expected: {expectedText}, actual: {actualText}");
+                    // Nop the shift stack instruction
+                    instruction.OpCode = OpCode.Nop;
+                    instruction.Operands = [];
                 }
 
-                _inComingDelta[successor] = blockDelta;
+                // Correct offset for stack operands.
+                for (var i = 0; i < instruction.Operands.Count; i++)
+                {
+                    var op = instruction.Operands[i];
+                    if (op == null) continue;
+
+                    if (op.Type != OperandType.StackOffset) continue;
+
+                    var state = _instructionState[instruction].Size;
+                    var actual = state + ((StackOffsetOperand)op).Offset;
+                    instruction.Operands[i] = new StackOffsetOperand(actual);
+                }
+            }
+        }
+    }
+
+    // Traverse the graph and calculate the stack state for each block and instruction
+    private void TraverseGraph(ControlFlowGraph graph)
+    {
+        var visitedBlockCount = 0;
+
+        var workList = new Queue<Block>();
+        workList.Enqueue(graph.EntryBlock);
+
+        while (workList.Count > 0)
+        {
+            var block = workList.Dequeue();
+
+            // Copy current state
+            var incomingState = _inComingState[block];
+            var currentState = incomingState.Copy();
+
+            // Process instructions
+            foreach (var instruction in block.Instructions)
+            {
+                _instructionState[instruction] = currentState;
+
+                if (instruction.OpCode == OpCode.ShiftStack)
+                {
+                    var offset = ((IntOperand)instruction.Operands[0]!).Value;
+                    currentState = currentState.Copy();
+                    currentState.Size += offset;
+                }
+                else if (instruction.OpCode == OpCode.TailCall)
+                {
+                    // Tail calls clear stack
+                    currentState = currentState.Copy();
+                    currentState.Size = 0;
+                }
+            }
+
+            // Tail calls clear stack
+            if (block.IsTailCall)
+                currentState.Size = 0;
+
+            _outGoingState[block] = currentState;
+
+            visitedBlockCount++;
+
+            if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
+                throw new Exception($"Too many blocks visited! (max: {MaxBlockVisitCount})");
+
+            // Visit successors
+            foreach (var successor in block.Successors)
+            {
+                // Already visited
+                if (_inComingState.TryGetValue(successor, out var existingState))
+                {
+                    if (existingState.Size != currentState.Size)
+                    {
+                        _inComingState[successor] = currentState.Copy();
+                        workList.Enqueue(successor);
+                    }
+                }
+                else
+                {
+                    // Set incoming delta and add to queue
+                    _inComingState[successor] = currentState.Copy();
+                    workList.Enqueue(successor);
+                }
             }
         }
     }

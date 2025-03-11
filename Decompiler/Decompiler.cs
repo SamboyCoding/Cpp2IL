@@ -16,7 +16,7 @@ public class Decompiler
     public List<ITransform> Transforms =
     [
         new RemoveUnreachableBlocks(),
-        new StackAnalyzer()
+        new StackAnalyzer() { MaxBlockVisitCount = 3000 }
     ];
 
     /// <summary>
