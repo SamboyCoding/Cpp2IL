@@ -5,7 +5,7 @@ using Decompiler.IL;
 namespace Decompiler.Transforms;
 
 /// <summary>
-/// Analyzes the stack and removes shift stack instructions.
+/// Analyzes the stack and replaces it with registers.
 /// </summary>
 public class StackAnalyzer : ITransform
 {
@@ -43,6 +43,7 @@ public class StackAnalyzer : ITransform
         }
 
         CorrectOffsets(graph);
+        ReplaceStackWithRegisters(method);
 
         graph.MergeCallBlocks();
         graph.RemoveNops();
@@ -121,7 +122,7 @@ public class StackAnalyzer : ITransform
             visitedBlockCount++;
 
             if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-                throw new Exception($"Too many blocks visited! (max: {MaxBlockVisitCount})");
+                throw new Exception($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
 
             // Visit successors
             foreach (var successor in block.Successors)
@@ -140,6 +141,54 @@ public class StackAnalyzer : ITransform
                     // Set incoming delta and add to queue
                     _inComingState[successor] = currentState.Copy();
                     workList.Enqueue(successor);
+                }
+            }
+        }
+    }
+
+    private static void ReplaceStackWithRegisters(Method method)
+    {
+        // Get all offsets without duplicates
+        var offsets = new List<int>();
+        foreach (var operand in method.Instructions.SelectMany(instruction => instruction.Operands))
+        {
+            if (operand is StackOffset offset)
+            {
+                if (!offsets.Contains(offset.Offset))
+                    offsets.Add(offset.Offset);
+            }
+        }
+
+        // Get max register number
+        var maxRegisterNumber = 0;
+        foreach (var operand in method.Instructions.SelectMany(instruction => instruction.Operands))
+        {
+            if (operand is Register register)
+            {
+                if (register.Number > maxRegisterNumber)
+                    maxRegisterNumber = register.Number;
+            }
+        }
+
+        // Map offsets to registers
+        var offsetToRegister = new Dictionary<int, int>();
+        for (var i = 0; i < offsets.Count; i++)
+        {
+            var offset = offsets[i];
+            offsetToRegister.Add(offset, maxRegisterNumber + i + 1);
+        }
+
+        // Replace stack offset operands
+        foreach (var instruction in method.Instructions)
+        {
+            for (var i = 0; i < instruction.Operands.Count; i++)
+            {
+                var operand = instruction.Operands[i];
+
+                if (operand is StackOffset offset)
+                {
+                    var name = offset.Offset < 0 ? $"stack_-{-offset.Offset:X}" : $"stack_{offset.Offset:X}";
+                    instruction.Operands[i] = new Register(offsetToRegister[offset.Offset], name);
                 }
             }
         }

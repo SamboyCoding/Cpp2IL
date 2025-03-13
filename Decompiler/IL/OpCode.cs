@@ -12,6 +12,8 @@ public enum OpCode
     Write,
     Read,
 
+    Phi,
+
     Call,
     TailCall,
     Return,

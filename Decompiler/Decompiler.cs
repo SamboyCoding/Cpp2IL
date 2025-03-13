@@ -17,7 +17,9 @@ public class Decompiler
     [
         new RemoveUnreachableBlocks(),
         new StackAnalyzer { MaxBlockVisitCount = 3000 },
-        new BuildUseDefLists()
+        new BuildUseDefLists(),
+        new BuildSsaForm(),
+        new BuildUseDefLists() // Rebuild in SSA form
     ];
 
     /// <summary>

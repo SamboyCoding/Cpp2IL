@@ -598,6 +598,9 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
             case InstructionSetIndependentInstruction instruction:
                 return new InstructionIndex(instruction.ActualAddress);
+
+            case IsilVectorRegisterElementOperand vectorRegisterElement:
+                return TranslateOperand(InstructionSetIndependentOperand.MakeRegister(vectorRegisterElement.RegisterName));
         }
 
         return new StringOp($"Unknown operand: {operand}");
