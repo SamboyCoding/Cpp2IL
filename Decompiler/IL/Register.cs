@@ -3,7 +3,7 @@
 /// <summary>
 /// A register operand.
 /// </summary>
-public struct RegisterOperand(int number, string? name = null) : IOperand
+public struct Register(int number, string? name = null) : IOperand
 {
     public OperandType Type => OperandType.Register;
 

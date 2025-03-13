@@ -70,8 +70,8 @@ public class StackAnalyzer : ITransform
                     if (op.Type != OperandType.StackOffset) continue;
 
                     var state = _instructionState[instruction].Size;
-                    var actual = state + ((StackOffsetOperand)op).Offset;
-                    instruction.Operands[i] = new StackOffsetOperand(actual);
+                    var actual = state + ((StackOffset)op).Offset;
+                    instruction.Operands[i] = new StackOffset(actual);
                 }
             }
         }
@@ -100,7 +100,7 @@ public class StackAnalyzer : ITransform
 
                 if (instruction.OpCode == OpCode.ShiftStack)
                 {
-                    var offset = ((IntOperand)instruction.Operands[0]!).Value;
+                    var offset = ((IntOp)instruction.Operands[0]!).Value;
                     currentState = currentState.Copy();
                     currentState.Size += offset;
                 }

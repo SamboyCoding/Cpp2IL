@@ -3,7 +3,7 @@
 /// <summary>
 /// Stack offset operand.
 /// </summary>
-public struct StackOffsetOperand(int offset) : IOperand
+public struct StackOffset(int offset) : IOperand
 {
     public OperandType Type => OperandType.StackOffset;
 

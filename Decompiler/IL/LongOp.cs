@@ -3,7 +3,7 @@
 /// <summary>
 /// Long operand.
 /// </summary>
-public struct LongOperand(long value) : IOperand
+public struct LongOp(long value) : IOperand
 {
     public OperandType Type => OperandType.Long;
 

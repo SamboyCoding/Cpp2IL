@@ -3,7 +3,7 @@
 /// <summary>
 /// Ulong operand.
 /// </summary>
-public struct UlongOperand(ulong value) : IOperand
+public struct UlongOp(ulong value) : IOperand
 {
     public OperandType Type => OperandType.Ulong;
 

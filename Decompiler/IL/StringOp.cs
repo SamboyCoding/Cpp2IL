@@ -3,7 +3,7 @@
 /// <summary>
 /// String operand.
 /// </summary>
-public struct StringOperand(string text) : IOperand
+public struct StringOp(string text) : IOperand
 {
     public OperandType Type => OperandType.String;
 

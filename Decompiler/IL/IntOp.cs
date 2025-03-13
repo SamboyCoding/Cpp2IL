@@ -3,7 +3,7 @@
 /// <summary>
 /// Int operand.
 /// </summary>
-public struct IntOperand(int value) : IOperand
+public struct IntOp(int value) : IOperand
 {
     public OperandType Type => OperandType.Int;
 

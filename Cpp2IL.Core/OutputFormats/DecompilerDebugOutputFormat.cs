@@ -144,7 +144,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 sb.AppendLine($"""
                                	{block.Id} [
                                		"shape"="box"
-                               		"label"="Block {block.Id}\n\n{string.Join("\\n", block.Instructions).Replace("\"", "\\\"")}"
+                               		"label"="{block.ToString().Replace("\"", "\\\"").Replace("\n", "\\n")}"
                                	]
                                """);
             }
@@ -221,7 +221,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 case IsilMnemonic.CallNoReturn:
                     if (instruction.Operands[0].Data is IsilRegisterOperand)
                     {
-                        Add(new Instruction(-1, OpCode.Unknown, new StringOperand($"Indirect call: {instruction}")),
+                        Add(new Instruction(-1, OpCode.Unknown, new StringOp($"Indirect call: {instruction}")),
                             instruction);
                         break;
                     }
@@ -263,24 +263,27 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                     if (calledMethod == null)
                     {
-                        var isVoid2 = (instruction.OpCode == InstructionSetIndependentOpCode.CallNoReturn);
-
-                        var callParams2 = new[] { isVoid2 ? null : operands[1], new UnknownMethodOperand(address.ToString("X")) }
-                            .Concat(operands.Skip(isVoid2 ? 1 : 2))
-                            .ToArray();
-
-                        Add(new Instruction(-1, opCode, callParams2), instruction);
+                        Add(
+                            new Instruction(-1, OpCode.Unknown,
+                                new StringOp($"Method not found at {address:X}")), instruction);
                         break;
                     }
 
                     var definition = calledMethod.ToMethodDescriptor(methodDefinition.Module!).Resolve()!;
-                    var isVoid = calledMethod.IsVoid;
 
-                    var callParams = new[] { isVoid ? null : operands[1], new MethodOperand(definition) }
-                        .Concat(operands.Skip(isVoid ? 1 : 2))
-                        .ToArray();
+                    IOperand? returnValue = null;
+                    if (calledMethod.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
+                        returnValue = _xmm0Register;
+                    else if (!calledMethod.IsVoid)
+                        returnValue = _raxRegister;
 
-                    Add(new Instruction(-1, opCode, callParams), instruction);
+                    var callInfo = new CallInfo(definition, operands.Skip(1).ToList());
+                    var callInstruction = new Instruction(-1, opCode, callInfo);
+
+                    Add(returnValue == null
+                            ? callInstruction
+                            : new Instruction(-1, OpCode.Move, returnValue, callInstruction),
+                        instruction);
                     break;
 
                 case IsilMnemonic.Exchange:
@@ -352,15 +355,15 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     // SF = tmp < 0
                     Add(
                         new Instruction(-1, OpCode.Move, _signFlag,
-                            new Instruction(-1, OpCode.CheckLess, _tempRegister, new IntOperand(0))), instruction);
+                            new Instruction(-1, OpCode.CheckLess, _tempRegister, new IntOp(0))), instruction);
                     // ZF = tmp == 0
                     Add(
                         new Instruction(-1, OpCode.Move, _zeroFlag,
-                            new Instruction(-1, OpCode.CheckEqual, _tempRegister, new IntOperand(0))), instruction);
+                            new Instruction(-1, OpCode.CheckEqual, _tempRegister, new IntOp(0))), instruction);
                     // PF = tmp & 1
                     Add(
                         new Instruction(-1, OpCode.Move, _parityFlag,
-                            new Instruction(-1, OpCode.And, _tempRegister, new IntOperand(1))), instruction);
+                            new Instruction(-1, OpCode.And, _tempRegister, new IntOp(1))), instruction);
                     break;
 
                 case IsilMnemonic.ShiftStack:
@@ -371,7 +374,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 case IsilMnemonic.Pop:
                     Add(
                         new Instruction(-1, OpCode.Unknown,
-                            new StringOperand($"Somehow Cpp2IL didn't translate {instruction} to ISIL!")), instruction);
+                            new StringOp($"Somehow Cpp2IL didn't translate {instruction} to ISIL!")), instruction);
                     break;
 
                 case IsilMnemonic.Return:
@@ -446,7 +449,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     // IsilMnemonic.SignExtend is not used anywhere
                     Add(
                         new Instruction(-1, OpCode.Unknown,
-                            new StringOperand($"SignExtend is not implemented ({instruction})")), instruction);
+                            new StringOp($"SignExtend is not implemented ({instruction})")), instruction);
                     break;
 
                 case IsilMnemonic.Interrupt:
@@ -470,7 +473,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     break;
 
                 default:
-                    Add(new Instruction(-1, OpCode.Unknown, new StringOperand($"Unknown instruction: {instruction}")),
+                    Add(new Instruction(-1, OpCode.Unknown, new StringOp($"Unknown instruction: {instruction}")),
                         instruction);
                     break;
             }
@@ -492,7 +495,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 {
                     instruction.OpCode = OpCode.Unknown;
                     instruction.Operands =
-                        [new StringOperand($"Branch target not found: @{target.Address:X}")];
+                        [new StringOp($"Branch target not found: @{target.Address:X}")];
                 }
             }
         }
@@ -518,22 +521,22 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 switch (immediate.Value)
                 {
                     case int num:
-                        return new IntOperand(num);
+                        return new IntOp(num);
                     // X86InstructionSet sometimes uses MaxValue
                     case ushort and ushort.MaxValue:
                     case uint and uint.MaxValue:
                     case ulong and ulong.MaxValue:
-                        return new IntOperand(int.MaxValue);
+                        return new IntOp(int.MaxValue);
                     case ulong num2:
-                        return new LongOperand((int)num2);
+                        return new LongOp((int)num2);
                     case string text:
-                        return new StringOperand(text);
+                        return new StringOp(text);
                 }
 
                 break;
 
             case IsilStackOperand stackOffset:
-                return new StackOffsetOperand(stackOffset.Offset);
+                return new StackOffset(stackOffset.Offset);
 
             case IsilRegisterOperand register:
             {
@@ -542,7 +545,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                 var number = _registerNumbers[register.RegisterName];
 
-                return new RegisterOperand(number, register.RegisterName);
+                return new Register(number, register.RegisterName);
             }
             case IsilMemoryOperand memory:
                 IOperand? newOperand = null;
@@ -559,11 +562,11 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                     if (needsPlus)
                     {
                         var opCode = memory.Addend > 0 ? OpCode.Add : OpCode.Subtract;
-                        newOperand = new Instruction(-1, opCode, newOperand, new LongOperand(memory.Addend));
+                        newOperand = new Instruction(-1, opCode, newOperand, new LongOp(memory.Addend));
                     }
                     else
                     {
-                        newOperand = new LongOperand(memory.Addend);
+                        newOperand = new LongOp(memory.Addend);
                     }
 
                     needsPlus = true;
@@ -583,7 +586,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                     if (memory.Scale > 1)
                     {
-                        newOperand = new Instruction(-1, OpCode.Multiply, newOperand, new IntOperand(memory.Scale));
+                        newOperand = new Instruction(-1, OpCode.Multiply, newOperand, new IntOp(memory.Scale));
                     }
                 }
 
@@ -597,6 +600,6 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 return new InstructionIndex(instruction.ActualAddress);
         }
 
-        return new StringOperand($"Unknown operand: {operand}");
+        return new StringOp($"Unknown operand: {operand}");
     }
 }

@@ -36,6 +36,16 @@ public class Block
     public List<Block> Successors = [];
 
     /// <summary>
+    /// Operands that the block defines.
+    /// </summary>
+    public List<IOperand> Use = [];
+
+    /// <summary>
+    /// Operands that the block uses.
+    /// </summary>
+    public List<IOperand> Def = [];
+
+    /// <summary>
     /// True if the block doesn't affect control flow.
     /// </summary>
     public bool IsFallThrough => Instructions.Count != 0 && Instructions.Last().IsFallThrough;
@@ -56,5 +66,5 @@ public class Block
     /// <param name="instruction">The instruction.</param>
     public void AddInstruction(Instruction instruction) => Instructions.Add(instruction);
 
-    public override string ToString() => $"Block {Id}\n{string.Join("\n", Instructions)}";
+    public override string ToString() => $"Block {Id}\nUse: {string.Join(", ", Use)}\nDef: {string.Join(", ", Def)}\n{string.Join("\n", Instructions)}";
 }

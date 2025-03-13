@@ -46,14 +46,9 @@ public enum OperandType
     StackOffset,
 
     /// <summary>
-    /// Method reference.
+    /// Call info (method and params).
     /// </summary>
-    Method,
-
-    /// <summary>
-    /// Method that was not found.
-    /// </summary>
-    UnknownMethod,
+    CallInfo,
 
     /// <summary>
     /// Nested instruction.

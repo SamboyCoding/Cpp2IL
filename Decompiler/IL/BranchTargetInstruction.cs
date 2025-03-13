@@ -5,7 +5,7 @@ namespace Decompiler.IL;
 /// <summary>
 /// Branch target instruction operand.
 /// </summary>
-public class BranchTargetInstruction(Instruction instruction) : IOperand
+public struct BranchTargetInstruction(Instruction instruction) : IOperand
 {
     public OperandType Type => OperandType.BranchTargetInstruction;
 
@@ -14,5 +14,5 @@ public class BranchTargetInstruction(Instruction instruction) : IOperand
     /// </summary>
     public Instruction Instruction = instruction;
 
-    public override string ToString() => $"@{Instruction}";
+    public override string ToString() => $"@{Instruction.Type}";
 }

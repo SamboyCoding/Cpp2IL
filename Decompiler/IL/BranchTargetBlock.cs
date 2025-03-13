@@ -5,7 +5,7 @@ namespace Decompiler.IL;
 /// <summary>
 /// Branch target block operand.
 /// </summary>
-public class BranchTargetBlock(Block block) : IOperand
+public struct BranchTargetBlock(Block block) : IOperand
 {
     public OperandType Type => OperandType.BranchTargetBlock;
 
@@ -14,5 +14,5 @@ public class BranchTargetBlock(Block block) : IOperand
     /// </summary>
     public Block Block = block;
 
-    public override string ToString() => Block.Instructions.Count == 0 ? $"@b{Block.Id}" : $"@b{Block.Id}:{Block.Instructions[0]}";
+    public override string ToString() => $"@b{Block.Id}";
 }
