@@ -81,6 +81,8 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
+        if (methodContext.FullName.StartsWith("UnityEngine.") || methodContext.FullName.StartsWith("System.")) return;
+
         if (!methodDefinition.IsManagedMethodWithBody()) return;
         methodDefinition.CilMethodBody = new CilMethodBody(methodDefinition);
         _module = methodDefinition.Module!;
