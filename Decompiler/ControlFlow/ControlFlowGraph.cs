@@ -211,9 +211,15 @@ public class ControlFlowGraph
     }
 
     /// <summary>
-    /// Removes all nop instructions from the graph.
+    /// Simplifies the graph by removing nops and empty blocks.
     /// </summary>
-    public void RemoveNops()
+    public void Simplify()
+    {
+        RemoveNops();
+        RemoveEmptyBlocks();
+    }
+
+    private void RemoveNops()
     {
         var visited = new HashSet<Block>();
         var queue = new Queue<Block>();
@@ -239,14 +245,9 @@ public class ControlFlowGraph
                     queue.Enqueue(successor);
             }
         }
-
-        RemoveEmptyBlocks();
     }
 
-    /// <summary>
-    /// Removes all blocks that don't have any instructions.
-    /// </summary>
-    public void RemoveEmptyBlocks()
+    private void RemoveEmptyBlocks()
     {
         var emptyBlocks = Blocks.Where(b => b.Instructions.Count == 0).ToList();
 

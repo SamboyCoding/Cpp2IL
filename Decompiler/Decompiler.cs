@@ -11,15 +11,24 @@ namespace Decompiler;
 public class Decompiler
 {
     /// <summary>
+    /// Max allowed count of instructions (-1 for no limit).
+    /// </summary>
+    public int MaxInstructionCount = 8000;
+
+    /// <summary>
     /// All transforms applied to methods.
     /// </summary>
     public List<ITransform> Transforms =
     [
         new RemoveUnreachableBlocks(),
-        new StackAnalyzer { MaxBlockVisitCount = 3000 },
+        new StackAnalyzer { MaxBlockVisitCount = 8000 },
         new BuildUseDefLists(),
         new BuildSsaForm(),
-        new BuildUseDefLists() // Rebuild in SSA form
+        new CreateLocals(),
+        new BuildUseDefLists(),
+        new RemoveUnusedLocalsAndInline(),
+        new TypePropagation { MaxLoopCount = 8000 },
+        new BuildUseDefLists()
     ];
 
     /// <summary>
@@ -28,6 +37,9 @@ public class Decompiler
     /// <param name="method">The method.</param>
     public void Decompile(Method method)
     {
+        if (MaxInstructionCount != -1 && method.Instructions.Count > MaxInstructionCount)
+            throw new LimitReachedException($"Too many instructions in {method.Definition.DeclaringType!.Name}.{method.Definition.Name}! ({method.Instructions.Count})");
+
         var definition = method.Definition;
 
         foreach (var transform in Transforms)

@@ -53,9 +53,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         }
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
-        Logger.InfoNewline(
-            $"{(Math.Round(((decimal)DecompilerDebugOutputFormat.SuccessCount / DecompilerDebugOutputFormat.TotalCount) * 1000) / 1000) * 100}% successfully decompiled ({DecompilerDebugOutputFormat.SuccessCount} / {DecompilerDebugOutputFormat.TotalCount})",
-            "DllOutput");
+        Logger.InfoNewline($"{(Math.Round(((double)DecompilerDebugOutputFormat.SuccessCount / DecompilerDebugOutputFormat.TotalCount) * 100) / 100) * 100}% successfully decompiled ({DecompilerDebugOutputFormat.SuccessCount} / {DecompilerDebugOutputFormat.TotalCount})", "DllOutput");
     }
 
     public List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)

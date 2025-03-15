@@ -68,11 +68,8 @@ public class Instruction(int index, OpCode opcode, params IOperand?[] operands) 
         {
             case OperandType.Register:
             case OperandType.StackOffset:
+            case OperandType.Local:
                 operands.Add(operand);
-                break;
-            case OperandType.CallInfo:
-                if (operand is CallInfo call)
-                    operands.AddRange(call.Parameters);
                 break;
             case OperandType.Instruction:
                 var instruction = (Instruction)operand;

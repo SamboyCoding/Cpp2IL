@@ -26,6 +26,11 @@ public enum OperandType
     String,
 
     /// <summary>
+    /// Local variable.
+    /// </summary>
+    Local,
+
+    /// <summary>
     /// Branch target instruction (code).
     /// </summary>
     BranchTargetInstruction,
@@ -46,9 +51,9 @@ public enum OperandType
     StackOffset,
 
     /// <summary>
-    /// Call info (method and params).
+    /// Method reference.
     /// </summary>
-    CallInfo,
+    Method,
 
     /// <summary>
     /// Nested instruction.

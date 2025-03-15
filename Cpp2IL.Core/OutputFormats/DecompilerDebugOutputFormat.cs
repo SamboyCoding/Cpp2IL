@@ -41,7 +41,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
     public static int SuccessCount;
     public static int TotalCount;
 
-    private int _maxInstructionCount = 3000;
+    public static int MaxInstructionCount = 8000;
 
     private static bool _dontActuallyWriteFiles = false;
 
@@ -94,34 +94,42 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         {
             var isil = methodContext.AppContext.InstructionSet.GetIsilFromMethod(methodContext);
 
-            if (isil.Count > _maxInstructionCount)
-            {
-                Logger.WarnNewline($"Too many instructions in {methodContext.FullName} ({isil.Count}), skipping", "Decompiler Debug");
-                return;
-            }
+            if (isil.Count > MaxInstructionCount)
+                throw new LimitReachedException($"Too many instructions in {methodContext.DeclaringType!.Name}.{methodContext.Name}! ({isil.Count})");
 
             var decompilerIl = TranslateIsilToDecompilerIl(isil, methodDefinition, methodContext);
 
+            // Add return if it's not already there
+            var lastInstruction = decompilerIl.LastOrDefault();
+            if (lastInstruction != null && lastInstruction.OpCode != OpCode.Return)
+            {
+                if (methodContext.IsVoid)
+                    decompilerIl.Add(new Instruction(-1, OpCode.Return));
+                else if (methodContext.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
+                    decompilerIl.Add(new Instruction(-1, OpCode.Return, _xmm0Register));
+                else
+                    decompilerIl.Add(new Instruction(-1, OpCode.Return, _raxRegister));
+            }
+
             var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
             var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
+            decompilerParams.RemoveAt(decompilerParams.Count - 1); // Remove MethodInfo *method
 
             var method = new Method(methodDefinition, decompilerIl, decompilerParams);
-            method.ControlFlowGraph.RemoveNops();
             _decompiler.Decompile(method);
 
             var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
-            WriteControlFlowGraph(method.ControlFlowGraph, methodContext, outputPath);
+            WriteControlFlowGraph(method.ControlFlowGraph, methodContext, methodDefinition, method, outputPath);
 
             Interlocked.Increment(ref SuccessCount);
         }
-        catch (Exception e)
+        catch (LimitReachedException e)
         {
-            Decompiler.Decompiler.ReplaceBodyWithException(methodDefinition, "Decompilation failed: " + e);
             Logger.ErrorNewline(e.ToString(), "Decompiler Debug");
         }
     }
 
-    private static void WriteControlFlowGraph(ControlFlowGraph graph, MethodAnalysisContext method, string outputPath)
+    private static void WriteControlFlowGraph(ControlFlowGraph graph, MethodAnalysisContext method, MethodDefinition definition, Method decompilerMethod, string outputPath)
     {
         var sb = new StringBuilder();
         var edges = new List<(int, int)>();
@@ -137,7 +145,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 sb.AppendLine($"""
                                	{block.Id} [
                                		"color"="{(isEntry ? "green" : "red")}"
-                               		"label"="{(isEntry ? "Entry" : "Exit")} ({block.Id})"
+                               		"label"="{(isEntry ? $"Entry\\n{definition}\\nParams: {string.Join(", ", decompilerMethod.ParameterLocals)}\\n" : "Exit")} ({block.Id})"
                                	]
                                """);
             }
@@ -273,14 +281,23 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                     var definition = calledMethod.ToMethodDescriptor(methodDefinition.Module!).Resolve()!;
 
+                    if (definition.IsConstructor)
+                    {
+                        var constructor = new Instruction(-1, opCode, new MethodOperand(definition));
+                        constructor = new Instruction(-1, OpCode.Move, operands[1], constructor);
+                        Add(constructor, instruction);
+                        break;
+                    }
+
                     IOperand? returnValue = null;
                     if (calledMethod.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
                         returnValue = _xmm0Register;
                     else if (!calledMethod.IsVoid)
                         returnValue = _raxRegister;
 
-                    var callInfo = new CallInfo(definition, operands.Skip(1).ToList());
-                    var callInstruction = new Instruction(-1, opCode, callInfo);
+                    var callInstruction = new Instruction(-1, opCode, new MethodOperand(definition));
+                    callInstruction.Operands.AddRange(operands.Skip(1).ToList());
+                    callInstruction.Operands.RemoveAt(callInstruction.Operands.Count - 1); // Remove MethodInfo *method
 
                     Add(returnValue == null
                             ? callInstruction

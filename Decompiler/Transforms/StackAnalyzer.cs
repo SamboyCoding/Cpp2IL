@@ -46,7 +46,7 @@ public class StackAnalyzer : ITransform
         ReplaceStackWithRegisters(method);
 
         graph.MergeCallBlocks();
-        graph.RemoveNops();
+        graph.Simplify();
     }
 
     private void CorrectOffsets(ControlFlowGraph graph)
@@ -122,7 +122,7 @@ public class StackAnalyzer : ITransform
             visitedBlockCount++;
 
             if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-                throw new Exception($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
+                throw new LimitReachedException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
 
             // Visit successors
             foreach (var successor in block.Successors)

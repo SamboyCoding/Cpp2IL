@@ -130,6 +130,13 @@ public class BuildSsaForm : ITransform
             }
 
             // Replace it
+            ReplaceSingleInstruction(instruction);
+        }
+
+        return;
+
+        void ReplaceSingleInstruction(Instruction instruction)
+        {
             for (var j = 0; j < instruction.Operands.Count; j++)
             {
                 var operand = instruction.Operands[j];
@@ -140,19 +147,8 @@ public class BuildSsaForm : ITransform
                         instruction.Operands[j] = register;
                 }
 
-                if (operand is CallInfo call)
-                {
-                    for (var k = 0; k < call.Parameters.Count; k++)
-                    {
-                        var param = call.Parameters[k];
-
-                        if (param is Register paramRegister)
-                        {
-                            if (paramRegister.Number == register.Number)
-                                call.Parameters[k] = register;
-                        }
-                    }
-                }
+                if (operand is Instruction instructionOp)
+                    ReplaceSingleInstruction(instructionOp);
             }
         }
     }
@@ -177,6 +173,8 @@ public class BuildSsaForm : ITransform
     {
         foreach (var instruction in block.Instructions)
         {
+            ReplaceRegistersWithSsaVersions(instruction);
+
             // Create new version
             if (instruction.OpCode == OpCode.Move)
             {
@@ -184,8 +182,6 @@ public class BuildSsaForm : ITransform
                 var newRegister = GetNewVersion(destination);
                 instruction.Operands[0] = newRegister;
             }
-
-            ReplaceRegistersWithSsaVersions(instruction);
         }
 
         // Record last register version
@@ -227,20 +223,6 @@ public class BuildSsaForm : ITransform
             {
                 if (_versions.TryGetValue(register.Number, out var versions))
                     instruction.Operands[i] = register.Copy(versions.Peek().Version);
-            }
-
-            if (instruction.Operands[i] is CallInfo call)
-            {
-                for (var j = 0; j < call.Parameters.Count; j++)
-                {
-                    var param = call.Parameters[j];
-
-                    if (param is Register paramRegister)
-                    {
-                        if (_versions.TryGetValue(paramRegister.Number, out var versions))
-                            call.Parameters[j] = paramRegister.Copy(versions.Peek().Version);
-                    }
-                }
             }
         }
     }
