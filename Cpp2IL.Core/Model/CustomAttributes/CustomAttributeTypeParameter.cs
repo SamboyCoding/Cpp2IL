@@ -4,6 +4,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
 
@@ -30,6 +31,17 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
 
     public CustomAttributeTypeParameter(TypeAnalysisContext? type, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {
+        if (type is { IsPrimitive: true, Definition: {} definition })
+        {
+            //Try and get the canonical primitive type (i.e. the Il2CppType with the correct enum value)
+            _type = LibCpp2IlReflection.GetTypeFromDefinition(definition);
+            
+            if(_type != null)
+                return;
+            
+            //Else fall through to using the type context below
+        }
+        
         _typeContext = type;
     }
 
@@ -55,7 +67,7 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
             return "(Type) null";
 
         if (TypeContext.IsPrimitive)
-            return $"typeof({LibCpp2ILUtils.GetTypeName(TypeContext.Type)}";
+            return $"typeof({LibCpp2ILUtils.GetTypeName(TypeContext.Type)})";
 
         if (TypeContext is ReferencedTypeAnalysisContext)
         {
