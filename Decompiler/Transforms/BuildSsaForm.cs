@@ -16,6 +16,7 @@ public class BuildSsaForm : ITransform
     {
         _versions.Clear();
         _versionCount.Clear();
+        _blockOutVersions.Clear();
 
         var graph = method.ControlFlowGraph;
         var dominance = method.Dominance;
@@ -24,7 +25,7 @@ public class BuildSsaForm : ITransform
         InsertAllPhiFunctions(graph, dominance, method.Parameters);
     }
 
-    private void InsertAllPhiFunctions(ControlFlowGraph graph, Dominance dominance, List<IOperand> parameters)
+    private void InsertAllPhiFunctions(ControlFlowGraph graph, Dominance dominance, List<object> parameters)
     {
         // Check where registers are defined
         var defSites = GetDefinitionSites(graph);
@@ -84,15 +85,19 @@ public class BuildSsaForm : ITransform
     {
         // Check what registers are defined and where
         var defSites = new Dictionary<int, HashSet<Block>>();
+
         foreach (var block in graph.Blocks)
         {
-            foreach (var operand in block.Def)
+            for (var i = 0; i < block.Def.Count; i++)
             {
-                if (operand is not Register reg) continue;
+                var operand = block.Def[i];
 
-                if (!defSites.ContainsKey(reg.Number))
-                    defSites[reg.Number] = [];
-                defSites[reg.Number].Add(block);
+                if (operand is Register register)
+                {
+                    if (!defSites.ContainsKey(register.Number))
+                        defSites[register.Number] = [];
+                    defSites[register.Number].Add(block);
+                }
             }
         }
 
@@ -101,19 +106,17 @@ public class BuildSsaForm : ITransform
 
     private void InsertPhiFunction(List<Register> sources, Block block)
     {
-        // Create phi src1, src2...
-        var phi = new Instruction(-1, OpCode.Phi);
-        foreach (var source in sources)
-            phi.Operands.Add(source);
+        // Create phi dest, src1, src2, etc.
+        var destination = GetNewVersion(sources[0]);
+        var phi = new Instruction(-1, OpCode.Phi, destination);
 
-        // Move its value to something
-        var result = GetNewVersion(sources[0]);
-        phi = new Instruction(-1, OpCode.Move, result, phi);
+        foreach (var source in sources.Distinct())
+            phi.Operands.Add(source);
 
         // Add it
         block.Instructions.Insert(0, phi);
         // Replace uses
-        ReplaceRegistersUntilReassignment(block, 1, result);
+        ReplaceRegistersUntilReassignment(block, 1, destination);
     }
 
     private static void ReplaceRegistersUntilReassignment(Block block, int startIndex, Register register)
@@ -123,20 +126,13 @@ public class BuildSsaForm : ITransform
             var instruction = block.Instructions[i];
 
             // Reassignment?
-            if (instruction.OpCode == OpCode.Move)
+            if (instruction.Destination is Register destination)
             {
-                if (((Register)instruction.Operands[0]!).Number == register.Number)
+                if (destination.Number == register.Number)
                     return;
             }
 
             // Replace it
-            ReplaceSingleInstruction(instruction);
-        }
-
-        return;
-
-        void ReplaceSingleInstruction(Instruction instruction)
-        {
             for (var j = 0; j < instruction.Operands.Count; j++)
             {
                 var operand = instruction.Operands[j];
@@ -147,8 +143,26 @@ public class BuildSsaForm : ITransform
                         instruction.Operands[j] = register;
                 }
 
-                if (operand is Instruction instructionOp)
-                    ReplaceSingleInstruction(instructionOp);
+                if (operand is MemoryAddress memory)
+                {
+                    if (memory.Base != null)
+                    {
+                        var baseRegister = (Register)memory.Base;
+
+                        if (baseRegister.Number == register.Number)
+                            memory.Base = register;
+                    }
+
+                    if (memory.Index != null)
+                    {
+                        var index = (Register)memory.Index;
+
+                        if (index.Number == register.Number)
+                            memory.Index = register;
+                    }
+
+                    instruction.Operands[j] = memory;
+                }
             }
         }
     }
@@ -169,60 +183,67 @@ public class BuildSsaForm : ITransform
         return newRegister;
     }
 
-    private void ProcessBlock(Block block, Dictionary<Block, List<Block>> dominanceTree)
+    private void ProcessBlock(Block entryBlock, Dictionary<Block, List<Block>> dominanceTree)
     {
-        foreach (var instruction in block.Instructions)
-        {
-            ReplaceRegistersWithSsaVersions(instruction);
+        var workList = new Queue<Block>([entryBlock]);
 
-            // Create new version
-            if (instruction.OpCode == OpCode.Move)
+        while (workList.Count > 0)
+        {
+            var block = workList.Dequeue();
+
+            foreach (var instruction in block.Instructions)
             {
-                var destination = (Register)instruction.Operands[0]!;
-                var newRegister = GetNewVersion(destination);
-                instruction.Operands[0] = newRegister;
-            }
-        }
+                // Replace registers with SSA versions
+                for (var i = 0; i < instruction.Operands.Count; i++)
+                {
+                    if (instruction.Operands[i] is Register register)
+                    {
+                        if (_versions.TryGetValue(register.Number, out var versions))
+                            instruction.Operands[i] = register.Copy(versions.Peek().Version);
+                    }
 
-        // Record last register version
-        var outMapping = new Dictionary<int, Register>();
-        foreach (var kvp in _versions)
-        {
-            if (kvp.Value.Count > 0)
-                outMapping[kvp.Key] = kvp.Value.Peek();
-        }
+                    if (instruction.Operands[i] is MemoryAddress memory)
+                    {
+                        if (memory.Base != null)
+                        {
+                            var baseRegister = (Register)memory.Base;
 
-        _blockOutVersions[block] = outMapping;
+                            if (_versions.TryGetValue(baseRegister.Number, out var versions))
+                                memory.Base = baseRegister.Copy(versions.Peek().Version);
+                        }
 
-        // Process children in the tree
-        if (dominanceTree.TryGetValue(block, out var children))
-        {
-            foreach (var child in children)
-                ProcessBlock(child, dominanceTree);
-        }
+                        if (memory.Index != null)
+                        {
+                            var indexRegister = (Register)memory.Index;
 
-        // Remove registers from versions but not from count
-        foreach (var instruction in block.Instructions.Where(instr => instr.OpCode == OpCode.Move))
-        {
-            var register = (Register)instruction.Operands[0]!;
-            _versions.FirstOrDefault(kv => kv.Key == register.Number).Value.Pop();
-        }
-    }
+                            if (_versions.TryGetValue(indexRegister.Number, out var versions))
+                                memory.Index = indexRegister.Copy(versions.Peek().Version);
+                        }
 
-    private void ReplaceRegistersWithSsaVersions(Instruction instruction)
-    {
-        for (var i = 0; i < instruction.Operands.Count; i++)
-        {
-            if (instruction.Operands[i] is Instruction instructionOp)
-            {
-                ReplaceRegistersWithSsaVersions(instructionOp);
-                continue;
+                        instruction.Operands[i] = memory;
+                    }
+                }
+
+                // Create new version
+                if (instruction.Destination is Register destination)
+                    instruction.Destination = GetNewVersion(destination);
             }
 
-            if (instruction.Operands[i] is Register register)
+            // Record last register version
+            var outMapping = new Dictionary<int, Register>();
+            foreach (var kvp in _versions)
             {
-                if (_versions.TryGetValue(register.Number, out var versions))
-                    instruction.Operands[i] = register.Copy(versions.Peek().Version);
+                if (kvp.Value.Count > 0)
+                    outMapping[kvp.Key] = kvp.Value.Peek();
+            }
+
+            _blockOutVersions[block] = outMapping;
+
+            // Process children in the tree
+            if (dominanceTree.TryGetValue(block, out var children))
+            {
+                foreach (var child in children)
+                    workList.Enqueue(child);
             }
         }
     }

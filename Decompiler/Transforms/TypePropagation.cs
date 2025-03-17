@@ -1,4 +1,5 @@
-﻿using Decompiler.IL;
+﻿using AsmResolver.DotNet;
+using Decompiler.IL;
 
 namespace Decompiler.Transforms;
 
@@ -30,9 +31,8 @@ public class TypePropagation : ITransform
             changed = false;
             loopCount++;
 
-            // Sometimes this gets stuck
             if (MaxLoopCount != -1 && loopCount > MaxLoopCount)
-                throw new LimitReachedException("Type propagation through moves not settling!");
+                throw new LimitReachedException($"Type propagation through moves not settling! (looped {MaxLoopCount} times)");
 
             foreach (var instruction in method.Instructions)
             {
@@ -43,15 +43,15 @@ public class TypePropagation : ITransform
                     continue;
 
                 // Move ??, type
-                if (local1.LocalType == null && local2.LocalType != null)
+                if (local1.Type == null && local2.Type != null)
                 {
-                    local1.LocalType = local2.LocalType;
+                    local1.Type = local2.Type;
                     changed = true;
                 }
                 // Move type, ??
-                else if (local2.LocalType == null && local1.LocalType != null)
+                else if (local2.Type == null && local1.Type != null)
                 {
-                    local2.LocalType = local1.LocalType;
+                    local2.Type = local1.Type;
                     changed = true;
                 }
             }
@@ -62,63 +62,47 @@ public class TypePropagation : ITransform
     {
         foreach (var instruction in method.Instructions)
         {
-            if (instruction.OpCode != OpCode.Call && instruction.OpCode != OpCode.TailCall && instruction.OpCode != OpCode.Move)
+            if (!instruction.IsCall)
                 continue;
 
-            if (instruction.OpCode != OpCode.Move || instruction.Operands[1] is not Instruction call)
-                continue;
+            var isVoid = instruction.OpCode is OpCode.CallVoid or OpCode.TailCallVoid;
 
-            if (call.OpCode != OpCode.Call)
-                continue;
-
-            // At this point it's call or move something, call
-
-            var callInstruction = instruction;
-            Instruction? move = null;
-
-            // If the call is nested, take that instruction
-            if (callInstruction.OpCode == OpCode.Move && callInstruction.Operands[1] is Instruction callOp)
-            {
-                move = callInstruction;
-                callInstruction = callOp;
-            }
-
-            var calledMethod = (MethodOperand)callInstruction.Operands[0]!;
+            var calledMethod = (MethodDefinition)instruction.Operands[isVoid ? 0 : 1];
+            var isStatic = calledMethod.IsStatic;
 
             // Constructor, set return variable type
-            if (calledMethod.IsConstructor && move != null)
+            if (calledMethod.IsConstructor)
             {
-                ((LocalVariable)move.Operands[0]!).LocalType = calledMethod.Method.DeclaringType!.ToTypeSignature();
-                continue;
+                if (instruction.Destination is LocalVariable constructorReturn)
+                {
+                    constructorReturn.Type = calledMethod.DeclaringType!.ToTypeSignature();
+                    continue;
+                }
             }
 
             // Return value
-            if (move != null)
-                ((LocalVariable)move.Operands[0]!).LocalType = calledMethod.Method.Parameters.ReturnParameter.ParameterType;
+            if (instruction.Destination is LocalVariable returnValue)
+                returnValue.Type = calledMethod.Parameters.ReturnParameter.ParameterType;
 
-            // Not static
-            if (!calledMethod.Method.IsStatic)
+            if (!isStatic)
             {
                 // this param
-                ((LocalVariable)callInstruction.Operands[1]!).LocalType = calledMethod.Method.DeclaringType!.ToTypeSignature();
-
-                // Set types
-                for (var i = 2; i < callInstruction.Operands.Count; i++)
-                {
-                    var operand = callInstruction.Operands[i];
-                    if (operand is not LocalVariable local) continue;
-                    local.LocalType = calledMethod.Method.Parameters[i - 2].ParameterType;
-                }
-
-                continue;
+                if (instruction.Operands[isVoid ? 1 : 2] is LocalVariable thisParam)
+                    thisParam.Type = calledMethod.DeclaringType!.ToTypeSignature();
             }
 
             // Set types
-            for (var i = 0; i < callInstruction.Operands.Count; i++)
+            for (var i = (isStatic ? (isVoid ? 1 : 2) : (isVoid ? 2 : 3)); i < instruction.Operands.Count; i++)
             {
-                var operand = callInstruction.Operands[i];
-                if (operand is not LocalVariable local) continue;
-                local.LocalType = calledMethod.Method.Parameters[i - 1].ParameterType;
+                var operand = instruction.Operands[i];
+
+                if (operand is LocalVariable local)
+                {
+                    if (i > calledMethod.Parameters.Count - 1)
+                        continue;
+
+                    local.Type = calledMethod.Parameters[i].ParameterType;
+                }
             }
         }
     }
@@ -128,9 +112,9 @@ public class TypePropagation : ITransform
         if (method.Definition.Parameters.Count == 0)
             return;
 
-        // this param
+        // This param
         if (!method.Definition.IsStatic && method.ParameterLocals.Count > 0)
-            method.ParameterLocals[0].LocalType = method.Definition.Parameters.ThisParameter!.ParameterType;
+            method.ParameterLocals[0].Type = method.Definition.Parameters.ThisParameter!.ParameterType;
 
         // Normal params
         for (var i = 0; i < method.ParameterLocals.Count; i++)
@@ -142,23 +126,18 @@ public class TypePropagation : ITransform
                 continue;
 
             var type = method.Definition.Parameters[i].ParameterType;
-            param.LocalType = type;
+            param.Type = type;
         }
     }
 
     private static void PropagateFromReturn(Method method)
     {
-        // Get return instruction
-        var returnInstruction = method.Instructions.FirstOrDefault(i => i.OpCode == OpCode.Return);
+        var returns = method.Instructions.Where(i => i.IsReturn);
 
-        if (returnInstruction == null)
+        foreach (var instruction in returns)
         {
-            method.AddWarning("Method has no return instruction!");
-            return;
+            if (instruction.Operands.Count == 1 && instruction.Operands[0] is LocalVariable local)
+                local.Type = method.Definition.Parameters.ReturnParameter.ParameterType;
         }
-
-        // Get type from method return type
-        if (returnInstruction.Operands.Count == 1 && returnInstruction.Operands[0] is LocalVariable local)
-            local.LocalType = method.Definition.Parameters.ReturnParameter.ParameterType;
     }
 }

@@ -1,6 +1,4 @@
-﻿using Decompiler.IL;
-
-namespace Decompiler.Transforms;
+﻿namespace Decompiler.Transforms;
 
 /// <summary>
 /// Builds use-def lists for all blocks.
@@ -13,16 +11,16 @@ public class BuildUseDefLists : ITransform
 
         foreach (var block in graph.Blocks)
         {
-            var use = new List<IOperand>();
-            var def = new List<IOperand>();
+            var use = new List<object>();
+            var def = new List<object>();
 
             foreach (var instruction in block.Instructions)
             {
-                foreach (var operand in instruction.ReadOperands.Where(operand => !use.Contains(operand)))
+                foreach (var operand in instruction.Sources.Where(operand => !use.Contains(operand)))
                     use.Add(operand);
 
-                foreach (var operand in instruction.WrittenOperands.Where(operand => !def.Contains(operand)))
-                    def.Add(operand);
+                if (instruction.Destination != null && !def.Contains(instruction.Destination))
+                    def.Add(instruction.Destination);
             }
 
             block.Use = use;

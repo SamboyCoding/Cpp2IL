@@ -15,9 +15,9 @@ public class Method
     public MethodDefinition Definition;
 
     /// <summary>
-    /// Parameter locations (if not static, first is 'this').
+    /// Parameter locations.
     /// </summary>
-    public List<IOperand> Parameters;
+    public List<object> Parameters;
 
     /// <summary>
     /// The control flow graph.
@@ -35,12 +35,12 @@ public class Method
     public Dominance Dominance;
 
     /// <summary>
-    /// All locals (including params), this can be empty at early analysis stages.
+    /// Local variables.
     /// </summary>
     public List<LocalVariable> Locals = [];
 
     /// <summary>
-    /// Parameter local variables.
+    /// Parameter locals.
     /// </summary>
     public List<LocalVariable> ParameterLocals = [];
 
@@ -52,7 +52,7 @@ public class Method
     /// <summary>
     /// Creates a method definition.
     /// </summary>
-    public Method(MethodDefinition definition, List<Instruction>? instructions, List<IOperand> parameters)
+    public Method(MethodDefinition definition, List<Instruction>? instructions, List<object> parameters)
     {
         Definition = definition;
         Parameters = parameters;
@@ -71,17 +71,14 @@ public class Method
     }
 
     /// <summary>
-    /// Gets the name of i-th parameter.
+    /// If the local is not a parameter, remove it.
     /// </summary>
-    /// <param name="i">The index.</param>
-    /// <returns>The parameter name.</returns>
-    public string GetParameterName(int i) => Definition.Parameters[i].Name;
-
-    /// <summary>
-    /// Gets the return local.
-    /// </summary>
-    /// <returns>The return local.</returns>
-    public LocalVariable? GetReturnLocal() => (LocalVariable?)(Instructions.FirstOrDefault(i => i is { OpCode: OpCode.Return, Operands.Count: 1 })?.Operands[0]);
+    /// <param name="local">The local.</param>
+    public void TryRemoveLocal(LocalVariable local)
+    {
+        if (!ParameterLocals.Contains(local))
+            Locals.Remove(local);
+    }
 
     public override string ToString() => Definition.Name!;
 }

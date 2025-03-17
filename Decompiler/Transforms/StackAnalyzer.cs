@@ -46,7 +46,8 @@ public class StackAnalyzer : ITransform
         ReplaceStackWithRegisters(method);
 
         graph.MergeCallBlocks();
-        graph.Simplify();
+        graph.RemoveNops();
+        graph.RemoveEmptyBlocks();
     }
 
     private void CorrectOffsets(ControlFlowGraph graph)
@@ -66,13 +67,13 @@ public class StackAnalyzer : ITransform
                 for (var i = 0; i < instruction.Operands.Count; i++)
                 {
                     var op = instruction.Operands[i];
-                    if (op == null) continue;
 
-                    if (op.Type != OperandType.StackOffset) continue;
-
-                    var state = _instructionState[instruction].Size;
-                    var actual = state + ((StackOffset)op).Offset;
-                    instruction.Operands[i] = new StackOffset(actual);
+                    if (op is StackOffset offset)
+                    {
+                        var state = _instructionState[instruction].Size;
+                        var actual = state + offset.Offset;
+                        instruction.Operands[i] = new StackOffset(actual);
+                    }
                 }
             }
         }
@@ -101,11 +102,11 @@ public class StackAnalyzer : ITransform
 
                 if (instruction.OpCode == OpCode.ShiftStack)
                 {
-                    var offset = ((IntOp)instruction.Operands[0]!).Value;
+                    var offset = (int)instruction.Operands[0];
                     currentState = currentState.Copy();
                     currentState.Size += offset;
                 }
-                else if (instruction.OpCode == OpCode.TailCall)
+                else if (instruction.IsTailCall)
                 {
                     // Tail calls clear stack
                     currentState = currentState.Copy();

@@ -3,12 +3,10 @@
 namespace Decompiler.IL;
 
 /// <summary>
-/// Local variable operand.
+/// IL local variable.
 /// </summary>
-public class LocalVariable(string name, Register register, TypeSignature? localType = null) : IOperand
+public class LocalVariable(string name, Register register, TypeSignature? type = null)
 {
-    public OperandType Type => OperandType.Local;
-
     /// <summary>
     /// Name of the variable.
     /// </summary>
@@ -22,12 +20,12 @@ public class LocalVariable(string name, Register register, TypeSignature? localT
     /// <summary>
     /// Type of the variable.
     /// </summary>
-    public TypeSignature? LocalType = localType;
+    public TypeSignature? Type = type;
 
     /// <summary>
     /// Is this the 'this' parameter?
     /// </summary>
     public bool IsThis = false;
 
-    public override string ToString() => $"{Name}:{LocalType?.Name ?? "??"}";
+    public override string ToString() => Type == null ? Name : $"{Name}:{Type.Name}";
 }

@@ -13,7 +13,7 @@ public class Decompiler
     /// <summary>
     /// Max allowed count of instructions (-1 for no limit).
     /// </summary>
-    public int MaxInstructionCount = 8000;
+    public int MaxInstructionCount = 5000;
 
     /// <summary>
     /// All transforms applied to methods.
@@ -21,13 +21,14 @@ public class Decompiler
     public List<ITransform> Transforms =
     [
         new RemoveUnreachableBlocks(),
-        new StackAnalyzer { MaxBlockVisitCount = 8000 },
+        new StackAnalyzer { MaxBlockVisitCount = 5000 },
         new BuildUseDefLists(),
         new BuildSsaForm(),
         new CreateLocals(),
         new BuildUseDefLists(),
         new RemoveUnusedLocalsAndInline(),
-        new TypePropagation { MaxLoopCount = 8000 },
+        new TypePropagation { MaxLoopCount = 5000 },
+        new RemoveSsaForm(),
         new BuildUseDefLists()
     ];
 

@@ -26,7 +26,16 @@ public class ControlFlowGraph
     /// <summary>
     /// All instructions.
     /// </summary>
-    public List<Instruction> AllInstructions => GetAllInstructions();
+    public List<Instruction> AllInstructions
+    {
+        get
+        {
+            var instructions = new List<Instruction>();
+            foreach (var block in Blocks)
+                instructions.AddRange(block.Instructions);
+            return instructions;
+        }
+    }
 
     private int _nextId;
 
@@ -83,6 +92,7 @@ public class ControlFlowGraph
                     break;
 
                 case OpCode.Return:
+                case OpCode.ReturnVoid:
                     currentBlock.AddInstruction(instruction);
 
                     if (!isLast)
@@ -100,7 +110,9 @@ public class ControlFlowGraph
                     break;
 
                 case OpCode.Call:
+                case OpCode.CallVoid:
                 case OpCode.TailCall:
+                case OpCode.TailCallVoid:
                 case OpCode.Unknown:
                     currentBlock.AddInstruction(instruction);
 
@@ -108,12 +120,7 @@ public class ControlFlowGraph
                     {
                         var newBlock = new Block() { Id = graph._nextId++ };
                         graph.Blocks.Add(newBlock);
-
-                        if (instruction.OpCode == OpCode.TailCall)
-                            AddDirectedEdge(currentBlock, graph.ExitBlock);
-                        else
-                            AddDirectedEdge(currentBlock, newBlock);
-
+                        AddDirectedEdge(currentBlock, newBlock);
                         currentBlock = newBlock;
                     }
                     else
@@ -137,42 +144,21 @@ public class ControlFlowGraph
                 graph.SplitTargetBlock(block);
         }
 
-        graph.ConnectBlocksWithoutSuccessorsToExit();
-
+        // Connect blocks without successors to exit
         foreach (var block in graph.Blocks)
         {
-            foreach (var instruction in block.Instructions)
-            {
-                if (instruction.Operands.Count > 0 && instruction.Operands[0] is BranchTargetInstruction target)
-                    instruction.Operands[0] = new BranchTargetBlock(graph.GetBlockByInstruction(target.Instruction)!);
-            }
+            if (block.Successors.Count == 0 && block != graph.EntryBlock && block != graph.ExitBlock)
+                AddDirectedEdge(block, graph.ExitBlock);
+        }
+
+        // Change branch targets to blocks
+        foreach (var instruction in graph.Blocks.SelectMany(block => block.Instructions))
+        {
+            if (instruction.Operands.Count > 0 && instruction.Operands[0] is Instruction target)
+                instruction.Operands[0] = graph.GetBlockByInstruction(target)!;
         }
 
         return graph;
-    }
-
-    // I don't know why this even happens
-    private void ConnectBlocksWithoutSuccessorsToExit()
-    {
-        var visited = new HashSet<Block>();
-        var queue = new Queue<Block>();
-
-        queue.Enqueue(EntryBlock);
-        visited.Add(EntryBlock);
-
-        while (queue.Count > 0)
-        {
-            var block = queue.Dequeue();
-
-            if (block.Successors.Count == 0 && block != EntryBlock && block != ExitBlock)
-                AddDirectedEdge(block, ExitBlock);
-
-            foreach (var successor in block.Successors)
-            {
-                if (visited.Add(successor))
-                    queue.Enqueue(successor);
-            }
-        }
     }
 
     /// <summary>
@@ -205,63 +191,52 @@ public class ControlFlowGraph
             }
 
             // Remove the merged block
-            Blocks.RemoveAt(i + 1);
+            Blocks.Remove(nextBlock);
             i--;
         }
     }
 
     /// <summary>
-    /// Simplifies the graph by removing nops and empty blocks.
+    /// Removes all nop instructions.
     /// </summary>
-    public void Simplify()
+    public void RemoveNops()
     {
-        RemoveNops();
-        RemoveEmptyBlocks();
-    }
-
-    private void RemoveNops()
-    {
-        var visited = new HashSet<Block>();
-        var queue = new Queue<Block>();
-
-        queue.Enqueue(EntryBlock);
-        visited.Add(EntryBlock);
-
-        while (queue.Count > 0)
+        foreach (var block in Blocks)
         {
-            var block = queue.Dequeue();
-
             for (var i = 0; i < block.Instructions.Count; i++)
             {
                 var instruction = block.Instructions[i];
-                if (instruction.OpCode != OpCode.Nop) continue;
-                block.Instructions.RemoveAt(i);
-                i--;
-            }
 
-            foreach (var successor in block.Successors)
-            {
-                if (visited.Add(successor))
-                    queue.Enqueue(successor);
+                if (instruction.OpCode == OpCode.Nop)
+                {
+                    block.Instructions.RemoveAt(i);
+                    i--;
+                }
             }
         }
     }
 
-    private void RemoveEmptyBlocks()
+    /// <summary>
+    /// Removes all blocks that don't have any instructions.
+    /// </summary>
+    public void RemoveEmptyBlocks()
     {
         var emptyBlocks = Blocks.Where(b => b.Instructions.Count == 0).ToList();
 
         foreach (var block in emptyBlocks)
         {
+            // Don't remove entry or exit
             if (block == EntryBlock || block == ExitBlock)
                 continue;
 
+            // Update successors
             foreach (var pred in block.Predecessors)
             {
                 pred.Successors.Remove(block);
                 pred.Successors.AddRange(block.Successors);
             }
 
+            // Update predecessors
             foreach (var succ in block.Successors)
             {
                 succ.Predecessors.Remove(block);
@@ -271,35 +246,12 @@ public class ControlFlowGraph
             Blocks.Remove(block);
         }
 
+        // Remove duplicates from successors and predecessors
         foreach (var block in Blocks)
         {
             block.Successors = block.Successors.Distinct().ToList();
             block.Predecessors = block.Predecessors.Distinct().ToList();
         }
-    }
-
-    private List<Instruction> GetAllInstructions()
-    {
-        var instructions = new List<Instruction>();
-        var visited = new HashSet<Block>();
-        var queue = new Queue<Block>();
-
-        queue.Enqueue(EntryBlock);
-        visited.Add(EntryBlock);
-
-        while (queue.Count > 0)
-        {
-            var block = queue.Dequeue();
-            instructions.AddRange(block.Instructions);
-
-            foreach (var successor in block.Successors)
-            {
-                if (visited.Add(successor))
-                    queue.Enqueue(successor);
-            }
-        }
-
-        return instructions;
     }
 
     private void SplitTargetBlock(Block block)
@@ -309,17 +261,22 @@ public class ControlFlowGraph
 
         // Get the branch target block
         var branch = block.Instructions.Last();
-        var target = (BranchTargetInstruction)branch.Operands[0]!;
-        var targetBlock = GetBlockByInstruction(target.Instruction);
+        var target = (Instruction)branch.Operands[0];
+        var targetBlock = GetBlockByInstruction(target);
 
         // Split it at the target instruction
-        var index = targetBlock!.Instructions.FindIndex(i => i == target!.Instruction);
+        var index = targetBlock!.Instructions.FindIndex(i => i == target);
         var targetBlock2 = SplitAndCreate(targetBlock, index);
         AddDirectedEdge(block, targetBlock2);
 
         block.IsDirty = false;
     }
 
+    /// <summary>
+    /// Gets the block that contains the instruction.
+    /// </summary>
+    /// <param name="instruction">The instruction.</param>
+    /// <returns>The containing block.</returns>
     public Block? GetBlockByInstruction(Instruction instruction)
     {
         foreach (var block in Blocks)
@@ -331,42 +288,42 @@ public class ControlFlowGraph
         return null;
     }
 
-    private Block SplitAndCreate(Block target, int index)
+    private Block SplitAndCreate(Block block, int index)
     {
         if (index == 0)
-            return target;
+            return block;
 
         var newBlock = new Block() { Id = _nextId++ };
 
         // Take the instructions for the second part
-        var instructions = target.Instructions.GetRange(index, target.Instructions.Count - index);
-        target.Instructions.RemoveRange(index, target.Instructions.Count - index);
+        var instructions = block.Instructions.GetRange(index, block.Instructions.Count - index);
+        block.Instructions.RemoveRange(index, block.Instructions.Count - index);
 
-        // Add those to the newNode
+        // Add those to the new block
         newBlock.Instructions.AddRange(instructions);
 
         // Transfer successors
-        newBlock.Successors = target.Successors;
+        newBlock.Successors = block.Successors;
 
-        if (target.IsDirty)
+        if (block.IsDirty)
             newBlock.IsDirty = true;
 
-        target.IsDirty = false;
-        target.Successors = [];
+        block.IsDirty = false;
+        block.Successors = [];
 
         // Correct the predecessors for all the successors
         foreach (var successor in newBlock.Successors)
         {
             for (var i = 0; i < successor.Predecessors.Count; i++)
             {
-                if (successor.Predecessors[i].Id == target.Id)
+                if (successor.Predecessors[i].Id == block.Id)
                     successor.Predecessors[i] = newBlock;
             }
         }
 
         // Add new block and connect it
         Blocks.Add(newBlock);
-        AddDirectedEdge(target, newBlock);
+        AddDirectedEdge(block, newBlock);
 
         return newBlock;
     }

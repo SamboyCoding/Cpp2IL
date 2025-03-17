@@ -1,9 +1,12 @@
-﻿namespace Decompiler.IL;
+﻿using AsmResolver.DotNet;
+using Decompiler.ControlFlow;
+
+namespace Decompiler.IL;
 
 /// <summary>
-/// A single instruction.
+/// A single IL instruction.
 /// </summary>
-public class Instruction(int index, OpCode opcode, params IOperand?[] operands) : IOperand
+public class Instruction(int index, OpCode opcode, params object[] operands)
 {
     /// <summary>
     /// Index of the instruction.
@@ -17,70 +20,129 @@ public class Instruction(int index, OpCode opcode, params IOperand?[] operands) 
 
     /// <summary>
     /// Operands for the instruction.
+    /// Valid types: int, long, ulong, string, local, instruction (branch target), block, register, stack offset, method definition.
     /// </summary>
-    public List<IOperand?> Operands = operands.ToList();
+    public List<object> Operands = operands.ToList();
 
     /// <summary>
     /// True if the instruction doesn't affect control flow.
     /// </summary>
-    public bool IsFallThrough => OpCode != OpCode.Return && OpCode != OpCode.Jump && OpCode != OpCode.ConditionalJump;
-
-    public OperandType Type => OperandType.Instruction;
+    public bool IsFallThrough =>
+        OpCode switch
+        {
+            OpCode.Return or OpCode.Jump or OpCode.ConditionalJump => false,
+            _ => true
+        };
 
     /// <summary>
-    /// Operands that the instruction reads.
+    /// Is the instruction a call?
     /// </summary>
-    public List<IOperand> ReadOperands
+    public bool IsCall => OpCode is OpCode.Call or OpCode.CallVoid or OpCode.TailCall or OpCode.TailCallVoid;
+
+    /// <summary>
+    /// Is the instruction a tail call?
+    /// </summary>
+    public bool IsTailCall => OpCode is OpCode.TailCall or OpCode.TailCallVoid;
+
+    /// <summary>
+    /// Is the instruction return?
+    /// </summary>
+    public bool IsReturn => OpCode is OpCode.Return or OpCode.ReturnVoid;
+
+    /// <summary>
+    /// Operands that the instruction uses (not including constant values).
+    /// </summary>
+    public List<object> Sources
     {
         get
         {
-            if (OpCode == OpCode.Move)
-                return GetAllReadOperands(Operands[1]);
+            return OpCode switch
+            {
+                OpCode.Move or OpCode.LoadAddress or OpCode.ConditionalJump
+                    or OpCode.ShiftStack
+                    => IsConstantValue(Operands[1]) ? [] : [Operands[1]],
 
-            var operands = new List<IOperand>();
-            foreach (var operand in Operands)
-                operands.AddRange(GetAllReadOperands(operand));
-            return operands;
+                OpCode.Add or OpCode.Subtract or OpCode.Multiply
+                    or OpCode.Divide or OpCode.ShiftLeft or OpCode.ShiftRight
+                    or OpCode.And or OpCode.Or or OpCode.Xor or OpCode.Not or OpCode.Negate
+                    => IsConstantValue(Operands[1]) ? IsConstantValue(Operands[2]) ? [] : [Operands[2]] : [Operands[1]],
+
+                OpCode.Phi => Operands.Skip(1).Where(o => !IsConstantValue(o)).ToList(),
+                OpCode.Call or OpCode.TailCall => Operands.Skip(2).Where(o => !IsConstantValue(o)).ToList(),
+                OpCode.CallVoid or OpCode.TailCallVoid => Operands.Skip(1).Where(o => !IsConstantValue(o)).ToList(),
+                OpCode.Return => IsConstantValue(Operands[0]) ? [] : [Operands[0]],
+                OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
+                    => new List<object> { Operands[1], Operands[2] }.Where(o => !IsConstantValue(o)).ToList(),
+                _ => []
+            };
         }
     }
 
     /// <summary>
-    /// Operands that the instruction writes to.
+    /// If the instruction assigns a value to something, this is the destination.
     /// </summary>
-    public List<IOperand> WrittenOperands
+    public object? Destination
     {
-        get
+        get => GetOrSetDestination();
+        set => GetOrSetDestination(value);
+    }
+
+    private object? GetOrSetDestination(object? newDestination = null)
+    {
+        switch (OpCode)
         {
-            if (OpCode != OpCode.Move)
-                return [];
-            return [Operands[0]!];
+            case OpCode.Move:
+            case OpCode.LoadAddress:
+            case OpCode.Phi:
+            case OpCode.Call:
+            case OpCode.TailCall:
+            case OpCode.Add:
+            case OpCode.Subtract:
+            case OpCode.Multiply:
+            case OpCode.Divide:
+            case OpCode.ShiftLeft:
+            case OpCode.ShiftRight:
+            case OpCode.And:
+            case OpCode.Or:
+            case OpCode.Xor:
+            case OpCode.Not:
+            case OpCode.Negate:
+            case OpCode.CheckEqual:
+            case OpCode.CheckGreater:
+            case OpCode.CheckLess:
+                if (newDestination != null)
+                    Operands[0] = newDestination;
+                return IsConstantValue(Operands[0]) ? null : Operands[0];
+            default:
+                return null;
         }
     }
 
-    private static List<IOperand> GetAllReadOperands(IOperand? operand)
+    public override string ToString() => $"{Index} {OpCode} {string.Join(", ", Operands.Select(FormatOperand))}";
+
+    private static string FormatOperand(object operand)
     {
-        if (operand == null)
-            return [];
-
-        var operands = new List<IOperand>();
-
-        switch (operand.Type)
+        return operand switch
         {
-            case OperandType.Register:
-            case OperandType.StackOffset:
-            case OperandType.Local:
-                operands.Add(operand);
-                break;
-            case OperandType.Instruction:
-                var instruction = (Instruction)operand;
-                foreach (var op in instruction.Operands)
-                    operands.AddRange(GetAllReadOperands(op!));
-                break;
-        }
-
-        return operands;
+            string text => $"\"{text}\"",
+            MethodDefinition method => $"{method.DeclaringType!.Name}.{method.Name}",
+            Instruction instruction => $"@{instruction.Index}",
+            Block block => $"@b{block.Id}",
+            _ => operand.ToString()!
+        };
     }
 
-    public override string ToString() =>
-        $"({Index} {OpCode} {string.Join(", ", Operands.Select(o => o == null ? "null" : o.ToString()))})";
+
+    /// <summary>
+    /// Checks if an operand is constant.
+    /// </summary>
+    /// <param name="operand">The operand.</param>
+    /// <returns>True if it's constant.</returns>
+    public static bool IsConstantValue(object operand) =>
+        operand switch
+        {
+            LocalVariable or Register or StackOffset => false,
+            MemoryAddress memory => memory.IsConstant,
+            _ => true
+        };
 }

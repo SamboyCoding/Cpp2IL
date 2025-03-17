@@ -1,12 +1,10 @@
 ﻿namespace Decompiler.IL;
 
 /// <summary>
-/// A register operand.
+/// A register.
 /// </summary>
-public struct Register(int number, string? name = null, int version = -1) : IOperand, IEquatable<Register>
+public struct Register(int number, string? name = null, int version = -1) : IEquatable<Register>
 {
-    public OperandType Type => OperandType.Register;
-
     /// <summary>
     /// The register number.
     /// </summary>
@@ -29,6 +27,8 @@ public struct Register(int number, string? name = null, int version = -1) : IOpe
     /// <returns>The register.</returns>
     public Register Copy(int version = -1) => new(Number, Name, version);
 
+    public override string ToString() => (Name ?? $"reg{Number}") + (Version == -1 ? "" : $"_v{Version}");
+
     public static bool operator ==(Register left, Register right)
     {
         return left.Equals(right);
@@ -46,15 +46,19 @@ public struct Register(int number, string? name = null, int version = -1) : IOpe
         return Equals(register);
     }
 
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hashCode = Number;
+            hashCode = (hashCode * 397) ^ (Name != null ? Name.GetHashCode() : 0);
+            hashCode = (hashCode * 397) ^ Version;
+            return hashCode;
+        }
+    }
+
     public bool Equals(Register other)
     {
         return Name == other.Name && Number == other.Number && Version == other.Version;
     }
-
-    public override int GetHashCode()
-    {
-        return Number;
-    }
-
-    public override string ToString() => (Name ?? $"reg{Number}") + (Version == -1 ? "" : $"_v{Version}");
 }

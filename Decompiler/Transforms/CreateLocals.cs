@@ -26,41 +26,52 @@ public class CreateLocals : ITransform
         }
 
         // Replace registers with locals
-        var workList = new Queue<Instruction>(method.Instructions);
-
-        while (workList.Count > 0)
+        foreach (var instruction in method.Instructions)
         {
-            var instruction = workList.Dequeue();
-
             for (var i = 0; i < instruction.Operands.Count; i++)
             {
                 var operand = instruction.Operands[i];
 
-                // Nested instruction
-                if (operand is Instruction instructionOp)
-                    workList.Enqueue(instructionOp);
+                if (operand is Register register)
+                    instruction.Operands[i] = locals[register];
 
-                // Register
-                if (operand is not Register register) continue;
-                instruction.Operands[i] = locals[register];
+                if (operand is MemoryAddress memory)
+                {
+                    if (memory.Base != null)
+                    {
+                        var baseRegister = (Register)memory.Base;
+                        memory.Base = locals[baseRegister];
+                    }
+
+                    if (memory.Index != null)
+                    {
+                        var index = (Register)memory.Index;
+                        memory.Index = locals[index];
+                    }
+
+                    instruction.Operands[i] = memory;
+                }
             }
         }
 
         method.Locals = locals.Select(kv => kv.Value).ToList();
 
+        // Return local names
+        for (var i = 0; i < method.Instructions.Count; i++)
+        {
+            var instruction = method.Instructions[i];
+            if (instruction.OpCode != OpCode.Return) continue;
+
+            var returnLocal = (LocalVariable)instruction.Sources[0];
+
+            returnLocal.Name = $"returnVal{i}";
+        }
+
         // Add parameter names
-        var returnRegister = method.GetReturnLocal();
         var paramLocals = new List<LocalVariable>();
 
         foreach (var local in method.Locals)
         {
-            // Return value
-            if (returnRegister != null && local.Register == returnRegister.Register)
-            {
-                local.Name = "return";
-                continue;
-            }
-
             // Get param index of the local
             var paramIndex = method.Parameters.FindIndex(p => p is Register r && r.Number == local.Register.Number && local.Register.Version == -1);
             if (paramIndex == -1) continue;
@@ -75,7 +86,12 @@ public class CreateLocals : ITransform
             else
             {
                 // Set the name
-                local.Name = method.GetParameterName(paramIndex + (method.Definition.IsStatic ? 0 : -1)); // -1 for 'this' param
+                var index = paramIndex + (method.Definition.IsStatic ? 0 : -1); // -1 for 'this' param
+
+                if (index > method.Definition.Parameters.Count - 1)
+                    continue;
+
+                local.Name = method.Definition.Parameters[index].Name;
                 paramLocals.Add(local);
             }
         }
@@ -85,19 +101,32 @@ public class CreateLocals : ITransform
 
     private static List<Register> GetRegisters(Instruction instruction)
     {
-        // Get all registers
         var registers = new List<Register>();
+
         foreach (var operand in instruction.Operands)
         {
-            // Nested instruction
-            if (operand is Instruction instructionOp)
-                registers.AddRange(GetRegisters(instructionOp));
+            if (operand is Register register)
+            {
+                if (!registers.Contains(register))
+                    registers.Add(register);
+            }
 
-            // Register
-            if (operand is not Register register) continue;
+            if (operand is MemoryAddress memory)
+            {
+                if (memory.Base != null)
+                {
+                    var baseRegister = (Register)memory.Base;
+                    if (!registers.Contains(baseRegister))
+                        registers.Add(baseRegister);
+                }
 
-            if (!registers.Contains(register))
-                registers.Add(register);
+                if (memory.Index != null)
+                {
+                    var index = (Register)memory.Index;
+                    if (!registers.Contains(index))
+                        registers.Add(index);
+                }
+            }
         }
 
         return registers;

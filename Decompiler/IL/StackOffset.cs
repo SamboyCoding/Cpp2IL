@@ -1,12 +1,10 @@
 ﻿namespace Decompiler.IL;
 
 /// <summary>
-/// Stack offset operand.
+/// Stack offset.
 /// </summary>
-public struct StackOffset(int offset) : IOperand
+public struct StackOffset(int offset)
 {
-    public OperandType Type => OperandType.StackOffset;
-
     /// <summary>
     /// The stack offset.
     /// </summary>

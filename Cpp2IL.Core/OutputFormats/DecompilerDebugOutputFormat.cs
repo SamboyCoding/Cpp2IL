@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -23,99 +24,73 @@ namespace Cpp2IL.Core.OutputFormats;
 // i know, there is a lot of platform specific stuff in here
 public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 {
-    public struct InstructionIndex(ulong address) : IOperand
+    [DebuggerDisplay("Address = {Address}")]
+    private struct InstructionAddress(ulong address)
     {
-        public OperandType Type => OperandType.Int;
-        public int Size { get; set; }
         public ulong Address = address;
+        public override string ToString() => $"@{Address}";
     }
 
     public override string OutputFormatId => "decompiler-debug";
     public override string OutputFormatName => "Output format to debug/test the decompiler";
 
     private static ConcurrentDictionary<string, int> _registerNumbers = [];
-    private ModuleDefinition _module;
 
     private Decompiler.Decompiler _decompiler = new();
 
     public static int SuccessCount;
     public static int TotalCount;
 
-    public static int MaxInstructionCount = 8000;
-
-    private static bool _dontActuallyWriteFiles = false;
-
-    private static readonly InstructionSetIndependentOperand IsilCarryFlag = InstructionSetIndependentOperand.MakeRegister("cf");
-    private static readonly InstructionSetIndependentOperand IsilOverflowFlag = InstructionSetIndependentOperand.MakeRegister("of");
-    private static readonly InstructionSetIndependentOperand IsilSignFlag = InstructionSetIndependentOperand.MakeRegister("sf");
-    private static readonly InstructionSetIndependentOperand IsilZeroFlag = InstructionSetIndependentOperand.MakeRegister("zf");
-    private static readonly InstructionSetIndependentOperand IsilParityFlag = InstructionSetIndependentOperand.MakeRegister("pf");
-    private static readonly InstructionSetIndependentOperand IsilTempRegister = InstructionSetIndependentOperand.MakeRegister("tmp");
-    private static readonly InstructionSetIndependentOperand IsilXmm0Register = InstructionSetIndependentOperand.MakeRegister("xmm0");
-    private static readonly InstructionSetIndependentOperand IsilRaxRegister = InstructionSetIndependentOperand.MakeRegister("rax");
+    private static int _maxMethodSize = 50_000;
 
     // cached registers
-    private static IOperand _carryFlag;
-    private static IOperand _overflowFlag;
-    private static IOperand _signFlag;
-    private static IOperand _zeroFlag;
-    private static IOperand _parityFlag;
-    private static IOperand _tempRegister;
-    private static IOperand _xmm0Register;
-    private static IOperand _raxRegister;
+    private static object _carryFlag;
+    private static object _overflowFlag;
+    private static object _signFlag;
+    private static object _zeroFlag;
+    private static object _parityFlag;
+    private static object _xmm0;
+    private static object _rax;
 
     public override void OnOutputFormatSelected()
     {
         base.OnOutputFormatSelected();
         NoParallel = true; // parallel makes it fail often
 
-        _carryFlag = TranslateOperand(IsilCarryFlag);
-        _overflowFlag = TranslateOperand(IsilOverflowFlag);
-        _signFlag = TranslateOperand(IsilSignFlag);
-        _zeroFlag = TranslateOperand(IsilZeroFlag);
-        _parityFlag = TranslateOperand(IsilParityFlag);
-        _tempRegister = TranslateOperand(IsilTempRegister);
-        _xmm0Register = TranslateOperand(IsilXmm0Register);
-        _raxRegister = TranslateOperand(IsilRaxRegister);
+        _carryFlag = CreateRegister("cf");
+        _overflowFlag = CreateRegister("of");
+        _signFlag = CreateRegister("sf");
+        _zeroFlag = CreateRegister("zf");
+        _parityFlag = CreateRegister("pf");
+        _xmm0 = CreateRegister("xmm0");
+        _rax = CreateRegister("rax");
     }
 
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
-        if (methodContext.FullName.StartsWith("UnityEngine.") || methodContext.FullName.StartsWith("System.")) return;
+        if (methodContext.FullName.StartsWith("UnityEngine.")
+            || methodContext.FullName.StartsWith("Unity.")
+            || methodContext.FullName.StartsWith("Mono.")
+            || methodContext.FullName.StartsWith("System.")) return;
 
         if (!methodDefinition.IsManagedMethodWithBody()) return;
         methodDefinition.CilMethodBody = new CilMethodBody(methodDefinition);
-        _module = methodDefinition.Module!;
 
         Interlocked.Increment(ref TotalCount);
         Logger.InfoNewline($"Decompiling {methodContext.FullName}...", "Decompiler Debug");
 
         try
         {
+            if (_maxMethodSize != -1 && methodContext.RawBytes.Length > _maxMethodSize)
+                throw new LimitReachedException($"Too big method body in {methodContext.DeclaringType!.Name}.{methodContext.Name}! ({methodContext.RawBytes.Length} bytes)");
+
             var isil = methodContext.AppContext.InstructionSet.GetIsilFromMethod(methodContext);
-
-            if (isil.Count > MaxInstructionCount)
-                throw new LimitReachedException($"Too many instructions in {methodContext.DeclaringType!.Name}.{methodContext.Name}! ({isil.Count})");
-
-            var decompilerIl = TranslateIsilToDecompilerIl(isil, methodDefinition, methodContext);
-
-            // Add return if it's not already there
-            var lastInstruction = decompilerIl.LastOrDefault();
-            if (lastInstruction != null && lastInstruction.OpCode != OpCode.Return)
-            {
-                if (methodContext.IsVoid)
-                    decompilerIl.Add(new Instruction(-1, OpCode.Return));
-                else if (methodContext.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
-                    decompilerIl.Add(new Instruction(-1, OpCode.Return, _xmm0Register));
-                else
-                    decompilerIl.Add(new Instruction(-1, OpCode.Return, _raxRegister));
-            }
+            var il = TranslateIsilToDecompilerIl(isil, methodDefinition, methodContext);
 
             var isilParams = X64CallingConventionResolver.ResolveForManaged(methodContext);
-            var decompilerParams = isilParams.Select(o => TranslateOperand(o)).ToList();
-            decompilerParams.RemoveAt(decompilerParams.Count - 1); // Remove MethodInfo *method
+            var ilParams = isilParams.Select(ConvertOperand).ToList();
 
-            var method = new Method(methodDefinition, decompilerIl, decompilerParams);
+            var method = new Method(methodDefinition, il, ilParams);
             _decompiler.Decompile(method);
 
             var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
@@ -145,7 +120,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                 sb.AppendLine($"""
                                	{block.Id} [
                                		"color"="{(isEntry ? "green" : "red")}"
-                               		"label"="{(isEntry ? $"Entry\\n{definition}\\nParams: {string.Join(", ", decompilerMethod.ParameterLocals)}\\n" : "Exit")} ({block.Id})"
+                               		"label"="{(isEntry ? $@"Entry\n{definition}\nParams: {string.Join(", ", decompilerMethod.ParameterLocals)}\n" : "Exit")} ({block.Id})"
                                	]
                                """);
             }
@@ -168,8 +143,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         sb.AppendLine("}");
 
         var assemblyName = MiscUtils.CleanPathElement(method.DeclaringType!.DeclaringAssembly.CleanAssemblyName);
-        var typePath =
-            Path.Combine(method.DeclaringType!.FullName.Split('.').Select(MiscUtils.CleanPathElement).ToArray());
+        var typePath = Path.Combine(method.DeclaringType!.FullName.Split('.').Select(MiscUtils.CleanPathElement).ToArray());
         var directoryPath = Path.Combine(outputPath, assemblyName, typePath);
         var methodName = MiscUtils.CleanPathElement(method.Name + "_" + string.Join("_",
             method.Parameters.Select(p => MiscUtils.CleanPathElement(p.ParameterTypeContext.Name))));
@@ -182,14 +156,11 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             path += ".dot";
         }
 
-        if (!_dontActuallyWriteFiles)
-        {
-            var directory = Path.GetDirectoryName(path)!;
-            if (!Directory.Exists(directory))
-                Directory.CreateDirectory(directory);
+        var directory = Path.GetDirectoryName(path)!;
+        if (!Directory.Exists(directory))
+            Directory.CreateDirectory(directory);
 
-            File.WriteAllText(path, sb.ToString());
-        }
+        File.WriteAllText(path, sb.ToString());
     }
 
     private static List<Instruction> TranslateIsilToDecompilerIl(List<InstructionSetIndependentInstruction> isil,
@@ -203,47 +174,40 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         {
             var instruction = isil[i];
 
-            // when it's memory, write should be used instead of move
-            var moveOp = OpCode.Nop;
-            if (instruction.Operands.Length > 0)
-                moveOp = instruction.Operands[0].Type == InstructionSetIndependentOperand.OperandType.Memory
-                    ? OpCode.Write
-                    : OpCode.Move;
-
             OpCode opCode;
+            var operands = instruction.Operands.Select(ConvertOperand).ToList();
 
-            var operands = instruction.Operands.Select(o => TranslateOperand(o)).ToList();
-            // normally memory operands have read instruction but when writing to memory this is used
-            var operandsNoRead = instruction.Operands.Select(o => TranslateOperand(o, false)).ToList();
-
-            // using -1 for index here should actually be fine
+            // Using -1 for index here should actually be fine
             switch (instruction.OpCode.Mnemonic)
             {
                 case IsilMnemonic.Move:
-                    Add(new Instruction(-1, moveOp, operandsNoRead[0], operands[1]), instruction);
-                    break;
-
                 case IsilMnemonic.LoadAddress:
-                    Add(new Instruction(-1, moveOp, operandsNoRead[0], operandsNoRead[1]), instruction);
+                    opCode = instruction.OpCode.Mnemonic switch
+                    {
+                        IsilMnemonic.Move => OpCode.Move,
+                        IsilMnemonic.LoadAddress => OpCode.LoadAddress
+                    };
+
+                    Add(new Instruction(-1, opCode, operands[0], operands[1]), instruction);
+                    break;
+                case IsilMnemonic.ShiftLeft:
+                case IsilMnemonic.ShiftRight:
+                    opCode = instruction.OpCode.Mnemonic switch
+                    {
+                        IsilMnemonic.ShiftRight => OpCode.ShiftRight,
+                        IsilMnemonic.ShiftLeft => OpCode.ShiftLeft
+                    };
+
+                    Add(new Instruction(-1, opCode, operands[0], operands[0], operands[1]), instruction);
                     break;
 
                 case IsilMnemonic.Call:
                 case IsilMnemonic.CallNoReturn:
                     if (instruction.Operands[0].Data is IsilRegisterOperand)
                     {
-                        Add(new Instruction(-1, OpCode.Unknown, new StringOp($"Indirect call: {instruction}")),
-                            instruction);
+                        Add(new Instruction(-1, OpCode.Unknown, $"Indirect call: {instruction}"), instruction);
                         break;
                     }
-
-                    // If it's last instruction then it's tail call
-                    var isTailCall = i == isil.Count - 1;
-
-                    // Call -> interrupt
-                    if (!isTailCall)
-                        isTailCall = isil[i + 1].OpCode.Mnemonic == IsilMnemonic.Interrupt;
-
-                    opCode = isTailCall ? OpCode.TailCall : OpCode.Call;
 
                     var address = ((ulong)((IsilImmediateOperand)instruction.Operands[0].Data).Value);
                     MethodAnalysisContext? calledMethod = null;
@@ -273,43 +237,55 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                     if (calledMethod == null)
                     {
-                        Add(
-                            new Instruction(-1, OpCode.Unknown,
-                                new StringOp($"Method not found at {address:X}")), instruction);
+                        Add(new Instruction(-1, OpCode.Unknown, $"Method not found: {address:X}"), instruction);
                         break;
                     }
 
                     var definition = calledMethod.ToMethodDescriptor(methodDefinition.Module!).Resolve()!;
 
-                    if (definition.IsConstructor)
+                    object? returnValue = null;
+
+                    if (calledMethod.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
+                        returnValue = _xmm0;
+                    else if (!calledMethod.IsVoid)
+                        returnValue = _rax;
+
+                    opCode = returnValue == null ? OpCode.CallVoid : OpCode.Call;
+
+                    // If it's last instruction then it's tail call
+                    var isTailCall = i == isil.Count - 1;
+
+                    // Call -> interrupt
+                    if (!isTailCall)
+                        isTailCall = isil[i + 1].OpCode.Mnemonic == IsilMnemonic.Interrupt;
+
+                    if (isTailCall)
                     {
-                        var constructor = new Instruction(-1, opCode, new MethodOperand(definition));
-                        constructor = new Instruction(-1, OpCode.Move, operands[1], constructor);
-                        Add(constructor, instruction);
-                        break;
+                        if (opCode == OpCode.Call)
+                            opCode = OpCode.TailCall;
+
+                        if (opCode == OpCode.CallVoid)
+                            opCode = OpCode.TailCallVoid;
                     }
 
-                    IOperand? returnValue = null;
-                    if (calledMethod.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
-                        returnValue = _xmm0Register;
-                    else if (!calledMethod.IsVoid)
-                        returnValue = _raxRegister;
+                    var call = new Instruction(-1, opCode, definition);
 
-                    var callInstruction = new Instruction(-1, opCode, new MethodOperand(definition));
-                    callInstruction.Operands.AddRange(operands.Skip(1).ToList());
-                    callInstruction.Operands.RemoveAt(callInstruction.Operands.Count - 1); // Remove MethodInfo *method
+                    if (returnValue != null)
+                        call.Operands.Insert(0, returnValue);
 
-                    Add(returnValue == null
-                            ? callInstruction
-                            : new Instruction(-1, OpCode.Move, returnValue, callInstruction),
-                        instruction);
+                    foreach (var arg in operands.Skip(1))
+                        call.Operands.Add(arg);
+
+                    Add(call, instruction);
                     break;
 
                 case IsilMnemonic.Exchange:
                     // tmp = b, b = a, a = tmp
-                    Add(new Instruction(-1, OpCode.Move, _tempRegister, operands[1]), instruction);
-                    Add(new Instruction(-1, moveOp, operandsNoRead[1], operands[0]), instruction);
-                    Add(new Instruction(-1, moveOp, operandsNoRead[0], _tempRegister), instruction);
+                    var exchangeTemp = CreateRegister("exchangeTemp");
+
+                    Add(new Instruction(-1, OpCode.Move, exchangeTemp, operands[1]), instruction); // tmp = b
+                    Add(new Instruction(-1, OpCode.Move, operands[1], operands[0]), instruction); // b = a
+                    Add(new Instruction(-1, OpCode.Move, operands[0], exchangeTemp), instruction); // a = tmp
                     break;
 
                 case IsilMnemonic.Add:
@@ -330,20 +306,7 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                         IsilMnemonic.Xor => OpCode.Xor
                     };
 
-                    Add(new Instruction(-1, moveOp, operandsNoRead[0],
-                        new Instruction(-1, opCode, operands[1], operands[2])), instruction);
-                    break;
-
-                case IsilMnemonic.ShiftLeft:
-                case IsilMnemonic.ShiftRight:
-                    opCode = instruction.OpCode.Mnemonic switch
-                    {
-                        IsilMnemonic.ShiftRight => OpCode.ShiftRight,
-                        IsilMnemonic.ShiftLeft => OpCode.ShiftLeft,
-                    };
-
-                    Add(new Instruction(-1, moveOp, operandsNoRead[0],
-                        new Instruction(-1, opCode, operands[0], operands[1])), instruction);
+                    Add(new Instruction(-1, opCode, operands[0], operands[1], operands[2]), instruction);
                     break;
 
                 case IsilMnemonic.Not:
@@ -354,102 +317,97 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
                         IsilMnemonic.Neg => OpCode.Negate
                     };
 
-                    Add(new Instruction(-1, moveOp, operandsNoRead[0],
-                        new Instruction(-1, opCode, operands[0])), instruction);
-                    break;
-
-                case IsilMnemonic.Compare: // set flags
-                    // tmp = a - b
-                    Add(
-                        new Instruction(-1, OpCode.Move, _tempRegister,
-                            new Instruction(-1, OpCode.Subtract, operands[0], operands[1])), instruction);
-                    // CF = a < b
-                    Add(
-                        new Instruction(-1, OpCode.Move, _carryFlag,
-                            new Instruction(-1, OpCode.CheckLess, operands[0], operands[1])), instruction);
-                    // OF = tmp > a
-                    Add(
-                        new Instruction(-1, OpCode.Move, _overflowFlag,
-                            new Instruction(-1, OpCode.CheckGreater, _tempRegister, operands[0])), instruction);
-                    // SF = tmp < 0
-                    Add(
-                        new Instruction(-1, OpCode.Move, _signFlag,
-                            new Instruction(-1, OpCode.CheckLess, _tempRegister, new IntOp(0))), instruction);
-                    // ZF = tmp == 0
-                    Add(
-                        new Instruction(-1, OpCode.Move, _zeroFlag,
-                            new Instruction(-1, OpCode.CheckEqual, _tempRegister, new IntOp(0))), instruction);
-                    // PF = tmp & 1
-                    Add(
-                        new Instruction(-1, OpCode.Move, _parityFlag,
-                            new Instruction(-1, OpCode.And, _tempRegister, new IntOp(1))), instruction);
+                    Add(new Instruction(-1, opCode, operands[0], operands[0]), instruction);
                     break;
 
                 case IsilMnemonic.ShiftStack:
-                    Add(new Instruction(-1, OpCode.ShiftStack, operands[0]), instruction);
+                case IsilMnemonic.Goto:
+                case IsilMnemonic.Invalid:
+                case IsilMnemonic.NotImplemented:
+                    opCode = instruction.OpCode.Mnemonic switch
+                    {
+                        IsilMnemonic.ShiftStack => OpCode.ShiftStack,
+                        IsilMnemonic.Goto => OpCode.Jump,
+                        IsilMnemonic.Invalid => OpCode.Unknown,
+                        IsilMnemonic.NotImplemented => OpCode.Unknown
+                    };
+
+                    Add(new Instruction(-1, opCode, operands[0]), instruction);
+                    break;
+
+                case IsilMnemonic.Compare: // Set flags
+                    var cmpA = operands[0];
+                    var cmpB = operands[1];
+
+                    var cmpTemp = CreateRegister("cmpTemp");
+
+                    // cmpTemp = a - b
+                    Add(new Instruction(-1, OpCode.Subtract, cmpTemp, cmpA, cmpB), instruction);
+                    // CF = a < b
+                    Add(new Instruction(-1, OpCode.CheckLess, _carryFlag, cmpA, cmpB), instruction);
+                    // OF = cmpTemp > a
+                    Add(new Instruction(-1, OpCode.CheckGreater, _overflowFlag, cmpTemp, cmpA), instruction);
+                    // SF = cmpTemp < 0
+                    Add(new Instruction(-1, OpCode.CheckLess, _signFlag, cmpTemp, 0), instruction);
+                    // ZF = cmpTemp == 0
+                    Add(new Instruction(-1, OpCode.CheckEqual, _zeroFlag, cmpTemp, 0), instruction);
+                    // PF = cmpTemp & 1
+                    Add(new Instruction(-1, OpCode.And, _parityFlag, cmpTemp, 1), instruction);
                     break;
 
                 case IsilMnemonic.Push:
                 case IsilMnemonic.Pop:
-                    Add(
-                        new Instruction(-1, OpCode.Unknown,
-                            new StringOp($"Somehow Cpp2IL didn't translate {instruction} to ISIL!")), instruction);
+                    Add(new Instruction(-1, OpCode.Unknown, $"Somehow Cpp2IL didn't translate {instruction} to ISIL!"), instruction);
                     break;
 
                 case IsilMnemonic.Return:
                     Add(
                         instruction.Operands.Length == 0
-                            ? new Instruction(-1, OpCode.Return)
+                            ? new Instruction(-1, OpCode.ReturnVoid)
                             : new Instruction(-1, OpCode.Return, operands[0]),
                         instruction);
                     break;
 
-                case IsilMnemonic.Goto:
-                    Add(new Instruction(-1, OpCode.Jump, operands[0]), instruction);
-                    break;
-
                 case IsilMnemonic.JumpIfEqual:
                     // ZF = 1
-                    Add(
-                        new Instruction(-1, OpCode.ConditionalJump, operands[0], _zeroFlag), instruction);
+                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], _zeroFlag), instruction);
                     break;
 
                 case IsilMnemonic.JumpIfNotEqual:
                     // ZF = 0
-                    Add(
-                        new Instruction(-1, OpCode.ConditionalJump, operands[0],
-                            new Instruction(-1, OpCode.Not, _zeroFlag)), instruction);
+                    Add(new Instruction(-1, OpCode.Not, CreateRegister("notZf"), _zeroFlag), instruction); // notZf = !zf
+                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], CreateRegister("notZf")), instruction);
                     break;
 
                 case IsilMnemonic.JumpIfGreater:
                     // ZF = 0 & SF = OF
-                    var zfIs0 = new Instruction(-1, OpCode.Not, _zeroFlag);
-                    var sfIsOf = new Instruction(-1, OpCode.CheckEqual, _signFlag, _overflowFlag);
-                    Add(
-                        new Instruction(-1, OpCode.ConditionalJump, operands[0],
-                            new Instruction(-1, OpCode.And, zfIs0, sfIsOf)), instruction);
+                    var zfIsZero = CreateRegister("zfIsZero");
+                    Add(new Instruction(-1, OpCode.Not, zfIsZero, _zeroFlag), instruction); // zfIsZero = !zf
+                    Add(new Instruction(-1, OpCode.CheckEqual, CreateRegister("sfIsOf"), _signFlag, _overflowFlag), instruction); // sfIsOf = sf == of
+                    Add(new Instruction(-1, OpCode.And, zfIsZero, CreateRegister("sfIsOf"), zfIsZero), instruction); // zfIsZero &= sfIsOf
+                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], zfIsZero), instruction);
                     break;
 
                 case IsilMnemonic.JumpIfGreaterOrEqual:
                     // SF = OF
-                    var sfIsOf2 = new Instruction(-1, OpCode.CheckEqual, _signFlag, _overflowFlag);
-                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], sfIsOf2), instruction);
+                    Add(new Instruction(-1, OpCode.CheckEqual, CreateRegister("sfIsOf"), _signFlag, _overflowFlag), instruction); // sfIsOf = sf == of
+                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], CreateRegister("sfIsOf")), instruction);
                     break;
 
                 case IsilMnemonic.JumpIfLess:
                     // SF != OF
-                    var sfIsNotOf = new Instruction(-1, OpCode.Not,
-                        new Instruction(-1, OpCode.CheckEqual, _signFlag, _overflowFlag));
-                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], sfIsNotOf), instruction);
+                    Add(new Instruction(-1, OpCode.CheckEqual, CreateRegister("sfIsNotOf"), _signFlag, _overflowFlag), instruction); // sfIsNotOf = sf == of
+                    Add(new Instruction(-1, OpCode.Not, CreateRegister("sfIsNotOf"), CreateRegister("sfIsNotOf")), instruction); // sfIsNotOf = !sfIsNotOf
+                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], CreateRegister("sfIsNotOf")), instruction);
                     break;
 
                 case IsilMnemonic.JumpIfLessOrEqual:
                     // ZF = 1 | SF != OF
-                    var sfIsNotOf2 = new Instruction(-1, OpCode.Not,
-                        new Instruction(-1, OpCode.CheckEqual, _signFlag, _overflowFlag));
-                    Add(
-                        new Instruction(-1, OpCode.ConditionalJump, operands[0],
-                            new Instruction(-1, OpCode.Or, sfIsNotOf2, _zeroFlag)), instruction);
+                    Add(new Instruction(-1, OpCode.Move, CreateRegister("zfCopy"), _zeroFlag), instruction); // zfCopy = zf
+                    Add(new Instruction(-1, OpCode.CheckEqual, CreateRegister("sfIsNotOf"), _signFlag, _overflowFlag), instruction); // sfIsNotOf = sf == of
+                    Add(new Instruction(-1, OpCode.Not, CreateRegister("sfIsNotOf"), CreateRegister("sfIsNotOf")), instruction); // sfIsNotOf = !sfIsNotOf
+                    Add(new Instruction(-1, OpCode.Or, CreateRegister("zfCopy"), CreateRegister("sfIsNotOf"), CreateRegister("zfCopy")), instruction); // zfCopy |= sfIsNotOf
+                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], CreateRegister("zfCopy")), instruction);
                     break;
 
                 case IsilMnemonic.JumpIfSign:
@@ -459,67 +417,72 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
                 case IsilMnemonic.JumpIfNotSign:
                     // SF = 0
-                    Add(
-                        new Instruction(-1, OpCode.ConditionalJump, operands[0],
-                            new Instruction(-1, OpCode.Not, _signFlag)), instruction);
+                    Add(new Instruction(-1, OpCode.Not, CreateRegister("notSf"), _signFlag), instruction); // notSf = !sf
+                    Add(new Instruction(-1, OpCode.ConditionalJump, operands[0], CreateRegister("notSf")), instruction);
                     break;
 
                 case IsilMnemonic.SignExtend:
                     // IsilMnemonic.SignExtend is not used anywhere
-                    Add(
-                        new Instruction(-1, OpCode.Unknown,
-                            new StringOp($"SignExtend is not implemented ({instruction})")), instruction);
+                    Add(new Instruction(-1, OpCode.Unknown, $"SignExtend is not implemented ({instruction})"), instruction);
                     break;
 
                 case IsilMnemonic.Interrupt:
-                    // Should interrupt return?
                     if (methodContext.IsVoid)
-                        Add(new Instruction(-1, OpCode.Return), instruction);
+                        Add(new Instruction(-1, OpCode.ReturnVoid), instruction);
                     else if (methodContext.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
-                        Add(new Instruction(-1, OpCode.Return, _xmm0Register), instruction);
+                        Add(new Instruction(-1, OpCode.Return, _xmm0), instruction);
                     else
-                        Add(new Instruction(-1, OpCode.Return, _raxRegister), instruction);
+                        Add(new Instruction(-1, OpCode.Return, _rax), instruction);
                     break;
 
                 case IsilMnemonic.Nop:
-                    // these could be branch targets so these need to be added
+                    // These could be branch targets so these need to be added
                     Add(new Instruction(-1, OpCode.Nop), instruction);
                     break;
 
-                case IsilMnemonic.NotImplemented:
-                case IsilMnemonic.Invalid:
-                    Add(new Instruction(-1, OpCode.Unknown, operands[0]), instruction);
-                    break;
-
                 default:
-                    Add(new Instruction(-1, OpCode.Unknown, new StringOp($"Unknown instruction: {instruction}")),
+                    Add(new Instruction(-1, OpCode.Unknown, $"Unknown instruction: {instruction}"),
                         instruction);
                     break;
             }
         }
 
-        // fix ranches
+        // Fix ranches
         foreach (var instruction in instructions)
         {
             if (instruction.Operands.Count == 0) continue;
 
-            if (instruction.Operands[0] is InstructionIndex target)
+            if (instruction.Operands[0] is InstructionAddress target)
             {
-                // try because it could be a tail call or something weird
                 try
                 {
-                    instruction.Operands[0] = new BranchTargetInstruction(addressMap.First(i => i.Item1 == target.Address).Item2);
+                    instruction.Operands[0] = addressMap.First(i => i.Item1 == target.Address).Item2;
                 }
                 catch (Exception e)
                 {
                     instruction.OpCode = OpCode.Unknown;
-                    instruction.Operands =
-                        [new StringOp($"Branch target not found: @{target.Address:X}")];
+                    instruction.Operands = [$"Branch target not found: @{target.Address:X}"];
                 }
             }
         }
 
-        // fix indexes
+        // Add return if it's not already there
+        if (instructions.Count > 0)
+        {
+            var lastInstruction = instructions.LastOrDefault();
+
+            if (lastInstruction != null && lastInstruction.OpCode != OpCode.Return)
+            {
+                if (methodContext.IsVoid)
+                    instructions.Add(new Instruction(-1, OpCode.ReturnVoid));
+                else if (methodContext.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
+                    instructions.Add(new Instruction(-1, OpCode.Return, _xmm0));
+                else
+                    instructions.Add(new Instruction(-1, OpCode.Return, _rax));
+            }
+        }
+
+        // Fix indexes
         for (var i = 0; i < instructions.Count; i++)
             instructions[i].Index = i;
 
@@ -532,96 +495,50 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         }
     }
 
-    private static IOperand TranslateOperand(InstructionSetIndependentOperand operand, bool addReadInstruction = true)
+    private static object CreateRegister(string name) => ConvertOperand(InstructionSetIndependentOperand.MakeRegister(name));
+
+    private static object ConvertOperand(InstructionSetIndependentOperand operand)
     {
         switch (operand.Data)
         {
             case IsilImmediateOperand immediate:
-                switch (immediate.Value)
+                return immediate.Value switch
                 {
-                    case int num:
-                        return new IntOp(num);
-                    // X86InstructionSet sometimes uses MaxValue
-                    case ushort and ushort.MaxValue:
-                    case uint and uint.MaxValue:
-                    case ulong and ulong.MaxValue:
-                        return new IntOp(int.MaxValue);
-                    case ulong num2:
-                        return new LongOp((int)num2);
-                    case string text:
-                        return new StringOp(text);
-                }
-
-                break;
+                    int num => num,
+                    ushort.MaxValue => int.MaxValue,
+                    uint.MaxValue or ulong.MaxValue => ulong.MaxValue,
+                    ulong num2 => num2,
+                    string text => text,
+                    _ => $"Unknown operand: {operand}"
+                };
 
             case IsilStackOperand stackOffset:
                 return new StackOffset(stackOffset.Offset);
 
             case IsilRegisterOperand register:
-            {
                 if (!_registerNumbers.ContainsKey(register.RegisterName))
                     _registerNumbers[register.RegisterName] = _registerNumbers.Count;
 
                 var number = _registerNumbers[register.RegisterName];
-
                 return new Register(number, register.RegisterName);
-            }
+
             case IsilMemoryOperand memory:
-                IOperand? newOperand = null;
-                var needsPlus = false;
-
+                Register? baseRegister = null;
                 if (memory.Base != null)
-                {
-                    newOperand = TranslateOperand((InstructionSetIndependentOperand)memory.Base);
-                    needsPlus = true;
-                }
+                    baseRegister = (Register)ConvertOperand((InstructionSetIndependentOperand)memory.Base!);
 
-                if (memory.Addend != 0)
-                {
-                    if (needsPlus)
-                    {
-                        var opCode = memory.Addend > 0 ? OpCode.Add : OpCode.Subtract;
-                        newOperand = new Instruction(-1, opCode, newOperand, new LongOp(memory.Addend));
-                    }
-                    else
-                    {
-                        newOperand = new LongOp(memory.Addend);
-                    }
-
-                    needsPlus = true;
-                }
-
+                Register? index = null;
                 if (memory.Index != null)
-                {
-                    if (needsPlus)
-                    {
-                        newOperand = new Instruction(-1, OpCode.Add, newOperand,
-                            TranslateOperand((InstructionSetIndependentOperand)memory.Index));
-                    }
-                    else
-                    {
-                        newOperand = TranslateOperand((InstructionSetIndependentOperand)memory.Index);
-                    }
+                    index = (Register)ConvertOperand((InstructionSetIndependentOperand)memory.Index!);
 
-                    if (memory.Scale > 1)
-                    {
-                        newOperand = new Instruction(-1, OpCode.Multiply, newOperand, new IntOp(memory.Scale));
-                    }
-                }
-
-                // move destination shouldn't be read instruction
-                if (addReadInstruction)
-                    newOperand = new Instruction(-1, OpCode.Read, newOperand);
-
-                return newOperand!;
+                return new MemoryAddress(baseRegister, index, memory.Addend, memory.Scale);
+            case IsilVectorRegisterElementOperand vectorRegisterElement:
+                return ConvertOperand(InstructionSetIndependentOperand.MakeRegister(vectorRegisterElement.RegisterName));
 
             case InstructionSetIndependentInstruction instruction:
-                return new InstructionIndex(instruction.ActualAddress);
-
-            case IsilVectorRegisterElementOperand vectorRegisterElement:
-                return TranslateOperand(InstructionSetIndependentOperand.MakeRegister(vectorRegisterElement.RegisterName));
+                return new InstructionAddress(instruction.ActualAddress);
         }
 
-        return new StringOp($"Unknown operand: {operand}");
+        return $"Unknown operand: {operand}";
     }
 }

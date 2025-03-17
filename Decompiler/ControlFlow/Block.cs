@@ -7,7 +7,7 @@ namespace Decompiler.ControlFlow;
 /// <summary>
 /// A block in the control flow graph.
 /// </summary>
-[DebuggerDisplay("Id = {Id}")]
+[DebuggerDisplay("Id = {Id}, Instructions = {Instructions.Count}")]
 public class Block
 {
     /// <summary>
@@ -36,14 +36,14 @@ public class Block
     public List<Block> Successors = [];
 
     /// <summary>
-    /// Operands that the block defines.
-    /// </summary>
-    public List<IOperand> Use = [];
-
-    /// <summary>
     /// Operands that the block uses.
     /// </summary>
-    public List<IOperand> Def = [];
+    public List<object> Use = [];
+
+    /// <summary>
+    /// Operands that the block defines.
+    /// </summary>
+    public List<object> Def = [];
 
     /// <summary>
     /// True if the block doesn't affect control flow.
@@ -51,14 +51,14 @@ public class Block
     public bool IsFallThrough => Instructions.Count != 0 && Instructions.Last().IsFallThrough;
 
     /// <summary>
-    /// Is the last instruction call?
+    /// Is the last instruction a call?
     /// </summary>
-    public bool IsCall => Instructions.Count != 0 && Instructions.Last().OpCode == OpCode.Call;
+    public bool IsCall => Instructions.Count != 0 && Instructions.Last().IsCall;
 
     /// <summary>
-    /// Is the last instruction tail call?
+    /// Is the last instruction a tail call?
     /// </summary>
-    public bool IsTailCall => Instructions.Count != 0 && Instructions.Last().OpCode == OpCode.TailCall;
+    public bool IsTailCall => Instructions.Count != 0 && Instructions.Last().IsTailCall;
 
     /// <summary>
     /// Adds an instruction to the block.

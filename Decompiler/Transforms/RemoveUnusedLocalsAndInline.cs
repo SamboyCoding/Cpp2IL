@@ -4,7 +4,7 @@ using Decompiler.IL;
 namespace Decompiler.Transforms;
 
 /// <summary>
-/// Removes unused locals and inlines those where possible.
+/// Removes unused locals, and inlines locals where possible.
 /// </summary>
 public class RemoveUnusedLocalsAndInline : ITransform
 {
@@ -12,14 +12,15 @@ public class RemoveUnusedLocalsAndInline : ITransform
     {
         RemoveUnusedLocals(method);
         InlineLocals(method);
-        method.ControlFlowGraph.Simplify();
+
+        method.ControlFlowGraph.RemoveNops();
+        method.ControlFlowGraph.RemoveEmptyBlocks();
     }
 
     private static void InlineLocals(Method method)
     {
         var graph = method.ControlFlowGraph;
 
-        // BFS search
         var visited = new HashSet<Block>();
         var queue = new Queue<Block>();
 
@@ -40,13 +41,11 @@ public class RemoveUnusedLocalsAndInline : ITransform
                     // Replace local with source
                     ReplaceLocalsUntilReassignment(block, i + 1, local, source);
 
-                    // If it's not param, remove it from locals
-                    if (!method.ParameterLocals.Contains(local))
-                        method.Locals.Remove(local);
+                    method.TryRemoveLocal(local);
 
-                    // Remove that move instruction
-                    block.Instructions.RemoveAt(i);
-                    i--;
+                    // Change that move to nop
+                    instruction.OpCode = OpCode.Nop;
+                    instruction.Operands = [];
                 }
             }
 
@@ -62,50 +61,33 @@ public class RemoveUnusedLocalsAndInline : ITransform
     {
         var graph = method.ControlFlowGraph;
 
-        // BFS search
-        var visited = new HashSet<Block>();
-        var queue = new Queue<Block>();
-
-        queue.Enqueue(graph.EntryBlock);
-        visited.Add(graph.EntryBlock);
-
-        while (queue.Count > 0)
+        foreach (var block in graph.Blocks)
         {
-            var block = queue.Dequeue();
-
             for (var i = 0; i < block.Instructions.Count; i++)
             {
                 var instruction = block.Instructions[i];
 
-                // If it's move and first operand is local
-                if (instruction.OpCode == OpCode.Move && instruction.Operands[0] is LocalVariable local)
+                // If it's move and the destination is local
+                if (instruction is { OpCode: OpCode.Move, Destination: LocalVariable local })
                 {
                     // Is it used?
                     if (IsLocalUsedAfterInstruction(block, i + 1, local))
                         continue;
 
-                    // Remove the move
-                    block.Instructions.RemoveAt(i);
+                    // Change that move to nop
+                    instruction.OpCode = OpCode.Nop;
+                    instruction.Operands = [];
 
-                    // If it's not param, remove it from locals
-                    if (!method.ParameterLocals.Contains(local))
-                        method.Locals.Remove(local);
+                    method.TryRemoveLocal(local);
 
                     i--;
                 }
-            }
-
-            foreach (var successor in block.Successors)
-            {
-                if (visited.Add(successor))
-                    queue.Enqueue(successor);
             }
         }
     }
 
     private static void ReplaceLocalsUntilReassignment(Block block, int startIndex, LocalVariable local, LocalVariable replacement)
     {
-        // BFS search
         var visited = new HashSet<Block>();
         var queue = new Queue<Block>();
 
@@ -124,39 +106,47 @@ public class RemoveUnusedLocalsAndInline : ITransform
                 // Reassignment?
                 if (instruction.OpCode == OpCode.Move)
                 {
-                    if ((LocalVariable)instruction.Operands[0]! == local)
+                    if (instruction.Operands[0] is LocalVariable local2 && local2 == local)
                         return;
                 }
 
                 // Replace it
-                ReplaceSingleInstruction(instruction);
+                for (var j = 0; j < instruction.Operands.Count; j++)
+                {
+                    var operand = instruction.Operands[j];
+
+                    if (operand is LocalVariable local2)
+                    {
+                        // Replace it
+                        if (local2 == local)
+                            instruction.Operands[j] = replacement;
+                    }
+
+                    if (operand is MemoryAddress memory)
+                    {
+                        if (memory.Base != null)
+                        {
+                            var baseLocal = (LocalVariable)memory.Base;
+
+                            if (baseLocal == local)
+                                memory.Base = replacement;
+                        }
+
+                        if (memory.Index != null)
+                        {
+                            var index = (LocalVariable)memory.Index;
+
+                            if (index == local)
+                                memory.Index = replacement;
+                        }
+                    }
+                }
             }
 
             foreach (var successor in currentBlock.Successors)
             {
                 if (visited.Add(successor))
                     queue.Enqueue(successor);
-            }
-        }
-
-        return;
-
-        void ReplaceSingleInstruction(Instruction instruction)
-        {
-            for (var j = 0; j < instruction.Operands.Count; j++)
-            {
-                var operand = instruction.Operands[j];
-
-                if (operand is LocalVariable local2)
-                {
-                    // Replace it
-                    if (local2 == local)
-                        instruction.Operands[j] = replacement;
-                }
-
-                // Nested instruction
-                if (operand is Instruction instructionOp)
-                    ReplaceSingleInstruction(instructionOp);
             }
         }
     }
@@ -166,9 +156,16 @@ public class RemoveUnusedLocalsAndInline : ITransform
         for (var i = startIndex; i < block.Instructions.Count; i++)
         {
             var instruction = block.Instructions[i];
+
             // Instruction reads it
-            if (instruction.ReadOperands.Contains(local))
+            if (instruction.Sources.Contains(local))
                 return true;
+
+            foreach (var source in instruction.Sources)
+            {
+                if (source is MemoryAddress memory && memory.Variables.Contains(local))
+                    return true;
+            }
         }
 
         return IsLocalUsedAfterBlock(block, local);
@@ -176,16 +173,15 @@ public class RemoveUnusedLocalsAndInline : ITransform
 
     private static bool IsLocalUsedAfterBlock(Block block, LocalVariable local)
     {
-        // BFS search
         var visited = new HashSet<Block>();
-        var queue = new Queue<Block>();
+        var workList = new Stack<Block>();
 
-        queue.Enqueue(block);
+        workList.Push(block);
         visited.Add(block);
 
-        while (queue.Count > 0)
+        while (workList.Count > 0)
         {
-            var currentBlock = queue.Dequeue();
+            var currentBlock = workList.Pop();
 
             // If it's not the starting block and it's used
             if (currentBlock != block && currentBlock.Use.Contains(local))
@@ -194,7 +190,7 @@ public class RemoveUnusedLocalsAndInline : ITransform
             foreach (var successor in currentBlock.Successors)
             {
                 if (visited.Add(successor))
-                    queue.Enqueue(successor);
+                    workList.Push(successor);
             }
         }
 
