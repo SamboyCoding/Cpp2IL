@@ -51,10 +51,17 @@ public class RemoveSsaForm : ITransform
             }
 
             // Remove all phis
-            block.Instructions.RemoveAll(i => i.OpCode == OpCode.Phi);
+            foreach (var instruction in block.Instructions)
+            {
+                if (instruction.OpCode == OpCode.Phi)
+                {
+                    instruction.OpCode = OpCode.Nop;
+                    instruction.Operands = [];
+                }
+            }
         }
 
-        // There could now be empty blocks
+        method.ControlFlowGraph.RemoveNops();
         method.ControlFlowGraph.RemoveEmptyBlocks();
     }
 }

@@ -183,68 +183,68 @@ public class BuildSsaForm : ITransform
         return newRegister;
     }
 
-    private void ProcessBlock(Block entryBlock, Dictionary<Block, List<Block>> dominanceTree)
+    private void ProcessBlock(Block block, Dictionary<Block, List<Block>> dominanceTree)
     {
-        var workList = new Queue<Block>([entryBlock]);
-
-        while (workList.Count > 0)
+        foreach (var instruction in block.Instructions)
         {
-            var block = workList.Dequeue();
-
-            foreach (var instruction in block.Instructions)
+            // Replace registers with SSA versions
+            for (var i = 0; i < instruction.Operands.Count; i++)
             {
-                // Replace registers with SSA versions
-                for (var i = 0; i < instruction.Operands.Count; i++)
+                if (instruction.Operands[i] is Register register)
                 {
-                    if (instruction.Operands[i] is Register register)
-                    {
-                        if (_versions.TryGetValue(register.Number, out var versions))
-                            instruction.Operands[i] = register.Copy(versions.Peek().Version);
-                    }
-
-                    if (instruction.Operands[i] is MemoryAddress memory)
-                    {
-                        if (memory.Base != null)
-                        {
-                            var baseRegister = (Register)memory.Base;
-
-                            if (_versions.TryGetValue(baseRegister.Number, out var versions))
-                                memory.Base = baseRegister.Copy(versions.Peek().Version);
-                        }
-
-                        if (memory.Index != null)
-                        {
-                            var indexRegister = (Register)memory.Index;
-
-                            if (_versions.TryGetValue(indexRegister.Number, out var versions))
-                                memory.Index = indexRegister.Copy(versions.Peek().Version);
-                        }
-
-                        instruction.Operands[i] = memory;
-                    }
+                    if (_versions.TryGetValue(register.Number, out var versions))
+                        instruction.Operands[i] = register.Copy(versions.Peek().Version);
                 }
 
-                // Create new version
-                if (instruction.Destination is Register destination)
-                    instruction.Destination = GetNewVersion(destination);
+                if (instruction.Operands[i] is MemoryAddress memory)
+                {
+                    if (memory.Base != null)
+                    {
+                        var baseRegister = (Register)memory.Base;
+
+                        if (_versions.TryGetValue(baseRegister.Number, out var versions))
+                            memory.Base = baseRegister.Copy(versions.Peek().Version);
+                    }
+
+                    if (memory.Index != null)
+                    {
+                        var indexRegister = (Register)memory.Index;
+
+                        if (_versions.TryGetValue(indexRegister.Number, out var versions))
+                            memory.Index = indexRegister.Copy(versions.Peek().Version);
+                    }
+
+                    instruction.Operands[i] = memory;
+                }
             }
 
-            // Record last register version
-            var outMapping = new Dictionary<int, Register>();
-            foreach (var kvp in _versions)
-            {
-                if (kvp.Value.Count > 0)
-                    outMapping[kvp.Key] = kvp.Value.Peek();
-            }
+            // Create new version
+            if (instruction.Destination is Register destination)
+                instruction.Destination = GetNewVersion(destination);
+        }
 
-            _blockOutVersions[block] = outMapping;
+        // Record last register version
+        var outMapping = new Dictionary<int, Register>();
+        foreach (var kvp in _versions)
+        {
+            if (kvp.Value.Count > 0)
+                outMapping[kvp.Key] = kvp.Value.Peek();
+        }
 
-            // Process children in the tree
-            if (dominanceTree.TryGetValue(block, out var children))
-            {
-                foreach (var child in children)
-                    workList.Enqueue(child);
-            }
+        _blockOutVersions[block] = outMapping;
+
+        // Process children in the tree
+        if (dominanceTree.TryGetValue(block, out var children))
+        {
+            foreach (var child in children)
+                ProcessBlock(child, dominanceTree);
+        }
+
+        // Remove registers from versions but not from count
+        foreach (var instruction in block.Instructions.Where(i => i.Destination is Register))
+        {
+            var register = (Register)instruction.Destination!;
+            _versions.FirstOrDefault(kv => kv.Key == register.Number).Value.Pop();
         }
     }
 }

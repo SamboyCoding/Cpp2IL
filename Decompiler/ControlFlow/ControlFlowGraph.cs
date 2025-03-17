@@ -197,6 +197,71 @@ public class ControlFlowGraph
     }
 
     /// <summary>
+    /// Checks if a local is used anywhere in the graph after an instruction.
+    /// </summary>
+    /// <param name="block">Block containing the instruction.</param>
+    /// <param name="startIndex">Index of the instruction in the block.</param>
+    /// <param name="local">The local.</param>
+    /// <param name="usedByMemory">True if a memory operand uses the local.</param>
+    /// <returns>True if the local is used.</returns>
+    public static bool IsLocalUsedAfterInstruction(Block block, int startIndex, LocalVariable local, out bool usedByMemory)
+    {
+        usedByMemory = false;
+
+        for (var i = startIndex; i < block.Instructions.Count; i++)
+        {
+            var instruction = block.Instructions[i];
+
+            // Instruction reads it
+            if (instruction.Sources.Contains(local))
+                return true;
+
+            foreach (var source in instruction.Sources)
+            {
+                if (source is MemoryAddress memory && (memory.Base == local || memory.Index == local))
+                {
+                    usedByMemory = true;
+                    return true;
+                }
+            }
+        }
+
+        return IsLocalUsedAfterBlock(block, local);
+    }
+
+    /// <summary>
+    /// Checks if a local is used in any blocks after the starting block (not including it).
+    /// </summary>
+    /// <param name="block">The starting block.</param>
+    /// <param name="local">The local.</param>
+    /// <returns>True if the local is used.</returns>
+    public static bool IsLocalUsedAfterBlock(Block block, LocalVariable local)
+    {
+        var visited = new HashSet<Block>();
+        var workList = new Stack<Block>();
+
+        workList.Push(block);
+        visited.Add(block);
+
+        while (workList.Count > 0)
+        {
+            var currentBlock = workList.Pop();
+
+            // If it's not the starting block and it's used
+            if (currentBlock != block && currentBlock.Use.Contains(local))
+                return true;
+
+            foreach (var successor in currentBlock.Successors)
+            {
+                if (visited.Add(successor))
+                    workList.Push(successor);
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
     /// Removes all nop instructions.
     /// </summary>
     public void RemoveNops()

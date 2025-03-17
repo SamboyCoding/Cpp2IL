@@ -33,7 +33,7 @@ public class StackAnalyzer : ITransform
         _outGoingState.Clear();
         _instructionState.Clear();
 
-        TraverseGraph(graph);
+        TraverseGraph(graph.EntryBlock);
 
         var outDelta = _outGoingState[graph.ExitBlock];
         if (outDelta.Size != 0)
@@ -80,69 +80,59 @@ public class StackAnalyzer : ITransform
     }
 
     // Traverse the graph and calculate the stack state for each block and instruction
-    private void TraverseGraph(ControlFlowGraph graph)
+    private void TraverseGraph(Block block, int visitedBlockCount = 0)
     {
-        var visitedBlockCount = 0;
+        // Copy current state
+        var incomingState = _inComingState[block];
+        var currentState = incomingState.Copy();
 
-        var workList = new Queue<Block>();
-        workList.Enqueue(graph.EntryBlock);
-
-        while (workList.Count > 0)
+        // Process instructions
+        foreach (var instruction in block.Instructions)
         {
-            var block = workList.Dequeue();
+            _instructionState[instruction] = currentState;
 
-            // Copy current state
-            var incomingState = _inComingState[block];
-            var currentState = incomingState.Copy();
-
-            // Process instructions
-            foreach (var instruction in block.Instructions)
+            if (instruction.OpCode == OpCode.ShiftStack)
             {
-                _instructionState[instruction] = currentState;
+                var offset = (int)instruction.Operands[0];
+                currentState = currentState.Copy();
+                currentState.Size += offset;
+            }
+            else if (instruction.IsTailCall)
+            {
+                // Tail calls clear stack
+                currentState = currentState.Copy();
+                currentState.Size = 0;
+            }
+        }
 
-                if (instruction.OpCode == OpCode.ShiftStack)
+        // Tail calls clear stack
+        if (block.IsTailCall)
+            currentState.Size = 0;
+
+        _outGoingState[block] = currentState;
+
+        visitedBlockCount++;
+
+        if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
+            throw new LimitReachedException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
+
+        // Visit successors
+        foreach (var successor in block.Successors)
+        {
+            // Already visited
+            if (_inComingState.TryGetValue(successor, out var existingState))
+            {
+                if (existingState.Size != currentState.Size)
                 {
-                    var offset = (int)instruction.Operands[0];
-                    currentState = currentState.Copy();
-                    currentState.Size += offset;
-                }
-                else if (instruction.IsTailCall)
-                {
-                    // Tail calls clear stack
-                    currentState = currentState.Copy();
-                    currentState.Size = 0;
+                    _inComingState[successor] = currentState.Copy();
+                    TraverseGraph(successor, visitedBlockCount + 1);
                 }
             }
-
-            // Tail calls clear stack
-            if (block.IsTailCall)
-                currentState.Size = 0;
-
-            _outGoingState[block] = currentState;
-
-            visitedBlockCount++;
-
-            if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-                throw new LimitReachedException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
-
-            // Visit successors
-            foreach (var successor in block.Successors)
+            else
             {
-                // Already visited
-                if (_inComingState.TryGetValue(successor, out var existingState))
-                {
-                    if (existingState.Size != currentState.Size)
-                    {
-                        _inComingState[successor] = currentState.Copy();
-                        workList.Enqueue(successor);
-                    }
-                }
-                else
-                {
-                    // Set incoming delta and add to queue
-                    _inComingState[successor] = currentState.Copy();
-                    workList.Enqueue(successor);
-                }
+                // Set incoming delta and add to queue
+                _inComingState[successor] = currentState.Copy();
+                TraverseGraph(successor, visitedBlockCount + 1);
             }
         }
     }

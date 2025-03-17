@@ -59,12 +59,12 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             return OpCode switch
             {
                 OpCode.Move or OpCode.LoadAddress or OpCode.ConditionalJump
-                    or OpCode.ShiftStack
+                    or OpCode.ShiftStack or OpCode.Not or OpCode.Negate
                     => IsConstantValue(Operands[1]) ? [] : [Operands[1]],
 
                 OpCode.Add or OpCode.Subtract or OpCode.Multiply
                     or OpCode.Divide or OpCode.ShiftLeft or OpCode.ShiftRight
-                    or OpCode.And or OpCode.Or or OpCode.Xor or OpCode.Not or OpCode.Negate
+                    or OpCode.And or OpCode.Or or OpCode.Xor
                     => IsConstantValue(Operands[1]) ? IsConstantValue(Operands[2]) ? [] : [Operands[2]] : [Operands[1]],
 
                 OpCode.Phi => Operands.Skip(1).Where(o => !IsConstantValue(o)).ToList(),
@@ -131,7 +131,6 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             _ => operand.ToString()!
         };
     }
-
 
     /// <summary>
     /// Checks if an operand is constant.

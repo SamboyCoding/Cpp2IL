@@ -32,20 +32,6 @@ public struct MemoryAddress(object? baseRegister = null, object? indexRegister =
     /// </summary>
     public bool IsConstant => Base == null && Index == null;
 
-    /// <summary>
-    /// Variables (non constants) that this uses.
-    /// </summary>
-    public List<object> Variables
-    {
-        get
-        {
-            var variables = new List<object>();
-            if (Base != null) variables.Add(Base);
-            if (Index != null) variables.Add(Index);
-            return variables;
-        }
-    }
-
     public override string ToString()
     {
         var sb = new StringBuilder("[");

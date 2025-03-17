@@ -26,9 +26,10 @@ public class Decompiler
         new BuildSsaForm(),
         new CreateLocals(),
         new BuildUseDefLists(),
-        new RemoveUnusedLocalsAndInline(),
+        new RemoveUnusedLocals(),
         new TypePropagation { MaxLoopCount = 5000 },
         new RemoveSsaForm(),
+        new Inlining(),
         new BuildUseDefLists()
     ];
 

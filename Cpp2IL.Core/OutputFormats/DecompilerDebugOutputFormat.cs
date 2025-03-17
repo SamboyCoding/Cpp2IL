@@ -97,6 +97,10 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
         ProcessedCount++;
 
+        var progress = (float)ProcessedCount / TotalCount;
+        var status = $"Decompiling {methodContext.FullName}";
+        PrintProgressBar(progress, status);
+
         try
         {
             if (_maxMethodSize != -1 && methodContext.RawBytes.Length > _maxMethodSize)
@@ -115,14 +119,10 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             WriteControlFlowGraph(method.ControlFlowGraph, methodContext, methodDefinition, method, outputPath);
 
             SuccessCount++;
-
-            var progress = (float)ProcessedCount / TotalCount;
-            var status = $"Decompiling {methodContext.FullName}";
-            PrintProgressBar(progress, status);
         }
         catch (LimitReachedException e)
         {
-            Logger.ErrorNewline(e.ToString(), "Decompiler Debug");
+            Logger.WarnNewline(methodContext.FullName + ": " + e.Message, "Decompiler Debug");
         }
     }
 
