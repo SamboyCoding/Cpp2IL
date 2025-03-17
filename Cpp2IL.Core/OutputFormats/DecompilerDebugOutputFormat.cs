@@ -36,10 +36,13 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
 
     private static ConcurrentDictionary<string, int> _registerNumbers = [];
 
+    private string[] NamespacesToSkip = ["UnityEngine.", "Unity.", "Mono.", "System."];
+
     private Decompiler.Decompiler _decompiler = new();
 
-    public static int SuccessCount;
-    public static int TotalCount;
+    private static int TotalCount;
+    private static int ProcessedCount;
+    private static int SuccessCount;
 
     private static int _maxMethodSize = 50_000;
 
@@ -66,18 +69,33 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
         _rax = CreateRegister("rax");
     }
 
+    protected override void BeforeStart(ApplicationAnalysisContext context)
+    {
+        TotalCount = 0;
+        ProcessedCount = 0;
+        SuccessCount = 0;
+
+        foreach (var assembly in context.Assemblies)
+        {
+            foreach (var type in assembly.Types)
+            {
+                if (NamespacesToSkip.Any(n => type.FullName.StartsWith(n)))
+                    continue;
+
+                TotalCount += type.Methods.Count;
+            }
+        }
+    }
+
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
-        if (methodContext.FullName.StartsWith("UnityEngine.")
-            || methodContext.FullName.StartsWith("Unity.")
-            || methodContext.FullName.StartsWith("Mono.")
-            || methodContext.FullName.StartsWith("System.")) return;
+        if (NamespacesToSkip.Any(n => methodContext.DeclaringType!.FullName.StartsWith(n)))
+            return;
 
         if (!methodDefinition.IsManagedMethodWithBody()) return;
         methodDefinition.CilMethodBody = new CilMethodBody(methodDefinition);
 
-        Interlocked.Increment(ref TotalCount);
-        Logger.InfoNewline($"Decompiling {methodContext.FullName}...", "Decompiler Debug");
+        ProcessedCount++;
 
         try
         {
@@ -93,15 +111,39 @@ public class DecompilerDebugOutputFormat : AsmResolverDllOutputFormat
             var method = new Method(methodDefinition, il, ilParams);
             _decompiler.Decompile(method);
 
-            var outputPath = Path.Combine(Path.GetDirectoryName(Environment.CurrentDirectory)!, "CFG-Output");
+            var outputPath = Path.Combine(OutputPath, "CFG-Output");
             WriteControlFlowGraph(method.ControlFlowGraph, methodContext, methodDefinition, method, outputPath);
 
-            Interlocked.Increment(ref SuccessCount);
+            SuccessCount++;
+
+            var progress = (float)ProcessedCount / TotalCount;
+            var status = $"Decompiling {methodContext.FullName}";
+            PrintProgressBar(progress, status);
         }
         catch (LimitReachedException e)
         {
             Logger.ErrorNewline(e.ToString(), "Decompiler Debug");
         }
+    }
+
+    protected override void OnComplete()
+    {
+        Logger.InfoNewline($"{(Math.Round(((double)SuccessCount / TotalCount) * 100) / 100) * 100}% successfully decompiled ({SuccessCount} / {TotalCount})", "Decompiler Debug");
+    }
+
+    private static void PrintProgressBar(float progress, string status, int barWidth = 10)
+    {
+        // Clear current line
+        var currentLineCursor = Console.CursorTop;
+        Console.SetCursorPosition(0, Console.CursorTop);
+        Console.Write(new string(' ', Console.BufferWidth));
+        Console.SetCursorPosition(0, currentLineCursor);
+
+        // Print progress
+        var filled = (int)(progress * barWidth);
+        var progressBar = "[" + new string('#', filled) + new string('_', barWidth - filled) + $"] {progress:P0} : {status}";
+
+        Console.Write(progressBar + " ");
     }
 
     private static void WriteControlFlowGraph(ControlFlowGraph graph, MethodAnalysisContext method, MethodDefinition definition, Method decompilerMethod, string outputPath)

@@ -22,9 +22,13 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 {
     private AssemblyDefinition? MostRecentCorLib { get; set; }
     public bool NoParallel = false;
+    protected string OutputPath = "";
 
     public sealed override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
+        OutputPath = outputRoot;
+        BeforeStart(context);
+
         var ret = BuildAssemblies(context);
 
         var start = DateTime.Now;
@@ -52,8 +56,9 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
             fileBuilder.CreateFile(image).Write(dllPath);
         }
 
+        OnComplete();
+
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
-        Logger.InfoNewline($"{(Math.Round(((double)DecompilerDebugOutputFormat.SuccessCount / DecompilerDebugOutputFormat.TotalCount) * 100) / 100) * 100}% successfully decompiled ({DecompilerDebugOutputFormat.SuccessCount} / {DecompilerDebugOutputFormat.TotalCount})", "DllOutput");
     }
 
     public List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
@@ -118,6 +123,14 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         TypeDefinitionsAsmResolver.Reset();
 
         return ret;
+    }
+
+    protected virtual void BeforeStart(ApplicationAnalysisContext context)
+    {
+    }
+
+    protected virtual void OnComplete()
+    {
     }
 
     protected abstract void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext);
