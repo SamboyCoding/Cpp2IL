@@ -8,6 +8,7 @@ using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
+using Decompiler.IL;
 using Disarm.InternalDisassembly;
 using LibCpp2IL;
 
@@ -55,6 +56,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         builder.FixJumps();
 
         return builder.BackingStatementList;
+    }
+
+    public override List<Instruction> GetDecompilerIlFromMethod(MethodAnalysisContext context, out List<object> ilParams)
+    {
+        ilParams = [];
+        return [];
     }
 
     private void ConvertInstructionStatement(Arm64Instruction instruction, IsilBuilder builder, MethodAnalysisContext context)

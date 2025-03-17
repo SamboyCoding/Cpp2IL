@@ -46,6 +46,9 @@ public class Decompiler
 
         foreach (var transform in Transforms)
             transform.Apply(method);
+
+        // Generate initial CIL
+        CilGenerator.Generate(method);
     }
 
     /// <summary>

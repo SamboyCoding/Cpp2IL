@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using Decompiler.IL;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Api;
@@ -33,6 +34,8 @@ public abstract class Cpp2IlInstructionSet
     /// <param name="context">The method to convert to ISIL</param>
     /// <returns>An array of <see cref="IsilInstructionStatement"/> structs representing the functionality of this method in an instruction-set-independent manner.</returns>
     public abstract List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context);
+
+    public abstract List<Instruction> GetDecompilerIlFromMethod(MethodAnalysisContext context, out List<object> ilParams);
 
     /// <summary>
     /// Create and populate a BaseKeyFunctionAddresses object which can then be populated.

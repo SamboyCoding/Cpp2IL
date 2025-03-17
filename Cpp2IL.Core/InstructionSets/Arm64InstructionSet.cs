@@ -8,6 +8,7 @@ using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
+using Decompiler.IL;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.InstructionSets;
@@ -35,6 +36,12 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
+        return [];
+    }
+
+    public override List<Instruction> GetDecompilerIlFromMethod(MethodAnalysisContext context, out List<object> ilParams)
+    {
+        ilParams = [];
         return [];
     }
 

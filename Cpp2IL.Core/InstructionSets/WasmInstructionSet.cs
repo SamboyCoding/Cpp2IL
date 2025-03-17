@@ -6,6 +6,7 @@ using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
+using Decompiler.IL;
 using WasmDisassembler;
 
 namespace Cpp2IL.Core.InstructionSets;
@@ -35,6 +36,12 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
+        return [];
+    }
+
+    public override List<Instruction> GetDecompilerIlFromMethod(MethodAnalysisContext context, out List<object> ilParams)
+    {
+        ilParams = [];
         return [];
     }
 

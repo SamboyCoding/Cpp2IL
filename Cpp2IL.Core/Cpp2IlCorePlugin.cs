@@ -51,7 +51,7 @@ public class Cpp2IlCorePlugin : Cpp2IlPlugin
         OutputFormatRegistry.Register<IsilDumpOutputFormat>();
         OutputFormatRegistry.Register<WasmMappingOutputFormat>();
         OutputFormatRegistry.Register<WasmNameSectionOutputFormat>();
-        OutputFormatRegistry.Register<DecompilerDebugOutputFormat>();
+        OutputFormatRegistry.Register<IlOutputFormat>();
 
         Logger.VerboseNewline("\tRegistering built-in processing layers", "Core Plugin");
 
