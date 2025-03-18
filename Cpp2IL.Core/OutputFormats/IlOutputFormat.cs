@@ -18,8 +18,8 @@ namespace Cpp2IL.Core.OutputFormats;
 
 public class IlOutputFormat : AsmResolverDllOutputFormat
 {
-    public override string OutputFormatId => "decompiler-debug";
-    public override string OutputFormatName => "Output format to debug/test the decompiler";
+    public override string OutputFormatId => "il";
+    public override string OutputFormatName => ".NET IL";
 
     private string[] NamespacesToSkip = ["UnityEngine.", "Unity.", "Mono.", "System.", "TMPro.", "Newtonsoft."];
 
