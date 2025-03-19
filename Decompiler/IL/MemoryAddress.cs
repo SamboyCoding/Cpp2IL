@@ -30,7 +30,7 @@ public struct MemoryAddress(object? baseRegister = null, object? indexRegister =
     /// <summary>
     /// True if this is a constant address.
     /// </summary>
-    public bool IsConstant => Base == null && Index == null;
+    public bool IsConstant => Base == null && Index == null && Scale == 0;
 
     public override string ToString()
     {

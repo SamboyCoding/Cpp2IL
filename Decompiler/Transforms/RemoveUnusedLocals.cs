@@ -8,7 +8,7 @@ namespace Decompiler.Transforms;
 /// </summary>
 public class RemoveUnusedLocals : ITransform
 {
-    public void Apply(Method method)
+    public void Apply(Method method, IContext context)
     {
         var graph = method.ControlFlowGraph;
 
@@ -19,8 +19,12 @@ public class RemoveUnusedLocals : ITransform
                 var instruction = block.Instructions[i];
 
                 // If it's move and the destination is local
-                if (instruction is { OpCode: OpCode.Move, Destination: LocalVariable local })
+                if (instruction is { Destination: LocalVariable local, IsCall: false })
                 {
+                    // Probably out parameter, don't remove it
+                    if (method.ParameterLocals.Contains(instruction.Destination))
+                        continue;
+
                     // Is it used?
                     if (ControlFlowGraph.IsLocalUsedAfterInstruction(block, i + 1, local, out _))
                         continue;

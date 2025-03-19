@@ -21,13 +21,11 @@ namespace Cpp2IL.Core.OutputFormats;
 public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 {
     private AssemblyDefinition? MostRecentCorLib { get; set; }
-    public bool NoParallel = false;
     protected string OutputPath = "";
 
     public sealed override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         OutputPath = outputRoot;
-        BeforeStart(context);
 
         var ret = BuildAssemblies(context);
 
@@ -56,12 +54,10 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
             fileBuilder.CreateFile(image).Write(dllPath);
         }
 
-        OnComplete();
-
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
     }
 
-    public List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
+    public virtual List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
     {
 #if VERBOSE_LOGGING
         var asmCount = context.Assemblies.Count;
@@ -100,16 +96,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.AddExplicitInterfaceImplementations);
-
-        if (NoParallel)
-        {
-            foreach (var assembly in context.Assemblies)
-                FillMethodBodies(assembly);
-        }
-        else
-        {
-            MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
-        }
+        MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
@@ -123,14 +110,6 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         TypeDefinitionsAsmResolver.Reset();
 
         return ret;
-    }
-
-    protected virtual void BeforeStart(ApplicationAnalysisContext context)
-    {
-    }
-
-    protected virtual void OnComplete()
-    {
     }
 
     protected abstract void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext);
@@ -163,7 +142,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         }
     }
 
-    private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)
+    protected List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)
     {
         var assemblyResolver = new Il2CppAssemblyResolver();
         var metadataResolver = new DefaultMetadataResolver(assemblyResolver);

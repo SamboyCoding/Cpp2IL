@@ -32,7 +32,7 @@ public static class CilGenerator
             if (local.Type == null)
                 locals[local] = new CilLocalVariable(corLibTypes.Object);
             else
-                locals[local] = new CilLocalVariable(local.Type.ImportWith(importer));
+                locals[local] = new CilLocalVariable(local.Type.ToTypeSignature().ImportWith(importer));
         }
 
         foreach (var local in locals)

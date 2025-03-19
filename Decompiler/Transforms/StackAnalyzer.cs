@@ -25,7 +25,7 @@ public class StackAnalyzer : ITransform
     /// </summary>
     public int MaxBlockVisitCount = -1;
 
-    public void Apply(Method method)
+    public void Apply(Method method, IContext context)
     {
         var graph = method.ControlFlowGraph;
 

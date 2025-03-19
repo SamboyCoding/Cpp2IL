@@ -7,7 +7,7 @@ namespace Decompiler.Transforms;
 /// </summary>
 public class CreateLocals : ITransform
 {
-    public void Apply(Method method)
+    public void Apply(Method method, IContext context)
     {
         // Get all registers
         var registers = new List<Register>();
@@ -86,9 +86,9 @@ public class CreateLocals : ITransform
             else
             {
                 // Set the name
-                var index = paramIndex + (method.Definition.IsStatic ? 0 : -1); // -1 for 'this' param
+                var index = paramIndex + (method.Definition.IsStatic ? 0 : 1); // +1 to skip 'this' param
 
-                if (index > method.Definition.Parameters.Count - 1)
+                if ((index > method.Definition.Parameters.Count - 1) || index == -1)
                     continue;
 
                 local.Name = method.Definition.Parameters[index].Name;

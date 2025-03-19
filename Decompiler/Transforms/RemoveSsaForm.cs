@@ -8,7 +8,7 @@ namespace Decompiler.Transforms;
 /// </summary>
 public class RemoveSsaForm : ITransform
 {
-    public void Apply(Method method)
+    public void Apply(Method method, IContext context)
     {
         foreach (var block in method.ControlFlowGraph.Blocks)
         {

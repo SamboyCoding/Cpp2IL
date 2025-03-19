@@ -9,5 +9,6 @@ public interface ITransform
     /// Applies the transform to a method.
     /// </summary>
     /// <param name="method">The method.</param>
-    void Apply(Method method);
+    /// <param name="context">Additional context.</param>
+    void Apply(Method method, IContext context);
 }

@@ -108,15 +108,15 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 builder.Move(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Cbw: // AX := sign-extend AL
-                builder.Move(instruction.IP, InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.AX)), 
+                builder.Move(instruction.IP, InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.AX)),
                     InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.AL)));
                 break;
             case Mnemonic.Cwde: // EAX := sign-extend AX
-                builder.Move(instruction.IP, InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.EAX)), 
+                builder.Move(instruction.IP, InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.EAX)),
                     InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.AX)));
                 break;
             case Mnemonic.Cdqe: // RAX := sign-extend EAX
-                builder.Move(instruction.IP, InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.RAX)), 
+                builder.Move(instruction.IP, InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.RAX)),
                     InstructionSetIndependentOperand.MakeRegister(X86Utils.GetRegisterName(Register.EAX)));
                 break;
             // it's very unsafe if there's been a jump to the next instruction here before.
@@ -237,14 +237,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     goto default;
 
                 break;
-            
+
             case Mnemonic.Divss: // Divide Scalar Single Precision Floating-Point Values. DEST[31:0] = DEST[31:0] / SRC[31:0]
                 builder.Divide(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Vdivss: // VEX Divide Scalar Single Precision Floating-Point Values. DEST[31:0] = SRC1[31:0] / SRC2[31:0]
                 builder.Divide(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1), ConvertOperand(instruction, 2));
                 break;
-            
+
             case Mnemonic.Ret:
                 // TODO: Verify correctness of operation with Vectors.
 
@@ -333,15 +333,15 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             {
                 if (instruction.Op1Kind == OpKind.Memory)
                     goto default;
-                
+
                 var imm = instruction.Immediate8;
                 var src1 = X86Utils.GetRegisterName(instruction.Op0Register);
                 var src2 = X86Utils.GetRegisterName(instruction.Op1Register);
                 var dest = "XMM_TEMP";
                 //TEMP_DEST[31:0] := Select4(SRC1[127:0], imm8[1:0]);
-                builder.Move(instruction.IP, ConvertVector(dest, 0), ConvertVector(src1, imm & 0b11)); 
+                builder.Move(instruction.IP, ConvertVector(dest, 0), ConvertVector(src1, imm & 0b11));
                 //TEMP_DEST[63:32] := Select4(SRC1[127:0], imm8[3:2]);
-                builder.Move(instruction.IP, ConvertVector(dest, 1), ConvertVector(src1, (imm >> 2) & 0b11)); 
+                builder.Move(instruction.IP, ConvertVector(dest, 1), ConvertVector(src1, (imm >> 2) & 0b11));
                 //TEMP_DEST[95:64] := Select4(SRC2[127:0], imm8[5:4]);
                 builder.Move(instruction.IP, ConvertVector(dest, 2), ConvertVector(src2, (imm >> 4) & 0b11));
                 //TEMP_DEST[127:96] := Select4(SRC2[127:0], imm8[7:6]);
@@ -353,12 +353,12 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 static InstructionSetIndependentOperand ConvertVector(string reg, int imm) =>
                     InstructionSetIndependentOperand.MakeVectorElement(reg, IsilVectorRegisterElementOperand.VectorElementWidth.S, imm);
             }
-                
-            case Mnemonic.Unpcklps : // Unpack and Interleave Low Packed Single Precision Floating-Point Values
+
+            case Mnemonic.Unpcklps: // Unpack and Interleave Low Packed Single Precision Floating-Point Values
             {
                 if (instruction.Op1Kind == OpKind.Memory)
                     goto default;
-                
+
                 var src1 = X86Utils.GetRegisterName(instruction.Op0Register);
                 var src2 = X86Utils.GetRegisterName(instruction.Op1Register);
                 var dest = "XMM_TEMP";
@@ -372,7 +372,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 static InstructionSetIndependentOperand ConvertVector(string reg, int imm) =>
                     InstructionSetIndependentOperand.MakeVectorElement(reg, IsilVectorRegisterElementOperand.VectorElementWidth.S, imm);
             }
-            
+
             case Mnemonic.Call:
                 // We don't try and resolve which method is being called, but we do need to know how many parameters it has
                 // I would hope that all of these methods have the same number of arguments, else how can they be inlined?
@@ -450,9 +450,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Ucomiss: // same, but unsigned
                 builder.Compare(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
-            
+
             case Mnemonic.Cmove: // move if condition
-            case Mnemonic.Cmovne: 
+            case Mnemonic.Cmovne:
             case Mnemonic.Cmova:
             case Mnemonic.Cmovg:
             case Mnemonic.Cmovae:
@@ -460,9 +460,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Cmovb:
             case Mnemonic.Cmovl:
             case Mnemonic.Cmovbe:
-            case Mnemonic.Cmovle: 
-            case Mnemonic.Cmovs: 
-            case Mnemonic.Cmovns: 
+            case Mnemonic.Cmovle:
+            case Mnemonic.Cmovs:
+            case Mnemonic.Cmovns:
                 switch (instruction.Mnemonic)
                 {
                     case Mnemonic.Cmove: // equals
@@ -494,6 +494,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         builder.JumpIfGreater(instruction.IP, instruction.IP + 1); // skip if not lt or eq
                         break;
                 }
+
                 builder.Move(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1)); // set if cond
                 builder.Nop(instruction.IP + 1);
                 break;
@@ -512,7 +513,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 builder.Nop(instruction.IP + 1); // exit for IF
                 break;
             }
-            
+
             case Mnemonic.Cmpxchg: // compare and exchange
             {
                 var accumulator = InstructionSetIndependentOperand.MakeRegister(instruction.Op1Register.GetSize() switch
@@ -533,11 +534,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 // ELSE
                 // SET ZF = 0
                 builder.Move(instruction.IP + 1, accumulator, dest); // accumulator = dest
-                
+
                 builder.Nop(instruction.IP + 2); // exit for IF
                 break;
             }
-            
+
             case Mnemonic.Jmp:
                 if (instruction.Op0Kind != OpKind.Register)
                 {
@@ -557,6 +558,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         break;
                     }
                 }
+
                 if (instruction.Op0Kind == OpKind.Register) // ex: jmp rax
                 {
                     builder.CallRegister(instruction.IP, ConvertOperand(instruction, 0), noReturn: true);
@@ -582,6 +584,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfNotEqual(instruction.IP, jumpTarget);
                     break;
                 }
+
                 goto default;
             case Mnemonic.Js:
                 if (instruction.Op0Kind != OpKind.Register)
@@ -591,7 +594,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfSign(instruction.IP, jumpTarget);
                     break;
                 }
-                
+
                 goto default;
             case Mnemonic.Jns:
                 if (instruction.Op0Kind != OpKind.Register)
@@ -601,7 +604,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     builder.JumpIfNotSign(instruction.IP, jumpTarget);
                     break;
                 }
-                
+
                 goto default;
             case Mnemonic.Jg:
             case Mnemonic.Ja:
@@ -726,6 +729,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         var addressMap = new List<(ulong, Decompiler.IL.Instruction)>();
         var instructions = new List<Decompiler.IL.Instruction>();
         var appContext = context.AppContext;
+        var keyFunctionAddresses = appContext.GetOrCreateKeyFunctionAddresses();
         var isil = GetIsilFromMethod(context);
 
         for (var i = 0; i < isil.Count; i++)
@@ -795,7 +799,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                     if (calledMethod == null)
                     {
-                        Add(new Decompiler.IL.Instruction(-1, OpCode.Unknown, $"Method not found: {address:X}"), instruction);
+                        var target = (ulong)((IsilImmediateOperand)(instruction.Operands[0].Data)).Value;
+
+                        if (keyFunctionAddresses.IsKeyFunctionAddress(target))
+                            Add(new Decompiler.IL.Instruction(-1, OpCode.Unknown, GetKeyFunctionName(appContext, target, keyFunctionAddresses)), instruction);
+                        else
+                            Add(new Decompiler.IL.Instruction(-1, OpCode.Unknown, $"Method not found: {address:X}"), instruction);
+
                         break;
                     }
 
@@ -1096,5 +1106,71 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         }
 
         return $"Unknown operand: {operand}";
+    }
+
+    private static string GetKeyFunctionName(ApplicationAnalysisContext appContext, ulong target, BaseKeyFunctionAddresses kFA)
+    {
+        var method = "";
+        if (target == kFA.il2cpp_codegen_initialize_method || target == kFA.il2cpp_codegen_initialize_runtime_metadata)
+        {
+            if (appContext.MetadataVersion < 27)
+                method = nameof(kFA.il2cpp_codegen_initialize_method);
+            else
+                method = nameof(kFA.il2cpp_codegen_initialize_runtime_metadata);
+        }
+        else if (target == kFA.il2cpp_vm_metadatacache_initializemethodmetadata)
+            method = nameof(kFA.il2cpp_vm_metadatacache_initializemethodmetadata);
+        else if (target == kFA.il2cpp_runtime_class_init_export)
+            method = nameof(kFA.il2cpp_runtime_class_init_export);
+        else if (target == kFA.il2cpp_runtime_class_init_actual)
+            method = nameof(kFA.il2cpp_runtime_class_init_actual);
+        else if (target == kFA.il2cpp_object_new)
+            method = nameof(kFA.il2cpp_vm_object_new);
+        else if (target == kFA.il2cpp_codegen_object_new)
+            method = nameof(kFA.il2cpp_codegen_object_new);
+        else if (target == kFA.il2cpp_array_new_specific)
+            method = nameof(kFA.il2cpp_array_new_specific);
+        else if (target == kFA.il2cpp_vm_array_new_specific)
+            method = nameof(kFA.il2cpp_vm_array_new_specific);
+        else if (target == kFA.SzArrayNew)
+            method = nameof(kFA.SzArrayNew);
+        else if (target == kFA.il2cpp_type_get_object)
+            method = nameof(kFA.il2cpp_type_get_object);
+        else if (target == kFA.il2cpp_vm_reflection_get_type_object)
+            method = nameof(kFA.il2cpp_vm_reflection_get_type_object);
+        else if (target == kFA.il2cpp_resolve_icall)
+            method = nameof(kFA.il2cpp_resolve_icall);
+        else if (target == kFA.InternalCalls_Resolve)
+            method = nameof(kFA.InternalCalls_Resolve);
+        else if (target == kFA.il2cpp_string_new)
+            method = nameof(kFA.il2cpp_string_new);
+        else if (target == kFA.il2cpp_vm_string_new)
+            method = nameof(kFA.il2cpp_vm_string_new);
+        else if (target == kFA.il2cpp_string_new_wrapper)
+            method = nameof(kFA.il2cpp_string_new_wrapper);
+        else if (target == kFA.il2cpp_vm_string_newWrapper)
+            method = nameof(kFA.il2cpp_vm_string_newWrapper);
+        else if (target == kFA.il2cpp_codegen_string_new_wrapper)
+            method = nameof(kFA.il2cpp_codegen_string_new_wrapper);
+        else if (target == kFA.il2cpp_value_box)
+            method = nameof(kFA.il2cpp_value_box);
+        else if (target == kFA.il2cpp_vm_object_box)
+            method = nameof(kFA.il2cpp_vm_object_box);
+        else if (target == kFA.il2cpp_object_unbox)
+            method = nameof(kFA.il2cpp_object_unbox);
+        else if (target == kFA.il2cpp_vm_object_unbox)
+            method = nameof(kFA.il2cpp_vm_object_unbox);
+        else if (target == kFA.il2cpp_raise_exception)
+            method = nameof(kFA.il2cpp_raise_exception);
+        else if (target == kFA.il2cpp_vm_exception_raise)
+            method = nameof(kFA.il2cpp_vm_exception_raise);
+        else if (target == kFA.il2cpp_codegen_raise_exception)
+            method = nameof(kFA.il2cpp_codegen_raise_exception);
+        else if (target == kFA.il2cpp_vm_object_is_inst)
+            method = nameof(kFA.il2cpp_vm_object_is_inst);
+        else if (target == kFA.AddrPInvokeLookup)
+            method = nameof(kFA.AddrPInvokeLookup);
+
+        return method;
     }
 }

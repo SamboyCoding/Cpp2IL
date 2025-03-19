@@ -7,7 +7,7 @@ namespace Decompiler.Transforms;
 /// </summary>
 public class RemoveUnreachableBlocks : ITransform
 {
-    public void Apply(Method method)
+    public void Apply(Method method, IContext context)
     {
         var graph = method.ControlFlowGraph;
 

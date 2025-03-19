@@ -208,57 +208,48 @@ public class ControlFlowGraph
     {
         usedByMemory = false;
 
-        for (var i = startIndex; i < block.Instructions.Count; i++)
+        var visited = new HashSet<(Block, int)>();
+
+        bool ProcessBlock(Block currentBlock, int index, out bool usedByMemory2)
         {
-            var instruction = block.Instructions[i];
+            usedByMemory2 = false;
 
-            // Instruction reads it
-            if (instruction.Sources.Contains(local))
-                return true;
+            var key = (currentBlock, index);
 
-            foreach (var source in instruction.Sources)
+            if (!visited.Add(key))
+                return false;
+
+            // Process instructions
+            for (var i = index; i < currentBlock.Instructions.Count; i++)
             {
-                if (source is MemoryAddress memory && (memory.Base == local || memory.Index == local))
-                {
-                    usedByMemory = true;
+                var instruction = currentBlock.Instructions[i];
+
+                // Direct usage check
+                if (instruction.Sources.Contains(local))
                     return true;
+
+                // Used in memory operand
+                foreach (var source in instruction.Sources)
+                {
+                    if (source is MemoryAddress memory && (memory.Base == local || memory.Index == local))
+                    {
+                        usedByMemory2 = true;
+                        return true;
+                    }
                 }
             }
-        }
 
-        return IsLocalUsedAfterBlock(block, local);
-    }
-
-    /// <summary>
-    /// Checks if a local is used in any blocks after the starting block (not including it).
-    /// </summary>
-    /// <param name="block">The starting block.</param>
-    /// <param name="local">The local.</param>
-    /// <returns>True if the local is used.</returns>
-    public static bool IsLocalUsedAfterBlock(Block block, LocalVariable local)
-    {
-        var visited = new HashSet<Block>();
-        var workList = new Stack<Block>();
-
-        workList.Push(block);
-        visited.Add(block);
-
-        while (workList.Count > 0)
-        {
-            var currentBlock = workList.Pop();
-
-            // If it's not the starting block and it's used
-            if (currentBlock != block && currentBlock.Use.Contains(local))
-                return true;
-
+            // Process successors
             foreach (var successor in currentBlock.Successors)
             {
-                if (visited.Add(successor))
-                    workList.Push(successor);
+                if (ProcessBlock(successor, 0, out usedByMemory2))
+                    return true;
             }
+
+            return false;
         }
 
-        return false;
+        return ProcessBlock(block, startIndex, out usedByMemory);
     }
 
     /// <summary>

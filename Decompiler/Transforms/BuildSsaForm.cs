@@ -12,7 +12,7 @@ public class BuildSsaForm : ITransform
     private Dictionary<int, int> _versionCount = new();
     private Dictionary<Block, Dictionary<int, Register>> _blockOutVersions = new();
 
-    public void Apply(Method method)
+    public void Apply(Method method, IContext context)
     {
         _versions.Clear();
         _versionCount.Clear();

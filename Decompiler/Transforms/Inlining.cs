@@ -8,7 +8,7 @@ namespace Decompiler.Transforms;
 /// </summary>
 public class Inlining : ITransform
 {
-    public void Apply(Method method)
+    public void Apply(Method method, IContext context)
     {
         InlineLocals(method);
 
@@ -16,6 +16,9 @@ public class Inlining : ITransform
         var changed = true;
         while (changed)
             changed = InlineConstantsSinglePass(method.ControlFlowGraph);
+
+        // More locals can now be inlined
+        InlineLocals(method);
 
         method.ControlFlowGraph.RemoveNops();
         method.ControlFlowGraph.RemoveEmptyBlocks();
@@ -111,62 +114,61 @@ public class Inlining : ITransform
 
     private static void ReplaceLocalsUntilReassignment(Block block, int startIndex, LocalVariable local, object replacement)
     {
-        var visited = new HashSet<Block>();
-        var queue = new Queue<Block>();
+        var visited = new HashSet<(Block, int)>();
 
-        queue.Enqueue(block);
-        visited.Add(block);
-
-        while (queue.Count > 0)
+        void ProcessBlock(Block currentBlock, int index)
         {
-            var currentBlock = queue.Dequeue();
+            var key = (currentBlock, index);
 
-            // Use startIndex only on starting block
-            for (var i = (currentBlock == block ? startIndex : 0); i < currentBlock.Instructions.Count; i++)
+            if (!visited.Add(key))
+                return;
+
+            // Process instructions starting at the given index
+            for (var i = index; i < currentBlock.Instructions.Count; i++)
             {
                 var instruction = currentBlock.Instructions[i];
 
-                // Reassignment?
+                // Stop on this branch when reassigned
                 if (instruction.Destination is LocalVariable destLocal && destLocal == local)
                     return;
 
-                // Replace it
+                // Replace operands
                 for (var j = 0; j < instruction.Operands.Count; j++)
                 {
                     var operand = instruction.Operands[j];
 
-                    if (operand is LocalVariable usedLocal)
+                    if (operand is LocalVariable usedLocal && usedLocal == local)
+                        instruction.Operands[j] = replacement;
+
+                    // [base]
+                    if (operand is MemoryAddress { Index: null, Addend: 0, Scale: 0 } memoryLocal)
                     {
-                        if (usedLocal == local)
+                        if (memoryLocal.Base is LocalVariable baseLocal && baseLocal == local)
                             instruction.Operands[j] = replacement;
                     }
 
                     if (operand is MemoryAddress memory)
                     {
-                        if (memory.Base != null)
-                        {
-                            var baseLocal = (LocalVariable)memory.Base;
+                        // [addend]
+                        if (memory.IsConstant && (replacement is MemoryAddress { IsConstant: true } replacementMemory))
+                            memory.Addend = replacementMemory.Addend;
 
-                            if (baseLocal == local)
-                                memory.Base = replacement;
-                        }
+                        if (memory.Base is LocalVariable baseLocal && baseLocal == local)
+                            memory.Base = replacement;
 
-                        if (memory.Index != null)
-                        {
-                            var index = (LocalVariable)memory.Index;
-
-                            if (index == local)
-                                memory.Index = replacement;
-                        }
+                        if (memory.Index is LocalVariable indexLocal && indexLocal == local)
+                            memory.Index = replacement;
                     }
                 }
             }
 
+            // Process successors
             foreach (var successor in currentBlock.Successors)
             {
-                if (visited.Add(successor))
-                    queue.Enqueue(successor);
+                ProcessBlock(successor, 0);
             }
         }
+
+        ProcessBlock(block, startIndex);
     }
 }

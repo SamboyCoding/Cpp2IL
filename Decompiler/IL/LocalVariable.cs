@@ -1,11 +1,12 @@
-﻿using AsmResolver.DotNet.Signatures;
+﻿using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures;
 
 namespace Decompiler.IL;
 
 /// <summary>
 /// IL local variable.
 /// </summary>
-public class LocalVariable(string name, Register register, TypeSignature? type = null)
+public class LocalVariable(string name, Register register, TypeDefinition? type = null)
 {
     /// <summary>
     /// Name of the variable.
@@ -20,12 +21,17 @@ public class LocalVariable(string name, Register register, TypeSignature? type =
     /// <summary>
     /// Type of the variable.
     /// </summary>
-    public TypeSignature? Type = type;
+    public TypeDefinition? Type = type;
+
+    /// <summary>
+    /// The field that this local accesses.
+    /// </summary>
+    public FieldDefinition? Field;
 
     /// <summary>
     /// Is this the 'this' parameter?
     /// </summary>
     public bool IsThis = false;
 
-    public override string ToString() => Type == null ? Name : $"{Name}:{Type.Name}";
+    public override string ToString() => Type == null ? Name : (Field == null ? $"{Name}:{Type.Name}" : $"{Name}:{Type.Name}.{Field.Name}");
 }

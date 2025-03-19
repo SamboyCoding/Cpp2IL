@@ -1,4 +1,5 @@
 ﻿using AsmResolver.DotNet;
+using AsmResolver.DotNet.Signatures;
 using Decompiler.ControlFlow;
 
 namespace Decompiler.IL;
@@ -20,7 +21,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
     /// <summary>
     /// Operands for the instruction.
-    /// Valid types: int, long, ulong, string, local, instruction (branch target), block, register, stack offset, method definition.
+    /// Valid types: int, long, ulong, string, local, instruction (branch target), block, register, stack offset, method definition, type definition.
     /// </summary>
     public List<object> Operands = operands.ToList();
 
@@ -52,31 +53,12 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
     /// <summary>
     /// Operands that the instruction uses (not including constant values).
     /// </summary>
-    public List<object> Sources
-    {
-        get
-        {
-            return OpCode switch
-            {
-                OpCode.Move or OpCode.LoadAddress or OpCode.ConditionalJump
-                    or OpCode.ShiftStack or OpCode.Not or OpCode.Negate
-                    => IsConstantValue(Operands[1]) ? [] : [Operands[1]],
+    public List<object> Sources => GetSources();
 
-                OpCode.Add or OpCode.Subtract or OpCode.Multiply
-                    or OpCode.Divide or OpCode.ShiftLeft or OpCode.ShiftRight
-                    or OpCode.And or OpCode.Or or OpCode.Xor
-                    => IsConstantValue(Operands[1]) ? IsConstantValue(Operands[2]) ? [] : [Operands[2]] : [Operands[1]],
-
-                OpCode.Phi => Operands.Skip(1).Where(o => !IsConstantValue(o)).ToList(),
-                OpCode.Call or OpCode.TailCall => Operands.Skip(2).Where(o => !IsConstantValue(o)).ToList(),
-                OpCode.CallVoid or OpCode.TailCallVoid => Operands.Skip(1).Where(o => !IsConstantValue(o)).ToList(),
-                OpCode.Return => IsConstantValue(Operands[0]) ? [] : [Operands[0]],
-                OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
-                    => new List<object> { Operands[1], Operands[2] }.Where(o => !IsConstantValue(o)).ToList(),
-                _ => []
-            };
-        }
-    }
+    /// <summary>
+    /// Operands that the instruction uses (including constant values).
+    /// </summary>
+    public List<object> SourcesAndConstants => GetSources(false);
 
     /// <summary>
     /// If the instruction assigns a value to something, this is the destination.
@@ -118,6 +100,34 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
         }
     }
 
+    private List<object> GetSources(bool constantsOnly = true)
+    {
+        var sources = OpCode switch
+        {
+            OpCode.Move or OpCode.LoadAddress or OpCode.ConditionalJump
+                or OpCode.ShiftStack or OpCode.Not or OpCode.Negate
+                => [Operands[1]],
+
+            OpCode.Add or OpCode.Subtract or OpCode.Multiply
+                or OpCode.Divide or OpCode.ShiftLeft or OpCode.ShiftRight
+                or OpCode.And or OpCode.Or or OpCode.Xor
+                => [Operands[2], Operands[1]],
+
+            OpCode.Phi => Operands.Skip(1).ToList(),
+            OpCode.Call or OpCode.TailCall => Operands.Skip(2).ToList(),
+            OpCode.CallVoid or OpCode.TailCallVoid => Operands.Skip(1).ToList(),
+            OpCode.Return => [Operands[0]],
+            OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
+                => [Operands[1], Operands[2]],
+            _ => []
+        };
+
+        if (constantsOnly)
+            sources = sources.Where(o => !IsConstantValue(o)).ToList();
+
+        return sources;
+    }
+
     public override string ToString() => $"{Index} {OpCode} {string.Join(", ", Operands.Select(FormatOperand))}";
 
     private static string FormatOperand(object operand)
@@ -126,6 +136,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
         {
             string text => $"\"{text}\"",
             MethodDefinition method => $"{method.DeclaringType!.Name}.{method.Name}",
+            TypeDefinition type => $"typeof({type.FullName})",
             Instruction instruction => $"@{instruction.Index}",
             Block block => $"@b{block.Id}",
             _ => operand.ToString()!

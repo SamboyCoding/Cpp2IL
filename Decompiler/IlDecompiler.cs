@@ -8,7 +8,7 @@ namespace Decompiler;
 /// <summary>
 /// The main decompiler class.
 /// </summary>
-public class Decompiler
+public class IlDecompiler
 {
     /// <summary>
     /// Max allowed count of instructions (-1 for no limit).
@@ -27,8 +27,9 @@ public class Decompiler
         new CreateLocals(),
         new BuildUseDefLists(),
         new RemoveUnusedLocals(),
-        new TypePropagation { MaxLoopCount = 5000 },
         new RemoveSsaForm(),
+        new ResolveTypeAddresses(),
+        new TypePropagation { MaxLoopCount = 5000 },
         new Inlining(),
         new BuildUseDefLists()
     ];
@@ -37,7 +38,8 @@ public class Decompiler
     /// Decompiles a single method to .NET's IL (CIL), there's no return value because this sets the body.
     /// </summary>
     /// <param name="method">The method.</param>
-    public void Decompile(Method method)
+    /// <param name="context">Additional context.</param>
+    public void Decompile(Method method, IContext context)
     {
         if (MaxInstructionCount != -1 && method.Instructions.Count > MaxInstructionCount)
             throw new LimitReachedException($"Too many instructions in {method.Definition.DeclaringType!.Name}.{method.Definition.Name}! ({method.Instructions.Count})");
@@ -45,7 +47,7 @@ public class Decompiler
         var definition = method.Definition;
 
         foreach (var transform in Transforms)
-            transform.Apply(method);
+            transform.Apply(method, context);
 
         // Generate initial CIL
         CilGenerator.Generate(method);
