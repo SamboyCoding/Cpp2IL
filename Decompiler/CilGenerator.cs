@@ -97,23 +97,34 @@ public static class CilGenerator
                     break;
 
                 case OpCode.LoadAddress:
+                    AddWarning("not implemented:" + instruction, instruction);
+                    break;
+
                 case OpCode.Phi:
-                    AddWarning(instruction.ToString(), instruction);
+                    AddWarning($"Phi shouldn't exist at this point! ({instruction})", instruction);
                     break;
 
                 case OpCode.Call:
                 case OpCode.TailCall:
-                    var calledMethod = (MethodDefinition)instruction.Operands[1];
-
-                    Add(new CilInstruction(CilOpCodes.Call, calledMethod.ImportWith(importer)), instruction);
-                    Add(new CilInstruction(CilOpCodes.Stloc, GetLocal((LocalVariable)instruction.Operands[0])), instruction);
-                    break;
-
                 case OpCode.CallVoid:
                 case OpCode.TailCallVoid:
-                    var calledVoidMethod = (MethodDefinition)instruction.Operands[0];
+                    var isVoid = instruction.OpCode is not (OpCode.Call or OpCode.TailCall);
+                    var calledMethod = (MethodDefinition)instruction.Operands[isVoid ? 0 : 1];
 
-                    Add(new CilInstruction(CilOpCodes.Call, calledVoidMethod.ImportWith(importer)), instruction);
+                    // Load this param
+                    if (!calledMethod.IsStatic)
+                        LoadOperand(instruction.Operands[isVoid ? 1 : 2], instruction);
+
+                    // Load args
+                    foreach (var arg in instruction.Operands /*.Skip(calledMethod.IsStatic ? 1 : 1)*/)
+                        LoadOperand(arg, instruction);
+
+                    Add(new CilInstruction(calledMethod.IsStatic ? CilOpCodes.Call : CilOpCodes.Callvirt, calledMethod.ImportWith(importer)), instruction);
+
+                    // Store return value
+                    if (!isVoid)
+                        Add(new CilInstruction(CilOpCodes.Stloc, GetLocal((LocalVariable)instruction.Operands[0])), instruction);
+
                     break;
 
                 case OpCode.Return:
@@ -137,7 +148,7 @@ public static class CilGenerator
                     break;
 
                 case OpCode.ShiftStack:
-                    AddWarning(instruction.ToString(), instruction);
+                    AddWarning($"ShiftStack shouldn't exist at this point! ({instruction})", instruction);
                     break;
 
                 case OpCode.Add:
@@ -149,34 +160,61 @@ public static class CilGenerator
                 case OpCode.And:
                 case OpCode.Or:
                 case OpCode.Xor:
-                /*if (instruction.Operands[0] is not LocalVariable binaryOpDest)
-                    continue;
+                    if (instruction.Operands[0] is not LocalVariable binaryOpDest)
+                        continue;
 
-                var binaryOp = instruction.OpCode switch
-                {
-                    OpCode.Add => CilOpCodes.Add,
-                    OpCode.Subtract => CilOpCodes.Sub,
-                    OpCode.Multiply => CilOpCodes.Mul,
-                    OpCode.Divide => CilOpCodes.Div,
-                    OpCode.ShiftLeft => CilOpCodes.Shl,
-                    OpCode.ShiftRight => CilOpCodes.Shr,
-                    OpCode.And => CilOpCodes.And,
-                    OpCode.Or => CilOpCodes.Or,
-                    OpCode.Xor => CilOpCodes.Xor
-                };
+                    var binaryOp = instruction.OpCode switch
+                    {
+                        OpCode.Add => CilOpCodes.Add,
+                        OpCode.Subtract => CilOpCodes.Sub,
+                        OpCode.Multiply => CilOpCodes.Mul,
+                        OpCode.Divide => CilOpCodes.Div,
+                        OpCode.ShiftLeft => CilOpCodes.Shl,
+                        OpCode.ShiftRight => CilOpCodes.Shr,
+                        OpCode.And => CilOpCodes.And,
+                        OpCode.Or => CilOpCodes.Or,
+                        OpCode.Xor => CilOpCodes.Xor
+                    };
 
-                LoadOperand(instruction.Operands[1], instruction);
-                LoadOperand(instruction.Operands[2], instruction);
-                Add(new CilInstruction(binaryOp), instruction);
-                Add(new CilInstruction(CilOpCodes.Stloc, GetLocal(binaryOpDest)), instruction);
-                break;*/
+                    LoadOperand(instruction.Operands[1], instruction);
+                    LoadOperand(instruction.Operands[2], instruction);
+                    Add(new CilInstruction(binaryOp), instruction);
+                    Add(new CilInstruction(CilOpCodes.Stloc, GetLocal(binaryOpDest)), instruction);
+                    break;
 
                 case OpCode.Not:
                 case OpCode.Negate:
+                    if (instruction.Operands[0] is not LocalVariable unaryOpDest)
+                        continue;
+
+                    var unaryOp = instruction.OpCode switch
+                    {
+                        OpCode.Not => CilOpCodes.Not,
+                        OpCode.Negate => CilOpCodes.Neg
+                    };
+
+                    LoadOperand(instruction.Operands[1], instruction);
+                    Add(new CilInstruction(unaryOp), instruction);
+                    Add(new CilInstruction(CilOpCodes.Stloc, GetLocal(unaryOpDest)), instruction);
+                    break;
+
                 case OpCode.CheckEqual:
                 case OpCode.CheckGreater:
                 case OpCode.CheckLess:
-                    AddWarning(instruction.ToString(), instruction);
+                    if (instruction.Operands[0] is not LocalVariable comparisonOpDest)
+                        continue;
+
+                    var comparisonOp = instruction.OpCode switch
+                    {
+                        OpCode.CheckEqual => CilOpCodes.Ceq,
+                        OpCode.CheckGreater => CilOpCodes.Cgt,
+                        OpCode.CheckLess => CilOpCodes.Clt,
+                    };
+
+                    LoadOperand(instruction.Operands[1], instruction);
+                    LoadOperand(instruction.Operands[2], instruction);
+                    Add(new CilInstruction(comparisonOp), instruction);
+                    Add(new CilInstruction(CilOpCodes.Stloc, GetLocal(comparisonOpDest)), instruction);
                     break;
             }
         }
@@ -209,22 +247,44 @@ public static class CilGenerator
             switch (operand)
             {
                 case int intNum:
-                    Add(new CilInstruction(CilOpCodes.Ldc_I4_S, intNum), source);
+                    Add(new CilInstruction(CilOpCodes.Ldc_I4, intNum), source);
                     break;
                 case long longNum:
                     Add(new CilInstruction(CilOpCodes.Ldc_I8, longNum), source);
                     break;
                 case ulong ulongNum:
-                    Add(new CilInstruction(CilOpCodes.Ldc_I8, ulongNum), source);
+                    Add(new CilInstruction(CilOpCodes.Ldc_I8, (long)ulongNum), source); // Idk how to load ulong
                     break;
                 case string text:
                     Add(new CilInstruction(CilOpCodes.Ldstr, text), source);
                     break;
                 case LocalVariable local:
+                    if (method.ParameterLocals.Contains(local))
+                    {
+                        var index = method.ParameterLocals.FindIndex(l => l == local);
+
+                        if (!method.Definition.IsStatic && index == 0)
+                            Add(new CilInstruction(CilOpCodes.Ldarg, method.Definition.Parameters.ThisParameter), source);
+                        else
+                            Add(new CilInstruction(CilOpCodes.Ldarg, method.Definition.Parameters[index]), source);
+
+                        break;
+                    }
+
                     Add(new CilInstruction(CilOpCodes.Ldloc, GetLocal(local)), source);
+
+                    if (local.Field is { } field)
+                        Add(new CilInstruction(CilOpCodes.Ldfld, field.ImportWith(importer)), source);
+
+                    break;
+                case FieldDefinition staticField:
+                    Add(new CilInstruction(CilOpCodes.Ldfld, staticField.ImportWith(importer)), source);
+                    break;
+                case MemoryAddress memory:
+                    Add(new CilInstruction(CilOpCodes.Ldstr, memory.ToString()), source);
                     break;
                 default:
-                    Add(new CilInstruction(CilOpCodes.Ldstr, $"Unknown operand: {operand}"), source);
+                    Add(new CilInstruction(CilOpCodes.Ldstr, $"unknown operand: {operand}"), source);
                     break;
             }
         }

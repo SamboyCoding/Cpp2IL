@@ -32,6 +32,7 @@ public class IlDecompiler
         new TypePropagation { MaxLoopCount = 5000 },
         new BuildUseDefLists(),
         new Inlining(),
+        new ResolveStaticFields(),
         new BuildUseDefLists()
     ];
 

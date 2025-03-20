@@ -21,7 +21,8 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
     /// <summary>
     /// Operands for the instruction.
-    /// Valid types: int, long, ulong, string, local, instruction (branch target), block, register, stack offset, memory address, method definition, type definition.
+    /// Valid types: int, long, ulong, string, local, instruction (branch target), block, register,
+    /// stack offset, memory address, method definition, type definition, field definition (static).
     /// </summary>
     public List<object> Operands = operands.ToList();
 
