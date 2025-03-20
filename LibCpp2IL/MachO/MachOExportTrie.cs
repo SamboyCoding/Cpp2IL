@@ -34,23 +34,23 @@ public class MachOExportTrie
         if (terminalSize != 0)
         {
             var flags = (ExportFlags)_reader.BaseStream.ReadLEB128Unsigned();
-            var address = 0L;
-            var other = 0L;
+            var address = 0UL;
+            var other = 0UL;
             string? importName = null;
 
             if ((flags & ExportFlags.ReExport) != 0)
             {
-                other = _reader.BaseStream.ReadLEB128Signed();
+                other = _reader.BaseStream.ReadLEB128Unsigned();
                 importName = _reader.ReadStringToNullAtCurrentPos();
             }
             else
             {
-                address = _reader.BaseStream.ReadLEB128Signed();
+                address = _reader.BaseStream.ReadLEB128Unsigned();
                 if ((flags & ExportFlags.StubAndResolver) != 0)
-                    other = _reader.BaseStream.ReadLEB128Signed();
+                    other = _reader.BaseStream.ReadLEB128Unsigned();
             }
 
-            Entries.Add(new(name, address, (long)flags, other, importName));
+            Entries.Add(new(name, address, (ulong)flags, other, importName));
         }
 
         _reader.BaseStream.Position = childrenIndex;

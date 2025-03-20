@@ -1,5 +1,4 @@
 using System.IO;
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL.Logging;
@@ -16,8 +15,8 @@ public class MachOFile : Il2CppBinary
 
     private readonly MachOSegmentCommand[] Segments64;
     private readonly MachOSection[] Sections64;
-    private readonly Dictionary<string, long> _exportAddressesDict;
-    private readonly Dictionary<long, string> _exportNamesDict;
+    private readonly Dictionary<string, ulong> _exportAddressesDict;
+    private readonly Dictionary<ulong, string> _exportNamesDict;
 
     public MachOFile(MemoryStream input) : base(input)
     {
@@ -79,7 +78,7 @@ public class MachOFile : Il2CppBinary
         var exports = dyldData?.Exports ?? [];
         
         _exportAddressesDict = exports.ToDictionary(e => e.Name[1..], e => e.Address); //Skip the first character, which is a leading underscore inserted by the compiler
-        _exportNamesDict = new Dictionary<long, string>();
+        _exportNamesDict = new Dictionary<ulong, string>();
         foreach (var export in exports) // there may be duplicate names
         {
             _exportNamesDict[export.Address] = export.Name[1..];
@@ -134,19 +133,19 @@ public class MachOFile : Il2CppBinary
         if (!_exportAddressesDict.TryGetValue(toFind, out var addr))
             return 0;
 
-        return (ulong)addr;
+        return addr;
     }
 
-    public override bool IsExportedFunction(ulong addr) => _exportNamesDict.ContainsKey((long)addr);
+    public override bool IsExportedFunction(ulong addr) => _exportNamesDict.ContainsKey(addr);
 
     public override bool TryGetExportedFunctionName(ulong addr, [NotNullWhen(true)] out string? name)
     {
-        return _exportNamesDict.TryGetValue((long)addr, out name);
+        return _exportNamesDict.TryGetValue(addr, out name);
     }
 
     public override IEnumerable<KeyValuePair<string, ulong>> GetExportedFunctions()
     {
-        return _exportAddressesDict.Select(pair => new KeyValuePair<string, ulong>(pair.Key, (ulong)pair.Value));
+        return _exportAddressesDict.Select(pair => new KeyValuePair<string, ulong>(pair.Key, pair.Value));
     }
 
     private MachOSection GetTextSection64()
