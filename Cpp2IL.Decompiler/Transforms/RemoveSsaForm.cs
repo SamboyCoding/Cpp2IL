@@ -1,7 +1,7 @@
-﻿using Decompiler.ControlFlow;
-using Decompiler.IL;
+﻿using Cpp2IL.Decompiler.IL;
+using Cpp2IL.Decompiler.ControlFlow;
 
-namespace Decompiler.Transforms;
+namespace Cpp2IL.Decompiler.Transforms;
 
 /// <summary>
 /// Removes phi functions and converts the method back to normal form.

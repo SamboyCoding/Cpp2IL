@@ -1,4 +1,4 @@
-﻿namespace Decompiler;
+﻿namespace Cpp2IL.Decompiler;
 
 /// <summary>
 /// Complexity limit reached exception.

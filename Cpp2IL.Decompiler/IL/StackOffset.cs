@@ -1,4 +1,4 @@
-﻿namespace Decompiler.IL;
+﻿namespace Cpp2IL.Decompiler.IL;
 
 /// <summary>
 /// Stack offset.

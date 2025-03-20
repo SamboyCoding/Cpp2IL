@@ -1,7 +1,7 @@
 ﻿using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
 
-namespace Decompiler.IL;
+namespace Cpp2IL.Decompiler.IL;
 
 /// <summary>
 /// IL local variable.

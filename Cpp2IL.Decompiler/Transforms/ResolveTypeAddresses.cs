@@ -1,6 +1,6 @@
-﻿using Decompiler.IL;
+﻿using Cpp2IL.Decompiler.IL;
 
-namespace Decompiler.Transforms;
+namespace Cpp2IL.Decompiler.Transforms;
 
 /// <summary>
 /// Resolves types that are referenced as constant addresses.

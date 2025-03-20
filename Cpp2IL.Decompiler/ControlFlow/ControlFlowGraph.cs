@@ -1,6 +1,6 @@
-﻿using Decompiler.IL;
+﻿using Cpp2IL.Decompiler.IL;
 
-namespace Decompiler.ControlFlow;
+namespace Cpp2IL.Decompiler.ControlFlow;
 
 /// <summary>
 /// A control flow graph.

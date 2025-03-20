@@ -2,10 +2,10 @@
 using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.DotNet.Signatures;
 using AsmResolver.PE.DotNet.Cil;
-using Decompiler.ControlFlow;
-using Decompiler.IL;
+using Cpp2IL.Decompiler.ControlFlow;
+using Cpp2IL.Decompiler.IL;
 
-namespace Decompiler;
+namespace Cpp2IL.Decompiler;
 
 /// <summary>
 /// Generates .NET's CIL from decompiler IL.

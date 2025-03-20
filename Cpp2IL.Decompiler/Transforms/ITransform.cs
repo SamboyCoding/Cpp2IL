@@ -1,4 +1,4 @@
-﻿namespace Decompiler.Transforms;
+﻿namespace Cpp2IL.Decompiler.Transforms;
 
 /// <summary>
 /// Transform applied to methods.

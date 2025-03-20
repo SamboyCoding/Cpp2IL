@@ -1,8 +1,8 @@
 ﻿using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
-using Decompiler.ControlFlow;
+using Cpp2IL.Decompiler.ControlFlow;
 
-namespace Decompiler.IL;
+namespace Cpp2IL.Decompiler.IL;
 
 /// <summary>
 /// A single IL instruction.

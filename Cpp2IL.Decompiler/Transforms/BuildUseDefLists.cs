@@ -1,4 +1,4 @@
-﻿namespace Decompiler.Transforms;
+﻿namespace Cpp2IL.Decompiler.Transforms;
 
 /// <summary>
 /// Builds use-def lists for all blocks.

@@ -1,9 +1,9 @@
 ﻿using AsmResolver.DotNet;
 using AsmResolver.DotNet.Code.Cil;
 using AsmResolver.PE.DotNet.Cil;
-using Decompiler.Transforms;
+using Cpp2IL.Decompiler.Transforms;
 
-namespace Decompiler;
+namespace Cpp2IL.Decompiler;
 
 /// <summary>
 /// The main decompiler class.

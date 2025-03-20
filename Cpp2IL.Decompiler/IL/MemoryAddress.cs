@@ -1,6 +1,6 @@
 ﻿using System.Text;
 
-namespace Decompiler.IL;
+namespace Cpp2IL.Decompiler.IL;
 
 /// <summary>
 /// Memory operand in the format of [base+addend+index*scale].

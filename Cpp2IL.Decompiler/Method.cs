@@ -1,8 +1,8 @@
 ﻿using AsmResolver.DotNet;
-using Decompiler.IL;
-using Decompiler.ControlFlow;
+using Cpp2IL.Decompiler.ControlFlow;
+using Cpp2IL.Decompiler.IL;
 
-namespace Decompiler;
+namespace Cpp2IL.Decompiler;
 
 /// <summary>
 /// A method definition.

@@ -47,7 +47,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Plugin.ControlFlowGr
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Plugin.Pdb", "Cpp2IL.Plugin.Pdb\Cpp2IL.Plugin.Pdb.csproj", "{ED407C97-534B-476C-8CCC-BF9D2FB5458A}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Decompiler", "Decompiler\Decompiler.csproj", "{472E58D3-D3EC-4C7F-B791-4D2A085EA8EE}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Cpp2IL.Decompiler", "Cpp2IL.Decompiler\Cpp2IL.Decompiler.csproj", "{472E58D3-D3EC-4C7F-B791-4D2A085EA8EE}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

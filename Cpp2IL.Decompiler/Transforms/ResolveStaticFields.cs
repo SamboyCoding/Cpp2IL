@@ -1,8 +1,8 @@
 ﻿using AsmResolver.DotNet;
-using Decompiler.ControlFlow;
-using Decompiler.IL;
+using Cpp2IL.Decompiler.ControlFlow;
+using Cpp2IL.Decompiler.IL;
 
-namespace Decompiler.Transforms;
+namespace Cpp2IL.Decompiler.Transforms;
 
 /// <summary>
 /// Resolves all static field operands.

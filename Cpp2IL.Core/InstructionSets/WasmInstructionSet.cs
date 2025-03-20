@@ -6,7 +6,7 @@ using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
-using Decompiler.IL;
+using Cpp2IL.Decompiler.IL;
 using WasmDisassembler;
 
 namespace Cpp2IL.Core.InstructionSets;

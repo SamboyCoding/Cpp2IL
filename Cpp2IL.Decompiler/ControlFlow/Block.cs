@@ -1,8 +1,8 @@
 ﻿using System.Diagnostics;
 using System.Text;
-using Decompiler.IL;
+using Cpp2IL.Decompiler.IL;
 
-namespace Decompiler.ControlFlow;
+namespace Cpp2IL.Decompiler.ControlFlow;
 
 /// <summary>
 /// A block in the control flow graph.

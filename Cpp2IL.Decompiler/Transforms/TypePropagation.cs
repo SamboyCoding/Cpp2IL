@@ -1,8 +1,8 @@
 ﻿using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
-using Decompiler.IL;
+using Cpp2IL.Decompiler.IL;
 
-namespace Decompiler.Transforms;
+namespace Cpp2IL.Decompiler.Transforms;
 
 /// <summary>
 /// Performs type propagation.

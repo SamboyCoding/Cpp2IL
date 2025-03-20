@@ -1,6 +1,6 @@
 ﻿using AsmResolver.DotNet;
 
-namespace Decompiler;
+namespace Cpp2IL.Decompiler;
 
 /// <summary>
 /// Provides additional context for the decompiler.

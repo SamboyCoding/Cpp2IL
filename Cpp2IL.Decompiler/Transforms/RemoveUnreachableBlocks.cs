@@ -1,6 +1,6 @@
-﻿using Decompiler.ControlFlow;
+﻿using Cpp2IL.Decompiler.ControlFlow;
 
-namespace Decompiler.Transforms;
+namespace Cpp2IL.Decompiler.Transforms;
 
 /// <summary>
 /// Removes unreachable blocks from the control flow graph.

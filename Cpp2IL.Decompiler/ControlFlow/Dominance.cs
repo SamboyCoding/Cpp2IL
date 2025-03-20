@@ -1,4 +1,4 @@
-﻿namespace Decompiler.ControlFlow;
+﻿namespace Cpp2IL.Decompiler.ControlFlow;
 
 /// <summary>
 /// Dominance info.
