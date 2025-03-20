@@ -241,10 +241,11 @@ public class IlOutputFormat : AsmResolverDllOutputFormat
         {
             Logger.WarnNewline(methodContext.FullName + ": " + e.Message, "IlOutputFormat");
         }
-        /*catch (Exception e)
+        catch (Exception e)
         {
+            Logger.ErrorNewline(methodContext.FullName + ": " + e.Message, "IlOutputFormat");
             IlDecompiler.ReplaceBodyWithException(methodDefinition, e.ToString());
-        }*/
+        }
     }
 
     private static void PrintProgressBar(float progress, string status, int barWidth = 10)
