@@ -73,6 +73,8 @@ public class Il2CppTypeDefinition : ReadableClass
 
     public TypeAttributes Attributes => (TypeAttributes)Flags;
 
+    public Il2CppType RawType => LibCpp2IlMain.Binary!.AllTypes[ByvalTypeIndex];
+
     public Il2CppTypeDefinitionSizes RawSizes
     {
         get

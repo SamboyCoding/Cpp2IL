@@ -37,6 +37,11 @@ public static class LibCpp2IlBinaryRegistry
             bytes => BitConverter.ToUInt32(bytes, 0) is 0xFEEDFACE or 0xFEEDFACF,
             (memStream) => new MachOFile(memStream)
         );
+
+        Register("Universal Mach-O File", "LibCppIL",
+            bytes => BitConverter.ToUInt32(bytes, 0) is 0xBEBAFECA, // 0xCAFEBABE reversed
+            (memStream) => new MachOUniversalFile(memStream).BestMachOFile
+        );
     }
 
     public static void Register<T>(string name, string source, Func<byte[], bool> isValid, Func<MemoryStream, T> factory) where T : Il2CppBinary

@@ -61,7 +61,7 @@ public static class LibCpp2IlReflection
 
             TypeIndices[typeDefinition] = i;
 
-            var type = LibCpp2IlMain.Binary!.AllTypes[typeDefinition.ByvalTypeIndex];
+            var type = typeDefinition.RawType;
 
             if (type.Type.IsIl2CppPrimitive())
                 PrimitiveTypeDefinitions[type.Type] = typeDefinition;

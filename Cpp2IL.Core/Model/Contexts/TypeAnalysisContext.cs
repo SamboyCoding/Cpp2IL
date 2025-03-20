@@ -84,7 +84,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
             if (Definition == null)
                 return false;
 
-            if (Definition.RawBaseType?.Type.IsIl2CppPrimitive() == true)
+            if (Definition.RawType?.Type.IsIl2CppPrimitive() == true)
                 return true;
             
             //Might still be TYPE_CLASS but yet int or something, so check it directly
@@ -96,11 +96,11 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     {
         get
         {
-            if (Definition is { RawBaseType: not null })
-                return Definition.RawBaseType.Type;
-
             if (AppContext.SystemTypes.TryGetIl2CppTypeEnum(this, out var value))
                 return value;
+            
+            if (Definition is { RawType: {} rawType })
+                return rawType.Type;
 
             if (IsEnumType)
                 return Il2CppTypeEnum.IL2CPP_TYPE_ENUM;

@@ -34,7 +34,7 @@ public class Il2CppCodeRegistration : ReadableClass
         //unresolvedVirtualCallPointers
         size += 2 * ptrSize;
 
-        if (metadataVersion is (> 29.1f and < 31f) or >= 31.1f)
+        if (metadataVersion is (>= 29.1f and < 31f) or >= 31.1f)
             //unresolvedInstanceCallPointers and unresolvedStaticCallPointers
             size += 2 * ptrSize;
 
