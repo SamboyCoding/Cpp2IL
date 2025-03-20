@@ -310,6 +310,26 @@ public class ControlFlowGraph
         }
     }
 
+    /// <summary>
+    /// Removes branches that point to removed blocks.
+    /// </summary>
+    public void FixBranches()
+    {
+        foreach (var block in Blocks)
+        {
+            if (block.Instructions.Count == 0)
+                continue;
+
+            var instruction = block.Instructions.Last();
+
+            if (instruction.OpCode is OpCode.Jump or OpCode.ConditionalJump)
+            {
+                if (!Blocks.Contains(instruction.Operands[0]))
+                    block.Instructions.RemoveAt(block.Instructions.Count - 1);
+            }
+        }
+    }
+
     private void SplitTargetBlock(Block block)
     {
         if (block.IsFallThrough)

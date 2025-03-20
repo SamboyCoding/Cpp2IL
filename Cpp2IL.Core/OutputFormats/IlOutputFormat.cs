@@ -234,8 +234,8 @@ public class IlOutputFormat : AsmResolverDllOutputFormat
             var method = new Method(methodDefinition, il, ilParams);
             decompiler.Decompile(method, context);
 
-            var outputPath = Path.Combine(OutputPath, "CFG-Output");
-            WriteControlFlowGraph(method.ControlFlowGraph, methodContext, methodDefinition, method, outputPath);
+            //var outputPath = Path.Combine(OutputPath, "CFG-Output");
+            //WriteControlFlowGraph(method.ControlFlowGraph, methodContext, methodDefinition, method, outputPath);
         }
         catch (LimitReachedException e)
         {

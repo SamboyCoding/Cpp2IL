@@ -30,6 +30,7 @@ public class IlDecompiler
         new RemoveSsaForm(),
         new ResolveTypeAddresses(),
         new TypePropagation { MaxLoopCount = 5000 },
+        new BuildUseDefLists(),
         new Inlining(),
         new BuildUseDefLists()
     ];
