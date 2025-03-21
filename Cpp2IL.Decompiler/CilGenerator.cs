@@ -108,18 +108,17 @@ public static class CilGenerator
                 case OpCode.TailCall:
                 case OpCode.CallVoid:
                 case OpCode.TailCallVoid:
+                    // Call
                     var isVoid = instruction.OpCode is not (OpCode.Call or OpCode.TailCall);
                     var calledMethod = (MethodDefinition)instruction.Operands[isVoid ? 0 : 1];
 
-                    // Load this param
-                    if (!calledMethod.IsStatic)
-                        LoadOperand(instruction.Operands[isVoid ? 1 : 2], instruction);
-
                     // Load args
-                    foreach (var arg in instruction.Operands /*.Skip(calledMethod.IsStatic ? 1 : 1)*/)
-                        LoadOperand(arg, instruction);
+                    var argStartIndex = isVoid ? 1 : 2;
+                    var argCount = instruction.Operands.Count - argStartIndex;
+                    for (var i = 0; i < argCount; i++)
+                        LoadOperand(instruction.Operands[argStartIndex + i], instruction);
 
-                    Add(new CilInstruction(calledMethod.IsStatic ? CilOpCodes.Call : CilOpCodes.Callvirt, calledMethod.ImportWith(importer)), instruction);
+                    Add(new CilInstruction(CilOpCodes.Call, calledMethod.ImportWith(importer)), instruction);
 
                     // Store return value
                     if (!isVoid)
@@ -226,17 +225,27 @@ public static class CilGenerator
 
         cil.Add(CilOpCodes.Ret);
 
-        // Fix branches
-        for (var i = 0; i < cil.Count; i++)
-        {
-            var instruction = cil[i];
+        // Get labels for all valid branch targets
+        var labelMap = new Dictionary<Instruction, ICilLabel>();
 
+        foreach (var instruction in method.Instructions)
+        {
+            if (instructionMap.TryGetValue(instruction, out var cilInstructions))
+            {
+                labelMap[instruction] = cilInstructions[0].CreateLabel();
+            }
+        }
+
+        // Replace branch targets
+        foreach (var instruction in cil)
+        {
             if (instruction.Operand is Instruction target)
             {
-                if (instructionMap.TryGetValue(target, out var instructions))
-                    instruction.Operand = instructions[0].CreateLabel();
+                if (labelMap.TryGetValue(target, out var label))
+                    instruction.Operand = label;
                 else
-                    instruction.Operand = cil[0].CreateLabel();
+                    // Use closest instruction
+                    instruction.Operand = labelMap.Values.FirstOrDefault() ?? cil[0].CreateLabel();
             }
         }
 
@@ -253,8 +262,25 @@ public static class CilGenerator
                     Add(new CilInstruction(CilOpCodes.Ldc_I8, longNum), source);
                     break;
                 case ulong ulongNum:
-                    Add(new CilInstruction(CilOpCodes.Ldc_I8, (long)ulongNum), source); // Idk how to load ulong
+                    if (ulongNum <= long.MaxValue)
+                    {
+                        Add(new CilInstruction(CilOpCodes.Ldc_I8, (long)ulongNum), source);
+                    }
+                    else
+                    {
+                        // Get high and low parts
+                        var low = (uint)(ulongNum & 0xFFFFFFFF);
+                        var high = (uint)(ulongNum >> 32);
+
+                        Add(new CilInstruction(CilOpCodes.Ldc_I8, (long)high), source);
+                        Add(new CilInstruction(CilOpCodes.Ldc_I4, (int)low), source);
+                        Add(new CilInstruction(CilOpCodes.Conv_I8), source); // Convert low to long
+                        Add(new CilInstruction(CilOpCodes.Shl, 32), source); // Shift high left
+                        Add(new CilInstruction(CilOpCodes.Or), source); // Combine those
+                    }
+
                     break;
+
                 case string text:
                     Add(new CilInstruction(CilOpCodes.Ldstr, text), source);
                     break;
