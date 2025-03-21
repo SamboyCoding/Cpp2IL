@@ -93,7 +93,6 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.CopyDataFromIl2CppToManaged);
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.AddExplicitInterfaceImplementations);
-        MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
@@ -101,6 +100,13 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         start = DateTime.Now;
         Logger.Verbose("Adding custom attributes to all of the above...", "DllOutput");
         MiscUtils.ExecuteParallel(context.Assemblies, AsmResolverAssemblyPopulator.PopulateCustomAttributes);
+
+        Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
+
+        //Fill method bodies - this should always be done last
+        start = DateTime.Now;
+        Logger.Verbose($"Filling method bodies (in parallel)...", "DllOutput");
+        MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
