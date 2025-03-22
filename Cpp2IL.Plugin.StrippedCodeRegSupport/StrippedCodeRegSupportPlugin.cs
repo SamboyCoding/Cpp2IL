@@ -57,34 +57,18 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
         {
             var pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList[i];
 
-            var startOfCodegenModulesList = FindCodeGenModulesListFromMscorlib(binary, pSomewhereInCodegenModules, moduleCount, out var endOfCodegenModulesList);
+            //First, let's confirm we are inside the list
+            if (!TryReadCodeGenModuleFromPointer(binary, pSomewhereInCodegenModules))
+                continue;
 
-            //Try to read the first entry as a codegen module pointer.
-            var firstModulePtr = binary.ReadPointerAtVirtualAddress(startOfCodegenModulesList);
-            if (firstModulePtr == 0)
+            // Next, let's find the end of the list from our known valid CodeGenModule pointer
+            if (!TryFindCodeGenModulesListFromMscorlibGoingForward(binary, pSomewhereInCodegenModules, moduleCount,
+                    out var startOfCodegenModulesList, out var endOfCodegenModulesList))
             {
-                Logger.VerboseNewline($"Found start of CodeGenModules list at 0x{startOfCodegenModulesList:X}, but first entry is null. Continuing search...");
                 continue;
             }
 
-            //Now try to read that as a CGM
-            Il2CppCodeGenModule? firstModule = null;
-            try
-            {
-                firstModule = binary.ReadReadableAtVirtualAddress<Il2CppCodeGenModule>(firstModulePtr);
-                if (firstModule?.Name is not { } name || string.IsNullOrWhiteSpace(name) || name.Any(c => !char.IsAscii(c)))
-                {
-                    Logger.VerboseNewline($"Discarding CodeGenModules list at 0x{startOfCodegenModulesList:X} because first module name is invalid.");
-                    continue;
-                }
-            }
-            catch (Exception e)
-            {
-                Logger.VerboseNewline($"Discarding CodeGenModules list at 0x{startOfCodegenModulesList:X} because we hit a {e.GetType().Name} when trying to read it as a CGM array.");
-                continue;
-            }
-
-            Logger.VerboseNewline($"Found potential CodeGenModules list at 0x{startOfCodegenModulesList:X} (ending at 0x{endOfCodegenModulesList:X}), with valid first module name {firstModule.Name}. Returning dummy code reg struct now!");
+            Logger.VerboseNewline($"Found potential CodeGenModules list at 0x{startOfCodegenModulesList:X} (ending at 0x{endOfCodegenModulesList:X}). Returning dummy code reg struct now!");
 
             //Now we can return a dummy CodeRegistration struct with the correct values.
             codereg = new() { codeGenModulesCount = (uint)moduleCount, addrCodeGenModulePtrs = startOfCodegenModulesList };
@@ -93,24 +77,61 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
         }
     }
 
-    private static ulong FindCodeGenModulesListFromMscorlib(Il2CppBinary binary, ulong pSomewhereInCodegenModules, ulong moduleCount, out ulong endOfCodegenModulesList)
+    private bool TryFindCodeGenModulesListFromMscorlibGoingForward(Il2CppBinary binary, ulong pSomewhereInCodegenModules, ulong moduleCount,
+        out ulong startOfCodegenModulesList, out ulong endOfCodegenModulesList)
     {
         //Unlike what BinarySearcher does now, we can't walk back and keep searching for references. But we know how many modules there are,
-        //So let's now read *forward* one pointer at a time until we hopefully hit a null pointer.
+        //So let's now read *forward* one pointer at a time until we hopefully hit a null pointer / an invalid CodeGenModule.
         var pointerSize = binary.PointerSize;
-        endOfCodegenModulesList = pSomewhereInCodegenModules + pointerSize;
-        binary.Position = binary.MapVirtualAddressToRaw(endOfCodegenModulesList);
+        endOfCodegenModulesList = pSomewhereInCodegenModules;
 
-        while (binary.ReadNUint() != 0)
+        // Need to read past the max by 1 in case our initial pointer was the first entry of the list
+        for (var i = 0UL; i <= moduleCount; i++)
         {
+            if (!TryReadCodeGenModuleFromPointer(binary, endOfCodegenModulesList))
+            {
+                //We're at the end, so walk one back to get the last valid pointer.
+                endOfCodegenModulesList -= pointerSize;
+
+                //Now subtract module count * pointer size to get the start of the list.
+                startOfCodegenModulesList = endOfCodegenModulesList - ((moduleCount - 1) * pointerSize);
+                return true;
+            }
             endOfCodegenModulesList += pointerSize;
         }
 
-        //We're at the end, so walk one back to get the last valid pointer.
-        endOfCodegenModulesList -= pointerSize;
+        startOfCodegenModulesList = 0;
+        return false;
+    }
 
-        //Now subtract module count * pointer size to get the start of the list.
-        var startOfCodegenModulesList = endOfCodegenModulesList - ((moduleCount - 1) * pointerSize);
-        return startOfCodegenModulesList;
+    private bool TryReadCodeGenModuleFromPointer(Il2CppBinary binary, ulong pointerToPossibleCodeGenEntry)
+    {
+        //Try to read as a codegen module pointer.
+        var firstModulePtr = binary.ReadPointerAtVirtualAddress(pointerToPossibleCodeGenEntry);
+        if (firstModulePtr == 0)
+        {
+            Logger.VerboseNewline($"Discarding possible CodeGenModule entry at 0x{pointerToPossibleCodeGenEntry:X} because it is null.");
+            return false;
+        }
+
+        //Now try to read that as a CGM
+        Il2CppCodeGenModule? codeGenModule;
+        try
+        {
+            codeGenModule = binary.ReadReadableAtVirtualAddress<Il2CppCodeGenModule>(firstModulePtr);
+            if (codeGenModule.Name is not { } name || string.IsNullOrWhiteSpace(name) || name.Any(c => !char.IsAscii(c)))
+            {
+                Logger.VerboseNewline($"Discarding possible CodeGenModule entry at 0x{pointerToPossibleCodeGenEntry:X} because module name is invalid.");
+                return false;
+            }
+        }
+        catch (Exception e)
+        {
+            Logger.VerboseNewline($"Discarding possible CodeGenModule at 0x{pointerToPossibleCodeGenEntry:X} because we hit a {e.GetType().Name} when trying to read it as a CodeGenModule.");
+            return false;
+        }
+
+        Logger.VerboseNewline($"Accepting 0x{pointerToPossibleCodeGenEntry:X} as a CodeGenModule entry with valid module name {codeGenModule.Name}.");
+        return true;
     }
 }
