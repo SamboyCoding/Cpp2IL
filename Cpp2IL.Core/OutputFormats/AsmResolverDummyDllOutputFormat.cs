@@ -166,6 +166,16 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         return ret;
     }
 
+    private sealed class CorLibModuleDefinition : ModuleDefinition
+    {
+        public CorLibModuleDefinition(string? name, AssemblyDefinition assembly) : base(name, new(assembly))
+        {
+            // https://github.com/Washi1337/AsmResolver/issues/620
+            CorLibTypeFactory = new(this);
+            AssemblyReferences.Clear();
+        }
+    }
+
     private static AssemblyDefinition BuildStubAssembly(AssemblyAnalysisContext assemblyContext, AssemblyDefinition? corLib, IMetadataResolver metadataResolver)
     {
         var assemblyDefinition = assemblyContext.Definition;
@@ -196,10 +206,15 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         if (moduleName == "__Generated")
             moduleName += ".dll"; //__Generated doesn't have a .dll extension in the metadata but it is still of course a DLL
 
-        var managedModule = new ModuleDefinition(moduleName, new(corLib ?? ourAssembly)) //Use either ourself as corlib, if we are corlib, otherwise the provided one
-        {
-            MetadataResolver = metadataResolver
-        };
+        var managedModule = corLib is not null //Use either ourself as corlib, if we are corlib, otherwise the provided one
+            ? new ModuleDefinition(moduleName, new(corLib))
+            {
+                MetadataResolver = metadataResolver
+            }
+            : new CorLibModuleDefinition(moduleName, ourAssembly)
+            {
+                MetadataResolver = metadataResolver
+            };
         ourAssembly.Modules.Add(managedModule);
 
         foreach (var il2CppTypeDefinition in assemblyContext.TopLevelTypes)
