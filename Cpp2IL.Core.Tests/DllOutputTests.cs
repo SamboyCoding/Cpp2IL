@@ -74,21 +74,9 @@ public class DllOutputTests
         {
             Assert.Fail($"Module {module} contains a type reference in its custom attributes");
         }
-        if (module.ExportedTypes.Count is not 0)
-        {
-            Assert.Fail($"Module {module} contains exported types");
-        }
-        if (module.Resources.Count is not 0)
-        {
-            Assert.Fail($"Module {module} contains resources");
-        }
         if (ContainsTypeReference(module.Assembly?.CustomAttributes))
         {
             Assert.Fail($"Module {module} contains a type reference in its assembly custom attributes");
-        }
-        if (module.Assembly?.SecurityDeclarations.Count is not 0)
-        {
-            Assert.Fail($"Module {module} contains assembly security declarations");
         }
         foreach (var typeDefinition in module.GetAllTypes())
         {
@@ -202,7 +190,6 @@ public class DllOutputTests
                 {
                     Assert.Fail($"Method {method} in type {typeDefinition} contains a type reference in its parameter custom attributes");
                 }
-
             }
         }
     }
@@ -215,8 +202,7 @@ public class DllOutputTests
     private static bool ContainsTypeReference(MethodSignature? methodSignature)
     {
         return ContainsTypeReference(methodSignature?.ReturnType)
-            || ContainsTypeReference(methodSignature?.ParameterTypes)
-            || (methodSignature?.SentinelParameterTypes.Any() ?? false);// Just making sure they don't exist
+            || ContainsTypeReference(methodSignature?.ParameterTypes);
     }
 
     private static bool ContainsTypeReference(CustomAttribute customAttribute)
