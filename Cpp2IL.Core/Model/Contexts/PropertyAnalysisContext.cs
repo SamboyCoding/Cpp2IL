@@ -1,3 +1,4 @@
+using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
@@ -17,6 +18,10 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
     public override string DefaultName => Definition.Name!;
+
+    public bool IsStatic => Definition.IsStatic;
+
+    public PropertyAttributes PropertyAttributes => (PropertyAttributes)Definition.attrs;
 
     public TypeAnalysisContext PropertyTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition.RawPropertyType!);
 

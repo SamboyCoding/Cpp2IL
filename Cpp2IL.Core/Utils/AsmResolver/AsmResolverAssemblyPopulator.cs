@@ -30,7 +30,7 @@ public static class AsmResolverAssemblyPopulator
             var il2CppTypeDef = typeCtx.Definition;
             var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeCtx.FullName}");
 
-            var importer = typeDefinition.Module!.Assembly!.GetImporter();
+            var importer = typeDefinition.Module!.DefaultImporter;
 
             //Type generic params.
             if (il2CppTypeDef != null)
@@ -57,7 +57,7 @@ public static class AsmResolverAssemblyPopulator
         if (cppTypeDefinition.GenericContainer == null)
             return;
 
-        var importer = ilTypeDefinition.Module!.Assembly!.GetImporter();
+        var importer = ilTypeDefinition.Module!.DefaultImporter;
 
         foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
         {
@@ -234,7 +234,7 @@ public static class AsmResolverAssemblyPopulator
         }
 #endif
 
-        var importedCtor = assemblyDefinition.GetImporter().ImportMethod(ctor);
+        var importedCtor = assemblyDefinition.ManifestModule!.DefaultImporter.ImportMethod(ctor);
 
         var newAttribute = new CustomAttribute((ICustomAttributeType)importedCtor, signature);
         return newAttribute;
@@ -340,7 +340,7 @@ public static class AsmResolverAssemblyPopulator
 
     private static void CopyIl2CppDataToManagedType(TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
-        var importer = ilTypeDefinition.Module!.Assembly!.GetImporter();
+        var importer = ilTypeDefinition.Module!.DefaultImporter;
 
         CopyFieldsInType(importer, typeContext, ilTypeDefinition);
 
@@ -357,7 +357,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var fieldInfo = fieldContext.BackingData;
 
-            var fieldTypeSig = importer.ImportTypeSignature(fieldContext.ToTypeSignature(importer.TargetModule));
+            var fieldTypeSig = fieldContext.ToTypeSignature(importer.TargetModule);
 
             var managedField = new FieldDefinition(fieldContext.FieldName, (FieldAttributes)fieldContext.Attributes, fieldTypeSig);
 
@@ -388,7 +388,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var methodDef = methodCtx.Definition;
 
-            var returnType = importer.ImportTypeSignature(methodCtx.ReturnTypeContext.ToTypeSignature(importer.TargetModule));
+            var returnType = methodCtx.ReturnTypeContext.ToTypeSignature(importer.TargetModule);
 
             var paramData = methodCtx.Parameters;
             var parameterTypes = new TypeSignature[paramData.Count];
@@ -396,7 +396,7 @@ public static class AsmResolverAssemblyPopulator
             foreach (var parameterAnalysisContext in methodCtx.Parameters)
             {
                 var i = parameterAnalysisContext.ParamIndex;
-                parameterTypes[i] = importer.ImportTypeSignature(parameterAnalysisContext.ParameterTypeContext.ToTypeSignature(importer.TargetModule));
+                parameterTypes[i] = parameterAnalysisContext.ParameterTypeContext.ToTypeSignature(importer.TargetModule);
 
                 var sequence = (ushort)(i + 1); //Add one because sequence 0 is the return type
                 parameterDefinitions[i] = new(sequence, parameterAnalysisContext.Name, (ParameterAttributes)parameterAnalysisContext.ParameterAttributes);
@@ -471,23 +471,17 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var propertyCtx in typeContext.Properties)
         {
-            var propertyDef = propertyCtx.Definition;
-
-            var propertyTypeSig = importer.ImportTypeSignature(AsmResolverUtils.GetTypeSignatureFromIl2CppType(importer.TargetModule, propertyDef.RawPropertyType!));
-            var propertySignature = propertyDef.IsStatic
+            var propertyTypeSig = propertyCtx.ToTypeSignature(importer.TargetModule);
+            var propertySignature = propertyCtx.IsStatic
                 ? PropertySignature.CreateStatic(propertyTypeSig)
                 : PropertySignature.CreateInstance(propertyTypeSig);
 
-            var managedProperty = new PropertyDefinition(propertyCtx.Name, (PropertyAttributes)propertyDef.attrs, propertySignature);
+            var managedProperty = new PropertyDefinition(propertyCtx.Name, (PropertyAttributes)propertyCtx.PropertyAttributes, propertySignature);
 
             var managedGetter = propertyCtx.Getter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedSetter = propertyCtx.Setter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
 
-            if (managedGetter != null)
-                managedProperty.Semantics.Add(new(managedGetter, MethodSemanticsAttributes.Getter));
-
-            if (managedSetter != null)
-                managedProperty.Semantics.Add(new(managedSetter, MethodSemanticsAttributes.Setter));
+            managedProperty.SetSemanticMethods(managedGetter, managedSetter);
 
             //Indexer parameters
             if (managedGetter != null && managedGetter.Parameters.Count > 0)
@@ -517,24 +511,15 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var eventCtx in cppTypeDefinition.Events)
         {
-            var eventDef = eventCtx.Definition;
+            var eventType = eventCtx.ToTypeSignature(importer.TargetModule).ToTypeDefOrRef();
 
-            var eventType = importer.ImportTypeIfNeeded(AsmResolverUtils.ImportReferenceFromIl2CppType(ilTypeDefinition.Module!, eventDef.RawType!));
-
-            var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes)eventDef.EventAttributes, eventType);
+            var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes)eventCtx.EventAttributes, eventType);
 
             var managedAdder = eventCtx.Adder?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedRemover = eventCtx.Remover?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedInvoker = eventCtx.Invoker?.GetExtraData<MethodDefinition>("AsmResolverMethod");
 
-            if (managedAdder != null)
-                managedEvent.Semantics.Add(new(managedAdder, MethodSemanticsAttributes.AddOn));
-
-            if (managedRemover != null)
-                managedEvent.Semantics.Add(new(managedRemover, MethodSemanticsAttributes.RemoveOn));
-
-            if (managedInvoker != null)
-                managedEvent.Semantics.Add(new(managedInvoker, MethodSemanticsAttributes.Fire));
+            managedEvent.SetSemanticMethods(managedAdder, managedRemover, managedInvoker);
 
             eventCtx.PutExtraData("AsmResolverEvent", managedEvent);
 
@@ -546,7 +531,7 @@ public static class AsmResolverAssemblyPopulator
     {
         var managedAssembly = asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + asmContext);
 
-        var importer = managedAssembly.GetImporter();
+        var importer = managedAssembly.ManifestModule!.DefaultImporter;
 
         foreach (var typeContext in asmContext.Types)
         {

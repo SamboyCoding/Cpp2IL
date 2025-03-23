@@ -1,3 +1,4 @@
+using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
@@ -18,7 +19,11 @@ public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvid
 
     public override string DefaultName => Definition.Name!;
 
+    public EventAttributes EventAttributes => Definition.EventAttributes;
+
     public TypeAnalysisContext EventTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition.RawType!);
+
+    public bool IsStatic => Definition.IsStatic;
 
     public EventAnalysisContext(Il2CppEventDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {

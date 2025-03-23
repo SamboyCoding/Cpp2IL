@@ -4,7 +4,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class SystemTypesContext
 {
-    private ApplicationAnalysisContext _appContext;
+    private readonly ApplicationAnalysisContext _appContext;
 
     public TypeAnalysisContext SystemObjectType { get; }
     public TypeAnalysisContext SystemVoidType { get; }

@@ -14,7 +14,6 @@ public static class AsmResolverUtils
 {
     private static readonly ConcurrentDictionary<string, TypeDefinition?> CachedTypeDefsByName = new();
     private static readonly ConcurrentDictionary<string, TypeSignature?> CachedTypeSignaturesByName = new();
-    private static readonly ConcurrentDictionary<AssemblyDefinition, ReferenceImporter> ImportersByAssembly = new();
 
     public static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
     public static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
@@ -23,7 +22,6 @@ public static class AsmResolverUtils
     {
         CachedTypeDefsByName.Clear();
         CachedTypeSignaturesByName.Clear();
-        ImportersByAssembly.Clear();
         TypeDefsByIndex.Clear();
         GenericParamsByIndexNew.Clear();
     }
@@ -80,12 +78,12 @@ public static class AsmResolverUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_R8:
             case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
             case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                ret = GetPrimitiveTypeDef(il2CppType.Type)
+                ret = module.DefaultImporter.ImportType(GetPrimitiveTypeDef(il2CppType.Type))
                     .ToTypeSignature();
                 break;
             case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
             case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
-                ret = TypeDefsByIndex[il2CppType.Data.ClassIndex]
+                ret = module.DefaultImporter.ImportType(TypeDefsByIndex[il2CppType.Data.ClassIndex])
                     .ToTypeSignature();
                 break;
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
@@ -118,7 +116,7 @@ public static class AsmResolverUtils
                     typeDefinition = GetTypeSignatureFromIl2CppType(module, type).Resolve() ?? throw new Exception("Unable to resolve base type for generic inst");
                 }
 
-                var genericInstanceType = new GenericInstanceTypeSignature(typeDefinition!, typeDefinition!.IsValueType);
+                var genericInstanceType = new GenericInstanceTypeSignature(module.DefaultImporter.ImportType(typeDefinition!), typeDefinition!.IsValueType);
 
                 //Get generic arguments
                 var genericArgumentTypes = genericClass.Context.ClassInst.Types;
@@ -172,10 +170,10 @@ public static class AsmResolverUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
             case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
                 //This case, and the one below, are faster to go this way rather than delegating to type signature creation, because we can go straight from def -> ref.
-                return GetPrimitiveTypeDef(il2CppType.Type);
+                return module.DefaultImporter.ImportType(GetPrimitiveTypeDef(il2CppType.Type));
             case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
             case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
-                return TypeDefsByIndex[il2CppType.Data.ClassIndex];
+                return module.DefaultImporter.ImportType(TypeDefsByIndex[il2CppType.Data.ClassIndex]);
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
             case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
             case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
@@ -307,16 +305,6 @@ public static class AsmResolverUtils
         var suffix = name[(lastAngleBracket + 1)..];
 
         return new ParsedTypeString(baseType, suffix, genericParams);
-    }
-
-    public static ReferenceImporter GetImporter(this AssemblyDefinition assemblyDefinition)
-    {
-        if (ImportersByAssembly.TryGetValue(assemblyDefinition, out var ret))
-            return ret;
-
-        ImportersByAssembly[assemblyDefinition] = ret = new(assemblyDefinition.Modules[0]);
-
-        return ret;
     }
 
     public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type)
