@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using LibCpp2IL.Metadata;
 
 #pragma warning disable 8618
@@ -27,6 +27,8 @@ public class Il2CppTypeReflectionData
     public long variableGenericParamIndex;
     public bool isPointer;
 #pragma warning restore 8618
+
+    public Il2CppGenericParameter? GenericParameter => isArray || isType ? null : LibCpp2IlMain.TheMetadata?.genericParameters[(int)variableGenericParamIndex];
 
     private string GetPtrSuffix()
     {

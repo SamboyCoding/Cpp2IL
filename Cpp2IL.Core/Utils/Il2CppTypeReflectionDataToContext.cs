@@ -6,7 +6,7 @@ namespace Cpp2IL.Core.Utils;
 
 public static class Il2CppTypeReflectionDataToContext
 {
-    public static TypeAnalysisContext? ToContext(this Il2CppTypeReflectionData reflectionData, AssemblyAnalysisContext assembly, int genericParamIndex = -1)
+    public static TypeAnalysisContext? ToContext(this Il2CppTypeReflectionData reflectionData, AssemblyAnalysisContext assembly)
     {
         TypeAnalysisContext? pointerElementType;
 
@@ -22,7 +22,7 @@ public static class Il2CppTypeReflectionDataToContext
         }
         else if (!reflectionData.isType)
         {
-            pointerElementType = new GenericParameterTypeAnalysisContext(reflectionData.variableGenericParamName, genericParamIndex, Il2CppTypeEnum.IL2CPP_TYPE_VAR, assembly);
+            pointerElementType = new GenericParameterTypeAnalysisContext(reflectionData.GenericParameter!, assembly);
         }
         else if (!reflectionData.isGenericType)
         {
@@ -39,7 +39,7 @@ public static class Il2CppTypeReflectionDataToContext
             var genericParams = new TypeAnalysisContext[reflectionData.genericParams.Length];
             for (var i = 0; i < reflectionData.genericParams.Length; i++)
             {
-                var param = reflectionData.genericParams[i].ToContext(assembly, i);
+                var param = reflectionData.genericParams[i].ToContext(assembly);
                 if (param == null)
                 {
                     return null;

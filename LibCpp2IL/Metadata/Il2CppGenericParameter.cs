@@ -25,6 +25,12 @@ public class Il2CppGenericParameter : ReadableClass
 
     public int Index { get; internal set; }
 
+    public Il2CppGenericContainer Owner => LibCpp2IlMain.TheMetadata!.genericContainers[ownerIndex];
+
+    private bool IsOwnedByMethod => Owner.isGenericMethod != 0;
+
+    public Il2CppTypeEnum Type => IsOwnedByMethod ? Il2CppTypeEnum.IL2CPP_TYPE_MVAR : Il2CppTypeEnum.IL2CPP_TYPE_VAR;
+
     public override void Read(ClassReadingBinaryReader reader)
     {
         ownerIndex = reader.ReadInt32();

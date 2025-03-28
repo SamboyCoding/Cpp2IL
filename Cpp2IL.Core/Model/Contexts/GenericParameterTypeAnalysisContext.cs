@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -15,12 +16,13 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
     public override Il2CppTypeEnum Type { get; }
 
     public GenericParameterTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
-        : this(rawType.GetGenericParameterDef(), rawType.Type, referencedFrom)
+        : this(rawType.GetGenericParameterDef(), referencedFrom)
     {
+        Debug.Assert(Type == rawType.Type);
     }
 
-    public GenericParameterTypeAnalysisContext(Il2CppGenericParameter genericParameter, Il2CppTypeEnum type, AssemblyAnalysisContext referencedFrom)
-        : this(genericParameter.Name ?? "T", genericParameter.genericParameterIndexInOwner, type, referencedFrom)
+    public GenericParameterTypeAnalysisContext(Il2CppGenericParameter genericParameter, AssemblyAnalysisContext referencedFrom)
+        : this(genericParameter.Name ?? "T", genericParameter.genericParameterIndexInOwner, genericParameter.Type, referencedFrom)
     {
     }
 
