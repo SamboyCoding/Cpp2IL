@@ -371,7 +371,7 @@ public static class AsmResolverAssemblyPopulator
                 if (managedField.HasFieldRva)
                     managedField.FieldRva = new DataSegment(fieldInfo.Field.StaticArrayInitialValue);
 
-                if (ilTypeDefinition.IsExplicitLayout)
+                if (ilTypeDefinition.IsExplicitLayout && !fieldContext.IsStatic)
                     //Copy field offset
                     managedField.FieldOffset = fieldInfo.FieldOffset;
             }
