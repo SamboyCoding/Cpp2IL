@@ -88,6 +88,8 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     
     protected Memory<byte>? rawMethodBody;
 
+    public MethodAnalysisContext? BaseMethod => Overrides.FirstOrDefault(m => m.DeclaringType?.IsInterface is false);
+
     /// <summary>
     /// The set of methods which this method overrides.
     /// </summary>
@@ -108,22 +110,29 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
             return GetOverriddenMethods(declaringTypeDefinition, vtable);
 
-            static void GetParentTypeAndSlot(Il2CppTypeDefinition declaringTypeDefinition, int vtableIndex, out Il2CppTypeReflectionData? parentType, out int slot)
+            bool TryGetMethodForSlot(TypeAnalysisContext declaringType, int slot, [NotNullWhen(true)] out MethodAnalysisContext? method)
             {
-                var interfaceOffsets = declaringTypeDefinition.InterfaceOffsets;
-                for (var i = interfaceOffsets.Length - 1; i >= 0; i--)
+                if (declaringType is GenericInstanceTypeAnalysisContext genericInstanceType)
                 {
-                    var interfaceOffset = interfaceOffsets[i];
-                    if (vtableIndex >= interfaceOffset.offset)
+                    var genericMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
+                    if (genericMethod is not null)
                     {
-                        slot = vtableIndex - interfaceOffsets[i].offset;
-                        parentType = interfaceOffset.Type;
-                        return;
+                        method = new ConcreteGenericMethodAnalysisContext(genericMethod, genericInstanceType.GenericArguments.ToArray(), []);
+                        return true;
+                    }
+                }
+                else
+                {
+                    var baseMethod = declaringType.Methods.FirstOrDefault(m => m.Slot == slot);
+                    if (baseMethod is not null)
+                    {
+                        method = baseMethod;
+                        return true;
                     }
                 }
 
-                parentType = declaringTypeDefinition.BaseType;
-                slot = vtableIndex;
+                method = null;
+                return false;
             }
 
             IEnumerable<MethodAnalysisContext> GetOverriddenMethods(Il2CppTypeDefinition declaringTypeDefinition, MetadataUsage?[] vtable)
@@ -137,23 +146,27 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
                     if (vtableEntry.AsMethod() != Definition)
                         continue;
 
-                    GetParentTypeAndSlot(declaringTypeDefinition, i, out var parentType, out var slot);
-
-                    var parentTypeContext = parentType?.ToContext(CustomAttributeAssembly);
-                    if (parentTypeContext == null)
-                        continue;
-
-                    if (parentTypeContext is GenericInstanceTypeAnalysisContext genericInstanceType)
+                    // Normal inheritance
+                    var baseType = DeclaringType?.BaseType;
+                    while (baseType is not null)
                     {
-                        var parentMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
-                        if (parentMethod is not null)
-                            yield return new ConcreteGenericMethodAnalysisContext(parentMethod, genericInstanceType.GenericArguments.ToArray(), []);
+                        if (TryGetMethodForSlot(baseType, i, out var method))
+                        {
+                            yield return method;
+                            break;
+                        }
+                        baseType = baseType.BaseType;
                     }
-                    else
+
+                    // Interface inheritance
+                    foreach (var interfaceOffset in declaringTypeDefinition.InterfaceOffsets)
                     {
-                        var parentMethod = parentTypeContext.Methods.FirstOrDefault(m => m.Slot == slot);
-                        if (parentMethod is not null)
-                            yield return parentMethod;
+                        if (i >= interfaceOffset.offset)
+                        {
+                            var interfaceTypeContext = interfaceOffset.Type.ToContext(CustomAttributeAssembly);
+                            if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, i - interfaceOffset.offset, out var method))
+                                yield return method;
+                        }
                     }
                 }
             }

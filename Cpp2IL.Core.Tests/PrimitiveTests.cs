@@ -11,7 +11,7 @@ public class PrimitiveTests
     [Test]
     public void PrimitiveTypesAreCorLibTypeSignature()
     {
-        var appContext = GameLoader.LoadSimpleGame();
+        var appContext = TestGameLoader.LoadSimple2019Game();
 
         var assemblies = new AsmResolverDllOutputFormatEmpty().BuildAssemblies(appContext);
 

@@ -15,7 +15,7 @@ public class DllOutputTests
     [Test]
     public void AllAssembliesBuild()
     {
-        var appContext = GameLoader.LoadSimpleGame();
+        var appContext = TestGameLoader.LoadSimple2019Game();
 
         var assemblies = new AsmResolverDllOutputFormatDefault().BuildAssemblies(appContext);
 
@@ -35,7 +35,7 @@ public class DllOutputTests
     [Test]
     public void MscorlibIsItsOwnCorLib()
     {
-        var appContext = GameLoader.LoadSimpleGame();
+        var appContext = TestGameLoader.LoadSimple2019Game();
 
         var assemblies = new AsmResolverDllOutputFormatEmpty().BuildAssemblies(appContext);
 
@@ -47,7 +47,7 @@ public class DllOutputTests
     [Test]
     public void MscorlibHasNoAssemblyReferences()
     {
-        var appContext = GameLoader.LoadSimpleGame();
+        var appContext = TestGameLoader.LoadSimple2019Game();
 
         var assemblies = new AsmResolverDllOutputFormatEmpty().BuildAssemblies(appContext);
 
@@ -59,7 +59,7 @@ public class DllOutputTests
     [Test]
     public void MscorlibHasNoTypeReferences()
     {
-        var appContext = GameLoader.LoadSimpleGame();
+        var appContext = TestGameLoader.LoadSimple2019Game();
 
         var assemblies = new AsmResolverDllOutputFormatEmpty().BuildAssemblies(appContext);
 

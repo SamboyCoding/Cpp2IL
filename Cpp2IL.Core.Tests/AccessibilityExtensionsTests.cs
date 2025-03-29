@@ -9,7 +9,7 @@ public class AccessibilityExtensionsTests
     [Test]
     public void AccessibilityTests()
     {
-        var appContext = GameLoader.LoadSimpleGame();
+        var appContext = TestGameLoader.LoadSimple2019Game();
         var mscorlib = appContext.AssembliesByName["mscorlib"];
         var coreModule = appContext.AssembliesByName["UnityEngine.CoreModule"];
 
