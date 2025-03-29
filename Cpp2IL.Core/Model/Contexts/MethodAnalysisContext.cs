@@ -153,7 +153,7 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
                         if (TryGetMethodForSlot(baseType, i, out var method))
                         {
                             yield return method;
-                            break;
+                            break; // We only want direct overrides, not the entire inheritance chain.
                         }
                         baseType = baseType.BaseType;
                     }
@@ -165,7 +165,10 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
                         {
                             var interfaceTypeContext = interfaceOffset.Type.ToContext(CustomAttributeAssembly);
                             if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, i - interfaceOffset.offset, out var method))
+                            {
                                 yield return method;
+                                break; // A vtable entry can only point to one method.
+                            }
                         }
                     }
                 }
