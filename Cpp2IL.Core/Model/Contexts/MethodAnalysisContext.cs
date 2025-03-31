@@ -167,7 +167,6 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
                             if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, i - interfaceOffset.offset, out var method))
                             {
                                 yield return method;
-                                break; // A vtable entry can only point to one method.
                             }
                         }
                     }
