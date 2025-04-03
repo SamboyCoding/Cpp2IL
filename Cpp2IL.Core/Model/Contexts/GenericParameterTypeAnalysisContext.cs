@@ -1,5 +1,4 @@
 using System;
-using System.Diagnostics;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
@@ -18,7 +17,6 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
     public GenericParameterTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
         : this(rawType.GetGenericParameterDef(), referencedFrom)
     {
-        Debug.Assert(Type == rawType.Type);
     }
 
     public GenericParameterTypeAnalysisContext(Il2CppGenericParameter genericParameter, AssemblyAnalysisContext referencedFrom)

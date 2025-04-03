@@ -66,7 +66,7 @@ public static class AsmResolverAssemblyPopulator
 
             if (!AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(param.Index, out var p))
             {
-                p = new GenericParameter(param.Name, (GenericParameterAttributes)param.flags);
+                p = new GenericParameter(param.Name, (GenericParameterAttributes)param.Attributes);
                 AsmResolverUtils.GenericParamsByIndexNew[param.Index] = p;
 
                 ilTypeDefinition.GenericParameters.Add(p);
@@ -450,7 +450,7 @@ public static class AsmResolverAssemblyPopulator
                         return;
                     }
 
-                    gp = new(p.Name, (GenericParameterAttributes)p.flags);
+                    gp = new(p.Name, (GenericParameterAttributes)p.Attributes);
 
                     if (!managedMethod.GenericParameters.Contains(gp))
                         managedMethod.GenericParameters.Add(gp);

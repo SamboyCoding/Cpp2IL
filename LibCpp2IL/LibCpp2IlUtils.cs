@@ -143,7 +143,7 @@ public static class LibCpp2ILUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
             {
                 var arrayType = cppAssembly.ReadReadableAtVirtualAddress<Il2CppArrayType>(type.Data.Array);
-                var oriType = cppAssembly.GetIl2CppTypeFromPointer(arrayType.etype);
+                var oriType = arrayType.ElementType;
                 ret = $"{GetTypeName(metadata, cppAssembly, oriType)}[{new string(',', arrayType.rank - 1)}]";
                 break;
             }
@@ -351,7 +351,7 @@ public static class LibCpp2ILUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
             {
                 var arrayType = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppArrayType>(forWhat.Data.Array);
-                var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(arrayType.etype);
+                var oriType = arrayType.ElementType;
                 return new()
                 {
                     baseType = null,

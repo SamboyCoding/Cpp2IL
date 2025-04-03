@@ -1,8 +1,6 @@
-//#define NOT_REALLY_PARALLEL_FOR_TESTING
-
 using System;
-using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Model.Contexts;
@@ -248,10 +246,16 @@ public static class MiscUtils
             return true;
         }
 
-        enumerable
-#if !NOT_REALLY_PARALLEL_FOR_TESTING
-            .AsParallel()
+#if DEBUG
+        if (Debugger.IsAttached)
+        {
+            ExecuteSerial(enumerable, what);
+            return;
+        }
 #endif
+
+        enumerable
+            .AsParallel()
             .Select((Func<T, bool>)F2)
             .ToList();
     }

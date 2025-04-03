@@ -1,5 +1,5 @@
 using System;
-using System.Reflection;
+using System.Diagnostics;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -52,48 +52,85 @@ public class Il2CppType : ReadableClass
         public ulong GenericClass => Dummy;
     }
 
+    private Il2CppTypeDefinition? Class
+    {
+        get
+        {
+            if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+                return null;
+            return LibCpp2IlMain.TheMetadata!.typeDefs[Data.ClassIndex];
+        }
+    }
+
     public Il2CppTypeDefinition AsClass()
     {
-        if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
-            throw new Exception("Type is not a class, but a " + Type);
+        return Class ?? throw new Exception("Type is not a class, but a " + Type);
+    }
 
-        return LibCpp2IlMain.TheMetadata!.typeDefs[Data.ClassIndex];
+    private Il2CppType? EncapsulatedType
+    {
+        get
+        {
+            if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_PTR and not Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)
+                return null;
+            return LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(Data.Type);
+        }
     }
 
     public Il2CppType GetEncapsulatedType()
     {
-        if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_PTR and not Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)
-            throw new Exception("Type does not have a encapsulated type - it is not a pointer or an szarray");
+        return EncapsulatedType ?? throw new Exception("Type does not have a encapsulated type - it is not a pointer or an szarray");
+    }
 
-        return LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(Data.Type);
+    private Il2CppArrayType? ArrayType
+    {
+        get
+        {
+            if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
+                return null;
+            return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppArrayType>(Data.Array);
+        }
     }
 
     public Il2CppArrayType GetArrayType()
     {
-        if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
-            throw new Exception("Type is not an array");
-
-        return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppArrayType>(Data.Array);
+        return ArrayType ?? throw new Exception("Type is not an array");
     }
 
-    public Il2CppType GetArrayElementType() => LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(GetArrayType().etype);
+    public Il2CppType GetArrayElementType() => GetArrayType().ElementType;
 
     public int GetArrayRank() => GetArrayType().rank;
 
+    private Il2CppGenericParameter? GenericParameter
+    {
+        get
+        {
+            if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_VAR and not Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
+                return null;
+            return LibCpp2IlMain.TheMetadata!.genericParameters[Data.GenericParameterIndex];
+        }
+    }
+
     public Il2CppGenericParameter GetGenericParameterDef()
     {
-        if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_VAR and not Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
-            throw new Exception("Type is not a generic parameter");
+        var result = GenericParameter ?? throw new Exception("Type is not a generic parameter");
+        Debug.Assert(result.Type == Type);
+        return result;
+    }
 
-        return LibCpp2IlMain.TheMetadata!.genericParameters[Data.GenericParameterIndex];
+    private Il2CppGenericClass? GenericClass
+    {
+        get
+        {
+            if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
+                return null;
+            return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppGenericClass>(Data.GenericClass);
+        }
     }
 
     public Il2CppGenericClass GetGenericClass()
     {
-        if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
-            throw new Exception("Type is not a generic class");
-
-        return LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppGenericClass>(Data.GenericClass);
+        return GenericClass ?? throw new Exception("Type is not a generic class");
     }
 
     public override void Read(ClassReadingBinaryReader reader)

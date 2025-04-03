@@ -1,5 +1,6 @@
 using System;
 using System.Linq;
+using System.Reflection;
 using LibCpp2IL.BinaryStructures;
 
 namespace LibCpp2IL.Metadata;
@@ -12,6 +13,8 @@ public class Il2CppGenericParameter : ReadableClass
     public short constraintsCount;
     public ushort genericParameterIndexInOwner;
     public ushort flags;
+
+    public GenericParameterAttributes Attributes => (GenericParameterAttributes)flags;
 
     public string? Name => LibCpp2IlMain.TheMetadata?.GetStringFromIndex(nameIndex);
 

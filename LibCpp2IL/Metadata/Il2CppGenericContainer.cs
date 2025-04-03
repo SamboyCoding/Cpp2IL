@@ -16,6 +16,8 @@ public class Il2CppGenericContainer : ReadableClass
     /* Our type parameters. */
     public int genericParameterStart;
 
+    private bool IsOwnedByMethod => isGenericMethod != 0;
+
     public IEnumerable<Il2CppGenericParameter> GenericParameters
     {
         get
@@ -32,6 +34,24 @@ public class Il2CppGenericContainer : ReadableClass
             }
         }
     }
+
+    public Il2CppTypeDefinition? TypeOwner
+    {
+        get
+        {
+            return IsOwnedByMethod ? null : LibCpp2IlMain.TheMetadata!.typeDefs[ownerIndex];
+        }
+    }
+
+    public Il2CppMethodDefinition? MethodOwner
+    {
+        get
+        {
+            return IsOwnedByMethod ? LibCpp2IlMain.TheMetadata!.methodDefs[ownerIndex] : null;
+        }
+    }
+
+    public Il2CppTypeDefinition? DeclaringType => TypeOwner ?? MethodOwner.DeclaringType;
 
     public override void Read(ClassReadingBinaryReader reader)
     {
