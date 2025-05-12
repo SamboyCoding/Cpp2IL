@@ -68,7 +68,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     /// <summary>
     /// Returns true if this member is injected by Cpp2IL (and thus should not be analyzed for custom attributes).
     /// </summary>
-    protected virtual bool IsInjected { get; } = false;
+    protected virtual bool IsInjected => false;
 
     /// <summary>
     /// Pre-v29, stores the index of the custom attribute range for this member. Post-v29, always -1.

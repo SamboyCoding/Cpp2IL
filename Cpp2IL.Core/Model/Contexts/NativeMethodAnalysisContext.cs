@@ -10,6 +10,8 @@ public sealed class NativeMethodAnalysisContext : MethodAnalysisContext
 
     public override string DefaultName { get; }
 
+    protected override bool IsInjected => true;
+
     public override bool IsStatic => true;
 
     public override bool IsVoid { get; }

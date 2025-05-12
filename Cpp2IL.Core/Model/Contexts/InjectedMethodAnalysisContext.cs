@@ -1,4 +1,5 @@
 using System.Reflection;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -10,9 +11,13 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
 
     public override bool IsStatic { get; }
 
+    public override bool IsVoid => InjectedReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_VOID;
+
     public override MethodAttributes Attributes { get; }
     
     protected override bool IsInjected => true;
+
+    protected override int CustomAttributeIndex => -1;
 
     public InjectedMethodAnalysisContext(TypeAnalysisContext parent, string name, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, TypeAnalysisContext[] injectedParameterTypes, string[]? injectedParameterNames = null) : base(null, parent)
     {
