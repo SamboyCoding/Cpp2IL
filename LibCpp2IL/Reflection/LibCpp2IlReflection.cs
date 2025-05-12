@@ -47,7 +47,12 @@ public static class LibCpp2IlReflection
             PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == e && t.Byref == 0);
         }
 
-        PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF && t.Byref == 0);
+        PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF] = LibCpp2IlMain.Binary!.AllTypes.FirstOrDefault(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF && t.Byref == 0)
+            ?? LibCpp2IlMain.TheMetadata!.typeDefs.First(t => t.DeclaringAssembly?.Name is "mscorlib.dll" && t.Namespace is "System" && t.Name is "TypedReference").RawType;
+        // Sometimes, TypedReference does not have IL2CPP_TYPE_TYPEDBYREF as its type, but instead has IL2CPP_TYPE_VALUETYPE.
+        // In this case, we need to get the type from the metadata instead of the binary.
+        // https://github.com/SamboyCoding/Cpp2IL/issues/445
+
         for (var e = Il2CppTypeEnum.IL2CPP_TYPE_I; e <= Il2CppTypeEnum.IL2CPP_TYPE_U; e++)
         {
             PrimitiveTypeCache[e] = LibCpp2IlMain.Binary!.AllTypes.First(t => t.Type == e && t.Byref == 0);
