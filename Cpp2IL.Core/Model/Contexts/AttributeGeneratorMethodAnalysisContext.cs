@@ -18,6 +18,7 @@ public class AttributeGeneratorMethodAnalysisContext : MethodAnalysisContext
     {
         UnderlyingPointer = pointer;
         AssociatedMember = associatedMember;
+        InjectedReturnType = AppContext.SystemTypes.SystemVoidType;
         rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, true);
     }
 }
