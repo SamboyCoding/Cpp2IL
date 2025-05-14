@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -11,12 +12,12 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents a single Assembly that was converted using IL2CPP.
 /// </summary>
-public class AssemblyAnalysisContext : HasCustomAttributes
+public class AssemblyAnalysisContext : HasCustomAttributesAndName
 {
     /// <summary>
     /// The raw assembly metadata, such as its name, version, etc.
     /// </summary>
-    public Il2CppAssemblyDefinition Definition;
+    public Il2CppAssemblyDefinition? Definition { get; set; }
 
     /// <summary>
     /// The analysis context objects for all types contained within the assembly, including those nested within a parent type.
@@ -35,20 +36,54 @@ public class AssemblyAnalysisContext : HasCustomAttributes
     /// </summary>
     public Il2CppCodeGenModule? CodeGenModule;
 
-    protected override int CustomAttributeIndex => Definition.CustomAttributeIndex;
+    public Version Version
+    {
+        get
+        {
+            //handle __Generated assembly on v29, which has a version of 0.0.-1.-1
+            return Definition is null || Definition.AssemblyName.build >= 0
+                ? new(0,0,0,0)
+                : new(Definition.AssemblyName.major, Definition.AssemblyName.minor, Definition.AssemblyName.build, Definition.AssemblyName.revision);
+        }
+    }
+
+    public uint HashAlgorithm => Definition?.AssemblyName.hash_alg ?? default;
+
+    public uint Flags => Definition?.AssemblyName.flags ?? default;
+
+    public string? Culture => Definition?.AssemblyName.Culture;
+
+    public byte[]? PublicKeyToken => Definition?.AssemblyName.PublicKeyToken;
+
+    public byte[]? PublicKey => Definition?.AssemblyName.PublicKey;
+
+    protected override int CustomAttributeIndex => Definition?.CustomAttributeIndex ?? -1;
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => this;
-
-    public override string CustomAttributeOwnerName => Definition.AssemblyName.Name;
 
     private readonly Dictionary<string, TypeAnalysisContext> TypesByName = new();
 
     private readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
 
+    public override string DefaultName => Definition?.AssemblyName.Name ?? throw new($"Injected assemblies should set {nameof(OverrideName)}");
+
+    protected override bool IsInjected => Definition is null;
+
     /// <summary>
     /// Get assembly name without the extension and with any invalid path characters or elements removed.
     /// </summary>
-    public string CleanAssemblyName => MiscUtils.CleanPathElement(Definition.AssemblyName.Name);
+    public string CleanAssemblyName => MiscUtils.CleanPathElement(Name);
+
+    public string ModuleName
+    {
+        get
+        {
+            var moduleName = Definition?.Image.Name ?? Name;
+            if (moduleName == "__Generated")
+                moduleName += ".dll"; //__Generated doesn't have a .dll extension in the metadata but it is still of course a DLL
+            return moduleName;
+        }
+    }
 
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
     {
@@ -78,16 +113,27 @@ public class AssemblyAnalysisContext : HasCustomAttributes
         }
     }
 
+    public AssemblyAnalysisContext(string name, ApplicationAnalysisContext appContext) : base(0, appContext)
+    {
+        OverrideName = name;
+    }
+
     public TypeAnalysisContext InjectType(string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = TypeAnalysisContext.DefaultTypeAttributes)
     {
-        var ret = new InjectedTypeAnalysisContext(this, name, ns, baseType, typeAttributes);
-        Types.Add(ret);
+        var ret = new InjectedTypeAnalysisContext(this, ns, name, baseType, typeAttributes);
+        InjectType(ret);
         return ret;
+    }
+
+    internal void InjectType(InjectedTypeAnalysisContext ret)
+    {
+        Types.Add(ret);
+        TypesByName[ret.FullName] = ret;
     }
 
     public TypeAnalysisContext? GetTypeByFullName(string fullName) => TypesByName.TryGetValue(fullName, out var typeContext) ? typeContext : null;
 
     public TypeAnalysisContext? GetTypeByDefinition(Il2CppTypeDefinition typeDefinition) => TypesByDefinition.TryGetValue(typeDefinition, out var typeContext) ? typeContext : null;
 
-    public override string ToString() => "Assembly: " + Definition.AssemblyName.Name;
+    public override string ToString() => "Assembly: " + Name;
 }

@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
@@ -8,22 +9,22 @@ namespace Cpp2IL.Core.Model.Contexts;
 public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvider
 {
     public readonly TypeAnalysisContext DeclaringType;
-    public readonly Il2CppEventDefinition Definition;
+    public readonly Il2CppEventDefinition? Definition;
     public readonly MethodAnalysisContext? Adder;
     public readonly MethodAnalysisContext? Remover;
     public readonly MethodAnalysisContext? Invoker;
 
-    protected override int CustomAttributeIndex => Definition.customAttributeIndex;
+    protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? -1;
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public override string DefaultName => Definition.Name!;
+    public override string DefaultName => Definition?.Name ?? throw new($"Subclasses must override {nameof(DefaultName)}.");
 
-    public EventAttributes EventAttributes => Definition.EventAttributes;
+    public virtual EventAttributes EventAttributes => Definition?.EventAttributes ?? throw new($"Subclasses must override {nameof(EventAttributes)}.");
 
-    public TypeAnalysisContext EventTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition.RawType!);
+    public virtual TypeAnalysisContext EventTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawType) ?? throw new($"Subclasses must override {nameof(EventAttributes)}.");
 
-    public bool IsStatic => Definition.IsStatic;
+    public virtual bool IsStatic => Definition?.IsStatic ?? throw new($"Subclasses must override {nameof(IsStatic)}.");
 
     public EventAnalysisContext(Il2CppEventDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
@@ -37,15 +38,26 @@ public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvid
         Invoker = parent.GetMethod(definition.Invoker);
     }
 
-    public override string ToString() => $"Event: {Definition.DeclaringType!.Name}::{Definition.Name}";
+    protected EventAnalysisContext(MethodAnalysisContext? adder, MethodAnalysisContext? remover, MethodAnalysisContext? invoker, TypeAnalysisContext parent) : base(0, parent.AppContext)
+    {
+        if (adder is null && remover is null && invoker is null)
+            throw new ArgumentException("Event must have at least one method");
+
+        DeclaringType = parent;
+        Adder = adder;
+        Remover = remover;
+        Invoker = invoker;
+    }
+
+    public override string ToString() => $"Event: {DeclaringType.Name}::{Name}";
 
     #region StableNameDotNet Impl
 
-    public ITypeInfoProvider EventTypeInfoProvider => Definition.RawType!.ThisOrElementIsGenericParam()
+    public ITypeInfoProvider EventTypeInfoProvider => Definition!.RawType!.ThisOrElementIsGenericParam()
         ? new GenericParameterTypeInfoProviderWrapper(Definition.RawType!.GetGenericParamName())
         : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition.RawType!);
 
-    public string EventName => DefaultName;
+    public string EventName => Name;
 
     #endregion
 }

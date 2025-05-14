@@ -218,6 +218,18 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         return new(this, modifierType, required, DeclaringAssembly);
     }
 
+    public InjectedTypeAnalysisContext InjectNestedType(string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = TypeAttributes.NestedPublic | TypeAttributes.Sealed)
+    {
+        if (this is ReferencedTypeAnalysisContext)
+            throw new InvalidOperationException("Cannot inject nested types into a non type definition");
+
+        var ret = new InjectedTypeAnalysisContext(DeclaringAssembly, "", name, baseType, typeAttributes);
+        ret.DeclaringType = this;
+        NestedTypes.Add(ret);
+        DeclaringAssembly.InjectType(ret);
+        return ret;
+    }
+
     #region StableNameDotNet implementation
 
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy()

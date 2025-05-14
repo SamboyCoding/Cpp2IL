@@ -214,5 +214,13 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return new(types);
     }
 
+    public AssemblyAnalysisContext InjectAssembly(string name)
+    {
+        var assembly = new AssemblyAnalysisContext(name, this);
+        Assemblies.Add(assembly);
+        AssembliesByName[name] = assembly;
+        return assembly;
+    }
+
     public IEnumerable<TypeAnalysisContext> AllTypes => Assemblies.SelectMany(a => a.Types);
 }

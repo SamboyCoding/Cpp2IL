@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
@@ -8,22 +9,23 @@ namespace Cpp2IL.Core.Model.Contexts;
 public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfoProvider
 {
     public TypeAnalysisContext DeclaringType { get; }
-    public Il2CppPropertyDefinition Definition { get; }
+    public Il2CppPropertyDefinition? Definition { get; }
 
     public MethodAnalysisContext? Getter { get; }
     public MethodAnalysisContext? Setter { get; }
 
-    protected override int CustomAttributeIndex => Definition.customAttributeIndex;
+    protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? -1;
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType.DeclaringAssembly;
 
-    public override string DefaultName => Definition.Name!;
+    public override string DefaultName => Definition?.Name ?? throw new($"Subclasses must override {nameof(DefaultName)}.");
 
-    public bool IsStatic => Definition.IsStatic;
+    public virtual bool IsStatic => Definition?.IsStatic ?? throw new($"Subclasses must override {nameof(IsStatic)}.");
 
-    public PropertyAttributes PropertyAttributes => (PropertyAttributes)Definition.attrs;
+    public virtual PropertyAttributes PropertyAttributes => (PropertyAttributes?)Definition?.attrs ?? throw new($"Subclasses must override {nameof(PropertyAttributes)}.");
 
-    public TypeAnalysisContext PropertyTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition.RawPropertyType!);
+    public virtual TypeAnalysisContext PropertyTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawPropertyType)
+        ?? throw new($"Subclasses must override {nameof(PropertyTypeContext)}.");
 
     public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {
@@ -36,7 +38,17 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
         Setter = parent.GetMethod(definition.Setter);
     }
 
-    public override string ToString() => $"Property:  {Definition.DeclaringType!.Name}::{Definition.Name}";
+    protected PropertyAnalysisContext(MethodAnalysisContext? getter, MethodAnalysisContext? setter, TypeAnalysisContext parent) : base(0, parent.AppContext)
+    {
+        if (getter is null && setter is null)
+            throw new ArgumentException("Property must have at least one method");
+
+        DeclaringType = parent;
+        Getter = getter;
+        Setter = setter;
+    }
+
+    public override string ToString() => $"Property:  {DeclaringType.Name}::{Name}";
 
     #region StableNameDotNet implementation
 

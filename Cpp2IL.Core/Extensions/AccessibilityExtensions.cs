@@ -44,7 +44,7 @@ internal static class AccessibilityExtensions
 
             return true;
         }
-        else if (referenceType.DeclaringAssembly.Definition.IsDependencyOf(referencingType.DeclaringAssembly.Definition))
+        else if (referenceType.DeclaringAssembly.IsDependencyOf(referencingType.DeclaringAssembly))
         {
             for (var i = 0; i < declaringTypesHierarchy.Length; i++)
             {
@@ -139,6 +139,21 @@ internal static class AccessibilityExtensions
         }
 
         return false;
+    }
+
+    private static bool IsDependencyOf(this AssemblyAnalysisContext referencedAssembly, AssemblyAnalysisContext referencingAssembly)
+    {
+        if (referencingAssembly.Definition is null)
+        {
+            // Injected assemblies can access everything
+            return true;
+        }
+        if (referencedAssembly.Definition is null)
+        {
+            // Injected assemblies cannot be accessed by metadata assemblies
+            return false;
+        }
+        return referencedAssembly.Definition.IsDependencyOf(referencingAssembly.Definition);
     }
 
     private static bool IsDependencyOf(this Il2CppAssemblyDefinition referencedAssembly, Il2CppAssemblyDefinition referencingAssembly)

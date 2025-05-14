@@ -1,4 +1,4 @@
-﻿using System.Text;
+using System.Text;
 using System.Text.Json;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Logging;
@@ -99,7 +99,9 @@ public class BuildReportOutputFormat : Cpp2IlOutputFormat
             spaceUsedPerAssembly[assemblyAnalysisContext] += assemblyAnalysisContext.Types.SelectMany(t => t.Methods).Sum(m => methodsBySize.GetOrDefault(m, 0));
 
             //Generics
-            var asmDef = assemblyAnalysisContext.Definition.Image;
+            var asmDef = assemblyAnalysisContext.Definition?.Image;
+            if (asmDef == null)
+                continue;
             foreach (var genericMethodData in genericMethodDataByBaseMd)
             {
                 if (genericMethodData.Key.DeclaringType?.DeclaringAssembly != asmDef)
@@ -157,7 +159,7 @@ public class BuildReportOutputFormat : Cpp2IlOutputFormat
         ret.AppendLine("    Usage per assembly, sorted by space used (by method bodies only, no metadata):");
 
         foreach (var kvp in sortedUsageByAssembly)
-            ret.AppendLine($"        {kvp.Key.Definition.AssemblyName.Name}: {kvp.Value / 1024f / 1024:f3}MB ({(double)kvp.Value / binarySize:P} of binary)");
+            ret.AppendLine($"        {kvp.Key.Name}: {kvp.Value / 1024f / 1024:f3}MB ({(double)kvp.Value / binarySize:P} of binary)");
 
         ret.AppendLine();
         ret.AppendLine("    In-Binary Metadata breakdown:");

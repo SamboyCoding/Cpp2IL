@@ -43,6 +43,6 @@ public class AccessibilityExtensionsTests
 
     private static TypeAnalysisContext GetTypeByFullName(AssemblyAnalysisContext assembly, string fullName)
     {
-        return assembly.Types.FirstOrDefault(t => t.FullName == fullName) ?? throw new($"Could not find {fullName} in {assembly.CleanAssemblyName}.");
+        return assembly.Types.FirstOrDefault(t => t.FullName == fullName) ?? throw new($"Could not find {fullName} in {assembly.Name}.");
     }
 }

@@ -24,7 +24,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
         var i = 1;
         foreach (var assembly in context.Assemblies)
         {
-            Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Definition.AssemblyName.Name}", "ControlFlowGraphOutputFormat");
+            Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Name}", "ControlFlowGraphOutputFormat");
 
             var assemblyNameClean = assembly.CleanAssemblyName;
 

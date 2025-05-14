@@ -150,13 +150,13 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         var assemblyResolver = new Il2CppAssemblyResolver();
         var metadataResolver = new DefaultMetadataResolver(assemblyResolver);
 
-        var corlib = context.Assemblies.First(a => a.Definition.AssemblyName.Name == "mscorlib");
+        var corlib = context.Assemblies.First(a => a.Name == "mscorlib");
         MostRecentCorLib = BuildStubAssembly(corlib, null, metadataResolver);
         assemblyResolver.DummyAssemblies.Add(MostRecentCorLib.Name!, MostRecentCorLib);
 
         var ret = context.Assemblies
             // .AsParallel()
-            .Where(a => a.Definition.AssemblyName.Name != "mscorlib")
+            .Where(a => a.Name != "mscorlib")
             .Select(a => BuildStubAssembly(a, MostRecentCorLib, metadataResolver))
             .ToList();
 
@@ -178,33 +178,18 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
     private static AssemblyDefinition BuildStubAssembly(AssemblyAnalysisContext assemblyContext, AssemblyDefinition? corLib, IMetadataResolver metadataResolver)
     {
-        var assemblyDefinition = assemblyContext.Definition;
-
-        var imageDefinition = assemblyDefinition.Image;
-
         //Get the name of the assembly (= the name of the DLL without the file extension)
-        var assemblyNameString = assemblyDefinition.AssemblyName.Name;
-
         //Build an AsmResolver assembly from this definition
-        Version version;
-        if (assemblyDefinition.AssemblyName.build >= 0)
-            version = new(assemblyDefinition.AssemblyName.major, assemblyDefinition.AssemblyName.minor, assemblyDefinition.AssemblyName.build, assemblyDefinition.AssemblyName.revision);
-        else
-            //handle __Generated assembly on v29, which has a version of 0.0.-1.-1
-            version = new(0, 0, 0, 0);
-
-        var ourAssembly = new AssemblyDefinition(assemblyNameString, version)
+        var ourAssembly = new AssemblyDefinition(assemblyContext.Name, assemblyContext.Version)
         {
-            HashAlgorithm = (AssemblyHashAlgorithm)assemblyDefinition.AssemblyName.hash_alg,
-            Attributes = (AssemblyAttributes)assemblyDefinition.AssemblyName.flags,
-            Culture = assemblyDefinition.AssemblyName.Culture,
-            PublicKey = assemblyDefinition.AssemblyName.PublicKey,
+            HashAlgorithm = (AssemblyHashAlgorithm)assemblyContext.HashAlgorithm,
+            Attributes = (AssemblyAttributes)assemblyContext.Flags,
+            Culture = assemblyContext.Culture,
+            PublicKey = assemblyContext.PublicKey,
         };
 
         //Setting the corlib module allows element types in references to that assembly to be set correctly without us having to manually set them.
-        var moduleName = imageDefinition.Name;
-        if (moduleName == "__Generated")
-            moduleName += ".dll"; //__Generated doesn't have a .dll extension in the metadata but it is still of course a DLL
+        var moduleName = assemblyContext.ModuleName;
 
         var managedModule = corLib is not null //Use either ourself as corlib, if we are corlib, otherwise the provided one
             ? new ModuleDefinition(moduleName, new(corLib))

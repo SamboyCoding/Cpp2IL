@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -13,7 +12,7 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
     
     protected override bool IsInjected => true;
 
-    public InjectedTypeAnalysisContext(AssemblyAnalysisContext containingAssembly, string name, string ns, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = DefaultTypeAttributes) : base(null, containingAssembly)
+    public InjectedTypeAnalysisContext(AssemblyAnalysisContext containingAssembly, string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = DefaultTypeAttributes) : base(null, containingAssembly)
     {
         DefaultName = name;
         DefaultNs = ns;
@@ -23,9 +22,6 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
 
     public InjectedMethodAnalysisContext InjectMethodContext(string methodName, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
     {
-        if (args.Any(a => a.Definition == null))
-            throw new("Cannot inject a method using injected types as parameters, yet.");
-
         var method = new InjectedMethodAnalysisContext(this, methodName, isStatic, returnType, attributes, args);
         Methods.Add(method);
 
@@ -37,5 +33,30 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
         var field = new InjectedFieldAnalysisContext(fieldName, fieldType, attributes, this);
         Fields.Add(field);
         return field;
+    }
+
+    public InjectedEventAnalysisContext InjectEventContext(
+        string eventName,
+        TypeAnalysisContext eventType,
+        MethodAnalysisContext? adder,
+        MethodAnalysisContext? remover,
+        MethodAnalysisContext? invoker,
+        EventAttributes eventAttributes)
+    {
+        var @event = new InjectedEventAnalysisContext(eventName, eventType, adder, remover, invoker, eventAttributes, this);
+        Events.Add(@event);
+        return @event;
+    }
+
+    public InjectedPropertyAnalysisContext InjectPropertyContext(
+        string propertyName,
+        TypeAnalysisContext propertyType,
+        MethodAnalysisContext? getter,
+        MethodAnalysisContext? setter,
+        PropertyAttributes propertyAttributes)
+    {
+        var property = new InjectedPropertyAnalysisContext(propertyName, propertyType, getter, setter, propertyAttributes, this);
+        Properties.Add(property);
+        return property;
     }
 }

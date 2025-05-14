@@ -8,6 +8,4 @@ public abstract class HasCustomAttributesAndName(uint token, ApplicationAnalysis
     public virtual string? OverrideName { get; set; }
 
     public string Name => OverrideName ?? DefaultName;
-
-    public sealed override string CustomAttributeOwnerName => Name;
 }

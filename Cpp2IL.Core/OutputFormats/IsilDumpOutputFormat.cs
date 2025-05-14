@@ -24,7 +24,7 @@ public class IsilDumpOutputFormat : Cpp2IlOutputFormat
         var i = 1;
         foreach (var assembly in context.Assemblies)
         {
-            Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Definition.AssemblyName.Name}", "IsilOutputFormat");
+            Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Name}", "IsilOutputFormat");
 
             var assemblyNameClean = assembly.CleanAssemblyName;
 

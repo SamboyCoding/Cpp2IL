@@ -63,8 +63,6 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     /// </summary>
     public abstract AssemblyAnalysisContext CustomAttributeAssembly { get; }
 
-    public abstract string CustomAttributeOwnerName { get; }
-    
     /// <summary>
     /// Returns true if this member is injected by Cpp2IL (and thus should not be analyzed for custom attributes).
     /// </summary>
@@ -103,6 +101,9 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
             return;
         }
 
+        if (CustomAttributeAssembly.Definition is null)
+            return;
+
         AttributeTypeRange = AppContext.Metadata.GetCustomAttributeData(CustomAttributeAssembly.Definition.Image, CustomAttributeIndex, Token, out Pre29RangeIndex);
 
         if (AttributeTypeRange == null || AttributeTypeRange.count == 0)
@@ -120,6 +121,9 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
     private (long blobStart, long blobEnd)? GetV29BlobOffsets()
     {
+        if (CustomAttributeAssembly.Definition is null)
+            return null;
+
         var target = new Il2CppCustomAttributeDataRange() { token = Token };
         var caIndex = AppContext.Metadata.AttributeDataRanges.BinarySearch
         (
@@ -167,7 +171,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         }
         else
         {
-            if(AttributeTypeRange == null || AttributeTypeRange.count == 0)
+            if(AttributeTypeRange == null || AttributeTypeRange.count == 0 || CustomAttributeAssembly.Definition is null)
             {
                 RawIl2CppCustomAttributeData = Array.Empty<byte>();
                 return;
