@@ -8,8 +8,6 @@ using AsmResolver.PE.DotNet.Metadata.Tables;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
 using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Utils.AsmResolver;
 
@@ -27,57 +25,34 @@ public static class AsmResolverAssemblyPopulator
             if (IsTypeContextModule(typeCtx))
                 continue;
 
-            var il2CppTypeDef = typeCtx.Definition;
             var typeDefinition = typeCtx.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeCtx.FullName}");
 
-            var importer = typeDefinition.Module!.DefaultImporter;
-
             //Type generic params.
-            if (il2CppTypeDef != null)
-                PopulateGenericParamsForType(il2CppTypeDef, typeDefinition);
+            PopulateGenericParamsForType(typeCtx, typeDefinition);
 
             //Set base type
-            if (typeCtx.OverrideBaseType is { } overrideBaseType)
-            {
-                var baseTypeDef = overrideBaseType.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"{typeCtx} declares override base type {overrideBaseType} which has not had an AsmResolver type generated for it.");
-                typeDefinition.BaseType = importer.ImportType(baseTypeDef);
-            }
-            else if (il2CppTypeDef?.RawBaseType is { } parent)
-                typeDefinition.BaseType = importer.ImportType(AsmResolverUtils.ImportReferenceFromIl2CppType(typeDefinition.Module, parent));
+            typeDefinition.BaseType = typeCtx.BaseType?.ToTypeSignature(typeDefinition.Module!).ToTypeDefOrRef();
 
             //Set interfaces
-            if (il2CppTypeDef != null)
-                foreach (var interfaceType in il2CppTypeDef.RawInterfaces)
-                    typeDefinition.Interfaces.Add(new(importer.ImportType(AsmResolverUtils.ImportReferenceFromIl2CppType(typeDefinition.Module, interfaceType))));
+            foreach (var interfaceType in typeCtx.InterfaceContexts)
+                typeDefinition.Interfaces.Add(new(interfaceType.ToTypeSignature(typeDefinition.Module!).ToTypeDefOrRef()));
         }
     }
 
-    private static void PopulateGenericParamsForType(Il2CppTypeDefinition cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void PopulateGenericParamsForType(TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
-        if (cppTypeDefinition.GenericContainer == null)
-            return;
-
         var importer = ilTypeDefinition.Module!.DefaultImporter;
 
-        foreach (var param in cppTypeDefinition.GenericContainer.GenericParameters)
+        foreach (var param in cppTypeDefinition.GenericParameters)
         {
-            // if(parentParams.Any(p => p.Name == param.Name))
-            //     continue;
+            var p = new GenericParameter(param.Name, (GenericParameterAttributes)param.Attributes);
 
-            if (!AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(param.Index, out var p))
-            {
-                p = new GenericParameter(param.Name, (GenericParameterAttributes)param.Attributes);
-                AsmResolverUtils.GenericParamsByIndexNew[param.Index] = p;
+            ilTypeDefinition.GenericParameters.Add(p);
 
-                ilTypeDefinition.GenericParameters.Add(p);
-
-                param.ConstraintTypes!
-                    .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.ImportReferenceFromIl2CppType(ilTypeDefinition.Module, c))))
-                    .ToList()
-                    .ForEach(p.Constraints.Add);
-            }
-            else if (!ilTypeDefinition.GenericParameters.Contains(p))
-                ilTypeDefinition.GenericParameters.Add(p);
+            param.ConstraintTypes
+                .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.Module).ToTypeDefOrRef()))
+                .ToList()
+                .ForEach(p.Constraints.Add);
         }
     }
 
@@ -386,8 +361,6 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var methodCtx in typeContext.Methods)
         {
-            var methodDef = methodCtx.Definition;
-
             var returnType = methodCtx.ReturnTypeContext.ToTypeSignature(importer.TargetModule);
 
             var paramData = methodCtx.Parameters;
@@ -439,24 +412,16 @@ public static class AsmResolverAssemblyPopulator
             }
 
             //Handle generic parameters.
-            methodDef?.GenericContainer?.GenericParameters.ToList()
+            methodCtx.GenericParameters
                 .ForEach(p =>
                 {
-                    if (AsmResolverUtils.GenericParamsByIndexNew.TryGetValue(p.Index, out var gp))
-                    {
-                        if (!managedMethod.GenericParameters.Contains(gp))
-                            managedMethod.GenericParameters.Add(gp);
-
-                        return;
-                    }
-
-                    gp = new(p.Name, (GenericParameterAttributes)p.Attributes);
+                    var gp = new GenericParameter(p.Name, (GenericParameterAttributes)p.Attributes);
 
                     if (!managedMethod.GenericParameters.Contains(gp))
                         managedMethod.GenericParameters.Add(gp);
 
-                    p.ConstraintTypes!
-                        .Select(c => new GenericParameterConstraint(importer.ImportTypeIfNeeded(AsmResolverUtils.ImportReferenceFromIl2CppType(ilTypeDefinition.Module!, c))))
+                    p.ConstraintTypes
+                        .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.Module!).ToTypeDefOrRef()))
                         .ToList()
                         .ForEach(gp.Constraints.Add);
                 });

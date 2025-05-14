@@ -86,6 +86,17 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         }
     }
 
+    private List<GenericParameterTypeAnalysisContext>? _genericParameters;
+    public List<GenericParameterTypeAnalysisContext> GenericParameters
+    {
+        get
+        {
+            // Lazy load the generic parameters
+            _genericParameters ??= Definition?.GenericContainer?.GenericParameters.Select(g => new GenericParameterTypeAnalysisContext(g, DeclaringAssembly)).ToList() ?? [];
+            return _genericParameters;
+        }
+    }
+
     public virtual Il2CppTypeEnum Type
     {
         get
@@ -290,7 +301,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public IEnumerable<ITypeInfoProvider> Interfaces => Definition!.RawInterfaces!.Select(t => GetSndnProviderForType(AppContext, t));
     public virtual TypeAttributes TypeAttributes => Definition?.Attributes ?? DefaultTypeAttributes;
-    public virtual int GenericParameterCount => Definition!.GenericContainer?.genericParameterCount ?? 0;
+    public virtual int GenericParameterCount => GenericParameters.Count;
     public string OriginalTypeName => DefaultName;
     public string RewrittenTypeName => Name;
     public string TypeNamespace => Namespace;

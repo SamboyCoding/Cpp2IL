@@ -16,14 +16,12 @@ public static class AsmResolverUtils
     private static readonly ConcurrentDictionary<string, TypeSignature?> CachedTypeSignaturesByName = new();
 
     public static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
-    public static readonly ConcurrentDictionary<long, GenericParameter> GenericParamsByIndexNew = new();
 
     internal static void Reset()
     {
         CachedTypeDefsByName.Clear();
         CachedTypeSignaturesByName.Clear();
         TypeDefsByIndex.Clear();
-        GenericParamsByIndexNew.Clear();
     }
 
     public static TypeDefinition GetPrimitiveTypeDef(Il2CppTypeEnum type) =>

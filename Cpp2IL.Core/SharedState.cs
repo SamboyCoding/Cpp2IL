@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Cpp2IL.Core.Utils;
 using Cpp2IL.Core.Utils.AsmResolver;
 using LibCpp2IL.Metadata;
@@ -13,9 +13,7 @@ public static class SharedState
 
     internal static void Clear()
     {
-        AsmResolverUtils.GenericParamsByIndexNew.Clear();
-
-        AsmResolverUtils.TypeDefsByIndex.Clear();
+        AsmResolverUtils.Reset();
 
         TypeDefinitionsAsmResolver.Reset();
 

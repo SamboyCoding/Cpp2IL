@@ -79,7 +79,18 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
 
     public int ParameterCount => Parameters.Count;
 
-    public int GenericParameterCount => Definition?.GenericContainer?.genericParameterCount ?? 0;
+    private List<GenericParameterTypeAnalysisContext>? _genericParameters;
+    public List<GenericParameterTypeAnalysisContext> GenericParameters
+    {
+        get
+        {
+            // Lazy load the generic parameters
+            _genericParameters ??= Definition?.GenericContainer?.GenericParameters.Select(p => new GenericParameterTypeAnalysisContext(p, DeclaringType!.DeclaringAssembly)).ToList() ?? [];
+            return _genericParameters;
+        }
+    }
+
+    public int GenericParameterCount => GenericParameters.Count;
 
     private ushort Slot => Definition?.slot ?? ushort.MaxValue;
 

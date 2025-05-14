@@ -103,7 +103,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         // For the purpose of generic instantiation, we need an array of method generic parameters, even if none are provided.
         if (methodGenericParameters.Length == 0 && baseMethodContext.GenericParameterCount > 0)
             methodGenericParameters = Enumerable.Range(0, baseMethodContext.GenericParameterCount)
-                .Select(i => new GenericParameterTypeAnalysisContext("T", i, Il2CppTypeEnum.IL2CPP_TYPE_MVAR, declaringAssembly))
+                .Select(i => new GenericParameterTypeAnalysisContext("T", i, Il2CppTypeEnum.IL2CPP_TYPE_MVAR, GenericParameterAttributes.None, declaringAssembly))
                 .ToArray();
 
         for (var i = 0; i < BaseMethodContext.Parameters.Count; i++)
