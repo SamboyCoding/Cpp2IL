@@ -8,8 +8,6 @@ public class InjectedParameterAnalysisContext : ParameterAnalysisContext
 {
     public override TypeAnalysisContext ParameterTypeContext { get; }
 
-    public override bool IsRef => ParameterTypeContext is ByRefTypeAnalysisContext;
-
     public override ParameterAttributes ParameterAttributes => ParameterAttributes.None;
     
     protected override bool IsInjected => true;
