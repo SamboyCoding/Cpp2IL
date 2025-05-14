@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Logging;
@@ -322,7 +322,7 @@ public static class CsFileUtils
             sb.Append(" : ").Append(GetTypeName(baseType!.Name));
 
         //Interfaces
-        if (type.InterfaceContexts.Length <= 0)
+        if (type.InterfaceContexts.Count <= 0)
             return;
 
         if (!needsBaseClass)

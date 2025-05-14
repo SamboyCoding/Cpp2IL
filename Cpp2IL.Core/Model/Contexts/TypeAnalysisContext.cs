@@ -75,7 +75,16 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public TypeAnalysisContext? BaseType => OverrideBaseType ?? (Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType));
 
-    public TypeAnalysisContext[] InterfaceContexts => (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToArray() ?? [])!;
+    private List<TypeAnalysisContext>? _interfaceContexts;
+    public List<TypeAnalysisContext> InterfaceContexts
+    {
+        get
+        {
+            // Lazy load the interface contexts
+            _interfaceContexts ??= (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToList() ?? [])!;
+            return _interfaceContexts;
+        }
+    }
 
     public virtual Il2CppTypeEnum Type
     {
