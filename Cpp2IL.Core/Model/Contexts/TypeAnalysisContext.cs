@@ -67,7 +67,7 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
 
     public string Namespace => OverrideNs ?? DefaultNs;
 
-    public TypeAnalysisContext? OverrideBaseType { get; protected set; }
+    public TypeAnalysisContext? OverrideBaseType { get; set; }
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
