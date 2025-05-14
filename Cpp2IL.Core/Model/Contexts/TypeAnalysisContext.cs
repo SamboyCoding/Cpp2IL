@@ -16,7 +16,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents one managed type in the application.
 /// </summary>
-public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider, ICSharpSourceToken
+public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSharpSourceToken
 {
     internal const TypeAttributes DefaultTypeAttributes = TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed;
 
@@ -87,12 +87,12 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
     }
 
     private List<GenericParameterTypeAnalysisContext>? _genericParameters;
-    public List<GenericParameterTypeAnalysisContext> GenericParameters
+    public override List<GenericParameterTypeAnalysisContext> GenericParameters
     {
         get
         {
             // Lazy load the generic parameters
-            _genericParameters ??= Definition?.GenericContainer?.GenericParameters.Select(g => new GenericParameterTypeAnalysisContext(g, DeclaringAssembly)).ToList() ?? [];
+            _genericParameters ??= Definition?.GenericContainer?.GenericParameters.Select(g => new GenericParameterTypeAnalysisContext(g, this)).ToList() ?? [];
             return _genericParameters;
         }
     }

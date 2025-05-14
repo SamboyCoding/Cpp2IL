@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Api;
@@ -194,6 +195,22 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     public PropertyAnalysisContext? ResolveContextForProperty(Il2CppPropertyDefinition? propertyDefinition)
     {
         return ResolveContextForType(propertyDefinition?.DeclaringType)?.Properties.FirstOrDefault(p => p.Definition == propertyDefinition);
+    }
+
+    public GenericParameterTypeAnalysisContext? ResolveContextForGenericParameter(Il2CppGenericParameter? genericParameter)
+    {
+        if (genericParameter is null)
+            return null;
+
+        if (genericParameter.Owner.TypeOwner is { } typeOwner)
+        {
+            return ResolveContextForType(typeOwner)?.GenericParameters[genericParameter.Index];
+        }
+        else
+        {
+            Debug.Assert(genericParameter.Owner.MethodOwner is not null);
+            return ResolveContextForMethod(genericParameter.Owner.MethodOwner)?.GenericParameters[genericParameter.Index];
+        }
     }
 
     public BaseKeyFunctionAddresses GetOrCreateKeyFunctionAddresses()

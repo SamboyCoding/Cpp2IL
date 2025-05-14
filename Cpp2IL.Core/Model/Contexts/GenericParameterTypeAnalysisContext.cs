@@ -32,18 +32,19 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
         }
     }
 
-    public GenericParameterTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
-        : this(rawType.GetGenericParameterDef(), referencedFrom)
-    {
-    }
+    public HasGenericParameters Owner { get; }
 
-    public GenericParameterTypeAnalysisContext(Il2CppGenericParameter genericParameter, AssemblyAnalysisContext referencedFrom)
-        : this(genericParameter.Name ?? "T", genericParameter.genericParameterIndexInOwner, genericParameter.Type, genericParameter.Attributes, referencedFrom)
+    /// <summary>
+    /// This should only be used by the initializers for <see cref="TypeAnalysisContext.GenericParameters"/> and <see cref="MethodAnalysisContext.GenericParameters"/>.
+    /// It ensures that generic parameters are only held by their owners.
+    /// </summary>
+    internal GenericParameterTypeAnalysisContext(Il2CppGenericParameter genericParameter, HasGenericParameters owner)
+        : this(genericParameter.Name ?? "T", genericParameter.genericParameterIndexInOwner, genericParameter.Type, genericParameter.Attributes, owner)
     {
         definition = genericParameter;
     }
 
-    public GenericParameterTypeAnalysisContext(string name, int index, Il2CppTypeEnum type, GenericParameterAttributes attributes, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
+    public GenericParameterTypeAnalysisContext(string name, int index, Il2CppTypeEnum type, GenericParameterAttributes attributes, HasGenericParameters owner) : base(owner.CustomAttributeAssembly)
     {
         if (type is not Il2CppTypeEnum.IL2CPP_TYPE_VAR and not Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
             throw new ArgumentException($"Generic parameter type is not a generic parameter, but {type}", nameof(type));
@@ -52,5 +53,6 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
         Index = index;
         Type = type;
         Attributes = attributes;
+        Owner = owner;
     }
 }

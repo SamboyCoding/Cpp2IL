@@ -222,9 +222,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                 typeParametersField = null;
             }
         }
-        else if (targetMethod.Definition?.GenericContainer?.genericParameterCount > 0)
+        else if (targetMethod.GenericParameters.Count > 0)
         {
-            var parameters = targetMethod.Definition.GenericContainer.GenericParameters.Select(p => (object?)p.Name).ToArray();
+            var parameters = targetMethod.GenericParameters.Select(p => (object?)p.Name).ToArray();
             typeParametersField = (callsAttributeInfo.Item2[2], parameters);
         }
         else

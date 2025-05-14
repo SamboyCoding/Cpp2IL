@@ -23,7 +23,7 @@ public static class Il2CppTypeToContext
         else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_BYREF or Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY or Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
             ret = WrappedTypeAnalysisContext.Create(type, context);
         else
-            ret = new GenericParameterTypeAnalysisContext(type, context);
+            ret = context.AppContext.ResolveContextForGenericParameter(type.GetGenericParameterDef()) ?? throw new($"Could not resolve type context for type {type.GetGenericParameterDef().Name}");
 
         if (type.Byref == 1)
             //Byref types need to be wrapped in a byref context so that we don't have incorrect method signatures.

@@ -22,7 +22,7 @@ public static class Il2CppTypeReflectionDataToContext
         }
         else if (!reflectionData.isType)
         {
-            pointerElementType = new GenericParameterTypeAnalysisContext(reflectionData.GenericParameter!, assembly);
+            pointerElementType = assembly.AppContext.ResolveContextForGenericParameter(reflectionData.GenericParameter);
         }
         else if (!reflectionData.isGenericType)
         {

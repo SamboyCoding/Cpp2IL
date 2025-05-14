@@ -18,7 +18,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents one method within the application. Can be analyzed to attempt to reconstruct the function body.
 /// </summary>
-public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProvider
+public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 {
     /// <summary>
     /// The underlying metadata for the method.
@@ -80,12 +80,12 @@ public class MethodAnalysisContext : HasCustomAttributesAndName, IMethodInfoProv
     public int ParameterCount => Parameters.Count;
 
     private List<GenericParameterTypeAnalysisContext>? _genericParameters;
-    public List<GenericParameterTypeAnalysisContext> GenericParameters
+    public override List<GenericParameterTypeAnalysisContext> GenericParameters
     {
         get
         {
             // Lazy load the generic parameters
-            _genericParameters ??= Definition?.GenericContainer?.GenericParameters.Select(p => new GenericParameterTypeAnalysisContext(p, DeclaringType!.DeclaringAssembly)).ToList() ?? [];
+            _genericParameters ??= Definition?.GenericContainer?.GenericParameters.Select(p => new GenericParameterTypeAnalysisContext(p, this)).ToList() ?? [];
             return _genericParameters;
         }
     }

@@ -27,7 +27,7 @@ public class Il2CppGenericContainer : ReadableClass
             for (var i = genericParameterStart; i < end; i++)
             {
                 var p = LibCpp2IlMain.TheMetadata!.genericParameters[i];
-                p.Index = i;
+                p.Index = i - genericParameterStart;
                 yield return p;
             }
         }
