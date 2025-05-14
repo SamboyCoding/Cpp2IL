@@ -214,9 +214,16 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return new(types);
     }
 
-    public AssemblyAnalysisContext InjectAssembly(string name)
+    public InjectedAssemblyAnalysisContext InjectAssembly(
+        string name,
+        Version? version = null,
+        uint hashAlgorithm = 0,
+        uint flags = 0,
+        string? culture = null,
+        byte[]? publicKeyToken = null,
+        byte[]? publicKey = null)
     {
-        var assembly = new AssemblyAnalysisContext(name, this);
+        var assembly = new InjectedAssemblyAnalysisContext(name, this, version, hashAlgorithm, flags, culture, publicKeyToken, publicKey);
         Assemblies.Add(assembly);
         AssembliesByName[name] = assembly;
         return assembly;

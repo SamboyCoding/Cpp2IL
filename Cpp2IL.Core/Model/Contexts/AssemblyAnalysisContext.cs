@@ -36,7 +36,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     /// </summary>
     public Il2CppCodeGenModule? CodeGenModule;
 
-    public Version Version
+    public virtual Version Version
     {
         get
         {
@@ -47,15 +47,15 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
         }
     }
 
-    public uint HashAlgorithm => Definition?.AssemblyName.hash_alg ?? default;
+    public virtual uint HashAlgorithm => Definition?.AssemblyName.hash_alg ?? default;
 
-    public uint Flags => Definition?.AssemblyName.flags ?? default;
+    public virtual uint Flags => Definition?.AssemblyName.flags ?? default;
 
-    public string? Culture => Definition?.AssemblyName.Culture;
+    public virtual string? Culture => Definition?.AssemblyName.Culture;
 
-    public byte[]? PublicKeyToken => Definition?.AssemblyName.PublicKeyToken;
+    public virtual byte[]? PublicKeyToken => Definition?.AssemblyName.PublicKeyToken;
 
-    public byte[]? PublicKey => Definition?.AssemblyName.PublicKey;
+    public virtual byte[]? PublicKey => Definition?.AssemblyName.PublicKey;
 
     protected override int CustomAttributeIndex => Definition?.CustomAttributeIndex ?? -1;
 
@@ -65,7 +65,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
 
     private readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
 
-    public override string DefaultName => Definition?.AssemblyName.Name ?? throw new($"Injected assemblies should set {nameof(OverrideName)}");
+    public override string DefaultName => Definition?.AssemblyName.Name ?? throw new($"Injected assemblies should override {nameof(DefaultName)}");
 
     protected override bool IsInjected => Definition is null;
 
@@ -85,8 +85,11 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
         }
     }
 
-    public AssemblyAnalysisContext(Il2CppAssemblyDefinition assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition.Token, appContext)
+    public AssemblyAnalysisContext(Il2CppAssemblyDefinition? assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition?.Token ?? 0, appContext)
     {
+        if (assemblyDefinition is null)
+            return;
+
         Definition = assemblyDefinition;
 
         if (AppContext.MetadataVersion >= 24.2f)
@@ -111,11 +114,6 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
                 .Peek(t => t.DeclaringType = type)
                 .ToList();
         }
-    }
-
-    public AssemblyAnalysisContext(string name, ApplicationAnalysisContext appContext) : base(0, appContext)
-    {
-        OverrideName = name;
     }
 
     public TypeAnalysisContext InjectType(string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = TypeAnalysisContext.DefaultTypeAttributes)
