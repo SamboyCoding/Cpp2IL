@@ -1,3 +1,4 @@
+using System;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -114,4 +115,28 @@ public class SystemTypesContext
         }
         return true;
     }
+
+    public TypeAnalysisContext GetPrimitive(Il2CppTypeEnum type) => type switch
+    {
+        Il2CppTypeEnum.IL2CPP_TYPE_OBJECT => SystemObjectType,
+        Il2CppTypeEnum.IL2CPP_TYPE_VOID => SystemVoidType,
+        Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN => SystemBooleanType,
+        Il2CppTypeEnum.IL2CPP_TYPE_CHAR => SystemCharType,
+        Il2CppTypeEnum.IL2CPP_TYPE_I1 => SystemSByteType,
+        Il2CppTypeEnum.IL2CPP_TYPE_U1 => SystemByteType,
+        Il2CppTypeEnum.IL2CPP_TYPE_I2 => SystemInt16Type,
+        Il2CppTypeEnum.IL2CPP_TYPE_U2 => SystemUInt16Type,
+        Il2CppTypeEnum.IL2CPP_TYPE_I4 => SystemInt32Type,
+        Il2CppTypeEnum.IL2CPP_TYPE_U4 => SystemUInt32Type,
+        Il2CppTypeEnum.IL2CPP_TYPE_I => SystemIntPtrType,
+        Il2CppTypeEnum.IL2CPP_TYPE_U => SystemUIntPtrType,
+        Il2CppTypeEnum.IL2CPP_TYPE_I8 => SystemInt64Type,
+        Il2CppTypeEnum.IL2CPP_TYPE_U8 => SystemUInt64Type,
+        Il2CppTypeEnum.IL2CPP_TYPE_R4 => SystemSingleType,
+        Il2CppTypeEnum.IL2CPP_TYPE_R8 => SystemDoubleType,
+        Il2CppTypeEnum.IL2CPP_TYPE_STRING => SystemStringType,
+        Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF => SystemTypedReferenceType,
+        Il2CppTypeEnum.IL2CPP_TYPE_IL2CPP_TYPE_INDEX => SystemTypeType,
+        _ => throw new ArgumentException("Type is not a primitive", nameof(type))
+    };
 }
