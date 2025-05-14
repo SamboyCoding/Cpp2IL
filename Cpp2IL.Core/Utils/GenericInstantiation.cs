@@ -48,6 +48,28 @@ internal static class GenericInstantiation
                     ? pointerTypeAnalysisContext
                     : new PointerTypeAnalysisContext(elementType, pointerTypeAnalysisContext.DeclaringAssembly);
             }
+            case PinnedTypeAnalysisContext pinnedTypeAnalysisContext:
+            {
+                var elementType = Instantiate(pinnedTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
+                return elementType == pinnedTypeAnalysisContext.ElementType
+                    ? pinnedTypeAnalysisContext
+                    : new PinnedTypeAnalysisContext(elementType, pinnedTypeAnalysisContext.DeclaringAssembly);
+            }
+            case BoxedTypeAnalysisContext boxedTypeAnalysisContext:
+            {
+                var elementType = Instantiate(boxedTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
+                return elementType == boxedTypeAnalysisContext.ElementType
+                    ? boxedTypeAnalysisContext
+                    : new BoxedTypeAnalysisContext(elementType, boxedTypeAnalysisContext.DeclaringAssembly);
+            }
+            case CustomModifierTypeAnalysisContext customModifierTypeAnalysisContext:
+            {
+                var elementType = Instantiate(customModifierTypeAnalysisContext.ElementType, genericTypeParameters, genericMethodParameters);
+                var modifierType = Instantiate(customModifierTypeAnalysisContext.ModifierType, genericTypeParameters, genericMethodParameters);
+                return (elementType == customModifierTypeAnalysisContext.ElementType && modifierType == customModifierTypeAnalysisContext.ModifierType)
+                    ? customModifierTypeAnalysisContext
+                    : new CustomModifierTypeAnalysisContext(elementType, modifierType, customModifierTypeAnalysisContext.Required, customModifierTypeAnalysisContext.DeclaringAssembly);
+            }
             case GenericInstanceTypeAnalysisContext genericInstanceTypeAnalysisContext:
             {
                 var genericType = Instantiate(genericInstanceTypeAnalysisContext.GenericType, genericTypeParameters, genericMethodParameters);
@@ -79,6 +101,9 @@ internal static class GenericInstantiation
         ArrayTypeAnalysisContext arrayTypeAnalysisContext => HasAnyGenericParameters(arrayTypeAnalysisContext.ElementType),
         ByRefTypeAnalysisContext byReferenceTypeAnalysisContext => HasAnyGenericParameters(byReferenceTypeAnalysisContext.ElementType),
         PointerTypeAnalysisContext pointerTypeAnalysisContext => HasAnyGenericParameters(pointerTypeAnalysisContext.ElementType),
+        PinnedTypeAnalysisContext pinnedTypeAnalysisContext => HasAnyGenericParameters(pinnedTypeAnalysisContext.ElementType),
+        BoxedTypeAnalysisContext boxedTypeAnalysisContext => HasAnyGenericParameters(boxedTypeAnalysisContext.ElementType),
+        CustomModifierTypeAnalysisContext customModifierTypeAnalysisContext => HasAnyGenericParameters(customModifierTypeAnalysisContext.ElementType) || HasAnyGenericParameters(customModifierTypeAnalysisContext.ModifierType),
         GenericInstanceTypeAnalysisContext genericInstanceTypeAnalysisContext => genericInstanceTypeAnalysisContext.GenericArguments.Any(HasAnyGenericParameters),
         _ => false,
     };

@@ -53,37 +53,20 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
     #region StableNameDotNet
 
     public ITypeInfoProvider FieldTypeInfoProvider
-        => ThisOrElementIsGenericParam(FieldTypeContext)
-            ? new GenericParameterTypeInfoProviderWrapper(GetGenericParamName(FieldTypeContext))
+        => GetGenericParamName(FieldTypeContext) is { } name
+            ? new GenericParameterTypeInfoProviderWrapper(name)
             : TypeAnalysisContext.GetSndnProviderForType(AppContext, FieldType!);
 
     public string FieldName => Name;
 
-    public FieldAttributes FieldAttributes => BackingData?.Attributes ?? 0;
+    public FieldAttributes FieldAttributes => Attributes;
 
-    private static bool ThisOrElementIsGenericParam(TypeAnalysisContext type) => type switch
+    private static string? GetGenericParamName(TypeAnalysisContext type) => type switch
     {
-        GenericParameterTypeAnalysisContext => true,
-        SzArrayTypeAnalysisContext szArray => ThisOrElementIsGenericParam(szArray.ElementType),
-        PointerTypeAnalysisContext pointer => ThisOrElementIsGenericParam(pointer.ElementType),
-        ArrayTypeAnalysisContext array => ThisOrElementIsGenericParam(array.ElementType),
-        _ => false,
+        GenericParameterTypeAnalysisContext genericParam => genericParam.Name,
+        WrappedTypeAnalysisContext wrapped => GetGenericParamName(wrapped.ElementType),
+        _ => null
     };
-
-    private static string GetGenericParamName(TypeAnalysisContext type)
-    {
-        if (!ThisOrElementIsGenericParam(type))
-            throw new("Type is not a generic parameter");
-
-        return type switch
-        {
-            GenericParameterTypeAnalysisContext genericParam => genericParam.Name,
-            SzArrayTypeAnalysisContext szArray => GetGenericParamName(szArray.ElementType),
-            PointerTypeAnalysisContext pointer => GetGenericParamName(pointer.ElementType),
-            ArrayTypeAnalysisContext array => GetGenericParamName(array.ElementType),
-            _ => throw new("Type is not a generic parameter")
-        };
-    }
 
     #endregion
 }

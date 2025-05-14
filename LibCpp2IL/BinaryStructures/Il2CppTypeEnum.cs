@@ -39,6 +39,11 @@ public enum Il2CppTypeEnum
     IL2CPP_TYPE_SENTINEL = 0x41, /* Sentinel for varargs method signature */
     IL2CPP_TYPE_PINNED = 0x45, /* Local var that points to pinned object */
 
+    /// <summary>
+    /// Injected. Not in the il2cpp headers.
+    /// </summary>
+    IL2CPP_TYPE_BOXED = 0x51,
+
     IL2CPP_TYPE_ENUM = 0x55, /* an enumeration */
     IL2CPP_TYPE_IL2CPP_TYPE_INDEX = 0xFF, /* an index into IL2CPP type metadata table */
 }

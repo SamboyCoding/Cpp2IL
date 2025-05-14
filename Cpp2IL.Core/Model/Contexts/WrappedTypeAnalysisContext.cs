@@ -22,6 +22,8 @@ public abstract class WrappedTypeAnalysisContext(
             Il2CppTypeEnum.IL2CPP_TYPE_BYREF => new ByRefTypeAnalysisContext(rawType, referencedFrom),
             Il2CppTypeEnum.IL2CPP_TYPE_ARRAY => new ArrayTypeAnalysisContext(rawType, referencedFrom),
             Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY => new SzArrayTypeAnalysisContext(rawType, referencedFrom),
+            Il2CppTypeEnum.IL2CPP_TYPE_BOXED => new BoxedTypeAnalysisContext(rawType, referencedFrom),
+            Il2CppTypeEnum.IL2CPP_TYPE_PINNED => new PinnedTypeAnalysisContext(rawType, referencedFrom),
             _ => throw new($"Type {rawType.Type} is not a wrapper type")
         };
     }

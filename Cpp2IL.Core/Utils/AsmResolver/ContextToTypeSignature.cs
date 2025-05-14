@@ -19,10 +19,11 @@ public static class ContextToTypeSignature
         GenericParameterTypeAnalysisContext genericParameterTypeAnalysisContext => genericParameterTypeAnalysisContext.ToTypeSignature(parentModule),
         GenericInstanceTypeAnalysisContext genericInstanceTypeAnalysisContext => genericInstanceTypeAnalysisContext.ToTypeSignature(parentModule),
         WrappedTypeAnalysisContext wrappedTypeAnalysisContext => wrappedTypeAnalysisContext.ToTypeSignature(parentModule),
+        SentinelTypeAnalysisContext => SentinelTypeSignature.Instance,
         _ => parentModule.DefaultImporter.ImportType(context.GetTypeDefinition()).ToTypeSignature()
     };
 
-    public static TypeSignature ToTypeSignature(this GenericInstanceTypeAnalysisContext context, ModuleDefinition parentModule)
+    public static GenericInstanceTypeSignature ToTypeSignature(this GenericInstanceTypeAnalysisContext context, ModuleDefinition parentModule)
     {
         var genericType = context.GenericType.ToTypeSignature(parentModule).ToTypeDefOrRef();
         var genericArguments = context.GenericArguments.Select(a => a.ToTypeSignature(parentModule)).ToArray();
@@ -30,38 +31,57 @@ public static class ContextToTypeSignature
         return new GenericInstanceTypeSignature(genericType, context.IsValueType, genericArguments);
     }
 
-    public static TypeSignature ToTypeSignature(this GenericParameterTypeAnalysisContext context, ModuleDefinition parentModule)
+    public static GenericParameterSignature ToTypeSignature(this GenericParameterTypeAnalysisContext context, ModuleDefinition parentModule)
     {
         return new GenericParameterSignature(parentModule, context.Type == Il2CppTypeEnum.IL2CPP_TYPE_VAR ? GenericParameterType.Type : GenericParameterType.Method, context.Index);
     }
 
-    public static TypeSignature ToTypeSignature(this WrappedTypeAnalysisContext context, ModuleDefinition parentModule) => context switch
+    public static TypeSpecificationSignature ToTypeSignature(this WrappedTypeAnalysisContext context, ModuleDefinition parentModule) => context switch
     {
         SzArrayTypeAnalysisContext szArrayTypeAnalysisContext => szArrayTypeAnalysisContext.ToTypeSignature(parentModule),
         PointerTypeAnalysisContext pointerTypeAnalysisContext => pointerTypeAnalysisContext.ToTypeSignature(parentModule),
         ByRefTypeAnalysisContext byReferenceTypeAnalysisContext => byReferenceTypeAnalysisContext.ToTypeSignature(parentModule),
         ArrayTypeAnalysisContext arrayTypeAnalysisContext => arrayTypeAnalysisContext.ToTypeSignature(parentModule),
+        PinnedTypeAnalysisContext pinnedTypeAnalysisContext => pinnedTypeAnalysisContext.ToTypeSignature(parentModule),
+        BoxedTypeAnalysisContext boxedTypeAnalysisContext => boxedTypeAnalysisContext.ToTypeSignature(parentModule),
+        CustomModifierTypeAnalysisContext customModifierTypeAnalysisContext => customModifierTypeAnalysisContext.ToTypeSignature(parentModule),
         _ => throw new ArgumentException($"Unknown wrapped type context {context.GetType()}", nameof(context))
     };
 
-    public static TypeSignature ToTypeSignature(this SzArrayTypeAnalysisContext context, ModuleDefinition parentModule)
+    public static SzArrayTypeSignature ToTypeSignature(this SzArrayTypeAnalysisContext context, ModuleDefinition parentModule)
     {
         return context.ElementType.ToTypeSignature(parentModule).MakeSzArrayType();
     }
 
-    public static TypeSignature ToTypeSignature(this PointerTypeAnalysisContext context, ModuleDefinition parentModule)
+    public static PointerTypeSignature ToTypeSignature(this PointerTypeAnalysisContext context, ModuleDefinition parentModule)
     {
         return context.ElementType.ToTypeSignature(parentModule).MakePointerType();
     }
 
-    public static TypeSignature ToTypeSignature(this ByRefTypeAnalysisContext context, ModuleDefinition parentModule)
+    public static ByReferenceTypeSignature ToTypeSignature(this ByRefTypeAnalysisContext context, ModuleDefinition parentModule)
     {
         return context.ElementType.ToTypeSignature(parentModule).MakeByReferenceType();
     }
 
-    public static TypeSignature ToTypeSignature(this ArrayTypeAnalysisContext context, ModuleDefinition parentModule)
+    public static ArrayTypeSignature ToTypeSignature(this ArrayTypeAnalysisContext context, ModuleDefinition parentModule)
     {
         return context.ElementType.ToTypeSignature(parentModule).MakeArrayTypeWithLowerBounds(context.Rank);
+    }
+
+    public static PinnedTypeSignature ToTypeSignature(this PinnedTypeAnalysisContext context, ModuleDefinition parentModule)
+    {
+        return context.ElementType.ToTypeSignature(parentModule).MakePinnedType();
+    }
+
+    public static BoxedTypeSignature ToTypeSignature(this BoxedTypeAnalysisContext context, ModuleDefinition parentModule)
+    {
+        // https://github.com/Washi1337/AsmResolver/pull/629
+        return new BoxedTypeSignature(context.ElementType.ToTypeSignature(parentModule));
+    }
+
+    public static CustomModifierTypeSignature ToTypeSignature(this CustomModifierTypeAnalysisContext context, ModuleDefinition parentModule)
+    {
+        return context.ElementType.ToTypeSignature(parentModule).MakeModifierType(context.ModifierType.ToTypeSignature(parentModule).ToTypeDefOrRef(), context.Required);
     }
 
     public static TypeSignature ToTypeSignature(this ParameterAnalysisContext context, ModuleDefinition parentModule)

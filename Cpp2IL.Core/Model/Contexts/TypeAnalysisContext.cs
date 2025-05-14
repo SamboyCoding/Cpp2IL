@@ -203,6 +203,21 @@ public class TypeAnalysisContext : HasCustomAttributesAndName, ITypeInfoProvider
         return new(this, DeclaringAssembly);
     }
 
+    public PinnedTypeAnalysisContext MakePinnedType()
+    {
+        return new(this, DeclaringAssembly);
+    }
+
+    public BoxedTypeAnalysisContext MakeBoxedType()
+    {
+        return new(this, DeclaringAssembly);
+    }
+
+    public CustomModifierTypeAnalysisContext MakeCustomModifierType(TypeAnalysisContext modifierType, bool required)
+    {
+        return new(this, modifierType, required, DeclaringAssembly);
+    }
+
     #region StableNameDotNet implementation
 
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy()
