@@ -41,7 +41,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
         get
         {
             //handle __Generated assembly on v29, which has a version of 0.0.-1.-1
-            return Definition is null || Definition.AssemblyName.build >= 0
+            return Definition is null || Definition.AssemblyName.build < 0
                 ? new(0,0,0,0)
                 : new(Definition.AssemblyName.major, Definition.AssemblyName.minor, Definition.AssemblyName.build, Definition.AssemblyName.revision);
         }
