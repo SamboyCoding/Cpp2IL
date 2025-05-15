@@ -204,12 +204,12 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
         if (genericParameter.Owner.TypeOwner is { } typeOwner)
         {
-            return ResolveContextForType(typeOwner)?.GenericParameters[genericParameter.Index];
+            return ResolveContextForType(typeOwner)?.GenericParameters[genericParameter.genericParameterIndexInOwner];
         }
         else
         {
             Debug.Assert(genericParameter.Owner.MethodOwner is not null);
-            return ResolveContextForMethod(genericParameter.Owner.MethodOwner)?.GenericParameters[genericParameter.Index];
+            return ResolveContextForMethod(genericParameter.Owner.MethodOwner)?.GenericParameters[genericParameter.genericParameterIndexInOwner];
         }
     }
 

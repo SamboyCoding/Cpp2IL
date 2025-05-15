@@ -25,6 +25,9 @@ public class Il2CppGenericParameter : ReadableClass
             .Select(LibCpp2IlMain.Binary!.GetType)
             .ToArray();
 
+    /// <summary>
+    /// The index of this generic parameter in <see cref="Il2CppMetadata.genericParameters"/>
+    /// </summary>
     public int Index { get; internal set; }
 
     public Il2CppGenericContainer Owner => LibCpp2IlMain.TheMetadata!.genericContainers[ownerIndex];

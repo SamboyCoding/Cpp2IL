@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 
 namespace LibCpp2IL.Metadata;
 
@@ -27,7 +28,8 @@ public class Il2CppGenericContainer : ReadableClass
             for (var i = genericParameterStart; i < end; i++)
             {
                 var p = LibCpp2IlMain.TheMetadata!.genericParameters[i];
-                p.Index = i - genericParameterStart;
+                p.Index = i;
+                Debug.Assert(p.genericParameterIndexInOwner == i - genericParameterStart);
                 yield return p;
             }
         }
