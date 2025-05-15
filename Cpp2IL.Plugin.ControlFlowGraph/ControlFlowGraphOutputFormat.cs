@@ -22,7 +22,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
         var numAssemblies = context.Assemblies.Count;
         var i = 1;
-        foreach (var assembly in context.Assemblies)
+        foreach (var assembly in context.Assemblies.Where(a => a.Definition is not null))
         {
             Logger.InfoNewline($"Processing assembly {i++} of {numAssemblies}: {assembly.Name}", "ControlFlowGraphOutputFormat");
 
