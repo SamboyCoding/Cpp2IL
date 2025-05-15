@@ -256,7 +256,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes)typeContext.TypeAttributes);
 
         //Set up its layout
-        if (typeDef != null && typeDef.BaseType?.ToString() != "System.Enum")
+        if (typeDef != null)
             ConfigureTypeSize(typeDef, ret);
 
         //Create nested types
@@ -275,12 +275,15 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
     private static void ConfigureTypeSize(Il2CppTypeDefinition il2CppDefinition, TypeDefinition asmResolverDefinition)
     {
+        if (!il2CppDefinition.IsValueType || il2CppDefinition.IsEnumType)
+            return; // Only structs can have their layout changed
+
         ushort packingSize = 0;
         var classSize = 0U;
         if (!il2CppDefinition.PackingSizeIsDefault)
             packingSize = (ushort)il2CppDefinition.PackingSize;
 
-        if (!il2CppDefinition.ClassSizeIsDefault && !il2CppDefinition.IsEnumType)
+        if (!il2CppDefinition.ClassSizeIsDefault)
         {
             if (il2CppDefinition.Size > 1 << 30)
                 throw new Exception($"Got invalid size for type {il2CppDefinition}: {il2CppDefinition.RawSizes}");
