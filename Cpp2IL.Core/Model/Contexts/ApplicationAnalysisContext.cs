@@ -242,7 +242,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     {
         var assembly = new InjectedAssemblyAnalysisContext(name, this, version, hashAlgorithm, flags, culture, publicKeyToken, publicKey);
         Assemblies.Add(assembly);
-        AssembliesByName[name] = assembly;
+        AssembliesByName.Add(name, assembly);
         return assembly;
     }
 
