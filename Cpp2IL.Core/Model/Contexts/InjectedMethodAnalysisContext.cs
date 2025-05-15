@@ -20,15 +20,8 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
 
     protected override int CustomAttributeIndex => -1;
 
-#if NET5_0_OR_GREATER
-    // Covariant return types are .NET 5.0+
-    public override List<MethodAnalysisContext> Overrides { get; } = new();
-    public List<MethodAnalysisContext> GetOverridesList() => Overrides;
-#else
-    private readonly List<MethodAnalysisContext> _overrides = [];
-    public override IEnumerable<MethodAnalysisContext> Overrides => _overrides;
-    public List<MethodAnalysisContext> GetOverridesList() => _overrides;
-#endif
+    public override IEnumerable<MethodAnalysisContext> Overrides => OverridesList;
+    public List<MethodAnalysisContext> OverridesList { get; } = [];
 
     public InjectedMethodAnalysisContext(TypeAnalysisContext parent, string name, TypeAnalysisContext returnType, MethodAttributes attributes, TypeAnalysisContext[] injectedParameterTypes, string[]? injectedParameterNames = null) : base(null, parent)
     {
