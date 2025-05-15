@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using LibCpp2IL.BinaryStructures;
 
@@ -18,6 +19,13 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
     protected override bool IsInjected => true;
 
     protected override int CustomAttributeIndex => -1;
+
+#if NET5_0_OR_GREATER
+    // Covariant return types are .NET 5.0+
+    public override List<MethodAnalysisContext> Overrides { get; } = new();
+#else
+    public override IEnumerable<MethodAnalysisContext> Overrides => [];
+#endif
 
     public InjectedMethodAnalysisContext(TypeAnalysisContext parent, string name, TypeAnalysisContext returnType, MethodAttributes attributes, TypeAnalysisContext[] injectedParameterTypes, string[]? injectedParameterNames = null) : base(null, parent)
     {
