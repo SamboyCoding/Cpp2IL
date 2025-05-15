@@ -20,9 +20,9 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
         TypeAttributes = typeAttributes;
     }
 
-    public InjectedMethodAnalysisContext InjectMethodContext(string methodName, bool isStatic, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
+    public InjectedMethodAnalysisContext InjectMethodContext(string methodName, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
     {
-        var method = new InjectedMethodAnalysisContext(this, methodName, isStatic, returnType, attributes, args);
+        var method = new InjectedMethodAnalysisContext(this, methodName, returnType, attributes, args);
         Methods.Add(method);
 
         return method;

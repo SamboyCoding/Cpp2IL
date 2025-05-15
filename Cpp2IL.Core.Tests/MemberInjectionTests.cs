@@ -31,7 +31,7 @@ public class MemberInjectionTests
         var baseType = appContext!.SystemTypes.SystemObjectType;
         var injectedType = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "TestInjectedTypeWithMethods", baseType);
 
-        var methodsByAssembly = injectedType.InjectMethodToAllAssemblies("TestZeroArgMethod", false, appContext.SystemTypes.SystemVoidType, MethodAttributes.Public);
+        var methodsByAssembly = injectedType.InjectMethodToAllAssemblies("TestZeroArgMethod", appContext.SystemTypes.SystemVoidType, MethodAttributes.Public);
         
         Assert.That(methodsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
         Assert.That(methodsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestZeroArgMethod").And.Property("ReturnTypeContext").EqualTo(appContext.SystemTypes.SystemVoidType));
@@ -61,7 +61,7 @@ public class MemberInjectionTests
         var baseType = appContext!.SystemTypes.SystemObjectType;
         var injectedType = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "TestInjectedTypeWithMethodsWithParameters", baseType);
 
-        var methodsByAssembly = injectedType.InjectMethodToAllAssemblies("TestMethodWithParameters", false, appContext.SystemTypes.SystemVoidType, MethodAttributes.Public, appContext.SystemTypes.SystemInt32Type, appContext.SystemTypes.SystemStringType);
+        var methodsByAssembly = injectedType.InjectMethodToAllAssemblies("TestMethodWithParameters", appContext.SystemTypes.SystemVoidType, MethodAttributes.Public, appContext.SystemTypes.SystemInt32Type, appContext.SystemTypes.SystemStringType);
         
         Assert.That(methodsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
         Assert.That(methodsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestMethodWithParameters").And.Property("ReturnTypeContext").EqualTo(appContext.SystemTypes.SystemVoidType));
@@ -101,7 +101,7 @@ public class MemberInjectionTests
         
         var baseType = appContext!.SystemTypes.SystemObjectType;
         var injectedType = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "TestInjectedTypeWithProperties", baseType);
-        var gettersByAssembly = injectedType.InjectMethodToAllAssemblies("get_TestProperty", false, appContext.SystemTypes.SystemInt32Type, MethodAttributes.Public);
+        var gettersByAssembly = injectedType.InjectMethodToAllAssemblies("get_TestProperty", appContext.SystemTypes.SystemInt32Type, MethodAttributes.Public);
         var propertiesByAssembly = injectedType.InjectPropertyToAllAssemblies("TestProperty", appContext.SystemTypes.SystemInt32Type, gettersByAssembly, null, PropertyAttributes.None);
 
         Assert.That(propertiesByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
@@ -116,8 +116,8 @@ public class MemberInjectionTests
 
         var baseType = appContext!.SystemTypes.SystemObjectType;
         var injectedType = appContext.InjectTypeIntoAllAssemblies("Cpp2ILInjected", "TestInjectedTypeWithEvents", baseType);
-        var addersByAssembly = injectedType.InjectMethodToAllAssemblies("add_TestEvent", false, appContext.SystemTypes.SystemInt32Type, MethodAttributes.Public);
-        var removersByAssembly = injectedType.InjectMethodToAllAssemblies("remove_TestEvent", false, appContext.SystemTypes.SystemInt32Type, MethodAttributes.Public);
+        var addersByAssembly = injectedType.InjectMethodToAllAssemblies("add_TestEvent", appContext.SystemTypes.SystemInt32Type, MethodAttributes.Public);
+        var removersByAssembly = injectedType.InjectMethodToAllAssemblies("remove_TestEvent", appContext.SystemTypes.SystemInt32Type, MethodAttributes.Public);
         var eventsByAssembly = injectedType.InjectEventToAllAssemblies("TestEvent", appContext.SystemTypes.SystemInt32Type, addersByAssembly, removersByAssembly, null, EventAttributes.None);
 
         Assert.That(eventsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
