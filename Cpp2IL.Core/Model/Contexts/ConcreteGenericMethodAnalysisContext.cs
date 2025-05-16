@@ -1,9 +1,7 @@
 using System;
-using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
-using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -107,15 +105,12 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         for (var i = 0; i < BaseMethodContext.Parameters.Count; i++)
         {
             var parameter = BaseMethodContext.Parameters[i];
-            var parameterType = parameter.ParameterTypeContext;
             var instantiatedType = GenericInstantiation.Instantiate(
                 parameter.ParameterTypeContext,
                 typeGenericParameters,
                 methodGenericParameters);
 
-            Parameters.Add(parameterType == instantiatedType
-                ? parameter
-                : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, parameter.ParameterAttributes, i, BaseMethodContext));
+            Parameters.Add(new ConcreteGenericParameterAnalysisContext(parameter, instantiatedType, this));
         }
 
         InjectedReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnTypeContext, typeGenericParameters, methodGenericParameters);
