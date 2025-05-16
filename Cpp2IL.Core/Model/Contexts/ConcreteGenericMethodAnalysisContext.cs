@@ -115,7 +115,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
             Parameters.Add(parameterType == instantiatedType
                 ? parameter
-                : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, i, BaseMethodContext));
+                : new InjectedParameterAnalysisContext(parameter.Name, instantiatedType, parameter.ParameterAttributes, i, BaseMethodContext));
         }
 
         InjectedReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnTypeContext, typeGenericParameters, methodGenericParameters);
