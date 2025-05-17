@@ -122,7 +122,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
         get
         {
             if (DeclaringType != null)
-                return DeclaringType.FullName + "." + Name;
+                return DeclaringType.FullName + "+" + Name;
 
             if (string.IsNullOrEmpty(Namespace))
                 return Name;
