@@ -78,9 +78,11 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     {
         get
         {
-            var moduleName = Definition?.Image.Name ?? Name;
+            var moduleName = Definition?.Image.Name;
             if (moduleName == "__Generated")
                 moduleName += ".dll"; //__Generated doesn't have a .dll extension in the metadata but it is still of course a DLL
+            else
+                moduleName ??= Name + ".dll"; //If we don't have a module name, use the assembly name + .dll
             return moduleName;
         }
     }
