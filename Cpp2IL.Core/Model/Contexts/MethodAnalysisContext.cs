@@ -71,11 +71,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public string FullName => DeclaringType == null ? Name : $"{DeclaringType.FullName}::{Name}";
 
-    public string FullNameWithSignature => $"{ReturnTypeContext.FullName} {FullName}({string.Join(", ", Parameters.Select(p => p.HumanReadableSignature))})";
+    public string FullNameWithSignature => $"{ReturnType.FullName} {FullName}({string.Join(", ", Parameters.Select(p => p.HumanReadableSignature))})";
 
     public virtual MethodAttributes Attributes => Definition?.Attributes ?? throw new("Subclasses of MethodAnalysisContext should override Attributes");
-
-    public TypeAnalysisContext? InjectedReturnType { get; set; }
 
     public int ParameterCount => Parameters.Count;
 
@@ -94,8 +92,12 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     private ushort Slot => Definition?.slot ?? ushort.MaxValue;
 
+    public virtual TypeAnalysisContext DefaultReturnType => DeclaringType?.DeclaringAssembly.ResolveIl2CppType(Definition?.RawReturnType) ?? throw new($"Subclasses of MethodAnalysisContext should override {nameof(DefaultReturnType)}");
+
+    public TypeAnalysisContext? OverrideReturnType { get; set; }
+
     //TODO Support custom attributes on return types (v31 feature)
-    public TypeAnalysisContext ReturnTypeContext => InjectedReturnType ?? DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition!.RawReturnType!);
+    public TypeAnalysisContext ReturnType => OverrideReturnType ?? DefaultReturnType;
     
     protected Memory<byte>? rawMethodBody;
 

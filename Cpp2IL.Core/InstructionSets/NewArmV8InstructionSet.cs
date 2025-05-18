@@ -436,7 +436,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     private InstructionSetIndependentOperand? GetReturnRegisterForContext(MethodAnalysisContext context)
     {
-        var returnType = context.ReturnTypeContext;
+        var returnType = context.ReturnType;
         if (returnType.Namespace == nameof(System))
         {
             return returnType.Name switch
@@ -477,7 +477,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
         foreach (var parameter in contextBeingCalled.Parameters)
         {
-            var paramType = parameter.ParameterTypeContext;
+            var paramType = parameter.ParameterType;
             if (paramType.Namespace == nameof(System))
             {
                 switch (paramType.Name)

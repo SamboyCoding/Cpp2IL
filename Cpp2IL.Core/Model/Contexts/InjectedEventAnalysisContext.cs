@@ -6,7 +6,7 @@ public class InjectedEventAnalysisContext : EventAnalysisContext
 {
     public override string DefaultName { get; }
     public override EventAttributes EventAttributes { get; }
-    public override TypeAnalysisContext EventTypeContext { get; }
+    public override TypeAnalysisContext DefaultEventType { get; }
     public override bool IsStatic
     {
         get
@@ -33,7 +33,7 @@ public class InjectedEventAnalysisContext : EventAnalysisContext
         TypeAnalysisContext parent) : base(adder, remover, invoker, parent)
     {
         DefaultName = name;
-        EventTypeContext = eventType;
+        DefaultEventType = eventType;
         EventAttributes = eventAttributes;
     }
 }

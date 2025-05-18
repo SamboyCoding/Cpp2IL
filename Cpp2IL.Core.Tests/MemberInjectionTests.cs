@@ -34,7 +34,7 @@ public class MemberInjectionTests
         var methodsByAssembly = injectedType.InjectMethodToAllAssemblies("TestZeroArgMethod", appContext.SystemTypes.SystemVoidType, MethodAttributes.Public);
         
         Assert.That(methodsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
-        Assert.That(methodsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestZeroArgMethod").And.Property("ReturnTypeContext").EqualTo(appContext.SystemTypes.SystemVoidType));
+        Assert.That(methodsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestZeroArgMethod").And.Property("ReturnType").EqualTo(appContext.SystemTypes.SystemVoidType));
         Assert.That(methodsByAssembly.Values.First().DeclaringType, Has.Property("FullName").EqualTo("Cpp2ILInjected.TestInjectedTypeWithMethods"));
     }
     
@@ -49,7 +49,7 @@ public class MemberInjectionTests
         var constructorsByAssembly = injectedType.InjectConstructor(false);
         
         Assert.That(constructorsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
-        Assert.That(constructorsByAssembly.Values.First(), Has.Property("Name").EqualTo(".ctor").And.Property("ReturnTypeContext").EqualTo(appContext.SystemTypes.SystemVoidType));
+        Assert.That(constructorsByAssembly.Values.First(), Has.Property("Name").EqualTo(".ctor").And.Property("ReturnType").EqualTo(appContext.SystemTypes.SystemVoidType));
         Assert.That(constructorsByAssembly.Values.First().DeclaringType, Has.Property("FullName").EqualTo("Cpp2ILInjected.TestInjectedTypeWithConstructors"));
     }
     
@@ -64,7 +64,7 @@ public class MemberInjectionTests
         var methodsByAssembly = injectedType.InjectMethodToAllAssemblies("TestMethodWithParameters", appContext.SystemTypes.SystemVoidType, MethodAttributes.Public, appContext.SystemTypes.SystemInt32Type, appContext.SystemTypes.SystemStringType);
         
         Assert.That(methodsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
-        Assert.That(methodsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestMethodWithParameters").And.Property("ReturnTypeContext").EqualTo(appContext.SystemTypes.SystemVoidType));
+        Assert.That(methodsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestMethodWithParameters").And.Property("ReturnType").EqualTo(appContext.SystemTypes.SystemVoidType));
         Assert.Multiple(() =>
         {
             Assert.That(methodsByAssembly.Values.First().DeclaringType, Has.Property("FullName").EqualTo("Cpp2ILInjected.TestInjectedTypeWithMethodsWithParameters"));
@@ -72,8 +72,8 @@ public class MemberInjectionTests
         });
         Assert.Multiple(() =>
         {
-            Assert.That(methodsByAssembly.Values.First().Parameters[0], Has.Property("ParameterTypeContext").EqualTo(appContext.SystemTypes.SystemInt32Type));
-            Assert.That(methodsByAssembly.Values.First().Parameters[1], Has.Property("ParameterTypeContext").EqualTo(appContext.SystemTypes.SystemStringType));
+            Assert.That(methodsByAssembly.Values.First().Parameters[0], Has.Property("ParameterType").EqualTo(appContext.SystemTypes.SystemInt32Type));
+            Assert.That(methodsByAssembly.Values.First().Parameters[1], Has.Property("ParameterType").EqualTo(appContext.SystemTypes.SystemStringType));
         });
 
         Assert.DoesNotThrow(() => methodsByAssembly.Values.First().Parameters.Select(p => p.Name).ToList());
@@ -90,7 +90,7 @@ public class MemberInjectionTests
         var fieldsByAssembly = injectedType.InjectFieldToAllAssemblies("TestField", appContext.SystemTypes.SystemInt32Type, FieldAttributes.Public);
         
         Assert.That(fieldsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
-        Assert.That(fieldsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestField").And.Property("FieldTypeContext").EqualTo(appContext.SystemTypes.SystemInt32Type));
+        Assert.That(fieldsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestField").And.Property("FieldType").EqualTo(appContext.SystemTypes.SystemInt32Type));
         Assert.That(fieldsByAssembly.Values.First().DeclaringType, Has.Property("FullName").EqualTo("Cpp2ILInjected.TestInjectedTypeWithFields"));
     }
 
@@ -105,7 +105,7 @@ public class MemberInjectionTests
         var propertiesByAssembly = injectedType.InjectPropertyToAllAssemblies("TestProperty", appContext.SystemTypes.SystemInt32Type, gettersByAssembly, null, PropertyAttributes.None);
 
         Assert.That(propertiesByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
-        Assert.That(propertiesByAssembly.Values.First(), Has.Property("Name").EqualTo("TestProperty").And.Property("PropertyTypeContext").EqualTo(appContext.SystemTypes.SystemInt32Type));
+        Assert.That(propertiesByAssembly.Values.First(), Has.Property("Name").EqualTo("TestProperty").And.Property("PropertyType").EqualTo(appContext.SystemTypes.SystemInt32Type));
         Assert.That(propertiesByAssembly.Values.First().DeclaringType, Has.Property("FullName").EqualTo("Cpp2ILInjected.TestInjectedTypeWithProperties"));
     }
 
@@ -121,7 +121,7 @@ public class MemberInjectionTests
         var eventsByAssembly = injectedType.InjectEventToAllAssemblies("TestEvent", appContext.SystemTypes.SystemInt32Type, addersByAssembly, removersByAssembly, null, EventAttributes.None);
 
         Assert.That(eventsByAssembly, Has.Count.EqualTo(appContext.Assemblies.Count));
-        Assert.That(eventsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestEvent").And.Property("EventTypeContext").EqualTo(appContext.SystemTypes.SystemInt32Type));
+        Assert.That(eventsByAssembly.Values.First(), Has.Property("Name").EqualTo("TestEvent").And.Property("EventType").EqualTo(appContext.SystemTypes.SystemInt32Type));
         Assert.That(eventsByAssembly.Values.First().DeclaringType, Has.Property("FullName").EqualTo("Cpp2ILInjected.TestInjectedTypeWithEvents"));
     }
 

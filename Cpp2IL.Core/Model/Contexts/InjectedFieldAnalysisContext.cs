@@ -1,12 +1,10 @@
 using System.Reflection;
-using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
 public class InjectedFieldAnalysisContext : FieldAnalysisContext
 {
-    public override TypeAnalysisContext FieldTypeContext { get; }
+    public override TypeAnalysisContext DefaultFieldType { get; }
     public override FieldAttributes Attributes { get; }
 
     protected override bool IsInjected => true;
@@ -15,6 +13,6 @@ public class InjectedFieldAnalysisContext : FieldAnalysisContext
     {
         OverrideName = name;
         Attributes = attributes;
-        FieldTypeContext = type;
+        DefaultFieldType = type;
     }
 }

@@ -41,6 +41,8 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
     public override string DefaultName => BaseMethodContext.DefaultName;
 
+    public override TypeAnalysisContext DefaultReturnType { get; }
+
     public override string? OverrideName { get => BaseMethodContext.OverrideName; set => BaseMethodContext.OverrideName = value; }
 
     public override MethodAttributes Attributes => BaseMethodContext.Attributes;
@@ -106,14 +108,14 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         {
             var parameter = BaseMethodContext.Parameters[i];
             var instantiatedType = GenericInstantiation.Instantiate(
-                parameter.ParameterTypeContext,
+                parameter.ParameterType,
                 typeGenericParameters,
                 methodGenericParameters);
 
             Parameters.Add(new ConcreteGenericParameterAnalysisContext(parameter, instantiatedType, this));
         }
 
-        InjectedReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnTypeContext, typeGenericParameters, methodGenericParameters);
+        DefaultReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnType, typeGenericParameters, methodGenericParameters);
 
         if (UnderlyingPointer != 0)
             rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, false);

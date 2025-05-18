@@ -239,7 +239,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
 
             for (var i = 0; i < parameters.Length; i++)
             {
-                var parameterType = targetMethod.Parameters[i].ParameterTypeContext;
+                var parameterType = targetMethod.Parameters[i].ParameterType;
                 if (parameterType.IsAccessibleTo(annotatedMethod.DeclaringType!) && !parameterType.HasAnyGenericParameters())
                 {
                     parameters[i] = parameterType;
@@ -263,17 +263,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         {
             returnType = null; //Native methods don't have identifiable return types.
         }
-        else if (targetMethod.InjectedReturnType is not null)
-        {
-            returnType = targetMethod.InjectedReturnType;
-        }
-        else if (targetMethod.Definition is null)
-        {
-            returnType = null;
-        }
         else
         {
-            returnType = targetMethod.ReturnTypeContext;
+            returnType = targetMethod.ReturnType;
         }
 
         if (returnType is not null)

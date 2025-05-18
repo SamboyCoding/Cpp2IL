@@ -43,7 +43,6 @@ public class NativeMethodDetectionProcessingLayer : Cpp2IlProcessingLayer
             {
                 var m = new NativeMethodAnalysisContext(cppNativeMethodsType, address, isVoid);
                 cppNativeMethodsType.Methods.Add(m);
-                m.InjectedReturnType = isVoid ? appContext.SystemTypes.SystemVoidType : appContext.SystemTypes.SystemObjectType;
                 appContext.MethodsByAddress.Add(address, [m]);
                 AnalyzeMethod(appContext, m, nativeMethodInfoStack);
             }

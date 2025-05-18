@@ -1,8 +1,6 @@
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Utils;
-using LibCpp2IL;
-using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
 
@@ -25,11 +23,6 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public MethodAnalysisContext DeclaringMethod { get; }
 
-    /// <summary>
-    /// The il2cpp type of the parameter. Cannot be null.
-    /// </summary>
-    public virtual Il2CppType ParameterType => Definition?.RawType ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
-
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of ParameterAnalysisContext must provide a customAttributeIndex");
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringMethod.DeclaringType!.DeclaringAssembly;
     public override string DefaultName => Definition?.Name ?? throw new("Subclasses of ParameterAnalysisContext must provide a default name");
@@ -37,7 +30,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// <summary>
     /// The human-readable display value of the parameter type.
     /// </summary>
-    public string ReadableTypeName => ParameterTypeContext.FullName;
+    public string ReadableTypeName => ParameterType.FullName;
 
     /// <summary>
     /// The human-readable display value of the parameter, as it would appear in a c# method declaration.
@@ -47,19 +40,23 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// <summary>
     /// The ParameterAttributes of this parameter.
     /// </summary>
-    public virtual ParameterAttributes ParameterAttributes => (ParameterAttributes)ParameterType.Attrs;
+    public virtual ParameterAttributes ParameterAttributes => (ParameterAttributes?)Definition?.RawType?.Attrs ?? throw new("Subclasses of ParameterAnalysisContext must provide parameter attributes");
 
     /// <summary>
     /// True if this parameter is passed by reference.
     /// </summary>
-    public bool IsRef => ParameterTypeContext is ByRefTypeAnalysisContext || ParameterAttributes.HasFlag(ParameterAttributes.Out);
+    public bool IsRef => ParameterType is ByRefTypeAnalysisContext || ParameterAttributes.HasFlag(ParameterAttributes.Out);
 
     /// <summary>
     /// The default value data for this parameter. Null if, and only if, the parameter has no default value. If it has a default value of literally null, this will be non-null and have a data index of -1.
     /// </summary>
     public Il2CppParameterDefaultValue? DefaultValue { get; }
 
-    public virtual TypeAnalysisContext ParameterTypeContext => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(ParameterType);
+    public virtual TypeAnalysisContext DefaultParameterType => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition?.RawType) ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
+
+    public TypeAnalysisContext? OverrideParameterType { get; set; }
+
+    public virtual TypeAnalysisContext ParameterType => OverrideParameterType ?? DefaultParameterType;
 
     public ParameterAnalysisContext(Il2CppParameterDefinition? definition, int paramIndex, MethodAnalysisContext declaringMethod) : base(definition?.token ?? 0, declaringMethod.AppContext)
     {
@@ -90,10 +87,10 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
             result.Append("out ");
         else if (ParameterAttributes.HasFlag(ParameterAttributes.In))
             result.Append("in ");
-        else if (ParameterType.Byref == 1)
+        else if (ParameterType is ByRefTypeAnalysisContext)
             result.Append("ref ");
 
-        result.Append(CsFileUtils.GetTypeName(ParameterTypeContext.Name)).Append(' ');
+        result.Append(CsFileUtils.GetTypeName(ParameterType.Name)).Append(' ');
 
         if (string.IsNullOrEmpty(ParameterName))
             result.Append("unnamed_param_").Append(ParamIndex);

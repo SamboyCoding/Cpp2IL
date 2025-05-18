@@ -24,8 +24,12 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
 
     public virtual PropertyAttributes PropertyAttributes => (PropertyAttributes?)Definition?.attrs ?? throw new($"Subclasses must override {nameof(PropertyAttributes)}.");
 
-    public virtual TypeAnalysisContext PropertyTypeContext => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawPropertyType)
-        ?? throw new($"Subclasses must override {nameof(PropertyTypeContext)}.");
+    public virtual TypeAnalysisContext DefaultPropertyType => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawPropertyType)
+        ?? throw new($"Subclasses must override {nameof(DefaultPropertyType)}.");
+
+    public TypeAnalysisContext? OverridePropertyType { get; set; }
+
+    public TypeAnalysisContext PropertyType => OverridePropertyType ?? DefaultPropertyType;
 
     public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {

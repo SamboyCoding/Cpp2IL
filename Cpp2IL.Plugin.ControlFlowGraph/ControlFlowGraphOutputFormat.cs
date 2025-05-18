@@ -198,7 +198,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
         var methodFileName = method.DefaultName;
 
-        var parameters = string.Join("_", method.Parameters.Select(p => p.ParameterTypeContext.Name));
+        var parameters = string.Join("_", method.Parameters.Select(p => p.ParameterType.Name));
         if (parameters.Length > 0)
         {
             methodFileName += "_";

@@ -12,7 +12,9 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
 
     public override bool IsStatic => Attributes.HasFlag(MethodAttributes.Static);
 
-    public override bool IsVoid => InjectedReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_VOID;
+    public override bool IsVoid => ReturnType == AppContext.SystemTypes.SystemVoidType;
+
+    public override TypeAnalysisContext DefaultReturnType { get; }
 
     public override MethodAttributes Attributes { get; }
     
@@ -26,7 +28,7 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
     public InjectedMethodAnalysisContext(TypeAnalysisContext parent, string name, TypeAnalysisContext returnType, MethodAttributes attributes, TypeAnalysisContext[] injectedParameterTypes, string[]? injectedParameterNames = null, ParameterAttributes[]? injectedParameterAttributes = null) : base(null, parent)
     {
         DefaultName = name;
-        InjectedReturnType = returnType;
+        DefaultReturnType = returnType;
         Attributes = attributes;
 
         for (var i = 0; i < injectedParameterTypes.Length; i++)

@@ -173,7 +173,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append('\t', indent);
         sb.Append(CsFileUtils.GetKeyWordsForField(field));
         sb.Append(' ');
-        sb.Append(CsFileUtils.GetTypeName(field.FieldTypeContext.Name));
+        sb.Append(CsFileUtils.GetTypeName(field.FieldType.Name));
         sb.Append(' ');
         sb.Append(field.Name);
 
@@ -226,7 +226,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append('\t', indent);
         sb.Append(CsFileUtils.GetKeyWordsForEvent(evt));
         sb.Append(' ');
-        sb.Append(CsFileUtils.GetTypeName(evt.EventTypeContext.Name));
+        sb.Append(CsFileUtils.GetTypeName(evt.EventType.Name));
         sb.Append(' ');
         sb.Append(evt.Name).AppendLine();
         sb.Append('\t', indent);
@@ -257,7 +257,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append('\t', indent);
         sb.Append(CsFileUtils.GetKeyWordsForProperty(prop));
         sb.Append(' ');
-        sb.Append(CsFileUtils.GetTypeName(prop.PropertyTypeContext.Name));
+        sb.Append(CsFileUtils.GetTypeName(prop.PropertyType.Name));
         sb.Append(' ');
         sb.Append(prop.Name);
         sb.AppendLine();
@@ -292,7 +292,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append(' ');
         if (method.Name is not ".ctor" and not ".cctor")
         {
-            sb.Append(CsFileUtils.GetTypeName(method.ReturnTypeContext.Name));
+            sb.Append(CsFileUtils.GetTypeName(method.ReturnType.Name));
             sb.Append(' ');
             sb.Append(method.Name);
         }

@@ -16,6 +16,8 @@ public sealed class NativeMethodAnalysisContext : MethodAnalysisContext
 
     public override bool IsVoid { get; }
 
+    public override TypeAnalysisContext DefaultReturnType => IsVoid ? AppContext.SystemTypes.SystemVoidType : AppContext.SystemTypes.SystemObjectType;
+
     public override MethodAttributes Attributes => MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig;
 
     protected override int CustomAttributeIndex => -1;

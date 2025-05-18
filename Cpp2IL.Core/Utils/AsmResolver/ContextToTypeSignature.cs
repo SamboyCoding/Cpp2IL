@@ -86,21 +86,21 @@ public static class ContextToTypeSignature
 
     public static TypeSignature ToTypeSignature(this ParameterAnalysisContext context, ModuleDefinition parentModule)
     {
-        return context.ParameterTypeContext.ToTypeSignature(parentModule);
+        return context.ParameterType.ToTypeSignature(parentModule);
     }
 
     public static TypeSignature ToTypeSignature(this FieldAnalysisContext context, ModuleDefinition parentModule)
     {
-        return context.FieldTypeContext.ToTypeSignature(parentModule);
+        return context.FieldType.ToTypeSignature(parentModule);
     }
 
     public static TypeSignature ToTypeSignature(this EventAnalysisContext context, ModuleDefinition parentModule)
     {
-        return context.EventTypeContext.ToTypeSignature(parentModule);
+        return context.EventType.ToTypeSignature(parentModule);
     }
 
     public static TypeSignature ToTypeSignature(this PropertyAnalysisContext context, ModuleDefinition parentModule)
     {
-        return context.PropertyTypeContext.ToTypeSignature(parentModule);
+        return context.PropertyType.ToTypeSignature(parentModule);
     }
 }

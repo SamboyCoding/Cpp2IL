@@ -4,7 +4,9 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class InjectedParameterAnalysisContext : ParameterAnalysisContext
 {
-    public override TypeAnalysisContext ParameterTypeContext { get; }
+    public override string DefaultName { get; }
+
+    public override TypeAnalysisContext DefaultParameterType { get; }
 
     public override ParameterAttributes ParameterAttributes { get; }
     
@@ -12,8 +14,8 @@ public class InjectedParameterAnalysisContext : ParameterAnalysisContext
 
     public InjectedParameterAnalysisContext(string? name, TypeAnalysisContext typeContext, ParameterAttributes attributes, int paramIndex, MethodAnalysisContext declaringMethod) : base(null, paramIndex, declaringMethod)
     {
-        OverrideName = name ?? $"param_{paramIndex}";
-        ParameterTypeContext = typeContext;
+        DefaultName = name ?? $"param_{paramIndex}";
+        DefaultParameterType = typeContext;
         ParameterAttributes = attributes;
     }
 }

@@ -14,7 +14,7 @@ public static class ContextToMethodDescriptor
 
     private static MethodSignature ToMethodSignature(this MethodAnalysisContext context, ModuleDefinition parentModule)
     {
-        var returnType = context.ReturnTypeContext.ToTypeSignature(parentModule);
+        var returnType = context.ReturnType.ToTypeSignature(parentModule);
         var parameters = context.Parameters.Select(p => p.ToTypeSignature(parentModule));
 
         return context.IsStatic

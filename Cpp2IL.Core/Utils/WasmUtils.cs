@@ -27,18 +27,18 @@ public static class WasmUtils
         //It feels like it's something to do with when DateTime is considered a struct and when it's considered a class.
         //But I can find no rhyme nor reason to it.
 
-        var returnTypeSignature = definition.ReturnTypeContext.IsWasmPrimitive()
-            ? GetSignatureLetter(definition.ReturnTypeContext)
-            : definition.ReturnTypeContext switch
+        var returnTypeSignature = definition.ReturnType.IsWasmPrimitive()
+            ? GetSignatureLetter(definition.ReturnType)
+            : definition.ReturnType switch
             {
                 { Namespace: nameof(System), Name: "Void" } => "v",
                 { IsValueType: true, Definition: null or { Size: < 0 or > 8 } } => "vi", //Large or Generic Struct returns have a void return type, but the actual return value is the first parameter.
                 { IsValueType: true, Definition.Size: > 4 } => "j", //Medium structs are returned as longs
                 { IsValueType: true, Definition.Size: <= 4 } => "i", //Small structs are returned as ints
-                _ => GetSignatureLetter(definition.ReturnTypeContext!)
+                _ => GetSignatureLetter(definition.ReturnType!)
             };
 
-        return $"{returnTypeSignature}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.ParameterTypeContext, p.IsRef)))}i"; //Add an extra i on the end for the method info param
+        return $"{returnTypeSignature}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.ParameterType, p.IsRef)))}i"; //Add an extra i on the end for the method info param
     }
 
     public static bool IsWasmPrimitive(this TypeAnalysisContext type)
