@@ -168,7 +168,7 @@ public static class AttributeInjectionUtils
         }
         else
         {
-            return LibCpp2IlReflection.GetTypeFromDefinition(targetsEnum.Definition) ?? throw new("Could not get the Il2CppType for AttributeTargets");
+            return targetsEnum.Definition.RawType;
         }
     }
 

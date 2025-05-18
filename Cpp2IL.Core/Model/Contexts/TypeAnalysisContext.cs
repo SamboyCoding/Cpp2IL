@@ -103,9 +103,6 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
         {
             if (AppContext.SystemTypes.TryGetIl2CppTypeEnum(this, out var value))
                 return value;
-            
-            if (Definition is { RawType: {} rawType })
-                return rawType.Type;
 
             if (IsEnumType)
                 return Il2CppTypeEnum.IL2CPP_TYPE_ENUM;
@@ -309,6 +306,9 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
     public virtual bool IsValueType => Definition?.IsValueType ?? BaseType is { Namespace: "System", Name: "ValueType" };
     public bool IsEnumType => Definition?.IsEnumType ?? BaseType is { Namespace: "System", Name: "Enum" };
     public bool IsInterface => Definition?.IsInterface ?? ((TypeAttributes & TypeAttributes.Interface) != default);
+    public bool IsAbstract => (TypeAttributes & TypeAttributes.Abstract) != default;
+    public bool IsSealed => (TypeAttributes & TypeAttributes.Sealed) != default;
+    public bool IsStatic => IsAbstract && IsSealed;
     public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => Array.Empty<ITypeInfoProvider>();
     public IEnumerable<IFieldInfoProvider> FieldInfoProviders => Fields;
     public IEnumerable<IMethodInfoProvider> MethodInfoProviders => Methods;
