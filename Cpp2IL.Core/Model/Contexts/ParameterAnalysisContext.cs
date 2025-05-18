@@ -37,10 +37,14 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public string HumanReadableSignature => $"{ReadableTypeName} {Name}";
 
+    public virtual ParameterAttributes DefaultParameterAttributes => (ParameterAttributes?)Definition?.RawType?.Attrs ?? throw new("Subclasses of ParameterAnalysisContext must provide parameter attributes");
+
+    public virtual ParameterAttributes? OverrideParameterAttributes { get; set; }
+
     /// <summary>
     /// The ParameterAttributes of this parameter.
     /// </summary>
-    public virtual ParameterAttributes ParameterAttributes => (ParameterAttributes?)Definition?.RawType?.Attrs ?? throw new("Subclasses of ParameterAnalysisContext must provide parameter attributes");
+    public ParameterAttributes ParameterAttributes => OverrideParameterAttributes ?? DefaultParameterAttributes;
 
     /// <summary>
     /// True if this parameter is passed by reference.

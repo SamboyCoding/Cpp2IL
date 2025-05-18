@@ -8,7 +8,7 @@ public class InjectedParameterAnalysisContext : ParameterAnalysisContext
 
     public override TypeAnalysisContext DefaultParameterType { get; }
 
-    public override ParameterAttributes ParameterAttributes { get; }
+    public override ParameterAttributes DefaultParameterAttributes { get; }
     
     protected override bool IsInjected => true;
 
@@ -16,6 +16,6 @@ public class InjectedParameterAnalysisContext : ParameterAnalysisContext
     {
         DefaultName = name ?? $"param_{parameterIndex}";
         DefaultParameterType = typeContext;
-        ParameterAttributes = attributes;
+        DefaultParameterAttributes = attributes;
     }
 }
