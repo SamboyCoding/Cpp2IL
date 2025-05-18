@@ -12,9 +12,9 @@ public class InjectedParameterAnalysisContext : ParameterAnalysisContext
     
     protected override bool IsInjected => true;
 
-    public InjectedParameterAnalysisContext(string? name, TypeAnalysisContext typeContext, ParameterAttributes attributes, int paramIndex, MethodAnalysisContext declaringMethod) : base(null, paramIndex, declaringMethod)
+    public InjectedParameterAnalysisContext(string? name, TypeAnalysisContext typeContext, ParameterAttributes attributes, int parameterIndex, MethodAnalysisContext declaringMethod) : base(null, parameterIndex, declaringMethod)
     {
-        DefaultName = name ?? $"param_{paramIndex}";
+        DefaultName = name ?? $"param_{parameterIndex}";
         DefaultParameterType = typeContext;
         ParameterAttributes = attributes;
     }

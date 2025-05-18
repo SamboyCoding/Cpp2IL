@@ -16,7 +16,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// <summary>
     /// The index of this parameter in the declaring method's parameter list.
     /// </summary>
-    public int ParamIndex { get; }
+    public int ParameterIndex { get; }
 
     /// <summary>
     /// The method which this parameter belongs to. Cannot be null.
@@ -58,10 +58,10 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
     public virtual TypeAnalysisContext ParameterType => OverrideParameterType ?? DefaultParameterType;
 
-    public ParameterAnalysisContext(Il2CppParameterDefinition? definition, int paramIndex, MethodAnalysisContext declaringMethod) : base(definition?.token ?? 0, declaringMethod.AppContext)
+    public ParameterAnalysisContext(Il2CppParameterDefinition? definition, int parameterIndex, MethodAnalysisContext declaringMethod) : base(definition?.token ?? 0, declaringMethod.AppContext)
     {
         Definition = definition;
-        ParamIndex = paramIndex;
+        ParameterIndex = parameterIndex;
         DeclaringMethod = declaringMethod;
 
         if (Definition != null)
@@ -70,7 +70,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
             if (ParameterAttributes.HasFlag(ParameterAttributes.HasDefault))
             {
-                DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(declaringMethod.Definition!.parameterStart + paramIndex)!;
+                DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(declaringMethod.Definition!.parameterStart + parameterIndex)!;
             }
         }
     }
@@ -79,7 +79,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     {
         if (!AppContext.HasFinishedInitializing)
             //Cannot safely access ParameterTypeContext.Name if we haven't finished initializing as it may require doing system type lookups etc.
-            return $"Parameter {Name} (ordinal {ParamIndex}) of {DeclaringMethod}";
+            return $"Parameter {Name} (ordinal {ParameterIndex}) of {DeclaringMethod}";
 
         var result = new StringBuilder();
 
@@ -93,7 +93,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         result.Append(CsFileUtils.GetTypeName(ParameterType.Name)).Append(' ');
 
         if (string.IsNullOrEmpty(ParameterName))
-            result.Append("unnamed_param_").Append(ParamIndex);
+            result.Append("unnamed_param_").Append(ParameterIndex);
         else
             result.Append(ParameterName);
 

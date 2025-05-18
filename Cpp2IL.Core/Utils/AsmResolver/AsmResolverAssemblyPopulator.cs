@@ -264,7 +264,7 @@ public static class AsmResolverAssemblyPopulator
                     var parameterDefinitions = methodDef.ParameterDefinitions;
                     foreach (var parameterAnalysisContext in method.Parameters)
                     {
-                        CopyCustomAttributes(parameterAnalysisContext, parameterDefinitions[parameterAnalysisContext.ParamIndex].CustomAttributes);
+                        CopyCustomAttributes(parameterAnalysisContext, parameterDefinitions[parameterAnalysisContext.ParameterIndex].CustomAttributes);
                     }
                 }
 
@@ -368,7 +368,7 @@ public static class AsmResolverAssemblyPopulator
             var parameterDefinitions = new ParameterDefinition[paramData.Count];
             foreach (var parameterAnalysisContext in methodCtx.Parameters)
             {
-                var i = parameterAnalysisContext.ParamIndex;
+                var i = parameterAnalysisContext.ParameterIndex;
                 parameterTypes[i] = parameterAnalysisContext.ParameterType.ToTypeSignature(importer.TargetModule);
 
                 var sequence = (ushort)(i + 1); //Add one because sequence 0 is the return type

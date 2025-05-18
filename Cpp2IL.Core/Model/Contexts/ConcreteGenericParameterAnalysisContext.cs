@@ -11,7 +11,7 @@ public class ConcreteGenericParameterAnalysisContext : ParameterAnalysisContext
     public override string? OverrideName { get => BaseParameterContext.OverrideName; set => BaseParameterContext.OverrideName = value; }
     protected override int CustomAttributeIndex => -1;
 
-    public ConcreteGenericParameterAnalysisContext(ParameterAnalysisContext baseParameter, TypeAnalysisContext parameterType, ConcreteGenericMethodAnalysisContext declaringMethod) : base(null, baseParameter.ParamIndex, declaringMethod)
+    public ConcreteGenericParameterAnalysisContext(ParameterAnalysisContext baseParameter, TypeAnalysisContext parameterType, ConcreteGenericMethodAnalysisContext declaringMethod) : base(null, baseParameter.ParameterIndex, declaringMethod)
     {
         BaseParameterContext = baseParameter;
         DefaultParameterType = parameterType;
