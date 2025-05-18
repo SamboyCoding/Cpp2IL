@@ -74,19 +74,6 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     /// </summary>
     public string CleanAssemblyName => MiscUtils.CleanPathElement(Name);
 
-    public string ModuleName
-    {
-        get
-        {
-            var moduleName = Definition?.Image.Name;
-            if (moduleName == "__Generated")
-                moduleName += ".dll"; //__Generated doesn't have a .dll extension in the metadata but it is still of course a DLL
-            else
-                moduleName ??= Name + ".dll"; //If we don't have a module name, use the assembly name + .dll
-            return moduleName;
-        }
-    }
-
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition? assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition?.Token ?? 0, appContext)
     {
         if (assemblyDefinition is null)

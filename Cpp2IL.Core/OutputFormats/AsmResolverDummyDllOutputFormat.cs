@@ -189,7 +189,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         };
 
         //Setting the corlib module allows element types in references to that assembly to be set correctly without us having to manually set them.
-        var moduleName = assemblyContext.ModuleName;
+        var moduleName = assemblyContext.CleanAssemblyName + ".dll";
 
         var managedModule = corLib is not null //Use either ourself as corlib, if we are corlib, otherwise the provided one
             ? new ModuleDefinition(moduleName, new(corLib))
