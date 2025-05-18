@@ -78,6 +78,8 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// </summary>
     public bool HasFinishedInitializing { get; private set; }
 
+    private readonly Dictionary<Il2CppImageDefinition, AssemblyAnalysisContext> AssembliesByImageDefinition = new();
+
     public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata)
     {
         Binary = binary;
@@ -100,6 +102,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             var aac = new AssemblyAnalysisContext(assemblyDefinition, this);
             Assemblies.Add(aac);
             AssembliesByName[assemblyDefinition.AssemblyName.Name] = aac;
+            AssembliesByImageDefinition[assemblyDefinition.Image] = aac;
         }
 
         SystemTypes = new(this);
@@ -170,10 +173,22 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return AssembliesByName[name];
     }
 
+    public AssemblyAnalysisContext? ResolveContextForAssembly(Il2CppImageDefinition? imageDefinition)
+    {
+        return imageDefinition is not null
+            ? AssembliesByImageDefinition[imageDefinition]
+            : null;
+    }
+
+    public AssemblyAnalysisContext? ResolveContextForAssembly(Il2CppAssemblyDefinition? assemblyDefinition)
+    {
+        return ResolveContextForAssembly(assemblyDefinition?.Image);
+    }
+
     public TypeAnalysisContext? ResolveContextForType(Il2CppTypeDefinition? typeDefinition)
     {
         return typeDefinition is not null
-            ? GetAssemblyByName(typeDefinition.DeclaringAssembly!.Name!)?.GetTypeByDefinition(typeDefinition)
+            ? AssembliesByImageDefinition[typeDefinition.DeclaringAssembly!].GetTypeByDefinition(typeDefinition)
             : null;
     }
 

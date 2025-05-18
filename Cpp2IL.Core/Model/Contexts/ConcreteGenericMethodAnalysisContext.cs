@@ -121,8 +121,8 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
     private static AssemblyAnalysisContext ResolveDeclaringAssembly(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context)
     {
-        return context.GetAssemblyByName(methodRef.DeclaringType.DeclaringAssembly!.Name!)
-               ?? throw new($"Unable to resolve declaring assembly {methodRef.DeclaringType.DeclaringAssembly.Name} for generic method {methodRef}");
+        return context.ResolveContextForAssembly(methodRef.DeclaringType.DeclaringAssembly)
+               ?? throw new($"Unable to resolve declaring assembly {methodRef.DeclaringType.DeclaringAssembly?.Name} for generic method {methodRef}");
     }
 
     private static TypeAnalysisContext ResolveDeclaringType(Cpp2IlMethodRef methodRef, AssemblyAnalysisContext declaringAssembly)
