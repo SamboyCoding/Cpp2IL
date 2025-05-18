@@ -54,7 +54,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
     }
 
-    public List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
+    public virtual List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
     {
 #if VERBOSE_LOGGING
         var asmCount = context.Assemblies.Count;
