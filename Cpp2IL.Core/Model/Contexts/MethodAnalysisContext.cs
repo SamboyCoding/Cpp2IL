@@ -78,6 +78,18 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public virtual MethodAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
 
+    public MethodAttributes Visibility
+    {
+        get
+        {
+            return Attributes & MethodAttributes.MemberAccessMask;
+        }
+        set
+        {
+            OverrideAttributes = (Attributes & ~MethodAttributes.MemberAccessMask) | (value & MethodAttributes.MemberAccessMask);
+        }
+    }
+
     public int ParameterCount => Parameters.Count;
 
     private List<GenericParameterTypeAnalysisContext>? _genericParameters;

@@ -18,8 +18,6 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// </summary>
 public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSharpSourceToken
 {
-    internal const TypeAttributes DefaultTypeAttributes = TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed;
-
     /// <summary>
     /// The context for the assembly this type was defined in.
     /// </summary>
@@ -67,7 +65,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     public string Namespace => OverrideNamespace ?? DefaultNamespace;
 
-    public virtual TypeAttributes DefaultAttributes => Definition?.Attributes ?? DefaultTypeAttributes;
+    public virtual TypeAttributes DefaultAttributes => Definition?.Attributes ?? TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed;
 
     public virtual TypeAttributes? OverrideAttributes { get; set; }
 
@@ -136,7 +134,18 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
         }
     }
 
-    public TypeAttributes Visibility => Attributes & TypeAttributes.VisibilityMask;
+    public TypeAttributes Visibility
+    {
+        get
+        {
+            return Attributes & TypeAttributes.VisibilityMask;
+        }
+        set
+        {
+            OverrideAttributes = (Attributes & ~TypeAttributes.VisibilityMask) | (value & TypeAttributes.VisibilityMask);
+        }
+    }
+
     public bool IsInterface => (Attributes & TypeAttributes.Interface) != default;
     public bool IsAbstract => (Attributes & TypeAttributes.Abstract) != default;
     public bool IsSealed => (Attributes & TypeAttributes.Sealed) != default;

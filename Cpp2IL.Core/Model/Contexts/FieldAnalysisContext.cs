@@ -46,6 +46,18 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public TypeAnalysisContext FieldType => OverrideFieldType ?? DefaultFieldType;
 
+    public FieldAttributes Visibility
+    {
+        get
+        {
+            return Attributes & FieldAttributes.FieldAccessMask;
+        }
+        set
+        {
+            OverrideAttributes = (Attributes & ~FieldAttributes.FieldAccessMask) | (value & FieldAttributes.FieldAccessMask);
+        }
+    }
+
 
     public FieldAnalysisContext(Il2CppFieldReflectionData? backingData, TypeAnalysisContext parent) : base(backingData?.Field.token ?? 0, parent.AppContext)
     {
