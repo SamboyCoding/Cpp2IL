@@ -9,10 +9,6 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
 
     public override string DefaultName { get; }
 
-    public override bool IsStatic => Attributes.HasFlag(MethodAttributes.Static);
-
-    public override bool IsVoid => ReturnType == AppContext.SystemTypes.SystemVoidType;
-
     public override TypeAnalysisContext DefaultReturnType { get; }
 
     public override MethodAttributes DefaultAttributes { get; }

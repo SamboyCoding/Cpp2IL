@@ -35,10 +35,6 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
     public sealed override ulong UnderlyingPointer => MethodRef?.GenericVariantPtr ?? default;
 
-    public override bool IsStatic => BaseMethodContext.IsStatic;
-
-    public override bool IsVoid => BaseMethodContext.IsVoid;
-
     public override string DefaultName => BaseMethodContext.DefaultName;
 
     public override TypeAnalysisContext DefaultReturnType { get; }

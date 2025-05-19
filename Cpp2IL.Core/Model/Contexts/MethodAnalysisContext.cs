@@ -1,17 +1,16 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
+using System.Linq;
 using System.Reflection;
 using Cpp2IL.Core.Graphs;
-using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Graphs.Processors;
+using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
-using System.Linq;
-using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -59,9 +58,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     /// <summary>
     /// Does this method return void?
     /// </summary>
-    public virtual bool IsVoid => (Definition?.ReturnType?.ToString() ?? throw new("Subclasses of MethodAnalysisContext should override IsVoid")) == "System.Void";
+    public bool IsVoid => ReturnType == AppContext.SystemTypes.SystemVoidType;
 
-    public virtual bool IsStatic => Definition?.IsStatic ?? throw new("Subclasses of MethodAnalysisContext should override IsStatic");
+    public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
 
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeIndex if they have custom attributes");
 
