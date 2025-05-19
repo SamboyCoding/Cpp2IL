@@ -22,11 +22,11 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
 
     public virtual bool IsStatic => Definition?.IsStatic ?? throw new($"Subclasses must override {nameof(IsStatic)}.");
 
-    public virtual PropertyAttributes DefaultPropertyAttributes => (PropertyAttributes?)Definition?.attrs ?? throw new($"Subclasses must override {nameof(DefaultPropertyAttributes)}.");
+    public virtual PropertyAttributes DefaultAttributes => (PropertyAttributes?)Definition?.attrs ?? throw new($"Subclasses must override {nameof(DefaultAttributes)}.");
 
-    public PropertyAttributes? OverridePropertyAttributes { get; set; }
+    public PropertyAttributes? OverrideAttributes { get; set; }
 
-    public PropertyAttributes PropertyAttributes => OverridePropertyAttributes ?? DefaultPropertyAttributes;
+    public PropertyAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
 
     public virtual TypeAnalysisContext DefaultPropertyType => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawPropertyType)
         ?? throw new($"Subclasses must override {nameof(DefaultPropertyType)}.");

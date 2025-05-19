@@ -372,7 +372,7 @@ public static class AsmResolverAssemblyPopulator
                 parameterTypes[i] = parameterAnalysisContext.ParameterType.ToTypeSignature(importer.TargetModule);
 
                 var sequence = (ushort)(i + 1); //Add one because sequence 0 is the return type
-                parameterDefinitions[i] = new(sequence, parameterAnalysisContext.Name, (ParameterAttributes)parameterAnalysisContext.ParameterAttributes);
+                parameterDefinitions[i] = new(sequence, parameterAnalysisContext.Name, (ParameterAttributes)parameterAnalysisContext.Attributes);
 
                 if (parameterAnalysisContext.DefaultValue is not { } defaultValueData)
                     continue;
@@ -441,7 +441,7 @@ public static class AsmResolverAssemblyPopulator
                 ? PropertySignature.CreateStatic(propertyTypeSig)
                 : PropertySignature.CreateInstance(propertyTypeSig);
 
-            var managedProperty = new PropertyDefinition(propertyCtx.Name, (PropertyAttributes)propertyCtx.PropertyAttributes, propertySignature);
+            var managedProperty = new PropertyDefinition(propertyCtx.Name, (PropertyAttributes)propertyCtx.Attributes, propertySignature);
 
             var managedGetter = propertyCtx.Getter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedSetter = propertyCtx.Setter?.GetExtraData<MethodDefinition>("AsmResolverMethod");
@@ -478,7 +478,7 @@ public static class AsmResolverAssemblyPopulator
         {
             var eventType = eventCtx.ToTypeSignature(importer.TargetModule).ToTypeDefOrRef();
 
-            var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes)eventCtx.EventAttributes, eventType);
+            var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes)eventCtx.Attributes, eventType);
 
             var managedAdder = eventCtx.Adder?.GetExtraData<MethodDefinition>("AsmResolverMethod");
             var managedRemover = eventCtx.Remover?.GetExtraData<MethodDefinition>("AsmResolverMethod");

@@ -37,19 +37,19 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public string HumanReadableSignature => $"{ReadableTypeName} {Name}";
 
-    public virtual ParameterAttributes DefaultParameterAttributes => (ParameterAttributes?)Definition?.RawType?.Attrs ?? throw new("Subclasses of ParameterAnalysisContext must provide parameter attributes");
+    public virtual ParameterAttributes DefaultAttributes => (ParameterAttributes?)Definition?.RawType?.Attrs ?? throw new("Subclasses of ParameterAnalysisContext must provide parameter attributes");
 
-    public virtual ParameterAttributes? OverrideParameterAttributes { get; set; }
+    public virtual ParameterAttributes? OverrideAttributes { get; set; }
 
     /// <summary>
     /// The ParameterAttributes of this parameter.
     /// </summary>
-    public ParameterAttributes ParameterAttributes => OverrideParameterAttributes ?? DefaultParameterAttributes;
+    public ParameterAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
 
     /// <summary>
     /// True if this parameter is passed by reference.
     /// </summary>
-    public bool IsRef => ParameterType is ByRefTypeAnalysisContext || ParameterAttributes.HasFlag(ParameterAttributes.Out);
+    public bool IsRef => ParameterType is ByRefTypeAnalysisContext || Attributes.HasFlag(ParameterAttributes.Out);
 
     /// <summary>
     /// The default value data for this parameter. Null if, and only if, the parameter has no default value. If it has a default value of literally null, this will be non-null and have a data index of -1.
@@ -72,7 +72,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         {
             InitCustomAttributeData();
 
-            if (ParameterAttributes.HasFlag(ParameterAttributes.HasDefault))
+            if (Attributes.HasFlag(ParameterAttributes.HasDefault))
             {
                 DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(declaringMethod.Definition!.parameterStart + parameterIndex)!;
             }
@@ -87,9 +87,9 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
         var result = new StringBuilder();
 
-        if (ParameterAttributes.HasFlag(ParameterAttributes.Out))
+        if (Attributes.HasFlag(ParameterAttributes.Out))
             result.Append("out ");
-        else if (ParameterAttributes.HasFlag(ParameterAttributes.In))
+        else if (Attributes.HasFlag(ParameterAttributes.In))
             result.Append("in ");
         else if (ParameterType is ByRefTypeAnalysisContext)
             result.Append("ref ");
@@ -101,7 +101,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         else
             result.Append(ParameterName);
 
-        if (ParameterAttributes.HasFlag(ParameterAttributes.HasDefault))
+        if (Attributes.HasFlag(ParameterAttributes.HasDefault))
         {
             var defaultValue = DefaultValue!.ContainedDefaultValue;
             if (defaultValue is string stringDefaultValue)

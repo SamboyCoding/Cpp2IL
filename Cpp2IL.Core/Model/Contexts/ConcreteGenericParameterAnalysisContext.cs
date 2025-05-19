@@ -6,8 +6,8 @@ public class ConcreteGenericParameterAnalysisContext : ParameterAnalysisContext
 {
     public ParameterAnalysisContext BaseParameterContext { get; }
     public override TypeAnalysisContext DefaultParameterType { get; }
-    public override ParameterAttributes DefaultParameterAttributes => BaseParameterContext.DefaultParameterAttributes;
-    public override ParameterAttributes? OverrideParameterAttributes { get => BaseParameterContext.OverrideParameterAttributes; set => BaseParameterContext.OverrideParameterAttributes = value; }
+    public override ParameterAttributes DefaultAttributes => BaseParameterContext.DefaultAttributes;
+    public override ParameterAttributes? OverrideAttributes { get => BaseParameterContext.OverrideAttributes; set => BaseParameterContext.OverrideAttributes = value; }
     public override string DefaultName => BaseParameterContext.DefaultName;
     public override string? OverrideName { get => BaseParameterContext.OverrideName; set => BaseParameterContext.OverrideName = value; }
     protected override int CustomAttributeIndex => -1;
