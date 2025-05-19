@@ -29,9 +29,13 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     private Il2CppType? RawFieldType => BackingData?.Field.RawFieldType;
 
-    public virtual FieldAttributes Attributes => BackingData!.Attributes;
+    public virtual FieldAttributes DefaultAttributes => BackingData?.Attributes ?? throw new($"Subclass must override {nameof(DefaultAttributes)}");
 
-    public bool IsStatic => Attributes.HasFlag(FieldAttributes.Static);
+    public virtual FieldAttributes? OverrideAttributes { get; set; }
+
+    public FieldAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+
+    public bool IsStatic => (Attributes & FieldAttributes.Static) != 0;
 
     public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.IndexInParent, BackingData.Field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
 
@@ -56,14 +60,14 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     #region StableNameDotNet
 
-    public ITypeInfoProvider FieldTypeInfoProvider
+    ITypeInfoProvider IFieldInfoProvider.FieldTypeInfoProvider
         => GetGenericParamName(FieldType) is { } name
             ? new GenericParameterTypeInfoProviderWrapper(name)
             : TypeAnalysisContext.GetSndnProviderForType(AppContext, RawFieldType!);
 
-    public string FieldName => Name;
+    string IFieldInfoProvider.FieldName => Name;
 
-    public FieldAttributes FieldAttributes => Attributes;
+    FieldAttributes IFieldInfoProvider.FieldAttributes => Attributes;
 
     private static string? GetGenericParamName(TypeAnalysisContext type) => type switch
     {
