@@ -28,14 +28,14 @@ internal static class AccessibilityExtensions
                 }
                 else if (i == inheritsFromIndex - 1)
                 {
-                    if (declaringTypesHierarchy[i].GetVisibility() is TypeAttributes.NestedPrivate)
+                    if (declaringTypesHierarchy[i].Visibility is TypeAttributes.NestedPrivate)
                     {
                         return false;
                     }
                 }
                 else
                 {
-                    if (declaringTypesHierarchy[i].GetVisibility() is TypeAttributes.NestedPrivate or TypeAttributes.NestedFamily or TypeAttributes.NestedFamANDAssem)
+                    if (declaringTypesHierarchy[i].Visibility is TypeAttributes.NestedPrivate or TypeAttributes.NestedFamily or TypeAttributes.NestedFamANDAssem)
                     {
                         return false;
                     }
@@ -54,14 +54,14 @@ internal static class AccessibilityExtensions
                 }
                 else if (i == inheritsFromIndex - 1)
                 {
-                    if (declaringTypesHierarchy[i].GetVisibility() is TypeAttributes.NotPublic or TypeAttributes.NestedPrivate or TypeAttributes.NestedAssembly or TypeAttributes.NestedFamANDAssem)
+                    if (declaringTypesHierarchy[i].Visibility is TypeAttributes.NotPublic or TypeAttributes.NestedPrivate or TypeAttributes.NestedAssembly or TypeAttributes.NestedFamANDAssem)
                     {
                         return false;
                     }
                 }
                 else
                 {
-                    if (declaringTypesHierarchy[i].GetVisibility() is TypeAttributes.NotPublic or TypeAttributes.NestedPrivate or TypeAttributes.NestedFamily or TypeAttributes.NestedAssembly or TypeAttributes.NestedFamANDAssem or TypeAttributes.NestedFamORAssem)
+                    if (declaringTypesHierarchy[i].Visibility is TypeAttributes.NotPublic or TypeAttributes.NestedPrivate or TypeAttributes.NestedFamily or TypeAttributes.NestedAssembly or TypeAttributes.NestedFamANDAssem or TypeAttributes.NestedFamORAssem)
                     {
                         return false;
                     }
@@ -111,8 +111,6 @@ internal static class AccessibilityExtensions
             current = current.DeclaringType;
         }
     }
-
-    private static TypeAttributes GetVisibility(this TypeAnalysisContext type) => type.TypeAttributes & TypeAttributes.VisibilityMask;
 
     private static bool InheritsFrom(this TypeAnalysisContext derivedType, TypeAnalysisContext baseType)
     {

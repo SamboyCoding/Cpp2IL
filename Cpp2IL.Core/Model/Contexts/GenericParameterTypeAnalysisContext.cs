@@ -14,7 +14,7 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public sealed override string DefaultName { get; }
 
-    public sealed override string DefaultNs => "";
+    public sealed override string DefaultNamespace => "";
 
     public int Index { get; }
 

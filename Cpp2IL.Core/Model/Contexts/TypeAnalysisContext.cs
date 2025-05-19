@@ -61,19 +61,27 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     public override string DefaultName => Definition?.Name! ?? throw new("Subclasses of TypeAnalysisContext must override DefaultName");
 
-    public virtual string DefaultNs => Definition?.Namespace ?? throw new("Subclasses of TypeAnalysisContext must override DefaultNs");
+    public virtual string DefaultNamespace => Definition?.Namespace ?? throw new("Subclasses of TypeAnalysisContext must override DefaultNs");
 
-    public string? OverrideNs { get; set; }
+    public string? OverrideNamespace { get; set; }
 
-    public string Namespace => OverrideNs ?? DefaultNs;
+    public string Namespace => OverrideNamespace ?? DefaultNamespace;
+
+    public virtual TypeAttributes DefaultAttributes => Definition?.Attributes ?? DefaultTypeAttributes;
+
+    public virtual TypeAttributes? OverrideAttributes { get; set; }
+
+    public TypeAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+
+    public virtual TypeAnalysisContext? DefaultBaseType => Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType);
 
     public TypeAnalysisContext? OverrideBaseType { get; set; }
+
+    public TypeAnalysisContext? BaseType => OverrideBaseType ?? DefaultBaseType;
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
     public TypeAnalysisContext? EnumUnderlyingType => Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.EnumUnderlyingType);
-
-    public TypeAnalysisContext? BaseType => OverrideBaseType ?? (Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType));
 
     private List<TypeAnalysisContext>? _interfaceContexts;
     public List<TypeAnalysisContext> InterfaceContexts
@@ -103,9 +111,6 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
         {
             if (AppContext.SystemTypes.TryGetIl2CppTypeEnum(this, out var value))
                 return value;
-            
-            if (Definition is { RawType: {} rawType })
-                return rawType.Type;
 
             if (IsEnumType)
                 return Il2CppTypeEnum.IL2CPP_TYPE_ENUM;
@@ -130,6 +135,12 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
             return $"{Namespace}.{Name}";
         }
     }
+
+    public TypeAttributes Visibility => Attributes & TypeAttributes.VisibilityMask;
+    public bool IsInterface => (Attributes & TypeAttributes.Interface) != default;
+    public bool IsAbstract => (Attributes & TypeAttributes.Abstract) != default;
+    public bool IsSealed => (Attributes & TypeAttributes.Sealed) != default;
+    public bool IsStatic => IsAbstract && IsSealed;
 
     /// <summary>
     /// Returns the namespace of this type expressed as a folder hierarchy, with each sub-namespace becoming a sub-directory.
@@ -190,8 +201,8 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
             return Definition.FullName!;
 
         var ret = new StringBuilder();
-        if (OverrideNs != null)
-            ret.Append(OverrideNs).Append('.');
+        if (OverrideNamespace != null)
+            ret.Append(OverrideNamespace).Append('.');
 
         ret.Append(Name);
 
@@ -254,7 +265,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     public IEnumerable<ITypeInfoProvider> GetBaseTypeHierarchy()
     {
-        if (OverrideBaseType != null)
+        if (IsInjected)
             throw new("Type hierarchy for injected types is not supported");
 
         var baseType = Definition!.RawBaseType;
@@ -299,21 +310,20 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
         return appContext.ResolveContextForType(type.AsClass())!;
     }
 
-    public IEnumerable<ITypeInfoProvider> Interfaces => Definition!.RawInterfaces!.Select(t => GetSndnProviderForType(AppContext, t));
-    public virtual TypeAttributes TypeAttributes => Definition?.Attributes ?? DefaultTypeAttributes;
+    IEnumerable<ITypeInfoProvider> ITypeInfoProvider.Interfaces => Definition!.RawInterfaces!.Select(t => GetSndnProviderForType(AppContext, t));
+    TypeAttributes ITypeInfoProvider.TypeAttributes => Attributes;
     public virtual int GenericParameterCount => GenericParameters.Count;
-    public string OriginalTypeName => DefaultName;
-    public string RewrittenTypeName => Name;
-    public string TypeNamespace => Namespace;
+    string ITypeInfoProvider.OriginalTypeName => DefaultName;
+    string ITypeInfoProvider.RewrittenTypeName => Name;
+    string ITypeInfoProvider.TypeNamespace => Namespace;
     public virtual bool IsGenericInstance => false;
     public virtual bool IsValueType => Definition?.IsValueType ?? BaseType is { Namespace: "System", Name: "ValueType" };
     public bool IsEnumType => Definition?.IsEnumType ?? BaseType is { Namespace: "System", Name: "Enum" };
-    public bool IsInterface => Definition?.IsInterface ?? ((TypeAttributes & TypeAttributes.Interface) != default);
-    public IEnumerable<ITypeInfoProvider> GenericArgumentInfoProviders => Array.Empty<ITypeInfoProvider>();
-    public IEnumerable<IFieldInfoProvider> FieldInfoProviders => Fields;
-    public IEnumerable<IMethodInfoProvider> MethodInfoProviders => Methods;
-    public IEnumerable<IPropertyInfoProvider> PropertyInfoProviders => Properties;
-    public ITypeInfoProvider? DeclaringTypeInfoProvider => DeclaringType;
+    IEnumerable<ITypeInfoProvider> ITypeInfoProvider.GenericArgumentInfoProviders => [];
+    IEnumerable<IFieldInfoProvider> ITypeInfoProvider.FieldInfoProviders => Fields;
+    IEnumerable<IMethodInfoProvider> ITypeInfoProvider.MethodInfoProviders => Methods;
+    IEnumerable<IPropertyInfoProvider> ITypeInfoProvider.PropertyInfoProviders => Properties;
+    ITypeInfoProvider? ITypeInfoProvider.DeclaringTypeInfoProvider => DeclaringType;
 
     #endregion
 }

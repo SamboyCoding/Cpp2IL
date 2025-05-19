@@ -6,18 +6,20 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
 {
     public override string DefaultName { get; }
 
-    public override string DefaultNs { get; }
+    public override string DefaultNamespace { get; }
 
-    public override TypeAttributes TypeAttributes { get; }
+    public override TypeAnalysisContext? DefaultBaseType { get; }
+
+    public override TypeAttributes DefaultAttributes { get; }
     
     protected override bool IsInjected => true;
 
-    public InjectedTypeAnalysisContext(AssemblyAnalysisContext containingAssembly, string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = DefaultTypeAttributes) : base(null, containingAssembly)
+    public InjectedTypeAnalysisContext(AssemblyAnalysisContext containingAssembly, string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes) : base(null, containingAssembly)
     {
         DefaultName = name;
-        DefaultNs = ns;
-        OverrideBaseType = baseType;
-        TypeAttributes = typeAttributes;
+        DefaultNamespace = ns;
+        DefaultBaseType = baseType;
+        DefaultAttributes = typeAttributes;
     }
 
     public InjectedMethodAnalysisContext InjectMethodContext(string methodName, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)

@@ -13,11 +13,15 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public List<TypeAnalysisContext> GenericArguments { get; } = [];
 
-    public override TypeAttributes TypeAttributes => GenericType.TypeAttributes;
+    public override TypeAttributes DefaultAttributes => GenericType.DefaultAttributes;
+
+    public override TypeAttributes? OverrideAttributes { get => GenericType.OverrideAttributes; set => GenericType.OverrideAttributes = value; }
 
     public override string DefaultName => $"{GenericType.Name}<{string.Join(", ", GenericArguments.Select(a => a.Name))}>";
 
-    public override string DefaultNs => GenericType.Namespace;
+    public override string DefaultNamespace => GenericType.Namespace;
+
+    public override TypeAnalysisContext? DefaultBaseType { get; }
 
     public sealed override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST;
 
@@ -40,7 +44,7 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
     {
         GenericType = genericType;
         GenericArguments.AddRange(genericArguments);
-        OverrideBaseType = genericType.BaseType;
+        DefaultBaseType = genericType.BaseType;
     }
 
     public override string GetCSharpSourceString()

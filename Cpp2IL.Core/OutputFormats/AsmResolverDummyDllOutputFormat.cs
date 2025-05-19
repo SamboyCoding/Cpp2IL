@@ -238,7 +238,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         var typeDef = typeContext.Definition;
 
         //Initialize an empty type definition
-        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes)typeContext.TypeAttributes);
+        var ret = new TypeDefinition(typeContext.Namespace, typeContext.Name, (TypeAttributes)typeContext.Attributes);
 
         //Set up its layout
         if (typeDef != null)

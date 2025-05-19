@@ -155,7 +155,7 @@ public class DeobfuscationMapProcessingLayer : Cpp2IlProcessingLayer
             var namespaceName = deobfuscated[..lastDot];
             var typeName = deobfuscated[(lastDot + 1)..];
 
-            matchingType.OverrideNs = namespaceName;
+            matchingType.OverrideNamespace = namespaceName;
             matchingType.OverrideName = typeName;
         }
         else

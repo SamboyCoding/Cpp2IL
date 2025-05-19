@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
+using System.Reflection;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Exceptions;
@@ -224,9 +225,9 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         }
     }
 
-    public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext? baseType)
+    public MultiAssemblyInjectedType InjectTypeIntoAllAssemblies(string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed)
     {
-        var types = Assemblies.Select(a => (InjectedTypeAnalysisContext)a.InjectType(ns, name, baseType)).ToArray();
+        var types = Assemblies.Select(a => (InjectedTypeAnalysisContext)a.InjectType(ns, name, baseType, typeAttributes)).ToArray();
 
         return new(types);
     }
