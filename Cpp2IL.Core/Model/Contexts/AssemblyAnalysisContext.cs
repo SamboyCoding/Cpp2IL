@@ -118,7 +118,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
         }
     }
 
-    public TypeAnalysisContext InjectType(string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes)
+    public InjectedTypeAnalysisContext InjectType(string ns, string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes)
     {
         var ret = new InjectedTypeAnalysisContext(this, ns, name, baseType, typeAttributes);
         InjectType(ret);
