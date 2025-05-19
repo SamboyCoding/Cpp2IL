@@ -73,7 +73,11 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public string FullNameWithSignature => $"{ReturnType.FullName} {FullName}({string.Join(", ", Parameters.Select(p => p.HumanReadableSignature))})";
 
-    public virtual MethodAttributes Attributes => Definition?.Attributes ?? throw new("Subclasses of MethodAnalysisContext should override Attributes");
+    public virtual MethodAttributes DefaultAttributes => Definition?.Attributes ?? throw new($"Subclasses of MethodAnalysisContext should override {nameof(DefaultAttributes)}");
+
+    public virtual MethodAttributes? OverrideAttributes { get; set; }
+
+    public virtual MethodAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
 
     public int ParameterCount => Parameters.Count;
 

@@ -45,7 +45,9 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
     public override string? OverrideName { get => BaseMethodContext.OverrideName; set => BaseMethodContext.OverrideName = value; }
 
-    public override MethodAttributes Attributes => BaseMethodContext.Attributes;
+    public override MethodAttributes DefaultAttributes => BaseMethodContext.DefaultAttributes;
+
+    public override MethodAttributes? OverrideAttributes { get => BaseMethodContext.OverrideAttributes; set => BaseMethodContext.OverrideAttributes = value; }
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => BaseMethodContext.CustomAttributeAssembly;
 

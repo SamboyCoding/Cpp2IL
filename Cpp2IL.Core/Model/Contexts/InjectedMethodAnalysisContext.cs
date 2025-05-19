@@ -1,6 +1,5 @@
 using System.Collections.Generic;
 using System.Reflection;
-using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -16,7 +15,7 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
 
     public override TypeAnalysisContext DefaultReturnType { get; }
 
-    public override MethodAttributes Attributes { get; }
+    public override MethodAttributes DefaultAttributes { get; }
     
     protected override bool IsInjected => true;
 
@@ -29,7 +28,7 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
     {
         DefaultName = name;
         DefaultReturnType = returnType;
-        Attributes = attributes;
+        DefaultAttributes = attributes;
 
         for (var i = 0; i < injectedParameterTypes.Length; i++)
         {
