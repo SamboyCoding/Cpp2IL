@@ -5,7 +5,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 public class InjectedEventAnalysisContext : EventAnalysisContext
 {
     public override string DefaultName { get; }
-    public override EventAttributes EventAttributes { get; }
+    public override EventAttributes DefaultEventAttributes { get; }
     public override TypeAnalysisContext DefaultEventType { get; }
     public override bool IsStatic
     {
@@ -34,6 +34,6 @@ public class InjectedEventAnalysisContext : EventAnalysisContext
     {
         DefaultName = name;
         DefaultEventType = eventType;
-        EventAttributes = eventAttributes;
+        DefaultEventAttributes = eventAttributes;
     }
 }

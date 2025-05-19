@@ -20,7 +20,11 @@ public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvid
 
     public override string DefaultName => Definition?.Name ?? throw new($"Subclasses must override {nameof(DefaultName)}.");
 
-    public virtual EventAttributes EventAttributes => Definition?.EventAttributes ?? throw new($"Subclasses must override {nameof(EventAttributes)}.");
+    public virtual EventAttributes DefaultEventAttributes => (EventAttributes?)Definition?.RawType?.Attrs ?? throw new($"Subclasses must override {nameof(DefaultEventAttributes)}.");
+
+    public EventAttributes? OverrideEventAttributes { get; set; }
+
+    public EventAttributes EventAttributes => OverrideEventAttributes ?? DefaultEventAttributes;
 
     public virtual TypeAnalysisContext DefaultEventType => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawType) ?? throw new($"Subclasses must override {nameof(DefaultEventType)}.");
 
