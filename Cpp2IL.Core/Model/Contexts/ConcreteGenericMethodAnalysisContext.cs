@@ -81,7 +81,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
               methodGenericParameters,
               baseMethod.CustomAttributeAssembly)
     {
-        if (baseMethod.DeclaringType!.GenericParameterCount != typeGenericParameters.Length)
+        if (baseMethod.DeclaringType!.GenericParameters.Count != typeGenericParameters.Length)
             throw new ArgumentException("The number of type generic parameters must match the number of generic parameters on the declaring type.");
 
         if (methodGenericParameters.Length > 0 && baseMethod.GenericParameterCount != methodGenericParameters.Length)

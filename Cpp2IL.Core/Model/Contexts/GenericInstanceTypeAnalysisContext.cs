@@ -27,8 +27,6 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public sealed override bool IsGenericInstance => true;
 
-    public sealed override int GenericParameterCount => GenericArguments.Count;
-
     public sealed override bool IsValueType => GenericType.IsValueType; //We don't set a definition so the default implementation cannot determine if we're a value type or not. 
 
     public GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
@@ -38,6 +36,8 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
 
         GenericArguments.AddRange(gClass.Context.ClassInst.Types.Select(referencedFrom.ResolveIl2CppType)!);
+
+        SetDeclaringType();
     }
 
     public GenericInstanceTypeAnalysisContext(TypeAnalysisContext genericType, IEnumerable<TypeAnalysisContext> genericArguments, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
@@ -45,6 +45,8 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         GenericType = genericType;
         GenericArguments.AddRange(genericArguments);
         DefaultBaseType = genericType.BaseType;
+
+        SetDeclaringType();
     }
 
     public override string GetCSharpSourceString()
@@ -67,5 +69,16 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         sb.Append('>');
 
         return sb.ToString();
+    }
+
+    private void SetDeclaringType()
+    {
+        var declaringType = GenericType.DeclaringType;
+        if (declaringType is null)
+            return;
+
+        DeclaringType = declaringType.GenericParameters.Count == 0
+            ? declaringType
+            : declaringType.MakeGenericInstanceType(GenericArguments.Take(declaringType.GenericParameters.Count));
     }
 }

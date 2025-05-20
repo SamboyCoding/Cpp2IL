@@ -321,7 +321,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     IEnumerable<ITypeInfoProvider> ITypeInfoProvider.Interfaces => Definition!.RawInterfaces!.Select(t => GetSndnProviderForType(AppContext, t));
     TypeAttributes ITypeInfoProvider.TypeAttributes => Attributes;
-    public virtual int GenericParameterCount => GenericParameters.Count;
+    int ITypeInfoProvider.GenericParameterCount => GenericParameters.Count;
     string ITypeInfoProvider.OriginalTypeName => DefaultName;
     string ITypeInfoProvider.RewrittenTypeName => Name;
     string ITypeInfoProvider.TypeNamespace => Namespace;
