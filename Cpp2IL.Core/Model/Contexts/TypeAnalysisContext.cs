@@ -202,7 +202,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     public List<MethodAnalysisContext> GetConstructors() => Methods.Where(m => m.Definition!.Name == ".ctor").ToList();
 
-    public override string ToString() => $"Type: {Definition?.FullName}";
+    public override string ToString() => $"Type: {FullName}";
 
     public virtual string GetCSharpSourceString()
     {
