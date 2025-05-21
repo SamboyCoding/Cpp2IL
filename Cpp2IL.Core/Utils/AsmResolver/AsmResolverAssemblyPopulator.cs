@@ -393,9 +393,10 @@ public static class AsmResolverAssemblyPopulator
 
             var managedMethod = new MethodDefinition(methodCtx.Name, (MethodAttributes)methodCtx.Attributes, signature);
 
+            managedMethod.ImplAttributes = (MethodImplAttributes)methodCtx.ImplAttributes;
+
             if (methodCtx.Definition != null)
             {
-                managedMethod.ImplAttributes = (MethodImplAttributes)methodCtx.Definition.MethodImplAttributes;
                 if (methodCtx.Definition.IsUnmanagedCallersOnly && typeContext.AppContext.SystemTypes.UnmanagedCallersOnlyAttributeType != null)
                 {
                     var unmanagedCallersOnlyType = typeContext.AppContext.SystemTypes.UnmanagedCallersOnlyAttributeType.GetExtraData<TypeDefinition>("AsmResolverType");

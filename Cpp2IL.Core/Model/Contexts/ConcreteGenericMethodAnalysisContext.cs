@@ -45,6 +45,10 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
     public override MethodAttributes? OverrideAttributes { get => BaseMethodContext.OverrideAttributes; set => BaseMethodContext.OverrideAttributes = value; }
 
+    public override MethodImplAttributes DefaultImplAttributes => BaseMethodContext.DefaultImplAttributes;
+
+    public override MethodImplAttributes? OverrideImplAttributes { get => BaseMethodContext.OverrideImplAttributes; set => BaseMethodContext.OverrideImplAttributes = value; }
+
     public override AssemblyAnalysisContext CustomAttributeAssembly => BaseMethodContext.CustomAttributeAssembly;
 
     public ConcreteGenericMethodAnalysisContext(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context)

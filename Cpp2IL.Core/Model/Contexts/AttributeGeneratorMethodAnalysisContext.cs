@@ -8,6 +8,7 @@ public class AttributeGeneratorMethodAnalysisContext : MethodAnalysisContext
 
     protected override bool IsInjected => true;
     public override MethodAttributes DefaultAttributes => MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig;
+    public override MethodImplAttributes DefaultImplAttributes => MethodImplAttributes.Managed;
     public override TypeAnalysisContext DefaultReturnType => AppContext.SystemTypes.SystemVoidType;
     protected override int CustomAttributeIndex => -1;
 

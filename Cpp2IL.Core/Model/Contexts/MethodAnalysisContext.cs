@@ -76,7 +76,13 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public virtual MethodAttributes? OverrideAttributes { get; set; }
 
-    public virtual MethodAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+    public MethodAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+
+    public virtual MethodImplAttributes DefaultImplAttributes => Definition?.MethodImplAttributes ?? throw new($"Subclasses of MethodAnalysisContext should override {nameof(DefaultImplAttributes)}");
+
+    public virtual MethodImplAttributes? OverrideImplAttributes { get; set; }
+
+    public MethodImplAttributes ImplAttributes => OverrideImplAttributes ?? DefaultImplAttributes;
 
     public MethodAttributes Visibility
     {

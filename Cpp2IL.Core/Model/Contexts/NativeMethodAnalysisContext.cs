@@ -16,6 +16,8 @@ public sealed class NativeMethodAnalysisContext : MethodAnalysisContext
 
     public override MethodAttributes DefaultAttributes => MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig;
 
+    public override MethodImplAttributes DefaultImplAttributes => MethodImplAttributes.Managed;
+
     protected override int CustomAttributeIndex => -1;
 
     private readonly bool isVoid;

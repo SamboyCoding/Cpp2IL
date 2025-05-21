@@ -12,7 +12,9 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
     public override TypeAnalysisContext DefaultReturnType { get; }
 
     public override MethodAttributes DefaultAttributes { get; }
-    
+
+    public override MethodImplAttributes DefaultImplAttributes { get; }
+
     protected override bool IsInjected => true;
 
     protected override int CustomAttributeIndex => -1;
@@ -20,7 +22,15 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
     public override IEnumerable<MethodAnalysisContext> Overrides => OverridesList;
     public List<MethodAnalysisContext> OverridesList { get; } = [];
 
-    public InjectedMethodAnalysisContext(TypeAnalysisContext parent, string name, TypeAnalysisContext returnType, MethodAttributes attributes, TypeAnalysisContext[] injectedParameterTypes, string[]? injectedParameterNames = null, ParameterAttributes[]? injectedParameterAttributes = null) : base(null, parent)
+    public InjectedMethodAnalysisContext(
+        TypeAnalysisContext parent,
+        string name,
+        TypeAnalysisContext returnType,
+        MethodAttributes attributes,
+        TypeAnalysisContext[] injectedParameterTypes,
+        string[]? injectedParameterNames = null,
+        ParameterAttributes[]? injectedParameterAttributes = null,
+        MethodImplAttributes defaultImplAttributes = MethodImplAttributes.Managed) : base(null, parent)
     {
         DefaultName = name;
         DefaultReturnType = returnType;
@@ -34,5 +44,7 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
 
             Parameters.Add(new InjectedParameterAnalysisContext(injectedParameterName, injectedParameterType, injectedParameterAttribute, i, this));
         }
+
+        DefaultImplAttributes = defaultImplAttributes;
     }
 }
