@@ -198,9 +198,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         (FieldAnalysisContext, object)? typeParametersField;
         if (targetMethod is ConcreteGenericMethodAnalysisContext concreteMethod)
         {
-            if (concreteMethod.MethodGenericParameters.Length > 0)
+            if (concreteMethod.MethodGenericParameters.Count > 0)
             {
-                var parameters = new object?[concreteMethod.MethodGenericParameters.Length];
+                var parameters = new object?[concreteMethod.MethodGenericParameters.Count];
 
                 for (var i = 0; i < parameters.Length; i++)
                 {

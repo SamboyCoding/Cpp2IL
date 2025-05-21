@@ -18,7 +18,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     /// <remarks>
     /// If not empty, <see cref="MethodAnalysisContext.DeclaringType"/> is a <see cref="GenericInstanceTypeAnalysisContext"/>.
     /// </remarks>
-    public TypeAnalysisContext[] TypeGenericParameters { get; }
+    public IReadOnlyList<TypeAnalysisContext> TypeGenericParameters { get; }
 
     /// <summary>
     /// The generic parameters for the <see cref="BaseMethodContext"/>.
@@ -26,12 +26,12 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     /// <remarks>
     /// These may be empty if <see cref="BaseMethodContext"/> has no generic parameters or if <see cref="IsPartialInstantiation"/>.
     /// </remarks>
-    public TypeAnalysisContext[] MethodGenericParameters { get; }
+    public IReadOnlyList<TypeAnalysisContext> MethodGenericParameters { get; }
 
     /// <summary>
     /// If true, this is a generic method on a <see cref="GenericInstanceTypeAnalysisContext"/>, but it does not specify any <see cref="MethodGenericParameters"/>.
     /// </summary>
-    public bool IsPartialInstantiation => MethodGenericParameters.Length == 0 && BaseMethodContext.GenericParameters.Count > 0;
+    public bool IsPartialInstantiation => MethodGenericParameters.Count == 0 && BaseMethodContext.GenericParameters.Count > 0;
 
     public sealed override ulong UnderlyingPointer => MethodRef?.GenericVariantPtr ?? default;
 
@@ -76,7 +76,12 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     /// The type parameters for the base method, if any.
     /// These may be omitted (<see cref="IsPartialInstantiation"/> == <see langword="true"/>).
     /// </param>
-    public ConcreteGenericMethodAnalysisContext(MethodAnalysisContext baseMethod, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters)
+    public ConcreteGenericMethodAnalysisContext(MethodAnalysisContext baseMethod, IEnumerable<TypeAnalysisContext> typeGenericParameters, IEnumerable<TypeAnalysisContext> methodGenericParameters)
+        : this(baseMethod, [.. typeGenericParameters], [.. methodGenericParameters])
+    {
+    }
+
+    private ConcreteGenericMethodAnalysisContext(MethodAnalysisContext baseMethod, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters)
         : this(
               null,
               baseMethod,

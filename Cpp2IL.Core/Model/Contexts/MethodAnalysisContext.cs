@@ -147,7 +147,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                     var genericMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
                     if (genericMethod is not null)
                     {
-                        method = new ConcreteGenericMethodAnalysisContext(genericMethod, genericInstanceType.GenericArguments.ToArray(), []);
+                        method = new ConcreteGenericMethodAnalysisContext(genericMethod, genericInstanceType.GenericArguments, []);
                         return true;
                     }
                 }
@@ -294,6 +294,18 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     {
         ConvertedIsil = null;
         ControlFlowGraph = null;
+    }
+
+    public ConcreteGenericMethodAnalysisContext MakeGenericInstanceMethod(params IEnumerable<TypeAnalysisContext> methodGenericParameters)
+    {
+        if (this is ConcreteGenericMethodAnalysisContext methodOnGenericInstanceType)
+        {
+            return new ConcreteGenericMethodAnalysisContext(methodOnGenericInstanceType.BaseMethodContext, methodOnGenericInstanceType.TypeGenericParameters, methodGenericParameters);
+        }
+        else
+        {
+            return new ConcreteGenericMethodAnalysisContext(this, [], methodGenericParameters);
+        }
     }
 
     public override string ToString() => $"Method: {FullName}";
