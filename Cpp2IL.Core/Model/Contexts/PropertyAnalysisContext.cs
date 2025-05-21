@@ -61,7 +61,7 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
     #region StableNameDotNet implementation
 
     public ITypeInfoProvider PropertyTypeInfoProvider
-        => Definition.RawPropertyType!.ThisOrElementIsGenericParam()
+        => Definition!.RawPropertyType!.ThisOrElementIsGenericParam()
             ? new GenericParameterTypeInfoProviderWrapper(Definition.RawPropertyType!.GetGenericParamName())
             : TypeAnalysisContext.GetSndnProviderForType(AppContext, Definition.RawPropertyType!);
 
