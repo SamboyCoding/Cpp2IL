@@ -182,7 +182,7 @@ public static class X64CallingConventionResolver
                 }
             }
 
-            for (; i < ctx.ParameterCount; i++)
+            for (; i < ctx.Parameters.Count; i++)
             {
                 AddParameter(ctx.Parameters[i]);
             }

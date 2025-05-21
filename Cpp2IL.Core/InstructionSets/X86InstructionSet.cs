@@ -376,7 +376,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         // Very naive approach, folds with structs in parameters if GCC is used:
                         foreach (var method in possibleMethods)
                         {
-                            var pars = method.ParameterCount;
+                            var pars = method.Parameters.Count;
                             if (method.IsStatic) pars++;
                             if (pars > lpars)
                             {

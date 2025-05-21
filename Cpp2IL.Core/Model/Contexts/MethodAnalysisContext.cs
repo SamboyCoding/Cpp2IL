@@ -96,8 +96,6 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         }
     }
 
-    public int ParameterCount => Parameters.Count;
-
     private List<GenericParameterTypeAnalysisContext>? _genericParameters;
     public override List<GenericParameterTypeAnalysisContext> GenericParameters
     {
@@ -108,8 +106,6 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
             return _genericParameters;
         }
     }
-
-    public int GenericParameterCount => GenericParameters.Count;
 
     private ushort Slot => Definition?.slot ?? ushort.MaxValue;
 

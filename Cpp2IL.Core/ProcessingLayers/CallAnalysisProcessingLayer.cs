@@ -233,9 +233,9 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
         }
 
         (FieldAnalysisContext, object)? parametersField;
-        if (targetMethod.ParameterCount > 0)
+        if (targetMethod.Parameters.Count > 0)
         {
-            var parameters = new object?[targetMethod.ParameterCount];
+            var parameters = new object?[targetMethod.Parameters.Count];
 
             for (var i = 0; i < parameters.Length; i++)
             {

@@ -12,6 +12,6 @@ internal static class TypeAnalysisContextExtensions
 
     public static MethodAnalysisContext GetMethod(this TypeAnalysisContext type, string methodName, int parameterCount)
     {
-        return type.Methods.Single(m => m.Name == methodName && m.ParameterCount == parameterCount);
+        return type.Methods.Single(m => m.Name == methodName && m.Parameters.Count == parameterCount);
     }
 }

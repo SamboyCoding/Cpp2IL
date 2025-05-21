@@ -31,7 +31,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
     /// <summary>
     /// If true, this is a generic method on a <see cref="GenericInstanceTypeAnalysisContext"/>, but it does not specify any <see cref="MethodGenericParameters"/>.
     /// </summary>
-    public bool IsPartialInstantiation => MethodGenericParameters.Length == 0 && BaseMethodContext.GenericParameterCount > 0;
+    public bool IsPartialInstantiation => MethodGenericParameters.Length == 0 && BaseMethodContext.GenericParameters.Count > 0;
 
     public sealed override ulong UnderlyingPointer => MethodRef?.GenericVariantPtr ?? default;
 
@@ -88,7 +88,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         if (baseMethod.DeclaringType!.GenericParameters.Count != typeGenericParameters.Length)
             throw new ArgumentException("The number of type generic parameters must match the number of generic parameters on the declaring type.");
 
-        if (methodGenericParameters.Length > 0 && baseMethod.GenericParameterCount != methodGenericParameters.Length)
+        if (methodGenericParameters.Length > 0 && baseMethod.GenericParameters.Count != methodGenericParameters.Length)
             throw new ArgumentException("The number of method generic parameters must match the number of generic parameters on the base method.");
     }
 
@@ -103,7 +103,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         MethodGenericParameters = methodGenericParameters;
 
         // For the purpose of generic instantiation, we need an array of method generic parameters, even if none are provided.
-        if (methodGenericParameters.Length == 0 && baseMethodContext.GenericParameterCount > 0)
+        if (methodGenericParameters.Length == 0 && baseMethodContext.GenericParameters.Count > 0)
             methodGenericParameters = baseMethodContext.GenericParameters.ToArray();
 
         for (var i = 0; i < BaseMethodContext.Parameters.Count; i++)
