@@ -228,4 +228,75 @@ public static class LibCpp2IlReflection
 
         return FieldDeclaringTypes[fieldDefinition];
     }
+
+    public static Il2CppType? GetTypeFromDefinition(Il2CppTypeDefinition definition)
+    {
+        if (LibCpp2IlMain.Binary == null)
+            return null;
+
+        switch (definition.FullName)
+        {
+            case "System.SByte":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I1];
+            case "System.Int16":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I2];
+            case "System.Int32":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I4];
+            case "System.Int64":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I8];
+            case "System.Byte":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U1];
+            case "System.UInt16":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U2];
+            case "System.UInt32":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U4];
+            case "System.UInt64":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U8];
+            case "System.IntPtr":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_I];
+            case "System.UIntPtr":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_U];
+            case "System.Single":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_R4];
+            case "System.Double":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_R8];
+            case "System.Boolean":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN];
+            case "System.Char":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_CHAR];
+            case "System.String":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_STRING];
+            case "System.Void":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_VOID];
+            case "System.TypedReference":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF];
+            case "System.Object":
+                return PrimitiveTypeCache[Il2CppTypeEnum.IL2CPP_TYPE_OBJECT];
+        }
+
+        var index = definition.TypeIndex;
+
+        if (Il2CppTypeCache.TryGetValue(index, out var cachedType))
+        {
+            return cachedType;
+        }
+
+        foreach (var type in LibCpp2IlMain.Binary.AllTypes)
+        {
+            if (type.Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
+                continue;
+
+            if (type.Data.ClassIndex == index && type.Byref == 0)
+            {
+                lock (Il2CppTypeCache)
+                {
+                    Il2CppTypeCache[index] = type;
+                }
+
+                return type;
+            }
+        }
+
+        return null;
+    }
 }
