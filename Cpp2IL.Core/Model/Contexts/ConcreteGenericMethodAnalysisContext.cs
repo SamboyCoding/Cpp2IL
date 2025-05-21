@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
