@@ -14,7 +14,7 @@ public class AccessibilityExtensionsTests
         var coreModule = appContext.AssembliesByName["UnityEngine.CoreModule"];
 
         var console = GetTypeByFullName(mscorlib, "System.Console"); //public
-        var consoleWindowsConsole = GetTypeByFullName(mscorlib, "System.Console.WindowsConsole"); //private nested
+        var consoleWindowsConsole = GetTypeByFullName(mscorlib, "System.Console+WindowsConsole"); //private nested
         var dateTimeFormat = GetTypeByFullName(mscorlib, "System.DateTimeFormat"); //internal
         var gameObject = GetTypeByFullName(coreModule, "UnityEngine.GameObject"); //public
         Assert.Multiple(() =>

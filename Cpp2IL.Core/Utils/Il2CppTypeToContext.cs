@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Utils;
 
@@ -15,7 +16,7 @@ public static class Il2CppTypeToContext
         TypeAnalysisContext ret;
 
         if (type.Type.IsIl2CppPrimitive())
-            ret = context.AppContext.SystemTypes.GetPrimitive(type.Type);
+            ret = context.AppContext.ResolveContextForType(LibCpp2IlReflection.PrimitiveTypeDefinitions[type.Type]) ?? throw new($"Could not resolve type context for type {type.Type}");
         else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
             ret = context.AppContext.ResolveContextForType(type.AsClass()) ?? throw new($"Could not resolve type context for type {type.AsClass().FullName}");
         else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)

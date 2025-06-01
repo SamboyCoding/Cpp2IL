@@ -5,7 +5,6 @@ using System.Globalization;
 using System.Linq;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
-using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Utils.AsmResolver;
@@ -49,142 +48,6 @@ public static class AsmResolverUtils
             _ => throw new ArgumentException($"Type is not a primitive - {type}", nameof(type))
         };
 
-    public static TypeSignature GetTypeSignatureFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)
-    {
-        //Module is needed for generic params
-        if (il2CppType == null)
-            throw new ArgumentNullException(nameof(il2CppType));
-
-        TypeSignature ret;
-        switch (il2CppType.Type)
-        {
-            case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
-            case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
-            case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-            case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-            case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-            case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-            case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-            case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                ret = module.DefaultImporter.ImportType(GetPrimitiveTypeDef(il2CppType.Type))
-                    .ToTypeSignature();
-                break;
-            case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
-            case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
-                ret = module.DefaultImporter.ImportType(TypeDefsByIndex[il2CppType.Data.ClassIndex])
-                    .ToTypeSignature();
-                break;
-            case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
-                ret = GetTypeSignatureFromIl2CppType(module, il2CppType.GetArrayElementType())
-                    .MakeArrayTypeWithLowerBounds(il2CppType.GetArrayRank());
-                break;
-            case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
-                ret = GetTypeSignatureFromIl2CppType(module, il2CppType.GetEncapsulatedType())
-                    .MakeSzArrayType();
-                break;
-            case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
-                ret = GetTypeSignatureFromIl2CppType(module, il2CppType.GetEncapsulatedType())
-                    .MakePointerType();
-                break;
-            case Il2CppTypeEnum.IL2CPP_TYPE_VAR: //Generic type parameter
-            case Il2CppTypeEnum.IL2CPP_TYPE_MVAR: //Generic method parameter
-                var method = il2CppType.Type == Il2CppTypeEnum.IL2CPP_TYPE_MVAR;
-                ret = new GenericParameterSignature(module, method ? GenericParameterType.Method : GenericParameterType.Type, il2CppType.GetGenericParameterDef().genericParameterIndexInOwner);
-                break;
-            case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
-            {
-                var genericClass = il2CppType.GetGenericClass();
-
-                //Get base type
-                TypeDefsByIndex.TryGetValue(genericClass.TypeDefinitionIndex, out var typeDefinition);
-                if (Cpp2IlApi.CurrentAppContext!.MetadataVersion >= 27f) //TODO: we should pass in the app context to this method
-                {
-                    //V27 - type indexes are pointers now.
-                    var type = LibCpp2IlMain.Binary!.ReadReadableAtVirtualAddress<Il2CppType>((ulong)genericClass.TypeDefinitionIndex);
-                    typeDefinition = GetTypeSignatureFromIl2CppType(module, type).Resolve() ?? throw new Exception("Unable to resolve base type for generic inst");
-                }
-
-                var genericInstanceType = new GenericInstanceTypeSignature(module.DefaultImporter.ImportType(typeDefinition!), typeDefinition!.IsValueType);
-
-                //Get generic arguments
-                var genericArgumentTypes = genericClass.Context.ClassInst.Types;
-
-                //Add arguments to generic instance
-                foreach (var type in genericArgumentTypes)
-                    genericInstanceType.TypeArguments.Add(GetTypeSignatureFromIl2CppType(module, type));
-
-                ret = genericInstanceType;
-                break;
-            }
-            default:
-                throw new("Don't know how to make a type signature from " + il2CppType.Type);
-        }
-
-        if (il2CppType.Byref == 1)
-            ret = ret.MakeByReferenceType();
-
-        return ret;
-    }
-
-    /// <summary>
-    /// Imports the managed representation of the given il2cpp type using the given importer, and returns said type.
-    /// <br/><br/>
-    /// Prefer <see cref="GetTypeSignatureFromIl2CppType"/> where possible, only use this where an actual type reference is needed.
-    /// Such cases would include generic parameter constraints, base types/interfaces, and event types.
-    /// </summary>
-    public static ITypeDefOrRef ImportReferenceFromIl2CppType(ModuleDefinition module, Il2CppType il2CppType)
-    {
-        if (il2CppType == null)
-            throw new ArgumentNullException(nameof(il2CppType));
-
-        switch (il2CppType.Type)
-        {
-            case Il2CppTypeEnum.IL2CPP_TYPE_OBJECT:
-            case Il2CppTypeEnum.IL2CPP_TYPE_VOID:
-            case Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN:
-            case Il2CppTypeEnum.IL2CPP_TYPE_CHAR:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I1:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U1:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I2:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U2:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U:
-            case Il2CppTypeEnum.IL2CPP_TYPE_I8:
-            case Il2CppTypeEnum.IL2CPP_TYPE_U8:
-            case Il2CppTypeEnum.IL2CPP_TYPE_R4:
-            case Il2CppTypeEnum.IL2CPP_TYPE_R8:
-            case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
-            case Il2CppTypeEnum.IL2CPP_TYPE_TYPEDBYREF:
-                //This case, and the one below, are faster to go this way rather than delegating to type signature creation, because we can go straight from def -> ref.
-                return module.DefaultImporter.ImportType(GetPrimitiveTypeDef(il2CppType.Type));
-            case Il2CppTypeEnum.IL2CPP_TYPE_CLASS:
-            case Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE:
-                return module.DefaultImporter.ImportType(TypeDefsByIndex[il2CppType.Data.ClassIndex]);
-            case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
-            case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
-            case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
-            case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
-            case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
-            case Il2CppTypeEnum.IL2CPP_TYPE_MVAR:
-                //For the rest of these, we have to make a type signature first anyway, so just delegate to signature getter
-                return GetTypeSignatureFromIl2CppType(module, il2CppType).ToTypeDefOrRef();
-            default:
-                throw new("Don't know how to import a type reference from an il2cpp type of type " + il2CppType.Type);
-        }
-    }
-
     public static TypeDefinition? TryLookupTypeDefKnownNotGeneric(string? name)
     {
         if (name == null)
@@ -198,7 +61,7 @@ public static class AsmResolverUtils
         if (CachedTypeDefsByName.TryGetValue(key, out var ret))
             return ret;
 
-        var definedType = Cpp2IlApi.CurrentAppContext!.AllTypes.FirstOrDefault(t => t.Definition != null && string.Equals(t.Definition.FullName, name, StringComparison.OrdinalIgnoreCase));
+        var definedType = Cpp2IlApi.CurrentAppContext!.AllTypes.FirstOrDefault(t => string.Equals(t.FullName, name, StringComparison.OrdinalIgnoreCase));
 
         //Try subclasses
         definedType ??= Cpp2IlApi.CurrentAppContext.AllTypes.FirstOrDefault(t =>

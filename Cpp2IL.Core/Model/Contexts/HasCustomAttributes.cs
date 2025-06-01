@@ -73,10 +73,14 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     /// </summary>
     private int Pre29RangeIndex = -1;
 
-    public bool IsCompilerGeneratedBasedOnCustomAttributes =>
-        CustomAttributes?.Any(a => a.Constructor.DeclaringType!.FullName.Contains("CompilerGeneratedAttribute"))
-        ?? AttributeTypes?.Any(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_CLASS && t.AsClass().FullName!.Contains("CompilerGeneratedAttribute"))
-        ?? false;
+    public bool IsCompilerGeneratedBasedOnCustomAttributes => HasCustomAttributeWithFullName("System.Runtime.CompilerServices.CompilerGeneratedAttribute");
+
+    public bool HasCustomAttributeWithFullName(string fullName)
+    {
+        return CustomAttributes?.Any(a => a.Constructor.DeclaringType!.FullName == fullName)
+            ?? AttributeTypes?.Any(t => t.Type == Il2CppTypeEnum.IL2CPP_TYPE_CLASS && t.AsClass().FullName == fullName)
+            ?? false;
+    }
 
 
 #pragma warning disable CS8618 //Non-null member is not initialized.

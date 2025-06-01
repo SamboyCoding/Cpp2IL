@@ -60,7 +60,7 @@ public static class AsmResolverAssemblyPopulator
         parameter switch
         {
             CustomAttributePrimitiveParameter primitiveParameter => AsmResolverUtils.GetPrimitiveTypeDef(primitiveParameter.PrimitiveType).ToTypeSignature(),
-            CustomAttributeEnumParameter enumParameter => AsmResolverUtils.GetTypeSignatureFromIl2CppType(parentAssembly.ManifestModule!, enumParameter.EnumType ?? throw new("Enum type not found for " + enumParameter)),
+            CustomAttributeEnumParameter enumParameter => enumParameter.EnumTypeContext.ToTypeSignature(parentAssembly.ManifestModule!),
             BaseCustomAttributeTypeParameter => TypeDefinitionsAsmResolver.Type.ToTypeSignature(),
             CustomAttributeArrayParameter arrayParameter => AsmResolverUtils.GetPrimitiveTypeDef(arrayParameter.ArrType).ToTypeSignature().MakeSzArrayType(),
             _ => throw new ArgumentException("Unknown custom attribute parameter type: " + parameter.GetType().FullName)
