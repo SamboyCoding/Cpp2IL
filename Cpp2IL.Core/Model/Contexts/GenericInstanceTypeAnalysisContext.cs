@@ -35,7 +35,7 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
     {
         // Cache this instance before resolving anything else, which might contain a reference to this instance.
         // https://github.com/SamboyCoding/Cpp2IL/issues/469
-        referencedFrom.GenericInstanceTypesByIl2CppType.Add(rawType, this);
+        referencedFrom.GenericInstanceTypesByIl2CppType.TryAdd(rawType, this);
 
         //Generic type has to be a type definition
         var gClass = rawType.GetGenericClass();

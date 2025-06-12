@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -68,7 +69,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     /// <summary>
     /// Cache for <see cref="GenericInstanceTypeAnalysisContext.GetOrCreate(Il2CppType, AssemblyAnalysisContext)"/>
     /// </summary>
-    internal readonly Dictionary<Il2CppType, GenericInstanceTypeAnalysisContext> GenericInstanceTypesByIl2CppType = new();
+    internal readonly ConcurrentDictionary<Il2CppType, GenericInstanceTypeAnalysisContext> GenericInstanceTypesByIl2CppType = new();
 
     public override string DefaultName => Definition?.AssemblyName.Name ?? throw new($"Injected assemblies should override {nameof(DefaultName)}");
 
