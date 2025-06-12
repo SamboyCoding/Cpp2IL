@@ -55,6 +55,12 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         SetDeclaringType();
     }
 
+    /// <summary>
+    /// Get or create a <see cref="GenericInstanceTypeAnalysisContext"/> from an <see cref="Il2CppType"/>.
+    /// </summary>
+    /// <param name="rawType">The underlying <see cref="Il2CppType"/>.</param>
+    /// <param name="referencedFrom">The assembly that is referencing this generic instance.</param>
+    /// <returns>The context for the <paramref name="rawType"/>.</returns>
     public static GenericInstanceTypeAnalysisContext GetOrCreate(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
     {
         if (rawType.Type != Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
