@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -56,6 +57,9 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public static GenericInstanceTypeAnalysisContext GetOrCreate(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
     {
+        if (rawType.Type != Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
+            throw new ArgumentException($"Cannot create {nameof(GenericInstanceTypeAnalysisContext)} from type {rawType.Type}. Expected {Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST}.");
+
         if (!referencedFrom.GenericInstanceTypesByIl2CppType.TryGetValue(rawType, out var result))
         {
             result = new GenericInstanceTypeAnalysisContext(rawType, referencedFrom);
