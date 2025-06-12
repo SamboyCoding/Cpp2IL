@@ -65,6 +65,8 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
 
     private readonly Dictionary<Il2CppTypeDefinition, TypeAnalysisContext> TypesByDefinition = new();
 
+    internal readonly Dictionary<Il2CppType, GenericInstanceTypeAnalysisContext> GenericInstanceTypesByIl2CppType = new();
+
     public override string DefaultName => Definition?.AssemblyName.Name ?? throw new($"Injected assemblies should override {nameof(DefaultName)}");
 
     protected override bool IsInjected => Definition is null;

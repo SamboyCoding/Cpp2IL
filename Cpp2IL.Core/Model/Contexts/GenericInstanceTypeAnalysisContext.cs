@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using System.Text;
@@ -29,8 +30,12 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public sealed override bool IsValueType => GenericType.IsValueType; //We don't set a definition so the default implementation cannot determine if we're a value type or not. 
 
-    public GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
+    private GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
     {
+        // Cache this instance before resolving anything else, which might contain a reference to this instance.
+        // https://github.com/SamboyCoding/Cpp2IL/issues/469
+        referencedFrom.GenericInstanceTypesByIl2CppType.Add(rawType, this);
+
         //Generic type has to be a type definition
         var gClass = rawType.GetGenericClass();
         GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
@@ -47,6 +52,17 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         DefaultBaseType = genericType.BaseType;
 
         SetDeclaringType();
+    }
+
+    public static GenericInstanceTypeAnalysisContext GetOrCreate(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
+    {
+        if (!referencedFrom.GenericInstanceTypesByIl2CppType.TryGetValue(rawType, out var result))
+        {
+            result = new GenericInstanceTypeAnalysisContext(rawType, referencedFrom);
+            Debug.Assert(referencedFrom.GenericInstanceTypesByIl2CppType.ContainsKey(rawType), $"The {nameof(GenericInstanceTypeAnalysisContext)} constructor should add itself to the dictionary.");
+        }
+
+        return result;
     }
 
     public override string GetCSharpSourceString()

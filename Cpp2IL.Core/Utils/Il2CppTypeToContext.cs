@@ -20,7 +20,7 @@ public static class Il2CppTypeToContext
         else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_CLASS or Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
             ret = context.AppContext.ResolveContextForType(type.AsClass()) ?? throw new($"Could not resolve type context for type {type.AsClass().FullName}");
         else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
-            ret = new GenericInstanceTypeAnalysisContext(type, context);
+            ret = GenericInstanceTypeAnalysisContext.GetOrCreate(type, context);
         else if (type.Type is Il2CppTypeEnum.IL2CPP_TYPE_BYREF or Il2CppTypeEnum.IL2CPP_TYPE_PTR or Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY or Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
             ret = WrappedTypeAnalysisContext.Create(type, context);
         else
