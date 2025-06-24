@@ -21,6 +21,8 @@ namespace Cpp2IL.Core.OutputFormats;
 public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 {
     private AssemblyDefinition? MostRecentCorLib { get; set; }
+    protected int TotalMethodCount;
+    protected int SuccessfulMethodCount;
 
     public sealed override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {
@@ -52,6 +54,12 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         }
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
+
+        if (TotalMethodCount != 0)
+        {
+            var percent = Math.Round((SuccessfulMethodCount / (float)TotalMethodCount) * 100);
+            Logger.InfoNewline($"{percent}% of methods successfully processed ({SuccessfulMethodCount} / {TotalMethodCount})", "DllOutput");
+        }
     }
 
     public virtual List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)

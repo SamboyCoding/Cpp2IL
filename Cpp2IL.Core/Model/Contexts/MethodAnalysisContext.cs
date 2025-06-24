@@ -53,6 +53,11 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     /// </summary>
     public ISILControlFlowGraph? ControlFlowGraph;
 
+    /// <summary>
+    /// Dominance info for the control flow graph.
+    /// </summary>
+    public DominatorInfo? DominatorInfo;
+
     public List<ParameterAnalysisContext> Parameters = [];
 
     /// <summary>
@@ -279,6 +284,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
         ControlFlowGraph = new ISILControlFlowGraph();
         ControlFlowGraph.Build(ConvertedIsil);
+
+        StackAnalyzer.Analyze(this);
+        DominatorInfo = DominatorInfo.Build(ControlFlowGraph);
 
         // Post step to convert metadata usage. Ldstr Opcodes etc.
         foreach (var block in ControlFlowGraph.Blocks)

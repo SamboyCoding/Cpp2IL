@@ -18,6 +18,7 @@ public class Block
     public bool Dirty { get; set; }
     public bool Visited = false;
 
+    public bool IsTailCall => Successors.Count != 0 && Successors.Any(s => s.BlockType == BlockType.Exit);
 
     public override string ToString()
     {
