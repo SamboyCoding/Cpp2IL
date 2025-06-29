@@ -8,6 +8,10 @@ public class ConcreteGenericFieldAnalysisContext : FieldAnalysisContext
     public FieldAnalysisContext BaseFieldContext { get; }
     public override FieldAttributes DefaultAttributes => BaseFieldContext.DefaultAttributes;
     public override FieldAttributes? OverrideAttributes { get => BaseFieldContext.OverrideAttributes; set => BaseFieldContext.OverrideAttributes = value; }
+    public override object? DefaultConstantValue => BaseFieldContext.DefaultConstantValue;
+    public override object? OverrideConstantValue { get => BaseFieldContext.OverrideConstantValue; set => BaseFieldContext.OverrideConstantValue = value; }
+    public override byte[] DefaultStaticArrayInitialValue => BaseFieldContext.DefaultStaticArrayInitialValue;
+    public override byte[]? OverrideStaticArrayInitialValue { get => BaseFieldContext.OverrideStaticArrayInitialValue; set => BaseFieldContext.OverrideStaticArrayInitialValue = value; }
     public override TypeAnalysisContext DefaultFieldType { get; }
     public override string DefaultName => BaseFieldContext.DefaultName;
     public override string? OverrideName { get => BaseFieldContext.OverrideName; set => BaseFieldContext.OverrideName = value; }

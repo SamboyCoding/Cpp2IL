@@ -120,6 +120,20 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
         }
     }
 
+    public string DefaultFullName
+    {
+        get
+        {
+            if (DeclaringType != null)
+                return DeclaringType.DefaultFullName + "+" + DefaultName;
+
+            if (string.IsNullOrEmpty(DefaultNamespace))
+                return DefaultName;
+
+            return $"{DefaultNamespace}.{DefaultName}";
+        }
+    }
+
     public string FullName
     {
         get
