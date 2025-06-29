@@ -16,11 +16,17 @@ public static class ContextToTypeSignature
 
     public static TypeSignature ToTypeSignature(this TypeAnalysisContext context, ModuleDefinition parentModule) => context switch
     {
+        ReferencedTypeAnalysisContext referencedTypeAnalysisContext => referencedTypeAnalysisContext.ToTypeSignature(parentModule),
+        _ => parentModule.DefaultImporter.ImportType(context.GetTypeDefinition()).ToTypeSignature()
+    };
+
+    public static TypeSignature ToTypeSignature(this ReferencedTypeAnalysisContext context, ModuleDefinition parentModule) => context switch
+    {
         GenericParameterTypeAnalysisContext genericParameterTypeAnalysisContext => genericParameterTypeAnalysisContext.ToTypeSignature(parentModule),
         GenericInstanceTypeAnalysisContext genericInstanceTypeAnalysisContext => genericInstanceTypeAnalysisContext.ToTypeSignature(parentModule),
         WrappedTypeAnalysisContext wrappedTypeAnalysisContext => wrappedTypeAnalysisContext.ToTypeSignature(parentModule),
         SentinelTypeAnalysisContext => SentinelTypeSignature.Instance,
-        _ => parentModule.DefaultImporter.ImportType(context.GetTypeDefinition()).ToTypeSignature()
+        _ => throw new ArgumentException($"Unknown referenced type context {context.GetType()}", nameof(context))
     };
 
     public static GenericInstanceTypeSignature ToTypeSignature(this GenericInstanceTypeAnalysisContext context, ModuleDefinition parentModule)
