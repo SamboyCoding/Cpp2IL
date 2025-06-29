@@ -340,7 +340,20 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
     string ITypeInfoProvider.RewrittenTypeName => Name;
     string ITypeInfoProvider.TypeNamespace => Namespace;
     public virtual bool IsGenericInstance => false;
-    public virtual bool IsValueType => Definition?.IsValueType ?? BaseType is { Namespace: "System", Name: "ValueType" };
+    public virtual bool IsValueType
+    {
+        get
+        {
+            if (Definition is not null)
+                return Definition.IsValueType;
+
+            if (BaseType is { Namespace: "System", Name: "ValueType" })
+                return Namespace is not "System" || Name is not "Enum"; // Enum is a reference type
+
+            return IsEnumType;
+        }
+    }
+
     public bool IsEnumType => Definition?.IsEnumType ?? BaseType is { Namespace: "System", Name: "Enum" };
     IEnumerable<ITypeInfoProvider> ITypeInfoProvider.GenericArgumentInfoProviders => [];
     IEnumerable<IFieldInfoProvider> ITypeInfoProvider.FieldInfoProviders => Fields;
