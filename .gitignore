@@ -2,6 +2,7 @@
 packages/
 
 \.idea/
+.vscode/
 
 bin/
 obj/
