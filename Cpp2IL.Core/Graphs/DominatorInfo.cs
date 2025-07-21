@@ -109,11 +109,11 @@ public class DominatorInfo
 
             foreach (var block in graph.Blocks)
             {
-                if (block == graph.ExitBlock)
+                if (block.Successors.Count == 0 && block != graph.ExitBlock)
                     continue;
 
                 var tempPostDoms = block.Successors.Count == 0
-                    ? new HashSet<Block>()
+                    ? new HashSet<Block> { block }
                     : new HashSet<Block>(PostDominators[block.Successors[0]]);
 
                 for (var i = 1; i < block.Successors.Count; i++)

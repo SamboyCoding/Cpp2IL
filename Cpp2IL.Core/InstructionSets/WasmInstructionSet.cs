@@ -33,7 +33,7 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
         return Array.Empty<byte>();
     }
 
-    public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
+    public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
         return [];
     }

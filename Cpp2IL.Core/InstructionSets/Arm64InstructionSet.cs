@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Api;
-using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
@@ -33,7 +32,7 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
         return instructions.SelectMany(i => i.Bytes).ToArray();
     }
 
-    public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
+    public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
         return [];
     }

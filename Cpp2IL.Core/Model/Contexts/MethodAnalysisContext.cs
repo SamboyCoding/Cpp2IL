@@ -46,7 +46,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     /// <summary>
     /// The first-stage-analyzed Instruction-Set-Independent Language Instructions.
     /// </summary>
-    public List<InstructionSetIndependentInstruction>? ConvertedIsil;
+    public List<Instruction>? ConvertedIsil;
 
     /// <summary>
     /// The control flow graph for this method, if one is built.
@@ -57,6 +57,10 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     /// Dominance info for the control flow graph.
     /// </summary>
     public DominatorInfo? DominatorInfo;
+
+    public List<string> AnalysisWarnings = [];
+
+    private const int MaxMethodSizeBytes = 256000; // 256KB
 
     public List<ParameterAnalysisContext> Parameters = [];
 
@@ -268,6 +272,13 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     [MemberNotNull(nameof(ConvertedIsil))]
     public void Analyze()
     {
+        if (RawBytes.Length > MaxMethodSizeBytes)
+        {
+            Logger.WarnNewline($"Method {FullName} is too big ({RawBytes.Length} bytes), skipping analysis.");
+            ConvertedIsil = [];
+            return;
+        }
+
         if (ConvertedIsil != null)
             return;
 

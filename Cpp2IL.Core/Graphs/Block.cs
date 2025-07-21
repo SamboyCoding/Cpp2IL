@@ -11,21 +11,19 @@ public class Block
     public List<Block> Predecessors = [];
     public List<Block> Successors = [];
 
-    public List<InstructionSetIndependentInstruction> isilInstructions = [];
+    public List<Instruction> Instructions = [];
 
     public int ID { get; set; } = -1;
 
     public bool Dirty { get; set; }
     public bool Visited = false;
 
-    public bool IsTailCall => Successors.Count != 0 && Successors.Any(s => s.BlockType == BlockType.Exit);
-
     public override string ToString()
     {
         StringBuilder stringBuilder = new StringBuilder();
         stringBuilder.AppendLine("Type: " + BlockType);
         stringBuilder.AppendLine();
-        foreach (var instruction in isilInstructions)
+        foreach (var instruction in Instructions)
         {
             stringBuilder.AppendLine(instruction.ToString());
         }
@@ -33,44 +31,29 @@ public class Block
         return stringBuilder.ToString();
     }
 
-    public void AddInstruction(InstructionSetIndependentInstruction instruction)
-    {
-        isilInstructions.Add(instruction);
-    }
+    public void AddInstruction(Instruction instruction) => Instructions.Add(instruction);
 
     public void CaculateBlockType()
     {
-        // This enum is kind of redundant, can be possibly swapped for IsilFlowControl and no need for BlockType?
-        if (isilInstructions.Count > 0)
+        if (Instructions.Count <= 0)
+            return;
+
+        var instruction = Instructions.Last();
+
+        BlockType = instruction.OpCode switch
         {
-            var instruction = isilInstructions.Last();
-            switch (instruction.FlowControl)
-            {
-                case IsilFlowControl.UnconditionalJump:
-                    BlockType = BlockType.OneWay;
-                    break;
-                case IsilFlowControl.ConditionalJump:
-                    BlockType = BlockType.TwoWay;
-                    break;
-                case IsilFlowControl.IndexedJump:
-                    BlockType = BlockType.NWay;
-                    break;
-                case IsilFlowControl.MethodCall:
-                    BlockType = BlockType.Call;
-                    break;
-                case IsilFlowControl.MethodReturn:
-                    BlockType = BlockType.Return;
-                    break;
-                case IsilFlowControl.Interrupt:
-                    BlockType = BlockType.Interrupt;
-                    break;
-                case IsilFlowControl.Continue:
-                    BlockType = BlockType.Fall;
-                    break;
-                default:
-                    BlockType = BlockType.Unknown;
-                    break;
-            }
+            OpCode.Jump => BlockType.OneWay,
+            OpCode.ConditionalJump => BlockType.TwoWay,
+            OpCode.IndirectJump => BlockType.NWay,
+            OpCode.Call or OpCode.CallVoid => BlockType.Call,
+            OpCode.Return or OpCode.ReturnVoid => BlockType.Return,
+            _ => BlockType.Fall,
+        };
+
+        if (BlockType == BlockType.Call && Successors.Count > 0)
+        {
+            if (Successors[0].BlockType == BlockType.Exit)
+                BlockType = BlockType.TailCall;
         }
     }
 }

@@ -32,7 +32,7 @@ public abstract class Cpp2IlInstructionSet
     /// </summary>
     /// <param name="context">The method to convert to ISIL</param>
     /// <returns>An array of <see cref="IsilInstructionStatement"/> structs representing the functionality of this method in an instruction-set-independent manner.</returns>
-    public abstract List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context);
+    public abstract List<Instruction> GetIsilFromMethod(MethodAnalysisContext context);
 
     /// <summary>
     /// Create and populate a BaseKeyFunctionAddresses object which can then be populated.

@@ -10,20 +10,20 @@ internal class MetadataProcessor : IBlockProcessor
 {
     public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
     {
-        foreach (var instruction in block.isilInstructions)
+        foreach (var instruction in block.Instructions)
         {
             // TODO: Check if it shows up in any other
-            if (instruction.OpCode != InstructionSetIndependentOpCode.Move)
+            if (instruction.OpCode != OpCode.Move)
             {
                 continue;
             }
 
-            if (instruction.Operands[0].Type != InstructionSetIndependentOperand.OperandType.Register || instruction.Operands[1].Type != InstructionSetIndependentOperand.OperandType.Memory)
+            if ((instruction.Operands[0] is not Register) || (instruction.Operands[1] is not MemoryOperand))
             {
                 continue;
             }
 
-            var memoryOp = (IsilMemoryOperand)instruction.Operands[1].Data;
+            var memoryOp = (MemoryOperand)instruction.Operands[1];
             if (memoryOp.Base == null && memoryOp.Index == null && memoryOp.Scale == 0)
             {
                 var val = LibCpp2IlMain.GetLiteralByAddress((ulong)memoryOp.Addend);
@@ -35,13 +35,13 @@ internal class MetadataProcessor : IBlockProcessor
                     {
                         var typeAnalysisContext = metadataUsage.ToContext(methodAnalysisContext.DeclaringType!.DeclaringAssembly);
                         if (typeAnalysisContext != null)
-                            instruction.Operands[1] = InstructionSetIndependentOperand.MakeTypeMetadataUsage(typeAnalysisContext);
+                            instruction.Operands[1] = typeAnalysisContext;
                     }
 
                     continue;
                 }
 
-                instruction.Operands[1] = InstructionSetIndependentOperand.MakeImmediate(val);
+                instruction.Operands[1] = val;
             }
         }
     }

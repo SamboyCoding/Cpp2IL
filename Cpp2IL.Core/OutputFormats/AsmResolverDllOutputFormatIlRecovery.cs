@@ -54,14 +54,14 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
             // throw new Exception(isil);
             // i have no idea why but when doing this for 1 class it's fine, but with entire game strings get all messed up
-            /*instructions.Add(CilOpCodes.Ldstr, string.Join("\n ", methodContext.ConvertedIsil));
+            /* instructions.Add(CilOpCodes.Ldstr, string.Join("\n ", methodContext.ConvertedIsil));
             instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(_exceptionConstructor!));
-            instructions.Add(CilOpCodes.Throw);*/
+            instructions.Add(CilOpCodes.Throw); */
 
             instructions.Add(CilOpCodes.Ldnull);
             instructions.Add(CilOpCodes.Throw);
 
-            //WriteControlFlowGraph(methodContext, Path.Combine(Environment.CurrentDirectory, "cpp2il_out"));
+            //WriteControlFlowGraph(methodContext, Path.Combine(Environment.CurrentDirectory, "Cpp2IL", "bin", "Debug", "net9.0", "cpp2il_out", "cfg"));
 
             SuccessfulMethodCount++;
         }
@@ -91,13 +91,16 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
     private static void WriteControlFlowGraph(MethodAnalysisContext method, string outputPath)
     {
-        var graph = method.ControlFlowGraph!;
+        var graph = method.ControlFlowGraph;
 
         var sb = new StringBuilder();
         var edges = new List<(int, int)>();
 
         sb.AppendLine("digraph ControlFlowGraph {");
         sb.AppendLine("    \"label\"=\"Control flow graph\"");
+
+        if (graph == null) // no instructions
+            graph = new Graphs.ISILControlFlowGraph();
 
         foreach (var block in graph.Blocks)
         {

@@ -3,7 +3,6 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
-using Cpp2IL.Core.ISIL;
 using Gee.External.Capstone.Arm;
 using Gee.External.Capstone.Arm64;
 using Iced.Intel;
@@ -13,7 +12,7 @@ namespace Cpp2IL.Core.Extensions;
 
 public static class MiscExtensions
 {
-    public static InstructionSetIndependentOperand MakeIndependent(this Register reg) => InstructionSetIndependentOperand.MakeRegister(reg.ToString().ToLower());
+    public static object MakeIndependent(this Register reg) => new ISIL.Register(null, reg.ToString().ToLower());
 
     public static ulong GetImmediateSafe(this Instruction instruction, int op) => instruction.GetOpKind(op).IsImmediate() ? instruction.GetImmediate(op) : 0;
 
@@ -74,7 +73,7 @@ public static class MiscExtensions
     {
         var arr = new T[original.Count];
         original.CopyTo(arr, 0);
-        return [..arr];
+        return [.. arr];
     }
 
     public static Dictionary<T1, T2> Clone<T1, T2>(this Dictionary<T1, T2> original) where T1 : notnull
@@ -179,5 +178,19 @@ public static class MiscExtensions
             areDifferent = first.Get(i) != second.Get(i);
 
         return !areDifferent;
+    }
+
+    public static bool IsNumeric(this object value)
+    {
+        if (value == null) return false;
+
+        return Type.GetTypeCode(value.GetType()) switch
+        {
+            TypeCode.Byte or TypeCode.SByte or TypeCode.UInt16 or
+            TypeCode.UInt32 or TypeCode.UInt64 or TypeCode.Int16 or
+            TypeCode.Int32 or TypeCode.Int64 or TypeCode.Decimal or
+            TypeCode.Double or TypeCode.Single => true,
+            _ => false,
+        };
     }
 }

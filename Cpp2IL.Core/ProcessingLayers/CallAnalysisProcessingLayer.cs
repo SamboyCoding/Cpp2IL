@@ -81,26 +81,25 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                     continue;
                 }
 
-                if (convertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.Invalid))
+                if (convertedIsil.Any(i => i.OpCode == OpCode.Invalid))
                 {
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, invalidInstructionsConstructor);
                 }
 
-                if (convertedIsil.Any(i => i.OpCode == InstructionSetIndependentOpCode.NotImplemented))
+                if (convertedIsil.Any(i => i.OpCode == OpCode.NotImplemented))
                 {
                     AttributeInjectionUtils.AddZeroParameterAttribute(m, unimplementedInstructionsConstructor);
                 }
 
                 foreach (var instruction in convertedIsil)
                 {
-                    if (instruction.OpCode != InstructionSetIndependentOpCode.Call && instruction.OpCode != InstructionSetIndependentOpCode.CallNoReturn)
+                    if (instruction.OpCode != OpCode.Call && instruction.OpCode != OpCode.CallVoid)
                     {
                         continue;
                     }
 
-                    if (instruction.Operands.Length > 0 && instruction.Operands[0].Data is IsilImmediateOperand operand && operand.Value is not string)
+                    if (instruction.Operands.Count > 0 && instruction.Operands[0] is ulong address)
                     {
-                        var address = operand.Value.ToUInt64(null);
                         if (appContext.MethodsByAddress.TryGetValue(address, out var list))
                         {
                             callCounts[address] = callCounts.GetOrDefault(address, 0) + 1;

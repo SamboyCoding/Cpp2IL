@@ -1,9 +1,14 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
+using System.Text;
+using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -18,7 +23,7 @@ public class StackAnalyzer
 
     private Dictionary<Block, StackState> _inComingState = [];
     private Dictionary<Block, StackState> _outGoingState = [];
-    private Dictionary<InstructionSetIndependentInstruction, StackState> _instructionState = [];
+    private Dictionary<Instruction, StackState> _instructionState = [];
 
     private const int MaxBlockVisitCount = 5000;
 
@@ -39,7 +44,8 @@ public class StackAnalyzer
         if (outDelta.Size != 0)
         {
             var outText = outDelta.Size < 0 ? "-" + (-outDelta.Size).ToString("X") : outDelta.Size.ToString("X");
-            throw new Exception($"Method {method.FullName} ends with non empty stack: {outText})");
+            method.AnalysisWarnings.Add($"warning: method ends with non empty stack: {outText}");
+            Logger.Warn($"Method {method.FullName} ends with non empty stack: {outText}", "StackAnalyzer");
         }
 
         analyzer.CorrectOffsets(graph);
@@ -50,26 +56,26 @@ public class StackAnalyzer
     {
         foreach (var block in graph.Blocks)
         {
-            foreach (var instruction in block.isilInstructions)
+            foreach (var instruction in block.Instructions)
             {
-                if (instruction is { OpCode.Mnemonic: IsilMnemonic.ShiftStack })
+                if (instruction is { OpCode: OpCode.ShiftStack })
                 {
                     // Nop the shift stack instruction
-                    instruction.OpCode = InstructionSetIndependentOpCode.Nop;
+                    instruction.OpCode = OpCode.Nop;
                     instruction.Operands = [];
                 }
 
                 // Correct offset for stack operands
-                for (var i = 0; i < instruction.Operands.Length; i++)
+                for (var i = 0; i < instruction.Operands.Count; i++)
                 {
                     var op = instruction.Operands[i];
 
-                    if (op.Data is IsilStackOperand offset)
+                    if (op is StackOffset offset)
                     {
                         // TODO: sometimes try catch causes something weird, probably indirect jump somewhere, so some instructions are in cfg but not in _instructionState
                         var state = _instructionState[instruction].Size;
                         var actual = state + offset.Offset;
-                        instruction.Operands[i] = InstructionSetIndependentOperand.MakeStack(actual);
+                        instruction.Operands[i] = new StackOffset(actual);
                     }
                 }
             }
@@ -84,19 +90,19 @@ public class StackAnalyzer
         var currentState = incomingState.Copy();
 
         // Process instructions
-        for (var i = 0; i < block.isilInstructions.Count; i++)
+        for (var i = 0; i < block.Instructions.Count; i++)
         {
-            var instruction = block.isilInstructions[i];
+            var instruction = block.Instructions[i];
 
             _instructionState[instruction] = currentState;
 
-            if (instruction.OpCode.Mnemonic == IsilMnemonic.ShiftStack)
+            if (instruction.OpCode == OpCode.ShiftStack)
             {
-                var offset = (int)(((IsilImmediateOperand)instruction.Operands[0].Data).Value);
+                var offset = (int)instruction.Operands[0];
                 currentState = currentState.Copy();
                 currentState.Size += offset;
             }
-            else if (i == block.isilInstructions.Count - 1 && block.IsTailCall)
+            else if (i == block.Instructions.Count - 1 && block.BlockType == BlockType.TailCall)
             {
                 // Tail calls clear stack
                 currentState = currentState.Copy();
@@ -105,7 +111,7 @@ public class StackAnalyzer
         }
 
         // Tail calls clear stack
-        if (block.IsTailCall)
+        if (block.BlockType == BlockType.TailCall)
             currentState.Size = 0;
 
         _outGoingState[block] = currentState;
@@ -142,7 +148,7 @@ public class StackAnalyzer
         var offsets = new List<int>();
         foreach (var operand in method.ConvertedIsil!.SelectMany(instruction => instruction.Operands))
         {
-            if (operand.Data is IsilStackOperand offset)
+            if (operand is StackOffset offset)
             {
                 if (!offsets.Contains(offset.Offset))
                     offsets.Add(offset.Offset);
@@ -160,13 +166,13 @@ public class StackAnalyzer
         // Replace stack offset operands
         foreach (var instruction in method.ConvertedIsil!)
         {
-            for (var i = 0; i < instruction.Operands.Length; i++)
+            for (var i = 0; i < instruction.Operands.Count; i++)
             {
                 var operand = instruction.Operands[i];
 
-                if (operand.Data is IsilStackOperand offset)
+                if (operand is StackOffset offset)
                     instruction.Operands[i] =
-                        InstructionSetIndependentOperand.MakeRegister(offsetToRegister[offset.Offset]);
+                        new Register(null, offsetToRegister[offset.Offset]);
             }
         }
     }

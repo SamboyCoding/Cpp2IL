@@ -27,7 +27,7 @@ public static class X64CallingConventionResolver
             || parameterType == parameterType.AppContext.SystemTypes.SystemDoubleType;
     }
 
-    public static InstructionSetIndependentOperand[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
+    public static object[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
     {
         // This is mostly a stub and may be extended in the future. You can traverse exports here for example.
         // For now, we'll return all normal registers and omit the floating point registers.
@@ -47,12 +47,12 @@ public static class X64CallingConventionResolver
         };
     }
 
-    public static InstructionSetIndependentOperand[] ResolveForManaged(MethodAnalysisContext ctx)
+    public static object[] ResolveForManaged(MethodAnalysisContext ctx)
     {
         // if (ctx.AppContext.Binary.is32Bit)
         //    throw new NotSupportedException("Resolution of 64-bit calling conventions in 32-bit binaries is not supported.");
 
-        List<InstructionSetIndependentOperand> args = new();
+        List<object> args = new();
 
         var addThis = !ctx.IsStatic;
         var isReturningAnOversizedStructure = false; // TODO: Determine whether we return a structure and whether that structure is oversized.
@@ -178,7 +178,7 @@ public static class X64CallingConventionResolver
                 }
                 else
                 {
-                    args.Add(InstructionSetIndependentOperand.MakeStack((i - 4) * ptrSize));
+                    args.Add(new StackOffset((i - 4) * ptrSize));
                 }
             }
 
@@ -223,7 +223,7 @@ public static class X64CallingConventionResolver
                 {
                     if (freg == LinuxFloatingRegister.Stack)
                     {
-                        args.Add(InstructionSetIndependentOperand.MakeStack(stack));
+                        args.Add(new StackOffset(stack));
                         stack += ptrSize;
                     }
                     else args.Add(ToOperand(freg++));
@@ -232,7 +232,7 @@ public static class X64CallingConventionResolver
                 {
                     if (nreg == LinuxNormalRegister.Stack)
                     {
-                        args.Add(InstructionSetIndependentOperand.MakeStack(stack));
+                        args.Add(new StackOffset(stack));
                         stack += ptrSize;
                     }
                     else args.Add(ToOperand(nreg++));
@@ -261,36 +261,36 @@ public static class X64CallingConventionResolver
         return args.ToArray();
     }
 
-    private static InstructionSetIndependentOperand ToOperand(MicrosoftNormalRegister Reg) => Reg switch
+    private static object ToOperand(MicrosoftNormalRegister Reg) => Reg switch
     {
-        MicrosoftNormalRegister.rcx => InstructionSetIndependentOperand.MakeRegister("rcx"),
-        MicrosoftNormalRegister.rdx => InstructionSetIndependentOperand.MakeRegister("rdx"),
-        MicrosoftNormalRegister.r8 => InstructionSetIndependentOperand.MakeRegister("r8"),
-        MicrosoftNormalRegister.r9 => InstructionSetIndependentOperand.MakeRegister("r9"),
+        MicrosoftNormalRegister.rcx => new Register(null, "rcx"),
+        MicrosoftNormalRegister.rdx => new Register(null, "rdx"),
+        MicrosoftNormalRegister.r8 => new Register(null, "r8"),
+        MicrosoftNormalRegister.r9 => new Register(null, "r9"),
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static InstructionSetIndependentOperand ToOperand(LinuxNormalRegister Reg) => Reg switch
+    private static object ToOperand(LinuxNormalRegister Reg) => Reg switch
     {
-        LinuxNormalRegister.rdi => InstructionSetIndependentOperand.MakeRegister("rdi"),
-        LinuxNormalRegister.rsi => InstructionSetIndependentOperand.MakeRegister("rsi"),
-        LinuxNormalRegister.rdx => InstructionSetIndependentOperand.MakeRegister("rdx"),
-        LinuxNormalRegister.rcx => InstructionSetIndependentOperand.MakeRegister("rcx"),
-        LinuxNormalRegister.r8 => InstructionSetIndependentOperand.MakeRegister("r8"),
-        LinuxNormalRegister.r9 => InstructionSetIndependentOperand.MakeRegister("r9"),
+        LinuxNormalRegister.rdi => new Register(null, "rdi"),
+        LinuxNormalRegister.rsi => new Register(null, "rsi"),
+        LinuxNormalRegister.rdx => new Register(null, "rdx"),
+        LinuxNormalRegister.rcx => new Register(null, "rcx"),
+        LinuxNormalRegister.r8 => new Register(null, "r8"),
+        LinuxNormalRegister.r9 => new Register(null, "r9"),
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static InstructionSetIndependentOperand ToOperand(LinuxFloatingRegister Reg) => Reg switch
+    private static object ToOperand(LinuxFloatingRegister Reg) => Reg switch
     {
-        LinuxFloatingRegister.xmm0 => InstructionSetIndependentOperand.MakeRegister("xmm0"),
-        LinuxFloatingRegister.xmm1 => InstructionSetIndependentOperand.MakeRegister("xmm1"),
-        LinuxFloatingRegister.xmm2 => InstructionSetIndependentOperand.MakeRegister("xmm2"),
-        LinuxFloatingRegister.xmm3 => InstructionSetIndependentOperand.MakeRegister("xmm3"),
-        LinuxFloatingRegister.xmm4 => InstructionSetIndependentOperand.MakeRegister("xmm4"),
-        LinuxFloatingRegister.xmm5 => InstructionSetIndependentOperand.MakeRegister("xmm5"),
-        LinuxFloatingRegister.xmm6 => InstructionSetIndependentOperand.MakeRegister("xmm6"),
-        LinuxFloatingRegister.xmm7 => InstructionSetIndependentOperand.MakeRegister("xmm7"),
+        LinuxFloatingRegister.xmm0 => new Register(null, "xmm0"),
+        LinuxFloatingRegister.xmm1 => new Register(null, "xmm1"),
+        LinuxFloatingRegister.xmm2 => new Register(null, "xmm2"),
+        LinuxFloatingRegister.xmm3 => new Register(null, "xmm3"),
+        LinuxFloatingRegister.xmm4 => new Register(null, "xmm4"),
+        LinuxFloatingRegister.xmm5 => new Register(null, "xmm5"),
+        LinuxFloatingRegister.xmm6 => new Register(null, "xmm6"),
+        LinuxFloatingRegister.xmm7 => new Register(null, "xmm7"),
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 

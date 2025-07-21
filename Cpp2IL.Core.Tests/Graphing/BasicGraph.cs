@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 
@@ -10,29 +11,37 @@ public class BasicGraph
     [SetUp]
     public void Setup()
     {
-        var isilBuilder = new IsilBuilder();
+        var instructions = new List<Instruction>();
+        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, operands));
 
-        isilBuilder.ShiftStack(0x0000, -40);
-        isilBuilder.Compare(0x0001, InstructionSetIndependentOperand.MakeRegister("test1"), InstructionSetIndependentOperand.MakeRegister("test2"));
-        isilBuilder.JumpIfNotEqual(0x0002, 0x0006);
-        isilBuilder.Move(0x0003, InstructionSetIndependentOperand.MakeRegister("test3"), InstructionSetIndependentOperand.MakeImmediate(0));
-        isilBuilder.Call(0x0004, 0xDEADBEEF);
-        isilBuilder.Move(0x0005, InstructionSetIndependentOperand.MakeRegister("test4"), InstructionSetIndependentOperand.MakeImmediate(0));
-        isilBuilder.Move(0x0006, InstructionSetIndependentOperand.MakeRegister("test5"), InstructionSetIndependentOperand.MakeImmediate(0));
-        isilBuilder.Compare(0x0007, InstructionSetIndependentOperand.MakeRegister("test1"), InstructionSetIndependentOperand.MakeRegister("test2"));
-        isilBuilder.JumpIfEqual(0x0008, 0x000C);
-        isilBuilder.Compare(0x0009, InstructionSetIndependentOperand.MakeRegister("test1"), InstructionSetIndependentOperand.MakeRegister("test2"));
-        isilBuilder.JumpIfNotEqual(0x000A, 0x000C);
-        isilBuilder.Call(0x000B, 0xDEADBEEF);
-        isilBuilder.Move(0x000C, InstructionSetIndependentOperand.MakeRegister("test4"), InstructionSetIndependentOperand.MakeImmediate(0));
-        isilBuilder.Move(0x000D, InstructionSetIndependentOperand.MakeRegister("test5"), InstructionSetIndependentOperand.MakeImmediate(0));
-        isilBuilder.ShiftStack(0x000E, 40);
-        isilBuilder.Call(0x000F, 0xDEADBEEF);
+        Add(00, OpCode.ShiftStack, -40);
+        Add(01, OpCode.CheckEqual, new Register(null, "zf"), new Register(null, "test1"), new Register(null, "test2"));
+        Add(02, OpCode.Not, new Register(null, "zf"), new Register(null, "zf"));
+        Add(03, OpCode.ConditionalJump, 7, new Register(null, "zf"));
+        Add(04, OpCode.Move, new Register(null, "test3"), 0);
+        Add(05, OpCode.Call, 0xDEADBEEF);
+        Add(06, OpCode.Move, new Register(null, "test4"), 0);
+        Add(07, OpCode.Move, new Register(null, "test5"), 0);
+        Add(08, OpCode.CheckEqual, new Register(null, "zf"), new Register(null, "test1"), new Register(null, "test2"));
+        Add(09, OpCode.ConditionalJump, 14, new Register(null, "zf"));
+        Add(10, OpCode.CheckEqual, new Register(null, "zf"), new Register(null, "test1"), new Register(null, "test2"));
+        Add(11, OpCode.Not, new Register(null, "zf"), new Register(null, "zf"));
+        Add(12, OpCode.ConditionalJump, 14, new Register(null, "zf"));
+        Add(13, OpCode.Call, 0xDEADBEEF);
+        Add(14, OpCode.Move, new Register(null, "test4"), 0);
+        Add(15, OpCode.Move, new Register(null, "test5"), 0);
+        Add(16, OpCode.ShiftStack, 40);
+        Add(17, OpCode.Call, 0xDEADBEEF);
 
-        isilBuilder.FixJumps();
+        foreach (var instruction in instructions)
+        {
+            if (instruction.OpCode != OpCode.Jump && instruction.OpCode != OpCode.ConditionalJump)
+                continue;
+            instruction.Operands[0] = instructions[(int)instruction.Operands[0]];
+        }
 
         graph = new();
-        graph.Build(isilBuilder.BackingStatementList);
+        graph.Build(instructions);
     }
 
     [Test]

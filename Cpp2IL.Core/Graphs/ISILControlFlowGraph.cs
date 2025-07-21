@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
 using Cpp2IL.Core.ISIL;
 
 namespace Cpp2IL.Core.Graphs;
@@ -13,7 +12,6 @@ public class ISILControlFlowGraph
     public Block ExitBlock => exitBlock;
     public int Count => blockSet.Count;
     public Collection<Block> Blocks => blockSet;
-
 
     private int idCounter;
     private Collection<Block> blockSet;
@@ -33,12 +31,12 @@ public class ISILControlFlowGraph
         ];
     }
 
-    private bool TryGetTargetJumpInstructionIndex(InstructionSetIndependentInstruction instruction, out uint jumpInstructionIndex)
+    private bool TryGetTargetJumpInstructionIndex(Instruction instruction, out int jumpInstructionIndex)
     {
         jumpInstructionIndex = 0;
         try
         {
-            jumpInstructionIndex = ((InstructionSetIndependentInstruction)instruction.Operands[0].Data).InstructionIndex;
+            jumpInstructionIndex = ((Instruction)instruction.Operands[0]).Index;
             return true;
         }
         catch
@@ -49,56 +47,104 @@ public class ISILControlFlowGraph
         return false;
     }
 
+    public void RemoveUnreachableBlocks()
+    {
+        // Get reachable blocks
+        var reachable = new HashSet<Block>();
+        var worklist = new Queue<Block>();
+        worklist.Enqueue(EntryBlock);
 
-    public void Build(List<InstructionSetIndependentInstruction> instructions)
+        while (worklist.Count > 0)
+        {
+            var block = worklist.Dequeue();
+
+            if (!reachable.Add(block))
+                continue;
+
+            foreach (var succ in block.Successors)
+                worklist.Enqueue(succ);
+        }
+
+        // Remove unreachable blocks
+        var toRemove = blockSet.Where(b => !reachable.Contains(b)).ToList();
+        foreach (var block in toRemove)
+        {
+            foreach (var pred in block.Predecessors)
+                pred.Successors.Remove(block);
+
+            foreach (var succ in block.Successors)
+                succ.Predecessors.Remove(block);
+
+            blockSet.Remove(block);
+        }
+    }
+
+    public void Build(List<Instruction> instructions)
     {
         if (instructions == null)
             throw new ArgumentNullException(nameof(instructions));
 
-
         var currentBlock = new Block() { ID = idCounter++ };
-        AddNode(currentBlock);
+        AddBlock(currentBlock);
         AddDirectedEdge(entryBlock, currentBlock);
+
         for (var i = 0; i < instructions.Count; i++)
         {
             var isLast = i == instructions.Count - 1;
-            switch (instructions[i].FlowControl)
+            Block newBlock;
+
+            switch (instructions[i].OpCode)
             {
-                case IsilFlowControl.UnconditionalJump:
+                case OpCode.Jump:
+                case OpCode.ConditionalJump:
                     currentBlock.AddInstruction(instructions[i]);
+
                     if (!isLast)
                     {
-                        var newNodeFromJmp = new Block() { ID = idCounter++ };
-                        AddNode(newNodeFromJmp);
-                        if (TryGetTargetJumpInstructionIndex(instructions[i], out uint jumpTargetIndex))
+                        newBlock = new Block() { ID = idCounter++ };
+                        AddBlock(newBlock);
+
+                        if (instructions[i].OpCode == OpCode.Jump)
                         {
-                            // var result = instructions.Any(instruction => instruction.InstructionIndex == jumpTargetIndex);
-                            currentBlock.Dirty = true;
+                            if (TryGetTargetJumpInstructionIndex(instructions[i], out int jumpTargetIndex))
+                                currentBlock.Dirty = true;
+                            else
+                                AddDirectedEdge(currentBlock, exitBlock);
                         }
                         else
                         {
-                            AddDirectedEdge(currentBlock, exitBlock);
+                            AddDirectedEdge(currentBlock, newBlock);
+                            currentBlock.Dirty = true;
                         }
 
                         currentBlock.CaculateBlockType();
-                        currentBlock = newNodeFromJmp;
+                        currentBlock = newBlock;
                     }
                     else
                     {
                         AddDirectedEdge(currentBlock, exitBlock);
-                        currentBlock.Dirty = true;
+
+                        if (instructions[i].OpCode == OpCode.Jump)
+                            currentBlock.Dirty = true;
                     }
 
                     break;
-                case IsilFlowControl.MethodCall:
+
+                case OpCode.Call:
+                case OpCode.CallVoid:
+                case OpCode.Return:
+                case OpCode.ReturnVoid:
+                    var isReturn = instructions[i].OpCode == OpCode.Return || instructions[i].OpCode == OpCode.ReturnVoid;
+
                     currentBlock.AddInstruction(instructions[i]);
+
                     if (!isLast)
                     {
-                        var newNodeFromCall = new Block() { ID = idCounter++ };
-                        AddNode(newNodeFromCall);
-                        AddDirectedEdge(currentBlock, newNodeFromCall);
+                        newBlock = new Block() { ID = idCounter++ };
+                        AddBlock(newBlock);
+                        AddDirectedEdge(currentBlock, isReturn ? exitBlock : newBlock);
                         currentBlock.CaculateBlockType();
-                        currentBlock = newNodeFromCall;
+                        currentBlock = newBlock;
                     }
                     else
                     {
@@ -107,65 +153,17 @@ public class ISILControlFlowGraph
                     }
 
                     break;
-                case IsilFlowControl.Continue:
+
+                default:
                     currentBlock.AddInstruction(instructions[i]);
                     if (isLast)
                     {
-                        // TODO: Investiage
-                        /* This shouldn't happen, we've either smashed into another method or random data such as a jump table */
-                    }
-
-                    break;
-                case IsilFlowControl.MethodReturn:
-                    currentBlock.AddInstruction(instructions[i]);
-                    if (!isLast)
-                    {
-                        var newNodeFromReturn = new Block() { ID = idCounter++ };
-                        AddNode(newNodeFromReturn);
-                        AddDirectedEdge(currentBlock, exitBlock);
-                        currentBlock.CaculateBlockType();
-                        currentBlock = newNodeFromReturn;
-                    }
-                    else
-                    {
                         AddDirectedEdge(currentBlock, exitBlock);
                         currentBlock.CaculateBlockType();
                     }
-
                     break;
-                case IsilFlowControl.ConditionalJump:
-                    currentBlock.AddInstruction(instructions[i]);
-                    if (!isLast)
-                    {
-                        var newNodeFromConditionalBranch = new Block() { ID = idCounter++ };
-                        AddNode(newNodeFromConditionalBranch);
-                        AddDirectedEdge(currentBlock, newNodeFromConditionalBranch);
-                        currentBlock.CaculateBlockType();
-                        currentBlock.Dirty = true;
-                        currentBlock = newNodeFromConditionalBranch;
-                    }
-                    else
-                    {
-                        AddDirectedEdge(currentBlock, exitBlock);
-                    }
-
-                    break;
-                case IsilFlowControl.Interrupt:
-                    currentBlock.AddInstruction(instructions[i]);
-                    var newNodeFromInterrupt = new Block() { ID = idCounter++ };
-                    AddNode(newNodeFromInterrupt);
-                    AddDirectedEdge(currentBlock, exitBlock);
-                    currentBlock.CaculateBlockType();
-                    currentBlock = newNodeFromInterrupt;
-                    break;
-                case IsilFlowControl.IndexedJump:
-                    // This could be a part of either 2 things, a jmp to a jump table (switch statement) or a tail call to another function maybe? I dunno
-                    throw new NotImplementedException("Indirect branch not implemented currently");
-                default:
-                    throw new NotImplementedException($"{instructions[i]} {instructions[i].FlowControl}");
             }
         }
-
 
         for (var index = 0; index < blockSet.Count; index++)
         {
@@ -175,34 +173,26 @@ public class ISILControlFlowGraph
         }
     }
 
-    public void CalculateDominations()
-    {
-        foreach (var block in blockSet)
-        {
-            throw new NotImplementedException();
-        }
-    }
-
     private void FixBlock(Block block, bool removeJmp = false)
     {
         if (block.BlockType is BlockType.Fall)
             return;
 
-        var jump = block.isilInstructions.Last();
+        var jump = block.Instructions.Last();
 
-        var targetInstruction = jump.Operands[0].Data as InstructionSetIndependentInstruction;
+        var targetInstruction = jump.Operands[0] as Instruction;
 
-        var destination = FindNodeByInstruction(targetInstruction);
+        var destination = FindBlockByInstruction(targetInstruction);
 
         if (destination == null)
         {
             //We assume that we're tail calling another method somewhere. Need to verify if this breaks anywhere but it shouldn't in general
-            block.BlockType = BlockType.Call;
+            block.BlockType = BlockType.TailCall;
             return;
         }
 
 
-        int index = destination.isilInstructions.FindIndex(instruction => instruction == targetInstruction);
+        int index = destination.Instructions.FindIndex(instruction => instruction == targetInstruction);
 
         var targetNode = SplitAndCreate(destination, index);
 
@@ -210,10 +200,10 @@ public class ISILControlFlowGraph
         block.Dirty = false;
 
         if (removeJmp)
-            block.isilInstructions.Remove(jump);
+            block.Instructions.Remove(jump);
     }
 
-    protected Block? FindNodeByInstruction(InstructionSetIndependentInstruction? instruction)
+    protected Block? FindBlockByInstruction(Instruction? instruction)
     {
         if (instruction == null)
             return null;
@@ -221,9 +211,9 @@ public class ISILControlFlowGraph
         for (var i = 0; i < blockSet.Count; i++)
         {
             var block = blockSet[i];
-            for (var j = 0; j < block.isilInstructions.Count; j++)
+            for (var j = 0; j < block.Instructions.Count; j++)
             {
-                var instr = block.isilInstructions[j];
+                var instr = block.Instructions[j];
                 if (instr == instruction)
                 {
                     return block;
@@ -236,50 +226,50 @@ public class ISILControlFlowGraph
 
     private Block SplitAndCreate(Block target, int index)
     {
-        if (index < 0 || index >= target.isilInstructions.Count)
+        if (index < 0 || index >= target.Instructions.Count)
             throw new ArgumentOutOfRangeException(nameof(index));
 
         // Don't need to split...
         if (index == 0)
             return target;
 
-        var newNode = new Block() { ID = idCounter++ };
+        var newBlock = new Block() { ID = idCounter++ };
 
         // target split in two
         // targetFirstPart -> targetSecondPart aka newNode
 
         // Take the instructions for the secondPart
-        var instructions = target.isilInstructions.GetRange(index, target.isilInstructions.Count - index);
-        target.isilInstructions.RemoveRange(index, target.isilInstructions.Count - index);
+        var instructions = target.Instructions.GetRange(index, target.Instructions.Count - index);
+        target.Instructions.RemoveRange(index, target.Instructions.Count - index);
 
         // Add those to the newNode
-        newNode.isilInstructions.AddRange(instructions);
+        newBlock.Instructions.AddRange(instructions);
         // Transfer control flow
-        newNode.BlockType = target.BlockType;
+        newBlock.BlockType = target.BlockType;
         target.BlockType = BlockType.Fall;
 
         // Transfer successors
-        newNode.Successors = target.Successors;
+        newBlock.Successors = target.Successors;
         if (target.Dirty)
-            newNode.Dirty = true;
+            newBlock.Dirty = true;
         target.Dirty = false;
         target.Successors = [];
 
         // Correct the predecessors for all the successors
-        foreach (var successor in newNode.Successors)
+        foreach (var successor in newBlock.Successors)
         {
             for (int i = 0; i < successor.Predecessors.Count; i++)
             {
                 if (successor.Predecessors[i].ID == target.ID)
-                    successor.Predecessors[i] = newNode;
+                    successor.Predecessors[i] = newBlock;
             }
         }
 
         // Add newNode and connect it
-        AddNode(newNode);
-        AddDirectedEdge(target, newNode);
+        AddBlock(newBlock);
+        AddDirectedEdge(target, newBlock);
 
-        return newNode;
+        return newBlock;
     }
 
     private void AddDirectedEdge(Block from, Block to)
@@ -288,5 +278,5 @@ public class ISILControlFlowGraph
         to.Predecessors.Add(from);
     }
 
-    protected void AddNode(Block block) => blockSet.Add(block);
+    protected void AddBlock(Block block) => blockSet.Add(block);
 }

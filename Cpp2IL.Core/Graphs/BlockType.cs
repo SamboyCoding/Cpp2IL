@@ -6,6 +6,7 @@ public enum BlockType : byte
     TwoWay, // etc. Jumps conditionally to two blocks
     NWay, // switch statement nonsense I think
     Call, // Block finishes with call
+    TailCall, // Block finishes with tail call, clears stack, and returns
     Return, // Block finishes with return
 
     // we fall into next block, for example block A has
