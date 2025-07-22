@@ -33,7 +33,7 @@ public class Block
 
     public void AddInstruction(Instruction instruction) => Instructions.Add(instruction);
 
-    public void CaculateBlockType()
+    public void CalculateBlockType()
     {
         if (Instructions.Count <= 0)
             return;

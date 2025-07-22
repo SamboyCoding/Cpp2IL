@@ -217,7 +217,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     private static readonly List<IBlockProcessor> blockProcessors =
     [
         new MetadataProcessor(),
-        new CallProcessor()
+        new CallProcessor(),
+        new RemoveRedundantAssignmentsProcessor()
     ];
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)

@@ -164,6 +164,9 @@ public class ISILControlFlowGraph
             Blocks.Remove(removed);
             blockSet.Remove(removed);
         }
+
+        foreach (var block in blockSet)
+            block.CalculateBlockType();
     }
 
     public void Build(List<Instruction> instructions)
@@ -204,7 +207,7 @@ public class ISILControlFlowGraph
                             currentBlock.Dirty = true;
                         }
 
-                        currentBlock.CaculateBlockType();
+                        currentBlock.CalculateBlockType();
                         currentBlock = newBlock;
                     }
                     else
@@ -230,13 +233,13 @@ public class ISILControlFlowGraph
                         newBlock = new Block() { ID = idCounter++ };
                         AddBlock(newBlock);
                         AddDirectedEdge(currentBlock, isReturn ? exitBlock : newBlock);
-                        currentBlock.CaculateBlockType();
+                        currentBlock.CalculateBlockType();
                         currentBlock = newBlock;
                     }
                     else
                     {
                         AddDirectedEdge(currentBlock, exitBlock);
-                        currentBlock.CaculateBlockType();
+                        currentBlock.CalculateBlockType();
                     }
 
                     break;
@@ -246,7 +249,7 @@ public class ISILControlFlowGraph
                     if (isLast)
                     {
                         AddDirectedEdge(currentBlock, exitBlock);
-                        currentBlock.CaculateBlockType();
+                        currentBlock.CalculateBlockType();
                     }
                     break;
             }
@@ -290,7 +293,7 @@ public class ISILControlFlowGraph
             block.Instructions.Remove(jump);
     }
 
-    protected Block? FindBlockByInstruction(Instruction? instruction)
+    public Block? FindBlockByInstruction(Instruction? instruction)
     {
         if (instruction == null)
             return null;
