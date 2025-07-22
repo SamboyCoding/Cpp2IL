@@ -98,10 +98,8 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
         if (OpCode == OpCode.ConditionalJump && Operands[0] is ulong jumpTarget2)
             return $"{Index} {OpCode} {jumpTarget2:X4} {FormatOperand(Operands[1])}";
 
-        if (OpCode == OpCode.CallVoid && Operands[0] is ulong callTarget)
+        if ((OpCode is OpCode.CallVoid or OpCode.Call) && Operands[0] is ulong callTarget)
             return $"{Index} {OpCode} {callTarget:X4} {string.Join(", ", Operands.Skip(1).Select(FormatOperand))}";
-        if (OpCode == OpCode.Call && Operands[1] is ulong callTarget2)
-            return $"{Index} {OpCode} {FormatOperand(Operands[0])} {callTarget2:X4} {string.Join(", ", Operands.Skip(2).Select(FormatOperand))}";
 
         return $"{Index} {OpCode} {string.Join(", ", Operands.Select(FormatOperand))}";
     }

@@ -89,7 +89,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
             m.Name == ".ctor" && m.Parameters is [{ ParameterType.FullName: "System.String" }]);
     }
 
-    private static void WriteControlFlowGraph(MethodAnalysisContext method, string outputPath)
+    public static void WriteControlFlowGraph(MethodAnalysisContext method, string outputPath)
     {
         var graph = method.ControlFlowGraph;
 

@@ -79,6 +79,93 @@ public class ISILControlFlowGraph
         }
     }
 
+    public void RemoveNops()
+    {
+        // Build a map from old instructions to next non nop instruction
+        var instructionReplacement = new Dictionary<Instruction, Instruction>();
+        foreach (var block in Blocks)
+        {
+            Instruction? replacement = null;
+            for (var i = block.Instructions.Count - 1; i >= 0; i--)
+            {
+                var instr = block.Instructions[i];
+                if (instr.OpCode == OpCode.Nop)
+                {
+                    if (replacement != null)
+                        instructionReplacement[instr] = replacement;
+                }
+                else
+                {
+                    replacement = instr;
+                }
+            }
+        }
+
+        // Remove NOPs
+        foreach (var block in Blocks)
+        {
+            block.Instructions.RemoveAll(i => i.OpCode == OpCode.Nop);
+        }
+
+        // Fix all branch targets
+        foreach (var block in Blocks)
+        {
+            foreach (var instr in block.Instructions)
+            {
+                for (var i = 0; i < instr.Operands.Count; i++)
+                {
+                    if (instr.Operands[i] is Instruction target && instructionReplacement.TryGetValue(target, out var newTarget))
+                    {
+                        instr.Operands[i] = newTarget;
+                    }
+                }
+            }
+        }
+    }
+
+    public void MergeCallBlocks()
+    {
+        var toRemove = new List<Block>();
+
+        for (var i = 0; i < Blocks.Count; i++)
+        {
+            var block = Blocks[i];
+            if (block.BlockType != BlockType.Call) continue;
+
+            if (block.Successors.Count != 1)
+                continue;
+
+            var nextBlock = block.Successors[0];
+
+            // make sure that the next block only has one predecessor (this)
+            if (nextBlock.Predecessors.Count != 1 || nextBlock.Predecessors[0] != block)
+                continue;
+
+            // merge instructions
+            block.Instructions.AddRange(nextBlock.Instructions);
+            block.Successors = nextBlock.Successors;
+
+            // fix up successors predecessors
+            foreach (var successor in nextBlock.Successors)
+            {
+                for (int j = 0; j < successor.Predecessors.Count; j++)
+                {
+                    if (successor.Predecessors[j] == nextBlock)
+                        successor.Predecessors[j] = block;
+                }
+            }
+
+            toRemove.Add(nextBlock);
+        }
+
+        // Remove all merged blocks
+        foreach (var removed in toRemove)
+        {
+            Blocks.Remove(removed);
+            blockSet.Remove(removed);
+        }
+    }
+
     public void Build(List<Instruction> instructions)
     {
         if (instructions == null)

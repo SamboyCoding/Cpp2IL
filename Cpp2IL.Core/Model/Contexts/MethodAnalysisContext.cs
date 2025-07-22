@@ -295,8 +295,12 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
         ControlFlowGraph = new ISILControlFlowGraph();
         ControlFlowGraph.Build(ConvertedIsil);
+        // Indirect jumps should probably be resolved here
+        ControlFlowGraph.RemoveUnreachableBlocks();
 
         StackAnalyzer.Analyze(this);
+        ControlFlowGraph.MergeCallBlocks();
+        ControlFlowGraph.RemoveNops();
         DominatorInfo = DominatorInfo.Build(ControlFlowGraph);
 
         // Post step to convert metadata usage. Ldstr Opcodes etc.
