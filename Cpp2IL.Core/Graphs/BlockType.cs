@@ -8,16 +8,7 @@ public enum BlockType : byte
     Call, // Block finishes with call
     TailCall, // Block finishes with tail call, clears stack, and returns
     Return, // Block finishes with return
-
-    // we fall into next block, for example block A has
-    // mov reg1, reg2
-    // mov reg2, reg3
-    //
-    // block b has 
-    // mov reg3, reg4
-    // mov reg2, reg4
-    // and another block finishes with a jump to start instruction of block b meaning block a falls into b (bad explanation)
-    Fall,
+    Fall, // Falls to the next block, like if the block has more than one predecessor and this is one of those
 
     // Block type is not known yet
     Unknown,

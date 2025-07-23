@@ -7,6 +7,7 @@ using AsmResolver.DotNet;
 using AsmResolver.PE.DotNet.Cil;
 using AssetRipper.CIL;
 using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
@@ -99,8 +100,12 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
         sb.AppendLine("digraph ControlFlowGraph {");
         sb.AppendLine("    \"label\"=\"Control flow graph\"");
 
-        if (graph == null) // no instructions
-            graph = new Graphs.ISILControlFlowGraph();
+        // no instructions
+        graph ??= new ISILControlFlowGraph([]);
+
+        var methodText = $@"{CsFileUtils.GetKeyWordsForMethod(method)} {method.FullNameWithSignature}
+parameter locals: {string.Join(", ", method.ParameterLocals)}
+parameter operands: {string.Join(", ", method.ParameterOperands)}";
 
         foreach (var block in graph.Blocks)
         {
@@ -110,7 +115,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
                 sb.AppendLine($"""
                                	{block.ID} [
                                		"color"="{(isEntry ? "green" : "red")}"
-                               		"label"="{(isEntry ? "Entry" : "Exit")} ({block.ID})"
+                               		"label"="{(isEntry ? $"Entry ({block.ID})\n{methodText}" : $"Exit ({block.ID})")}"
                                	]
                                """);
             }

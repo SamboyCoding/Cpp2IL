@@ -4,7 +4,7 @@ using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class LocalVariable(string name, Register register, TypeAnalysisContext? type) : IEquatable<LocalVariable>
+public class LocalVariable(string name, Register register, TypeAnalysisContext? type = null)
 {
     public string Name = name;
     public Register Register = register;
@@ -15,6 +15,7 @@ public class LocalVariable(string name, Register register, TypeAnalysisContext? 
     public TypeAnalysisContext? Type = type;
 
     public bool IsThis = false;
+    public bool IsReturn = false;
 
     public override string ToString()
     {
@@ -22,33 +23,7 @@ public class LocalVariable(string name, Register register, TypeAnalysisContext? 
         sb.Append(Name);
         if (Type != null)
             sb.Append($" ({Type.Name})");
+        sb.Append($" ({Register})");
         return sb.ToString();
-    }
-
-    public static bool operator ==(LocalVariable left, LocalVariable right)
-    {
-        return left.Equals(right);
-    }
-
-    public static bool operator !=(LocalVariable left, LocalVariable right)
-    {
-        return !(left == right);
-    }
-
-    public override bool Equals(object? obj)
-    {
-        if (obj is not LocalVariable local)
-            return false;
-        return Equals(local);
-    }
-
-    public bool Equals(LocalVariable other)
-    {
-        return Name == other.Name;
-    }
-
-    public override int GetHashCode()
-    {
-        return HashCode.Combine(Name);
     }
 }

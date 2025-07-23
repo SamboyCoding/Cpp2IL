@@ -100,10 +100,10 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
         if (OpCode == OpCode.Jump && Operands[0] is ulong jumpTarget)
             return $"{Index} {OpCode} {jumpTarget:X4}";
         if (OpCode == OpCode.ConditionalJump && Operands[0] is ulong jumpTarget2)
-            return $"{Index} {OpCode} {jumpTarget2:X4} {FormatOperand(Operands[1])}";
+            return $"{Index} {OpCode} {jumpTarget2:X4}, {FormatOperand(Operands[1])}";
 
         if ((OpCode is OpCode.CallVoid or OpCode.Call) && Operands[0] is ulong callTarget)
-            return $"{Index} {OpCode} {callTarget:X4} {string.Join(", ", Operands.Skip(1).Select(FormatOperand))}";
+            return $"{Index} {OpCode} {callTarget:X4}, {string.Join(", ", Operands.Skip(1).Select(FormatOperand))}";
 
         return $"{Index} {OpCode} {string.Join(", ", Operands.Select(FormatOperand))}";
     }

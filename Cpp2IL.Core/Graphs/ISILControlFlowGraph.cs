@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -13,19 +12,40 @@ public class ISILControlFlowGraph
     public int Count => Blocks.Count;
     public List<Block> Blocks;
 
+    public List<Instruction> Instructions
+    {
+        get
+        {
+            var instructions = new List<Instruction>();
+            foreach (var block in Blocks)
+                instructions.AddRange(block.Instructions);
+            return instructions.OrderBy(i => i.Index).ToList();
+        }
+    }
+
     private int idCounter;
 
-    public ISILControlFlowGraph()
+    public ISILControlFlowGraph(List<Instruction> instructions)
     {
-        EntryBlock = new Block() { ID = idCounter++ };
-        EntryBlock.BlockType = BlockType.Entry;
-        ExitBlock = new Block() { ID = idCounter++ };
-        ExitBlock.BlockType = BlockType.Exit;
+        EntryBlock = new Block
+        {
+            ID = idCounter++,
+            BlockType = BlockType.Entry
+        };
+
+        ExitBlock = new Block
+        {
+            ID = idCounter++,
+            BlockType = BlockType.Exit
+        };
+
         Blocks =
         [
             EntryBlock,
             ExitBlock
         ];
+
+        Build(instructions);
     }
 
     private bool TryGetTargetJumpInstructionIndex(Instruction instruction, out int jumpInstructionIndex)
@@ -46,32 +66,40 @@ public class ISILControlFlowGraph
 
     public void RemoveUnreachableBlocks()
     {
-        // Get reachable blocks
-        var reachable = new HashSet<Block>();
-        var worklist = new Queue<Block>();
-        worklist.Enqueue(EntryBlock);
+        if (Blocks.Count == 0)
+            return;
 
-        while (worklist.Count > 0)
+        // Get blocks reachable from entry
+        var reachable = new List<Block>();
+        var visited = new List<Block> { EntryBlock };
+        reachable.Add(EntryBlock);
+
+        var total = 0;
+        while (total < reachable.Count)
         {
-            var block = worklist.Dequeue();
+            var block = reachable[total];
+            total++;
 
-            if (!reachable.Add(block))
-                continue;
-
-            foreach (var succ in block.Successors)
-                worklist.Enqueue(succ);
+            foreach (var successor in block.Successors)
+            {
+                if (visited.Contains(successor))
+                    continue;
+                visited.Add(successor);
+                reachable.Add(successor);
+            }
         }
 
-        // Remove unreachable blocks
-        var toRemove = Blocks.Where(b => !reachable.Contains(b)).ToList();
-        foreach (var block in toRemove)
+        // Get unreachable blocks
+        var unreachable = Blocks.Where(block => !visited.Remove(block)).ToList();
+
+        // Remove those
+        foreach (var block in unreachable)
         {
-            foreach (var pred in block.Predecessors)
-                pred.Successors.Remove(block);
+            // Don't remove entry or exit
+            if (block == EntryBlock || block == ExitBlock)
+                continue;
 
-            foreach (var succ in block.Successors)
-                succ.Predecessors.Remove(block);
-
+            block.Successors.Clear();
             Blocks.Remove(block);
         }
     }
@@ -220,7 +248,7 @@ public class ISILControlFlowGraph
             // fix up successors predecessors
             foreach (var successor in nextBlock.Successors)
             {
-                for (int j = 0; j < successor.Predecessors.Count; j++)
+                for (var j = 0; j < successor.Predecessors.Count; j++)
                 {
                     if (successor.Predecessors[j] == nextBlock)
                         successor.Predecessors[j] = block;
@@ -232,16 +260,13 @@ public class ISILControlFlowGraph
 
         // Remove all merged blocks
         foreach (var removed in toRemove)
-        {
             Blocks.Remove(removed);
-            Blocks.Remove(removed);
-        }
 
         foreach (var block in Blocks)
             block.CalculateBlockType();
     }
 
-    public void Build(List<Instruction> instructions)
+    private void Build(List<Instruction> instructions)
     {
         if (instructions == null)
             throw new ArgumentNullException(nameof(instructions));
@@ -332,6 +357,20 @@ public class ISILControlFlowGraph
             var node = Blocks[index];
             if (node.Dirty)
                 FixBlock(node);
+        }
+
+        // Connect blocks without successors to exit
+        foreach (var block in Blocks)
+        {
+            if (block.Successors.Count == 0 && block != EntryBlock && block != ExitBlock)
+                AddDirectedEdge(block, ExitBlock);
+        }
+
+        // Change branch targets to blocks
+        foreach (var instruction in Blocks.SelectMany(block => block.Instructions))
+        {
+            if (instruction.Operands.Count > 0 && instruction.Operands[0] is Instruction target)
+                instruction.Operands[0] = FindBlockByInstruction(target)!;
         }
     }
 

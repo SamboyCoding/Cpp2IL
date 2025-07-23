@@ -3,8 +3,8 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
+using Cpp2IL.Core.Actions;
 using Cpp2IL.Core.Graphs;
-using Cpp2IL.Core.Graphs.Processors;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
@@ -73,6 +73,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     private const int MaxMethodSizeBytes = 256000; // 256KB
 
     public List<ParameterAnalysisContext> Parameters = [];
+
+    public List<LocalVariable> ParameterLocals = [];
 
     /// <summary>
     /// Does this method return void?
@@ -224,11 +226,16 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         }
     }
 
-    private static readonly List<IBlockProcessor> blockProcessors =
+    private static readonly List<IAction> analysisActions =
     [
-        new MetadataProcessor(),
-        new CallProcessor(),
-        new RemoveRedundantAssignmentsProcessor()
+        // Indirect jumps should probably be resolved here before stack analysis
+        new StackAnalyzer() { MaxBlockVisitCount = 5000 },
+        new BuildSsaForm(),
+        new CreateLocals(),
+        new ResolveCalls(),
+        new ApplyMetadata(),
+        new RemoveSsaForm(),
+        new Inlining()
     ];
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
@@ -305,38 +312,21 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         if (ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
 
-        ControlFlowGraph = new ISILControlFlowGraph();
-        ControlFlowGraph.Build(ConvertedIsil);
-        // Indirect jumps should probably be resolved here
-        ControlFlowGraph.RemoveUnreachableBlocks();
-        ControlFlowGraph.RemoveNops();
-        StackAnalyzer.Analyze(this);
-        ControlFlowGraph.MergeCallBlocks();
-        DominatorInfo = DominatorInfo.Build(ControlFlowGraph);
-        ControlFlowGraph.BuildUseDefLists();
-        var ssa = new BuildSsaForm();
-        ssa.Build(this);
+        ControlFlowGraph = new ISILControlFlowGraph(ConvertedIsil);
+        DominatorInfo = new DominatorInfo(ControlFlowGraph);
 
-        // Post step to convert metadata usage. Ldstr Opcodes etc.
-        foreach (var block in ControlFlowGraph.Blocks)
-        {
-            foreach (var converter in blockProcessors)
-            {
-                converter.Process(this, block);
-            }
-        }
-
-        ssa.RemoveSsaForm(this);
-
-        var rra = new RemoveRedundantAssignmentsProcessor();
-        foreach (var block in ControlFlowGraph.Blocks)
-            rra.Process(this, block);
+        foreach (var action in analysisActions)
+            action.Apply(this);
     }
+
+    public void AddWarning(string warning) => AnalysisWarnings.Add($"warning: {warning}");
+    public void AddError(string error) => AnalysisWarnings.Add($"error: {error}");
 
     public void ReleaseAnalysisData()
     {
         ConvertedIsil = null;
         ControlFlowGraph = null;
+        DominatorInfo = null;
     }
 
     public ConcreteGenericMethodAnalysisContext MakeGenericInstanceMethod(params IEnumerable<TypeAnalysisContext> methodGenericParameters)

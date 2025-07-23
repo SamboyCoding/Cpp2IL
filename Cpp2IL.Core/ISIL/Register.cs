@@ -14,9 +14,14 @@ public struct Register : IEquatable<Register>
             Name = name!;
             Number = name!.GetHashCode();
         }
-        else
+        else if (name == null)
         {
             Name = "reg" + number;
+            Number = (int)number;
+        }
+        else
+        {
+            Name = name;
             Number = (int)number;
         }
 

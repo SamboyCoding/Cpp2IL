@@ -40,8 +40,7 @@ public class BasicGraph
             instruction.Operands[0] = instructions[(int)instruction.Operands[0]];
         }
 
-        graph = new();
-        graph.Build(instructions);
+        graph = new ISILControlFlowGraph(instructions);
     }
 
     [Test]

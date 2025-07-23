@@ -4,13 +4,13 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 
-namespace Cpp2IL.Core.Graphs.Processors;
+namespace Cpp2IL.Core.Actions;
 
-internal class MetadataProcessor : IBlockProcessor
+public class ApplyMetadata : IAction
 {
-    public void Process(MethodAnalysisContext methodAnalysisContext, Block block)
+    public void Apply(MethodAnalysisContext method)
     {
-        foreach (var instruction in block.Instructions)
+        foreach (var instruction in method.ControlFlowGraph!.Blocks.SelectMany(b => b.Instructions))
         {
             // TODO: Check if it shows up in any other
             if (instruction.OpCode != OpCode.Move)
@@ -31,9 +31,9 @@ internal class MetadataProcessor : IBlockProcessor
                 {
                     // Try instead check if its type metadata usage
                     var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
-                    if (metadataUsage != null && methodAnalysisContext.DeclaringType is not null)
+                    if (metadataUsage != null && method.DeclaringType is not null)
                     {
-                        var typeAnalysisContext = metadataUsage.ToContext(methodAnalysisContext.DeclaringType!.DeclaringAssembly);
+                        var typeAnalysisContext = metadataUsage.ToContext(method.DeclaringType!.DeclaringAssembly);
                         if (typeAnalysisContext != null)
                             instruction.Operands[1] = typeAnalysisContext;
                     }

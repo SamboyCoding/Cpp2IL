@@ -1,18 +1,13 @@
-﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.IO;
 using System.Linq;
-using System.Text;
-using Cpp2IL.Core.Extensions;
+using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
 
-namespace Cpp2IL.Core.Graphs;
+namespace Cpp2IL.Core.Actions;
 
-public class StackAnalyzer
+public class StackAnalyzer : IAction
 {
     [DebuggerDisplay("Size = {Size}")]
     private class StackState
@@ -25,31 +20,34 @@ public class StackAnalyzer
     private Dictionary<Block, StackState> _outGoingState = [];
     private Dictionary<Instruction, StackState> _instructionState = [];
 
-    private const int MaxBlockVisitCount = 5000;
+    /// <summary>
+    /// Max allowed count of blocks to visit (-1 for no limit).
+    /// </summary>
+    public int MaxBlockVisitCount = -1;
 
-    private StackAnalyzer()
+    public void Apply(MethodAnalysisContext method)
     {
-    }
+        var graph = method.ControlFlowGraph!;
 
-    public static void Analyze(MethodAnalysisContext method)
-    {
-        var analyzer = new StackAnalyzer();
+        _inComingState = new Dictionary<Block, StackState> { { graph.EntryBlock, new StackState() } };
+        _outGoingState.Clear();
+        _instructionState.Clear();
 
-        var graph = method.ControlFlowGraph;
+        TraverseGraph(graph.EntryBlock);
 
-        analyzer._inComingState = new Dictionary<Block, StackState> { { graph!.EntryBlock, new StackState() } };
-        analyzer.TraverseGraph(graph.EntryBlock);
-
-        var outDelta = analyzer._outGoingState[graph.ExitBlock];
+        var outDelta = _outGoingState[graph.ExitBlock];
         if (outDelta.Size != 0)
         {
             var outText = outDelta.Size < 0 ? "-" + (-outDelta.Size).ToString("X") : outDelta.Size.ToString("X");
-            method.AnalysisWarnings.Add($"warning: method ends with non empty stack: {outText}");
-            Logger.Warn($"Method {method.FullName} ends with non empty stack: {outText}", "StackAnalyzer");
+            method.AddWarning($"Method ends with non empty stack ({outText}), the output could be wrong!");
         }
 
-        analyzer.CorrectOffsets(graph);
+        CorrectOffsets(graph);
         ReplaceStackWithRegisters(method);
+
+        graph.MergeCallBlocks();
+        graph.RemoveNops();
+        graph.RemoveEmptyBlocks();
     }
 
     private void CorrectOffsets(ISILControlFlowGraph graph)
@@ -65,14 +63,13 @@ public class StackAnalyzer
                     instruction.Operands = [];
                 }
 
-                // Correct offset for stack operands
+                // Correct offset for stack operands.
                 for (var i = 0; i < instruction.Operands.Count; i++)
                 {
                     var op = instruction.Operands[i];
 
                     if (op is StackOffset offset)
                     {
-                        // TODO: sometimes try catch causes something weird, probably indirect jump somewhere, so some instructions are in cfg but not in _instructionState
                         var state = _instructionState[instruction].Size;
                         var actual = state + offset.Offset;
                         instruction.Operands[i] = new StackOffset(actual);
@@ -90,10 +87,8 @@ public class StackAnalyzer
         var currentState = incomingState.Copy();
 
         // Process instructions
-        for (var i = 0; i < block.Instructions.Count; i++)
+        foreach (var instruction in block.Instructions)
         {
-            var instruction = block.Instructions[i];
-
             _instructionState[instruction] = currentState;
 
             if (instruction.OpCode == OpCode.ShiftStack)
@@ -102,7 +97,7 @@ public class StackAnalyzer
                 currentState = currentState.Copy();
                 currentState.Size += offset;
             }
-            else if (i == block.Instructions.Count - 1 && block.BlockType == BlockType.TailCall)
+            else if (block.Instructions[block.Instructions.Count - 1] == instruction && block.BlockType == BlockType.TailCall)
             {
                 // Tail calls clear stack
                 currentState = currentState.Copy();
@@ -119,7 +114,7 @@ public class StackAnalyzer
         visitedBlockCount++;
 
         if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-            throw new Exception($"Stack state not settling ({MaxBlockVisitCount} blocks already visited)");
+            throw new DecompilerException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
 
         // Visit successors
         foreach (var successor in block.Successors)
@@ -144,35 +139,32 @@ public class StackAnalyzer
 
     private static void ReplaceStackWithRegisters(MethodAnalysisContext method)
     {
-        // Get all offsets without duplicates
-        var offsets = new List<int>();
-        foreach (var operand in method.ConvertedIsil!.SelectMany(instruction => instruction.Operands))
-        {
-            if (operand is StackOffset offset)
-            {
-                if (!offsets.Contains(offset.Offset))
-                    offsets.Add(offset.Offset);
-            }
-        }
-
-        // Map offsets to registers
-        var offsetToRegister = new Dictionary<int, string>();
-        foreach (var offset in offsets)
-        {
-            var name = offset < 0 ? $"stack_-{-offset:X}" : $"stack_{offset:X}";
-            offsetToRegister.Add(offset, name);
-        }
+        var instructions = method.ControlFlowGraph!.Blocks.SelectMany(b => b.Instructions);
 
         // Replace stack offset operands
-        foreach (var instruction in method.ConvertedIsil!)
+        foreach (var instruction in instructions)
         {
             for (var i = 0; i < instruction.Operands.Count; i++)
             {
                 var operand = instruction.Operands[i];
 
                 if (operand is StackOffset offset)
-                    instruction.Operands[i] =
-                        new Register(null, offsetToRegister[offset.Offset]);
+                {
+                    var name = offset.Offset < 0 ? $"stack_-{-offset.Offset:X}" : $"stack_{offset.Offset:X}";
+                    instruction.Operands[i] = new Register(null, name);
+                }
+            }
+        }
+
+        // Replace params
+        for (var i = 0; i < method.ParameterOperands.Count; i++)
+        {
+            var parameter = method.ParameterOperands[i];
+
+            if (parameter is StackOffset offset)
+            {
+                var name = offset.Offset < 0 ? $"stack_-{-offset.Offset:X}" : $"stack_{offset.Offset:X}";
+                method.ParameterOperands[i] = new Register(null, name);
             }
         }
     }

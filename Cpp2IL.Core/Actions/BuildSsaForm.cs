@@ -1,29 +1,30 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 
-namespace Cpp2IL.Core.Graphs;
+namespace Cpp2IL.Core.Actions;
 
-public class BuildSsaForm // Can't be static because of parallel stuff
+public class BuildSsaForm : IAction
 {
     private Dictionary<int, Stack<Register>> _versions = new();
     private Dictionary<int, int> _versionCount = new();
     private Dictionary<Block, Dictionary<int, Register>> _blockOutVersions = new();
 
-    public void Build(MethodAnalysisContext method)
+    public void Apply(MethodAnalysisContext method)
     {
+        method.ControlFlowGraph!.BuildUseDefLists();
+
         _versions.Clear();
         _versionCount.Clear();
         _blockOutVersions.Clear();
 
         var graph = method.ControlFlowGraph!;
-        var dominance = method.DominatorInfo!;
+        var dominatorInfo = method.DominatorInfo!;
 
-        ProcessBlock(graph.EntryBlock, dominance.DominanceTree);
-        InsertAllPhiFunctions(graph, dominance, method.ParameterOperands);
-        CreateLocals(method);
+        ProcessBlock(graph.EntryBlock, dominatorInfo.DominanceTree);
+        InsertAllPhiFunctions(graph, dominatorInfo, method.ParameterOperands);
     }
 
     private void InsertAllPhiFunctions(ISILControlFlowGraph graph, DominatorInfo dominance, List<object> parameters)
@@ -173,7 +174,7 @@ public class BuildSsaForm // Can't be static because of parallel stuff
         if (!_versionCount.ContainsKey(old.Number))
         {
             // Params are version 0
-            _versionCount.Add(old.Number, 1);
+            _versionCount.Add(old.Number, 0);
             _versions.Add(old.Number, new Stack<Register>());
             _versions[old.Number].Push(old.Copy(0));
         }
@@ -247,189 +248,5 @@ public class BuildSsaForm // Can't be static because of parallel stuff
             var register = (Register)instruction.Destination!;
             _versions.FirstOrDefault(kv => kv.Key == register.Number).Value.Pop();
         }
-    }
-
-    public void CreateLocals(MethodAnalysisContext method)
-    {
-        var instructions = method.ControlFlowGraph!.Blocks.SelectMany(b => b.Instructions).ToList();
-
-        // Get all registers
-        var registers = new List<Register>();
-        foreach (var instruction in instructions)
-            registers.AddRange(GetRegisters(instruction));
-
-        // Remove duplicates
-        registers = registers.Distinct().ToList();
-
-        // Map those to locals
-        var locals = new Dictionary<Register, LocalVariable>();
-        for (var i = 0; i < registers.Count; i++)
-        {
-            var register = registers[i];
-            locals.Add(register, new LocalVariable($"v{i}", register, null));
-        }
-
-        // Replace registers with locals
-        foreach (var instruction in instructions)
-        {
-            for (var i = 0; i < instruction.Operands.Count; i++)
-            {
-                var operand = instruction.Operands[i];
-
-                if (operand is Register register)
-                    instruction.Operands[i] = locals[register];
-
-                if (operand is MemoryOperand memory)
-                {
-                    if (memory.Base != null)
-                    {
-                        var baseRegister = (Register)memory.Base;
-                        memory.Base = locals[baseRegister];
-                    }
-
-                    if (memory.Index != null)
-                    {
-                        var index = (Register)memory.Index;
-                        memory.Index = locals[index];
-                    }
-
-                    instruction.Operands[i] = memory;
-                }
-            }
-        }
-
-        method.Locals = locals.Select(kv => kv.Value).ToList();
-
-        // Return local names
-        for (var i = 0; i < instructions.Count; i++)
-        {
-            var instruction = instructions[i];
-            if (instruction.OpCode != OpCode.Return) continue;
-
-            var returnLocal = (LocalVariable)instruction.Sources[0];
-
-            returnLocal.Name = $"returnVal{i}";
-        }
-
-        // Add parameter names
-        var paramLocals = new List<LocalVariable>();
-
-        foreach (var local in method.Locals)
-        {
-            // Get param index of the local
-            var paramIndex = method.ParameterOperands.FindIndex(p => p is Register r && r.Number == local.Register.Number && local.Register.Version == -1);
-            if (paramIndex == -1) continue;
-
-            // this param
-            if (paramIndex == 0 && !method.Definition!.IsStatic)
-            {
-                local.Name = "this";
-                paramLocals.Add(local);
-                local.IsThis = true;
-            }
-            else
-            {
-                // Set the name
-                var index = paramIndex + (method.Definition!.IsStatic ? 0 : 1); // +1 to skip 'this' param
-
-                if ((index > method.Definition.Parameters!.Length - 1) || index == -1)
-                    continue;
-
-                local.Name = method.Definition.Parameters[index].ParameterName;
-                paramLocals.Add(local);
-            }
-        }
-
-        method.ParameterOperands = paramLocals.Cast<object>().ToList();
-    }
-
-    private static List<Register> GetRegisters(Instruction instruction)
-    {
-        var registers = new List<Register>();
-
-        foreach (var operand in instruction.Operands)
-        {
-            if (operand is Register register)
-            {
-                if (!registers.Contains(register))
-                    registers.Add(register);
-            }
-
-            if (operand is MemoryOperand memory)
-            {
-                if (memory.Base != null)
-                {
-                    var baseRegister = (Register)memory.Base;
-                    if (!registers.Contains(baseRegister))
-                        registers.Add(baseRegister);
-                }
-
-                if (memory.Index != null)
-                {
-                    var index = (Register)memory.Index;
-                    if (!registers.Contains(index))
-                        registers.Add(index);
-                }
-            }
-        }
-
-        return registers;
-    }
-
-    public void RemoveSsaForm(MethodAnalysisContext method)
-    {
-        foreach (var block in method.ControlFlowGraph!.Blocks)
-        {
-            // Get all phis
-            var phiInstructions = block.Instructions
-                .Where(i => i.OpCode == OpCode.Phi)
-                .ToList();
-
-            if (phiInstructions.Count == 0) continue;
-
-            foreach (var predecessor in block.Predecessors)
-            {
-                if (predecessor.Instructions.Count == 0)
-                    continue;
-
-                predecessor.Instructions.RemoveAt(0);
-                var moves = new List<Instruction>();
-
-                foreach (var phi in phiInstructions)
-                {
-                    var result = (LocalVariable)phi.Operands[0]!;
-                    var sources = phi.Operands.Skip(1).Cast<LocalVariable>().ToList();
-
-                    var predIndex = block.Predecessors.IndexOf(predecessor);
-
-                    if (predIndex < 0 || predIndex >= sources.Count)
-                        continue;
-
-                    var source = sources[predIndex];
-
-                    // Add move for it
-                    moves.Add(new Instruction(-1, OpCode.Move, result, source));
-                }
-
-                // Add all of those moves
-                if (predecessor.Instructions.Count == 0)
-                    predecessor.Instructions = moves;
-                else
-                    predecessor.Instructions.InsertRange(predecessor.Instructions.Count - (predecessor.Instructions.Count == 1 ? 1 : 2), moves);
-            }
-
-            // Remove all phis
-            foreach (var instruction in block.Instructions)
-            {
-                if (instruction.OpCode == OpCode.Phi)
-                {
-                    instruction.OpCode = OpCode.Nop;
-                    instruction.Operands = [];
-                }
-            }
-        }
-
-        method.ControlFlowGraph.RemoveNops();
-        method.ControlFlowGraph.RemoveEmptyBlocks();
     }
 }

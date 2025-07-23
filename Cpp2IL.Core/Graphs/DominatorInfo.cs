@@ -11,16 +11,14 @@ public class DominatorInfo
     public Dictionary<Block, HashSet<Block>> PostDominators = new();
     public Dictionary<Block, HashSet<Block>> Dominators = new();
 
-    public static DominatorInfo Build(ISILControlFlowGraph graph)
+    public DominatorInfo(ISILControlFlowGraph graph)
     {
-        var dominatorInfo = new DominatorInfo();
-        dominatorInfo.CalculateDominators(graph);
-        dominatorInfo.CalculatePostDominators(graph);
-        dominatorInfo.CalculateImmediateDominators(graph);
-        dominatorInfo.CalculateImmediatePostDominators(graph);
-        dominatorInfo.CalculateDominanceFrontiers(graph);
-        dominatorInfo.BuildDominanceTree();
-        return dominatorInfo;
+        CalculateDominators(graph);
+        CalculatePostDominators(graph);
+        CalculateImmediateDominators(graph);
+        CalculateImmediatePostDominators(graph);
+        CalculateDominanceFrontiers(graph);
+        BuildDominanceTree();
     }
 
     public bool Dominates(Block a, Block b)
@@ -113,7 +111,7 @@ public class DominatorInfo
                     continue;
 
                 var tempPostDoms = block.Successors.Count == 0
-                    ? new HashSet<Block> { block }
+                    ? new HashSet<Block>()
                     : new HashSet<Block>(PostDominators[block.Successors[0]]);
 
                 for (var i = 1; i < block.Successors.Count; i++)
