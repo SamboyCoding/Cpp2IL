@@ -412,7 +412,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                 var target = instruction.NearBranchTarget;
 
-                if (instruction.Op0Kind == OpKind.Register)
+                if (instruction.Op0Kind == OpKind.Register || instruction.Op0Kind == OpKind.Memory)
                 {
                     Add(instruction.IP, ISIL.OpCode.IndirectCallVoid, ConvertOperand(instruction, 0));
                 }
