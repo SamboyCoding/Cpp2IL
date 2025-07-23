@@ -1,0 +1,435 @@
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Model.Contexts;
+
+namespace Cpp2IL.Core.Graphs;
+
+public class BuildSsaForm // Can't be static because of parallel stuff
+{
+    private Dictionary<int, Stack<Register>> _versions = new();
+    private Dictionary<int, int> _versionCount = new();
+    private Dictionary<Block, Dictionary<int, Register>> _blockOutVersions = new();
+
+    public void Build(MethodAnalysisContext method)
+    {
+        _versions.Clear();
+        _versionCount.Clear();
+        _blockOutVersions.Clear();
+
+        var graph = method.ControlFlowGraph!;
+        var dominance = method.DominatorInfo!;
+
+        ProcessBlock(graph.EntryBlock, dominance.DominanceTree);
+        InsertAllPhiFunctions(graph, dominance, method.ParameterOperands);
+        CreateLocals(method);
+    }
+
+    private void InsertAllPhiFunctions(ISILControlFlowGraph graph, DominatorInfo dominance, List<object> parameters)
+    {
+        // Check where registers are defined
+        var defSites = GetDefinitionSites(graph);
+
+        // For each register
+        foreach (var entry in defSites)
+        {
+            var regNumber = entry.Key;
+
+            var workList = new Queue<Block>(entry.Value);
+            var phiInserted = new HashSet<Block>();
+
+            while (workList.Count > 0)
+            {
+                var block = workList.Dequeue();
+
+                // For each dominance frontier block of the current block
+                if (!dominance.DominanceFrontier.TryGetValue(block, out var dfBlocks))
+                    continue;
+
+                foreach (var dfBlock in dfBlocks)
+                {
+                    // Already visited
+                    if (phiInserted.Contains(dfBlock)) continue;
+
+                    // For each predecessor, get it's last register version
+                    var sources = new List<Register>();
+                    foreach (var pred in dfBlock.Predecessors)
+                    {
+                        if (_blockOutVersions.TryGetValue(pred, out var mapping)
+                            && mapping.TryGetValue(regNumber, out var versionedReg))
+                        {
+                            sources.Add(versionedReg);
+                        }
+                        else
+                        {
+                            // It's not in predecessors so it's probably a parameter
+                            var param = parameters.OfType<Register>().FirstOrDefault(p => p.Number == regNumber);
+                            sources.Add(param);
+                        }
+                    }
+
+                    // Insert phi into the frontier block
+                    InsertPhiFunction(sources, dfBlock);
+                    phiInserted.Add(dfBlock);
+
+                    // If dfBlock doesn't define this register, add it to queue
+                    var defines = dfBlock.Def.Any(operand => operand is Register r && r.Number == regNumber);
+                    if (!defines)
+                        workList.Enqueue(dfBlock);
+                }
+            }
+        }
+    }
+
+    private static Dictionary<int, HashSet<Block>> GetDefinitionSites(ISILControlFlowGraph graph)
+    {
+        // Check what registers are defined and where
+        var defSites = new Dictionary<int, HashSet<Block>>();
+
+        foreach (var block in graph.Blocks)
+        {
+            for (var i = 0; i < block.Def.Count; i++)
+            {
+                var operand = block.Def[i];
+
+                if (operand is Register register)
+                {
+                    if (!defSites.ContainsKey(register.Number))
+                        defSites[register.Number] = [];
+                    defSites[register.Number].Add(block);
+                }
+            }
+        }
+
+        return defSites;
+    }
+
+    private void InsertPhiFunction(List<Register> sources, Block block)
+    {
+        // Create phi dest, src1, src2, etc.
+        var destination = GetNewVersion(sources[0]);
+        var phi = new Instruction(-1, OpCode.Phi, destination);
+
+        foreach (var source in sources.Distinct())
+            phi.Operands.Add(source);
+
+        // Add it
+        block.Instructions.Insert(0, phi);
+        // Replace uses
+        ReplaceRegistersUntilReassignment(block, 1, destination);
+    }
+
+    private static void ReplaceRegistersUntilReassignment(Block block, int startIndex, Register register)
+    {
+        for (var i = startIndex; i < block.Instructions.Count; i++)
+        {
+            var instruction = block.Instructions[i];
+
+            // Reassignment?
+            if (instruction.Destination is Register destination)
+            {
+                if (destination.Number == register.Number)
+                    return;
+            }
+
+            // Replace it
+            for (var j = 0; j < instruction.Operands.Count; j++)
+            {
+                var operand = instruction.Operands[j];
+
+                if (operand is Register register2)
+                {
+                    if (register2.Number == register.Number)
+                        instruction.Operands[j] = register;
+                }
+
+                if (operand is MemoryOperand memory)
+                {
+                    if (memory.Base != null)
+                    {
+                        var baseRegister = (Register)memory.Base;
+
+                        if (baseRegister.Number == register.Number)
+                            memory.Base = register;
+                    }
+
+                    if (memory.Index != null)
+                    {
+                        var index = (Register)memory.Index;
+
+                        if (index.Number == register.Number)
+                            memory.Index = register;
+                    }
+
+                    instruction.Operands[j] = memory;
+                }
+            }
+        }
+    }
+
+    private Register GetNewVersion(Register old)
+    {
+        if (!_versionCount.ContainsKey(old.Number))
+        {
+            // Params are version 0
+            _versionCount.Add(old.Number, 1);
+            _versions.Add(old.Number, new Stack<Register>());
+            _versions[old.Number].Push(old.Copy(0));
+        }
+
+        _versionCount[old.Number]++;
+        var newRegister = old.Copy(_versionCount[old.Number]);
+        _versions[old.Number].Push(newRegister);
+        return newRegister;
+    }
+
+    private void ProcessBlock(Block block, Dictionary<Block, List<Block>> dominanceTree)
+    {
+        foreach (var instruction in block.Instructions)
+        {
+            // Replace registers with SSA versions
+            for (var i = 0; i < instruction.Operands.Count; i++)
+            {
+                if (instruction.Operands[i] is Register register)
+                {
+                    if (_versions.TryGetValue(register.Number, out var versions))
+                        instruction.Operands[i] = register.Copy(versions.Peek().Version);
+                }
+
+                if (instruction.Operands[i] is MemoryOperand memory)
+                {
+                    if (memory.Base != null)
+                    {
+                        var baseRegister = (Register)memory.Base;
+
+                        if (_versions.TryGetValue(baseRegister.Number, out var versions))
+                            memory.Base = baseRegister.Copy(versions.Peek().Version);
+                    }
+
+                    if (memory.Index != null)
+                    {
+                        var indexRegister = (Register)memory.Index;
+
+                        if (_versions.TryGetValue(indexRegister.Number, out var versions))
+                            memory.Index = indexRegister.Copy(versions.Peek().Version);
+                    }
+
+                    instruction.Operands[i] = memory;
+                }
+            }
+
+            // Create new version
+            if (instruction.Destination is Register destination)
+                instruction.Destination = GetNewVersion(destination);
+        }
+
+        // Record last register version
+        var outMapping = new Dictionary<int, Register>();
+        foreach (var kvp in _versions)
+        {
+            if (kvp.Value.Count > 0)
+                outMapping[kvp.Key] = kvp.Value.Peek();
+        }
+
+        _blockOutVersions[block] = outMapping;
+
+        // Process children in the tree
+        if (dominanceTree.TryGetValue(block, out var children))
+        {
+            foreach (var child in children)
+                ProcessBlock(child, dominanceTree);
+        }
+
+        // Remove registers from versions but not from count
+        foreach (var instruction in block.Instructions.Where(i => i.Destination is Register))
+        {
+            var register = (Register)instruction.Destination!;
+            _versions.FirstOrDefault(kv => kv.Key == register.Number).Value.Pop();
+        }
+    }
+
+    public void CreateLocals(MethodAnalysisContext method)
+    {
+        var instructions = method.ControlFlowGraph!.Blocks.SelectMany(b => b.Instructions).ToList();
+
+        // Get all registers
+        var registers = new List<Register>();
+        foreach (var instruction in instructions)
+            registers.AddRange(GetRegisters(instruction));
+
+        // Remove duplicates
+        registers = registers.Distinct().ToList();
+
+        // Map those to locals
+        var locals = new Dictionary<Register, LocalVariable>();
+        for (var i = 0; i < registers.Count; i++)
+        {
+            var register = registers[i];
+            locals.Add(register, new LocalVariable($"v{i}", register, null));
+        }
+
+        // Replace registers with locals
+        foreach (var instruction in instructions)
+        {
+            for (var i = 0; i < instruction.Operands.Count; i++)
+            {
+                var operand = instruction.Operands[i];
+
+                if (operand is Register register)
+                    instruction.Operands[i] = locals[register];
+
+                if (operand is MemoryOperand memory)
+                {
+                    if (memory.Base != null)
+                    {
+                        var baseRegister = (Register)memory.Base;
+                        memory.Base = locals[baseRegister];
+                    }
+
+                    if (memory.Index != null)
+                    {
+                        var index = (Register)memory.Index;
+                        memory.Index = locals[index];
+                    }
+
+                    instruction.Operands[i] = memory;
+                }
+            }
+        }
+
+        method.Locals = locals.Select(kv => kv.Value).ToList();
+
+        // Return local names
+        for (var i = 0; i < instructions.Count; i++)
+        {
+            var instruction = instructions[i];
+            if (instruction.OpCode != OpCode.Return) continue;
+
+            var returnLocal = (LocalVariable)instruction.Sources[0];
+
+            returnLocal.Name = $"returnVal{i}";
+        }
+
+        // Add parameter names
+        var paramLocals = new List<LocalVariable>();
+
+        foreach (var local in method.Locals)
+        {
+            // Get param index of the local
+            var paramIndex = method.ParameterOperands.FindIndex(p => p is Register r && r.Number == local.Register.Number && local.Register.Version == -1);
+            if (paramIndex == -1) continue;
+
+            // this param
+            if (paramIndex == 0 && !method.Definition!.IsStatic)
+            {
+                local.Name = "this";
+                paramLocals.Add(local);
+                local.IsThis = true;
+            }
+            else
+            {
+                // Set the name
+                var index = paramIndex + (method.Definition!.IsStatic ? 0 : 1); // +1 to skip 'this' param
+
+                if ((index > method.Definition.Parameters!.Length - 1) || index == -1)
+                    continue;
+
+                local.Name = method.Definition.Parameters[index].ParameterName;
+                paramLocals.Add(local);
+            }
+        }
+
+        method.ParameterOperands = paramLocals.Cast<object>().ToList();
+    }
+
+    private static List<Register> GetRegisters(Instruction instruction)
+    {
+        var registers = new List<Register>();
+
+        foreach (var operand in instruction.Operands)
+        {
+            if (operand is Register register)
+            {
+                if (!registers.Contains(register))
+                    registers.Add(register);
+            }
+
+            if (operand is MemoryOperand memory)
+            {
+                if (memory.Base != null)
+                {
+                    var baseRegister = (Register)memory.Base;
+                    if (!registers.Contains(baseRegister))
+                        registers.Add(baseRegister);
+                }
+
+                if (memory.Index != null)
+                {
+                    var index = (Register)memory.Index;
+                    if (!registers.Contains(index))
+                        registers.Add(index);
+                }
+            }
+        }
+
+        return registers;
+    }
+
+    public void RemoveSsaForm(MethodAnalysisContext method)
+    {
+        foreach (var block in method.ControlFlowGraph!.Blocks)
+        {
+            // Get all phis
+            var phiInstructions = block.Instructions
+                .Where(i => i.OpCode == OpCode.Phi)
+                .ToList();
+
+            if (phiInstructions.Count == 0) continue;
+
+            foreach (var predecessor in block.Predecessors)
+            {
+                if (predecessor.Instructions.Count == 0)
+                    continue;
+
+                predecessor.Instructions.RemoveAt(0);
+                var moves = new List<Instruction>();
+
+                foreach (var phi in phiInstructions)
+                {
+                    var result = (LocalVariable)phi.Operands[0]!;
+                    var sources = phi.Operands.Skip(1).Cast<LocalVariable>().ToList();
+
+                    var predIndex = block.Predecessors.IndexOf(predecessor);
+
+                    if (predIndex < 0 || predIndex >= sources.Count)
+                        continue;
+
+                    var source = sources[predIndex];
+
+                    // Add move for it
+                    moves.Add(new Instruction(-1, OpCode.Move, result, source));
+                }
+
+                // Add all of those moves
+                if (predecessor.Instructions.Count == 0)
+                    predecessor.Instructions = moves;
+                else
+                    predecessor.Instructions.InsertRange(predecessor.Instructions.Count - (predecessor.Instructions.Count == 1 ? 1 : 2), moves);
+            }
+
+            // Remove all phis
+            foreach (var instruction in block.Instructions)
+            {
+                if (instruction.OpCode == OpCode.Phi)
+                {
+                    instruction.OpCode = OpCode.Nop;
+                    instruction.Operands = [];
+                }
+            }
+        }
+
+        method.ControlFlowGraph.RemoveNops();
+        method.ControlFlowGraph.RemoveEmptyBlocks();
+    }
+}

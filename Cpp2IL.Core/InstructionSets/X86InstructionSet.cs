@@ -79,6 +79,10 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return instructions;
     }
 
+    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    {
+        return X64CallingConventionResolver.ResolveForManaged(context).ToList();
+    }
 
     private void ConvertInstructionStatement(Instruction instruction, List<ISIL.Instruction> instructions, List<ulong> addresses, MethodAnalysisContext context)
     {

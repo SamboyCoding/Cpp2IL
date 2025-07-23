@@ -6,10 +6,10 @@ namespace Cpp2IL.Core.ISIL;
 /// <summary>
 /// Memory operand in the format of [base+addend+index*scale]
 /// </summary>
-public struct MemoryOperand(Register? baseRegister = null, Register? indexRegister = null, long addend = 0, int scale = 0)
+public struct MemoryOperand(object? baseRegister = null, object? indexRegister = null, long addend = 0, int scale = 0)
 {
-    public Register? Base = baseRegister;
-    public Register? Index = indexRegister;
+    public object? Base = baseRegister;
+    public object? Index = indexRegister;
     public long Addend = addend;
     public int Scale = scale;
 

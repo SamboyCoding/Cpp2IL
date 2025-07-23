@@ -49,6 +49,16 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     public List<Instruction>? ConvertedIsil;
 
     /// <summary>
+    /// All ISIL local variables.
+    /// </summary>
+    public List<LocalVariable> Locals = [];
+
+    /// <summary>
+    /// Operands used as parameters.
+    /// </summary>
+    public List<object> ParameterOperands = [];
+
+    /// <summary>
     /// The control flow graph for this method, if one is built.
     /// </summary>
     public ISILControlFlowGraph? ControlFlowGraph;
@@ -124,7 +134,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     //TODO Support custom attributes on return types (v31 feature)
     public TypeAnalysisContext ReturnType => OverrideReturnType ?? DefaultReturnType;
-    
+
     protected Memory<byte>? rawMethodBody;
 
     public MethodAnalysisContext? BaseMethod => Overrides.FirstOrDefault(m => m.DeclaringType?.IsInterface is false);
@@ -290,6 +300,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         }
 
         ConvertedIsil = AppContext.InstructionSet.GetIsilFromMethod(this);
+        ParameterOperands = AppContext.InstructionSet.GetParameterOperandsFromMethod(this);
 
         if (ConvertedIsil.Count == 0)
             return; //Nothing to do, empty function
@@ -298,11 +309,13 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         ControlFlowGraph.Build(ConvertedIsil);
         // Indirect jumps should probably be resolved here
         ControlFlowGraph.RemoveUnreachableBlocks();
-
+        ControlFlowGraph.RemoveNops();
         StackAnalyzer.Analyze(this);
         ControlFlowGraph.MergeCallBlocks();
-        ControlFlowGraph.RemoveNops();
         DominatorInfo = DominatorInfo.Build(ControlFlowGraph);
+        ControlFlowGraph.BuildUseDefLists();
+        var ssa = new BuildSsaForm();
+        ssa.Build(this);
 
         // Post step to convert metadata usage. Ldstr Opcodes etc.
         foreach (var block in ControlFlowGraph.Blocks)
@@ -312,6 +325,12 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                 converter.Process(this, block);
             }
         }
+
+        ssa.RemoveSsaForm(this);
+
+        var rra = new RemoveRedundantAssignmentsProcessor();
+        foreach (var block in ControlFlowGraph.Blocks)
+            rra.Process(this, block);
     }
 
     public void ReleaseAnalysisData()

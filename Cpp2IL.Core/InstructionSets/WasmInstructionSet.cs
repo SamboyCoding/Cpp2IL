@@ -38,6 +38,11 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
         return [];
     }
 
+    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    {
+        return [];
+    }
+
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()
     {
         return new WasmKeyFunctionAddresses();

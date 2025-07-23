@@ -11,6 +11,9 @@ public class Block
     public List<Block> Predecessors = [];
     public List<Block> Successors = [];
 
+    public List<object> Use = [];
+    public List<object> Def = [];
+
     public List<Instruction> Instructions = [];
 
     public int ID { get; set; } = -1;
@@ -21,7 +24,7 @@ public class Block
     public override string ToString()
     {
         StringBuilder stringBuilder = new StringBuilder();
-        stringBuilder.AppendLine("Type: " + BlockType);
+        stringBuilder.AppendLine($"{BlockType} {ID}");
         stringBuilder.AppendLine();
         foreach (var instruction in Instructions)
         {

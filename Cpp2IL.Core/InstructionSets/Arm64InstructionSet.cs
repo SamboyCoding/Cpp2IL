@@ -37,6 +37,11 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
         return [];
     }
 
+    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    {
+        return [];
+    }
+
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new Arm64KeyFunctionAddresses();
 
     public override string PrintAssembly(MethodAnalysisContext context)

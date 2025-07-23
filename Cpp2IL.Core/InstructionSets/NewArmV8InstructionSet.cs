@@ -44,6 +44,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return context.AppContext.Binary.GetRawBinaryContent().AsMemory(start, end - start);
     }
 
+    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    {
+        return [];
+    }
+
     public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
         var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
@@ -115,7 +120,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     var operate = ConvertOperand(instruction, 1);
                     if (operate is MemoryOperand operand)
                     {
-                        var register = operand.Base!.Value;
+                        var register = (Register)operand.Base!;
                         // X19= X19, #0x30
                         Add(address, OpCode.Add, register, register, operand.Addend);
                         //X8 = [X19]
@@ -181,7 +186,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         var firstRegister = ConvertOperand(instruction, 0);
                         long size = ((Register)firstRegister).Name[0] == 'W' ? 4 : 8;
                         Add(address, OpCode.Move, dest3, firstRegister); // [REG + offset] = REG1
-                        memory = new MemoryOperand(memory.Base!.Value, addend: memory.Addend + size);
+                        memory = new MemoryOperand((Register)memory.Base!, addend: memory.Addend + size);
                         dest3 = memory;
                         Add(address, OpCode.Move, dest3, ConvertOperand(instruction, 1)); // [REG + offset + size] = REG2
                     }
@@ -225,7 +230,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
                 //TODO clean this mess up
                 var memInternal = mem as MemoryOperand?;
-                var mem2 = new MemoryOperand(memInternal!.Value.Base!.Value, addend: memInternal.Value.Addend + destRegSize);
+                var mem2 = new MemoryOperand((Register)memInternal!.Value.Base!, addend: memInternal.Value.Addend + destRegSize);
 
                 Add(address, OpCode.Move, dest1, mem);
                 Add(address, OpCode.Move, dest2, mem2);

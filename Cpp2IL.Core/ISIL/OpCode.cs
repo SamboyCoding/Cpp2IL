@@ -22,13 +22,16 @@ public enum OpCode // There is some weird stuff in doc comments because i can't 
     /// <summary>Move dest, src : <c>dest = src</c></summary>
     Move,
 
+    /// <summary>Phi dest, src1, src2, etc. : <c>dest = phi(src1, src2, etc.)</c></summary>
+    Phi,
+
     /// <summary>LoadAddress dest, src : <c>dest = address(src)</c></summary>
     LoadAddress,
 
     /// <summary>Call target, dest, arg1, arg2, etc. : <c>dest = target(arg1, arg2, etc.)</c></summary>
     Call,
 
-    /// <summary>CallNoReturn target, arg1, arg2, etc. : <c>target(arg1, arg2, etc.)</c></summary>
+    /// <summary>CallVoid target, arg1, arg2, etc. : <c>target(arg1, arg2, etc.)</c></summary>
     CallVoid,
 
     /// <summary>IndirectCallVoid target, arg1, arg2, etc. : <c>target(arg1, arg2, etc.)</c></summary>
@@ -37,7 +40,7 @@ public enum OpCode // There is some weird stuff in doc comments because i can't 
     /// <summary>Return value : <c>return value</c></summary>
     Return,
 
-    /// <summary>Return : <c>return</c></summary>
+    /// <summary>ReturnVoid : <c>return</c></summary>
     ReturnVoid,
 
     /// <summary>Jump target : <c>goto target</c></summary>

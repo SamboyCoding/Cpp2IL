@@ -25,6 +25,8 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
     public bool IsReturn => OpCode is OpCode.Return or OpCode.ReturnVoid;
 
+    public bool IsAssignment => Destination != null;
+
     public List<object> Sources => GetSources();
 
     public List<object> SourcesAndConstants => GetSources(false);
@@ -40,6 +42,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
         switch (OpCode)
         {
             case OpCode.Move:
+            case OpCode.Phi:
             case OpCode.LoadAddress:
             case OpCode.Call:
             case OpCode.Add:
@@ -78,10 +81,11 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
                 => [Operands[2], Operands[1]],
 
             OpCode.Call => Operands.Skip(2).ToList(),
-            OpCode.CallVoid => Operands.Skip(1).ToList(),
+            OpCode.CallVoid or OpCode.Phi => Operands.Skip(1).ToList(),
             OpCode.Return => [Operands[0]],
             OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
                 => [Operands[1], Operands[2]],
+
             _ => []
         };
 
@@ -120,7 +124,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
     public static bool IsConstantValue(object operand) =>
         operand switch
         {
-            Register or StackOffset => false,
+            Register or StackOffset or LocalVariable => false,
             MemoryOperand memory => memory.IsConstant,
             _ => true
         };

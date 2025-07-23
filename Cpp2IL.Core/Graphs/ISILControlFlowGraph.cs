@@ -1,33 +1,30 @@
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Linq;
 using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Graphs;
 
 public class ISILControlFlowGraph
 {
-    public Block EntryBlock => entryBlock;
-    public Block ExitBlock => exitBlock;
-    public int Count => blockSet.Count;
-    public Collection<Block> Blocks => blockSet;
+    public Block EntryBlock;
+    public Block ExitBlock;
+    public int Count => Blocks.Count;
+    public List<Block> Blocks;
 
     private int idCounter;
-    private Collection<Block> blockSet;
-    private Block exitBlock;
-    private Block entryBlock;
 
     public ISILControlFlowGraph()
     {
-        entryBlock = new Block() { ID = idCounter++ };
-        entryBlock.BlockType = BlockType.Entry;
-        exitBlock = new Block() { ID = idCounter++ };
-        exitBlock.BlockType = BlockType.Exit;
-        blockSet =
+        EntryBlock = new Block() { ID = idCounter++ };
+        EntryBlock.BlockType = BlockType.Entry;
+        ExitBlock = new Block() { ID = idCounter++ };
+        ExitBlock.BlockType = BlockType.Exit;
+        Blocks =
         [
-            entryBlock,
-            exitBlock
+            EntryBlock,
+            ExitBlock
         ];
     }
 
@@ -66,7 +63,7 @@ public class ISILControlFlowGraph
         }
 
         // Remove unreachable blocks
-        var toRemove = blockSet.Where(b => !reachable.Contains(b)).ToList();
+        var toRemove = Blocks.Where(b => !reachable.Contains(b)).ToList();
         foreach (var block in toRemove)
         {
             foreach (var pred in block.Predecessors)
@@ -75,13 +72,28 @@ public class ISILControlFlowGraph
             foreach (var succ in block.Successors)
                 succ.Predecessors.Remove(block);
 
-            blockSet.Remove(block);
+            Blocks.Remove(block);
         }
     }
 
     public void RemoveNops()
     {
-        // Build a map from old instructions to next non nop instruction
+        var usedAsTarget = new HashSet<Instruction>();
+
+        // Get all instructions used as branch targets
+        foreach (var block in Blocks)
+        {
+            foreach (var instr in block.Instructions)
+            {
+                foreach (var operand in instr.Operands)
+                {
+                    if (operand is Instruction target)
+                        usedAsTarget.Add(target);
+                }
+            }
+        }
+
+        // Build replacement map for NOPs that are safe to replace
         var instructionReplacement = new Dictionary<Instruction, Instruction>();
         foreach (var block in Blocks)
         {
@@ -91,7 +103,7 @@ public class ISILControlFlowGraph
                 var instr = block.Instructions[i];
                 if (instr.OpCode == OpCode.Nop)
                 {
-                    if (replacement != null)
+                    if (replacement != null && !usedAsTarget.Contains(instr))
                         instructionReplacement[instr] = replacement;
                 }
                 else
@@ -101,13 +113,7 @@ public class ISILControlFlowGraph
             }
         }
 
-        // Remove NOPs
-        foreach (var block in Blocks)
-        {
-            block.Instructions.RemoveAll(i => i.OpCode == OpCode.Nop);
-        }
-
-        // Fix all branch targets
+        // Update operands
         foreach (var block in Blocks)
         {
             foreach (var instr in block.Instructions)
@@ -115,11 +121,77 @@ public class ISILControlFlowGraph
                 for (var i = 0; i < instr.Operands.Count; i++)
                 {
                     if (instr.Operands[i] is Instruction target && instructionReplacement.TryGetValue(target, out var newTarget))
-                    {
                         instr.Operands[i] = newTarget;
-                    }
                 }
             }
+        }
+
+        // Remove NOPs
+        foreach (var block in Blocks)
+        {
+            block.Instructions.RemoveAll(i => i.OpCode == OpCode.Nop && !usedAsTarget.Contains(i));
+        }
+    }
+
+    public void RemoveEmptyBlocks()
+    {
+        var toRemove = new List<Block>();
+
+        foreach (var block in Blocks)
+        {
+            if (block == EntryBlock || block == ExitBlock)
+                continue;
+
+            if (block.Instructions.Count == 0)
+            {
+                // Redirect predecessors to successors
+                foreach (var pred in block.Predecessors)
+                {
+                    pred.Successors.Remove(block);
+                    foreach (var succ in block.Successors)
+                    {
+                        if (!pred.Successors.Contains(succ))
+                            pred.Successors.Add(succ);
+                    }
+                }
+
+                // Redirect successors to predecessors
+                foreach (var succ in block.Successors)
+                {
+                    succ.Predecessors.Remove(block);
+                    foreach (var pred in block.Predecessors)
+                    {
+                        if (!succ.Predecessors.Contains(pred))
+                            succ.Predecessors.Add(pred);
+                    }
+                }
+
+                toRemove.Add(block);
+            }
+        }
+
+        foreach (var block in toRemove)
+            Blocks.Remove(block);
+    }
+
+    public void BuildUseDefLists()
+    {
+        foreach (var block in Blocks)
+        {
+            var use = new List<object>();
+            var def = new List<object>();
+
+            foreach (var instruction in block.Instructions)
+            {
+                foreach (var operand in instruction.Sources.Where(operand => !use.Contains(operand)))
+                    use.Add(operand);
+
+                if (instruction.Destination != null && !def.Contains(instruction.Destination))
+                    def.Add(instruction.Destination);
+            }
+
+            block.Use = use;
+            block.Def = def;
         }
     }
 
@@ -162,10 +234,10 @@ public class ISILControlFlowGraph
         foreach (var removed in toRemove)
         {
             Blocks.Remove(removed);
-            blockSet.Remove(removed);
+            Blocks.Remove(removed);
         }
 
-        foreach (var block in blockSet)
+        foreach (var block in Blocks)
             block.CalculateBlockType();
     }
 
@@ -176,7 +248,7 @@ public class ISILControlFlowGraph
 
         var currentBlock = new Block() { ID = idCounter++ };
         AddBlock(currentBlock);
-        AddDirectedEdge(entryBlock, currentBlock);
+        AddDirectedEdge(EntryBlock, currentBlock);
 
         for (var i = 0; i < instructions.Count; i++)
         {
@@ -199,7 +271,7 @@ public class ISILControlFlowGraph
                             if (TryGetTargetJumpInstructionIndex(instructions[i], out int jumpTargetIndex))
                                 currentBlock.Dirty = true;
                             else
-                                AddDirectedEdge(currentBlock, exitBlock);
+                                AddDirectedEdge(currentBlock, ExitBlock);
                         }
                         else
                         {
@@ -212,7 +284,7 @@ public class ISILControlFlowGraph
                     }
                     else
                     {
-                        AddDirectedEdge(currentBlock, exitBlock);
+                        AddDirectedEdge(currentBlock, ExitBlock);
 
                         if (instructions[i].OpCode == OpCode.Jump)
                             currentBlock.Dirty = true;
@@ -232,13 +304,13 @@ public class ISILControlFlowGraph
                     {
                         newBlock = new Block() { ID = idCounter++ };
                         AddBlock(newBlock);
-                        AddDirectedEdge(currentBlock, isReturn ? exitBlock : newBlock);
+                        AddDirectedEdge(currentBlock, isReturn ? ExitBlock : newBlock);
                         currentBlock.CalculateBlockType();
                         currentBlock = newBlock;
                     }
                     else
                     {
-                        AddDirectedEdge(currentBlock, exitBlock);
+                        AddDirectedEdge(currentBlock, ExitBlock);
                         currentBlock.CalculateBlockType();
                     }
 
@@ -248,16 +320,16 @@ public class ISILControlFlowGraph
                     currentBlock.AddInstruction(instructions[i]);
                     if (isLast)
                     {
-                        AddDirectedEdge(currentBlock, exitBlock);
+                        AddDirectedEdge(currentBlock, ExitBlock);
                         currentBlock.CalculateBlockType();
                     }
                     break;
             }
         }
 
-        for (var index = 0; index < blockSet.Count; index++)
+        for (var index = 0; index < Blocks.Count; index++)
         {
-            var node = blockSet[index];
+            var node = Blocks[index];
             if (node.Dirty)
                 FixBlock(node);
         }
@@ -298,9 +370,9 @@ public class ISILControlFlowGraph
         if (instruction == null)
             return null;
 
-        for (var i = 0; i < blockSet.Count; i++)
+        for (var i = 0; i < Blocks.Count; i++)
         {
-            var block = blockSet[i];
+            var block = Blocks[i];
             for (var j = 0; j < block.Instructions.Count; j++)
             {
                 var instr = block.Instructions[j];
@@ -368,5 +440,5 @@ public class ISILControlFlowGraph
         to.Predecessors.Add(from);
     }
 
-    protected void AddBlock(Block block) => blockSet.Add(block);
+    protected void AddBlock(Block block) => Blocks.Add(block);
 }

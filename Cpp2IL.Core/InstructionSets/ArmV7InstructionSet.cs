@@ -28,6 +28,11 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
         return [];
     }
 
+    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    {
+        return [];
+    }
+
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance()
     {
         //TODO Fix
