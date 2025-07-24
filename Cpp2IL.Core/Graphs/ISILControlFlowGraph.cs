@@ -12,16 +12,7 @@ public class ISILControlFlowGraph
     public int Count => Blocks.Count;
     public List<Block> Blocks;
 
-    public List<Instruction> Instructions
-    {
-        get
-        {
-            var instructions = new List<Instruction>();
-            foreach (var block in Blocks)
-                instructions.AddRange(block.Instructions);
-            return instructions.OrderBy(i => i.Index).ToList();
-        }
-    }
+    public List<Instruction> Instructions => Blocks.SelectMany(b => b.Instructions).OrderBy(i => i.Index).ToList();
 
     private int idCounter;
 
@@ -320,8 +311,7 @@ public class ISILControlFlowGraph
                 case OpCode.Call:
                 case OpCode.CallVoid:
                 case OpCode.Return:
-                case OpCode.ReturnVoid:
-                    var isReturn = instructions[i].OpCode == OpCode.Return || instructions[i].OpCode == OpCode.ReturnVoid;
+                    var isReturn = instructions[i].OpCode == OpCode.Return;
 
                     currentBlock.AddInstruction(instructions[i]);
 

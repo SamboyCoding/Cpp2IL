@@ -45,7 +45,6 @@ public class StackAnalyzer : IAction
         CorrectOffsets(graph);
         ReplaceStackWithRegisters(method);
 
-        graph.MergeCallBlocks();
         graph.RemoveNops();
         graph.RemoveEmptyBlocks();
     }
@@ -139,7 +138,7 @@ public class StackAnalyzer : IAction
 
     private static void ReplaceStackWithRegisters(MethodAnalysisContext method)
     {
-        var instructions = method.ControlFlowGraph!.Blocks.SelectMany(b => b.Instructions);
+        var instructions = method.ControlFlowGraph!.Instructions;
 
         // Replace stack offset operands
         foreach (var instruction in instructions)

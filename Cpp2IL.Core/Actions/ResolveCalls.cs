@@ -13,19 +13,14 @@ public class ResolveCalls : IAction
     {
         foreach (var block in method.ControlFlowGraph!.Blocks)
         {
-            if (block.BlockType != BlockType.Call)
-                return;
-            var callInstruction = block.Instructions[^1];
-            if (callInstruction == null)
-                return;
-            if (!callInstruction.IsCall)
-                return;
+            if (block.BlockType != BlockType.Call && block.BlockType != BlockType.TailCall)
+                continue;
 
-            if (callInstruction.Operands.Count <= 0)
-                return;
+            var callInstruction = block.Instructions[^1];
             var dest = callInstruction.Operands[0];
+
             if (!dest.IsNumeric())
-                return;
+                continue;
 
             var target = (ulong)dest;
 
@@ -34,18 +29,20 @@ public class ResolveCalls : IAction
             if (keyFunctionAddresses.IsKeyFunctionAddress(target))
             {
                 HandleKeyFunction(method.AppContext, callInstruction, target, keyFunctionAddresses);
-                return;
+                continue;
             }
 
             //Non-key function call. Try to find a single match
             if (!method.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
-                return;
+                continue;
 
             if (targetMethods is not [{ } singleTargetMethod])
-                return;
+                continue;
 
             callInstruction.Operands[0] = singleTargetMethod;
         }
+
+        method.ControlFlowGraph.MergeCallBlocks();
     }
 
     private void HandleKeyFunction(ApplicationAnalysisContext appContext, Instruction instruction, ulong target, BaseKeyFunctionAddresses kFA)
@@ -65,8 +62,10 @@ public class ResolveCalls : IAction
         else
         {
             var pairs = kFA.Pairs.ToList();
-            var index = pairs.FindIndex(pair => pair.Value == target);
-            method = pairs[index].Key;
+            var key = pairs.FirstOrDefault(pair => pair.Value == target).Key;
+            if (key == null)
+                return;
+            method = key;
         }
 
         if (method != "")

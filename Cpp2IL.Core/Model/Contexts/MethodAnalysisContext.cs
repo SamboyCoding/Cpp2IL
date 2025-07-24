@@ -228,14 +228,15 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     private static readonly List<IAction> analysisActions =
     [
-        // Indirect jumps should probably be resolved here before stack analysis
+        // Indirect jumps/calls should probably be resolved here before stack analysis
         new StackAnalyzer() { MaxBlockVisitCount = 5000 },
         new BuildSsaForm(),
         new CreateLocals(),
         new ResolveCalls(),
         new ApplyMetadata(),
         new RemoveSsaForm(),
-        new Inlining()
+        new Inlining(),
+        new PropagateTypes() { MaxLoopCount = 5000 }
     ];
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)

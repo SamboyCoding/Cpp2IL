@@ -98,7 +98,7 @@ public class Inlining : IAction
                     ReplaceLocalsUntilReassignment(block, i + 1, local, source);
 
                     if (!method.ParameterLocals.Contains(local))
-                        method.ParameterLocals.Remove(local);
+                        method.Locals.Remove(local);
 
                     // Change that move to nop
                     instruction.OpCode = OpCode.Nop;

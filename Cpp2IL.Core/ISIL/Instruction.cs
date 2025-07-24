@@ -23,8 +23,6 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
     public bool IsCall => OpCode is OpCode.Call or OpCode.CallVoid;
 
-    public bool IsReturn => OpCode is OpCode.Return or OpCode.ReturnVoid;
-
     public bool IsAssignment => Destination != null;
 
     public List<object> Sources => GetSources();
@@ -82,12 +80,14 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
             OpCode.Call => Operands.Skip(2).ToList(),
             OpCode.CallVoid or OpCode.Phi => Operands.Skip(1).ToList(),
-            OpCode.Return => [Operands[0]],
             OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
                 => [Operands[1], Operands[2]],
 
             _ => []
         };
+
+        if (OpCode == OpCode.Return && Operands.Count == 1)
+            sources.Add(Operands[0]);
 
         if (constantsOnly)
             sources = sources.Where(o => !IsConstantValue(o)).ToList();

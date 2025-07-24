@@ -1,5 +1,3 @@
-using System;
-using System.Text;
 using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
@@ -16,14 +14,7 @@ public class LocalVariable(string name, Register register, TypeAnalysisContext? 
 
     public bool IsThis = false;
     public bool IsReturn = false;
+    public bool IsMethodInfo = false;
 
-    public override string ToString()
-    {
-        var sb = new StringBuilder();
-        sb.Append(Name);
-        if (Type != null)
-            sb.Append($" ({Type.Name})");
-        sb.Append($" ({Register})");
-        return sb.ToString();
-    }
+    public override string ToString() => Type == null ? $"{Name} @ {Register}" : $"{Name} @ {Register} ({Type.FullName})";
 }

@@ -10,10 +10,10 @@ public class ApplyMetadata : IAction
 {
     public void Apply(MethodAnalysisContext method)
     {
-        foreach (var instruction in method.ControlFlowGraph!.Blocks.SelectMany(b => b.Instructions))
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
         {
             // TODO: Check if it shows up in any other
-            if (instruction.OpCode != OpCode.Move)
+            if (instruction.OpCode != OpCode.Move && instruction.OpCode != OpCode.LoadAddress)
             {
                 continue;
             }

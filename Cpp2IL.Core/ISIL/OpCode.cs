@@ -35,13 +35,10 @@ public enum OpCode // There is some weird stuff in doc comments because i can't 
     CallVoid,
 
     /// <summary>IndirectCallVoid target, arg1, arg2, etc. : <c>target(arg1, arg2, etc.)</c></summary>
-    IndirectCallVoid,
+    IndirectCall,
 
-    /// <summary>Return value : <c>return value</c></summary>
+    /// <summary>Return (optional) value : <c>return value</c></summary>
     Return,
-
-    /// <summary>ReturnVoid : <c>return</c></summary>
-    ReturnVoid,
 
     /// <summary>Jump target : <c>goto target</c></summary>
     Jump,

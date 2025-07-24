@@ -241,7 +241,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.RET:
                 var returnRegister = GetReturnRegisterForContext(context);
                 if (returnRegister == null)
-                    Add(address, OpCode.ReturnVoid);
+                    Add(address, OpCode.Return);
                 else
                     Add(address, OpCode.Return, returnRegister);
                 break;
@@ -255,7 +255,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     Add(address, OpCode.Call, instruction.BranchTarget, GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
                     var returnRegister2 = GetReturnRegisterForContext(context);
                     if (returnRegister2 == null)
-                        Add(address, OpCode.ReturnVoid);
+                        Add(address, OpCode.Return);
                     else
                         Add(address, OpCode.Return, returnRegister2);
                 }
@@ -267,7 +267,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
             case Arm64Mnemonic.BR:
                 // branches unconditionally to an address in a register, with a hint that this is not a subroutine return.
-                Add(address, OpCode.IndirectCallVoid, ConvertOperand(instruction, 0));
+                Add(address, OpCode.IndirectCall, ConvertOperand(instruction, 0));
                 break;
             case Arm64Mnemonic.CBNZ:
             case Arm64Mnemonic.CBZ:

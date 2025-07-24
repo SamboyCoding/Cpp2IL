@@ -63,7 +63,7 @@ public class CreateLocals : IAction
         for (var i = 0; i < cfg.Instructions.Count; i++)
         {
             var instruction = cfg.Instructions[i];
-            if (instruction.OpCode != OpCode.Return) continue;
+            if (instruction.OpCode != OpCode.Return || instruction.Operands.Count != 1) continue;
 
             var returnLocal = (LocalVariable)instruction.Sources[0];
 
@@ -122,6 +122,7 @@ public class CreateLocals : IAction
             if (methodInfoLocal != null)
             {
                 methodInfoLocal.Name = "methodInfo";
+                methodInfoLocal.IsMethodInfo = true;
                 paramLocals.Add(methodInfoLocal);
             }
         }

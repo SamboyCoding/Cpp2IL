@@ -49,7 +49,7 @@ public class Block
             OpCode.ConditionalJump => BlockType.TwoWay,
             OpCode.IndirectJump => BlockType.NWay,
             OpCode.Call or OpCode.CallVoid => BlockType.Call,
-            OpCode.Return or OpCode.ReturnVoid => BlockType.Return,
+            OpCode.Return => BlockType.Return,
             _ => BlockType.Fall,
         };
 
