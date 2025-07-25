@@ -8,7 +8,7 @@ public class LocalVariable(string name, Register register, TypeAnalysisContext? 
     public Register Register = register;
 
     /// <summary>
-    /// null if typeprop has not been done yet.
+    /// null if typeprop has not been done yet, or if the type could not be determined.
     /// </summary>
     public TypeAnalysisContext? Type = type;
 
