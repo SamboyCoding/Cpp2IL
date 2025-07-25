@@ -1,4 +1,3 @@
-using System.Linq;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
@@ -12,25 +11,20 @@ public class ApplyMetadata : IAction
     {
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
         {
-            // TODO: Check if it shows up in any other
-            if (instruction.OpCode != OpCode.Move && instruction.OpCode != OpCode.LoadAddress)
-            {
+            if (instruction.OpCode != OpCode.Move)
                 continue;
-            }
 
-            if ((instruction.Operands[0] is not Register) || (instruction.Operands[1] is not MemoryOperand))
-            {
+            if ((instruction.Operands[0] is not LocalVariable) || (instruction.Operands[1] is not MemoryOperand memory))
                 continue;
-            }
 
-            var memoryOp = (MemoryOperand)instruction.Operands[1];
-            if (memoryOp.Base == null && memoryOp.Index == null && memoryOp.Scale == 0)
+            if (memory.Base == null && memory.Index == null && memory.Scale == 0)
             {
-                var val = LibCpp2IlMain.GetLiteralByAddress((ulong)memoryOp.Addend);
-                if (val == null)
+                var stringLiteral = LibCpp2IlMain.GetLiteralByAddress((ulong)memory.Addend);
+
+                if (stringLiteral == null)
                 {
                     // Try instead check if its type metadata usage
-                    var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
+                    var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memory.Addend);
                     if (metadataUsage != null && method.DeclaringType is not null)
                     {
                         var typeAnalysisContext = metadataUsage.ToContext(method.DeclaringType!.DeclaringAssembly);
@@ -41,7 +35,7 @@ public class ApplyMetadata : IAction
                     continue;
                 }
 
-                instruction.Operands[1] = val;
+                instruction.Operands[1] = stringLiteral;
             }
         }
     }

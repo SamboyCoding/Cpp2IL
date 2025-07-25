@@ -31,7 +31,7 @@ public class PropagateTypes : IAction
 
             foreach (var instruction in method.ControlFlowGraph!.Instructions)
             {
-                if (instruction.OpCode != OpCode.Move && instruction.OpCode != OpCode.LoadAddress)
+                if (instruction.OpCode != OpCode.Move)
                     continue;
 
                 if (instruction.Operands[0] is LocalVariable destination && instruction.Operands[1] is LocalVariable source)

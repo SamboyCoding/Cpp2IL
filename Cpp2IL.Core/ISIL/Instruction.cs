@@ -41,7 +41,6 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
         {
             case OpCode.Move:
             case OpCode.Phi:
-            case OpCode.LoadAddress:
             case OpCode.Call:
             case OpCode.Add:
             case OpCode.Subtract:
@@ -69,7 +68,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
     {
         var sources = OpCode switch
         {
-            OpCode.Move or OpCode.LoadAddress or OpCode.ConditionalJump
+            OpCode.Move or OpCode.ConditionalJump
                 or OpCode.ShiftStack or OpCode.Not or OpCode.Negate
                 => [Operands[1]],
 

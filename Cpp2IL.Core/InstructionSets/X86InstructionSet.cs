@@ -178,7 +178,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     break;
                 }
             case Mnemonic.Lea:
-                Add(instruction.IP, ISIL.OpCode.LoadAddress, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1, true));
                 break;
             case Mnemonic.Xor:
             case Mnemonic.Xorps: //xorps is just floating point xor
@@ -781,7 +781,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     }
 
 
-    private object ConvertOperand(Instruction instruction, int operand)
+    private object ConvertOperand(Instruction instruction, int operand, bool isLeaAddress = false)
     {
         var kind = instruction.GetOpKind(operand);
 

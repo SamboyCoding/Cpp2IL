@@ -25,9 +25,6 @@ public enum OpCode // There is some weird stuff in doc comments because i can't 
     /// <summary>Phi dest, src1, src2, etc. : <c>dest = phi(src1, src2, etc.)</c></summary>
     Phi,
 
-    /// <summary>LoadAddress dest, src : <c>dest = address(src)</c></summary>
-    LoadAddress,
-
     /// <summary>Call target, dest, arg1, arg2, etc. : <c>dest = target(arg1, arg2, etc.)</c></summary>
     Call,
 

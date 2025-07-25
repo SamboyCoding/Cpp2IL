@@ -42,7 +42,7 @@ public class ExceptionThrowingGraph
         Add(026, OpCode.ConditionalJump, 28, new Register(null, "zf"));
         Add(027, OpCode.Call, 0xDEADBEEF);
         Add(028, OpCode.Move, new Register(null, "reg18"), 0);
-        Add(029, OpCode.LoadAddress, new Register(null, "reg19"), new StackOffset(0x20));
+        Add(029, OpCode.Move, new Register(null, "reg19"), new StackOffset(0x20));
         Add(030, OpCode.Move, new Register(null, "reg20"), new Register(null, "reg21"));
         Add(031, OpCode.Call, 0xDEADBEEF);
         Add(032, OpCode.CheckEqual, new Register(null, "zf"), new Register(null, "reg22"), 0);
@@ -64,7 +64,7 @@ public class ExceptionThrowingGraph
         Add(048, OpCode.Call, 0xDEADBEEF);
         Add(049, OpCode.Interrupt);
         Add(050, OpCode.Move, new Register(null, "reg36"), 0);
-        Add(051, OpCode.LoadAddress, new Register(null, "reg37"), new StackOffset(0x20));
+        Add(051, OpCode.Move, new Register(null, "reg37"), new StackOffset(0x20));
         Add(052, OpCode.Call, 0xDEADBEEF);
         Add(053, OpCode.Move, new Register(null, "reg38"), new MemoryOperand(addend: 0x1809C39E0));
         Add(054, OpCode.Move, new Register(null, "reg39"), new Register(null, "reg40"));
