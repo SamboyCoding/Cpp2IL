@@ -237,7 +237,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         new RemoveSsaForm(),
         new Inlining(),
         new PropagateTypes() { MaxLoopCount = 5000 },
-        new ResolveFieldOffsets()
+        new ResolveFieldOffsets(),
+        new RemoveUnusedLocals()
     ];
 
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
