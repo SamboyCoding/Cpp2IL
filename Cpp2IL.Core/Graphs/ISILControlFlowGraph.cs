@@ -12,7 +12,36 @@ public class ISILControlFlowGraph
     public int Count => Blocks.Count;
     public List<Block> Blocks;
 
-    public List<Instruction> Instructions => Blocks.SelectMany(b => b.Instructions).OrderBy(i => i.Index).ToList();
+    public List<Instruction> Instructions
+    {
+        get
+        {
+            // BFS search
+            var visited = new HashSet<Block>();
+            var queue = new Queue<Block>();
+            var result = new List<Instruction>();
+
+            queue.Enqueue(EntryBlock);
+
+            while (queue.Count > 0)
+            {
+                var current = queue.Dequeue();
+
+                if (!visited.Add(current))
+                    continue;
+
+                result.AddRange(current.Instructions);
+
+                foreach (var successor in current.Successors)
+                {
+                    if (!visited.Contains(successor))
+                        queue.Enqueue(successor);
+                }
+            }
+
+            return result; // Should this be cached?
+        }
+    }
 
     private int idCounter;
 

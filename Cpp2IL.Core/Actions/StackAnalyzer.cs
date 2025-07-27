@@ -28,6 +28,7 @@ public class StackAnalyzer : IAction
     public void Apply(MethodAnalysisContext method)
     {
         var graph = method.ControlFlowGraph!;
+        graph.RemoveUnreachableBlocks(); // Without this indirect jumps (in try catch i think) cause some weird stuff
 
         _inComingState = new Dictionary<Block, StackState> { { graph.EntryBlock, new StackState() } };
         _outGoingState.Clear();
