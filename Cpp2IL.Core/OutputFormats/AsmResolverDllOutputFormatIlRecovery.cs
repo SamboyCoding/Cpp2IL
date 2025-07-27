@@ -21,6 +21,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
     public override string OutputFormatName => "DLL files with IL Recovery";
 
     private MethodDefinition? _exceptionConstructor;
+    private Ilgenerator _ilGenerator = new();
 
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
@@ -52,15 +53,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
             TotalMethodCount++;
 
             methodContext.Analyze();
-
-            // throw new Exception(isil);
-            // i have no idea why but when doing this for 1 class it's fine, but with entire game strings get all messed up
-            /* instructions.Add(CilOpCodes.Ldstr, string.Join("\n ", methodContext.ConvertedIsil));
-            instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(_exceptionConstructor!));
-            instructions.Add(CilOpCodes.Throw); */
-
-            instructions.Add(CilOpCodes.Ldnull);
-            instructions.Add(CilOpCodes.Throw);
+            _ilGenerator.GenerateIl(methodContext, methodDefinition);
 
             //WriteControlFlowGraph(methodContext, Path.Combine(Environment.CurrentDirectory, "Cpp2IL", "bin", "Debug", "net9.0", "cpp2il_out", "cfg"));
 

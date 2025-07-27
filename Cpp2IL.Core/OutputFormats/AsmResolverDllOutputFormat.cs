@@ -58,7 +58,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         if (TotalMethodCount != 0)
         {
             var percent = Math.Round((SuccessfulMethodCount / (float)TotalMethodCount) * 100);
-            Logger.InfoNewline($"{percent}% of methods successfully processed ({SuccessfulMethodCount} / {TotalMethodCount})", "DllOutput");
+            Logger.InfoNewline($"{percent}% of methods successfully decompiled ({SuccessfulMethodCount} / {TotalMethodCount})", "DllOutput");
         }
     }
 

@@ -53,6 +53,19 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         foreach (var instruction in X86Utils.Iterate(context))
             ConvertInstructionStatement(instruction, instructions, addresses, context);
 
+        // Add return if the function doesn't end with one already
+        if (instructions.Count > 0 && instructions[^1].OpCode != ISIL.OpCode.Return)
+        {
+            var index = instructions[^1].Index + 1;
+
+            if (context.IsVoid)
+                instructions.Add(new ISIL.Instruction(index, ISIL.OpCode.Return));
+            else if (context.Definition?.RawReturnType?.Type is Il2CppTypeEnum.IL2CPP_TYPE_R4 or Il2CppTypeEnum.IL2CPP_TYPE_R8)
+                instructions.Add(new ISIL.Instruction(index, ISIL.OpCode.Return, new ISIL.Register(null, "xmm0")));
+            else
+                instructions.Add(new ISIL.Instruction(index, ISIL.OpCode.Return, new ISIL.Register(null, "rax")));
+        }
+
         // fix branches
         for (var i = 0; i < instructions.Count; i++)
         {
