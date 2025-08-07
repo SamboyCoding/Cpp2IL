@@ -3,91 +3,93 @@
 /// <summary>
 /// If changing this, also update <see cref="Instruction"/>
 /// </summary>
-public enum OpCode // There is some weird stuff in doc comments because i can't use <, >, & (idk why & doesn't work)
-                   // doc comments are in this format: Move dest, src : dest = src
-                   //                                  [isil]           [decompiled code/what the instruction does]
+public enum OpCode
 {
-    /// <summary>Invalid (optional) text</summary>
+    /// <summary>Logs to console (in the decompiled code) that there was an invalid instruction, first operand is the instruction string</summary>
     Invalid,
 
-    /// <summary>NotImplemented (optional) text</summary>
+    /// <summary>Logs to console (in the decompiled code) that there was a not implemented instruction, first operand is the instruction string</summary>
     NotImplemented,
 
-    /// <summary>Interrupt</summary>
+    /// <summary>
+    /// Interrupt, kept for stack analysis
+    /// </summary>
     Interrupt,
 
-    /// <summary>No operation</summary>
+    /// <summary>
+    /// No operation
+    /// </summary>
     Nop,
 
-    /// <summary>Move dest, src : <c>dest = src</c></summary>
+    /// <summary>Moves the second operand into the first</summary>
     Move,
 
-    /// <summary>Phi dest, src1, src2, etc. : <c>dest = phi(src1, src2, etc.)</c></summary>
+    /// <summary>Moves the result of phi function into first operand, other operands are inputs</summary>
     Phi,
 
-    /// <summary>Call target, dest, arg1, arg2, etc. : <c>dest = target(arg1, arg2, etc.)</c></summary>
+    /// <summary>Calls a method (first operand), moves the result into second, and the rest are params</summary>
     Call,
 
-    /// <summary>CallVoid target, arg1, arg2, etc. : <c>target(arg1, arg2, etc.)</c></summary>
+    /// <summary>Calls a method (first operand), rest are params</summary>
     CallVoid,
 
-    /// <summary>IndirectCallVoid target, arg1, arg2, etc. : <c>target(arg1, arg2, etc.)</c></summary>
+    /// <summary>Calls a method (first operand), rest are params</summary>
     IndirectCall,
 
-    /// <summary>Return (optional) value : <c>return value</c></summary>
+    /// <summary>Returns from the method, the return operand is optional</summary>
     Return,
 
-    /// <summary>Jump target : <c>goto target</c></summary>
+    /// <summary>Jumps to the first operand</summary>
     Jump,
 
-    /// <summary>IndirectJump target : <c>goto target</c></summary>
+    /// <summary>Jumps to the first operand</summary>
     IndirectJump,
 
-    /// <summary>ConditionalJump target, cond : <c>if (cond) goto target</c></summary>
+    /// <summary><c>If the second operand is true, jumps to the first</summary>
     ConditionalJump,
 
-    /// <summary>ShiftStack value : <c>sp += value</c></summary>
+    /// <summary>Adds the first operand to stack pointer</summary>
     ShiftStack,
 
-    /// <summary>Add dest, l, r : <c>dest = l + r</c></summary>
+    /// <summary>Adds the second and third operands and moves the result into the first</summary>
     Add,
 
-    /// <summary>Subtract dest, l, r : <c>dest = l - r</c></summary>
+    /// <summary>Subtracts the third operand from the second and moves the result into the first</summary>
     Subtract,
 
-    /// <summary>Multiply dest, l, r : <c>dest = l * r</c></summary>
+    /// <summary>Multiplies the second operand by the third and moves the result into the first</summary>
     Multiply,
 
-    /// <summary>Divide dest, l, r : <c>dest = l / r</c></summary>
+    /// <summary>Divides the second operand by the third and moves the result into the first</summary>
     Divide,
 
-    /// <summary>ShiftLeft dest, src, count : <c>dest = src shl count</c></summary>
+    /// <summary>Shifts the bits of the second operand left by the third and moves the result into the first</summary>
     ShiftLeft,
 
-    /// <summary>ShiftRight dest, src, count : <c>dest = src shr count</c></summary>
+    /// <summary>Shifts the bits of the second operand right by the third and moves the result into the first</summary>
     ShiftRight,
 
-    /// <summary>And dest, l, r : <c>dest = l and r</c></summary>
+    /// <summary>Performs and on the second and third operands and moves the result into the first</summary>
     And,
 
-    /// <summary>Or dest, l, r : <c>dest = l | r</c></summary>
+    /// <summary>Performs or on the second and third operands and moves the result into the first</summary>
     Or,
 
-    /// <summary>Xor dest, l, r : <c>dest = l ^ r</c></summary>
+    /// <summary>Performs xor on the second and third operands and moves the result into the first</summary>
     Xor,
 
-    /// <summary>Not dest, src : <c>dest = !src</c></summary>
+    /// <summary>Performs not on the second operands and moves the result into the first</summary>
     Not,
 
-    /// <summary>Negate dest, src : <c>dest = -src</c></summary>
+    /// <summary>Moves the negated second operand into the first</summary>
     Negate,
 
-    /// <summary>CheckEqual dest, l, r : <c>dest = l == r</c></summary>
+    /// <summary>Moves 1 into the first operand, if the second and third are equal</summary>
     CheckEqual,
 
-    /// <summary>CheckGreater dest, l, r : <c>dest = l greater r</c></summary>
+    /// <summary>Moves 1 into the first operand, if the second is greater than the third</summary>
     CheckGreater,
 
-    /// <summary>CheckLess dest, l, r : <c>dest = l less r</c></summary>
+    /// <summary>Moves 1 into the first operand, if the second is less than the third</summary>
     CheckLess
 }

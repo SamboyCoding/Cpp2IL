@@ -42,10 +42,25 @@ public class Ilgenerator
 
         var body = new CilMethodBody(definition)
         {
-            InitializeLocals = true // Without this ILSpy does: CompilerServices.Unsafe.SkipInit(out object obj);
+            InitializeLocals = true, // Without this ILSpy does: CompilerServices.Unsafe.SkipInit(out object obj);
+            ComputeMaxStackOnBuild = false
         };
 
         definition.CilMethodBody = body;
+
+        foreach (var operand in context.ControlFlowGraph.Instructions.SelectMany(i => i.Operands))
+        {
+            LocalVariable? local = null;
+
+            if (operand is FieldReference field)
+                local = field.Local;
+
+            if (operand is LocalVariable local2)
+                local = local2;
+
+            if (local != null && !context.Locals.Contains(local))
+                context.Locals.Add(local);
+        }
 
         // Map ISIL locals to IL
         _locals.Clear();
@@ -91,8 +106,16 @@ public class Ilgenerator
                 break;
 
             case OpCode.Move:
-                instructions.Add(CilOpCodes.Ldstr, instruction.ToString());
-                instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+                if (instruction.Operands[0] is FieldReference field) // stfld takes instance before value so LoadOperand StoreToOperand doesn't work
+                {
+                    instructions.Add(CilOpCodes.Ldloc, _locals[field.Local]);
+                    LoadOperand(instruction.Operands[1], body);
+                    instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(_module!));
+                    break;
+                }
+
+                LoadOperand(instruction.Operands[1], body);
+                StoreToOperand(instruction.Operands[0], body);
                 break;
 
             case OpCode.Phi:
@@ -102,8 +125,44 @@ public class Ilgenerator
 
             case OpCode.Call:
             case OpCode.CallVoid:
+                if (instruction.Operands[0] is not MethodAnalysisContext targetMethod)
+                {
+                    if (instruction.Operands[0] is ulong targetAddress)
+                        instructions.Add(CilOpCodes.Ldstr, $"Method not found @{targetAddress:X}");
+                    else // Probably key function
+                        instructions.Add(CilOpCodes.Ldstr, $"Unknown call target operand: {instruction}");
+
+                    instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+                    break;
+                }
+
+                var method = _importer!.ImportMethod(targetMethod.ToMethodDescriptor(_module!));
+                var resolvedMethod = method.Resolve()!;
+
+                var thisParamIndex = instruction.OpCode == OpCode.Call ? 2 : 1;
+
+                if (!resolvedMethod.IsStatic) // Load 'this' param
+                {
+                    if ((instruction.Operands.Count - 1) >= thisParamIndex)
+                        LoadOperand(instruction.Operands[thisParamIndex], body);
+                    else
+                        instructions.Add(CilOpCodes.Ldstr, $"Non static method called without 'this' param ({instruction})");
+                }
+
+                // Load normal params
+                var callParams = instruction.Operands.Skip(thisParamIndex + (resolvedMethod.IsStatic ? 0 : -1));
+                foreach (var param in callParams)
+                    LoadOperand(param, body);
+
+                instructions.Add(CilOpCodes.Call, method);
+
+                if (instruction.OpCode == OpCode.Call) // Store return value
+                    StoreToOperand(instruction.Operands[1], body);
+
+                break;
+
             case OpCode.IndirectCall:
-                instructions.Add(CilOpCodes.Ldstr, instruction.ToString());
+                instructions.Add(CilOpCodes.Ldstr, $"Indirect calls should have been resolved before IL gen ({instruction})");
                 instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
                 break;
 
@@ -172,7 +231,26 @@ public class Ilgenerator
                 instructions.Add(CilOpCodes.Ldfld, field.Field.ToFieldDescriptor(_module!));
                 break;
             default:
-                instructions.Add(CilOpCodes.Ldstr, operand.ToString());
+                instructions.Add(CilOpCodes.Ldstr, operand.ToString() ?? "[null operand]");
+                break;
+        }
+    }
+
+    private void StoreToOperand(object operand, CilMethodBody body)
+    {
+        var instructions = body.Instructions;
+
+        switch (operand)
+        {
+            case LocalVariable local:
+                instructions.Add(CilOpCodes.Stloc, _locals[local]);
+                break;
+            case FieldReference field:
+                instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(_module!));
+                break;
+            default:
+                instructions.Add(CilOpCodes.Ldstr, $"Store into unknown operand: {operand}");
+                instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
                 break;
         }
     }
