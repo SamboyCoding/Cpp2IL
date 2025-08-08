@@ -43,7 +43,7 @@ public class Ilgenerator
         var body = new CilMethodBody(definition)
         {
             InitializeLocals = true, // Without this ILSpy does: CompilerServices.Unsafe.SkipInit(out object obj);
-            ComputeMaxStackOnBuild = false
+            ComputeMaxStackOnBuild = false // There's stack imbalance somewhere, but this works for now
         };
 
         definition.CilMethodBody = body;
@@ -79,13 +79,22 @@ public class Ilgenerator
             _locals.Add(local, ilLocal);
         }
 
+        /* foreach (var instruction in context.ControlFlowGraph!.Instructions)
+        {
+            body.Instructions.Add(CilOpCodes.Ldstr, instruction.ToString());
+            body.Instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+        }
+        body.Instructions.Add(CilOpCodes.Ldstr, "-------------------------------------------------------------------------");
+        body.Instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!)); */
+
         // Generate IL
         foreach (var instruction in context.ControlFlowGraph!.Instructions) // context.ConvertedIsil is probably not up to date anymore here
-            GenerateInstructions(instruction, context, body);
+            GenerateInstructions(instruction, context, definition);
     }
 
-    private void GenerateInstructions(Instruction instruction, MethodAnalysisContext context, CilMethodBody body)
+    private void GenerateInstructions(Instruction instruction, MethodAnalysisContext context, MethodDefinition method)
     {
+        var body = method.CilMethodBody!;
         var instructions = body.Instructions;
 
         switch (instruction.OpCode)
@@ -108,14 +117,21 @@ public class Ilgenerator
             case OpCode.Move:
                 if (instruction.Operands[0] is FieldReference field) // stfld takes instance before value so LoadOperand StoreToOperand doesn't work
                 {
-                    instructions.Add(CilOpCodes.Ldloc, _locals[field.Local]);
-                    LoadOperand(instruction.Operands[1], body);
+                    var param = method.Parameters.FirstOrDefault(p => p.Name == field.Local.Name);
+                    if (param != null)
+                        instructions.Add(CilOpCodes.Ldarg, param);
+                    else if (field.Local.IsThis)
+                        instructions.Add(CilOpCodes.Ldarg_0);
+                    else
+                        instructions.Add(CilOpCodes.Ldloc, _locals[field.Local]);
+
+                    LoadOperand(instruction.Operands[1], method);
                     instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(_module!));
                     break;
                 }
 
-                LoadOperand(instruction.Operands[1], body);
-                StoreToOperand(instruction.Operands[0], body);
+                LoadOperand(instruction.Operands[1], method);
+                StoreToOperand(instruction.Operands[0], method);
                 break;
 
             case OpCode.Phi:
@@ -136,15 +152,15 @@ public class Ilgenerator
                     break;
                 }
 
-                var method = _importer!.ImportMethod(targetMethod.ToMethodDescriptor(_module!));
-                var resolvedMethod = method.Resolve()!;
+                var importedMethod = _importer!.ImportMethod(targetMethod.ToMethodDescriptor(_module!));
+                var resolvedMethod = importedMethod.Resolve()!;
 
                 var thisParamIndex = instruction.OpCode == OpCode.Call ? 2 : 1;
 
                 if (!resolvedMethod.IsStatic) // Load 'this' param
                 {
                     if ((instruction.Operands.Count - 1) >= thisParamIndex)
-                        LoadOperand(instruction.Operands[thisParamIndex], body);
+                        LoadOperand(instruction.Operands[thisParamIndex], method);
                     else
                         instructions.Add(CilOpCodes.Ldstr, $"Non static method called without 'this' param ({instruction})");
                 }
@@ -152,12 +168,12 @@ public class Ilgenerator
                 // Load normal params
                 var callParams = instruction.Operands.Skip(thisParamIndex + (resolvedMethod.IsStatic ? 0 : -1));
                 foreach (var param in callParams)
-                    LoadOperand(param, body);
+                    LoadOperand(param, method);
 
-                instructions.Add(CilOpCodes.Call, method);
+                instructions.Add(CilOpCodes.Call, importedMethod);
 
                 if (instruction.OpCode == OpCode.Call) // Store return value
-                    StoreToOperand(instruction.Operands[1], body);
+                    StoreToOperand(instruction.Operands[1], method);
 
                 break;
 
@@ -168,7 +184,7 @@ public class Ilgenerator
 
             case OpCode.Return:
                 if (!context.IsVoid && instruction.Operands.Count == 1)
-                    LoadOperand(instruction.Operands[0], body);
+                    LoadOperand(instruction.Operands[0], method);
                 instructions.Add(CilOpCodes.Ret);
                 break;
 
@@ -201,9 +217,9 @@ public class Ilgenerator
         }
     }
 
-    private void LoadOperand(object operand, CilMethodBody body)
+    private void LoadOperand(object operand, MethodDefinition method)
     {
-        var instructions = body.Instructions;
+        var instructions = method.CilMethodBody!.Instructions;
 
         switch (operand)
         {
@@ -223,7 +239,11 @@ public class Ilgenerator
                 instructions.Add(CilOpCodes.Ldstr, s);
                 break;
             case LocalVariable local:
-                instructions.Add(CilOpCodes.Ldloc, _locals[local]);
+                var param = method.Parameters.FirstOrDefault(p => p.Name == local.Name);
+                if (param != null)
+                    instructions.Add(CilOpCodes.Ldarg, param);
+                else
+                    instructions.Add(CilOpCodes.Ldloc, _locals[local]);
                 break;
             case FieldReference field:
                 instructions.Add(CilOpCodes.Ldarg_0); // TODO: Use local instead of 'this' without causing stack imbalance, i have no idea why that happens
@@ -236,18 +256,21 @@ public class Ilgenerator
         }
     }
 
-    private void StoreToOperand(object operand, CilMethodBody body)
+    private void StoreToOperand(object operand, MethodDefinition method)
     {
-        var instructions = body.Instructions;
+        var instructions = method.CilMethodBody!.Instructions;
 
         switch (operand)
         {
             case LocalVariable local:
                 instructions.Add(CilOpCodes.Stloc, _locals[local]);
                 break;
+
             case FieldReference field:
+                instructions.Add(CilOpCodes.Ldarg_0);
                 instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(_module!));
                 break;
+
             default:
                 instructions.Add(CilOpCodes.Ldstr, $"Store into unknown operand: {operand}");
                 instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
