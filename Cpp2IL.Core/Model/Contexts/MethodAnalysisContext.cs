@@ -70,7 +70,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public List<string> AnalysisWarnings = [];
 
-    private const int MaxMethodSizeBytes = 256000; // 256KB
+    private const int MaxMethodSizeBytes = 18000; // 18KB
 
     public List<ParameterAnalysisContext> Parameters = [];
 
@@ -323,8 +323,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
             action.Apply(this);
     }
 
-    public void AddWarning(string warning) => AnalysisWarnings.Add($"warning: {warning}");
-    public void AddError(string error) => AnalysisWarnings.Add($"error: {error}");
+    public void AddWarning(string warning) => AnalysisWarnings.Add(warning);
 
     public void ReleaseAnalysisData()
     {

@@ -18,6 +18,7 @@ public class Ilgenerator
     private ReferenceImporter? _importer;
     private CorLibTypeFactory? _factory;
     private MemberReference? _writeLine;
+    private MemberReference? _stringCtor;
 
     public void GenerateIl(MethodAnalysisContext context, MethodDefinition definition)
     {
@@ -38,6 +39,11 @@ public class Ilgenerator
         _writeLine = _factory.CorLibScope
             .CreateTypeReference("System", "Console")
             .CreateMemberReference("WriteLine", MethodSignature.CreateStatic(_factory.Void, _factory.String))
+            .ImportWith(_importer);
+
+        var stringType = _factory.CorLibScope.CreateTypeReference("System", "String");
+        _stringCtor = stringType
+            .CreateMemberReference(".ctor", MethodSignature.CreateStatic(stringType.ToTypeSignature(), _factory.String))
             .ImportWith(_importer);
 
         var body = new CilMethodBody(definition)
@@ -88,14 +94,57 @@ public class Ilgenerator
         body.Instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!)); */
 
         // Generate IL
+        Dictionary<Instruction, List<CilInstruction>> instructionMap = [];
         foreach (var instruction in context.ControlFlowGraph!.Instructions) // context.ConvertedIsil is probably not up to date anymore here
-            GenerateInstructions(instruction, context, definition);
+            instructionMap.Add(instruction, GenerateInstructions(instruction, context, definition));
+
+        // Set IL branch targets
+        foreach (var kvp in instructionMap)
+        {
+            var instruction = kvp.Key;
+            var il = kvp.Value;
+
+            if (instruction.OpCode == OpCode.Jump || instruction.OpCode == OpCode.ConditionalJump)
+            {
+                var ilBranch = il.First(i => i.OpCode == CilOpCodes.Br || i.OpCode == CilOpCodes.Brtrue);
+
+                if (instruction.Operands[0] is Block targetBlock)
+                {
+                    context.AddWarning($"Branch target block not in cfg: {instruction} ({targetBlock})");
+                    ilBranch.OpCode = CilOpCodes.Nop;
+                    ilBranch.Operand = null;
+                    continue;
+                }
+
+                var target = (Instruction)instruction.Operands[0];
+
+                if (!instructionMap.ContainsKey(target))
+                {
+                    context.AddWarning($"Branch target not in ISIL to IL map: {instruction} --- {target}");
+                    ilBranch.OpCode = CilOpCodes.Nop;
+                    ilBranch.Operand = null;
+                    continue;
+                }
+
+                ilBranch.Operand = new CilInstructionLabel(instructionMap[target][0]);
+            }
+        }
+
+        // Add analysis warnings
+        var instructions = body.Instructions;
+        foreach (var warning in context.AnalysisWarnings)
+        {
+            instructions.Add(CilOpCodes.Ldstr, "Warning: " + warning);
+            instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+        }
     }
 
-    private void GenerateInstructions(Instruction instruction, MethodAnalysisContext context, MethodDefinition method)
+    private List<CilInstruction> GenerateInstructions(Instruction instruction, MethodAnalysisContext context, MethodDefinition method)
     {
         var body = method.CilMethodBody!;
         var instructions = body.Instructions;
+        var currentCount = instructions.Count;
+        var startIndex = instructions.Count;
 
         switch (instruction.OpCode)
         {
@@ -105,7 +154,7 @@ public class Ilgenerator
                 break;
 
             case OpCode.NotImplemented:
-                instructions.Add(CilOpCodes.Ldstr, $"Not implemented instruction: {instruction}");
+                instructions.Add(CilOpCodes.Ldstr, $"Not implemented instruction: {instruction.Operands[0]}");
                 instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
                 break;
 
@@ -178,7 +227,7 @@ public class Ilgenerator
                 break;
 
             case OpCode.IndirectCall:
-                instructions.Add(CilOpCodes.Ldstr, $"Indirect calls should have been resolved before IL gen ({instruction})");
+                instructions.Add(CilOpCodes.Ldstr, $"Indirect call: {instruction} (should have been resolved before IL gen)");
                 instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
                 break;
 
@@ -189,25 +238,75 @@ public class Ilgenerator
                 break;
 
             case OpCode.Jump:
-            case OpCode.IndirectJump:
+                instructions.Add(CilOpCodes.Br, new CilInstructionLabel());
+                break;
+
             case OpCode.ConditionalJump:
+                LoadOperand(instruction.Operands[1], method);
+                instructions.Add(CilOpCodes.Brtrue, new CilInstructionLabel());
+                break;
+
+            case OpCode.IndirectJump:
+                instructions.Add(CilOpCodes.Ldstr, $"Indirect jump: {instruction} (should have been resolved before IL gen)");
+                instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+                break;
+
             case OpCode.ShiftStack:
+                instructions.Add(CilOpCodes.Ldstr, $"Stack shift: {instruction} (stack analysis should have removed these)");
+                instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+                break;
+
+            case OpCode.CheckEqual:
+            case OpCode.CheckGreater:
+            case OpCode.CheckLess:
+
             case OpCode.Add:
             case OpCode.Subtract:
             case OpCode.Multiply:
             case OpCode.Divide:
+
             case OpCode.ShiftLeft:
             case OpCode.ShiftRight:
+
             case OpCode.And:
             case OpCode.Or:
             case OpCode.Xor:
+                LoadOperand(instruction.Operands[1], method);
+                LoadOperand(instruction.Operands[2], method);
+
+                switch (instruction.OpCode)
+                {
+                    case OpCode.CheckEqual: instructions.Add(CilOpCodes.Ceq); break;
+                    case OpCode.CheckGreater: instructions.Add(CilOpCodes.Cgt); break;
+                    case OpCode.CheckLess: instructions.Add(CilOpCodes.Clt); break;
+
+                    case OpCode.Add: instructions.Add(CilOpCodes.Add); break;
+                    case OpCode.Subtract: instructions.Add(CilOpCodes.Sub); break;
+                    case OpCode.Multiply: instructions.Add(CilOpCodes.Mul); break;
+                    case OpCode.Divide: instructions.Add(CilOpCodes.Div); break;
+
+                    case OpCode.ShiftLeft: instructions.Add(CilOpCodes.Shl); break;
+                    case OpCode.ShiftRight: instructions.Add(CilOpCodes.Shr); break;
+
+                    case OpCode.And: instructions.Add(CilOpCodes.And); break;
+                    case OpCode.Or: instructions.Add(CilOpCodes.Or); break;
+                    case OpCode.Xor: instructions.Add(CilOpCodes.Xor); break;
+                }
+
+                StoreToOperand(instruction.Operands[0], method);
+                break;
+
             case OpCode.Not:
             case OpCode.Negate:
-            case OpCode.CheckEqual:
-            case OpCode.CheckGreater:
-            case OpCode.CheckLess:
-                instructions.Add(CilOpCodes.Ldstr, instruction.ToString());
-                instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+                LoadOperand(instruction.Operands[1], method);
+
+                switch (instruction.OpCode)
+                {
+                    case OpCode.Not: instructions.Add(CilOpCodes.Not); break;
+                    case OpCode.Negate: instructions.Add(CilOpCodes.Neg); break;
+                }
+
+                StoreToOperand(instruction.Operands[0], method);
                 break;
 
             default:
@@ -215,6 +314,8 @@ public class Ilgenerator
                 instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
                 break;
         }
+
+        return instructions.ToList().GetRange(startIndex, instructions.Count - startIndex); // Return added IL
     }
 
     private void LoadOperand(object operand, MethodDefinition method)
@@ -251,7 +352,8 @@ public class Ilgenerator
                 instructions.Add(CilOpCodes.Ldfld, field.Field.ToFieldDescriptor(_module!));
                 break;
             default:
-                instructions.Add(CilOpCodes.Ldstr, operand.ToString() ?? "[null operand]");
+                instructions.Add(CilOpCodes.Ldstr, "Unknown operand: " + operand.ToString());
+                instructions.Add(CilOpCodes.Newobj, _importer!.ImportMethod(_stringCtor!));
                 break;
         }
     }
