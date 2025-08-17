@@ -64,6 +64,9 @@ public class Ilgenerator
             if (operand is LocalVariable local2)
                 local = local2;
 
+            if (operand is MemoryOperand memory && memory.Base is LocalVariable local3)
+                local = local3;
+
             if (local != null && !context.Locals.Contains(local))
                 context.Locals.Add(local);
         }
@@ -327,6 +330,27 @@ public class Ilgenerator
             case int i:
                 instructions.Add(CilOpCodes.Ldc_I4, i);
                 break;
+            case uint ui:
+                instructions.Add(CilOpCodes.Ldc_I4, unchecked((int)ui));
+                break;
+            case short s:
+                instructions.Add(CilOpCodes.Ldc_I4, s);
+                break;
+            case ushort us:
+                instructions.Add(CilOpCodes.Ldc_I4, us);
+                break;
+            case byte b8:
+                instructions.Add(CilOpCodes.Ldc_I4, b8);
+                break;
+            case sbyte sb8:
+                instructions.Add(CilOpCodes.Ldc_I4, sb8);
+                break;
+            case long l:
+                instructions.Add(CilOpCodes.Ldc_I8, l);
+                break;
+            case ulong ul:
+                instructions.Add(CilOpCodes.Ldc_I8, unchecked((long)ul));
+                break;
             case float f:
                 instructions.Add(CilOpCodes.Ldc_R4, f);
                 break;
@@ -351,6 +375,20 @@ public class Ilgenerator
                 //instructions.Add(CilOpCodes.Ldloca, _locals[field.Local]);
                 instructions.Add(CilOpCodes.Ldfld, field.Field.ToFieldDescriptor(_module!));
                 break;
+            case MemoryOperand memory:
+                if (memory.Index == null && memory.Addend == 0 && memory.Scale == 0
+                    && memory.Base is LocalVariable local2)
+                {
+                    var param2 = method.Parameters.FirstOrDefault(p => p.Name == local2.Name);
+                    if (param2 != null)
+                        instructions.Add(CilOpCodes.Ldarg, param2);
+                    else
+                        instructions.Add(CilOpCodes.Ldloc, _locals[local2]);
+                    break;
+                }
+                instructions.Add(CilOpCodes.Ldstr, "Unmanaged memory load: " + operand.ToString());
+                instructions.Add(CilOpCodes.Newobj, _importer!.ImportMethod(_stringCtor!));
+                break;
             default:
                 instructions.Add(CilOpCodes.Ldstr, "Unknown operand: " + operand.ToString());
                 instructions.Add(CilOpCodes.Newobj, _importer!.ImportMethod(_stringCtor!));
@@ -371,6 +409,15 @@ public class Ilgenerator
             case FieldReference field:
                 instructions.Add(CilOpCodes.Ldarg_0);
                 instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(_module!));
+                break;
+
+            case MemoryOperand memory:
+                if (memory.Index == null && memory.Addend == 0 && memory.Scale == 0
+                    && memory.Base is LocalVariable local2)
+                {
+                    // Can pointer assignments just be ignored because it's C#? (Move [local], 123)
+                    instructions.Add(CilOpCodes.Stloc, _locals[local2]);
+                }
                 break;
 
             default:

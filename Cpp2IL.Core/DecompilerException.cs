@@ -1,3 +1,5 @@
+namespace Cpp2IL.Core;
+
 public class DecompilerException : System.Exception
 {
     public DecompilerException() { }
