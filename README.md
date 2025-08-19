@@ -15,6 +15,14 @@ Uses [LibCpp2IL](LibCpp2IL) for the initial parsing and loading of metadata stru
 build artifacts if you want to do something yourself with IL2CPP metadata, and is released under the MIT license. The
 link above will take you to the documentation for LibCpp2IL.
 
+## Decompiler
+The decompiled CIL is pretty messy right now, the next thing is probably pattern matching to convert il2cpp specific stuff into C#, but most of the times it's at least possible to see what the method does.
+Use ILSpy because it works with broken CIL better than dnSpy.
+
+The entry point to decompilation is `MethodAnalysisContext.Analyze()`, it translates platform specific assembly into ISIL with `Cpp2IlInstructionSet`,
+builds the control flow graph and dominator info, and the rest of the decompilation is done with `IAction` classes (`MethodAnalysisContext.analysisActions`),
+these include stack analysis, simplification, applying metadata, etc. and then `Ilgenerator.GenerateIl()` translates the ISIL into CIL that's saved into managed dlls.
+
 ### Development Branch Notes
 
 Cpp2IL has undergone a major rewrite. This branch represents work in progress, and is subject to change.

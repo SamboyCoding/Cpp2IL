@@ -389,6 +389,24 @@ public class Ilgenerator
                 instructions.Add(CilOpCodes.Ldstr, "Unmanaged memory load: " + operand.ToString());
                 instructions.Add(CilOpCodes.Newobj, _importer!.ImportMethod(_stringCtor!));
                 break;
+            case TypeAnalysisContext type:
+                var cilType = type.ToTypeSignature(_module!).Resolve()!;
+
+                // Try to first get constructor without params
+                var constructor = cilType.Methods.FirstOrDefault(m => m.ParameterDefinitions.Count == 0 && m.Name == ".ctor" || m.Name == ".cctor");
+                constructor ??= cilType.Methods.FirstOrDefault(m => m.Name == ".ctor" || m.Name == ".cctor");
+
+                if (constructor == null)
+                {
+                    instructions.Add(CilOpCodes.Ldstr, $"Constructor not found for: {operand} (probably static type)");
+                    instructions.Add(CilOpCodes.Call, _importer!.ImportMethod(_writeLine!));
+                    break;
+                }
+
+                foreach (var param2 in constructor.ParameterDefinitions)
+                    instructions.Add(CilOpCodes.Ldstr, "Constructor param: " + param2.ToString());
+                instructions.Add(CilOpCodes.Newobj, _importer!.ImportMethod(constructor));
+                break;
             default:
                 instructions.Add(CilOpCodes.Ldstr, "Unknown operand: " + operand.ToString());
                 instructions.Add(CilOpCodes.Newobj, _importer!.ImportMethod(_stringCtor!));
