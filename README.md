@@ -16,7 +16,9 @@ build artifacts if you want to do something yourself with IL2CPP metadata, and i
 link above will take you to the documentation for LibCpp2IL.
 
 ## Decompiler
-The decompiled CIL is pretty messy right now, the next thing is probably pattern matching to convert il2cpp specific stuff into C#, but most of the times it's at least possible to see what the method does.
+The decompiled CIL is pretty messy right now, the next thing is probably pattern matching to convert il2cpp specific stuff into C#
+(generic ISIL should be converted into more C# specific ISIL, new object, throw, etc. instructions should be added to ISIL),
+but most of the times it's at least possible to see what the method does.
 Use ILSpy because it works with broken CIL better than dnSpy.
 
 The entry point to decompilation is `MethodAnalysisContext.Analyze()`, it translates platform specific assembly into ISIL with `Cpp2IlInstructionSet`,
