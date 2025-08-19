@@ -13,6 +13,7 @@
         <TargetFrameworks>net9.0;net472</TargetFrameworks>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <ServerGarbageCollection>true</ServerGarbageCollection>
+        <CETCompat>false</CETCompat>
     </PropertyGroup>
 
     <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">

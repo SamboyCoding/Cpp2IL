@@ -336,16 +336,16 @@ public static class AsmResolverAssemblyPopulator
 
             var managedField = new FieldDefinition(fieldContext.Name, (FieldAttributes)fieldContext.Attributes, fieldTypeSig);
 
+            //Field default values
+            if (managedField.HasDefault && fieldContext.ConstantValue is { } constVal)
+                managedField.Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
+
+            //Field Initial Values (used for allocation of Array Literals)
+            if (managedField.HasFieldRva)
+                managedField.FieldRva = new DataSegment(fieldContext.StaticArrayInitialValue);
+
             if (fieldInfo != null)
             {
-                //Field default values
-                if (managedField.HasDefault && fieldInfo.Field.DefaultValue?.Value is { } constVal)
-                    managedField.Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
-
-                //Field Initial Values (used for allocation of Array Literals)
-                if (managedField.HasFieldRva)
-                    managedField.FieldRva = new DataSegment(fieldInfo.Field.StaticArrayInitialValue);
-
                 if (ilTypeDefinition.IsExplicitLayout && !fieldContext.IsStatic)
                     //Copy field offset
                     managedField.FieldOffset = fieldInfo.FieldOffset;
