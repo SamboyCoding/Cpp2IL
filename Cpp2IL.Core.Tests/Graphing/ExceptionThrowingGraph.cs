@@ -25,7 +25,7 @@ public class ExceptionThrowingGraph
         Add(009, OpCode.Call, 0xDEADBEEF);
         Add(010, OpCode.Move, new Register(null, "reg6"), 1);
         Add(011, OpCode.CheckEqual, new Register(null, "zf"), new Register(null, "reg7"), 0);
-        Add(012, OpCode.ConditionalJump, 39, new Register(null, "zf"));
+        Add(012, OpCode.ConditionalJump, 38, new Register(null, "zf"));
         Add(013, OpCode.Move, new Register(null, "reg8"), 1);
         Add(014, OpCode.Move, new Register(null, "reg9"), 2);
         Add(015, OpCode.Move, new Register(null, "reg10"), 3);
@@ -83,7 +83,7 @@ public class ExceptionThrowingGraph
     [Test]
     public void VerifyNumberOfBlocks()
     {
-        Assert.That(graph.Blocks.Count == 18);
+        Assert.That(graph.Blocks.Count == 19);
     }
 
     [Test]
