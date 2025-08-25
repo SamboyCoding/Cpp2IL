@@ -21,7 +21,6 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
     public override string OutputFormatName => "DLL files with IL Recovery";
 
     private MethodDefinition? _exceptionConstructor;
-    private Ilgenerator _ilGenerator = new();
 
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
@@ -43,8 +42,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
         if (shouldSkip)
         {
-            instructions.Add(CilOpCodes.Ldnull);
-            instructions.Add(CilOpCodes.Throw);
+            methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
             return;
         }
 
@@ -53,7 +51,11 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
             TotalMethodCount++;
 
             methodContext.Analyze();
-            _ilGenerator.GenerateIl(methodContext, methodDefinition);
+
+            if (methodContext.ConvertedIsil.Count == 0)
+                methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
+            else
+                IlGenerator.GenerateIl(methodContext, methodDefinition);
 
             //WriteControlFlowGraph(methodContext, Path.Combine(Environment.CurrentDirectory, "Cpp2IL", "bin", "Debug", "net9.0", "cpp2il_out", "cfg"));
 

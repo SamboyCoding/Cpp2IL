@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Reflection;
-using Cpp2IL.Core.Actions;
+using Cpp2IL.Core.Analysis;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Logging;
@@ -228,22 +228,6 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         }
     }
 
-    private static readonly List<IAction> analysisActions =
-    [
-        // Indirect jumps/calls should probably be resolved here before stack analysis
-        new StackAnalyzer() { MaxBlockVisitCount = 5000 },
-        new BuildSsaForm(),
-        new CreateLocals(),
-        new ResolveCalls(),
-        new ApplyMetadata(),
-        new RemoveSsaForm(),
-        new Inlining(),
-        new PropagateTypes() { MaxLoopCount = 5000 },
-        new ResolveFieldOffsets(),
-        new RemoveUnusedLocals(),
-        new ResolveGetters()
-    ];
-
     public MethodAnalysisContext(Il2CppMethodDefinition? definition, TypeAnalysisContext parent) : base(definition?.token ?? 0, parent.AppContext)
     {
         DeclaringType = parent;
@@ -321,8 +305,21 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         ControlFlowGraph = new ISILControlFlowGraph(ConvertedIsil);
         DominatorInfo = new DominatorInfo(ControlFlowGraph);
 
-        foreach (var action in analysisActions)
-            action.Apply(this);
+        // Indirect jumps/calls should probably be resolved here before stack analysis
+
+        StackAnalyzer.Analyze(this);
+
+        // Create locals
+        SsaForm.Build(this);
+        LocalVariables.CreateAll(this);
+        SsaForm.Remove(this);
+
+        MetadataResolver.ResolveAll(this);
+        Simplifier.Simplify(this);
+
+        // Propagate types and clean up locals
+        LocalVariables.PropagateTypes(this);
+        LocalVariables.RemoveUnused(this);
     }
 
     public void AddWarning(string warning) => AnalysisWarnings.Add(warning);

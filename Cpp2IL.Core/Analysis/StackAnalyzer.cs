@@ -1,13 +1,12 @@
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Linq;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 
-namespace Cpp2IL.Core.Actions;
+namespace Cpp2IL.Core.Analysis;
 
-public class StackAnalyzer : IAction
+public class StackAnalyzer
 {
     [DebuggerDisplay("Size = {Size}")]
     private class StackState
@@ -23,27 +22,27 @@ public class StackAnalyzer : IAction
     /// <summary>
     /// Max allowed count of blocks to visit (-1 for no limit).
     /// </summary>
-    public int MaxBlockVisitCount = -1;
+    public static int MaxBlockVisitCount = 2000;
 
-    public void Apply(MethodAnalysisContext method)
+    public static void Analyze(MethodAnalysisContext method)
     {
+        var analyzer = new StackAnalyzer();
+
         var graph = method.ControlFlowGraph!;
         graph.RemoveUnreachableBlocks(); // Without this indirect jumps (in try catch i think) cause some weird stuff
 
-        _inComingState = new Dictionary<Block, StackState> { { graph.EntryBlock, new StackState() } };
-        _outGoingState.Clear();
-        _instructionState.Clear();
+        analyzer._inComingState = new Dictionary<Block, StackState> { { graph.EntryBlock, new StackState() } };
 
-        TraverseGraph(graph.EntryBlock);
+        analyzer.TraverseGraph(graph.EntryBlock);
 
-        var outDelta = _outGoingState[graph.ExitBlock];
+        var outDelta = analyzer._outGoingState[graph.ExitBlock];
         if (outDelta.Size != 0)
         {
             var outText = outDelta.Size < 0 ? "-" + (-outDelta.Size).ToString("X") : outDelta.Size.ToString("X");
             method.AddWarning($"Method ends with non empty stack ({outText}), the output could be wrong!");
         }
 
-        CorrectOffsets(graph);
+        analyzer.CorrectOffsets(graph);
         ReplaceStackWithRegisters(method);
 
         graph.RemoveNops();

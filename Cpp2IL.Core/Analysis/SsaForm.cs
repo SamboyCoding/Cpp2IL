@@ -4,27 +4,29 @@ using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 
-namespace Cpp2IL.Core.Actions;
+namespace Cpp2IL.Core.Analysis;
 
-public class BuildSsaForm : IAction
+public class SsaForm
 {
     private Dictionary<int, Stack<Register>> _versions = new();
     private Dictionary<int, int> _versionCount = new();
     private Dictionary<Block, Dictionary<int, Register>> _blockOutVersions = new();
 
-    public void Apply(MethodAnalysisContext method)
+    public static void Build(MethodAnalysisContext method)
     {
+        var ssa = new SsaForm();
+
         method.ControlFlowGraph!.BuildUseDefLists();
 
-        _versions.Clear();
-        _versionCount.Clear();
-        _blockOutVersions.Clear();
+        ssa._versions.Clear();
+        ssa._versionCount.Clear();
+        ssa._blockOutVersions.Clear();
 
         var graph = method.ControlFlowGraph!;
         var dominatorInfo = method.DominatorInfo!;
 
-        ProcessBlock(graph.EntryBlock, dominatorInfo.DominanceTree);
-        InsertAllPhiFunctions(graph, dominatorInfo, method.ParameterOperands);
+        ssa.ProcessBlock(graph.EntryBlock, dominatorInfo.DominanceTree);
+        ssa.InsertAllPhiFunctions(graph, dominatorInfo, method.ParameterOperands);
     }
 
     private void InsertAllPhiFunctions(ISILControlFlowGraph graph, DominatorInfo dominance, List<object> parameters)
@@ -248,5 +250,64 @@ public class BuildSsaForm : IAction
             var register = (Register)instruction.Destination!;
             _versions.FirstOrDefault(kv => kv.Key == register.Number).Value.Pop();
         }
+    }
+
+    public static void Remove(MethodAnalysisContext method)
+    {
+        var cfg = method.ControlFlowGraph!;
+
+        foreach (var block in cfg.Blocks)
+        {
+            // Get all phis
+            var phiInstructions = block.Instructions
+                .Where(i => i.OpCode == OpCode.Phi)
+                .ToList();
+
+            if (phiInstructions.Count == 0) continue;
+
+            foreach (var predecessor in block.Predecessors)
+            {
+                if (predecessor.Instructions.Count == 0)
+                    continue;
+
+                predecessor.Instructions.RemoveAt(0);
+                var moves = new List<Instruction>();
+
+                foreach (var phi in phiInstructions)
+                {
+                    var result = (LocalVariable)phi.Operands[0]!;
+                    var sources = phi.Operands.Skip(1).Cast<LocalVariable>().ToList();
+
+                    var predIndex = block.Predecessors.IndexOf(predecessor);
+
+                    if (predIndex < 0 || predIndex >= sources.Count)
+                        continue;
+
+                    var source = sources[predIndex];
+
+                    // Add move for it
+                    moves.Add(new Instruction(-1, OpCode.Move, result, source));
+                }
+
+                // Add all of those moves
+                if (predecessor.Instructions.Count == 0)
+                    predecessor.Instructions = moves;
+                else
+                    predecessor.Instructions.InsertRange(predecessor.Instructions.Count - (predecessor.Instructions.Count == 1 ? 1 : 2), moves);
+            }
+
+            // Remove all phis
+            foreach (var instruction in block.Instructions)
+            {
+                if (instruction.OpCode == OpCode.Phi)
+                {
+                    instruction.OpCode = OpCode.Nop;
+                    instruction.Operands = [];
+                }
+            }
+        }
+
+        cfg.RemoveNops();
+        cfg.RemoveEmptyBlocks();
     }
 }

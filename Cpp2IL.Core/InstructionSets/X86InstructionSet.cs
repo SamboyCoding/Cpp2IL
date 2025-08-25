@@ -827,6 +827,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             return new ISIL.MemoryOperand(mBase, mIndex, instruction.MemoryIndexScale);
         }
 
+        //No base
+        if (instruction.MemoryIndex != Register.None && instruction.MemoryDisplacement64 != 0)
+        {
+            var mIndex = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryIndex));
+            return new ISIL.MemoryOperand(null, mIndex, instruction.MemoryDisplacement32, instruction.MemoryIndexScale);
+        }
+
         //No index (and so no scale)
         if (instruction.MemoryBase != Register.None && instruction.MemoryDisplacement64 > 0)
         {

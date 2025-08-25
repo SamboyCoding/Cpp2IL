@@ -3,11 +3,11 @@ using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 
-namespace Cpp2IL.Core.Actions;
+namespace Cpp2IL.Core.Analysis;
 
-public class Inlining : IAction
+public static class Simplifier
 {
-    public void Apply(MethodAnalysisContext method)
+    public static void Simplify(MethodAnalysisContext method)
     {
         var cfg = method.ControlFlowGraph!;
 
