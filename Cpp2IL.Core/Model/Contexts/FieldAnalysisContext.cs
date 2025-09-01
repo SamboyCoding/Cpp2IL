@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
@@ -78,6 +79,11 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
         if (BackingData != null)
             InitCustomAttributeData();
+    }
+
+    public ConcreteGenericFieldAnalysisContext MakeConcreteGenericField(params IEnumerable<TypeAnalysisContext> typeGenericParameters)
+    {
+        return new(this, typeGenericParameters);
     }
 
     public override string ToString() => $"Field: {DeclaringType.Definition?.Name}::{BackingData?.Field.Name}";

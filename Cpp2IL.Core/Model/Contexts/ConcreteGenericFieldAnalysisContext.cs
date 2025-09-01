@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 
@@ -21,5 +22,10 @@ public class ConcreteGenericFieldAnalysisContext : FieldAnalysisContext
     {
         BaseFieldContext = baseField;
         DefaultFieldType = GenericInstantiation.Instantiate(baseField.FieldType, genericInstanceType.GenericArguments, []);
+    }
+
+    public ConcreteGenericFieldAnalysisContext(FieldAnalysisContext baseField, IEnumerable<TypeAnalysisContext> typeGenericParameters)
+        : this(baseField, baseField.DeclaringType.MakeGenericInstanceType(typeGenericParameters))
+    {
     }
 }
