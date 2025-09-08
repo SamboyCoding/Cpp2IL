@@ -139,7 +139,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
             catch (System.Exception e)
             {
                 var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.FullName}");
-                throw new($"Failed to process type {managedType.FullName} (module {managedType.Module?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {context.Name}", e);
+                throw new($"Failed to process type {managedType.FullName} (module {managedType.DeclaringModule?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {context.Name}", e);
             }
 #endif
         }
