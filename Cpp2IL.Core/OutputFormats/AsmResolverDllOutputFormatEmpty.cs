@@ -13,6 +13,6 @@ public class AsmResolverDllOutputFormatEmpty : AsmResolverDllOutputFormat
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
         if (methodDefinition.IsManagedMethodWithBody())
-            methodDefinition.CilMethodBody = new(methodDefinition);
+            methodDefinition.CilMethodBody = new();
     }
 }

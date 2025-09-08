@@ -166,16 +166,6 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         return ret;
     }
 
-    private sealed class CorLibModuleDefinition : ModuleDefinition
-    {
-        public CorLibModuleDefinition(string? name, AssemblyDefinition assembly) : base(name, new(assembly))
-        {
-            // https://github.com/Washi1337/AsmResolver/issues/620
-            CorLibTypeFactory = new(this);
-            AssemblyReferences.Clear();
-        }
-    }
-
     private static AssemblyDefinition BuildStubAssembly(AssemblyAnalysisContext assemblyContext, AssemblyDefinition? corLib, IMetadataResolver metadataResolver)
     {
         //Get the name of the assembly (= the name of the DLL without the file extension)
@@ -191,15 +181,11 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         //Setting the corlib module allows element types in references to that assembly to be set correctly without us having to manually set them.
         var moduleName = assemblyContext.CleanAssemblyName + ".dll";
 
-        var managedModule = corLib is not null //Use either ourself as corlib, if we are corlib, otherwise the provided one
-            ? new ModuleDefinition(moduleName, new(corLib))
-            {
-                MetadataResolver = metadataResolver
-            }
-            : new CorLibModuleDefinition(moduleName, ourAssembly)
-            {
-                MetadataResolver = metadataResolver
-            };
+        //Use either ourself as corlib, if we are corlib, otherwise the provided one
+        var managedModule = new ModuleDefinition(moduleName, corLib is not null ? new(corLib) : null)
+        {
+            MetadataResolver = metadataResolver
+        };
         ourAssembly.Modules.Add(managedModule);
 
         foreach (var il2CppTypeDefinition in assemblyContext.TopLevelTypes)

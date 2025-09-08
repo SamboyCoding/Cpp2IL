@@ -81,8 +81,7 @@ public static class ContextToTypeSignature
 
     public static BoxedTypeSignature ToTypeSignature(this BoxedTypeAnalysisContext context, ModuleDefinition parentModule)
     {
-        // https://github.com/Washi1337/AsmResolver/pull/629
-        return new BoxedTypeSignature(context.ElementType.ToTypeSignature(parentModule));
+        return context.ElementType.ToTypeSignature(parentModule).MakeBoxedType();
     }
 
     public static CustomModifierTypeSignature ToTypeSignature(this CustomModifierTypeAnalysisContext context, ModuleDefinition parentModule)

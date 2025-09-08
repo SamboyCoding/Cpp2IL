@@ -15,7 +15,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
     {
         if (methodDefinition.IsManagedMethodWithBody())
         {
-            methodDefinition.CilMethodBody = new(methodDefinition);
+            methodDefinition.CilMethodBody = new();
             var instructions = methodDefinition.CilMethodBody.Instructions;
             instructions.Add(CilOpCodes.Ldnull);
             instructions.Add(CilOpCodes.Throw);

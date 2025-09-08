@@ -31,17 +31,17 @@ public static class AsmResolverAssemblyPopulator
             PopulateGenericParamsForType(typeCtx, typeDefinition);
 
             //Set base type
-            typeDefinition.BaseType = typeCtx.BaseType?.ToTypeSignature(typeDefinition.Module!).ToTypeDefOrRef();
+            typeDefinition.BaseType = typeCtx.BaseType?.ToTypeSignature(typeDefinition.DeclaringModule!).ToTypeDefOrRef();
 
             //Set interfaces
             foreach (var interfaceType in typeCtx.InterfaceContexts)
-                typeDefinition.Interfaces.Add(new(interfaceType.ToTypeSignature(typeDefinition.Module!).ToTypeDefOrRef()));
+                typeDefinition.Interfaces.Add(new(interfaceType.ToTypeSignature(typeDefinition.DeclaringModule!).ToTypeDefOrRef()));
         }
     }
 
     private static void PopulateGenericParamsForType(TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
-        var importer = ilTypeDefinition.Module!.DefaultImporter;
+        var importer = ilTypeDefinition.DeclaringModule!.DefaultImporter;
 
         foreach (var param in cppTypeDefinition.GenericParameters)
         {
@@ -50,7 +50,7 @@ public static class AsmResolverAssemblyPopulator
             ilTypeDefinition.GenericParameters.Add(p);
 
             param.ConstraintTypes
-                .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.Module).ToTypeDefOrRef()))
+                .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.DeclaringModule).ToTypeDefOrRef()))
                 .ToList()
                 .ForEach(p.Constraints.Add);
         }
@@ -315,7 +315,7 @@ public static class AsmResolverAssemblyPopulator
 
     private static void CopyIl2CppDataToManagedType(TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
-        var importer = ilTypeDefinition.Module!.DefaultImporter;
+        var importer = ilTypeDefinition.DeclaringModule!.DefaultImporter;
 
         CopyFieldsInType(importer, typeContext, ilTypeDefinition);
 
@@ -422,7 +422,7 @@ public static class AsmResolverAssemblyPopulator
                         managedMethod.GenericParameters.Add(gp);
 
                     p.ConstraintTypes
-                        .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.Module!).ToTypeDefOrRef()))
+                        .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.DeclaringModule!).ToTypeDefOrRef()))
                         .ToList()
                         .ForEach(gp.Constraints.Add);
                 });
