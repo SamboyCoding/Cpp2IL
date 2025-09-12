@@ -314,7 +314,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     {
         if (this is ConcreteGenericMethodAnalysisContext)
         {
-            throw new InvalidOperationException($"Attempted to make a ConcreteGenericMethodAnalysisContext concrete: {this}")
+            throw new InvalidOperationException($"Attempted to make a {nameof(ConcreteGenericMethodAnalysisContext)} concrete: {this}");
         }
         else
         {

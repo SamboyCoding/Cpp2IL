@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
@@ -83,7 +84,14 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public ConcreteGenericFieldAnalysisContext MakeConcreteGenericField(params IEnumerable<TypeAnalysisContext> typeGenericParameters)
     {
-        return new(this, typeGenericParameters);
+        if (this is ConcreteGenericFieldAnalysisContext)
+        {
+            throw new InvalidOperationException($"Attempted to make a {nameof(ConcreteGenericFieldAnalysisContext)} concrete: {this}");
+        }
+        else
+        {
+            return new ConcreteGenericFieldAnalysisContext(this, typeGenericParameters);
+        }
     }
 
     public override string ToString() => $"Field: {DeclaringType.Definition?.Name}::{BackingData?.Field.Name}";
