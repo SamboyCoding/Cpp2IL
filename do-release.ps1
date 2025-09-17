@@ -97,17 +97,29 @@ $baseVersion = (Select-Xml -XPath "//Project/PropertyGroup/VersionPrefix" -Path 
 $fullVersionString = "$baseVersion-$version"
 Write-Host "Building Cpp2IL command line executable, release version $fullVersionString"
 
-Write-Host "    Building Cpp2IL - Windows, Standalone .NET"
+Write-Host "    Building Cpp2IL - Windows x64, Standalone .NET"
 
 $null = dotnet publish -c Release -f "net9.0" -r "win-x64" /p:VersionSuffix=$version /p:PublishSingleFile=true --self-contained
 
-Write-Host "    Building Cpp2IL - Linux, Standalone .NET"
+Write-Host "    Building Cpp2IL - Windows ARM64, Standalone .NET"
+
+$null = dotnet publish -c Release -f "net9.0" -r "win-arm64" /p:VersionSuffix=$version /p:PublishSingleFile=true --self-contained
+
+Write-Host "    Building Cpp2IL - Linux x64, Standalone .NET"
 
 $null = dotnet publish -c Release -f "net9.0" -r "linux-x64" /p:VersionSuffix=$version /p:PublishSingleFile=true --self-contained
 
-Write-Host "    Building Cpp2IL - MacOS, Standalone .NET"
+Write-Host "    Building Cpp2IL - Linux ARM64, Standalone .NET"
+
+$null = dotnet publish -c Release -f "net9.0" -r "linux-arm64" /p:VersionSuffix=$version /p:PublishSingleFile=true --self-contained
+
+Write-Host "    Building Cpp2IL - MacOS x64, Standalone .NET"
 
 $null = dotnet publish -c Release -f "net9.0" -r "osx-x64" /p:VersionSuffix=$version /p:PublishSingleFile=true --self-contained
+
+Write-Host "    Building Cpp2IL - MacOS ARM64, Standalone .NET"
+
+$null = dotnet publish -c Release -f "net9.0" -r "osx-arm64" /p:VersionSuffix=$version /p:PublishSingleFile=true --self-contained
 
 Write-Host "    Building Cpp2IL - Windows, .NET Framework"
 
@@ -146,8 +158,11 @@ function ZipAndRename($rid, $platform, $releasePlatformString, $extension)
 Write-Host "Moving files to artifacts directory"
 
 CopyAndRename "net9.0" "win-x64" "Windows" ".exe"
+CopyAndRename "net9.0" "win-arm64" "Windows-ARM64" ".exe"
 CopyAndRename "net9.0" "linux-x64" "Linux" ""
+CopyAndRename "net9.0" "linux-arm64" "Linux-ARM64" ""
 CopyAndRename "net9.0" "osx-x64" "OSX" ""
+CopyAndRename "net9.0" "osx-arm64" "OSX-ARM64" ""
 ZipAndRename "net472" "win-x64" "Windows-Netframework472" ".exe"
 
 Set-Location $ProjectRoot
