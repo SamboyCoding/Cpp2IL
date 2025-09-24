@@ -27,7 +27,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
         if (_exceptionConstructor == null)
             FindExceptionConstructor(methodDefinition);
 
-        var module = methodDefinition.Module!;
+        var module = methodDefinition.DeclaringModule!;
         var moduleName = module.Name!.ToString();
         var shouldSkip = moduleName.StartsWith("UnityEngine.") || moduleName.StartsWith("Unity.") ||
                          moduleName.StartsWith("System.") || moduleName == "System" ||
@@ -37,7 +37,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
         if (!methodDefinition.IsManagedMethodWithBody())
             return;
 
-        methodDefinition.CilMethodBody = new(methodDefinition);
+        methodDefinition.CilMethodBody = new();
         var instructions = methodDefinition.CilMethodBody.Instructions;
 
         if (shouldSkip)
@@ -76,7 +76,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
     private void FindExceptionConstructor(MethodDefinition method)
     {
-        var module = method.Module!;
+        var module = method.DeclaringModule!;
         var mscorlibReference = module.AssemblyReferences.First(a => a.Name == "mscorlib");
         var mscorlib = mscorlibReference.Resolve()!.Modules[0];
 

@@ -242,7 +242,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
         return new(this, DeclaringAssembly);
     }
 
-    public GenericInstanceTypeAnalysisContext MakeGenericInstanceType(IEnumerable<TypeAnalysisContext> genericArguments)
+    public GenericInstanceTypeAnalysisContext MakeGenericInstanceType(params IEnumerable<TypeAnalysisContext> genericArguments)
     {
         return new(this, genericArguments, DeclaringAssembly);
     }

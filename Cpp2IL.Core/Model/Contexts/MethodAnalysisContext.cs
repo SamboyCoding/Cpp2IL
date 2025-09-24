@@ -343,6 +343,18 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         }
     }
 
+    public ConcreteGenericMethodAnalysisContext MakeConcreteGenericMethod(IEnumerable<TypeAnalysisContext> typeGenericParameters, IEnumerable<TypeAnalysisContext> methodGenericParameters)
+    {
+        if (this is ConcreteGenericMethodAnalysisContext)
+        {
+            throw new InvalidOperationException($"Attempted to make a {nameof(ConcreteGenericMethodAnalysisContext)} concrete: {this}");
+        }
+        else
+        {
+            return new ConcreteGenericMethodAnalysisContext(this, typeGenericParameters, methodGenericParameters);
+        }
+    }
+
     public override string ToString() => $"Method: {FullName}";
 
     #region StableNameDot implementation
