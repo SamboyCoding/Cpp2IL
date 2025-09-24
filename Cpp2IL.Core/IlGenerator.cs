@@ -16,7 +16,7 @@ public static class IlGenerator
     public static void GenerateIl(MethodAnalysisContext context, MethodDefinition definition)
     {
         var assembly = context.DeclaringType!.DeclaringAssembly;
-        var module = definition.Module!;
+        var module = definition.DeclaringModule!;
         var importer = module.DefaultImporter;
         var factory = module.CorLibTypeFactory;
 
@@ -40,7 +40,7 @@ public static class IlGenerator
             }
         }
 
-        var body = new CilMethodBody(definition)
+        var body = new CilMethodBody()
         {
             InitializeLocals = true, // Without this ILSpy does: CompilerServices.Unsafe.SkipInit(out object obj);
             ComputeMaxStackOnBuild = false // There's stack imbalance somewhere, but this works for now
@@ -145,7 +145,7 @@ public static class IlGenerator
         var currentCount = instructions.Count;
         var startIndex = instructions.Count;
 
-        var module = method.Module!;
+        var module = method.DeclaringModule!;
         var importer = module.DefaultImporter!;
 
         switch (instruction.OpCode)
@@ -325,7 +325,7 @@ public static class IlGenerator
     {
         var instructions = method.CilMethodBody!.Instructions;
 
-        var module = method.Module!;
+        var module = method.DeclaringModule!;
         var importer = module.DefaultImporter!;
 
         switch (operand)
@@ -430,7 +430,7 @@ public static class IlGenerator
     {
         var instructions = method.CilMethodBody!.Instructions;
 
-        var module = method.Module!;
+        var module = method.DeclaringModule!;
         var importer = module.DefaultImporter!;
 
         switch (operand)
