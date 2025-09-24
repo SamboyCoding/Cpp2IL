@@ -63,10 +63,10 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
         }
         catch (Exception e)
         {
-            Logger.ErrorNewline($"Decompiling {methodContext.FullName} failed: {e}");
+            Logger.ErrorNewline($"Decompiling {methodContext.FullName} failed: {e.ToCollapsedString()}");
 
             // throw new Exception(error);
-            instructions.Add(CilOpCodes.Ldstr, e.ToString());
+            instructions.Add(CilOpCodes.Ldstr, e.ToCollapsedString());
             instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(_exceptionConstructor!));
             instructions.Add(CilOpCodes.Throw);
         }
