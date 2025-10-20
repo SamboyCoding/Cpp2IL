@@ -22,7 +22,11 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public new GenericParameterAttributes DefaultAttributes { get; }
     public new GenericParameterAttributes? OverrideAttributes { get; set; }
-    public new GenericParameterAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+    public new GenericParameterAttributes Attributes
+    {
+        get => OverrideAttributes ?? DefaultAttributes;
+        set => OverrideAttributes = value;
+    }
 
     private List<TypeAnalysisContext>? _constraintTypes;
     public List<TypeAnalysisContext> ConstraintTypes

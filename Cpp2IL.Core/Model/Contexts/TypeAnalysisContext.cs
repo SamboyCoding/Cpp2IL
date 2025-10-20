@@ -69,7 +69,11 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     public virtual TypeAttributes? OverrideAttributes { get; set; }
 
-    public TypeAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+    public TypeAttributes Attributes
+    {
+        get => OverrideAttributes ?? DefaultAttributes;
+        set => OverrideAttributes = value;
+    }
 
     public virtual TypeAnalysisContext? DefaultBaseType => Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType);
 
@@ -156,7 +160,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
         }
         set
         {
-            OverrideAttributes = (Attributes & ~TypeAttributes.VisibilityMask) | (value & TypeAttributes.VisibilityMask);
+            Attributes = (Attributes & ~TypeAttributes.VisibilityMask) | (value & TypeAttributes.VisibilityMask);
         }
     }
 

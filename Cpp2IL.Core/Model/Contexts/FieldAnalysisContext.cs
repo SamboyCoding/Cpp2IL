@@ -35,7 +35,11 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public virtual FieldAttributes? OverrideAttributes { get; set; }
 
-    public FieldAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+    public FieldAttributes Attributes
+    {
+        get => OverrideAttributes ?? DefaultAttributes;
+        set => OverrideAttributes = value;
+    }
 
     public bool IsStatic => (Attributes & FieldAttributes.Static) != 0;
 
@@ -68,7 +72,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
         }
         set
         {
-            OverrideAttributes = (Attributes & ~FieldAttributes.FieldAccessMask) | (value & FieldAttributes.FieldAccessMask);
+            Attributes = (Attributes & ~FieldAttributes.FieldAccessMask) | (value & FieldAttributes.FieldAccessMask);
         }
     }
 

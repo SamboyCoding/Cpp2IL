@@ -44,7 +44,11 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// <summary>
     /// The ParameterAttributes of this parameter.
     /// </summary>
-    public ParameterAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+    public ParameterAttributes Attributes
+    {
+        get => OverrideAttributes ?? DefaultAttributes;
+        set => OverrideAttributes = value;
+    }
 
     /// <summary>
     /// True if this parameter is passed by reference.

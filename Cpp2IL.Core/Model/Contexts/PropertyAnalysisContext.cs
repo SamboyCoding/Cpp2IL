@@ -26,7 +26,11 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
 
     public PropertyAttributes? OverrideAttributes { get; set; }
 
-    public PropertyAttributes Attributes => OverrideAttributes ?? DefaultAttributes;
+    public PropertyAttributes Attributes
+    {
+        get => OverrideAttributes ?? DefaultAttributes;
+        set => OverrideAttributes = value;
+    }
 
     public virtual TypeAnalysisContext DefaultPropertyType => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawPropertyType)
         ?? throw new($"Subclasses must override {nameof(DefaultPropertyType)}.");
