@@ -64,7 +64,11 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
     public TypeAnalysisContext? OverrideParameterType { get; set; }
 
-    public virtual TypeAnalysisContext ParameterType => OverrideParameterType ?? DefaultParameterType;
+    public TypeAnalysisContext ParameterType
+    {
+        get => OverrideParameterType ?? DefaultParameterType;
+        set => OverrideParameterType = value;
+    }
 
     public ParameterAnalysisContext(Il2CppParameterDefinition? definition, int parameterIndex, MethodAnalysisContext declaringMethod) : base(definition?.token ?? 0, declaringMethod.AppContext)
     {

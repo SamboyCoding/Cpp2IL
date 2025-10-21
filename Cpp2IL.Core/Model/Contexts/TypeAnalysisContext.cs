@@ -63,7 +63,11 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     public string? OverrideNamespace { get; set; }
 
-    public string Namespace => OverrideNamespace ?? DefaultNamespace;
+    public string Namespace
+    {
+        get => OverrideNamespace ?? DefaultNamespace;
+        set => OverrideNamespace = value;
+    }
 
     public virtual TypeAttributes DefaultAttributes => Definition?.Attributes ?? TypeAttributes.Public | TypeAttributes.Class | TypeAttributes.Sealed;
 
@@ -79,7 +83,11 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
 
     public TypeAnalysisContext? OverrideBaseType { get; set; }
 
-    public TypeAnalysisContext? BaseType => OverrideBaseType ?? DefaultBaseType;
+    public TypeAnalysisContext? BaseType
+    {
+        get => OverrideBaseType ?? DefaultBaseType;
+        set => OverrideBaseType = value;
+    }
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 

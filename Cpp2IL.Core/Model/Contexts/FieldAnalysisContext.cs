@@ -47,7 +47,11 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public virtual object? OverrideConstantValue { get; set; }
 
-    public object? ConstantValue => OverrideConstantValue ?? DefaultConstantValue;
+    public object? ConstantValue
+    {
+        get => OverrideConstantValue ?? DefaultConstantValue;
+        set => OverrideConstantValue = value;
+    }
 
     public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.IndexInParent, BackingData.Field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
 
@@ -56,13 +60,21 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public TypeAnalysisContext? OverrideFieldType { get; set; }
 
-    public TypeAnalysisContext FieldType => OverrideFieldType ?? DefaultFieldType;
+    public TypeAnalysisContext FieldType
+    {
+        get => OverrideFieldType ?? DefaultFieldType;
+        set => OverrideFieldType = value;
+    }
 
     public virtual byte[] DefaultStaticArrayInitialValue => BackingData?.Field.StaticArrayInitialValue ?? [];
 
     public virtual byte[]? OverrideStaticArrayInitialValue { get; set; }
 
-    public byte[] StaticArrayInitialValue => OverrideStaticArrayInitialValue ?? DefaultStaticArrayInitialValue;
+    public byte[] StaticArrayInitialValue
+    {
+        get => OverrideStaticArrayInitialValue ?? DefaultStaticArrayInitialValue;
+        set => OverrideStaticArrayInitialValue = value;
+    }
 
     public FieldAttributes Visibility
     {

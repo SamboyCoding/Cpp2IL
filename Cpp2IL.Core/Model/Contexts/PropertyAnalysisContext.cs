@@ -37,7 +37,11 @@ public class PropertyAnalysisContext : HasCustomAttributesAndName, IPropertyInfo
 
     public TypeAnalysisContext? OverridePropertyType { get; set; }
 
-    public TypeAnalysisContext PropertyType => OverridePropertyType ?? DefaultPropertyType;
+    public TypeAnalysisContext PropertyType
+    {
+        get => OverridePropertyType ?? DefaultPropertyType;
+        set => OverridePropertyType = value;
+    }
 
     public PropertyAnalysisContext(Il2CppPropertyDefinition definition, TypeAnalysisContext parent) : base(definition.token, parent.AppContext)
     {

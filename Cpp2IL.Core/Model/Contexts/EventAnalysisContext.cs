@@ -34,7 +34,11 @@ public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvid
 
     public TypeAnalysisContext? OverrideEventType { get; set; }
 
-    public TypeAnalysisContext EventType => OverrideEventType ?? DefaultEventType;
+    public TypeAnalysisContext EventType
+    {
+        get => OverrideEventType ?? DefaultEventType;
+        set => OverrideEventType = value;
+    }
 
     public virtual bool IsStatic => Definition?.IsStatic ?? throw new($"Subclasses must override {nameof(IsStatic)}.");
 

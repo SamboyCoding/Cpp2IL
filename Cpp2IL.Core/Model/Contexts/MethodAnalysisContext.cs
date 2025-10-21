@@ -124,7 +124,11 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     public TypeAnalysisContext? OverrideReturnType { get; set; }
 
     //TODO Support custom attributes on return types (v31 feature)
-    public TypeAnalysisContext ReturnType => OverrideReturnType ?? DefaultReturnType;
+    public TypeAnalysisContext ReturnType
+    {
+        get => OverrideReturnType ?? DefaultReturnType;
+        set => OverrideReturnType = value;
+    }
     
     protected Memory<byte>? rawMethodBody;
 
