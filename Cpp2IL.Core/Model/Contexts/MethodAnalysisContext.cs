@@ -183,7 +183,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                         continue;
 
                     // Normal inheritance
-                    var baseType = DeclaringType is { IsInterface: true } ? null : DeclaringType?.BaseType;
+                    var baseType = DeclaringType?.BaseType;
                     while (baseType is not null)
                     {
                         if (TryGetMethodForSlot(baseType, i, out var method))
