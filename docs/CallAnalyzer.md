@@ -2,7 +2,7 @@
 
 This processing layer analyzes method instructions for calls to other methods and emits attributes based on that.
 
-For this processor, 8 new attributes are injected:
+For this processor, 9 new attributes are injected:
 ```cs
 using System;
 namespace Cpp2ILInjected.CallAnalysis;
@@ -12,14 +12,6 @@ namespace Cpp2ILInjected.CallAnalysis;
 /// </summary>
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
 public sealed class DeduplicatedMethodAttribute : Attribute
-{
-}
-
-/// <summary>
-/// A problem was encountered while analyzing this method's instructions.
-/// </summary>
-[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
-public sealed class CallAnalysisFailedAttribute : Attribute
 {
 }
 
@@ -40,11 +32,15 @@ public sealed class CallAnalysisNotSupportedAttribute : Attribute
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class CalledByAttribute : Attribute
 {
-	public Type? Type;
-
-	public string? TypeFullName;
+	public object Type;
 
 	public string Member;
+
+	public object[] MemberTypeParameters;
+
+	public object[] MemberParameters;
+
+	public object ReturnType;
 }
 
 /// <summary>
@@ -53,11 +49,15 @@ public sealed class CalledByAttribute : Attribute
 [AttributeUsage(AttributeTargets.Method, AllowMultiple = true)]
 public sealed class CallsAttribute : Attribute
 {
-	public Type? Type;
-
-	public string? TypeFullName;
+	public object Type;
 
 	public string Member;
+
+	public object[] MemberTypeParameters;
+
+	public object[] MemberParameters;
+
+	public object ReturnType;
 }
 
 /// <summary>
@@ -88,5 +88,21 @@ public sealed class CallsDeduplicatedMethodsAttribute : Attribute
 public sealed class CallsUnknownMethodsAttribute : Attribute
 {
 	public int Count;
+}
+
+/// <summary>
+/// This method contains at least one instruction that is invalid.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+public sealed class ContainsInvalidInstructionsAttribute : Attribute
+{
+}
+
+/// <summary>
+/// This method contains at least one instruction that is not implemented.
+/// </summary>
+[AttributeUsage(AttributeTargets.Method, AllowMultiple = false)]
+public sealed class ContainsUnimplementedInstructionsAttribute : Attribute
+{
 }
 ```
