@@ -64,6 +64,10 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public bool IsVirtual => (Attributes & MethodAttributes.Virtual) != 0;
 
+    public bool IsAbstract => (Attributes & MethodAttributes.Abstract) != 0;
+
+    public bool IsNewSlot => (Attributes & MethodAttributes.NewSlot) != 0;
+
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeIndex if they have custom attributes");
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");
@@ -179,7 +183,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                         continue;
 
                     // Normal inheritance
-                    var baseType = DeclaringType?.BaseType;
+                    var baseType = DeclaringType is { IsInterface: true } ? null : DeclaringType?.BaseType;
                     while (baseType is not null)
                     {
                         if (TryGetMethodForSlot(baseType, i, out var method))
