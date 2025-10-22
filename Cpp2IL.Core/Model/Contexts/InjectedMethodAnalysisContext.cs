@@ -1,4 +1,3 @@
-using System.Collections.Generic;
 using System.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -18,9 +17,6 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
     protected override bool IsInjected => true;
 
     protected override int CustomAttributeIndex => -1;
-
-    public override IEnumerable<MethodAnalysisContext> Overrides => OverridesList;
-    public List<MethodAnalysisContext> OverridesList { get; } = [];
 
     public InjectedMethodAnalysisContext(
         TypeAnalysisContext parent,

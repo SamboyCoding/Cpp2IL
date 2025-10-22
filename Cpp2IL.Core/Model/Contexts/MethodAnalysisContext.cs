@@ -122,84 +122,92 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public MethodAnalysisContext? BaseMethod => Overrides.FirstOrDefault(m => m.DeclaringType?.IsInterface is false);
 
+    private List<MethodAnalysisContext>? _overrides;
+
     /// <summary>
     /// The set of methods which this method overrides.
     /// </summary>
-    public virtual IEnumerable<MethodAnalysisContext> Overrides
+    public List<MethodAnalysisContext> Overrides
     {
         get
         {
-            if (Definition == null)
-                return [];
+            // Lazy load the overrides
+            return _overrides ??= GetOverrides().ToList();
+        }
+    }
 
-            var declaringTypeDefinition = DeclaringType?.Definition;
-            if (declaringTypeDefinition == null)
-                return [];
+    private IEnumerable<MethodAnalysisContext> GetOverrides()
+    {
+        if (Definition == null)
+            return [];
 
-            var vtable = declaringTypeDefinition.VTable;
-            if (vtable == null)
-                return [];
+        var declaringTypeDefinition = DeclaringType?.Definition;
+        if (declaringTypeDefinition == null)
+            return [];
 
-            return GetOverriddenMethods(declaringTypeDefinition, vtable);
+        var vtable = declaringTypeDefinition.VTable;
+        if (vtable == null)
+            return [];
 
-            bool TryGetMethodForSlot(TypeAnalysisContext declaringType, int slot, [NotNullWhen(true)] out MethodAnalysisContext? method)
+        return GetOverriddenMethods(declaringTypeDefinition, vtable);
+
+        bool TryGetMethodForSlot(TypeAnalysisContext declaringType, int slot, [NotNullWhen(true)] out MethodAnalysisContext? method)
+        {
+            if (declaringType is GenericInstanceTypeAnalysisContext genericInstanceType)
             {
-                if (declaringType is GenericInstanceTypeAnalysisContext genericInstanceType)
+                var genericMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
+                if (genericMethod is not null)
                 {
-                    var genericMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
-                    if (genericMethod is not null)
-                    {
-                        method = new ConcreteGenericMethodAnalysisContext(genericMethod, genericInstanceType.GenericArguments, []);
-                        return true;
-                    }
+                    method = new ConcreteGenericMethodAnalysisContext(genericMethod, genericInstanceType.GenericArguments, []);
+                    return true;
                 }
-                else
+            }
+            else
+            {
+                var baseMethod = declaringType.Methods.FirstOrDefault(m => m.Slot == slot);
+                if (baseMethod is not null)
                 {
-                    var baseMethod = declaringType.Methods.FirstOrDefault(m => m.Slot == slot);
-                    if (baseMethod is not null)
-                    {
-                        method = baseMethod;
-                        return true;
-                    }
+                    method = baseMethod;
+                    return true;
                 }
-
-                method = null;
-                return false;
             }
 
-            IEnumerable<MethodAnalysisContext> GetOverriddenMethods(Il2CppTypeDefinition declaringTypeDefinition, MetadataUsage?[] vtable)
+            method = null;
+            return false;
+        }
+
+        IEnumerable<MethodAnalysisContext> GetOverriddenMethods(Il2CppTypeDefinition declaringTypeDefinition, MetadataUsage?[] vtable)
+        {
+            for (var i = 0; i < vtable.Length; ++i)
             {
-                for (var i = 0; i < vtable.Length; ++i)
+                var vtableEntry = vtable[i];
+                if (vtableEntry is null or { Type: not MetadataUsageType.MethodDef })
+                    continue;
+
+                if (vtableEntry.AsMethod() != Definition)
+                    continue;
+
+                // Normal inheritance
+                var baseType = DeclaringType?.BaseType;
+                while (baseType is not null)
                 {
-                    var vtableEntry = vtable[i];
-                    if (vtableEntry is null or { Type: not MetadataUsageType.MethodDef })
-                        continue;
-
-                    if (vtableEntry.AsMethod() != Definition)
-                        continue;
-
-                    // Normal inheritance
-                    var baseType = DeclaringType?.BaseType;
-                    while (baseType is not null)
+                    if (TryGetMethodForSlot(baseType, i, out var method))
                     {
-                        if (TryGetMethodForSlot(baseType, i, out var method))
+                        yield return method;
+                        break; // We only want direct overrides, not the entire inheritance chain.
+                    }
+                    baseType = baseType.BaseType;
+                }
+
+                // Interface inheritance
+                foreach (var interfaceOffset in declaringTypeDefinition.InterfaceOffsets)
+                {
+                    if (i >= interfaceOffset.offset)
+                    {
+                        var interfaceTypeContext = interfaceOffset.Type.ToContext(CustomAttributeAssembly);
+                        if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, i - interfaceOffset.offset, out var method))
                         {
                             yield return method;
-                            break; // We only want direct overrides, not the entire inheritance chain.
-                        }
-                        baseType = baseType.BaseType;
-                    }
-
-                    // Interface inheritance
-                    foreach (var interfaceOffset in declaringTypeDefinition.InterfaceOffsets)
-                    {
-                        if (i >= interfaceOffset.offset)
-                        {
-                            var interfaceTypeContext = interfaceOffset.Type.ToContext(CustomAttributeAssembly);
-                            if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, i - interfaceOffset.offset, out var method))
-                            {
-                                yield return method;
-                            }
                         }
                     }
                 }
