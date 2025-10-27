@@ -188,7 +188,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                     continue;
 
                 // Normal inheritance
-                var baseType = DeclaringType?.BaseType;
+                var baseType = DeclaringType?.DefaultBaseType;
                 while (baseType is not null)
                 {
                     if (TryGetMethodForSlot(baseType, i, out var method))
@@ -196,7 +196,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                         yield return method;
                         break; // We only want direct overrides, not the entire inheritance chain.
                     }
-                    baseType = baseType.BaseType;
+                    baseType = baseType.DefaultBaseType;
                 }
 
                 // Interface inheritance
