@@ -97,7 +97,7 @@ public sealed class PE : Il2CppBinary
             return VirtToRawInvalidOutOfBounds;
         }
 
-        var section = peSectionHeaders.FirstOrDefault(x => addr >= x.VirtualAddress && addr <= x.VirtualAddress + x.VirtualSize);
+        var section = peSectionHeaders.FirstOrDefault(x => addr >= x.VirtualAddress && addr < x.VirtualAddress + x.VirtualSize);
 
         if (section == null) return 0L;
 

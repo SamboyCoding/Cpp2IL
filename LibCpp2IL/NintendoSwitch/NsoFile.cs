@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -309,7 +309,7 @@ public sealed class NsoFile : Il2CppBinary
 
     public override long MapVirtualAddressToRaw(ulong addr, bool throwOnError = true)
     {
-        var segment = segments.FirstOrDefault(x => addr - NsoGlobalOffset >= x.MemoryOffset && addr - NsoGlobalOffset <= x.MemoryOffset + x.DecompressedSize);
+        var segment = segments.FirstOrDefault(x => addr - NsoGlobalOffset >= x.MemoryOffset && addr - NsoGlobalOffset < x.MemoryOffset + x.DecompressedSize);
         if (segment == null)
             if (throwOnError)
                 throw new InvalidOperationException($"NSO: Address 0x{addr:X} is not present in any of the segments. Known segment ends are (hex) {string.Join(", ", segments.Select(s => (s.MemoryOffset + s.DecompressedSize).ToString("X")))}");
@@ -321,7 +321,7 @@ public sealed class NsoFile : Il2CppBinary
 
     public override ulong MapRawAddressToVirtual(uint offset)
     {
-        var segment = segments.FirstOrDefault(x => offset >= x.FileOffset && offset <= x.FileOffset + x.DecompressedSize);
+        var segment = segments.FirstOrDefault(x => offset >= x.FileOffset && offset < x.FileOffset + x.DecompressedSize);
         if (segment == null)
         {
             return 0;
