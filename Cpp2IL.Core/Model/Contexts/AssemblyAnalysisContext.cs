@@ -37,7 +37,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     /// </summary>
     public Il2CppCodeGenModule? CodeGenModule;
 
-    public virtual Version Version
+    public virtual Version DefaultVersion
     {
         get
         {
@@ -47,16 +47,109 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
                 : new(Definition.AssemblyName.major, Definition.AssemblyName.minor, Definition.AssemblyName.build, Definition.AssemblyName.revision);
         }
     }
+    public Version? OverrideVersion { get; set; }
+    public Version Version
+    {
+        get => OverrideVersion ?? DefaultVersion;
+        set => OverrideVersion = value;
+    }
 
-    public virtual uint HashAlgorithm => Definition?.AssemblyName.hash_alg ?? default;
+    public virtual uint DefaultHashAlgorithm => Definition?.AssemblyName.hash_alg ?? default;
+    public uint? OverrideHashAlgorithm { get; set; }
+    public uint HashAlgorithm
+    {
+        get => OverrideHashAlgorithm ?? DefaultHashAlgorithm;
+        set => OverrideHashAlgorithm = value;
+    }
 
-    public virtual uint Flags => Definition?.AssemblyName.flags ?? default;
+    public virtual uint DefaultFlags => Definition?.AssemblyName.flags ?? default;
+    public uint? OverrideFlags { get; set; }
+    public uint Flags
+    {
+        get => OverrideFlags ?? DefaultFlags;
+        set => OverrideFlags = value;
+    }
 
-    public virtual string? Culture => Definition?.AssemblyName.Culture;
+    public virtual string? DefaultCulture => Definition?.AssemblyName.Culture;
+    /// <summary>
+    /// Override <see cref="Culture"/>
+    /// </summary>
+    /// <remarks>
+    /// <see langword="null""/> indicates no override, while an empty string indicates an explicit override to "no culture".
+    /// </remarks>
+    public string? OverrideCulture { get; set; }
+    /// <summary>
+    /// Gets or sets the culture
+    /// </summary>
+    /// <remarks>
+    /// The get method will never return an empty string.
+    /// </remarks>
+    public string? Culture
+    {
+        get
+        {
+            var culture = OverrideCulture ?? DefaultCulture;
+            return string.IsNullOrEmpty(culture) ? null : culture;
+        }
+        set
+        {
+            OverrideCulture = value is null ? "" : value;
+        }
+    }
 
-    public virtual byte[]? PublicKeyToken => Definition?.AssemblyName.PublicKeyToken;
+    public virtual byte[]? DefaultPublicKeyToken => Definition?.AssemblyName.PublicKeyToken;
+    /// <summary>
+    /// Override <see cref="PublicKeyToken"/>
+    /// </summary>
+    /// <remarks>
+    /// <see langword="null""/> indicates no override, while an empty array indicates an explicit override to "no public key token".
+    /// </remarks>
+    public byte[]? OverridePublicKeyToken { get; set; }
+    /// <summary>
+    /// Gets or sets the public key token
+    /// </summary>
+    /// <remarks>
+    /// The get method will never return an empty array.
+    /// </remarks>
+    public byte[]? PublicKeyToken
+    {
+        get
+        {
+            var data = OverridePublicKeyToken ?? DefaultPublicKeyToken;
+            return data is null || data.Length == 0 ? null : data;
+        }
+        set
+        {
+            OverridePublicKeyToken = value is null ? [] : value;
+        }
+    }
 
-    public virtual byte[]? PublicKey => Definition?.AssemblyName.PublicKey;
+    public virtual byte[]? DefaultPublicKey => Definition?.AssemblyName.PublicKey;
+    /// <summary>
+    /// Override <see cref="PublicKey"/>
+    /// </summary>
+    /// <remarks>
+    /// <see langword="null""/> indicates no override, while an empty array indicates an explicit override to "no public key".
+    /// </remarks>
+    public byte[]? OverridePublicKey { get; set; }
+    /// <summary>
+    /// Gets or sets the public key
+    /// </summary>
+    /// <remarks>
+    /// The get method will never return an empty array.
+    /// </remarks>
+    public byte[]? PublicKey
+    {
+        get
+        {
+            var data = OverridePublicKey ?? DefaultPublicKey;
+            return data is null || data.Length == 0 ? null : data;
+        }
+        set
+        {
+            OverridePublicKey = value is null ? [] : value;
+        }
+    }
 
     protected override int CustomAttributeIndex => Definition?.CustomAttributeIndex ?? -1;
 

@@ -14,10 +14,10 @@ public class InjectedAssemblyAnalysisContext(
     : AssemblyAnalysisContext(null, appContext)
 {
     public override string DefaultName => name;
-    public override Version Version => version ?? base.Version;
-    public override uint HashAlgorithm => hashAlgorithm;
-    public override uint Flags => flags;
-    public override string? Culture => culture;
-    public override byte[]? PublicKeyToken => publicKeyToken;
-    public override byte[]? PublicKey => publicKey;
+    public override Version DefaultVersion => version ?? base.DefaultVersion;
+    public override uint DefaultHashAlgorithm => hashAlgorithm;
+    public override uint DefaultFlags => flags;
+    public override string? DefaultCulture => culture;
+    public override byte[]? DefaultPublicKeyToken => publicKeyToken;
+    public override byte[]? DefaultPublicKey => publicKey;
 }
