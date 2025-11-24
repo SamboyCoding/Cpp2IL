@@ -94,7 +94,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
         }
     }
 
-    public override string ToString() => $"Field: {DeclaringType.Definition?.Name}::{BackingData?.Field.Name}";
+    public override string ToString() => $"Field: {DeclaringType.Name}::{Name}";
 
     #region StableNameDotNet
 
