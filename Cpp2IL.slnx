@@ -1,0 +1,30 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path=".github/FUNDING.yml" />
+    <File Path=".github/workflows/dotnet-core.yml" />
+    <File Path=".gitignore" />
+    <File Path="Cpp2IL.Core/README_CORE.md" />
+    <File Path="do-release.ps1" />
+    <File Path="global.json" />
+    <File Path="LibCpp2Il/README.md" />
+    <File Path="LICENSE" />
+    <File Path="nuget.config" />
+    <File Path="README.md" />
+  </Folder>
+  <Folder Name="/Solution Items/Docs/">
+    <File Path="docs/CallAnalyzer.md" />
+  </Folder>
+  <Project Path="Cpp2IL.Core.Tests/Cpp2IL.Core.Tests.csproj" />
+  <Project Path="Cpp2IL.Core/Cpp2IL.Core.csproj" />
+  <Project Path="Cpp2IL.Plugin.BuildReport/Cpp2IL.Plugin.BuildReport.csproj" />
+  <Project Path="Cpp2IL.Plugin.ControlFlowGraph/Cpp2IL.Plugin.ControlFlowGraph.csproj" />
+  <Project Path="Cpp2IL.Plugin.OrbisPkg/Cpp2IL.Plugin.OrbisPkg.csproj" />
+  <Project Path="Cpp2IL.Plugin.Pdb/Cpp2IL.Plugin.Pdb.csproj" />
+  <Project Path="Cpp2IL.Plugin.StrippedCodeRegSupport/Cpp2IL.Plugin.StrippedCodeRegSupport.csproj" />
+  <Project Path="Cpp2IL/Cpp2IL.csproj" />
+  <Project Path="LibCpp2IL/LibCpp2IL.csproj" />
+  <Project Path="LibCpp2ILTests/LibCpp2ILTests.csproj" />
+  <Project Path="StableNameDotNet/StableNameDotNet.csproj" />
+  <Project Path="WasmDisassembler/WasmDisassembler.csproj" />
+</Solution>
