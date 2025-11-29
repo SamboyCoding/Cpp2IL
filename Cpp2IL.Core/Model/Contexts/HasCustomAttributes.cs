@@ -129,7 +129,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
             return null;
 
         var target = new Il2CppCustomAttributeDataRange() { token = Token };
-        var caIndex = AppContext.Metadata.AttributeDataRanges.BinarySearch
+        var caIndex = AppContext.Metadata.AttributeDataRanges!.BinarySearch
         (
             CustomAttributeAssembly.Definition.Image.customAttributeStart,
             (int)CustomAttributeAssembly.Definition.Image.customAttributeCount,
@@ -189,7 +189,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
         if (generatorPtr == 0 || !AppContext.Binary.TryMapVirtualAddressToRaw(generatorPtr, out _))
         {
-            Logger.WarnNewline($"Supposedly had custom attributes ({string.Join(", ", AttributeTypes)}), but generator was null for " + this, "CA Restore");
+            Logger.WarnNewline($"Supposedly had custom attributes ({string.Join(", ", AttributeTypes ?? [])}), but generator was null for " + this, "CA Restore");
             RawIl2CppCustomAttributeData = Memory<byte>.Empty;
             return;
         }

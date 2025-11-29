@@ -145,7 +145,7 @@ public class ControlFlowGraphOutputFormat : Cpp2IlOutputFormat
 
     private static string GetFilePathForMethod(string outputRoot, MethodAnalysisContext method, string assemblyNameClean)
     {
-        TypeAnalysisContext type = method.DeclaringType;
+        TypeAnalysisContext type = method.DeclaringType!;
 
 
         //Get root assembly directory

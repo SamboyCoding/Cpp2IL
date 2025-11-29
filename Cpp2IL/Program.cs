@@ -24,8 +24,7 @@ using LibCpp2IL;
 
 namespace Cpp2IL;
 
-[SuppressMessage("ReSharper", "ClassNeverInstantiated.Global")]
-internal class Program
+internal static class Program
 {
     private static readonly List<string> PathsToDeleteOnExit = [];
 
@@ -33,13 +32,8 @@ internal class Program
 
     private static void ResolvePathsFromCommandLine(string? gamePath, string? inputExeName, ref Cpp2IlRuntimeArgs args)
     {
-        if (string.IsNullOrEmpty(gamePath))
+        if (gamePath is null or { Length: 0 })
             throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
-        
-        //Somehow the above doesn't tell .net that gamePath can't be null on net472, so we do this stupid thing to avoid nullable warnings
-#if NET472
-        gamePath = gamePath!;
-#endif
 
         Logger.VerboseNewline("Beginning path resolution...");
 
@@ -314,8 +308,7 @@ internal class Program
             var ggmBytes = new byte[0x40];
             using var ggmStream = globalgamemanagers.Open();
 
-            // ReSharper disable once MustUseReturnValue
-            ggmStream.Read(ggmBytes, 0, 0x40);
+            ggmStream.ReadExactly(ggmBytes, 0, 0x40);
 
             args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
         }
@@ -403,8 +396,7 @@ internal class Program
             var ggmBytes = new byte[0x40];
             using var ggmStream = globalgamemanagers.Open();
 
-            // ReSharper disable once MustUseReturnValue
-            ggmStream.Read(ggmBytes, 0, 0x40);
+            ggmStream.ReadExactly(ggmBytes, 0, 0x40);
 
             args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
         }
@@ -469,8 +461,7 @@ internal class Program
             var ggmBytes = new byte[0x40];
             using var ggmStream = globalgamemanagers.Open();
 
-            // ReSharper disable once MustUseReturnValue
-            ggmStream.Read(ggmBytes, 0, 0x40);
+            ggmStream.ReadExactly(ggmBytes, 0, 0x40);
 
             args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
         }
@@ -768,4 +759,18 @@ internal class Program
             }
         }
     }
+
+#if !NET7_0_OR_GREATER
+    private static void ReadExactly(this Stream stream, byte[] buffer, int offset, int count)
+    {
+        var totalRead = 0;
+        while (totalRead < count)
+        {
+            var bytesRead = stream.Read(buffer, offset + totalRead, count - totalRead);
+            if (bytesRead == 0)
+                throw new EndOfStreamException("Could not read enough bytes from stream");
+            totalRead += bytesRead;
+        }
+    }
+#endif
 }

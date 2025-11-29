@@ -115,7 +115,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
             LibLogger.VerboseNewline($"\t\t\tChecking for CodeRegistration at virtual address 0x{va:x}...");
             var cr = binary.ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(va);
 
-            if ((long)cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count)
+            if ((long)cr.customAttributeCount == LibCpp2IlMain.TheMetadata!.attributeTypeRanges!.Count)
                 return va;
 
             LibLogger.VerboseNewline($"\t\t\t\tNot a valid CodeRegistration - custom attribute count is {cr.customAttributeCount}, expecting {LibCpp2IlMain.TheMetadata!.attributeTypeRanges.Count}");
@@ -297,7 +297,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
         {
             var mr = binary.ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(potentialMetaRegPointer);
 
-            if (mr.metadataUsagesCount == (ulong)LibCpp2IlMain.TheMetadata!.metadataUsageLists.Length)
+            if (mr.metadataUsagesCount == (ulong)LibCpp2IlMain.TheMetadata!.metadataUsageLists!.Length)
             {
                 LibLogger.VerboseNewline($"\t\t\tFound and selected probably valid metadata registration at 0x{potentialMetaRegPointer:X}.");
                 return potentialMetaRegPointer;

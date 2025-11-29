@@ -139,7 +139,7 @@ public class Il2CppTypeDefinition : ReadableClass
             if (LibCpp2IlMain.MetadataVersion < 24.2f)
             {
                 //No codegen modules here.
-                return LibCpp2IlMain.TheMetadata!.RgctxDefinitions.Skip(RgctxStartIndex).Take(RgctxCount).ToArray();
+                return LibCpp2IlMain.TheMetadata!.RgctxDefinitions!.Skip(RgctxStartIndex).Take(RgctxCount).ToArray();
             }
 
             var cgm = CodeGenModule;

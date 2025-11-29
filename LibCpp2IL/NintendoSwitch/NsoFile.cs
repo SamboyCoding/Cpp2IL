@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.IO;
@@ -257,7 +257,7 @@ public sealed class NsoFile : Il2CppBinary
             var unCompressedData = new byte[_header.TextSegment.DecompressedSize];
             using (var decoder = new Lz4DecodeStream(new MemoryStream(textBytes)))
             {
-                decoder.Read(unCompressedData, 0, unCompressedData.Length);
+                decoder.ReadExactly(unCompressedData, 0, unCompressedData.Length);
             }
 
             writer.Write(unCompressedData);
@@ -273,7 +273,7 @@ public sealed class NsoFile : Il2CppBinary
             var unCompressedData = new byte[_header.RoDataSegment.DecompressedSize];
             using (var decoder = new Lz4DecodeStream(new MemoryStream(roDataBytes)))
             {
-                decoder.Read(unCompressedData, 0, unCompressedData.Length);
+                decoder.ReadExactly(unCompressedData, 0, unCompressedData.Length);
             }
 
             writer.Write(unCompressedData);
@@ -289,7 +289,7 @@ public sealed class NsoFile : Il2CppBinary
             var unCompressedData = new byte[_header.DataSegment.DecompressedSize];
             using (var decoder = new Lz4DecodeStream(new MemoryStream(dataBytes)))
             {
-                decoder.Read(unCompressedData, 0, unCompressedData.Length);
+                decoder.ReadExactly(unCompressedData, 0, unCompressedData.Length);
             }
 
             writer.Write(unCompressedData);
