@@ -533,26 +533,23 @@ public static class AsmResolverAssemblyPopulator
 
             foreach (var overrideContext in methodContext.Overrides)
             {
-                if (overrideContext.DeclaringType?.IsInterface ?? false)
+                var interfaceMethod = (IMethodDefOrRef)overrideContext.ToMethodDescriptor(importer.TargetModule);
+                var method = methodContext.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {methodContext}");
+                type.MethodImplementations.Add(new MethodImplementation(interfaceMethod, method));
+                var interfaceMethodResolved = interfaceMethod.Resolve();
+                if (interfaceMethodResolved != null)
                 {
-                    var interfaceMethod = (IMethodDefOrRef)overrideContext.ToMethodDescriptor(importer.TargetModule);
-                    var method = methodContext.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {methodContext}");
-                    type.MethodImplementations.Add(new MethodImplementation(interfaceMethod, method));
-                    var interfaceMethodResolved = interfaceMethod.Resolve();
-                    if (interfaceMethodResolved != null)
+                    if (interfaceMethodResolved.IsGetMethod && !method.IsGetMethod)
                     {
-                        if (interfaceMethodResolved.IsGetMethod && !method.IsGetMethod)
-                        {
-                            getMethodsToCreate ??= [];
-                            var interfacePropertyResolved = interfaceMethodResolved.DeclaringType!.Properties.First(p => p.Semantics.Contains(interfaceMethodResolved.Semantics));
-                            getMethodsToCreate.Add((interfacePropertyResolved, interfaceMethod.DeclaringType!.ToTypeSignature(), method));
-                        }
-                        else if (interfaceMethodResolved.IsSetMethod && !method.IsSetMethod)
-                        {
-                            setMethodsToCreate ??= [];
-                            var interfacePropertyResolved = interfaceMethodResolved.DeclaringType!.Properties.First(p => p.Semantics.Contains(interfaceMethodResolved.Semantics));
-                            setMethodsToCreate.Add((interfacePropertyResolved, interfaceMethod.DeclaringType!.ToTypeSignature(), method));
-                        }
+                        getMethodsToCreate ??= [];
+                        var interfacePropertyResolved = interfaceMethodResolved.DeclaringType!.Properties.First(p => p.Semantics.Contains(interfaceMethodResolved.Semantics));
+                        getMethodsToCreate.Add((interfacePropertyResolved, interfaceMethod.DeclaringType!.ToTypeSignature(), method));
+                    }
+                    else if (interfaceMethodResolved.IsSetMethod && !method.IsSetMethod)
+                    {
+                        setMethodsToCreate ??= [];
+                        var interfacePropertyResolved = interfaceMethodResolved.DeclaringType!.Properties.First(p => p.Semantics.Contains(interfaceMethodResolved.Semantics));
+                        setMethodsToCreate.Add((interfacePropertyResolved, interfaceMethod.DeclaringType!.ToTypeSignature(), method));
                     }
                 }
             }

@@ -136,12 +136,41 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     
     protected Memory<byte>? rawMethodBody;
 
-    public MethodAnalysisContext? BaseMethod => Overrides.FirstOrDefault(m => m.DeclaringType?.IsInterface is false);
+    public MethodAnalysisContext? BaseMethod
+    {
+        get
+        {
+            if (Definition == null)
+                return null;
+
+            var vtable = DeclaringType?.Definition?.VTable;
+            if (vtable == null)
+                return null;
+
+            for (var i = 0; i < vtable.Length; ++i)
+            {
+                var vtableEntry = vtable[i];
+                if (vtableEntry is null or { Type: not MetadataUsageType.MethodDef } || vtableEntry.AsMethod() != Definition)
+                    continue;
+
+                var baseType = DeclaringType?.DefaultBaseType;
+                while (baseType is not null)
+                {
+                    if (TryGetMethodForSlot(baseType, i, out var method))
+                    {
+                        return method;
+                    }
+                    baseType = baseType.DefaultBaseType;
+                }
+            }
+            return null;
+        }
+    }
 
     private List<MethodAnalysisContext>? _overrides;
 
     /// <summary>
-    /// The set of methods which this method overrides.
+    /// The set of interface methods which this method explicitly overrides.
     /// </summary>
     public List<MethodAnalysisContext> Overrides
     {
@@ -167,31 +196,6 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
         return GetOverriddenMethods(declaringTypeDefinition, vtable);
 
-        bool TryGetMethodForSlot(TypeAnalysisContext declaringType, int slot, [NotNullWhen(true)] out MethodAnalysisContext? method)
-        {
-            if (declaringType is GenericInstanceTypeAnalysisContext genericInstanceType)
-            {
-                var genericMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
-                if (genericMethod is not null)
-                {
-                    method = new ConcreteGenericMethodAnalysisContext(genericMethod, genericInstanceType.GenericArguments, []);
-                    return true;
-                }
-            }
-            else
-            {
-                var baseMethod = declaringType.Methods.FirstOrDefault(m => m.Slot == slot);
-                if (baseMethod is not null)
-                {
-                    method = baseMethod;
-                    return true;
-                }
-            }
-
-            method = null;
-            return false;
-        }
-
         IEnumerable<MethodAnalysisContext> GetOverriddenMethods(Il2CppTypeDefinition declaringTypeDefinition, MetadataUsage?[] vtable)
         {
             for (var i = 0; i < vtable.Length; ++i)
@@ -202,18 +206,6 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
                 if (vtableEntry.AsMethod() != Definition)
                     continue;
-
-                // Normal inheritance
-                var baseType = DeclaringType?.DefaultBaseType;
-                while (baseType is not null)
-                {
-                    if (TryGetMethodForSlot(baseType, i, out var method))
-                    {
-                        yield return method;
-                        break; // We only want direct overrides, not the entire inheritance chain.
-                    }
-                    baseType = baseType.DefaultBaseType;
-                }
 
                 // Interface inheritance
                 foreach (var interfaceOffset in declaringTypeDefinition.InterfaceOffsets)
@@ -229,6 +221,31 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                 }
             }
         }
+    }
+
+    private static bool TryGetMethodForSlot(TypeAnalysisContext declaringType, int slot, [NotNullWhen(true)] out MethodAnalysisContext? method)
+    {
+        if (declaringType is GenericInstanceTypeAnalysisContext genericInstanceType)
+        {
+            var genericMethod = genericInstanceType.GenericType.Methods.FirstOrDefault(m => m.Slot == slot);
+            if (genericMethod is not null)
+            {
+                method = new ConcreteGenericMethodAnalysisContext(genericMethod, genericInstanceType.GenericArguments, []);
+                return true;
+            }
+        }
+        else
+        {
+            var baseMethod = declaringType.Methods.FirstOrDefault(m => m.Slot == slot);
+            if (baseMethod is not null)
+            {
+                method = baseMethod;
+                return true;
+            }
+        }
+
+        method = null;
+        return false;
     }
 
     private static readonly List<IBlockProcessor> blockProcessors =
