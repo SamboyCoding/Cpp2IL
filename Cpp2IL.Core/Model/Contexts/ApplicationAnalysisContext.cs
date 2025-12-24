@@ -202,9 +202,10 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     [return: NotNullIfNotNull(nameof(methodReference))]
     public ConcreteGenericMethodAnalysisContext? ResolveContextForMethod(Cpp2IlMethodRef? methodReference)
     {
-        return methodReference is not null
-            ? ConcreteGenericMethodsByRef.TryGetValue(methodReference, out var context) ? context : new(methodReference, this)
-            : null;
+        if(methodReference == null)
+            return null;
+            
+        return ConcreteGenericMethodsByRef.TryGetValue(methodReference, out var context) ? context : new(methodReference, this);
     }
 
     public FieldAnalysisContext? ResolveContextForField(Il2CppFieldDefinition? field)
