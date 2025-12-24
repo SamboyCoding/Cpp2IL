@@ -20,7 +20,7 @@
         <TrimMode>partial</TrimMode>
         <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>
-     
+
      <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
          <TrimmerRootAssembly Include="System.Runtime" />
          <TrimmerRootAssembly Include="System.Private.CoreLib" />
@@ -31,6 +31,7 @@
     </PropertyGroup>
 
     <ItemGroup>
+        <PackageReference Include="System.Text.Json" Version="9.0.2" />
         <PackageReference Include="CommandLineParser" Version="2.9.1" />
         <PackageReference Include="Pastel" Version="6.0.1" />
         <PackageReference Include="PolySharp" Version="1.15.0">

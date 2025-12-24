@@ -6,6 +6,8 @@ using System.IO.Compression;
 using System.Linq;
 using System.Reflection;
 using System.Runtime;
+using System.Text;
+using System.Text.Json;
 using CommandLine;
 using Cpp2IL.Core;
 using Cpp2IL.Core.Api;
@@ -35,7 +37,7 @@ internal class Program
     {
         if (string.IsNullOrEmpty(gamePath))
             throw new SoftException("No force options provided, and no game path was provided either. Please provide a game path or use the --force- options.");
-        
+
         //Somehow the above doesn't tell .net that gamePath can't be null on net472, so we do this stupid thing to avoid nullable warnings
 #if NET472
         gamePath = gamePath!;
@@ -55,6 +57,8 @@ internal class Program
             HandleXapk(gamePath, ref args);
         else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() is ".ipa" or ".tipa")
             HandleIpa(gamePath, ref args);
+        else if (File.Exists(gamePath) && Path.GetExtension(gamePath).ToLowerInvariant() == ".json")
+            HandleWebGL(gamePath, ref args);
         else
         {
             if (!Cpp2IlPluginManager.TryProcessGamePath(gamePath, ref args))
@@ -487,6 +491,91 @@ internal class Program
         args.Valid = true;
     }
 
+    private static void HandleWebGL(string gamePath, ref Cpp2IlRuntimeArgs args)
+    {
+        Logger.VerboseNewline("Trying HandleWebGL as provided path is an json file");
+
+        Logger.InfoNewline($"Attempting to extract required file paths from WebGL json config {gamePath}", "WebGL");
+
+        var json = File.ReadAllText(gamePath);
+        var doc = JsonDocument.Parse(json) ?? throw new SoftException("WebGL config is null.");
+        var frameworkUrl = doc.RootElement.GetProperty("wasmFrameworkUrl").GetString() ?? throw new SoftException("wasmFrameworkUrl is null.");
+        var codeUrl = doc.RootElement.GetProperty("wasmCodeUrl").GetString() ?? throw new SoftException("wasmCodeUrl is null.");
+        var dataUrl = doc.RootElement.GetProperty("dataUrl").GetString() ?? throw new SoftException("dataUrl is null.");
+
+        var tempFileMeta = Path.GetTempFileName();
+        PathsToDeleteOnExit.Add(tempFileMeta);
+
+        var gameDir = Path.GetDirectoryName(gamePath) ?? "";
+        args.PathToAssembly = Path.Combine(gameDir, codeUrl);
+        args.WasmFrameworkJsFile = Path.Combine(gameDir, frameworkUrl);
+        args.PathToMetadata = tempFileMeta;
+
+        var dataBytes = File.ReadAllBytes(Path.Combine(gameDir, dataUrl));
+        var dataFiles = ParseUnityWebData(dataBytes);
+
+        if (dataFiles.TryGetValue("globalgamemanagers", out var globalGameManagers))
+        {
+            Logger.InfoNewline("Reading globalgamemanagers to determine unity version...", "WebGL");
+            var ggmBytes = new byte[0x40];
+            using var ggmStream = new MemoryStream(globalGameManagers);
+
+            // ReSharper disable once MustUseReturnValue
+            ggmStream.Read(ggmBytes, 0, 0x40);
+
+            args.UnityVersion = Cpp2IlApi.GetVersionFromGlobalGameManagers(ggmBytes);
+        }
+        else if (dataFiles.TryGetValue("data.unity3d", out var dataUnity3d))
+        {
+            Logger.InfoNewline("Reading data.unity3d to determine unity version...", "WebGL");
+            using var du3dStream = new MemoryStream(dataUnity3d);
+
+            args.UnityVersion = Cpp2IlApi.GetVersionFromDataUnity3D(du3dStream);
+        }
+        else
+            throw new SoftException("Could not find globalgamemanagers or unity3d inside UnityWebData.");
+
+        if (!dataFiles.TryGetValue("Il2CppData/Metadata/global-metadata.dat", out var globalMetadata))
+            throw new SoftException("Could not find global-metadata.dat inside UnityWebData.");
+        File.WriteAllBytes(tempFileMeta, globalMetadata);
+
+        Logger.InfoNewline($"Determined game's unity version to be {args.UnityVersion}", "WebGL");
+
+        args.Valid = true;
+    }
+
+    private static Dictionary<string, byte[]> ParseUnityWebData(byte[] bytes)
+    {
+        const string HEADER = "UnityWebData1.0\0";
+
+        var files = new Dictionary<string, byte[]>();
+        var offset = 0;
+
+        var header = Encoding.ASCII.GetString(bytes, offset, HEADER.Length);
+        if (header != HEADER)
+            throw new SoftException($"Invalid UnityWebData header \"{header}\".");
+        offset += HEADER.Length;
+
+        var headerEnd = BitConverter.ToUInt32(bytes, offset);
+        offset += 4;
+
+        while (offset < headerEnd)
+        {
+            var fileOffset = BitConverter.ToUInt32(bytes, offset); offset += 4;
+            var fileSize = BitConverter.ToUInt32(bytes, offset); offset += 4;
+            var filePathLength = BitConverter.ToUInt32(bytes, offset); offset += 4;
+
+            var filePath = Encoding.ASCII.GetString(bytes, offset, (int)filePathLength);
+            offset += (int)filePathLength;
+
+            var fileData = new byte[fileSize];
+            Array.Copy(bytes, fileOffset, fileData, 0, fileData.Length);
+            files[filePath] = fileData;
+        }
+
+        return files;
+    }
+
 #if !NETFRAMEWORK
     [DynamicDependency(DynamicallyAccessedMemberTypes.All, "Cpp2IL.CommandLineArgs", "Cpp2IL")]
 #endif
@@ -539,7 +628,7 @@ internal class Program
             if (options.GamePath != null && options.GamePath.StartsWith("~"))
                 options.GamePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + options.GamePath[1..];
 #endif
-                
+
             ResolvePathsFromCommandLine(options.GamePath, options.ExeName, ref result);
         }
         else
