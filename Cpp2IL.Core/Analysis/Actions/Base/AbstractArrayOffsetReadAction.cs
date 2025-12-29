@@ -39,7 +39,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             ret.AddRange(OffsetLocal.GetILToLoad(context, processor));
 
             //Pop offset and array, push element
-            ret.Add(processor.Create(OpCodes.Ldelem_Any, processor.ImportReference(ArrayElementType!)));
+            ret.Add(processor.Create(OpCodes.Ldelem_Any, (ArrayElementType is GenericInstanceType git) ? processor.ImportRecursive(git) : processor.ImportReference(ArrayElementType!)));
             
             //Store item in local
             ret.Add(processor.Create(OpCodes.Stloc, LocalMade.Variable));

@@ -57,7 +57,7 @@ namespace Cpp2IL.Core.Analysis.Actions.x86.Important
             ret.Add(processor.Create(OpCodes.Ldc_I4, _index));
             
             //Pop offset and array, push element
-            ret.Add(processor.Create(OpCodes.Ldelem_Any, processor.ImportReference(_elementType)));
+            ret.Add(processor.Create(OpCodes.Ldelem_Any, (_elementType is GenericInstanceType git) ? processor.ImportRecursive(git) : processor.ImportReference(_elementType)));
             
             //Store in local
             ret.Add(processor.Create(OpCodes.Stloc, _destLocal.Variable));

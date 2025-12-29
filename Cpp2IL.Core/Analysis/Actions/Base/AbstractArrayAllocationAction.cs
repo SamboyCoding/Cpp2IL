@@ -30,7 +30,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                 return new[]
                 {
                     processor.Create(OpCodes.Ldc_I4, SizeAllocated),
-                    processor.Create(OpCodes.Newarr, processor.ImportReference(arrayType.ElementType)),
+                    processor.Create(OpCodes.Newarr, processor.ImportGenericAware(arrayType.ElementType)),
                     processor.Create(OpCodes.Stloc, LocalWritten.Variable)
                 };
             }
@@ -40,7 +40,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
                     throw new TaintedInstructionException("Missing local used for array size");
                 List<Instruction> instructions = new List<Instruction>();
                 instructions.AddRange(LocalUsedForArraySize.GetILToLoad(context, processor));
-                instructions.Add(processor.Create(OpCodes.Newarr, processor.ImportReference(arrayType.ElementType)));
+                instructions.Add(processor.Create(OpCodes.Newarr, processor.ImportGenericAware(arrayType.ElementType)));
                 instructions.Add(processor.Create(OpCodes.Stloc, LocalWritten.Variable));
                 return instructions.ToArray();
             }

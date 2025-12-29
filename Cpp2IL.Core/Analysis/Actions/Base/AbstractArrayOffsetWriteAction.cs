@@ -1,5 +1,6 @@
 ﻿using System.Collections.Generic;
 using Cpp2IL.Core.Analysis.ResultModels;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 
 namespace Cpp2IL.Core.Analysis.Actions.Base
@@ -45,7 +46,7 @@ namespace Cpp2IL.Core.Analysis.Actions.Base
             ret.AddRange(GetInstructionsToLoadValue(context, processor));
             
             //Store in array
-            ret.Add(processor.Create(OpCodes.Stelem_Any, processor.ImportReference(TheArray.Type.GetElementType())));
+            ret.Add(processor.Create(OpCodes.Stelem_Any, (TheArray.Type.GetElementType() is GenericInstanceType git) ? processor.ImportRecursive(git) : processor.ImportReference(TheArray.Type.GetElementType())));
 
             return ret.ToArray();
         }

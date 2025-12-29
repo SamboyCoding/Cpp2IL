@@ -374,6 +374,19 @@ namespace Cpp2IL.Core
         }
 
         public static TypeReference ImportReference(this ILProcessor processor, TypeReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference, context);
+
+        /// <summary>
+        /// Import a type reference into the current method module, but handle GenericInstanceTypes recursively so
+        /// that their generic arguments are also imported into the module. This avoids errors when writing assemblies
+        /// referencing types declared in other modules.
+        /// </summary>
+        public static TypeReference ImportGenericAware(this ILProcessor processor, TypeReference reference, IGenericParameterProvider? context = null)
+        {
+            if (reference is GenericInstanceType git)
+                return processor.ImportRecursive(git, context);
+
+            return processor.ImportReference(reference, context);
+        }
         
         public static MethodReference ImportReference(this ILProcessor processor, MethodReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference);
         
