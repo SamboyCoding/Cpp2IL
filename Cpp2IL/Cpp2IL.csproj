@@ -44,4 +44,10 @@
     <ItemGroup>
         <Reference Include="System.IO.Compression" Condition="'$(TargetFramework)' == 'net472'" />
     </ItemGroup>
+
+    <ItemGroup>
+        <None Include="runtimes\win-x64\native\capstone.dll">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </None>
+    </ItemGroup>
 </Project>
