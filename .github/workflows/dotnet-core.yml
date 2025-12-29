@@ -30,6 +30,11 @@ jobs:
     - name: Build - Net Framework 4.8, Windows
       working-directory: ./Cpp2IL/
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net472 --no-restore -r win-x64
+    - name: Copy Capstone native into Netframework publish
+      working-directory: ./Cpp2IL/
+      run: |
+        mkdir -p ./bin/Release/net472/win-x64/publish/
+        cp -v runtimes/win-x64/native/capstone.dll ./bin/Release/net472/win-x64/publish/ || true
     - name: Build - Ubuntu x64
       working-directory: ./Cpp2IL/
       run: dotnet publish /p:Configuration=Release /p:TargetFramework=net6.0 --no-restore -r ubuntu-x64
