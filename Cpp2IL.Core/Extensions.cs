@@ -376,15 +376,43 @@ namespace Cpp2IL.Core
         public static TypeReference ImportReference(this ILProcessor processor, TypeReference reference, IGenericParameterProvider? context = null) => processor.Body.Method.DeclaringType.Module.ImportReference(reference, context);
 
         /// <summary>
-        /// Import a type reference into the current method module, but handle GenericInstanceTypes recursively so
-        /// that their generic arguments are also imported into the module. This avoids errors when writing assemblies
-        /// referencing types declared in other modules.
+        /// Import a type reference into the current method module, but handle GenericInstanceTypes and common
+        /// TypeSpecification-derived types recursively so that their generic arguments and element types are also
+        /// imported into the module. This avoids errors when writing assemblies referencing types declared in other modules.
         /// </summary>
         public static TypeReference ImportGenericAware(this ILProcessor processor, TypeReference reference, IGenericParameterProvider? context = null)
         {
+            // Preserve generic parameters as-is
+            if (reference is GenericParameter)
+                return reference;
+
+            // Handle generic instances directly
             if (reference is GenericInstanceType git)
                 return processor.ImportRecursive(git, context);
 
+            // Handle array types
+            if (reference is ArrayType at)
+                return new ArrayType(processor.ImportGenericAware(at.ElementType, context), at.Rank);
+
+            // Handle pointer types
+            if (reference is PointerType pt)
+                return new PointerType(processor.ImportGenericAware(pt.ElementType, context));
+
+            // Handle byref types
+            if (reference is ByReferenceType br)
+                return new ByReferenceType(processor.ImportGenericAware(br.ElementType, context));
+
+            // Handle required/optional modifiers
+            if (reference is RequiredModifierType rmt)
+                return new RequiredModifierType(processor.ImportGenericAware(rmt.ModifierType, context), processor.ImportGenericAware(rmt.ElementType, context));
+            if (reference is OptionalModifierType omt)
+                return new OptionalModifierType(processor.ImportGenericAware(omt.ModifierType, context), processor.ImportGenericAware(omt.ElementType, context));
+
+            // Handle pinned types
+            if (reference is PinnedType p)
+                return new PinnedType(processor.ImportGenericAware(p.ElementType, context));
+
+            // Fallback to the normal import reference which handles non-spec types
             return processor.ImportReference(reference, context);
         }
         
