@@ -169,34 +169,58 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
             pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize * (ulong)initialBacktrack);
 
             //Slightly experimental, but we're gonna try backtracking most of the way through the number of modules. Not all the way because we don't want to overshoot.
-            int backtrack;
-            for (backtrack = initialBacktrack; backtrack < sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1; backtrack++)
+
+            List<ulong> FindCodegenModules(int initialBacktrackParam)
             {
-                pCodegenModules = FindAllMappedWords(pSomewhereInCodegenModules).ToList();
-
-                //Sanity check the count, which is one pointer back
-                if (pCodegenModules.Count == 1)
+                List<ulong> foundModules = [];
+                
+                for (int backtrack = initialBacktrackParam; backtrack < sanityCheckNumberOfModules && foundModules.Count != 1; backtrack++)
                 {
-                    binary.Reader.Position = binary.MapVirtualAddressToRaw(pCodegenModules.First() - ptrSize);
-                    var moduleCount = binary.Reader.ReadInt32();
+                    foundModules = FindAllMappedWords(pSomewhereInCodegenModules).ToList();
 
-                    if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
-                        pCodegenModules = [];
-                    else
-                        LibLogger.VerboseNewline($"\t\t\tFound valid address for pCodegenModules after a backtrack of {backtrack}, module count is {LibCpp2IlMain.TheMetadata!.imageDefinitions.Length}");
-                }
-                else if (pCodegenModules.Count > 1)
-                {
-                    LibLogger.VerboseNewline($"\t\t\tFound {pCodegenModules.Count} potential pCodegenModules addresses after a backtrack of {backtrack}, which is too many (> 1). Will try backtracking further.");
+                    //Sanity check the count, which is one pointer back
+                    if (foundModules.Count == 1)
+                    {
+                        if (foundModules.Any())
+                        {
+                            binary.Reader.Position = binary.MapVirtualAddressToRaw(foundModules.First() - ptrSize);
+                            var moduleCount = binary.Reader.ReadInt32();
+
+                            if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
+                                foundModules = [];
+                            else
+                                LibLogger.VerboseNewline($"\t\t\tFound valid address for pCodegenModules after a backtrack of {backtrack}, module count is {LibCpp2IlMain.TheMetadata!.imageDefinitions.Length}");
+                        }
+                    }
+                    else if (foundModules.Count > 1)
+                    {
+                        LibLogger.VerboseNewline($"\t\t\tFound {foundModules.Count} potential pCodegenModules addresses after a backtrack of {backtrack}, which is too many (> 1). Will try backtracking further.");
+                    }
+                    pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);
                 }
 
-                pSomewhereInCodegenModules = pSomewhereInCodegenModules.Select(va => va - ptrSize);
+                return foundModules;
             }
-
-            if (backtrack == sanityCheckNumberOfModules && (pCodegenModules?.Count() ?? 0) != 1)
+            
+            var backtrackedModules = FindCodegenModules(initialBacktrack);
+            if (backtrackedModules.Count < 1)
             {
-                LibLogger.WarnNewline($"Hit backtrack limit of {backtrack} modules and still didn't find a valid pCodegenModules pointer.");
-                return 0;
+                LibLogger.WarnNewline($"Hit backtrack limit of {sanityCheckNumberOfModules} modules and still didn't find a valid pCodegenModules pointer. Switching to the fallback non-backtracked search");
+                pSomewhereInCodegenModules = pMscorlibCodegenEntryInCodegenModulesList.AsEnumerable();
+                var unbacktrackedModules = FindCodegenModules(0);
+                if (unbacktrackedModules.Count < 1)
+                {
+                    LibLogger.WarnNewline("Fallback search failed to find a valid pCodegen modules pointer.");
+                    return 0;
+                }
+                else
+                {
+                    pCodegenModules = unbacktrackedModules;
+                }
+            }
+            else
+            {
+                pCodegenModules = backtrackedModules;
             }
 
             if (pCodegenModules?.Any() != true)
