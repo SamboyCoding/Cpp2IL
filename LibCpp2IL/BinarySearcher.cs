@@ -189,7 +189,7 @@ public class BinarySearcher(Il2CppBinary binary, int methodCount, int typeDefini
                             if (moduleCount < 0 || moduleCount > sanityCheckNumberOfModules)
                                 foundModules = [];
                             else
-                                LibLogger.VerboseNewline($"\t\t\tFound valid address for pCodegenModules after a backtrack of {backtrack}, module count is {LibCpp2IlMain.TheMetadata!.imageDefinitions.Length}");
+                                LibLogger.VerboseNewline($"\t\t\tFound valid address for pCodegenModules after a backtrack of {backtrack}/{LibCpp2IlMain.TheMetadata!.imageDefinitions.Length}: {foundModules[0]:X}");
                         }
                     }
                     else if (foundModules.Count > 1)
