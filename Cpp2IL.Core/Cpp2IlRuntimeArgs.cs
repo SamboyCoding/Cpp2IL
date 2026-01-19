@@ -19,7 +19,7 @@ public class Cpp2IlRuntimeArgs
     public List<Cpp2IlProcessingLayer> ProcessingLayersToRun = [];
     public readonly Dictionary<string, string> ProcessingLayerConfigurationOptions = new();
 
-    public Cpp2IlOutputFormat? OutputFormat;
+    public IEnumerable<Cpp2IlOutputFormat>? OutputFormats;
     public string OutputRootDirectory = null!;
 
     public bool LowMemoryMode;
