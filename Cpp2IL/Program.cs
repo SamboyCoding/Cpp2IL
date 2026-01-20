@@ -482,8 +482,12 @@ internal static class Program
     [DynamicDependency(DynamicallyAccessedMemberTypes.All, "Cpp2IL.CommandLineArgs", "Cpp2IL")]
 #endif
     private static Cpp2IlRuntimeArgs GetRuntimeOptionsFromCommandLine(string[] commandLine)
-    {   
-        var parserResult = new Parser(settings => settings.AllowMultiInstance = true)
+    {
+        var parserResult = new Parser(settings =>
+        {
+            settings.AllowMultiInstance = true;
+            settings.HelpWriter = Console.Out;
+        })
             .ParseArguments<CommandLineArgs>(commandLine);
 
         if (parserResult is NotParsed<CommandLineArgs> notParsed && notParsed.Errors.Count() == 1 && notParsed.Errors.All(e => e.Tag is ErrorType.VersionRequestedError or ErrorType.HelpRequestedError))
@@ -531,7 +535,7 @@ internal static class Program
             if (options.GamePath != null && options.GamePath.StartsWith("~"))
                 options.GamePath = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile) + options.GamePath[1..];
 #endif
-                
+
             ResolvePathsFromCommandLine(options.GamePath, options.ExeName, ref result);
         }
         else
@@ -650,10 +654,10 @@ internal static class Program
 
         if (runtimeArgs.OutputFormats != null)
         {
-            foreach(Cpp2IlOutputFormat format in runtimeArgs.OutputFormats)
+            foreach (Cpp2IlOutputFormat format in runtimeArgs.OutputFormats)
             {
-                format.OnOutputFormatSelected();    
-            }   
+                format.OnOutputFormatSelected();
+            }
         }
 
         GCSettings.LatencyMode = runtimeArgs.LowMemoryMode ? GCLatencyMode.Interactive : GCLatencyMode.SustainedLowLatency;
@@ -699,10 +703,10 @@ internal static class Program
             foreach (Cpp2IlOutputFormat format in runtimeArgs.OutputFormats)
             {
                 if (runtimeArgs.LowMemoryMode)
-                GC.Collect();
+                    GC.Collect();
                 Logger.InfoNewline($"Outputting as {format.OutputFormatName} to {runtimeArgs.OutputRootDirectory}...");
                 format.DoOutput(Cpp2IlApi.CurrentAppContext, runtimeArgs.OutputRootDirectory);
-                Logger.InfoNewline($"Finished outputting in {(DateTime.Now - outputStart).TotalMilliseconds}ms");   
+                Logger.InfoNewline($"Finished outputting in {(DateTime.Now - outputStart).TotalMilliseconds}ms");
             }
         }
         else
