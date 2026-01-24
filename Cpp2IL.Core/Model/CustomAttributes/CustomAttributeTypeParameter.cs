@@ -55,7 +55,7 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
             return "(Type) null";
 
         if (TypeContext.Type is var typeEnum && typeEnum.IsIl2CppPrimitive())
-            return $"typeof({LibCpp2ILUtils.GetTypeName(TypeContext.Type)}";
+            return $"typeof({LibCpp2ILUtils.GetTypeName(TypeContext.Type)})";
 
         if (TypeContext is ReferencedTypeAnalysisContext)
         {

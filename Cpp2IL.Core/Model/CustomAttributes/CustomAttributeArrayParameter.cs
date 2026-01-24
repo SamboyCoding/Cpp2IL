@@ -82,6 +82,6 @@ public class CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, Custom
         if (EnumType != null)
             arrType = EnumType.AsClass().ToString();
 
-        return $"new {arrType}[] {{{string.Join(", ", ArrayElements.Select(x => x.ToString()))}}}]";
+        return $"new {arrType}[] {{{string.Join(", ", ArrayElements.Select(x => x.ToString()))}}}";
     }
 }
