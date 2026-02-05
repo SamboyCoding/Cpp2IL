@@ -1,4 +1,3 @@
-﻿using System;
 using System.IO;
 using System.Text;
 
@@ -6,9 +5,8 @@ namespace LibCpp2IL;
 
 public class EndianAwareBinaryReader : BinaryReader
 {
-    protected bool ShouldReverseArrays = !BitConverter.IsLittleEndian; //Default to LE mode, so on LE systems, don't invert.
-
     public bool IsBigEndian { get; private set; } = false;
+    public bool IsLittleEndian => !IsBigEndian;
 
     private int _numBytesReadSinceLastCall = 0;
 
@@ -26,7 +24,6 @@ public class EndianAwareBinaryReader : BinaryReader
 
     public void SetBigEndian()
     {
-        ShouldReverseArrays = BitConverter.IsLittleEndian; //Set to BE mode, so on LE systems we invert.
         IsBigEndian = true;
     }
 
@@ -69,7 +66,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 2;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadInt16();
 
         return this.ReadInt16WithReversedBits();
@@ -79,7 +76,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 4;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadInt32();
 
         return this.ReadInt32WithReversedBits();
@@ -89,7 +86,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 8;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadInt64();
 
         return this.ReadInt64WithReversedBits();
@@ -99,7 +96,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 2;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadUInt16();
 
         return this.ReadUInt16WithReversedBits();
@@ -109,7 +106,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 4;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadUInt32();
 
         return this.ReadUInt32WithReversedBits();
@@ -119,7 +116,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 8;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadUInt64();
 
         return this.ReadUInt64WithReversedBits();
@@ -129,7 +126,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 4;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadSingle();
 
         return this.ReadSingleWithReversedBits();
@@ -139,7 +136,7 @@ public class EndianAwareBinaryReader : BinaryReader
     {
         _numBytesReadSinceLastCall += 8;
 
-        if (!ShouldReverseArrays)
+        if (IsLittleEndian)
             return base.ReadDouble();
 
         return this.ReadDoubleWithReversedBits();
