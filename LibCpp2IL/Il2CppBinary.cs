@@ -60,15 +60,15 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     /// </summary>
     public virtual ClassReadingBinaryReader Reader => this;
 
-    private float _metadataVersion;
-    public sealed override float MetadataVersion => _metadataVersion; 
+    private float? _metadataVersion;
+    public sealed override float MetadataVersion => _metadataVersion ?? 0;
+
+    internal void SetMetadataVersion(float version) => _metadataVersion = version;
 
     public int InBinaryMetadataSize { get; private set; }
 
     public void Init(ulong pCodeRegistration, ulong pMetadataRegistration, Il2CppMetadata metadata)
     {
-        _metadataVersion = metadata.MetadataVersion;
-        
         var cr = pCodeRegistration > 0 ? ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration) : null;
         var mr = pMetadataRegistration > 0 ? ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(pMetadataRegistration) : null;
 
@@ -487,6 +487,9 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
     public virtual (ulong pCodeRegistration, ulong pMetadataRegistration) FindCodeAndMetadataReg(Il2CppMetadata metadata)
     {
+        if (!_metadataVersion.HasValue)
+            throw new InvalidOperationException("MetadataVersion must be set before searching for code and metadata registration. Call SetMetadataVersion first.");
+
         LibLogger.VerboseNewline("\tAttempting to locate code and metadata registration functions...");
 
         var methodCount = metadata.methodDefs.Count(x => x.methodIndex >= 0);

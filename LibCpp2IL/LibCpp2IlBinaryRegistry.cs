@@ -67,6 +67,7 @@ public static class LibCpp2IlBinaryRegistry
         var start = DateTime.Now;
 
         var binary = match.FactoryFunc(memStream);
+        binary.SetMetadataVersion(metadata.MetadataVersion);
 
         LibCpp2IlMain.Binary = binary;
 
