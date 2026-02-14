@@ -32,10 +32,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         }
 
         var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
-        var endVa = result.LastValid().Address + 4;
+        var lastInsn = result.LastValid();
 
         var start = (int)context.AppContext.Binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
-        var end = (int)context.AppContext.Binary.MapVirtualAddressToRaw(endVa);
+        // Map the last instruction (always within segment) and add 4 (ARM64 instruction size).
+        // This avoids mapping endVa which may land exactly at a segment boundary gap.
+        var end = (int)context.AppContext.Binary.MapVirtualAddressToRaw(lastInsn.Address) + 4;
 
         //Sanity check
         if (start < 0 || end < 0 || start >= context.AppContext.Binary.RawLength || end >= context.AppContext.Binary.RawLength)
