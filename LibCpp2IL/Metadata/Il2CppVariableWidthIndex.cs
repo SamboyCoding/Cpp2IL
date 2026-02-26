@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Threading;
 
 namespace LibCpp2IL.Metadata;
@@ -14,7 +14,7 @@ namespace LibCpp2IL.Metadata;
 /// - v105 extends this to MethodIndex 
 /// </summary>
 /// <typeparam name="T"></typeparam>
-public record struct Il2CppVariableWidthIndex<T> where T : ReadableClass
+public readonly record struct Il2CppVariableWidthIndex<T> where T : ReadableClass
 {
     //Statics here are per-T.
     private static int widthForThisTypeOnCurrentApplication = -1; // -1 means "not yet determined"
@@ -27,7 +27,7 @@ public record struct Il2CppVariableWidthIndex<T> where T : ReadableClass
     /// </summary>
     private static object readSessionLock = new object();
     
-    private int value;
+    private readonly int value;
 
     public bool IsNull => value < 0; //The exact value of the "null" index depends on the width
     public bool IsNonNull => !IsNull;
@@ -102,4 +102,6 @@ public record struct Il2CppVariableWidthIndex<T> where T : ReadableClass
         widthForThisTypeOnCurrentApplication = -1;
         Monitor.Exit(readSessionLock);
     }
+
+    public static implicit operator int(Il2CppVariableWidthIndex<T> index) => index.value;
 }
