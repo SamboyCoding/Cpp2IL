@@ -102,6 +102,4 @@ public readonly record struct Il2CppVariableWidthIndex<T> where T : ReadableClas
         widthForThisTypeOnCurrentApplication = -1;
         Monitor.Exit(readSessionLock);
     }
-
-    public static implicit operator int(Il2CppVariableWidthIndex<T> index) => index.value;
 }
