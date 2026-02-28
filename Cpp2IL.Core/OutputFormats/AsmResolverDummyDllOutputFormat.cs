@@ -150,6 +150,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         var corlib = context.Assemblies.First(a => a.Name == "mscorlib");
         MostRecentCorLib = BuildStubAssembly(corlib, null, null);
 
+        // The runtime info is irrelevant because we're creating our own corlib, but AsmResolver still requires that we specify one.
         var runtimeContext = new RuntimeContext(DotNetRuntimeInfo.NetCoreApp(9, 0), (bool?)null, MostRecentCorLib);
         runtimeContext.AddAssembly(MostRecentCorLib);
 

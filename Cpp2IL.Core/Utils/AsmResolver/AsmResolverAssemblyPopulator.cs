@@ -542,7 +542,7 @@ public static class AsmResolverAssemblyPopulator
                 var method = methodContext.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {methodContext}");
                 type.MethodImplementations.Add(new MethodImplementation(interfaceMethod, method));
                 var resolutionStatus = interfaceMethod.Resolve(runtimeContext, out var interfaceMethodResolved);
-                if (resolutionStatus is ResolutionStatus.Success && interfaceMethodResolved != null)
+                if (resolutionStatus == ResolutionStatus.Success && interfaceMethodResolved != null)
                 {
                     if (interfaceMethodResolved.IsGetMethod && !method.IsGetMethod)
                     {
