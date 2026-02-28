@@ -143,7 +143,8 @@ public static class AsmResolverUtils
             typeArguments[i] = typeArgument;
         }
 
-        return baseType.MakeGenericInstanceType(typeArguments);
+        var runtimeContext = Cpp2IlApi.CurrentAppContext!.GetExtraData<RuntimeContext>("RuntimeContext") ?? throw new("AsmResolver runtime context not found in application analysis context");
+        return baseType.MakeGenericInstanceType(runtimeContext, typeArguments);
     }
 
     private readonly record struct ParsedTypeString(string BaseType, string Suffix, string[] GenericArguments);

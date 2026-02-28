@@ -147,26 +147,25 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
 
     private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)
     {
-        var assemblyResolver = new Il2CppAssemblyResolver();
-        var metadataResolver = new DefaultMetadataResolver(assemblyResolver);
-
         var corlib = context.Assemblies.First(a => a.Name == "mscorlib");
-        MostRecentCorLib = BuildStubAssembly(corlib, null, metadataResolver);
-        assemblyResolver.DummyAssemblies.Add(MostRecentCorLib.Name!, MostRecentCorLib);
+        MostRecentCorLib = BuildStubAssembly(corlib, null, null);
+
+        var runtimeContext = new RuntimeContext(DotNetRuntimeInfo.NetCoreApp(9, 0), (bool?)null, MostRecentCorLib);
+        runtimeContext.AddAssembly(MostRecentCorLib);
+
+        context.PutExtraData("AsmResolverRuntimeContext", runtimeContext);
 
         var ret = context.Assemblies
             // .AsParallel()
             .Where(a => a.Name != "mscorlib")
-            .Select(a => BuildStubAssembly(a, MostRecentCorLib, metadataResolver))
+            .Select(a => BuildStubAssembly(a, MostRecentCorLib, runtimeContext))
             .ToList();
-
-        ret.ForEach(a => assemblyResolver.DummyAssemblies.Add(a.Name!, a));
 
         ret.Add(MostRecentCorLib);
         return ret;
     }
 
-    private static AssemblyDefinition BuildStubAssembly(AssemblyAnalysisContext assemblyContext, AssemblyDefinition? corLib, IMetadataResolver metadataResolver)
+    private static AssemblyDefinition BuildStubAssembly(AssemblyAnalysisContext assemblyContext, AssemblyDefinition? corLib, RuntimeContext? runtimeContext)
     {
         //Get the name of the assembly (= the name of the DLL without the file extension)
         //Build an AsmResolver assembly from this definition
@@ -182,11 +181,10 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         var moduleName = assemblyContext.CleanAssemblyName + ".dll";
 
         //Use either ourself as corlib, if we are corlib, otherwise the provided one
-        var managedModule = new ModuleDefinition(moduleName, corLib is not null ? new(corLib) : null)
-        {
-            MetadataResolver = metadataResolver
-        };
+        var managedModule = new ModuleDefinition(moduleName, corLib is not null ? new(corLib) : null);
         ourAssembly.Modules.Add(managedModule);
+
+        runtimeContext?.AddAssembly(ourAssembly);
 
         foreach (var il2CppTypeDefinition in assemblyContext.TopLevelTypes)
         {
