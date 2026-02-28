@@ -71,7 +71,10 @@ public readonly record struct Il2CppVariableWidthIndex<T> where T : ReadableClas
                     return Null;
                 return new(val2);
             case 4:
-                return new(reader.ReadInt32());
+                var val3 = reader.ReadInt32();
+                if (val3 == int.MaxValue)
+                    return Null;
+                return new(val3);
             default:
                 throw new Exception($"Invalid width {widthForThisTypeOnCurrentApplication} for Il2CppVariableWidthIndex of type {typeof(T)}.");
         }

@@ -420,7 +420,8 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             foreach (var il2CppFieldDefaultValue in fieldDefaultValues)
             {
                 _fieldDefaultValueLookup[il2CppFieldDefaultValue.fieldIndex] = il2CppFieldDefaultValue;
-                _fieldDefaultLookupNew[GetFieldDefinitionFromIndex(il2CppFieldDefaultValue.fieldIndex)] = il2CppFieldDefaultValue;
+                if (il2CppFieldDefaultValue.fieldIndex.IsNonNull)
+                    _fieldDefaultLookupNew[GetFieldDefinitionFromIndex(il2CppFieldDefaultValue.fieldIndex)] = il2CppFieldDefaultValue;
             }
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
