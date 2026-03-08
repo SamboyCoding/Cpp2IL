@@ -197,6 +197,10 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
                         _codeGenModuleMethodPointers[i] = new ulong[codeGenModule.methodPointerCount];
                     }
                 }
+                else
+                {
+                    _codeGenModuleMethodPointers[i] = [];
+                }
 
                 if (codeGenModule.rgctxRangesCount > 0)
                 {
@@ -212,6 +216,10 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
                         _codegenModuleRgctxRanges[i] = new Il2CppTokenRangePair[codeGenModule.rgctxRangesCount];
                     }
                 }
+                else
+                {
+                    _codegenModuleRgctxRanges[i] = [];
+                }
 
                 if (codeGenModule.rgctxsCount > 0)
                 {
@@ -226,6 +234,10 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
                         LibLogger.VerboseNewline($"\t\t\tWARNING: Unable to get RGCTXs for {name}: {e.Message}");
                         _codegenModuleRgctxs[i] = new Il2CppRGCTXDefinition[codeGenModule.rgctxsCount];
                     }
+                }
+                else
+                {
+                    _codegenModuleRgctxs[i] = [];
                 }
             }
 
