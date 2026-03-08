@@ -99,7 +99,13 @@ public sealed class PE : Il2CppBinary
 
         var section = peSectionHeaders.FirstOrDefault(x => addr >= x.VirtualAddress && addr < x.VirtualAddress + x.VirtualSize);
 
-        if (section == null) return 0L;
+        if (section == null)
+        {
+            if (throwOnError)
+                throw new ArgumentOutOfRangeException(nameof(uiAddr), $"Provided address maps to image offset 0x{addr:X} which is outside the range of every section in the file");
+
+            return VirtToRawInvalidOutOfBounds;
+        }
 
         return addr - (section.VirtualAddress - section.PointerToRawData);
     }

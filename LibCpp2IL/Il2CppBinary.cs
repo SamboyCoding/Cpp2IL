@@ -348,7 +348,8 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     {
         result = MapVirtualAddressToRaw(virtAddr, false);
 
-        if (result != VirtToRawInvalidNoMatch)
+        // Negative results indicate error codes
+        if (result >= 0)
             return true;
 
         result = 0;
