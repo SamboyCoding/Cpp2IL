@@ -640,23 +640,40 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     
     public Il2CppParameterDefinition GetParameterDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition> index) => parameterDefs[index.Value];
     
+    public Il2CppNestedTypeIndex GetNestedTypeIndicesFromIndex(Il2CppVariableWidthIndex<Il2CppNestedTypeIndex> index) => nestedTypeIndices[index.Value];
+
+    public Il2CppNestedTypeIndex GetNestedTypeIndicesFromOffset(Il2CppVariableWidthIndex<Il2CppNestedTypeIndex> startIndex, ushort offset) => nestedTypeIndices[startIndex.Value + offset];
+
     public IEnumerable<int> GetNestedTypeIndicesFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppNestedTypeIndex> index, int count) => nestedTypeIndices.Skip(index.Value).Take(count).Select(n => n.Value);
 
+    public Il2CppVariableWidthIndex<Il2CppType> GetInterfaceIndicesFromIndex(Il2CppVariableWidthIndex<Il2CppInterfaceOffset> index) => interfaceIndices[index.Value];
+
+    public Il2CppVariableWidthIndex<Il2CppType> GetInterfaceIndicesFromOffset(Il2CppVariableWidthIndex<Il2CppInterfaceOffset> startIndex, ushort offset) => interfaceIndices[startIndex.Value + offset];
+    
     public IEnumerable<Il2CppVariableWidthIndex<Il2CppType>> GetInterfaceIndicesFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppInterfaceOffset> index, int count) => interfaceIndices.Skip(index.Value).Take(count);
 
     public Il2CppInterfaceOffset[] GetInterfaceOffsetsFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppInterfaceOffset> index, int count) => interfaceOffsets.SubArray(index.Value, count);
+    
+    public Il2CppPropertyDefinition GetPropertyDefinitionsFromIndex(Il2CppVariableWidthIndex<Il2CppPropertyDefinition> index) => propertyDefs[index.Value];
+
+    public Il2CppPropertyDefinition GetPropertyDefinitionsFromOffset(Il2CppVariableWidthIndex<Il2CppPropertyDefinition> startIndex, ushort offset) => propertyDefs[startIndex.Value + offset];
     
     public Il2CppPropertyDefinition[] GetPropertyDefinitionsFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppPropertyDefinition> index, int count) => propertyDefs.SubArray(index.Value, count);
     
     public Il2CppEventDefinition[] GetEventDefinitionsFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppEventDefinition> index, int count) => eventDefs.SubArray(index.Value, count);
     
     public Il2CppMethodDefinition GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition> index) => methodDefs[index.Value];
+
+    public Il2CppMethodDefinition GetMethodDefinitionFromOffset(Il2CppVariableWidthIndex<Il2CppMethodDefinition> startIndex, ushort offset) => methodDefs[startIndex.Value + offset];
     
     public Il2CppMethodDefinition[] GetMethodDefinitionsFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppMethodDefinition> index, int count) => methodDefs.SubArray(index.Value, count);
     
     public Il2CppGenericParameter GetGenericParameterFromIndex(Il2CppVariableWidthIndex<Il2CppGenericParameter> index) => genericParameters[index.Value];
     
     public Il2CppFieldDefinition GetFieldDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppFieldDefinition> index) => fieldDefs[index.Value];
+
+    public Il2CppFieldDefinition GetFieldDefinitionFromOffset(Il2CppVariableWidthIndex<Il2CppFieldDefinition> startIndex, ushort offset) => fieldDefs[startIndex.Value + offset];
+
     public Il2CppFieldDefinition[] GetFieldDefinitionsFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppFieldDefinition> index, int count) => fieldDefs.SubArray(index.Value, count);
 
     public string GetStringLiteralFromIndex(uint index)
