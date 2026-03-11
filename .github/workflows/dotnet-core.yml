@@ -9,7 +9,7 @@ on:
 
 jobs:
   release-net9:
-    strategy:     
+    strategy:
       matrix:
         runtimeIdentifier: [linux-x64, linux-arm64, osx-x64, osx-arm64, win-x64, win-arm64]
         project: [Cpp2IL]
@@ -31,9 +31,9 @@ jobs:
         with:
           script: |
             core.setOutput("extension", "${{ matrix.runtimeIdentifier }}" === "win-x64" ? ".exe" : "");
-            
+
             let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
-            let runNumber = "${{ github.run_number }}"; 
+            let runNumber = "${{ github.run_number }}";
             let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
             console.log("rawGitRef: " + rawGitRef);
             let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
@@ -91,7 +91,7 @@ jobs:
         with:
           script: |
             let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
-            let runNumber = "${{ github.run_number }}"; 
+            let runNumber = "${{ github.run_number }}";
             let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
             console.log("rawGitRef: " + rawGitRef);
             let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
@@ -124,4 +124,19 @@ jobs:
       - name: Publish Cpp2IL.Core
         if: github.event_name == 'push'
         run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Core/bin/Release/*.nupkg
-      
+      - name: Publish Cpp2IL.Plugin.BuildReport
+        if: github.event_name == 'push'
+        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.BuildReport/bin/Release/*.nupkg
+      - name: Publish Cpp2IL.Plugin.ControlFlowGraph
+        if: github.event_name == 'push'
+        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.ControlFlowGraph/bin/Release/*.nupkg
+      - name: Publish Cpp2IL.Plugin.OrbisPkg
+        if: github.event_name == 'push'
+        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.OrbisPkg/bin/Release/*.nupkg
+      - name: Publish Cpp2IL.Plugin.Pdb
+        if: github.event_name == 'push'
+        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.Pdb/bin/Release/*.nupkg
+      - name: Publish Cpp2IL.Plugin.StrippedCodeRegSupport
+        if: github.event_name == 'push'
+        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.StrippedCodeRegSupport/bin/Release/*.nupkg
+
