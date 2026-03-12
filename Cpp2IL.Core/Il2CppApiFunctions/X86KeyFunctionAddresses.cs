@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Logging;
@@ -112,23 +112,16 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
         var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
 
-        try
-        {
-            var target = prioritiseCall ? Mnemonic.Call : Mnemonic.Jmp;
-            var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
+        var target = prioritiseCall ? Mnemonic.Call : Mnemonic.Jmp;
+        var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
 
-            if (matchingCall.Mnemonic == Mnemonic.INVALID)
-            {
-                target = target == Mnemonic.Call ? Mnemonic.Jmp : Mnemonic.Call;
-                matchingCall = instructions.First(i => i.Mnemonic == target);
-            }
-
-            return matchingCall.NearBranchTarget;
-        }
-        catch (Exception)
+        if (matchingCall.Mnemonic == Mnemonic.INVALID)
         {
-            return 0;
+            target = target == Mnemonic.Call ? Mnemonic.Jmp : Mnemonic.Call;
+            matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
         }
+
+        return matchingCall.Mnemonic != Mnemonic.INVALID ? matchingCall.NearBranchTarget : 0;
     }
 
     protected override int GetCallerCount(ulong toWhere)

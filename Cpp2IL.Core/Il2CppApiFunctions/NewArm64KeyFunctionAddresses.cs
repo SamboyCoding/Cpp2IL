@@ -1,10 +1,9 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Disarm;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
-using Iced.Intel;
 using LibCpp2IL;
 using LibCpp2IL.Reflection;
 
@@ -105,23 +104,16 @@ public class NewArm64KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
         var instructions = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(thunkPtr, true);
 
-        try
-        {
-            var target = prioritiseCall ? Arm64Mnemonic.BL : Arm64Mnemonic.B;
-            var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
+        var target = prioritiseCall ? Arm64Mnemonic.BL : Arm64Mnemonic.B;
+        var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
 
-            if (matchingCall.Mnemonic == Arm64Mnemonic.INVALID)
-            {
-                target = target == Arm64Mnemonic.BL ? Arm64Mnemonic.B : Arm64Mnemonic.BL;
-                matchingCall = instructions.First(i => i.Mnemonic == target);
-            }
-
-            return matchingCall.BranchTarget;
-        }
-        catch (Exception)
+        if (matchingCall.Mnemonic == Arm64Mnemonic.INVALID)
         {
-            return 0;
+            target = target == Arm64Mnemonic.BL ? Arm64Mnemonic.B : Arm64Mnemonic.BL;
+            matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);
         }
+
+        return matchingCall.Mnemonic != Arm64Mnemonic.INVALID ? matchingCall.BranchTarget : 0;
     }
 
     protected override int GetCallerCount(ulong toWhere)
