@@ -219,7 +219,7 @@ public sealed class WasmFile : Il2CppBinary
         return (long)uiAddr;
     }
 
-    public override ulong MapRawAddressToVirtual(uint offset)
+    public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
         var data = DataSection;
         if (offset > data.Pointer && offset < data.Pointer + (long)data.Size)

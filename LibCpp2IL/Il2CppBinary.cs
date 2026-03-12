@@ -327,21 +327,13 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
     public abstract byte GetByteAtRawAddress(ulong addr);
     public abstract long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true);
-    public abstract ulong MapRawAddressToVirtual(uint offset);
+    public abstract ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true);
     public abstract ulong GetRva(ulong pointer);
 
     public bool TryMapRawAddressToVirtual(in uint offset, out ulong va)
     {
-        try
-        {
-            va = MapRawAddressToVirtual(offset);
-            return true;
-        }
-        catch (Exception)
-        {
-            va = 0;
-            return false;
-        }
+        va = MapRawAddressToVirtual(offset, false);
+        return va != 0;
     }
 
     public bool TryMapVirtualAddressToRaw(ulong virtAddr, out long result)

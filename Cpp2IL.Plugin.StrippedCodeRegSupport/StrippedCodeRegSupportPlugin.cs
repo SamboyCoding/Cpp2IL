@@ -1,4 +1,4 @@
-﻿using Cpp2IL.Core.Api;
+using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Attributes;
 using Cpp2IL.Plugin.StrippedCodeRegSupport;
 using LibCpp2IL;
@@ -40,7 +40,7 @@ public class StrippedCodeRegSupportPlugin : Cpp2IlPlugin
         //We can piggyback off BinarySearcher:
         var searcher = new BinarySearcher(binary, metadata.MethodDefinitionCount, metadata.TypeDefinitionCount);
 
-        var mscorlibs = searcher.FindAllStrings("mscorlib.dll\0").Select(binary.MapRawAddressToVirtual).ToList();
+        var mscorlibs = searcher.FindAllStrings("mscorlib.dll\0").Select(idx => binary.MapRawAddressToVirtual(idx)).ToList();
 
         Logger.VerboseNewline($"Found {mscorlibs.Count} occurrences of mscorlib.dll: [{string.Join(", ", mscorlibs.Select(p => p.ToString("X")))}]");
 

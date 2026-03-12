@@ -104,9 +104,14 @@ public sealed class PE : Il2CppBinary
         return addr - (section.VirtualAddress - section.PointerToRawData);
     }
 
-    public override ulong MapRawAddressToVirtual(uint offset)
+    public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
-        var section = peSectionHeaders.First(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
+        var section = peSectionHeaders.FirstOrDefault(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
+        if (section == null)
+            if (throwOnError)
+                throw new InvalidOperationException($"Provided offset, 0x{offset:X}, does not fall within any section of the PE file.");
+            else
+                return 0;
 
         return peImageBase + section.VirtualAddress + offset - section.PointerToRawData;
     }

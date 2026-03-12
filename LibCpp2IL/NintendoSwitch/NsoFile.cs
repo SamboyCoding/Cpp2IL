@@ -319,13 +319,14 @@ public sealed class NsoFile : Il2CppBinary
         return (long)(addr - (segment.MemoryOffset + NsoGlobalOffset) + segment.FileOffset);
     }
 
-    public override ulong MapRawAddressToVirtual(uint offset)
+    public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
         var segment = segments.FirstOrDefault(x => offset >= x.FileOffset && offset < x.FileOffset + x.DecompressedSize);
         if (segment == null)
-        {
-            return 0;
-        }
+            if (throwOnError)
+                throw new InvalidOperationException($"NSO: Offset 0x{offset:X} is not present in any of the segments. Known segment starts are (hex) {string.Join(", ", segments.Select(s => s.FileOffset.ToString("X")))}");
+            else
+                return 0;
 
         return offset - segment.FileOffset + (NsoGlobalOffset + segment.MemoryOffset);
     }

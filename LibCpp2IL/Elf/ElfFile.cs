@@ -709,12 +709,20 @@ public sealed class ElfFile : Il2CppBinary
         return (long)(addr - (section.VirtualAddress - section.RawAddress));
     }
 
-    public override ulong MapRawAddressToVirtual(uint offset)
+    public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
         if (relocationBlocks.Any(b => b.start <= offset && b.end > offset))
-            throw new InvalidOperationException("Attempt to map a relocation block to a virtual address");
+            if (throwOnError)
+                throw new InvalidOperationException("Attempt to map a relocation block to a virtual address");
+            else
+                return 0;
 
-        var section = _elfProgramHeaderEntries.First(x => offset >= x.RawAddress && offset < x.RawAddress + x.RawSize);
+        var section = _elfProgramHeaderEntries.FirstOrDefault(x => offset >= x.RawAddress && offset < x.RawAddress + x.RawSize);
+        if (section == null)
+            if (throwOnError)
+                throw new InvalidOperationException($"No entry in the Elf PHT contains raw address 0x{offset:X}");
+            else
+                return 0;
 
         return section.VirtualAddress + offset - section.RawAddress;
     }
