@@ -308,7 +308,7 @@ public static class CsFileUtils
         if (type is GenericInstanceTypeAnalysisContext genericInstanceType)
         {
             var genericTypeName = GetTypeName(genericInstanceType.GenericType);
-            var backTickIndex = genericTypeName.IndexOf('`');
+            var backTickIndex = genericTypeName.LastIndexOf('`');
             return backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
         }
 
