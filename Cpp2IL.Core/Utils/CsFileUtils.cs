@@ -276,36 +276,69 @@ public static class CsFileUtils
     /// Returns the name of the given type, as it would appear in a C# source file.
     /// This mainly involves stripping the backtick section from generic type names, and replacing certain system types with their primitive name.
     /// </summary>
-    /// <param name="originalName">The original name of the type</param>
-    public static string GetTypeName(string originalName)
+    /// <param name="type"></param>
+    public static string GetTypeName(TypeAnalysisContext type)
     {
-        if (originalName.Contains("`"))
-            //Generics - remove `1 etc
-            return originalName.Remove(originalName.IndexOf('`'), 2);
-
-        if (originalName[^1] == '&')
-            originalName = originalName[..^1]; //Remove trailing & for ref params
-
-        return originalName switch
+        if (type is WrappedTypeAnalysisContext wrapped)
         {
-            "Void" => "void",
-            "Boolean" => "bool",
-            "Byte" => "byte",
-            "SByte" => "sbyte",
-            "Char" => "char",
-            "Decimal" => "decimal",
-            "Single" => "float",
-            "Double" => "double",
-            "Int32" => "int",
-            "UInt32" => "uint",
-            "Int64" => "long",
-            "UInt64" => "ulong",
-            "Int16" => "short",
-            "UInt16" => "ushort",
-            "String" => "string",
-            "Object" => "object",
-            _ => originalName
-        };
+            var elementTypeName = GetTypeName(wrapped.ElementType);
+            switch (wrapped)
+            {
+                case ArrayTypeAnalysisContext arrayType:
+                    {
+                        return arrayType.Rank switch
+                        {
+                            1 => elementTypeName + "[]",
+                            2 => elementTypeName + "[,]",
+                            3 => elementTypeName + "[,,]",
+                            _ => elementTypeName + "[" + new string(',', arrayType.Rank - 1) + "]"
+                        };
+                    }
+                case SzArrayTypeAnalysisContext:
+                    return elementTypeName + "[]";
+                case PointerTypeAnalysisContext:
+                    return elementTypeName + "*";
+                case ByRefTypeAnalysisContext:
+                    return elementTypeName; //Remove trailing & for ref params
+                default:
+                    return elementTypeName;
+            }
+        }
+
+        if (type is GenericInstanceTypeAnalysisContext genericInstanceType)
+        {
+            var genericTypeName = GetTypeName(genericInstanceType.GenericType);
+            var backTickIndex = genericTypeName.IndexOf('`');
+            return backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
+        }
+
+        if (type.Namespace is "System")
+        {
+            return type.Name switch
+            {
+                "Void" => "void",
+                "Boolean" => "bool",
+                "Byte" => "byte",
+                "SByte" => "sbyte",
+                "Char" => "char",
+                "Decimal" => "decimal",
+                "Single" => "float",
+                "Double" => "double",
+                "Int32" => "int",
+                "UInt32" => "uint",
+                "Int64" => "long",
+                "UInt64" => "ulong",
+                "Int16" => "short",
+                "UInt16" => "ushort",
+                "String" => "string",
+                "Object" => "object",
+                _ => type.Name,
+            };
+        }
+        else
+        {
+            return type.Name;
+        }
     }
 
     /// <summary>
@@ -319,7 +352,7 @@ public static class CsFileUtils
         var baseType = type.BaseType;
         var needsBaseClass = baseType is { FullName: not "System.Object" and not "System.ValueType" and not "System.Enum" };
         if (needsBaseClass)
-            sb.Append(" : ").Append(GetTypeName(baseType!.Name));
+            sb.Append(" : ").Append(GetTypeName(baseType!));
 
         //Interfaces
         if (type.InterfaceContexts.Count <= 0)
@@ -336,7 +369,7 @@ public static class CsFileUtils
 
             addComma = true;
 
-            sb.Append(GetTypeName(iface.Name));
+            sb.Append(GetTypeName(iface));
         }
     }
 }

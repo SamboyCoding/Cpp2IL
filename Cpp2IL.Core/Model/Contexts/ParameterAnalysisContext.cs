@@ -102,7 +102,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         else if (ParameterType is ByRefTypeAnalysisContext)
             result.Append("ref ");
 
-        result.Append(CsFileUtils.GetTypeName(ParameterType.Name)).Append(' ');
+        result.Append(CsFileUtils.GetTypeName(ParameterType)).Append(' ');
 
         if (string.IsNullOrEmpty(ParameterName))
             result.Append("unnamed_param_").Append(ParameterIndex);
