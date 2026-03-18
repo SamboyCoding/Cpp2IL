@@ -201,7 +201,7 @@ public class Lz4DecodeStream : Stream
                 }
 
                 default:
-                    throw new Exception($"Unknonw decode phase {m_phase}");
+                    throw new Exception($"Unknown decode phase {m_phase}");
             }
         }
     }
