@@ -64,11 +64,27 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     private float? _metadataVersion;
     public sealed override float MetadataVersion => _metadataVersion ?? 0;
 
-    internal void SetMetadataVersion(float version) => _metadataVersion = version;
-
     public int InBinaryMetadataSize { get; private set; }
 
     private Il2CppMetadata? _metadata;
+
+    public void Init(Il2CppMetadata metadata)
+    {
+        _metadataVersion = metadata.MetadataVersion;
+
+        var start = DateTime.Now;
+
+        var (codereg, metareg) = FindCodeAndMetadataReg(metadata);
+
+        LibLogger.InfoNewline($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.");
+        LibLogger.InfoNewline("Initializing Binary...");
+
+        start = DateTime.Now;
+
+        Init(codereg, metareg, metadata);
+
+        LibLogger.InfoNewline($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+    }
 
     public void Init(ulong pCodeRegistration, ulong pMetadataRegistration, Il2CppMetadata metadata)
     {

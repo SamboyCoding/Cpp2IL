@@ -64,22 +64,12 @@ public static class LibCpp2IlBinaryRegistry
         var memStream = new MemoryStream(buffer, 0, buffer.Length, true, true);
 
         LibLogger.InfoNewline("Searching Binary for Required Data...");
-        var start = DateTime.Now;
 
         var binary = match.FactoryFunc(memStream);
-        binary.SetMetadataVersion(metadata.MetadataVersion);
 
         // NOTE: Do not write to LibCpp2IlMain.Binary here. The binary registry is global, but the loaded binary is per-context.
-
-        var (codereg, metareg) = binary.FindCodeAndMetadataReg(metadata);
-
-        LibLogger.InfoNewline($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.");
-        LibLogger.InfoNewline("Initializing Binary...");
-        start = DateTime.Now;
-
-        binary.Init(codereg, metareg, metadata);
-
-        LibLogger.InfoNewline($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+        
+        binary.Init(metadata);
 
         return binary;
     }

@@ -1,10 +1,4 @@
-﻿using System;
 using System.Collections.Generic;
-using System.IO;
-using System.Linq;
-using AssetRipper.Primitives;
-using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -17,10 +11,10 @@ public sealed class LibCpp2IlContext
 {
     public LibCpp2IlMain.LibCpp2IlSettings Settings { get; }
 
-    public bool Il2CppTypeHasNumMods5Bits { get; private set; }
+    public bool Il2CppTypeHasNumMods5Bits { get; internal set; }
 
-    public Il2CppBinary Binary { get; private set; }
-    public Il2CppMetadata Metadata { get; private set; }
+    public Il2CppBinary Binary { get; internal set; } = null!;
+    public Il2CppMetadata Metadata { get; internal set; } = null!;
 
     public float MetadataVersion => Metadata.MetadataVersion;
 
@@ -28,79 +22,9 @@ public sealed class LibCpp2IlContext
 
     public LibCpp2IlReflectionCache ReflectionCache { get; } = new();
 
-    private LibCpp2IlContext(LibCpp2IlMain.LibCpp2IlSettings settings, Il2CppBinary binary, Il2CppMetadata metadata)
+    internal LibCpp2IlContext(LibCpp2IlMain.LibCpp2IlSettings settings)
     {
         Settings = settings;
-        Binary = binary;
-        Metadata = metadata;
-    }
-
-    public static LibCpp2IlContext LoadFromFile(string pePath, string metadataPath, UnityVersion unityVersion)
-    {
-        var metadataBytes = File.ReadAllBytes(metadataPath);
-        var peBytes = File.ReadAllBytes(pePath);
-        return Initialize(peBytes, metadataBytes, unityVersion);
-    }
-
-    public static LibCpp2IlContext Initialize(byte[] binaryBytes, byte[] metadataBytes, UnityVersion unityVersion)
-    {
-        // Snapshot settings at creation time.
-        var settings = new LibCpp2IlMain.LibCpp2IlSettings
-        {
-            AllowManualMetadataAndCodeRegInput = LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput,
-            DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableMethodPointerMapping,
-            DisableGlobalResolving = LibCpp2IlMain.Settings.DisableGlobalResolving,
-        };
-
-        var start = DateTime.Now;
-        LibLogger.InfoNewline("Initializing Metadata...");
-
-        var metadata = Il2CppMetadata.ReadFrom(metadataBytes, unityVersion);
-
-        var context = new LibCpp2IlContext(settings, binary: null!, metadata);
-
-        context.Il2CppTypeHasNumMods5Bits = metadata.MetadataVersion >= 27.2f;
-
-        LibLogger.InfoNewline($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
-
-        // Legacy/static API compatibility: some in-binary structures still resolve via LibCpp2IlMain.Binary/TheMetadata
-        // during binary initialization, so we must set metadata defaults before initializing the binary.
-        LibCpp2IlMain.TheMetadata = metadata;
-        LibCpp2IlMain.DefaultContext = context;
-        LibCpp2IlMain.Il2CppTypeHasNumMods5Bits = context.Il2CppTypeHasNumMods5Bits;
-
-        var bin = LibCpp2IlBinaryRegistry.CreateAndInit(binaryBytes, metadata);
-        context.Binary = bin;
-
-        // Complete legacy/static initialization now that the binary exists.
-        LibCpp2IlMain.Binary = bin;
-
-        if (!context.Settings.DisableGlobalResolving && context.MetadataVersion < 27)
-        {
-            start = DateTime.Now;
-            LibLogger.Info("Mapping Globals...");
-            LibCpp2IlGlobalMapper.MapGlobalIdentifiers(metadata, bin);
-            LibLogger.InfoNewline($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
-        }
-
-        if (!context.Settings.DisableMethodPointerMapping)
-        {
-            start = DateTime.Now;
-            LibLogger.Info("Mapping pointers to Il2CppMethodDefinitions...");
-            foreach (var (method, ptr) in metadata.methodDefs.Select(method => (method, ptr: method.MethodPointer)))
-            {
-                if (!context.MethodsByPtr.TryGetValue(ptr, out var list))
-                    context.MethodsByPtr[ptr] = list = [];
-
-                list.Add(method);
-            }
-
-            LibLogger.InfoNewline($"Processed {metadata.methodDefs.Length} OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
-        }
-
-        context.ReflectionCache.Init(context);
-
-        return context;
     }
 
     public List<Il2CppMethodDefinition>? GetManagedMethodImplementationsAtAddress(ulong addr)

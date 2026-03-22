@@ -2,16 +2,12 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Text;
 using System.Text.RegularExpressions;
 using AssetRipper.Primitives;
-using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.NintendoSwitch;
 using LibCpp2IL.Reflection;
-using LibCpp2IL.Wasm;
 
 namespace LibCpp2IL;
 
@@ -159,7 +155,7 @@ public static class LibCpp2IlMain
     /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
     public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, UnityVersion unityVersion)
     {
-        DefaultContext = LibCpp2IlContext.Initialize(binaryBytes, metadataBytes, unityVersion);
+        DefaultContext = LibCpp2IlContextBuilder.Build(binaryBytes, metadataBytes, unityVersion);
 
         // Preserve legacy static fields for existing consumers.
         TheMetadata = DefaultContext.Metadata;
@@ -175,10 +171,10 @@ public static class LibCpp2IlMain
     }
 
     public static LibCpp2IlContext InitializeAsContext(byte[] binaryBytes, byte[] metadataBytes, UnityVersion unityVersion)
-        => LibCpp2IlContext.Initialize(binaryBytes, metadataBytes, unityVersion);
+        => LibCpp2IlContextBuilder.Build(binaryBytes, metadataBytes, unityVersion);
 
     public static LibCpp2IlContext LoadFromFileAsContext(string pePath, string metadataPath, UnityVersion unityVersion)
-        => LibCpp2IlContext.LoadFromFile(pePath, metadataPath, unityVersion);
+        => LibCpp2IlContextBuilder.BuildFromFiles(pePath, metadataPath, unityVersion);
 
     /// <summary>
     /// Initialize the metadata and PE from their respective file locations.
@@ -191,7 +187,7 @@ public static class LibCpp2IlMain
     /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
     public static bool LoadFromFile(string pePath, string metadataPath, UnityVersion unityVersion)
     {
-        var ctx = LibCpp2IlContext.LoadFromFile(pePath, metadataPath, unityVersion);
+        var ctx = LibCpp2IlContextBuilder.BuildFromFiles(pePath, metadataPath, unityVersion);
         DefaultContext = ctx;
 
         TheMetadata = ctx.Metadata;
