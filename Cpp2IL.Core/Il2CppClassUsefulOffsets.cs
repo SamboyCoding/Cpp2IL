@@ -18,21 +18,6 @@ public static class Il2CppClassUsefulOffsets
         return metadataVersion >= 24.2f ? v24_2_vtableOffset : pre24_2_vtableOffset;
     }
 
-    // Keep VTABLE_OFFSET as a convenience for code that still needs a static reference.
-    // This is initialized lazily from the first call site that has context.
-    private static int? _vtableOffset;
-
-    public static int VTABLE_OFFSET
-    {
-        get => _vtableOffset ?? throw new InvalidOperationException("VTABLE_OFFSET has not been initialized. Call InitVtableOffset first.");
-        private set => _vtableOffset = value;
-    }
-
-    public static void InitVtableOffset(Il2CppBinary binary, float metadataVersion)
-    {
-        VTABLE_OFFSET = GetVtableOffset(binary, metadataVersion);
-    }
-
     public static readonly List<UsefulOffset> UsefulOffsets =
     [
         new UsefulOffset("cctor_finished", 0x74, typeof(uint), true),

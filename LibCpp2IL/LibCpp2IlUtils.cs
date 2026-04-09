@@ -239,13 +239,8 @@ public static class LibCpp2ILUtils
 
     public static Il2CppTypeReflectionData GetTypeReflectionData(Il2CppType forWhat)
     {
-#pragma warning disable CS0618 // Fallback to legacy statics for backwards compatibility
-        var binary = forWhat.OwningBinary ?? LibCpp2IlMain.Binary;
-        var metadata = forWhat.OwningMetadata ?? LibCpp2IlMain.TheMetadata;
-#pragma warning restore CS0618
-
-        if (binary == null || metadata == null)
-            throw new Exception("Can't get type reflection data when not initialized. How did you even get the type?");
+        var binary = forWhat.OwningBinary ?? throw new Exception("Can't get type reflection data: OwningBinary is not set on the Il2CppType.");
+        var metadata = forWhat.OwningMetadata ?? throw new Exception("Can't get type reflection data: OwningMetadata is not set on the Il2CppType.");
 
         switch (forWhat.Type)
         {

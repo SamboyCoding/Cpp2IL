@@ -19,7 +19,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
         {
             var binary = _appContext.Binary;
             var toDisasm = binary.GetEntirePrimaryExecutableSection();
-            _cachedDisassembledBytes = X86Utils.Disassemble(toDisasm, binary.GetVirtualAddressOfPrimaryExecutableSection(), binary);
+            _cachedDisassembledBytes = X86Utils.Disassemble(toDisasm, binary.GetVirtualAddressOfPrimaryExecutableSection(), binary.is32Bit);
         }
 
         return _cachedDisassembledBytes;

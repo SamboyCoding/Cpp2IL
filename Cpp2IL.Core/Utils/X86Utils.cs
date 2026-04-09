@@ -18,13 +18,13 @@ public static class X86Utils
     private static readonly ConcurrentDictionary<Register, string> CachedX86RegNamesNew = new();
 
     //TODO Consider implementing a CodeReader for Memory
-    public static InstructionList Disassemble(Memory<byte> bytes, ulong methodBase, Il2CppBinary binary)
-        => Disassemble(bytes.ToArray(), methodBase, binary);
+    public static InstructionList Disassemble(Memory<byte> bytes, ulong methodBase, bool is32Bit)
+        => Disassemble(bytes.ToArray(), methodBase, is32Bit);
 
-    public static InstructionList Disassemble(byte[] bytes, ulong methodBase, Il2CppBinary binary)
+    public static InstructionList Disassemble(byte[] bytes, ulong methodBase, bool is32Bit)
     {
         var codeReader = new ByteArrayCodeReader(bytes);
-        var decoder = Decoder.Create(binary.is32Bit ? 32 : 64, codeReader);
+        var decoder = Decoder.Create(is32Bit ? 32 : 64, codeReader);
         decoder.IP = methodBase;
         var instructions = new InstructionList();
         var endRip = decoder.IP + (uint)bytes.Length;
@@ -37,18 +37,18 @@ public static class X86Utils
 
     public static InstructionList Disassemble(MethodAnalysisContext context)
     {
-        return Disassemble(context.RawBytes, context.UnderlyingPointer, context.AppContext.Binary);
+        return Disassemble(context.RawBytes, context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
     }
 
-    public static IEnumerable<Instruction> Iterate(Memory<byte> bytes, ulong methodBase, Il2CppBinary binary)
+    public static IEnumerable<Instruction> Iterate(Memory<byte> bytes, ulong methodBase, bool is32Bit)
     {
-        return Iterate(bytes.AsEnumerable(), methodBase, binary);
+        return Iterate(bytes.AsEnumerable(), methodBase, is32Bit);
     }
 
-    public static IEnumerable<Instruction> Iterate(IEnumerable<byte> bytes, ulong methodBase, Il2CppBinary binary)
+    public static IEnumerable<Instruction> Iterate(IEnumerable<byte> bytes, ulong methodBase, bool is32Bit)
     {
         var codeReader = new EnumerableCodeReader(bytes);
-        var decoder = Decoder.Create(binary.is32Bit ? 32 : 64, codeReader);
+        var decoder = Decoder.Create(is32Bit ? 32 : 64, codeReader);
         decoder.IP = methodBase;
 
         decoder.Decode(out var instruction);
@@ -61,7 +61,7 @@ public static class X86Utils
 
     public static IEnumerable<Instruction> Iterate(MethodAnalysisContext context)
     {
-        return Iterate(context.RawBytes, context.UnderlyingPointer, context.AppContext.Binary);
+        return Iterate(context.RawBytes, context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
     }
 
     public static Memory<byte> GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen, Il2CppBinary binary)
@@ -177,7 +177,7 @@ public static class X86Utils
 
             buff.Add(binary.GetByteAtRawAddress((ulong)rawAddr));
 
-            ret = X86Utils.Disassemble(buff.ToArray(), functionStart, binary);
+            ret = X86Utils.Disassemble(buff.ToArray(), functionStart, binary.is32Bit);
 
             if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
                 con = false;

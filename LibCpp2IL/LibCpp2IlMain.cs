@@ -218,7 +218,6 @@ public static class LibCpp2IlMain
     [Obsolete("No longer needed — context is garbage collected.")]
     public static void Reset()
     {
-        LibCpp2IlGlobalMapper.Reset();
         MethodsByPtr.Clear();
 
         DefaultContext = null;

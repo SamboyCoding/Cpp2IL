@@ -138,7 +138,6 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
         SystemTypes = new(this);
 
-        Il2CppClassUsefulOffsets.InitVtableOffset(binary, MetadataVersion);
         MiscUtils.InitFunctionStarts(this);
 
         PopulateMethodsByAddressTable();

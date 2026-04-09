@@ -23,7 +23,7 @@ public sealed class LibCpp2IlContext
 
     public LibCpp2IlReflectionCache ReflectionCache { get; } = new();
 
-    // Global mapper state (was static on LibCpp2IlGlobalMapper)
+    // Global mapper state
     internal List<MetadataUsage> TypeRefs = [];
     internal List<MetadataUsage> MethodRefs = [];
     internal List<MetadataUsage> FieldRefs = [];

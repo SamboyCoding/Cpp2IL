@@ -41,7 +41,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     {
         lock (Formatter)
         {
-            var insns = X86Utils.Iterate(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false, context.AppContext.Binary), context.UnderlyingPointer, context.AppContext.Binary);
+            var insns = X86Utils.Iterate(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false, context.AppContext.Binary), context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
 
             return string.Join("\n", insns.Select(FormatInstructionInternal));
         }
