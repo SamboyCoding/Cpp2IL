@@ -689,7 +689,7 @@ public sealed class ElfFile : Il2CppBinary
         var typeDefinitionsCount = metadata.TypeDefinitionCount;
         
         LibLogger.VerboseNewline("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
-        var searcher = new BinarySearcher(this, methodCount, typeDefinitionsCount);
+        var searcher = new BinarySearcher(this, metadata, methodCount, typeDefinitionsCount);
 
         LibLogger.VerboseNewline("\tLooking for code reg (this might take a while)...");
         var codeReg = metadata.MetadataVersion >= 24.2f ? searcher.FindCodeRegistrationPost2019(metadata) : searcher.FindCodeRegistrationPre2019();

@@ -4,9 +4,6 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppArrayType : ReadableClass
 {
-    // Populated by the caller after reading.
-    internal Il2CppBinary? OwningBinary { get; set; }
-
     public ulong etype;
     public byte rank;
     public byte numsizes;
@@ -18,7 +15,7 @@ public class Il2CppArrayType : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             return binary == null ? null : binary.GetIl2CppTypeFromPointer(etype);
         }
     }

@@ -76,10 +76,10 @@ public static class WasmUtils
         };
     }
 
-    public static string GetGhidraFunctionName(WasmFunctionDefinition functionDefinition)
+    public static string GetGhidraFunctionName(Il2CppBinary binary, WasmFunctionDefinition functionDefinition)
     {
         var index = functionDefinition.IsImport
-            ? ((WasmFile)LibCpp2IlMain.Binary!).FunctionTable.IndexOf(functionDefinition)
+            ? ((WasmFile)binary).FunctionTable.IndexOf(functionDefinition)
             : functionDefinition.FunctionTableIndex;
 
         return $"unnamed_function_{index}";
@@ -101,12 +101,12 @@ public static class WasmUtils
     {
         if (context.Definition == null)
             throw new($"Attempted to get wasm definition for probably-injected method context: {context}");
-        
+
         //First, we have to calculate the signature
         var signature = BuildSignature(context);
         try
         {
-            return ((WasmFile)LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(context.Definition.MethodPointer, signature);
+            return ((WasmFile)context.AppContext.Binary).GetFunctionFromIndexAndSignature(context.Definition.MethodPointer, signature);
         }
         catch (Exception e)
         {

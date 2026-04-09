@@ -10,6 +10,8 @@ using Cpp2IL.Core.Exceptions;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
+using Gee.External.Capstone;
+using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 using LibCpp2IL.Metadata;
 
@@ -41,6 +43,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     public UnityVersion UnityVersion => Metadata.UnityVersion;
 
     /// <summary>
+    /// The <see cref="LibCpp2IL.LibCpp2IlContext"/> that owns the metadata file this application was loaded from, if available.
+    /// </summary>
+    public LibCpp2IlContext? LibCpp2IlContext => Metadata.OwningContext;
+
+    /// <summary>
     /// The instruction set helper class associated with the instruction set that this application was compiled with.
     /// </summary>
     public Cpp2IlInstructionSet InstructionSet;
@@ -69,6 +76,28 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// A dictionary of all the generic method variants to their corresponding analysis contexts.
     /// </summary>
     public readonly Dictionary<Cpp2IlMethodRef, ConcreteGenericMethodAnalysisContext> ConcreteGenericMethodsByRef = new();
+
+    /// <summary>
+    /// Capstone ARM64 disassembler, lazily initialized on first use.
+    /// </summary>
+    private CapstoneArm64Disassembler? _arm64Disassembler;
+
+    /// <summary>
+    /// Gets or creates a Capstone ARM64 disassembler configured for this binary.
+    /// </summary>
+    internal CapstoneArm64Disassembler GetOrCreateArm64Disassembler()
+    {
+        if (_arm64Disassembler == null)
+        {
+            var disassembler = CapstoneDisassembler.CreateArm64Disassembler(Binary.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
+            disassembler.EnableInstructionDetails = true;
+            disassembler.EnableSkipDataMode = true;
+            disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
+            _arm64Disassembler = disassembler;
+        }
+
+        return _arm64Disassembler;
+    }
 
     /// <summary>
     /// Key Function Addresses for the binary file. Populated on-demand
@@ -108,7 +137,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         }
 
         SystemTypes = new(this);
-        
+
         MiscUtils.InitFunctionStarts(this);
 
         PopulateMethodsByAddressTable();

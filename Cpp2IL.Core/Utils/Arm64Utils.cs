@@ -2,7 +2,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
-using Gee.External.Capstone;
+using Cpp2IL.Core.Model.Contexts;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
 
@@ -11,7 +11,6 @@ namespace Cpp2IL.Core.Utils;
 public static class Arm64Utils
 {
     private static readonly ConcurrentDictionary<Arm64RegisterId, string> CachedArm64RegNamesNew = new();
-    private static CapstoneArm64Disassembler? _arm64Disassembler;
 
     public static string GetRegisterNameNew(Arm64RegisterId registerId)
     {
@@ -90,39 +89,30 @@ public static class Arm64Utils
         return ret;
     }
 
-    private static void InitArm64Decompilation()
+    public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ApplicationAnalysisContext appContext, ulong virtAddress, bool managed = true, int count = -1)
     {
-        var disassembler = CapstoneDisassembler.CreateArm64Disassembler(LibCpp2IlMain.Binary!.IsBigEndian ? Arm64DisassembleMode.BigEndian : Arm64DisassembleMode.LittleEndian);
-        disassembler.EnableInstructionDetails = true;
-        disassembler.EnableSkipDataMode = true;
-        disassembler.DisassembleSyntax = DisassembleSyntax.Intel;
-        _arm64Disassembler = disassembler;
-    }
-
-    public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
-    {
-        if (_arm64Disassembler == null)
-            InitArm64Decompilation();
+        var binary = appContext.Binary;
+        var disassembler = appContext.GetOrCreateArm64Disassembler();
 
         //We can't use CppMethodBodyBytes to get the byte array, because ARMv7 doesn't have filler bytes like x86 does.
         //So we can't work out the end of the method.
         //But we can find the start of the next one! (If managed)
         if (managed)
         {
-            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress);
+            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
 
             //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
             if (startOfNext > 0)
             {
-                var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(startOfNext);
+                var rawStartOfNextMethod = binary.MapVirtualAddressToRaw(startOfNext);
 
-                var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
+                var rawStart = binary.MapVirtualAddressToRaw(virtAddress);
                 if (rawStartOfNextMethod < rawStart)
-                    rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
+                    rawStartOfNextMethod = binary.RawLength;
 
-                byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
+                byte[] bytes = binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
 
-                var iter = _arm64Disassembler!.Iterate(bytes, (long)virtAddress);
+                var iter = disassembler.Iterate(bytes, (long)virtAddress);
                 if (count > 0)
                     iter = iter.Take(count);
 
@@ -131,14 +121,14 @@ public static class Arm64Utils
         }
 
         //Unmanaged function, look for first b or bl
-        var pos = (int)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
-        var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
+        var pos = (int)binary.MapVirtualAddressToRaw(virtAddress);
+        var allBytes = binary.GetRawBinaryContent();
         List<Arm64Instruction> ret = [];
 
         while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
         {
             //All arm64 instructions are 4 bytes
-            ret.AddRange(_arm64Disassembler!.Iterate(allBytes.SubArray(pos..(pos + 4)), (long)virtAddress));
+            ret.AddRange(disassembler.Iterate(allBytes.SubArray(pos..(pos + 4)), (long)virtAddress));
             virtAddress += 4;
             pos += 4;
         }

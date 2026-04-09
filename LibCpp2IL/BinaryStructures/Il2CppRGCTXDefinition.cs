@@ -5,10 +5,6 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppRGCTXDefinition : ReadableClass
 {
-    // Populated by Il2CppBinary.Init (codegen module init) for per-context usage.
-    internal Il2CppBinary? OwningBinary { get; set; }
-    internal Il2CppMetadata? OwningMetadata { get; set; }
-
     public Il2CppRGCTXDataType type;
     public int _rawIndex;
 
@@ -20,8 +16,7 @@ public class Il2CppRGCTXDefinition : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            return binary?.GetMethodSpec(MethodIndex);
+            return OwningBinary?.GetMethodSpec(MethodIndex);
         }
     }
 
@@ -29,7 +24,7 @@ public class Il2CppRGCTXDefinition : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             if (binary == null) return null;
             var t = binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(TypeIndex));
             return LibCpp2ILUtils.GetTypeReflectionData(t);
@@ -79,7 +74,7 @@ public class Il2CppRGCTXDefinition : ReadableClass
             var va = reader.ReadNUint();
             var bakPosition = reader.Position;
 
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             if (binary == null)
             {
                 // Can't resolve VA -> raw without a binary context. Leave as-is.

@@ -1,6 +1,5 @@
 using System;
 using System.Reflection;
-using LibCpp2IL;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -29,7 +28,7 @@ public sealed class NativeMethodAnalysisContext : MethodAnalysisContext
 
         isVoid = voidReturn;
         UnderlyingPointer = address;
-        if (LibCpp2IlMain.Binary?.TryGetExportedFunctionName(UnderlyingPointer, out var name) ?? false)
+        if (AppContext.Binary.TryGetExportedFunctionName(UnderlyingPointer, out var name))
         {
             DefaultName = name;
         }

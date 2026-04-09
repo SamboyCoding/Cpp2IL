@@ -52,7 +52,7 @@ public class WasmNameSectionOutputFormat : Cpp2IlOutputFormat
             .Where(v => v.definition is not null)
             .Select(v =>
             {
-                var trueParamCount = v.definition!.GetType((WasmFile)LibCpp2IlMain.Binary!).ParamTypes.Length;
+                var trueParamCount = v.definition!.GetType((WasmFile)context.Binary).ParamTypes.Length;
 
                 // Also see WasmUtils.BuildSignature
                 var parameters = v.method.Parameters.Select(param => param.Name).ToList();

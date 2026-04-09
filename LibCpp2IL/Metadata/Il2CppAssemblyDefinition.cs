@@ -13,12 +13,12 @@ public class Il2CppAssemblyDefinition : ReadableClass
     public int ReferencedAssemblyCount;
     public Il2CppAssemblyNameDefinition AssemblyName = null!; //Late-read
 
-    public Il2CppImageDefinition Image => LibCpp2IlMain.TheMetadata!.imageDefinitions[ImageIndex];
+    public Il2CppImageDefinition Image => OwningMetadata!.imageDefinitions[ImageIndex];
 
     public Il2CppAssemblyDefinition[] ReferencedAssemblies => ReferencedAssemblyStart < 0
         ? []
-        : LibCpp2IlMain.TheMetadata!.referencedAssemblies.SubArray(ReferencedAssemblyStart, ReferencedAssemblyCount)
-            .Select(idx => LibCpp2IlMain.TheMetadata.AssemblyDefinitions[idx])
+        : OwningMetadata!.referencedAssemblies.SubArray(ReferencedAssemblyStart, ReferencedAssemblyCount)
+            .Select(idx => OwningMetadata.AssemblyDefinitions[idx])
             .ToArray();
 
     public override string ToString() => AssemblyName.ToString();

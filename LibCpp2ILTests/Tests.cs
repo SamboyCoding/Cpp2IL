@@ -33,12 +33,11 @@ public class Tests
         LibCpp2IlMain.Settings.DisableMethodPointerMapping = true;
         LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput = false;
 
-        //Clean up any previous runs
-        LibCpp2IlMain.TheMetadata = null;
-        LibCpp2IlMain.Binary = null;
-
         _outputHelper.WriteLine("Invoking LibCpp2IL...");
-        Assert.True(LibCpp2IlMain.Initialize(binaryBytes, metadataBytes, unityVer));
+        var context = LibCpp2IlMain.InitializeAsContext(binaryBytes, metadataBytes, unityVer);
+        Assert.NotNull(context);
+        Assert.NotNull(context.Binary);
+        Assert.NotNull(context.Metadata);
         _outputHelper.WriteLine("Done.");
     }
 

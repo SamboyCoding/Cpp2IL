@@ -55,16 +55,19 @@ public sealed class LibCpp2IlContextBuilder
         }
 
         _context.Metadata = metadata;
+        metadata.OwningContext = _context;
 
         _context.Il2CppTypeHasNumMods5Bits = metadata.MetadataVersion >= 27.2f;
 
-        LibLogger.InfoNewline($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
-
-        // Legacy/static API compatibility: some in-binary structures still resolve via LibCpp2IlMain.Binary/TheMetadata
-        // during binary initialization, so we must set metadata defaults before initializing the binary.
+        // Set legacy static fields during initialization so that code running during
+        // binary init (e.g. BinarySearcher) and LibCpp2IlReflection can access them.
+#pragma warning disable CS0618
         LibCpp2IlMain.TheMetadata = metadata;
         LibCpp2IlMain.DefaultContext = _context;
         LibCpp2IlMain.Il2CppTypeHasNumMods5Bits = _context.Il2CppTypeHasNumMods5Bits;
+#pragma warning restore CS0618
+
+        LibLogger.InfoNewline($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
         _metadataLoaded = true;
     }
@@ -76,8 +79,12 @@ public sealed class LibCpp2IlContextBuilder
 
         var bin = _context.Binary = LibCpp2IlBinaryRegistry.CreateAndInit(binaryBytes, _context.Metadata);
 
-        // Complete legacy/static initialization now that the binary exists.
+#pragma warning disable CS0618
         LibCpp2IlMain.Binary = bin;
+#pragma warning restore CS0618
+
+        // Set OwningBinary on all metadata structures now that the binary exists.
+        _context.Metadata.SetOwningBinaryOnAllStructures(bin);
 
         _binaryLoaded = true;
     }
@@ -91,8 +98,12 @@ public sealed class LibCpp2IlContextBuilder
 
         _context.Binary = binary;
 
-        // Complete legacy/static initialization now that the binary exists.
+#pragma warning disable CS0618
         LibCpp2IlMain.Binary = binary;
+#pragma warning restore CS0618
+
+        // Set OwningBinary on all metadata structures now that the binary exists.
+        _context.Metadata.SetOwningBinaryOnAllStructures(binary);
 
         _binaryLoaded = true;
     }
@@ -110,7 +121,7 @@ public sealed class LibCpp2IlContextBuilder
         {
             start = DateTime.Now;
             LibLogger.Info("Mapping Globals...");
-            LibCpp2IlGlobalMapper.MapGlobalIdentifiers(_context.Metadata, _context.Binary);
+            _context.MapGlobalIdentifiers();
             LibLogger.InfoNewline($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
         }
 
@@ -128,6 +139,11 @@ public sealed class LibCpp2IlContextBuilder
 
             LibLogger.InfoNewline($"Processed {_context.Metadata.methodDefs.Length} OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
         }
+
+        // Set DefaultContext so that LibCpp2IlReflection (static facade) works during context usage.
+#pragma warning disable CS0618
+        LibCpp2IlMain.DefaultContext = _context;
+#pragma warning restore CS0618
 
         _context.ReflectionCache.Init(_context);
 

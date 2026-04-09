@@ -208,7 +208,7 @@ public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
         //The last call is to Object::IsInst
 
         Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
-        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(typeIsInstanceOfType.MethodPointer, false);
+        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext, typeIsInstanceOfType.MethodPointer, false);
 
         var lastCall = instructions.LastOrDefault(i => i.Mnemonic == "bl");
 
@@ -258,7 +258,7 @@ public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
                 if (arrayTypeDef.Methods!.FirstOrDefault(m => m.Name == "GetEnumerator") is { } methodDef)
                 {
                     var ptr = methodDef.MethodPointer;
-                    var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(ptr);
+                    var body = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(_appContext, ptr);
 
                     //Looking for adrp, ldr, ldr, bl. Probably more than one - the first will be initializing the method, second will be the constructor call
                     var probableResult = 0L;

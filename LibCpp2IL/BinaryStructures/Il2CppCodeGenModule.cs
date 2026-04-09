@@ -34,15 +34,13 @@ public class Il2CppCodeGenModule : ReadableClass
 
     private string? _cachedName;
 
-    internal Il2CppBinary? OwningBinary { get; set; }
-
     public string Name
     {
         get
         {
             if (_cachedName == null)
             {
-                var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+                var binary = OwningBinary;
                 if (binary == null)
                     throw new InvalidOperationException("No binary context available to resolve Il2CppCodeGenModule.Name");
 
@@ -57,7 +55,7 @@ public class Il2CppCodeGenModule : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             if (binary == null)
                 throw new InvalidOperationException("No binary context available to resolve Il2CppCodeGenModule.RGCTXRanges");
 

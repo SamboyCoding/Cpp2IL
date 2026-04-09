@@ -8,23 +8,19 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppMethodSpec : ReadableClass
 {
-    // Populated by Il2CppBinary.Init for per-context usage.
-    internal Il2CppBinary? OwningBinary { get; set; }
-    internal Il2CppMetadata? OwningMetadata { get; set; }
-
     public int methodDefinitionIndex;
     public int classIndexIndex;
     public int methodIndexIndex;
 
-    public Il2CppMethodDefinition? MethodDefinition 
-        => (OwningMetadata ?? LibCpp2IlMain.TheMetadata)
+    public Il2CppMethodDefinition? MethodDefinition
+        => OwningMetadata
             ?.GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(methodDefinitionIndex)); //DynWidth: Il2CppMethodSpec is in-binary, dynamic widths weren't applied here.
 
     public Il2CppGenericInst? GenericClassInst
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             if (binary == null) return null;
             if (classIndexIndex < 0) return null;
             var inst = binary.GetGenericInst(classIndexIndex);
@@ -37,7 +33,7 @@ public class Il2CppMethodSpec : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             if (binary == null) return null;
             if (methodIndexIndex < 0) return null;
             var inst = binary.GetGenericInst(methodIndexIndex);
