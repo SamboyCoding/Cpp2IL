@@ -5,10 +5,6 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppGenericClass : ReadableClass
 {
-    // Populated by the caller after reading.
-    internal Il2CppBinary? OwningBinary { get; set; }
-    internal Il2CppMetadata? OwningMetadata { get; set; }
-
     [Version(Max = 24.5f)] public long TypeDefinitionIndex; /* the generic type definition */
 
     [Version(Min = 27.0f)] public ulong V27TypePointer;
@@ -16,7 +12,7 @@ public class Il2CppGenericClass : ReadableClass
     public Il2CppGenericContext Context = null!; /* a context that contains the type instantiation doesn't contain any method instantiation */
     public ulong CachedClass; /* if present, the Il2CppClass corresponding to the instantiation.  */
 
-    private float EffectiveMetadataVersion => OwningMetadata?.MetadataVersion ?? LibCpp2IlMain.MetadataVersion;
+    private float EffectiveMetadataVersion => OwningMetadata?.MetadataVersion ?? MetadataVersion;
 
     public Il2CppTypeDefinition TypeDefinition
     {
@@ -24,11 +20,7 @@ public class Il2CppGenericClass : ReadableClass
         {
             if (EffectiveMetadataVersion < 27f)
             {
-                var md = OwningMetadata ?? LibCpp2IlMain.TheMetadata;
-                if (md == null)
-                    throw new InvalidOperationException("No metadata context available for generic class type definition resolution.");
-
-                return md.GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage((int)TypeDefinitionIndex));
+                return OwningMetadata!.GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage((int)TypeDefinitionIndex));
             }
 
             return V27BaseType!.AsClass();
@@ -42,14 +34,14 @@ public class Il2CppGenericClass : ReadableClass
             if (EffectiveMetadataVersion < 27f)
                 return null;
 
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             if (binary == null)
                 return null;
 
             var t = binary.ReadReadableAtVirtualAddress<Il2CppType>(V27TypePointer);
             t.OwningBinary = binary;
-            t.OwningMetadata = OwningMetadata ?? LibCpp2IlMain.TheMetadata;
-            t.Il2CppTypeHasNumMods5Bits ??= (OwningMetadata?.MetadataVersion ?? LibCpp2IlMain.MetadataVersion) >= 27.2f;
+            t.OwningMetadata = OwningMetadata;
+            t.Il2CppTypeHasNumMods5Bits ??= (OwningMetadata?.MetadataVersion ?? MetadataVersion) >= 27.2f;
             return t;
         }
     }

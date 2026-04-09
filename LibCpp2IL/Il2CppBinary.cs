@@ -68,8 +68,15 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
     private Il2CppMetadata? _metadata;
 
+    protected internal override void OnReadableCreated(ReadableClass instance)
+    {
+        instance.OwningBinary = this;
+        instance.OwningMetadata = _metadata;
+    }
+
     public void Init(Il2CppMetadata metadata)
     {
+        _metadata = metadata;
         _metadataVersion = metadata.MetadataVersion;
 
         var start = DateTime.Now;
@@ -540,7 +547,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
         var methodCount = metadata.methodDefs.Count(x => x.methodIndex >= 0);
         var typeDefinitionsCount = metadata.TypeDefinitionCount;
 
-        var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount);
+        var plusSearch = new BinarySearcher(this, metadata, methodCount, typeDefinitionsCount);
 
         LibLogger.VerboseNewline("\t\t-Searching for MetadataReg...");
 

@@ -55,6 +55,11 @@ public class Il2CppMetadata : ClassReadingBinaryReader
 
     public int[] referencedAssemblies;
 
+    /// <summary>
+    /// Set by <see cref="LibCpp2IlContextBuilder"/> after construction.
+    /// </summary>
+    internal LibCpp2IlContext? OwningContext { get; set; }
+
     private readonly Dictionary<Il2CppVariableWidthIndex<Il2CppFieldDefinition>, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new();
     private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new();
     
@@ -429,6 +434,9 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             }
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
+            SetOwningMetadataOnAllStructures();
+
             _hasFinishedInitialRead = true;
         }
         finally
@@ -450,6 +458,69 @@ public class Il2CppMetadata : ClassReadingBinaryReader
         }
     }
 #pragma warning restore 8618
+
+    private void SetOwningMetadataOnAllStructures()
+    {
+        SetOwningMetadata(imageDefinitions);
+        SetOwningMetadata(AssemblyDefinitions);
+        SetOwningMetadata(typeDefs);
+        SetOwningMetadata(interfaceOffsets);
+        SetOwningMetadata(methodDefs);
+        SetOwningMetadata(parameterDefs);
+        SetOwningMetadata(fieldDefs);
+        SetOwningMetadata(fieldDefaultValues);
+        SetOwningMetadata(parameterDefaultValues);
+        SetOwningMetadata(propertyDefs);
+        SetOwningMetadata(eventDefs);
+        SetOwningMetadata(genericContainers);
+        SetOwningMetadata(genericParameters);
+        SetOwningMetadata(stringLiterals);
+        SetOwningMetadata(fieldRefs);
+
+        if (RgctxDefinitions != null)
+            SetOwningMetadata(RgctxDefinitions);
+
+        // Set on sub-objects not directly in arrays
+        foreach (var asm in AssemblyDefinitions)
+            asm.AssemblyName.OwningMetadata = this;
+    }
+
+    private void SetOwningMetadata<T>(T[] items) where T : ReadableClass
+    {
+        foreach (var item in items)
+            item.OwningMetadata = this;
+    }
+
+    internal void SetOwningBinaryOnAllStructures(Il2CppBinary binary)
+    {
+        SetOwningBinary(imageDefinitions, binary);
+        SetOwningBinary(AssemblyDefinitions, binary);
+        SetOwningBinary(typeDefs, binary);
+        SetOwningBinary(interfaceOffsets, binary);
+        SetOwningBinary(methodDefs, binary);
+        SetOwningBinary(parameterDefs, binary);
+        SetOwningBinary(fieldDefs, binary);
+        SetOwningBinary(fieldDefaultValues, binary);
+        SetOwningBinary(parameterDefaultValues, binary);
+        SetOwningBinary(propertyDefs, binary);
+        SetOwningBinary(eventDefs, binary);
+        SetOwningBinary(genericContainers, binary);
+        SetOwningBinary(genericParameters, binary);
+        SetOwningBinary(stringLiterals, binary);
+        SetOwningBinary(fieldRefs, binary);
+
+        if (RgctxDefinitions != null)
+            SetOwningBinary(RgctxDefinitions, binary);
+
+        foreach (var asm in AssemblyDefinitions)
+            asm.AssemblyName.OwningBinary = binary;
+    }
+
+    private static void SetOwningBinary<T>(T[] items, Il2CppBinary binary) where T : ReadableClass
+    {
+        foreach (var item in items)
+            item.OwningBinary = binary;
+    }
 
     private T[] ReadMetadataClassArray<T>(Il2CppGlobalMetadataSectionHeader section) where T : ReadableClass, new()
     {
@@ -551,7 +622,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     public (Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> ptr, Il2CppVariableWidthIndex<Il2CppType> type) GetFieldDefaultValue(Il2CppVariableWidthIndex<Il2CppFieldDefinition> fieldIdx)
     {
         var fieldDef = GetFieldDefinitionFromIndex(fieldIdx);
-        var fieldType = LibCpp2IlMain.Binary!.GetType(fieldDef.typeIndex);
+        var fieldType = OwningContext!.Binary.GetType(fieldDef.typeIndex);
         if ((fieldType.Attrs & (int)FieldAttributes.HasFieldRVA) != 0)
         {
             var fieldDefault = GetFieldDefaultValueFromIndex(fieldIdx);

@@ -177,6 +177,7 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
     private T InternalReadReadableClass<T>() where T : ReadableClass, new()
     {
         var t = new T { MetadataVersion = MetadataVersion };
+        OnReadableCreated(t);
 
         if (!_inReadableRead)
         {
@@ -191,6 +192,12 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
 
         return t;
     }
+
+    /// <summary>
+    /// Called after a ReadableClass instance is created but before Read is called.
+    /// Override in subclasses to set OwningBinary/OwningMetadata on newly created instances.
+    /// </summary>
+    protected internal virtual void OnReadableCreated(ReadableClass instance) { }
 
     private object InternalReadClass(Type type, bool overrideArchCheck = false)
     {

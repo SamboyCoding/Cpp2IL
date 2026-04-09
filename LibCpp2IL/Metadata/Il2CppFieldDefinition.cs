@@ -13,18 +13,18 @@ public class Il2CppFieldDefinition : ReadableClass
 
     public string? Name { get; private set; }
 
-    public Il2CppType? RawFieldType => LibCpp2IlMain.Binary?.GetType(typeIndex);
+    public Il2CppType? RawFieldType => OwningBinary?.GetType(typeIndex);
     public Il2CppTypeReflectionData? FieldType => RawFieldType == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawFieldType);
 
     public Il2CppVariableWidthIndex<Il2CppFieldDefinition> FieldIndex => LibCpp2IlReflection.GetFieldIndexFromField(this);
 
-    public Il2CppFieldDefaultValue? DefaultValue => LibCpp2IlMain.TheMetadata?.GetFieldDefaultValue(this);
+    public Il2CppFieldDefaultValue? DefaultValue => OwningMetadata?.GetFieldDefaultValue(this);
 
     public Il2CppTypeDefinition DeclaringType => LibCpp2IlReflection.GetDeclaringTypeFromField(this);
 
     public override string? ToString()
     {
-        if (LibCpp2IlMain.TheMetadata == null)
+        if (OwningMetadata == null)
             return base.ToString();
 
         return $"Il2CppFieldDefinition[Name={Name}, FieldType={FieldType}]";
@@ -41,13 +41,13 @@ public class Il2CppFieldDefinition : ReadableClass
                 return [];
 
             var length = int.Parse(FieldType.baseType!.Name.Replace("__StaticArrayInitTypeSize=", ""));
-            var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(FieldIndex);
+            var (dataIndex, _) = OwningMetadata!.GetFieldDefaultValue(FieldIndex);
 
-            var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
+            var pointer = OwningMetadata!.GetDefaultValueFromIndex(dataIndex);
 
             if (pointer <= 0) return [];
 
-            var results = LibCpp2IlMain.TheMetadata.ReadByteArrayAtRawAddress(pointer, length);
+            var results = OwningMetadata.ReadByteArrayAtRawAddress(pointer, length);
 
             return results;
         }

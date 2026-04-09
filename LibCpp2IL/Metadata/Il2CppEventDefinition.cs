@@ -23,9 +23,9 @@ public class Il2CppEventDefinition : ReadableClass
         get
         {
             if (_type != null) return _type;
-            if (LibCpp2IlMain.TheMetadata == null) return null;
+            if (OwningMetadata == null) return null;
 
-            _type = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(t => t.Events!.Contains(this));
+            _type = OwningMetadata.typeDefs.FirstOrDefault(t => t.Events!.Contains(this));
             return _type;
         }
         internal set => _type = value;
@@ -33,17 +33,17 @@ public class Il2CppEventDefinition : ReadableClass
 
     public string? Name { get; private set; }
 
-    public Il2CppType? RawType => LibCpp2IlMain.Binary?.GetType(typeIndex);
+    public Il2CppType? RawType => OwningBinary?.GetType(typeIndex);
 
-    public Il2CppTypeReflectionData? EventType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
+    public Il2CppTypeReflectionData? EventType => OwningBinary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
 
     public EventAttributes EventAttributes => (EventAttributes)RawType!.Attrs;
 
-    public Il2CppMethodDefinition? Adder => LibCpp2IlMain.TheMetadata == null || add.IsNull || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + add);
+    public Il2CppMethodDefinition? Adder => OwningMetadata == null || add.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + add);
 
-    public Il2CppMethodDefinition? Remover => LibCpp2IlMain.TheMetadata == null || remove.IsNull || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + remove);
+    public Il2CppMethodDefinition? Remover => OwningMetadata == null || remove.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + remove);
 
-    public Il2CppMethodDefinition? Invoker => LibCpp2IlMain.TheMetadata == null || raise.IsNull || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + raise);
+    public Il2CppMethodDefinition? Invoker => OwningMetadata == null || raise.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + raise);
 
     public bool IsStatic
     {

@@ -47,7 +47,7 @@ public static class MiscUtils
         _allKnownFunctionStarts = null;
     }
 
-    internal static void Init()
+    internal static void Init(Il2CppBinary binary)
     {
         _primitiveSizes = new(14)
         {
@@ -63,8 +63,8 @@ public static class MiscUtils
             { "Int64", 8 },
             { "UInt64", 8 },
             { "Double", 8 },
-            { "IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
-            { "UIntPtr", LibCpp2IlMain.Binary.is32Bit ? 4UL : 8UL },
+            { "IntPtr", binary.is32Bit ? 4UL : 8UL },
+            { "UIntPtr", binary.is32Bit ? 4UL : 8UL },
         };
     }
 
@@ -146,9 +146,9 @@ public static class MiscUtils
         return -1;
     }
 
-    public static int GetPointerSizeBytes()
+    public static int GetPointerSizeBytes(Il2CppBinary binary)
     {
-        return LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
+        return binary.is32Bit ? 4 : 8;
     }
 
     internal static byte[] RawBytes(IConvertible original) =>
@@ -182,7 +182,7 @@ public static class MiscUtils
     }
     //TODO: End
 
-    public static ulong GetAddressOfNextFunctionStart(ulong current)
+    public static ulong GetAddressOfNextFunctionStart(ulong current, Il2CppBinary binary)
     {
         if (_allKnownFunctionStarts == null)
             throw new("Function starts not initialized!");
@@ -224,7 +224,7 @@ public static class MiscUtils
         if (ret <= current && upper == _allKnownFunctionStarts.Count - 1)
             return 0;
 
-        if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(ret, out _))
+        if (!binary.TryMapVirtualAddressToRaw(ret, out _))
             return 0;
 
         return ret;

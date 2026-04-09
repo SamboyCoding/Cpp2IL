@@ -8,7 +8,7 @@ public class Il2CppParameterDefaultValue : ReadableClass
     public Il2CppVariableWidthIndex<Il2CppType> typeIndex;
     public Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> dataIndex;
 
-    public object? ContainedDefaultValue => LibCpp2ILUtils.GetDefaultValue(dataIndex, typeIndex);
+    public object? ContainedDefaultValue => OwningMetadata == null || OwningBinary == null ? null : LibCpp2ILUtils.GetDefaultValue(dataIndex, typeIndex, OwningMetadata, OwningBinary);
 
     public override void Read(ClassReadingBinaryReader reader)
     {

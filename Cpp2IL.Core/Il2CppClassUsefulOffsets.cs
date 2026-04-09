@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL;
@@ -10,10 +10,28 @@ public static class Il2CppClassUsefulOffsets
     public const int X86_INTERFACE_OFFSETS_OFFSET = 0x50;
     public const int X86_64_INTERFACE_OFFSETS_OFFSET = 0xB0;
 
-    private static readonly int V24_2_VTABLE_OFFSET = LibCpp2IlMain.Binary!.is32Bit ? 0x999 /*TODO*/ : 0x138;
-    private static readonly int PRE_24_2_VTABLE_OFFSET = LibCpp2IlMain.Binary.is32Bit ? 0x999 /*TODO*/ : 0x128;
+    public static int GetVtableOffset(Il2CppBinary binary, float metadataVersion)
+    {
+        var v24_2_vtableOffset = binary.is32Bit ? 0x999 /*TODO*/ : 0x138;
+        var pre24_2_vtableOffset = binary.is32Bit ? 0x999 /*TODO*/ : 0x128;
 
-    public static readonly int VTABLE_OFFSET = LibCpp2IlMain.MetadataVersion >= 24.2 ? V24_2_VTABLE_OFFSET : PRE_24_2_VTABLE_OFFSET;
+        return metadataVersion >= 24.2f ? v24_2_vtableOffset : pre24_2_vtableOffset;
+    }
+
+    // Keep VTABLE_OFFSET as a convenience for code that still needs a static reference.
+    // This is initialized lazily from the first call site that has context.
+    private static int? _vtableOffset;
+
+    public static int VTABLE_OFFSET
+    {
+        get => _vtableOffset ?? throw new InvalidOperationException("VTABLE_OFFSET has not been initialized. Call InitVtableOffset first.");
+        private set => _vtableOffset = value;
+    }
+
+    public static void InitVtableOffset(Il2CppBinary binary, float metadataVersion)
+    {
+        VTABLE_OFFSET = GetVtableOffset(binary, metadataVersion);
+    }
 
     public static readonly List<UsefulOffset> UsefulOffsets =
     [
@@ -37,39 +55,39 @@ public static class Il2CppClassUsefulOffsets
         new UsefulOffset("vtable", 0x138, typeof(IntPtr), false)
     ];
 
-    public static bool IsStaticFieldsPtr(uint offset)
+    public static bool IsStaticFieldsPtr(uint offset, Il2CppBinary binary)
     {
-        return GetOffsetName(offset) == "static_fields";
+        return GetOffsetName(offset, binary) == "static_fields";
     }
 
-    public static bool IsInterfaceOffsetsPtr(uint offset)
+    public static bool IsInterfaceOffsetsPtr(uint offset, Il2CppBinary binary)
     {
-        return GetOffsetName(offset) == "interfaceOffsets";
+        return GetOffsetName(offset, binary) == "interfaceOffsets";
     }
 
-    public static bool IsInterfaceOffsetsCount(uint offset)
+    public static bool IsInterfaceOffsetsCount(uint offset, Il2CppBinary binary)
     {
-        return GetOffsetName(offset) == "interface_offsets_count";
+        return GetOffsetName(offset, binary) == "interface_offsets_count";
     }
 
-    public static bool IsRGCTXDataPtr(uint offset)
+    public static bool IsRGCTXDataPtr(uint offset, Il2CppBinary binary)
     {
-        return GetOffsetName(offset) == "rgctx_data";
+        return GetOffsetName(offset, binary) == "rgctx_data";
     }
 
-    public static bool IsElementTypePtr(uint offset)
+    public static bool IsElementTypePtr(uint offset, Il2CppBinary binary)
     {
-        return GetOffsetName(offset) == "elementType";
+        return GetOffsetName(offset, binary) == "elementType";
     }
 
-    public static bool IsPointerIntoVtable(uint offset)
+    public static bool IsPointerIntoVtable(uint offset, Il2CppBinary binary, float metadataVersion)
     {
-        return offset >= VTABLE_OFFSET;
+        return offset >= GetVtableOffset(binary, metadataVersion);
     }
 
-    public static string? GetOffsetName(uint offset)
+    public static string? GetOffsetName(uint offset, Il2CppBinary binary)
     {
-        var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
+        var is32Bit = binary.is32Bit;
 
         return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
     }

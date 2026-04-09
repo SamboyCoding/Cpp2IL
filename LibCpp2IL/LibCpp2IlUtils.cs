@@ -71,9 +71,9 @@ public static class LibCpp2ILUtils
 
         ret += metadata.GetStringFromIndex(typeDef.NameIndex);
         var names = new List<string>();
-        if (typeDef.GenericContainer is not {} genericContainer) 
+        if (typeDef.GenericContainer is not {} genericContainer)
             return ret;
-        
+
         foreach (var parameter in genericContainer.GenericParameters)
         {
             names.Add(metadata.GetStringFromIndex(parameter.nameIndex));
@@ -87,13 +87,14 @@ public static class LibCpp2ILUtils
 
     internal static Il2CppTypeReflectionData[]? GetGenericTypeParams(Il2CppGenericInst genericInst)
     {
-        if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null) return null;
+        var binary = genericInst.OwningBinary;
+        if (binary == null) return null;
 
         var types = new Il2CppTypeReflectionData[genericInst.pointerCount];
-        var pointers = LibCpp2IlMain.Binary.ReadNUintArrayAtVirtualAddress(genericInst.pointerStart, (long)genericInst.pointerCount);
+        var pointers = binary.ReadNUintArrayAtVirtualAddress(genericInst.pointerStart, (long)genericInst.pointerCount);
         for (uint i = 0; i < genericInst.pointerCount; ++i)
         {
-            var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(pointers[i]);
+            var oriType = binary.GetIl2CppTypeFromPointer(pointers[i]);
             types[i] = GetTypeReflectionData(oriType);
         }
 
@@ -165,18 +166,15 @@ public static class LibCpp2ILUtils
         return ret;
     }
 
-    internal static object? GetDefaultValue(Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> dataIndex, Il2CppVariableWidthIndex<Il2CppType> typeIndex)
+    internal static object? GetDefaultValue(Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> dataIndex, Il2CppVariableWidthIndex<Il2CppType> typeIndex, Il2CppMetadata metadata, Il2CppBinary binary)
     {
-        var metadata = LibCpp2IlMain.TheMetadata!;
-        var theDll = LibCpp2IlMain.Binary!;
-
         if (dataIndex.IsNull)
             return null; //Literally null.
 
         var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
         if (pointer <= 0) return null;
 
-        var defaultValueType = theDll.GetType(typeIndex);
+        var defaultValueType = binary.GetType(typeIndex);
         metadata.GetLockOrThrow();
         metadata.Position = pointer;
         try
@@ -196,11 +194,11 @@ public static class LibCpp2ILUtils
                 case Il2CppTypeEnum.IL2CPP_TYPE_I2:
                     return metadata.ReadInt16();
                 case Il2CppTypeEnum.IL2CPP_TYPE_U4:
-                    if (LibCpp2IlMain.MetadataVersion < 29)
+                    if (metadata.MetadataVersion < 29)
                         return metadata.ReadUInt32();
                     return metadata.ReadUnityCompressedUIntAtRawAddrNoLock(pointer, out _);
                 case Il2CppTypeEnum.IL2CPP_TYPE_I4:
-                    if (LibCpp2IlMain.MetadataVersion < 29)
+                    if (metadata.MetadataVersion < 29)
                         return metadata.ReadInt32();
                     return metadata.ReadUnityCompressedIntAtRawAddr(pointer, false, out _);
                 case Il2CppTypeEnum.IL2CPP_TYPE_U8:
@@ -214,7 +212,7 @@ public static class LibCpp2ILUtils
                 case Il2CppTypeEnum.IL2CPP_TYPE_STRING:
                     int len;
                     var lenLen = 4;
-                    if (LibCpp2IlMain.MetadataVersion < 29)
+                    if (metadata.MetadataVersion < 29)
                         len = metadata.ReadInt32();
                     else
                         len = metadata.ReadUnityCompressedIntAtRawAddr(pointer, false, out lenLen);
@@ -241,7 +239,10 @@ public static class LibCpp2ILUtils
 
     public static Il2CppTypeReflectionData GetTypeReflectionData(Il2CppType forWhat)
     {
-        if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null)
+        var binary = forWhat.OwningBinary ?? LibCpp2IlMain.Binary;
+        var metadata = forWhat.OwningMetadata ?? LibCpp2IlMain.TheMetadata;
+
+        if (binary == null || metadata == null)
             throw new Exception("Can't get type reflection data when not initialized. How did you even get the type?");
 
         switch (forWhat.Type)
@@ -292,7 +293,7 @@ public static class LibCpp2ILUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST:
             {
                 //Generic type
-                var genericClass = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppGenericClass>(forWhat.Data.GenericClass);
+                var genericClass = binary.ReadReadableAtVirtualAddress<Il2CppGenericClass>(forWhat.Data.GenericClass);
 
                 //CHANGED IN v27: typeDefinitionIndex is a ptr to the type in the file.
                 var typeDefinition = genericClass.TypeDefinition;
@@ -311,8 +312,8 @@ public static class LibCpp2ILUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_VAR:
             case Il2CppTypeEnum.IL2CPP_TYPE_MVAR:
             {
-                var param = LibCpp2IlMain.TheMetadata.GetGenericParameterFromIndex(forWhat.Data.GenericParameterIndex);
-                var genericName = LibCpp2IlMain.TheMetadata.GetStringFromIndex(param.nameIndex);
+                var param = metadata.GetGenericParameterFromIndex(forWhat.Data.GenericParameterIndex);
+                var genericName = metadata.GetStringFromIndex(param.nameIndex);
 
                 return new()
                 {
@@ -326,7 +327,7 @@ public static class LibCpp2ILUtils
             }
             case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
             {
-                var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(forWhat.Data.Type);
+                var oriType = binary.GetIl2CppTypeFromPointer(forWhat.Data.Type);
                 return new()
                 {
                     baseType = null,
@@ -340,7 +341,7 @@ public static class LibCpp2ILUtils
             }
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
             {
-                var arrayType = LibCpp2IlMain.Binary.ReadReadableAtVirtualAddress<Il2CppArrayType>(forWhat.Data.Array);
+                var arrayType = binary.ReadReadableAtVirtualAddress<Il2CppArrayType>(forWhat.Data.Array);
                 var oriType = arrayType.ElementType;
                 return new()
                 {
@@ -355,7 +356,7 @@ public static class LibCpp2ILUtils
             }
             case Il2CppTypeEnum.IL2CPP_TYPE_PTR:
             {
-                var oriType = LibCpp2IlMain.Binary.GetIl2CppTypeFromPointer(forWhat.Data.Type);
+                var oriType = binary.GetIl2CppTypeFromPointer(forWhat.Data.Type);
                 var ret = GetTypeReflectionData(oriType);
                 ret.isPointer = true;
                 return ret;
@@ -373,9 +374,9 @@ public static class LibCpp2ILUtils
         }
     }
 
-    internal static void PopulateDeclaringAssemblyCache()
+    internal static void PopulateDeclaringAssemblyCache(Il2CppMetadata metadata)
     {
-        foreach (var assembly in LibCpp2IlMain.TheMetadata!.imageDefinitions)
+        foreach (var assembly in metadata.imageDefinitions)
         {
             foreach (var il2CppTypeDefinition in assembly.Types!)
             {

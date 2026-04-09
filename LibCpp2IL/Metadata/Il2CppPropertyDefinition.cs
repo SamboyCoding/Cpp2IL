@@ -25,9 +25,9 @@ public class Il2CppPropertyDefinition : ReadableClass, IIl2CppTokenProvider
             if (_type != null)
                 return _type;
 
-            if (LibCpp2IlMain.TheMetadata == null) return null;
+            if (OwningMetadata == null) return null;
 
-            _type = LibCpp2IlMain.TheMetadata.typeDefs.FirstOrDefault(t => t.Properties!.Contains(this));
+            _type = OwningMetadata.typeDefs.FirstOrDefault(t => t.Properties!.Contains(this));
             return _type;
         }
         internal set => _type = value;
@@ -35,13 +35,13 @@ public class Il2CppPropertyDefinition : ReadableClass, IIl2CppTokenProvider
 
     public string? Name { get; private set; }
 
-    public Il2CppMethodDefinition? Getter => LibCpp2IlMain.TheMetadata == null || get.IsNull || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + get);
+    public Il2CppMethodDefinition? Getter => OwningMetadata == null || get.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + get);
 
-    public Il2CppMethodDefinition? Setter => LibCpp2IlMain.TheMetadata == null || set.IsNull || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + set);
+    public Il2CppMethodDefinition? Setter => OwningMetadata == null || set.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + set);
 
-    public Il2CppTypeReflectionData? PropertyType => LibCpp2IlMain.TheMetadata == null ? null : Getter == null ? Setter!.Parameters![0].Type : Getter!.ReturnType;
+    public Il2CppTypeReflectionData? PropertyType => OwningMetadata == null ? null : Getter == null ? Setter!.Parameters![0].Type : Getter!.ReturnType;
 
-    public Il2CppType? RawPropertyType => LibCpp2IlMain.TheMetadata == null ? null : Getter == null ? Setter!.Parameters![0].RawType : Getter!.RawReturnType;
+    public Il2CppType? RawPropertyType => OwningMetadata == null ? null : Getter == null ? Setter!.Parameters![0].RawType : Getter!.RawReturnType;
 
     public bool IsStatic => Getter == null ? Setter!.IsStatic : Getter!.IsStatic;
     public uint Token => token;

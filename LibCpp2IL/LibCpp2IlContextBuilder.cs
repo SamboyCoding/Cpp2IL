@@ -55,6 +55,7 @@ public sealed class LibCpp2IlContextBuilder
         }
 
         _context.Metadata = metadata;
+        metadata.OwningContext = _context;
 
         _context.Il2CppTypeHasNumMods5Bits = metadata.MetadataVersion >= 27.2f;
 
@@ -79,6 +80,9 @@ public sealed class LibCpp2IlContextBuilder
         // Complete legacy/static initialization now that the binary exists.
         LibCpp2IlMain.Binary = bin;
 
+        // Set OwningBinary on all metadata structures now that the binary exists.
+        _context.Metadata.SetOwningBinaryOnAllStructures(bin);
+
         _binaryLoaded = true;
     }
 
@@ -93,6 +97,9 @@ public sealed class LibCpp2IlContextBuilder
 
         // Complete legacy/static initialization now that the binary exists.
         LibCpp2IlMain.Binary = binary;
+
+        // Set OwningBinary on all metadata structures now that the binary exists.
+        _context.Metadata.SetOwningBinaryOnAllStructures(binary);
 
         _binaryLoaded = true;
     }
@@ -110,6 +117,8 @@ public sealed class LibCpp2IlContextBuilder
         {
             start = DateTime.Now;
             LibLogger.Info("Mapping Globals...");
+            _context.MapGlobalIdentifiers();
+            // Also populate legacy static mapper for backwards compatibility during transition
             LibCpp2IlGlobalMapper.MapGlobalIdentifiers(_context.Metadata, _context.Binary);
             LibLogger.InfoNewline($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
         }

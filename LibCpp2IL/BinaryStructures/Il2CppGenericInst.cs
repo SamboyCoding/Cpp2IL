@@ -4,9 +4,6 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppGenericInst : ReadableClass
 {
-    // Populated by the caller after reading.
-    internal Il2CppBinary? OwningBinary { get; set; }
-
     public ulong pointerCount;
     public ulong pointerStart;
 
@@ -14,7 +11,7 @@ public class Il2CppGenericInst : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             return binary == null ? [] : binary.ReadNUintArrayAtVirtualAddress(pointerStart, (long)pointerCount);
         }
     }
@@ -23,7 +20,7 @@ public class Il2CppGenericInst : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
+            var binary = OwningBinary;
             return binary == null ? [] : Pointers.Select(binary.GetIl2CppTypeFromPointer).ToArray();
         }
     }

@@ -7,9 +7,6 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppType : ReadableClass
 {
-    // Populated by Il2CppBinary.Init for per-context usage.
-    internal Il2CppBinary? OwningBinary { get; set; }
-    internal Il2CppMetadata? OwningMetadata { get; set; }
     internal bool? Il2CppTypeHasNumMods5Bits { get; set; }
 
     public ulong Datapoint;
@@ -28,7 +25,7 @@ public class Il2CppType : ReadableClass
         Type = (Il2CppTypeEnum)((Bits >> 16) & 0b1111_1111); //Bits 16-23
         Data = new Union { Dummy = Datapoint };
 
-        var hasNumMods5Bits = Il2CppTypeHasNumMods5Bits ?? LibCpp2IlMain.Il2CppTypeHasNumMods5Bits;
+        var hasNumMods5Bits = Il2CppTypeHasNumMods5Bits ?? (MetadataVersion >= 27.2f);
         if (hasNumMods5Bits)
         {
             //Unity 2021 (v27.2) changed num_mods to be 5 bits not 6
@@ -68,8 +65,7 @@ public class Il2CppType : ReadableClass
             if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_CLASS and not Il2CppTypeEnum.IL2CPP_TYPE_VALUETYPE)
                 return null;
 
-            var metadata = OwningMetadata ?? LibCpp2IlMain.TheMetadata;
-            return metadata!.GetTypeDefinitionFromIndex(Data.ClassIndex);
+            return OwningMetadata!.GetTypeDefinitionFromIndex(Data.ClassIndex);
         }
     }
 
@@ -85,8 +81,7 @@ public class Il2CppType : ReadableClass
             if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_PTR and not Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY)
                 return null;
 
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            return binary!.GetIl2CppTypeFromPointer(Data.Type);
+            return OwningBinary!.GetIl2CppTypeFromPointer(Data.Type);
         }
     }
 
@@ -102,9 +97,8 @@ public class Il2CppType : ReadableClass
             if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_ARRAY)
                 return null;
 
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            var at = binary!.ReadReadableAtVirtualAddress<Il2CppArrayType>(Data.Array);
-            at.OwningBinary = binary;
+            var at = OwningBinary!.ReadReadableAtVirtualAddress<Il2CppArrayType>(Data.Array);
+            at.OwningBinary = OwningBinary;
             return at;
         }
     }
@@ -125,8 +119,7 @@ public class Il2CppType : ReadableClass
             if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_VAR and not Il2CppTypeEnum.IL2CPP_TYPE_MVAR)
                 return null;
 
-            var metadata = OwningMetadata ?? LibCpp2IlMain.TheMetadata;
-            return metadata!.GetGenericParameterFromIndex(Data.GenericParameterIndex);
+            return OwningMetadata!.GetGenericParameterFromIndex(Data.GenericParameterIndex);
         }
     }
 
@@ -144,11 +137,10 @@ public class Il2CppType : ReadableClass
             if (Type is not Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
                 return null;
 
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            var gc = binary!.ReadReadableAtVirtualAddress<Il2CppGenericClass>(Data.GenericClass);
-            gc.OwningBinary = binary;
-            gc.OwningMetadata = OwningMetadata ?? LibCpp2IlMain.TheMetadata;
-            gc.Context.OwningBinary = binary;
+            var gc = OwningBinary!.ReadReadableAtVirtualAddress<Il2CppGenericClass>(Data.GenericClass);
+            gc.OwningBinary = OwningBinary;
+            gc.OwningMetadata = OwningMetadata;
+            gc.Context.OwningBinary = OwningBinary;
             return gc;
         }
     }
