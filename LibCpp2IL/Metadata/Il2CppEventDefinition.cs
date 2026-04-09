@@ -23,9 +23,7 @@ public class Il2CppEventDefinition : ReadableClass
         get
         {
             if (_type != null) return _type;
-            if (OwningMetadata == null) return null;
-
-            _type = OwningMetadata.typeDefs.FirstOrDefault(t => t.Events!.Contains(this));
+            _type = OwningMetadata!.typeDefs.FirstOrDefault(t => t.Events!.Contains(this));
             return _type;
         }
         internal set => _type = value;
@@ -35,15 +33,15 @@ public class Il2CppEventDefinition : ReadableClass
 
     public Il2CppType? RawType => OwningBinary?.GetType(typeIndex);
 
-    public Il2CppTypeReflectionData? EventType => OwningBinary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(RawType!);
+    public Il2CppTypeReflectionData? EventType => LibCpp2ILUtils.GetTypeReflectionData(RawType!);
 
     public EventAttributes EventAttributes => (EventAttributes)RawType!.Attrs;
 
-    public Il2CppMethodDefinition? Adder => OwningMetadata == null || add.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + add);
+    public Il2CppMethodDefinition? Adder => add.IsNull || DeclaringType == null ? null : OwningMetadata!.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + add);
 
-    public Il2CppMethodDefinition? Remover => OwningMetadata == null || remove.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + remove);
+    public Il2CppMethodDefinition? Remover => remove.IsNull || DeclaringType == null ? null : OwningMetadata!.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + remove);
 
-    public Il2CppMethodDefinition? Invoker => OwningMetadata == null || raise.IsNull || DeclaringType == null ? null : OwningMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + raise);
+    public Il2CppMethodDefinition? Invoker => raise.IsNull || DeclaringType == null ? null : OwningMetadata!.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + raise);
 
     public bool IsStatic
     {

@@ -58,7 +58,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     /// <summary>
     /// Set by <see cref="LibCpp2IlContextBuilder"/> after construction.
     /// </summary>
-    internal LibCpp2IlContext? OwningContext { get; set; }
+    public LibCpp2IlContext? OwningContext { get; internal set; }
 
     private readonly Dictionary<Il2CppVariableWidthIndex<Il2CppFieldDefinition>, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new();
     private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new();

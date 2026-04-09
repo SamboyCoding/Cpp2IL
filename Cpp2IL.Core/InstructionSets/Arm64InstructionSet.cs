@@ -27,7 +27,7 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
                 return context.AppContext.Binary.GetRawBinaryContent().AsMemory(ptrAsInt, count);
         }
 
-        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
+        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext, context.UnderlyingPointer);
 
         return instructions.SelectMany(i => i.Bytes).ToArray();
     }
@@ -43,7 +43,7 @@ public class Arm64InstructionSet : Cpp2IlInstructionSet
     {
         var sb = new StringBuilder();
 
-        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
+        var instructions = Arm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext, context.UnderlyingPointer);
 
         var first = true;
         foreach (var instruction in instructions)

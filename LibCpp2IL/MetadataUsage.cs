@@ -11,8 +11,8 @@ public class MetadataUsage
     public readonly ulong Offset;
 
     private readonly uint _value;
-    private readonly Il2CppBinary? _binary;
-    private readonly Il2CppMetadata? _metadata;
+    private readonly Il2CppBinary _binary;
+    private readonly Il2CppMetadata _metadata;
 
     private string? _cachedName;
 
@@ -27,7 +27,7 @@ public class MetadataUsage
 
     private Cpp2IlMethodRef? _cachedGenericMethod;
 
-    public MetadataUsage(MetadataUsageType type, ulong offset, uint value, Il2CppBinary? binary = null, Il2CppMetadata? metadata = null)
+    public MetadataUsage(MetadataUsageType type, ulong offset, uint value, Il2CppBinary binary, Il2CppMetadata metadata)
     {
         Type = type;
         Offset = offset;
@@ -35,11 +35,6 @@ public class MetadataUsage
         _binary = binary;
         _metadata = metadata;
     }
-
-#pragma warning disable CS0618 // Fallback to legacy statics for backwards compatibility
-    private Il2CppBinary EffectiveBinary => _binary ?? LibCpp2IlMain.Binary!;
-    private Il2CppMetadata EffectiveMetadata => _metadata ?? LibCpp2IlMain.TheMetadata!;
-#pragma warning restore CS0618
 
     public uint RawValue => _value;
 
@@ -57,11 +52,11 @@ public class MetadataUsage
     public bool IsValid =>
         Type switch
         {
-            MetadataUsageType.Type or MetadataUsageType.TypeInfo => _value < EffectiveBinary.NumTypes,
-            MetadataUsageType.MethodDef => _value < EffectiveMetadata.MethodDefinitionCount,
-            MetadataUsageType.FieldInfo => _value < EffectiveMetadata.fieldRefs.Length,
-            MetadataUsageType.StringLiteral => _value < EffectiveMetadata.stringLiterals.Length,
-            MetadataUsageType.MethodRef => _value < EffectiveBinary.AllGenericMethodSpecs.Length,
+            MetadataUsageType.Type or MetadataUsageType.TypeInfo => _value < _binary.NumTypes,
+            MetadataUsageType.MethodDef => _value < _metadata.MethodDefinitionCount,
+            MetadataUsageType.FieldInfo => _value < _metadata.fieldRefs.Length,
+            MetadataUsageType.StringLiteral => _value < _metadata.stringLiterals.Length,
+            MetadataUsageType.MethodRef => _value < _binary.AllGenericMethodSpecs.Length,
             _ => false
         };
 
@@ -75,13 +70,13 @@ public class MetadataUsage
                 case MetadataUsageType.TypeInfo:
                     try
                     {
-                        _cachedType = EffectiveBinary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage((int) _value)); //DynWidth: value is always masked out of 32-bits, ok for temp usage
+                        _cachedType = _binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage((int) _value)); //DynWidth: value is always masked out of 32-bits, ok for temp usage
                         _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType);
                         _cachedName = _cachedTypeReflectionData?.ToString();
                     }
                     catch (Exception e)
                     {
-                        throw new Exception($"Failed to convert this metadata usage to a type, but it is of type {Type}, with a value of {_value} (0x{_value:X}). There are {EffectiveBinary.NumTypes} types", e);
+                        throw new Exception($"Failed to convert this metadata usage to a type, but it is of type {Type}, with a value of {_value} (0x{_value:X}). There are {_binary.NumTypes} types", e);
                     }
 
                     break;
@@ -100,7 +95,7 @@ public class MetadataUsage
             switch (Type)
             {
                 case MetadataUsageType.MethodDef:
-                    _cachedMethod = EffectiveMetadata.GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage((int)_value)); //DynWidth: value is always masked out of 32-bits, ok for temp usage
+                    _cachedMethod = _metadata.GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage((int)_value)); //DynWidth: value is always masked out of 32-bits, ok for temp usage
                     _cachedName = _cachedMethod.GlobalKey;
                     break;
                 default:
@@ -118,7 +113,7 @@ public class MetadataUsage
             switch (Type)
             {
                 case MetadataUsageType.FieldInfo:
-                    var fieldRef = EffectiveMetadata.fieldRefs[_value];
+                    var fieldRef = _metadata.fieldRefs[_value];
                     _cachedField = fieldRef.FieldDefinition;
                     _cachedName = fieldRef.DeclaringTypeDefinition!.FullName + "." + _cachedField!.Name;
                     break;
@@ -137,7 +132,7 @@ public class MetadataUsage
             switch (Type)
             {
                 case MetadataUsageType.StringLiteral:
-                    _cachedName = _cachedLiteral = EffectiveMetadata.GetStringLiteralFromIndex(_value);
+                    _cachedName = _cachedLiteral = _metadata.GetStringLiteralFromIndex(_value);
                     break;
                 default:
                     throw new Exception($"Cannot cast metadata usage of kind {Type} to a String Literal");
@@ -154,7 +149,7 @@ public class MetadataUsage
             switch (Type)
             {
                 case MetadataUsageType.MethodRef:
-                    var methodSpec = EffectiveBinary.GetMethodSpec((int)_value);
+                    var methodSpec = _binary.GetMethodSpec((int)_value);
 
                     _cachedGenericMethod = new Cpp2IlMethodRef(methodSpec);
                     _cachedName = _cachedGenericMethod.ToString();
@@ -172,30 +167,21 @@ public class MetadataUsage
         return $"Metadata Usage {{type={Type}, Value={Value}}}";
     }
 
-
-    public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address) =>
-        DecodeMetadataUsage(encoded, address, null, null);
-
-    public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address, Il2CppBinary? binary, Il2CppMetadata? metadata)
+    public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address, Il2CppBinary binary, Il2CppMetadata metadata)
     {
-#pragma warning disable CS0618 // Fallback to legacy statics for backwards compatibility
-        var effectiveBinary = binary ?? LibCpp2IlMain.Binary!;
-        var effectiveMetadata = metadata ?? LibCpp2IlMain.TheMetadata!;
-#pragma warning restore CS0618
-
         var encodedType = encoded & 0xE000_0000;
         var type = (MetadataUsageType)(encodedType >> 29);
         if (type <= MetadataUsageType.MethodRef && type >= MetadataUsageType.TypeInfo)
         {
             var index = (uint)(encoded & 0x1FFF_FFFF);
 
-            if (effectiveMetadata.MetadataVersion >= 27)
+            if (metadata.MetadataVersion >= 27)
                 index >>= 1;
 
-            if (type is MetadataUsageType.Type or MetadataUsageType.TypeInfo && index > effectiveBinary.NumTypes)
+            if (type is MetadataUsageType.Type or MetadataUsageType.TypeInfo && index > binary.NumTypes)
                 return null;
 
-            if (type == MetadataUsageType.MethodDef && index > effectiveMetadata.MethodDefinitionCount)
+            if (type == MetadataUsageType.MethodDef && index > metadata.MethodDefinitionCount)
                 return null;
 
 

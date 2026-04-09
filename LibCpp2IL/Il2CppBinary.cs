@@ -52,6 +52,9 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     private readonly Dictionary<ulong, Il2CppType> _typesByAddress = new();
 
     public abstract long RawLength { get; }
+
+    public int PointerSizeBytes => is32Bit ? 4 : 8;
+
     public int NumTypes => _types.Length;
 
     public Il2CppType[] AllTypes => _types;

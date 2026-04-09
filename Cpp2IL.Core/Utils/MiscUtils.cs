@@ -12,8 +12,6 @@ public static class MiscUtils
 {
     private static List<ulong>? _allKnownFunctionStarts;
 
-    private static Dictionary<string, ulong> _primitiveSizes = new();
-
     public static readonly List<char> InvalidPathChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
     public static readonly HashSet<string> InvalidPathElements =
@@ -46,28 +44,6 @@ public static class MiscUtils
     {
         _allKnownFunctionStarts = null;
     }
-
-    internal static void Init(Il2CppBinary binary)
-    {
-        _primitiveSizes = new(14)
-        {
-            { "Byte", 1 },
-            { "SByte", 1 },
-            { "Boolean", 1 },
-            { "Int16", 2 },
-            { "UInt16", 2 },
-            { "Char", 2 },
-            { "Int32", 4 },
-            { "UInt32", 4 },
-            { "Single", 4 },
-            { "Int64", 8 },
-            { "UInt64", 8 },
-            { "Double", 8 },
-            { "IntPtr", binary.is32Bit ? 4UL : 8UL },
-            { "UIntPtr", binary.is32Bit ? 4UL : 8UL },
-        };
-    }
-
 
     internal static string[] GetGenericParams(string input)
     {
@@ -144,11 +120,6 @@ public static class MiscUtils
         }
 
         return -1;
-    }
-
-    public static int GetPointerSizeBytes(Il2CppBinary binary)
-    {
-        return binary.is32Bit ? 4 : 8;
     }
 
     internal static byte[] RawBytes(IConvertible original) =>

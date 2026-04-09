@@ -123,7 +123,6 @@ public static class Cpp2IlApi
     [MemberNotNull(nameof(CurrentAppContext))]
     private static void OnLibInitialized(LibCpp2IlContext libContext)
     {
-        MiscUtils.Init(libContext.Binary);
         libContext.Binary.AllCustomAttributeGenerators.ToList()
             .ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
 

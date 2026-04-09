@@ -24,9 +24,6 @@ public class Il2CppFieldDefinition : ReadableClass
 
     public override string? ToString()
     {
-        if (OwningMetadata == null)
-            return base.ToString();
-
         return $"Il2CppFieldDefinition[Name={Name}, FieldType={FieldType}]";
     }
 

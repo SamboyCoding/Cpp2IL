@@ -40,9 +40,9 @@ public class Il2CppMethodDefinition : ReadableClass
 
     public Il2CppType? RawReturnType => OwningBinary?.GetType(returnTypeIdx);
 
-    public Il2CppTypeReflectionData? ReturnType => OwningBinary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(OwningBinary.GetType(returnTypeIdx));
+    public Il2CppTypeReflectionData? ReturnType => LibCpp2ILUtils.GetTypeReflectionData(OwningBinary!.GetType(returnTypeIdx));
 
-    public Il2CppTypeDefinition? DeclaringType => OwningMetadata == null ? null : OwningMetadata.GetTypeDefinitionFromIndex(declaringTypeIdx);
+    public Il2CppTypeDefinition? DeclaringType => OwningMetadata!.GetTypeDefinitionFromIndex(declaringTypeIdx);
 
     private ulong? _methodPointer = null;
 
@@ -52,32 +52,32 @@ public class Il2CppMethodDefinition : ReadableClass
         {
             if (!_methodPointer.HasValue)
             {
-                if (OwningBinary == null || OwningMetadata == null || DeclaringType == null)
+                if (DeclaringType == null)
                 {
-                    LibLogger.WarnNewline($"Couldn't get method pointer for {Name}. Binary is {OwningBinary}, Meta is {OwningMetadata}, DeclaringType is {DeclaringType}");
+                    LibLogger.WarnNewline($"Couldn't get method pointer for {Name}. DeclaringType is null");
                     return 0;
                 }
 
                 var asmIdx = 0; //Not needed pre-24.2
                 if (MetadataVersion >= 27)
                 {
-                    asmIdx = OwningBinary.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
+                    asmIdx = OwningBinary!.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
                 }
                 else if (MetadataVersion >= 24.2f)
                 {
                     asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
                 }
 
-                _methodPointer = OwningBinary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
+                _methodPointer = OwningBinary!.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
             }
 
             return _methodPointer.Value;
         }
     }
 
-    public long MethodOffsetInFile => MethodPointer == 0 || OwningBinary == null ? 0 : OwningBinary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
+    public long MethodOffsetInFile => MethodPointer == 0 ? 0 : OwningBinary!.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
 
-    public ulong Rva => MethodPointer == 0 || OwningBinary == null ? 0 : OwningBinary.GetRva(MethodPointer);
+    public ulong Rva => MethodPointer == 0 ? 0 : OwningBinary!.GetRva(MethodPointer);
 
     public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
 
@@ -85,9 +85,6 @@ public class Il2CppMethodDefinition : ReadableClass
     {
         get
         {
-            if (OwningMetadata == null || OwningBinary == null)
-                return null;
-
             if (parameterStart.IsNull || parameterCount == 0)
                 return [];
 
@@ -95,7 +92,7 @@ public class Il2CppMethodDefinition : ReadableClass
 
             for (var i = 0; i < parameterCount; i++)
             {
-                ret[i] = OwningMetadata.GetParameterDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(parameterStart.Value + i));
+                ret[i] = OwningMetadata!.GetParameterDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(parameterStart.Value + i));
             }
 
             return ret;
@@ -147,9 +144,6 @@ public class Il2CppMethodDefinition : ReadableClass
 
     public override string? ToString()
     {
-        if (OwningMetadata == null)
-            return base.ToString();
-
         return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
     }
 

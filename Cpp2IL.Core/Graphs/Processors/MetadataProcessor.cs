@@ -2,7 +2,6 @@ using System.Linq;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
-using LibCpp2IL;
 
 namespace Cpp2IL.Core.Graphs.Processors;
 
@@ -26,13 +25,11 @@ internal class MetadataProcessor : IBlockProcessor
             var memoryOp = (IsilMemoryOperand)instruction.Operands[1].Data;
             if (memoryOp.Base == null && memoryOp.Index == null && memoryOp.Scale == 0)
             {
-#pragma warning disable CS0618 // Deprecated static API - TODO: migrate to context-based API when available from Cpp2IL.Core
-                var val = LibCpp2IlMain.GetLiteralByAddress((ulong)memoryOp.Addend);
+                var val = methodAnalysisContext.AppContext.LibCpp2IlContext?.GetLiteralByAddress((ulong)memoryOp.Addend);
                 if (val == null)
                 {
                     // Try instead check if its type metadata usage
-                    var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
-#pragma warning restore CS0618
+                    var metadataUsage = methodAnalysisContext.AppContext.LibCpp2IlContext?.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
                     if (metadataUsage != null && methodAnalysisContext.DeclaringType is not null)
                     {
                         var typeAnalysisContext = metadataUsage.ToContext(methodAnalysisContext.DeclaringType!.DeclaringAssembly);
