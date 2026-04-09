@@ -127,7 +127,7 @@ public static class LibCpp2ILUtils
                 var genericClass = cppAssembly.ReadReadableAtVirtualAddress<Il2CppGenericClass>(type.Data.GenericClass);
                 var typeDef = genericClass.TypeDefinition;
                 ret = typeDef.Name!;
-                var genericInst = genericClass.Context.ClassInst;
+                var genericInst = genericClass.Context.ClassInst!;
                 ret = ret.Replace($"`{genericInst.pointerCount}", "");
                 ret += GetGenericTypeParamNames(metadata, cppAssembly, genericInst);
                 break;
@@ -142,7 +142,7 @@ public static class LibCpp2ILUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
             {
                 var arrayType = cppAssembly.ReadReadableAtVirtualAddress<Il2CppArrayType>(type.Data.Array);
-                var oriType = arrayType.ElementType;
+                var oriType = arrayType.GetElementTypeOrThrow();
                 ret = $"{GetTypeName(metadata, cppAssembly, oriType)}[{new string(',', arrayType.rank - 1)}]";
                 break;
             }
@@ -239,8 +239,10 @@ public static class LibCpp2ILUtils
 
     public static Il2CppTypeReflectionData GetTypeReflectionData(Il2CppType forWhat)
     {
+#pragma warning disable CS0618 // Fallback to legacy statics for backwards compatibility
         var binary = forWhat.OwningBinary ?? LibCpp2IlMain.Binary;
         var metadata = forWhat.OwningMetadata ?? LibCpp2IlMain.TheMetadata;
+#pragma warning restore CS0618
 
         if (binary == null || metadata == null)
             throw new Exception("Can't get type reflection data when not initialized. How did you even get the type?");
@@ -298,7 +300,7 @@ public static class LibCpp2ILUtils
                 //CHANGED IN v27: typeDefinitionIndex is a ptr to the type in the file.
                 var typeDefinition = genericClass.TypeDefinition;
 
-                var genericInst = genericClass.Context.ClassInst;
+                var genericInst = genericClass.Context.ClassInst!;
 
                 var genericParams = genericInst.Types
                     .Select(GetTypeReflectionData) //Recursive call here
@@ -342,7 +344,7 @@ public static class LibCpp2ILUtils
             case Il2CppTypeEnum.IL2CPP_TYPE_ARRAY:
             {
                 var arrayType = binary.ReadReadableAtVirtualAddress<Il2CppArrayType>(forWhat.Data.Array);
-                var oriType = arrayType.ElementType;
+                var oriType = arrayType.GetElementTypeOrThrow();
                 return new()
                 {
                     baseType = null,

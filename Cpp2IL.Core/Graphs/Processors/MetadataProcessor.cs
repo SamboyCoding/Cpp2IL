@@ -26,11 +26,13 @@ internal class MetadataProcessor : IBlockProcessor
             var memoryOp = (IsilMemoryOperand)instruction.Operands[1].Data;
             if (memoryOp.Base == null && memoryOp.Index == null && memoryOp.Scale == 0)
             {
+#pragma warning disable CS0618 // Deprecated static API - TODO: migrate to context-based API when available from Cpp2IL.Core
                 var val = LibCpp2IlMain.GetLiteralByAddress((ulong)memoryOp.Addend);
                 if (val == null)
                 {
                     // Try instead check if its type metadata usage
                     var metadataUsage = LibCpp2IlMain.GetTypeGlobalByAddress((ulong)memoryOp.Addend);
+#pragma warning restore CS0618
                     if (metadataUsage != null && methodAnalysisContext.DeclaringType is not null)
                     {
                         var typeAnalysisContext = metadataUsage.ToContext(methodAnalysisContext.DeclaringType!.DeclaringAssembly);

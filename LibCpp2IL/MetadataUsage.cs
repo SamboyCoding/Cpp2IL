@@ -36,8 +36,10 @@ public class MetadataUsage
         _metadata = metadata;
     }
 
+#pragma warning disable CS0618 // Fallback to legacy statics for backwards compatibility
     private Il2CppBinary EffectiveBinary => _binary ?? LibCpp2IlMain.Binary!;
     private Il2CppMetadata EffectiveMetadata => _metadata ?? LibCpp2IlMain.TheMetadata!;
+#pragma warning restore CS0618
 
     public uint RawValue => _value;
 
@@ -176,8 +178,10 @@ public class MetadataUsage
 
     public static MetadataUsage? DecodeMetadataUsage(ulong encoded, ulong address, Il2CppBinary? binary, Il2CppMetadata? metadata)
     {
+#pragma warning disable CS0618 // Fallback to legacy statics for backwards compatibility
         var effectiveBinary = binary ?? LibCpp2IlMain.Binary!;
         var effectiveMetadata = metadata ?? LibCpp2IlMain.TheMetadata!;
+#pragma warning restore CS0618
 
         var encodedType = encoded & 0xE000_0000;
         var type = (MetadataUsageType)(encodedType >> 29);

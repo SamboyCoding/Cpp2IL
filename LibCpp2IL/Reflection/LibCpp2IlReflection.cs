@@ -3,6 +3,8 @@ using System.Diagnostics.CodeAnalysis;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
+#pragma warning disable CS0618 // This static facade intentionally uses LibCpp2IlMain.DefaultContext for backwards compatibility
+
 namespace LibCpp2IL.Reflection;
 
 public static class LibCpp2IlReflection

@@ -63,9 +63,11 @@ public sealed class LibCpp2IlContextBuilder
 
         // Legacy/static API compatibility: some in-binary structures still resolve via LibCpp2IlMain.Binary/TheMetadata
         // during binary initialization, so we must set metadata defaults before initializing the binary.
+#pragma warning disable CS0618 // Intentional writes to legacy static fields for backwards compatibility
         LibCpp2IlMain.TheMetadata = metadata;
         LibCpp2IlMain.DefaultContext = _context;
         LibCpp2IlMain.Il2CppTypeHasNumMods5Bits = _context.Il2CppTypeHasNumMods5Bits;
+#pragma warning restore CS0618
 
         _metadataLoaded = true;
     }
@@ -78,7 +80,9 @@ public sealed class LibCpp2IlContextBuilder
         var bin = _context.Binary = LibCpp2IlBinaryRegistry.CreateAndInit(binaryBytes, _context.Metadata);
 
         // Complete legacy/static initialization now that the binary exists.
+#pragma warning disable CS0618 // Intentional write to legacy static field for backwards compatibility
         LibCpp2IlMain.Binary = bin;
+#pragma warning restore CS0618
 
         // Set OwningBinary on all metadata structures now that the binary exists.
         _context.Metadata.SetOwningBinaryOnAllStructures(bin);
@@ -96,7 +100,9 @@ public sealed class LibCpp2IlContextBuilder
         _context.Binary = binary;
 
         // Complete legacy/static initialization now that the binary exists.
+#pragma warning disable CS0618 // Intentional write to legacy static field for backwards compatibility
         LibCpp2IlMain.Binary = binary;
+#pragma warning restore CS0618
 
         // Set OwningBinary on all metadata structures now that the binary exists.
         _context.Metadata.SetOwningBinaryOnAllStructures(binary);

@@ -28,7 +28,9 @@ public class Il2CppTypeReflectionData
     public bool isPointer;
 #pragma warning restore 8618
 
+#pragma warning disable CS0618 // Fallback to legacy static LibCpp2IlMain.TheMetadata for backwards compatibility
     public Il2CppGenericParameter? GenericParameter => isArray || isType ? null : baseType?.OwningMetadata?.GetGenericParameterFromIndex(variableGenericParamIndex) ?? LibCpp2IlMain.TheMetadata?.GetGenericParameterFromIndex(variableGenericParamIndex);
+#pragma warning restore CS0618
 
     private string GetPtrSuffix()
     {

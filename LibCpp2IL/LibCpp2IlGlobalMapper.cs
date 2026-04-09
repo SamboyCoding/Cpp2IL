@@ -95,6 +95,7 @@ public static class LibCpp2IlGlobalMapper
             LiteralsByAddress[globalIdentifier.Offset] = globalIdentifier;
     }
 
+#pragma warning disable CS0618 // Intentional use of legacy static LibCpp2IlMain.Binary for backwards compatibility
     public static MetadataUsage? CheckForPost27GlobalAt(ulong address)
     {
         if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(address, out var raw) || raw >= LibCpp2IlMain.Binary.RawLength)
@@ -108,4 +109,5 @@ public static class LibCpp2IlGlobalMapper
 
         return metadataUsage;
     }
+#pragma warning restore CS0618
 }
