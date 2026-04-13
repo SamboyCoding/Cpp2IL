@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using System.Text;
 using LibCpp2IL.Metadata;
@@ -8,28 +7,20 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppMethodSpec : ReadableClass
 {
-    // Populated by Il2CppBinary.Init for per-context usage.
-    internal Il2CppBinary? OwningBinary { get; set; }
-    internal Il2CppMetadata? OwningMetadata { get; set; }
-
     public int methodDefinitionIndex;
     public int classIndexIndex;
     public int methodIndexIndex;
 
-    public Il2CppMethodDefinition? MethodDefinition 
-        => (OwningMetadata ?? LibCpp2IlMain.TheMetadata)
-            ?.GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(methodDefinitionIndex)); //DynWidth: Il2CppMethodSpec is in-binary, dynamic widths weren't applied here.
+    public Il2CppMethodDefinition? MethodDefinition
+        => OwningContext.Metadata
+            .GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(methodDefinitionIndex)); //DynWidth: Il2CppMethodSpec is in-binary, dynamic widths weren't applied here.
 
     public Il2CppGenericInst? GenericClassInst
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            if (binary == null) return null;
             if (classIndexIndex < 0) return null;
-            var inst = binary.GetGenericInst(classIndexIndex);
-            inst.OwningBinary = binary;
-            return inst;
+            return OwningContext.Binary.GetGenericInst(classIndexIndex);
         }
     }
 
@@ -37,18 +28,14 @@ public class Il2CppMethodSpec : ReadableClass
     {
         get
         {
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            if (binary == null) return null;
             if (methodIndexIndex < 0) return null;
-            var inst = binary.GetGenericInst(methodIndexIndex);
-            inst.OwningBinary = binary;
-            return inst;
+            return OwningContext.Binary.GetGenericInst(methodIndexIndex);
         }
     }
 
-    public Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!)!;
+    public Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!);
 
-    public Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!)!;
+    public Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex == -1 ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!);
 
     public override string ToString()
     {

@@ -11,7 +11,7 @@ public class Il2CppParameterDefinition : ReadableClass, IIl2CppTokenProvider
 
     public uint Token => token;
 
-    public Il2CppType? RawType => LibCpp2IlMain.Binary?.GetType(typeIndex);
+    public Il2CppType? RawType => OwningContext.Binary.GetType(typeIndex);
 
     public string? Name { get; private set; }
 

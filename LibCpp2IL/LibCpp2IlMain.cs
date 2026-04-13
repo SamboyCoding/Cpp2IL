@@ -14,7 +14,7 @@ namespace LibCpp2IL;
 public static class LibCpp2IlMain
 {
     public delegate byte[]? MetadataFixupFunc(byte[] originalBytes, UnityVersion unityVersion);
-    
+
     private static readonly Regex UnityVersionRegex = new Regex(@"^[0-9]+\.[0-9]+\.[0-9]+[abcfxp][0-9]+$", RegexOptions.Compiled);
 
     public class LibCpp2IlSettings
@@ -28,181 +28,16 @@ public static class LibCpp2IlMain
     public static readonly LibCpp2IlSettings Settings = new();
 
     /// <summary>
-    /// Backwards-compatible default context. Existing static APIs are effectively wrappers around this.
-    /// New code should prefer creating and passing around a <see cref="LibCpp2IlContext"/>.
+    /// Initialize the metadata and binary from a pair of byte arrays, returning a context.
     /// </summary>
-    public static LibCpp2IlContext? DefaultContext { get; set; }
-
-    public static bool Il2CppTypeHasNumMods5Bits;
-    public static float MetadataVersion => DefaultContext?.MetadataVersion ?? TheMetadata!.MetadataVersion;
-
-    public static Il2CppBinary? Binary;
-    public static Il2CppMetadata? TheMetadata;
-
-    public static readonly Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr = new();
-
-    public static void Reset()
-    {
-        LibCpp2IlGlobalMapper.Reset();
-        MethodsByPtr.Clear();
-
-        DefaultContext = null;
-        Binary = null;
-        TheMetadata = null;
-
-        // Note: reflection caches are per-context now; legacy static caches are not reset here.
-    }
-
-    public static List<Il2CppMethodDefinition>? GetManagedMethodImplementationsAtAddress(ulong addr)
-    {
-        MethodsByPtr.TryGetValue(addr, out var ret);
-
-        return ret;
-    }
-
-    public static MetadataUsage? GetAnyGlobalByAddress(ulong address)
-    {
-        if (MetadataVersion >= 27f)
-            return LibCpp2IlGlobalMapper.CheckForPost27GlobalAt(address);
-
-        //Pre-27
-        var glob = GetLiteralGlobalByAddress(address);
-        glob ??= GetMethodGlobalByAddress(address);
-        glob ??= GetRawFieldGlobalByAddress(address);
-        glob ??= GetRawTypeGlobalByAddress(address);
-
-        return glob;
-    }
-
-    public static MetadataUsage? GetLiteralGlobalByAddress(ulong address)
-    {
-        if (MetadataVersion < 27f)
-            return LibCpp2IlGlobalMapper.LiteralsByAddress.GetOrDefault(address);
-
-        return GetAnyGlobalByAddress(address);
-    }
-
-    public static string? GetLiteralByAddress(ulong address)
-    {
-        var literal = GetLiteralGlobalByAddress(address);
-        if (literal?.Type != MetadataUsageType.StringLiteral)
-            return null;
-
-        return literal.AsLiteral();
-    }
-
-    public static MetadataUsage? GetRawTypeGlobalByAddress(ulong address)
-    {
-        if (MetadataVersion < 27f)
-            return LibCpp2IlGlobalMapper.TypeRefsByAddress.GetOrDefault(address);
-
-        return GetAnyGlobalByAddress(address);
-    }
-
-    public static Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address)
-    {
-        if (TheMetadata == null) return null;
-
-        var typeGlobal = GetRawTypeGlobalByAddress(address);
-
-        if (typeGlobal?.Type is not (MetadataUsageType.Type or MetadataUsageType.TypeInfo))
-            return null;
-
-        return typeGlobal.AsType();
-    }
-
-    public static MetadataUsage? GetRawFieldGlobalByAddress(ulong address)
-    {
-        if (MetadataVersion < 27f)
-            return LibCpp2IlGlobalMapper.FieldRefsByAddress.GetOrDefault(address);
-        return GetAnyGlobalByAddress(address);
-    }
-
-    public static Il2CppFieldDefinition? GetFieldGlobalByAddress(ulong address)
-    {
-        if (TheMetadata == null) return null;
-
-        var typeGlobal = GetRawFieldGlobalByAddress(address);
-
-        return typeGlobal?.AsField();
-    }
-
-    public static MetadataUsage? GetMethodGlobalByAddress(ulong address)
-    {
-        if (TheMetadata == null) return null;
-
-        if (MetadataVersion < 27f)
-            return LibCpp2IlGlobalMapper.MethodRefsByAddress.GetOrDefault(address);
-
-        return GetAnyGlobalByAddress(address);
-    }
-
-    public static Il2CppMethodDefinition? GetMethodDefinitionByGlobalAddress(ulong address)
-    {
-        var global = GetMethodGlobalByAddress(address);
-
-        if (global?.Type == MetadataUsageType.MethodRef)
-            return global.AsGenericMethodRef().BaseMethod;
-
-        return global?.AsMethod();
-    }
-
-    /// <summary>
-    /// Initialize the metadata and PE from a pair of byte arrays.
-    /// </summary>
-    /// <param name="binaryBytes">The content of the GameAssembly.dll file.</param>
-    /// <param name="metadataBytes">The content of the global-metadata.dat file</param>
-    /// <param name="unityVersion">The unity version</param>
-    /// <returns>True if the initialize succeeded, else false</returns>
-    /// <throws><see cref="System.FormatException"/> if the metadata is invalid (bad magic number, bad version), or if the PE is invalid (bad header signature, bad magic number)<br/></throws>
-    /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
-    public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, UnityVersion unityVersion)
-    {
-        DefaultContext = LibCpp2IlContextBuilder.Build(binaryBytes, metadataBytes, unityVersion);
-
-        // Preserve legacy static fields for existing consumers.
-        TheMetadata = DefaultContext.Metadata;
-        Binary = DefaultContext.Binary;
-        Il2CppTypeHasNumMods5Bits = DefaultContext.Il2CppTypeHasNumMods5Bits;
-
-        // Keep legacy MethodsByPtr populated for old call sites.
-        MethodsByPtr.Clear();
-        foreach (var kvp in DefaultContext.MethodsByPtr)
-            MethodsByPtr[kvp.Key] = kvp.Value;
-
-        return true;
-    }
-
     public static LibCpp2IlContext InitializeAsContext(byte[] binaryBytes, byte[] metadataBytes, UnityVersion unityVersion)
         => LibCpp2IlContextBuilder.Build(binaryBytes, metadataBytes, unityVersion);
 
+    /// <summary>
+    /// Initialize the metadata and binary from file paths, returning a context.
+    /// </summary>
     public static LibCpp2IlContext LoadFromFileAsContext(string pePath, string metadataPath, UnityVersion unityVersion)
         => LibCpp2IlContextBuilder.BuildFromFiles(pePath, metadataPath, unityVersion);
-
-    /// <summary>
-    /// Initialize the metadata and PE from their respective file locations.
-    /// </summary>
-    /// <param name="pePath">The path to the GameAssembly.dll file</param>
-    /// <param name="metadataPath">The path to the global-metadata.dat file</param>
-    /// <param name="unityVersion">The unity version, split on periods, with the patch version (e.g. f1) stripped out. For example, [2018, 2, 0]</param>
-    /// <returns>True if the initialize succeeded, else false</returns>
-    /// <throws><see cref="System.FormatException"/> if the metadata is invalid (bad magic number, bad version), or if the PE is invalid (bad header signature, bad magic number)<br/></throws>
-    /// <throws><see cref="System.NotSupportedException"/> if the PE file specifies it is neither for AMD64 or i386 architecture</throws>
-    public static bool LoadFromFile(string pePath, string metadataPath, UnityVersion unityVersion)
-    {
-        var ctx = LibCpp2IlContextBuilder.BuildFromFiles(pePath, metadataPath, unityVersion);
-        DefaultContext = ctx;
-
-        TheMetadata = ctx.Metadata;
-        Binary = ctx.Binary;
-        Il2CppTypeHasNumMods5Bits = ctx.Il2CppTypeHasNumMods5Bits;
-
-        MethodsByPtr.Clear();
-        foreach (var kvp in ctx.MethodsByPtr)
-            MethodsByPtr[kvp.Key] = kvp.Value;
-
-        return true;
-    }
 
     /// <summary>
     /// Attempts to determine the Unity version from the given binary path and game data path
@@ -240,7 +75,7 @@ public static class LibCpp2IlMain
 
             LibLogger.VerboseNewline($"DetermineUnityVersion: No globalgamemanagers or data.unity3d found in game data path.");
         }
-        
+
         if (Environment.OSVersion.Platform == PlatformID.Win32NT && !string.IsNullOrEmpty(unityPlayerPath))
         {
             LibLogger.VerboseNewline($"DetermineUnityVersion: Running on windows so have FileVersionInfo, trying to pull version from unity player {unityPlayerPath}");
@@ -328,4 +163,87 @@ public static class LibCpp2IlMain
 
         return UnityVersion.Parse(unityVer);
     }
+
+    #region Legacy static API — kept for backwards compatibility during migration
+
+    // These fields exist solely to allow external consumers to keep working during the transition to context-based APIs.
+    // New code should use LibCpp2IlContext directly.
+
+    private static LibCpp2IlContext? _defaultContext;
+
+    [Obsolete("Use LibCpp2IlContext instead.")]
+    public static LibCpp2IlContext DefaultContext
+    {
+        get => _defaultContext ?? throw new InvalidOperationException("LibCpp2IL is not Initialized");
+        set => _defaultContext = value;
+    }
+
+    [Obsolete("Use LibCpp2IlContext.Binary instead.")]
+    public static Il2CppBinary Binary => DefaultContext.Binary;
+
+    [Obsolete("Use LibCpp2IlContext.Metadata instead.")]
+    public static Il2CppMetadata TheMetadata => DefaultContext.Metadata;
+
+    [Obsolete("Use context.Il2CppTypeHasNumMods5Bits instead.")]
+    public static bool Il2CppTypeHasNumMods5Bits => DefaultContext.Il2CppTypeHasNumMods5Bits;
+
+    [Obsolete("Use LibCpp2IlContext.MetadataVersion instead.")]
+    public static float MetadataVersion => DefaultContext.Metadata.MetadataVersion;
+
+    [Obsolete("Use LibCpp2IlContext.MethodsByPtr instead.")]
+    public static Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr => DefaultContext.MethodsByPtr;
+
+    [Obsolete("Use LibCpp2IlContextBuilder directly.")]
+    public static bool Initialize(byte[] binaryBytes, byte[] metadataBytes, UnityVersion unityVersion)
+    {
+        _defaultContext = LibCpp2IlContextBuilder.Build(binaryBytes, metadataBytes, unityVersion);
+
+        return true;
+    }
+
+    [Obsolete("Use LibCpp2IlContextBuilder directly.")]
+    public static bool LoadFromFile(string pePath, string metadataPath, UnityVersion unityVersion)
+    {
+        _defaultContext = LibCpp2IlContextBuilder.BuildFromFiles(pePath, metadataPath, unityVersion);
+
+        return true;
+    }
+
+    [Obsolete("Use context.GetManagedMethodImplementationsAtAddress instead.")]
+    public static List<Il2CppMethodDefinition>? GetManagedMethodImplementationsAtAddress(ulong addr) => DefaultContext.GetManagedMethodImplementationsAtAddress(addr);
+
+    [Obsolete("Use context.GetAnyGlobalByAddress instead.")]
+    public static MetadataUsage? GetAnyGlobalByAddress(ulong address) => DefaultContext.GetAnyGlobalByAddress(address);
+
+    [Obsolete("Use context.GetLiteralGlobalByAddress instead.")]
+    public static MetadataUsage? GetLiteralGlobalByAddress(ulong address) => DefaultContext.GetLiteralGlobalByAddress(address);
+
+    [Obsolete("Use context.GetLiteralByAddress instead.")]
+    public static string? GetLiteralByAddress(ulong address) => DefaultContext.GetLiteralByAddress(address);
+
+    [Obsolete("Use context.GetRawTypeGlobalByAddress instead.")]
+    public static MetadataUsage? GetRawTypeGlobalByAddress(ulong address) => DefaultContext.GetRawTypeGlobalByAddress(address);
+
+    [Obsolete("Use context.GetTypeGlobalByAddress instead.")]
+    public static Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address) => DefaultContext.GetTypeGlobalByAddress(address);
+
+    [Obsolete("Use context.GetRawFieldGlobalByAddress instead.")]
+    public static MetadataUsage? GetRawFieldGlobalByAddress(ulong address) => DefaultContext.GetRawFieldGlobalByAddress(address);
+
+    [Obsolete("Use context.GetFieldGlobalByAddress instead.")]
+    public static Il2CppFieldDefinition? GetFieldGlobalByAddress(ulong address) => DefaultContext.GetFieldGlobalByAddress(address);
+
+    [Obsolete("Use context.GetMethodGlobalByAddress instead.")]
+    public static MetadataUsage? GetMethodGlobalByAddress(ulong address) => DefaultContext.GetMethodGlobalByAddress(address);
+
+    [Obsolete("Use context.GetMethodDefinitionByGlobalAddress instead.")]
+    public static Il2CppMethodDefinition? GetMethodDefinitionByGlobalAddress(ulong address) => DefaultContext.GetMethodDefinitionByGlobalAddress(address);
+
+    [Obsolete("Use LibCpp2IlContext instead.")]
+    public static void Reset()
+    {
+        _defaultContext = null;
+    }
+
+    #endregion
 }

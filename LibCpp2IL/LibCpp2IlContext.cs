@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
@@ -11,16 +12,25 @@ public sealed class LibCpp2IlContext
 {
     public LibCpp2IlMain.LibCpp2IlSettings Settings { get; }
 
-    public bool Il2CppTypeHasNumMods5Bits { get; internal set; }
+    public bool Il2CppTypeHasNumMods5Bits => Metadata.MetadataVersion >= 27.2f;
 
     public Il2CppBinary Binary { get; internal set; } = null!;
     public Il2CppMetadata Metadata { get; internal set; } = null!;
 
-    public float MetadataVersion => Metadata.MetadataVersion;
-
     public Dictionary<ulong, List<Il2CppMethodDefinition>> MethodsByPtr { get; } = new();
 
     public LibCpp2IlReflectionCache ReflectionCache { get; } = new();
+
+    // Global mapper state
+    internal List<MetadataUsage> TypeRefs = [];
+    internal List<MetadataUsage> MethodRefs = [];
+    internal List<MetadataUsage> FieldRefs = [];
+    internal List<MetadataUsage> Literals = [];
+
+    internal readonly Dictionary<ulong, MetadataUsage> TypeRefsByAddress = new();
+    internal readonly Dictionary<ulong, MetadataUsage> MethodRefsByAddress = new();
+    internal readonly Dictionary<ulong, MetadataUsage> FieldRefsByAddress = new();
+    internal readonly Dictionary<ulong, MetadataUsage> LiteralsByAddress = new();
 
     internal LibCpp2IlContext(LibCpp2IlMain.LibCpp2IlSettings settings)
     {
@@ -30,10 +40,86 @@ public sealed class LibCpp2IlContext
     public List<Il2CppMethodDefinition>? GetManagedMethodImplementationsAtAddress(ulong addr)
         => MethodsByPtr.TryGetValue(addr, out var ret) ? ret : null;
 
+    internal void MapGlobalIdentifiers()
+    {
+        if (Metadata.MetadataVersion < 27f)
+            MapGlobalIdentifiersPre27();
+
+        // Post-27 is a no-op
+    }
+
+    private void MapGlobalIdentifiersPre27()
+    {
+        //Type 1 => TypeInfo
+        //Type 2 => Il2CppType
+        //Type 3 => MethodDef
+        //Type 4 => FieldInfo
+        //Type 5 => StringLiteral
+        //Type 6 => MethodRef
+
+        //Type references
+
+        //We non-null assert here because this function is only called pre-27, when this is guaranteed to be non-null
+        TypeRefs = Metadata.metadataUsageDic![(uint)MetadataUsageType.TypeInfo]
+            .Select(kvp => new MetadataUsage(MetadataUsageType.Type, Binary.GetRawMetadataUsage(kvp.Key), kvp.Value, this))
+            .ToList();
+
+        //More type references
+        TypeRefs.AddRange(Metadata.metadataUsageDic[(uint)MetadataUsageType.Type]
+            .Select(kvp => new MetadataUsage(MetadataUsageType.Type, Binary.GetRawMetadataUsage(kvp.Key), kvp.Value, this))
+        );
+
+        //Method references
+        MethodRefs = Metadata.metadataUsageDic[(uint)MetadataUsageType.MethodDef]
+            .Select(kvp => new MetadataUsage(MetadataUsageType.MethodDef, Binary.GetRawMetadataUsage(kvp.Key), kvp.Value, this))
+            .ToList();
+
+        //Field references
+        FieldRefs = Metadata.metadataUsageDic[(uint)MetadataUsageType.FieldInfo]
+            .Select(kvp => new MetadataUsage(MetadataUsageType.FieldInfo, Binary.GetRawMetadataUsage(kvp.Key), kvp.Value, this))
+            .ToList();
+
+        //Literals
+        Literals = Metadata.metadataUsageDic[(uint)MetadataUsageType.StringLiteral]
+            .Select(kvp => new MetadataUsage(MetadataUsageType.StringLiteral, Binary.GetRawMetadataUsage(kvp.Key), kvp.Value, this)).ToList();
+
+        //Generic method references
+        foreach (var (metadataUsageIdx, methodSpecIdx) in Metadata.metadataUsageDic[(uint)MetadataUsageType.MethodRef]) //kIl2CppMetadataUsageMethodRef
+        {
+            MethodRefs.Add(new MetadataUsage(MetadataUsageType.MethodRef, Binary.GetRawMetadataUsage(metadataUsageIdx), methodSpecIdx, this));
+        }
+
+        foreach (var globalIdentifier in TypeRefs)
+            TypeRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
+
+        foreach (var globalIdentifier in MethodRefs)
+            MethodRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
+
+        foreach (var globalIdentifier in FieldRefs)
+            FieldRefsByAddress[globalIdentifier.Offset] = globalIdentifier;
+
+        foreach (var globalIdentifier in Literals)
+            LiteralsByAddress[globalIdentifier.Offset] = globalIdentifier;
+    }
+
+    public MetadataUsage? CheckForPost27GlobalAt(ulong address)
+    {
+        if (!Binary.TryMapVirtualAddressToRaw(address, out var raw) || raw >= Binary.RawLength)
+            return null;
+
+        var encoded = Binary.ReadPointerAtVirtualAddress(address);
+        var metadataUsage = MetadataUsage.DecodeMetadataUsage(encoded, address, this);
+
+        if (metadataUsage?.IsValid != true)
+            return null;
+
+        return metadataUsage;
+    }
+
     public MetadataUsage? GetAnyGlobalByAddress(ulong address)
     {
-        if (MetadataVersion >= 27f)
-            return LibCpp2IlGlobalMapper.CheckForPost27GlobalAt(address);
+        if (Metadata.MetadataVersion >= 27f)
+            return CheckForPost27GlobalAt(address);
 
         var glob = GetLiteralGlobalByAddress(address);
         glob ??= GetMethodGlobalByAddress(address);
@@ -44,7 +130,7 @@ public sealed class LibCpp2IlContext
     }
 
     public MetadataUsage? GetLiteralGlobalByAddress(ulong address)
-        => MetadataVersion < 27f ? LibCpp2IlGlobalMapper.LiteralsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
+        => Metadata.MetadataVersion < 27f ? LiteralsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
 
     public string? GetLiteralByAddress(ulong address)
     {
@@ -56,7 +142,7 @@ public sealed class LibCpp2IlContext
     }
 
     public MetadataUsage? GetRawTypeGlobalByAddress(ulong address)
-        => MetadataVersion < 27f ? LibCpp2IlGlobalMapper.TypeRefsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
+        => Metadata.MetadataVersion < 27f ? TypeRefsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
 
     public Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address)
     {
@@ -69,13 +155,13 @@ public sealed class LibCpp2IlContext
     }
 
     public MetadataUsage? GetRawFieldGlobalByAddress(ulong address)
-        => MetadataVersion < 27f ? LibCpp2IlGlobalMapper.FieldRefsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
+        => Metadata.MetadataVersion < 27f ? FieldRefsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
 
     public Il2CppFieldDefinition? GetFieldGlobalByAddress(ulong address)
         => GetRawFieldGlobalByAddress(address)?.AsField();
 
     public MetadataUsage? GetMethodGlobalByAddress(ulong address)
-        => MetadataVersion < 27f ? LibCpp2IlGlobalMapper.MethodRefsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
+        => Metadata.MetadataVersion < 27f ? MethodRefsByAddress.GetOrDefault(address) : GetAnyGlobalByAddress(address);
 
     public Il2CppMethodDefinition? GetMethodDefinitionByGlobalAddress(ulong address)
     {

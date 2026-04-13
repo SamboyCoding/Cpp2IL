@@ -1,5 +1,3 @@
-using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using LibCpp2IL.BinaryStructures;
@@ -32,17 +30,17 @@ public class Il2CppMethodDefinition : ReadableClass
 
     public bool IsStatic => (Attributes & MethodAttributes.Static) != 0;
 
-    public Il2CppVariableWidthIndex<Il2CppMethodDefinition> MethodIndex => LibCpp2IlReflection.GetMethodIndexFromMethod(this);
+    public Il2CppVariableWidthIndex<Il2CppMethodDefinition> MethodIndex => OwningContext.ReflectionCache.GetMethodIndexFromMethod(this);
 
     public string? Name { get; private set; }
 
     public string? GlobalKey => DeclaringType == null ? null : DeclaringType.Name + "." + Name + "()";
 
-    public Il2CppType? RawReturnType => LibCpp2IlMain.Binary?.GetType(returnTypeIdx);
+    public Il2CppType? RawReturnType => OwningContext.Binary.GetType(returnTypeIdx);
 
-    public Il2CppTypeReflectionData? ReturnType => LibCpp2IlMain.Binary == null ? null : LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary.GetType(returnTypeIdx));
+    public Il2CppTypeReflectionData? ReturnType => LibCpp2ILUtils.GetTypeReflectionData(OwningContext.Binary.GetType(returnTypeIdx));
 
-    public Il2CppTypeDefinition? DeclaringType => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetTypeDefinitionFromIndex(declaringTypeIdx);
+    public Il2CppTypeDefinition? DeclaringType => OwningContext.Metadata.GetTypeDefinitionFromIndex(declaringTypeIdx);
 
     private ulong? _methodPointer = null;
 
@@ -52,32 +50,32 @@ public class Il2CppMethodDefinition : ReadableClass
         {
             if (!_methodPointer.HasValue)
             {
-                if (LibCpp2IlMain.Binary == null || LibCpp2IlMain.TheMetadata == null || DeclaringType == null)
+                if (DeclaringType == null)
                 {
-                    LibLogger.WarnNewline($"Couldn't get method pointer for {Name}. Binary is {LibCpp2IlMain.Binary}, Meta is {LibCpp2IlMain.TheMetadata}, DeclaringType is {DeclaringType}");
+                    LibLogger.WarnNewline($"Couldn't get method pointer for {Name}. DeclaringType is null");
                     return 0;
                 }
 
                 var asmIdx = 0; //Not needed pre-24.2
-                if (LibCpp2IlMain.MetadataVersion >= 27)
+                if (MetadataVersion >= 27)
                 {
-                    asmIdx = LibCpp2IlMain.Binary.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
+                    asmIdx = OwningContext.Binary.GetCodegenModuleIndexByName(DeclaringType!.DeclaringAssembly!.Name!);
                 }
-                else if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+                else if (MetadataVersion >= 24.2f)
                 {
                     asmIdx = DeclaringType!.DeclaringAssembly!.assemblyIndex;
                 }
 
-                _methodPointer = LibCpp2IlMain.Binary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
+                _methodPointer = OwningContext.Binary.GetMethodPointer(methodIndex, MethodIndex, asmIdx, token);
             }
 
             return _methodPointer.Value;
         }
     }
 
-    public long MethodOffsetInFile => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
+    public long MethodOffsetInFile => MethodPointer == 0 ? 0 : OwningContext.Binary.TryMapVirtualAddressToRaw(MethodPointer, out var ret) ? ret : 0;
 
-    public ulong Rva => MethodPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRva(MethodPointer);
+    public ulong Rva => MethodPointer == 0 ? 0 : OwningContext.Binary.GetRva(MethodPointer);
 
     public string? HumanReadableSignature => ReturnType == null || Parameters == null || Name == null ? null : $"{ReturnType} {Name}({string.Join(", ", Parameters.AsEnumerable())})";
 
@@ -85,9 +83,6 @@ public class Il2CppMethodDefinition : ReadableClass
     {
         get
         {
-            if (LibCpp2IlMain.TheMetadata == null || LibCpp2IlMain.Binary == null)
-                return null;
-
             if (parameterStart.IsNull || parameterCount == 0)
                 return [];
 
@@ -95,7 +90,7 @@ public class Il2CppMethodDefinition : ReadableClass
 
             for (var i = 0; i < parameterCount; i++)
             {
-                ret[i] = LibCpp2IlMain.TheMetadata.GetParameterDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(parameterStart.Value + i));
+                ret[i] = OwningContext.Metadata.GetParameterDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(parameterStart.Value + i));
             }
 
             return ret;
@@ -104,7 +99,7 @@ public class Il2CppMethodDefinition : ReadableClass
 
     public Il2CppType[]? InternalParameterTypes => InternalParameterData == null
         ? null
-        : InternalParameterData.Select(paramDef => LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex))
+        : InternalParameterData.Select(paramDef => OwningContext.Binary.GetType(paramDef.typeIndex))
             .ToArray();
 
     private Il2CppParameterReflectionData[]? _cachedParameters;
@@ -118,18 +113,18 @@ public class Il2CppMethodDefinition : ReadableClass
                 _cachedParameters = InternalParameterData
                     .Select((paramDef, idx) =>
                     {
-                        var paramType = LibCpp2IlMain.Binary!.GetType(paramDef.typeIndex);
+                        var paramType = OwningContext.Binary.GetType(paramDef.typeIndex);
                         var paramFlags = (ParameterAttributes)paramType.Attrs;
                         var paramDefaultData = (paramFlags & ParameterAttributes.HasDefault) != 0 
-                            ? LibCpp2IlMain.TheMetadata!.GetParameterDefaultValueFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(parameterStart.Value + idx)) //DynamicWidth: value is computed so temp usage is ok
+                            ? OwningContext.Metadata.GetParameterDefaultValueFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(parameterStart.Value + idx)) //DynamicWidth: value is computed so temp usage is ok
                             : null;
                         return new Il2CppParameterReflectionData
                         {
                             Type = LibCpp2ILUtils.GetTypeReflectionData(paramType)!,
-                            ParameterName = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(paramDef.nameIndex),
+                            ParameterName = OwningContext.Metadata.GetStringFromIndex(paramDef.nameIndex),
                             Attributes = paramFlags,
                             RawType = paramType,
-                            DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex),
+                            DefaultValue = paramDefaultData == null ? null : LibCpp2ILUtils.GetDefaultValue(paramDefaultData.dataIndex, paramDefaultData.typeIndex, OwningContext),
                             ParameterIndex = idx,
                         };
                     }).ToArray();
@@ -139,7 +134,7 @@ public class Il2CppMethodDefinition : ReadableClass
         }
     }
 
-    public Il2CppGenericContainer? GenericContainer => genericContainerIndex.IsNull ? null : LibCpp2IlMain.TheMetadata?.GetGenericContainerFromIndex(genericContainerIndex);
+    public Il2CppGenericContainer? GenericContainer => genericContainerIndex.IsNull ? null : OwningContext.Metadata.GetGenericContainerFromIndex(genericContainerIndex);
     
     public bool IsUnmanagedCallersOnly => (iflags & 0xF000) != 0;
     
@@ -147,9 +142,6 @@ public class Il2CppMethodDefinition : ReadableClass
 
     public override string? ToString()
     {
-        if (LibCpp2IlMain.TheMetadata == null)
-            return base.ToString();
-
         return $"Il2CppMethodDefinition[Name='{Name}', ReturnType={ReturnType}, DeclaringType={DeclaringType}]";
     }
 

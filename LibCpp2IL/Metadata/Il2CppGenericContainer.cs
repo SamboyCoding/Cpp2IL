@@ -27,7 +27,7 @@ public class Il2CppGenericContainer : ReadableClass
             for (var i = 0; i < genericParameterCount; i++)
             {
                 var index = Il2CppVariableWidthIndex<Il2CppGenericParameter>.MakeTemporaryForFixedWidthUsage(genericParameterStart.Value + i); //DynWidth: computed, not read, so temp is fine
-                var p = LibCpp2IlMain.TheMetadata!.GetGenericParameterFromIndex(index);
+                var p = OwningContext.Metadata.GetGenericParameterFromIndex(index);
                 p.Index = index;
                 Debug.Assert(p.genericParameterIndexInOwner == i);
                 yield return p;
@@ -36,10 +36,10 @@ public class Il2CppGenericContainer : ReadableClass
     }
 
     //DynWidth: ownerIndex is always int, so making temp is ok
-    public Il2CppTypeDefinition? TypeOwner => isGenericMethod ? null : LibCpp2IlMain.TheMetadata!.GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage(ownerIndex));
+    public Il2CppTypeDefinition? TypeOwner => isGenericMethod ? null : OwningContext.Metadata.GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage(ownerIndex));
 
     //DynWidth: ownerIndex is always int, so making temp is ok
-    public Il2CppMethodDefinition? MethodOwner => isGenericMethod ? LibCpp2IlMain.TheMetadata!.GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(ownerIndex)) : null;
+    public Il2CppMethodDefinition? MethodOwner => isGenericMethod ? OwningContext.Metadata.GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(ownerIndex)) : null;
 
     public Il2CppTypeDefinition? DeclaringType => TypeOwner ?? MethodOwner?.DeclaringType;
 

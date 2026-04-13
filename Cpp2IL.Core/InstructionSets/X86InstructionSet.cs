@@ -5,7 +5,6 @@ using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
-using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
@@ -33,7 +32,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         }
     }
 
-    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator);
+    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator, context.AppContext.Binary);
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new X86KeyFunctionAddresses();
 
@@ -41,7 +40,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     {
         lock (Formatter)
         {
-            var insns = X86Utils.Iterate(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false), context.UnderlyingPointer);
+            var insns = X86Utils.Iterate(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false, context.AppContext.Binary), context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
 
             return string.Join("\n", insns.Select(FormatInstructionInternal));
         }

@@ -52,7 +52,10 @@ public abstract class BaseKeyFunctionAddresses
 
     public IEnumerable<KeyValuePair<string, ulong>> Pairs => resolvedAddressMap;
 
-    private ApplicationAnalysisContext _appContext = null!; //Always initialized before used
+    protected ApplicationAnalysisContext _appContext = null!; //Always initialized before used
+
+    protected LibCpp2IlReflectionCache ReflectionCache =>
+        _appContext.LibCpp2IlContext.ReflectionCache;
 
     private readonly Dictionary<string, ulong> resolvedAddressMap = [];
     private readonly HashSet<ulong> resolvedAddressSet = [];
@@ -124,14 +127,14 @@ public abstract class BaseKeyFunctionAddresses
         //Exception.get_Message() - first call is either to codegen_initialize_method (< v27) or codegen_initialize_runtime_metadata
         Logger.VerboseNewline("\tLooking for Type System.Exception, Method get_Message...");
 
-        var type = LibCpp2IlReflection.GetType("Exception", "System")!;
+        var type = ReflectionCache.GetType("Exception", "System")!;
         Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
         var targetMethod = type.Methods!.FirstOrDefault(m => m.Name == "get_Message");
         if (targetMethod != null) //Check struct contains valid data 
         {
             Logger.VerboseNewline($"\t\tTarget Method Located at {targetMethod.MethodPointer}. Taking first CALL as the (version-specific) metadata initialization function...");
 
-            var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.MethodPointer, false);
+            var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.MethodPointer, false, _appContext.Binary);
             var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
 
             if (calls.Count == 0)
@@ -294,6 +297,7 @@ public abstract class BaseKeyFunctionAddresses
 
     protected virtual void Init(ApplicationAnalysisContext context)
     {
+        _appContext = context;
     }
 
     private void InitializeResolvedAddresses()

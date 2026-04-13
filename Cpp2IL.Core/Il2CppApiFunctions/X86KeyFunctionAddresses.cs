@@ -1,12 +1,9 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Iced.Intel;
-using LibCpp2IL;
-using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Il2CppApiFunctions;
 
@@ -18,8 +15,9 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     {
         if (_cachedDisassembledBytes == null)
         {
-            var toDisasm = LibCpp2IlMain.Binary!.GetEntirePrimaryExecutableSection();
-            _cachedDisassembledBytes = X86Utils.Disassemble(toDisasm, LibCpp2IlMain.Binary.GetVirtualAddressOfPrimaryExecutableSection());
+            var binary = _appContext.Binary;
+            var toDisasm = binary.GetEntirePrimaryExecutableSection();
+            _cachedDisassembledBytes = X86Utils.Disassemble(toDisasm, binary.GetVirtualAddressOfPrimaryExecutableSection(), binary.is32Bit);
         }
 
         return _cachedDisassembledBytes;
@@ -45,13 +43,14 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
             if (addressesToIgnore.Contains(matchingJmp.IP)) continue;
 
             //Find this instruction in the raw file
-            var offsetInPe = (ulong)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(matchingJmp.IP);
-            if (offsetInPe == 0 || offsetInPe == (ulong)(LibCpp2IlMain.Binary!.RawLength - 1))
+            var binary = _appContext.Binary;
+            var offsetInPe = (ulong)binary.MapVirtualAddressToRaw(matchingJmp.IP);
+            if (offsetInPe == 0 || offsetInPe == (ulong)(binary.RawLength - 1))
                 continue;
 
             //get next and previous bytes
-            var previousByte = LibCpp2IlMain.Binary.GetByteAtRawAddress(offsetInPe - 1);
-            var nextByte = LibCpp2IlMain.Binary.GetByteAtRawAddress(offsetInPe + (ulong)matchingJmp.Length);
+            var previousByte = binary.GetByteAtRawAddress(offsetInPe - 1);
+            var nextByte = binary.GetByteAtRawAddress(offsetInPe + (ulong)matchingJmp.Length);
 
             //Double-cc = thunk
             if (previousByte == 0xCC && nextByte == 0xCC)
@@ -68,7 +67,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
                         //Move to next jmp
                         break;
 
-                    if (LibCpp2IlMain.Binary!.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
+                    if (binary.GetByteAtRawAddress(offsetInPe - backtrack) == 0xCC)
                     {
                         yield return matchingJmp.IP - (backtrack - 1);
                         break;
@@ -81,7 +80,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
     protected override ulong GetObjectIsInstFromSystemType()
     {
         Logger.Verbose("\tTrying to use System.Type::IsInstanceOfType to find il2cpp::vm::Object::IsInst...");
-        var typeIsInstanceOfType = LibCpp2IlReflection.GetType("Type", "System")?.Methods?.FirstOrDefault(m => m.Name == "IsInstanceOfType");
+        var typeIsInstanceOfType = ReflectionCache.GetType("Type", "System")?.Methods?.FirstOrDefault(m => m.Name == "IsInstanceOfType");
         if (typeIsInstanceOfType == null)
         {
             Logger.VerboseNewline("Type or method not found, aborting.");
@@ -94,7 +93,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
         //The last call is to Object::IsInst
 
         Logger.Verbose($"IsInstanceOfType found at 0x{typeIsInstanceOfType.MethodPointer:X}...");
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(typeIsInstanceOfType.MethodPointer, true);
+        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(typeIsInstanceOfType.MethodPointer, true, _appContext.Binary);
 
         var lastCall = instructions.LastOrDefault(i => i.Mnemonic == Mnemonic.Call);
 
@@ -110,7 +109,7 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
 
     protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
     {
-        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true);
+        var instructions = X86Utils.GetMethodBodyAtVirtAddressNew(thunkPtr, true, _appContext.Binary);
 
         var target = prioritiseCall ? Mnemonic.Call : Mnemonic.Jmp;
         var matchingCall = instructions.FirstOrDefault(i => i.Mnemonic == target);

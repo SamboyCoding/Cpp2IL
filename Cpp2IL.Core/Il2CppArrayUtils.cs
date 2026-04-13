@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL;
@@ -7,7 +7,7 @@ namespace Cpp2IL.Core;
 
 public static class Il2CppArrayUtils
 {
-    public static uint FirstItemOffset = (uint)(LibCpp2IlMain.Binary!.is32Bit ? 0x10 : 0x20);
+    public static uint GetFirstItemOffset(Il2CppBinary binary) => (uint)(binary.is32Bit ? 0x10 : 0x20);
     //32-bit:
     //0x0: klass ptr
     //0x4: monitor ptr
@@ -23,21 +23,21 @@ public static class Il2CppArrayUtils
         new UsefulOffset("length", 0x18, typeof(int), false)
     ];
 
-    public static string? GetOffsetName(uint offset)
+    public static string? GetOffsetName(uint offset, Il2CppBinary binary)
     {
-        var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
+        var is32Bit = binary.is32Bit;
 
         return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
     }
 
-    public static bool IsIl2cppLengthAccessor(uint offset)
+    public static bool IsIl2cppLengthAccessor(uint offset, Il2CppBinary binary)
     {
-        return GetOffsetName(offset) == "length";
+        return GetOffsetName(offset, binary) == "length";
     }
 
-    public static bool IsAtLeastFirstItemPtr(uint offset)
+    public static bool IsAtLeastFirstItemPtr(uint offset, Il2CppBinary binary)
     {
-        return offset >= FirstItemOffset;
+        return offset >= GetFirstItemOffset(binary);
     }
 
     public class UsefulOffset(string name, uint offset, Type type, bool is32Bit)

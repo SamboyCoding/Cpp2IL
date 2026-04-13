@@ -36,7 +36,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     /// </summary>
     public virtual ulong UnderlyingPointer => Definition?.MethodPointer ?? throw new("Subclasses of MethodAnalysisContext should override UnderlyingPointer");
 
-    public ulong Rva => UnderlyingPointer == 0 || LibCpp2IlMain.Binary == null ? 0 : LibCpp2IlMain.Binary.GetRva(UnderlyingPointer);
+    public ulong Rva => UnderlyingPointer == 0 ? 0 : AppContext.Binary.GetRva(UnderlyingPointer);
 
     /// <summary>
     /// The raw method body as machine code in the active instruction set.

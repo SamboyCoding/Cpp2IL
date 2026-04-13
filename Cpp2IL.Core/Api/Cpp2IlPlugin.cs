@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Cpp2IL.Core.Logging;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Api;

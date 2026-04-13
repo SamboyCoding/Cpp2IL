@@ -8,7 +8,6 @@ using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
 using StableNameDotNet.Providers;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -340,7 +339,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ICSh
             return GetSndnProviderForType(appContext, type.GetArrayElementType());
 
         if (type.Type.IsIl2CppPrimitive())
-            return appContext.ResolveContextForType(LibCpp2IlReflection.PrimitiveTypeDefinitions[type.Type])!;
+            return appContext.ResolveContextForType(appContext.LibCpp2IlContext.ReflectionCache.PrimitiveTypeDefinitions[type.Type])!;
 
         return appContext.ResolveContextForType(type.AsClass())!;
     }

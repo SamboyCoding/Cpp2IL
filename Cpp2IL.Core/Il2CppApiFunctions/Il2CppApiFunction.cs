@@ -1,5 +1,3 @@
-﻿using System;
-
 namespace Cpp2IL.Core.Il2CppApiFunctions;
 
 public class Il2CppApiFunction

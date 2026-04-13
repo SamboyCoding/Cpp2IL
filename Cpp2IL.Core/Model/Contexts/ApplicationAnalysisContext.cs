@@ -23,12 +23,12 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// <summary>
     /// The IL2CPP binary file this application was loaded from
     /// </summary>
-    public Il2CppBinary Binary;
+    public Il2CppBinary Binary => LibCpp2IlContext.Binary;
 
     /// <summary>
     /// The IL2CPP global-metadata file this application was loaded from.
     /// </summary>
-    public Il2CppMetadata Metadata;
+    public Il2CppMetadata Metadata => LibCpp2IlContext.Metadata;
 
     /// <summary>
     /// The version of the IL2CPP metadata file this application was loaded from.
@@ -39,6 +39,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// The Unity version this application was compiled with.
     /// </summary>
     public UnityVersion UnityVersion => Metadata.UnityVersion;
+
+    /// <summary>
+    /// The LibCpp2IlContext instance which this ApplicationAnalysisContext belongs to, containing the binary and metadata files that this application was loaded from.
+    /// </summary>
+    public LibCpp2IlContext LibCpp2IlContext;
 
     /// <summary>
     /// The instruction set helper class associated with the instruction set that this application was compiled with.
@@ -82,18 +87,17 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
     private readonly Dictionary<Il2CppImageDefinition, AssemblyAnalysisContext> AssembliesByImageDefinition = new();
 
-    public ApplicationAnalysisContext(Il2CppBinary binary, Il2CppMetadata metadata)
+    public ApplicationAnalysisContext(LibCpp2IlContext context)
     {
-        Binary = binary;
-        Metadata = metadata;
+        LibCpp2IlContext = context;
 
         try
         {
-            InstructionSet = InstructionSetRegistry.GetInstructionSet(binary.InstructionSetId);
+            InstructionSet = InstructionSetRegistry.GetInstructionSet(context.Binary.InstructionSetId);
         }
         catch (Exception)
         {
-            throw new InstructionSetHandlerNotRegisteredException(binary.InstructionSetId);
+            throw new InstructionSetHandlerNotRegisteredException(context.Binary.InstructionSetId);
         }
 
         Logger.VerboseNewline("\tUsing instruction set handler: " + InstructionSet.GetType().FullName);
@@ -108,7 +112,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         }
 
         SystemTypes = new(this);
-        
+
         MiscUtils.InitFunctionStarts(this);
 
         PopulateMethodsByAddressTable();

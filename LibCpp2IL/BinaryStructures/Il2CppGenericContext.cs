@@ -2,9 +2,6 @@ namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppGenericContext : ReadableClass
 {
-    // Populated by the caller after reading.
-    internal Il2CppBinary? OwningBinary { get; set; }
-
     /* The instantiation corresponding to the class generic parameters */
     public ulong class_inst;
 
@@ -16,11 +13,7 @@ public class Il2CppGenericContext : ReadableClass
         get
         {
             if (class_inst == 0) return null;
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            if (binary == null) return null;
-            var inst = binary.ReadReadableAtVirtualAddress<Il2CppGenericInst>(class_inst);
-            inst.OwningBinary = binary;
-            return inst;
+            return OwningContext.Binary.ReadReadableAtVirtualAddress<Il2CppGenericInst>(class_inst);
         }
     }
 
@@ -29,11 +22,7 @@ public class Il2CppGenericContext : ReadableClass
         get
         {
             if (method_inst == 0) return null;
-            var binary = OwningBinary ?? LibCpp2IlMain.Binary;
-            if (binary == null) return null;
-            var inst = binary.ReadReadableAtVirtualAddress<Il2CppGenericInst>(method_inst);
-            inst.OwningBinary = binary;
-            return inst;
+            return OwningContext.Binary.ReadReadableAtVirtualAddress<Il2CppGenericInst>(method_inst);
         }
     }
 

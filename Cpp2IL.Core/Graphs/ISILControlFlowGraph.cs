@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Text;
 using Cpp2IL.Core.ISIL;
 
 namespace Cpp2IL.Core.Graphs;

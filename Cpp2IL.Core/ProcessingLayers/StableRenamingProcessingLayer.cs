@@ -5,7 +5,6 @@ using System.Reflection;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
-using LibCpp2IL;
 using StableNameDotNet;
 
 namespace Cpp2IL.Core.ProcessingLayers;

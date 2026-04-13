@@ -1,6 +1,3 @@
-﻿using System;
-using System.Globalization;
-
 namespace Cpp2IL.Core.ISIL;
 
 public readonly struct IsilVectorRegisterElementOperand(

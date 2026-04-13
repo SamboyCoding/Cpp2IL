@@ -55,6 +55,11 @@ public class Il2CppMetadata : ClassReadingBinaryReader
 
     public int[] referencedAssemblies;
 
+    /// <summary>
+    /// Set by <see cref="LibCpp2IlContextBuilder"/> after construction.
+    /// </summary>
+    public LibCpp2IlContext OwningContext { get; internal set; }
+
     private readonly Dictionary<Il2CppVariableWidthIndex<Il2CppFieldDefinition>, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new();
     private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new();
     
@@ -429,6 +434,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             }
 
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
             _hasFinishedInitialRead = true;
         }
         finally
@@ -450,6 +456,40 @@ public class Il2CppMetadata : ClassReadingBinaryReader
         }
     }
 #pragma warning restore 8618
+
+    internal void SetOwningContext(LibCpp2IlContext context)
+    {
+        OwningContext = context;
+
+        SetOwningContext(imageDefinitions, context);
+        SetOwningContext(AssemblyDefinitions, context);
+        SetOwningContext(typeDefs, context);
+        SetOwningContext(interfaceOffsets, context);
+        SetOwningContext(methodDefs, context);
+        SetOwningContext(parameterDefs, context);
+        SetOwningContext(fieldDefs, context);
+        SetOwningContext(fieldDefaultValues, context);
+        SetOwningContext(parameterDefaultValues, context);
+        SetOwningContext(propertyDefs, context);
+        SetOwningContext(eventDefs, context);
+        SetOwningContext(genericContainers, context);
+        SetOwningContext(genericParameters, context);
+        SetOwningContext(stringLiterals, context);
+        SetOwningContext(fieldRefs, context);
+
+        if (RgctxDefinitions != null)
+            SetOwningContext(RgctxDefinitions, context);
+
+        // Set on sub-objects not directly in arrays
+        foreach (var asm in AssemblyDefinitions)
+            asm.AssemblyName.OwningContext = context;
+    }
+
+    private static void SetOwningContext<T>(T[] items, LibCpp2IlContext context) where T : ReadableClass
+    {
+        foreach (var item in items)
+            item.OwningContext = context;
+    }
 
     private T[] ReadMetadataClassArray<T>(Il2CppGlobalMetadataSectionHeader section) where T : ReadableClass, new()
     {
@@ -551,7 +591,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     public (Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> ptr, Il2CppVariableWidthIndex<Il2CppType> type) GetFieldDefaultValue(Il2CppVariableWidthIndex<Il2CppFieldDefinition> fieldIdx)
     {
         var fieldDef = GetFieldDefinitionFromIndex(fieldIdx);
-        var fieldType = LibCpp2IlMain.Binary!.GetType(fieldDef.typeIndex);
+        var fieldType = OwningContext.Binary.GetType(fieldDef.typeIndex);
         if ((fieldType.Attrs & (int)FieldAttributes.HasFieldRVA) != 0)
         {
             var fieldDefault = GetFieldDefaultValueFromIndex(fieldIdx);

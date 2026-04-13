@@ -15,6 +15,7 @@ public sealed class LibCpp2IlContextBuilder
             AllowManualMetadataAndCodeRegInput = LibCpp2IlMain.Settings.AllowManualMetadataAndCodeRegInput,
             DisableMethodPointerMapping = LibCpp2IlMain.Settings.DisableMethodPointerMapping,
             DisableGlobalResolving = LibCpp2IlMain.Settings.DisableGlobalResolving,
+            MetadataFixupFunc = LibCpp2IlMain.Settings.MetadataFixupFunc
         });
 
     private bool _metadataLoaded;
@@ -30,11 +31,8 @@ public sealed class LibCpp2IlContextBuilder
         {
             metadata = Il2CppMetadata.ReadFrom(metadataBytes, unityVersion);
         }
-        catch (Exception e)
+        catch (Exception e) when (_context.Settings.MetadataFixupFunc is { } fixupFunc)
         {
-            if (LibCpp2IlMain.Settings.MetadataFixupFunc is not { } fixupFunc)
-                throw;
-
             try
             {
                 LibLogger.WarnNewline("Metadata read failed, but a fixup function is registered. Calling fixup function and then will attempt to read again...");
@@ -54,17 +52,15 @@ public sealed class LibCpp2IlContextBuilder
             }
         }
 
-        _context.Metadata = metadata;
-
-        _context.Il2CppTypeHasNumMods5Bits = metadata.MetadataVersion >= 27.2f;
-
         LibLogger.InfoNewline($"Initialized Metadata in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
 
-        // Legacy/static API compatibility: some in-binary structures still resolve via LibCpp2IlMain.Binary/TheMetadata
-        // during binary initialization, so we must set metadata defaults before initializing the binary.
-        LibCpp2IlMain.TheMetadata = metadata;
-        LibCpp2IlMain.DefaultContext = _context;
-        LibCpp2IlMain.Il2CppTypeHasNumMods5Bits = _context.Il2CppTypeHasNumMods5Bits;
+        LoadMetadata(metadata);
+    }
+
+    public void LoadMetadata(Il2CppMetadata metadata)
+    {
+        _context.Metadata = metadata;
+        metadata.SetOwningContext(_context);
 
         _metadataLoaded = true;
     }
@@ -74,10 +70,7 @@ public sealed class LibCpp2IlContextBuilder
         if (!_metadataLoaded)
             throw new InvalidOperationException("Metadata must be loaded before the binary can be loaded.");
 
-        var bin = _context.Binary = LibCpp2IlBinaryRegistry.CreateAndInit(binaryBytes, _context.Metadata);
-
-        // Complete legacy/static initialization now that the binary exists.
-        LibCpp2IlMain.Binary = bin;
+        LibCpp2IlBinaryRegistry.CreateAndInit(binaryBytes, _context);
 
         _binaryLoaded = true;
     }
@@ -87,12 +80,7 @@ public sealed class LibCpp2IlContextBuilder
         if (!_metadataLoaded)
             throw new InvalidOperationException("Metadata must be loaded before the binary can be loaded.");
 
-        binary.Init(_context.Metadata);
-
-        _context.Binary = binary;
-
-        // Complete legacy/static initialization now that the binary exists.
-        LibCpp2IlMain.Binary = binary;
+        binary.Init(_context);
 
         _binaryLoaded = true;
     }
@@ -105,18 +93,19 @@ public sealed class LibCpp2IlContextBuilder
         if (!_binaryLoaded)
             throw new InvalidOperationException("Binary must be loaded before context can be built.");
 
-        DateTime start;
-        if (!_context.Settings.DisableGlobalResolving && _context.MetadataVersion < 27)
+        _context.ReflectionCache.Init(_context);
+
+        if (!_context.Settings.DisableGlobalResolving && _context.Metadata.MetadataVersion < 27)
         {
-            start = DateTime.Now;
+            var start = DateTime.Now;
             LibLogger.Info("Mapping Globals...");
-            LibCpp2IlGlobalMapper.MapGlobalIdentifiers(_context.Metadata, _context.Binary);
+            _context.MapGlobalIdentifiers();
             LibLogger.InfoNewline($"OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
         }
 
         if (!_context.Settings.DisableMethodPointerMapping)
         {
-            start = DateTime.Now;
+            var start = DateTime.Now;
             LibLogger.Info("Mapping pointers to Il2CppMethodDefinitions...");
             foreach (var (method, ptr) in _context.Metadata.methodDefs.Select(method => (method, ptr: method.MethodPointer)))
             {
@@ -128,8 +117,6 @@ public sealed class LibCpp2IlContextBuilder
 
             LibLogger.InfoNewline($"Processed {_context.Metadata.methodDefs.Length} OK ({(DateTime.Now - start).TotalMilliseconds:F0}ms)");
         }
-
-        _context.ReflectionCache.Init(_context);
 
         return _context;
     }
@@ -149,11 +136,6 @@ public sealed class LibCpp2IlContextBuilder
         var metadataBytes = File.ReadAllBytes(metadataPath);
         var peBytes = File.ReadAllBytes(pePath);
 
-        LibCpp2IlContextBuilder builder = new();
-
-        builder.LoadMetadata(metadataBytes, unityVersion);
-        builder.LoadBinary(peBytes);
-
-        return builder.Build();
+        return Build(peBytes, metadataBytes, unityVersion);
     }
 }

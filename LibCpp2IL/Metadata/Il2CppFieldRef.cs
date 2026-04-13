@@ -10,11 +10,11 @@ public class Il2CppFieldRef : ReadableClass
     public Il2CppVariableWidthIndex<Il2CppType> typeIndex;
     public Il2CppVariableWidthIndex<Il2CppFieldDefinition> fieldIndex; // local offset into type fields
 
-    public Il2CppType? DeclaringType => LibCpp2IlMain.Binary?.GetType(typeIndex);
+    public Il2CppType? DeclaringType => OwningContext.Binary.GetType(typeIndex);
 
-    public Il2CppTypeDefinition? DeclaringTypeDefinition => LibCpp2IlMain.TheMetadata?.GetTypeDefinitionFromIndex(DeclaringType!.Data.ClassIndex);
+    public Il2CppTypeDefinition? DeclaringTypeDefinition => OwningContext.Metadata.GetTypeDefinitionFromIndex(DeclaringType!.Data.ClassIndex);
 
-    public Il2CppFieldDefinition? FieldDefinition => LibCpp2IlMain.TheMetadata?.GetFieldDefinitionFromIndex(DeclaringTypeDefinition!.FirstFieldIdx + fieldIndex);
+    public Il2CppFieldDefinition? FieldDefinition => OwningContext.Metadata.GetFieldDefinitionFromIndex(DeclaringTypeDefinition!.FirstFieldIdx + fieldIndex);
 
     public override void Read(ClassReadingBinaryReader reader)
     {

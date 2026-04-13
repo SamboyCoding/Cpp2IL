@@ -15,14 +15,14 @@ public class Il2CppGenericParameter : ReadableClass
 
     public GenericParameterAttributes Attributes => (GenericParameterAttributes)flags;
 
-    public string? Name => LibCpp2IlMain.TheMetadata?.GetStringFromIndex(nameIndex);
+    public string? Name => OwningContext.Metadata.GetStringFromIndex(nameIndex);
 
     public Il2CppType[] ConstraintTypes => constraintsCount == 0
         ? []
-        : LibCpp2IlMain.TheMetadata!.constraintIndices
+        : OwningContext.Metadata.constraintIndices
             .Skip(constraintsStart)
             .Take(constraintsCount)
-            .Select(LibCpp2IlMain.Binary!.GetType)
+            .Select(OwningContext.Binary.GetType)
             .ToArray();
 
     /// <summary>
@@ -30,7 +30,7 @@ public class Il2CppGenericParameter : ReadableClass
     /// </summary>
     public Il2CppVariableWidthIndex<Il2CppGenericParameter> Index { get; internal set; }
 
-    public Il2CppGenericContainer Owner => LibCpp2IlMain.TheMetadata!.GetGenericContainerFromIndex(ownerIndex);
+    public Il2CppGenericContainer Owner => OwningContext.Metadata.GetGenericContainerFromIndex(ownerIndex);
 
     public Il2CppTypeEnum Type => Owner.isGenericMethod ? Il2CppTypeEnum.IL2CPP_TYPE_MVAR : Il2CppTypeEnum.IL2CPP_TYPE_VAR;
 

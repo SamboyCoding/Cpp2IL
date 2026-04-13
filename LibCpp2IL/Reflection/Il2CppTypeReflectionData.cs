@@ -14,7 +14,7 @@ namespace LibCpp2IL.Reflection;
 /// <br/>
 /// Calling <see cref="ToString"/> on this object will return the canonical representation of this object, with generic params such as System.Collections.Generic.List`1&lt;T> or with concrete types, like in the case of a String's interfaces, <code>System.Collections.Generic.IEnumerable`1&lt;System.Char&gt;</code>
 /// </summary>
-public class Il2CppTypeReflectionData
+public class Il2CppTypeReflectionData(LibCpp2IlContext owningContext)
 {
     public Il2CppTypeDefinition? baseType;
     public Il2CppTypeReflectionData[] genericParams;
@@ -28,7 +28,7 @@ public class Il2CppTypeReflectionData
     public bool isPointer;
 #pragma warning restore 8618
 
-    public Il2CppGenericParameter? GenericParameter => isArray || isType ? null : LibCpp2IlMain.TheMetadata?.GetGenericParameterFromIndex(variableGenericParamIndex);
+    public Il2CppGenericParameter? GenericParameter => isArray || isType ? null : owningContext.Metadata.GetGenericParameterFromIndex(variableGenericParamIndex);
 
     private string GetPtrSuffix()
     {

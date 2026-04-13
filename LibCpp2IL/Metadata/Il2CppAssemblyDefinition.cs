@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 
 namespace LibCpp2IL.Metadata;
@@ -13,12 +12,12 @@ public class Il2CppAssemblyDefinition : ReadableClass
     public int ReferencedAssemblyCount;
     public Il2CppAssemblyNameDefinition AssemblyName = null!; //Late-read
 
-    public Il2CppImageDefinition Image => LibCpp2IlMain.TheMetadata!.imageDefinitions[ImageIndex];
+    public Il2CppImageDefinition Image => OwningContext.Metadata.imageDefinitions[ImageIndex];
 
     public Il2CppAssemblyDefinition[] ReferencedAssemblies => ReferencedAssemblyStart < 0
         ? []
-        : LibCpp2IlMain.TheMetadata!.referencedAssemblies.SubArray(ReferencedAssemblyStart, ReferencedAssemblyCount)
-            .Select(idx => LibCpp2IlMain.TheMetadata.AssemblyDefinitions[idx])
+        : OwningContext.Metadata.referencedAssemblies.SubArray(ReferencedAssemblyStart, ReferencedAssemblyCount)
+            .Select(idx => OwningContext.Metadata.AssemblyDefinitions[idx])
             .ToArray();
 
     public override string ToString() => AssemblyName.ToString();

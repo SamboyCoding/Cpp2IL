@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Cpp2IL.Core.Api;
-using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
@@ -15,10 +14,10 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
 {
     public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
-        if (ArmV7Utils.TryGetMethodBodyBytesFast(context.UnderlyingPointer, context is AttributeGeneratorMethodAnalysisContext) is { } ret)
+        if (ArmV7Utils.TryGetMethodBodyBytesFast(context.AppContext.Binary, context.UnderlyingPointer, context is AttributeGeneratorMethodAnalysisContext) is { } ret)
             return ret;
 
-        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
 
         return instructions.SelectMany(i => i.Bytes).ToArray();
     }
@@ -38,7 +37,7 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
     {
         var sb = new StringBuilder();
 
-        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
 
         var first = true;
         foreach (var instruction in instructions)

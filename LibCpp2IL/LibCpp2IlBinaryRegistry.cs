@@ -5,7 +5,6 @@ using System.Linq;
 using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
 using LibCpp2IL.MachO;
-using LibCpp2IL.Metadata;
 using LibCpp2IL.NintendoSwitch;
 using LibCpp2IL.Wasm;
 
@@ -49,7 +48,7 @@ public static class LibCpp2IlBinaryRegistry
         _binaries.Add(new(name, source, isValid, factory));
     }
 
-    internal static Il2CppBinary CreateAndInit(byte[] buffer, Il2CppMetadata metadata)
+    internal static Il2CppBinary CreateAndInit(byte[] buffer, LibCpp2IlContext context)
     {
         if (_binaries.Count == 0)
             RegisterBuiltInBinarySupport();
@@ -67,9 +66,7 @@ public static class LibCpp2IlBinaryRegistry
 
         var binary = match.FactoryFunc(memStream);
 
-        // NOTE: Do not write to LibCpp2IlMain.Binary here. The binary registry is global, but the loaded binary is per-context.
-        
-        binary.Init(metadata);
+        binary.Init(context);
 
         return binary;
     }

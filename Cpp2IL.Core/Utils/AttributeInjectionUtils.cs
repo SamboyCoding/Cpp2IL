@@ -6,7 +6,6 @@ using Cpp2IL.Core.Model;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Model.CustomAttributes;
 using LibCpp2IL.BinaryStructures;
-using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Utils;
 

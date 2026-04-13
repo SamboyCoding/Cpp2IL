@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
 

@@ -51,7 +51,7 @@ public static class Cpp2IlApi
         LibCpp2IlMain.Settings.MetadataFixupFunc = Cpp2IlPluginManager.MetadataFixupFuncs is { } funcs ? (originalBytes, version) =>
         {
             Logger.InfoNewline("Received request for metadata fixup from LibCpp2Il. Calling registered plugin fixup functions...");
-            
+
             foreach (var func in funcs)
             {
                 try
@@ -68,7 +68,7 @@ public static class Cpp2IlApi
                     Logger.ErrorNewline($"Metadata fixup function threw an exception: {e}. Ignoring and trying next fixup function, if any...");
                 }
             }
-            
+
             //only get here if every fixup function returns null or throws.
             return null;
         } : null;
@@ -85,20 +85,16 @@ public static class Cpp2IlApi
 
         ConfigureLib(allowUserToInputAddresses);
 
-#if !DEBUG
-            try
-            {
-#endif
-        if (!LibCpp2IlMain.LoadFromFile(assemblyPath, metadataPath, unityVersion))
-            throw new Exception("Initialization with LibCpp2Il failed");
-#if !DEBUG
-            }
-            catch (Exception e)
-            {
-                throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
-            }
-#endif
-        OnLibInitialized();
+        try
+        {
+            var context = LibCpp2IlMain.LoadFromFileAsContext(assemblyPath, metadataPath, unityVersion);
+            OnLibInitialized(context);
+        }
+        catch (Exception e)
+        {
+            throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
+        }
+
     }
 
     [MemberNotNull(nameof(CurrentAppContext))]
@@ -112,27 +108,24 @@ public static class Cpp2IlApi
 
         try
         {
-            if (!LibCpp2IlMain.Initialize(assemblyData, metadataData, unityVersion))
-                throw new Exception("Initialization with LibCpp2Il failed");
+            var context = LibCpp2IlMain.InitializeAsContext(assemblyData, metadataData, unityVersion);
+            OnLibInitialized(context);
         }
         catch (Exception e)
         {
             throw new LibCpp2ILInitializationException("Fatal Exception initializing LibCpp2IL!", e);
         }
-
-        OnLibInitialized();
     }
 
     [MemberNotNull(nameof(CurrentAppContext))]
-    private static void OnLibInitialized()
+    private static void OnLibInitialized(LibCpp2IlContext libContext)
     {
-        MiscUtils.Init();
-        LibCpp2IlMain.Binary!.AllCustomAttributeGenerators.ToList()
+        libContext.Binary.AllCustomAttributeGenerators.ToList()
             .ForEach(ptr => SharedState.AttributeGeneratorStarts.Add(ptr));
 
         var start = DateTime.Now;
         Logger.InfoNewline("Creating application model...");
-        CurrentAppContext = new(LibCpp2IlMain.Binary, LibCpp2IlMain.TheMetadata!);
+        CurrentAppContext = new(libContext);
         Logger.InfoNewline($"Application model created in {(DateTime.Now - start).TotalMilliseconds}ms");
     }
 
@@ -143,8 +136,6 @@ public static class Cpp2IlApi
         MiscUtils.Reset();
 
         AsmResolverUtils.Reset();
-
-        LibCpp2IlMain.Reset();
 
         CurrentAppContext = null;
     }
@@ -176,6 +167,6 @@ public static class Cpp2IlApi
 
     private static bool IsLibInitialized()
     {
-        return LibCpp2IlMain.Binary != null && LibCpp2IlMain.TheMetadata != null;
+        return CurrentAppContext != null;
     }
 }

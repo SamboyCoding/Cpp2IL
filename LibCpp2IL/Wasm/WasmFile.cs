@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Logging;
-using LibCpp2IL.Metadata;
 using WasmDisassembler;
 
 namespace LibCpp2IL.Wasm;

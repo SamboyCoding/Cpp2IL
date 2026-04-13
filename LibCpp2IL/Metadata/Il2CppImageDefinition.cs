@@ -19,13 +19,12 @@ public class Il2CppImageDefinition : ReadableClass
     [Version(Min = 24.1f)] public int customAttributeStart;
     [Version(Min = 24.1f)] public uint customAttributeCount;
 
-    public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+    public string? Name => OwningContext.Metadata.GetStringFromIndex(nameIndex);
 
-    public Il2CppTypeDefinition[]? Types => LibCpp2IlMain.TheMetadata == null ? null 
-        : Enumerable
+    public Il2CppTypeDefinition[]? Types => Enumerable
             .Range(firstTypeIndex.Value, (int)typeCount)
             .Select(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage) // DynWidth: using Enumerable.Range, not read from file, so making temp is ok
-            .Select(LibCpp2IlMain.TheMetadata.GetTypeDefinitionFromIndex)
+            .Select(OwningContext.Metadata.GetTypeDefinitionFromIndex)
             .ToArray();
 
     public override string ToString()

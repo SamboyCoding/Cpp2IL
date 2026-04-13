@@ -23,8 +23,8 @@ public class Il2CppAssemblyNameDefinition : ReadableClass
     public int revision;
     public ulong publicKeyToken;
 
-    public string Name => LibCpp2IlMain.TheMetadata!.GetStringFromIndex(nameIndex);
-    public string Culture => LibCpp2IlMain.TheMetadata!.GetStringFromIndex(cultureIndex);
+    public string Name => OwningContext.Metadata.GetStringFromIndex(nameIndex);
+    public string Culture => OwningContext.Metadata.GetStringFromIndex(cultureIndex);
 
     public byte[]? PublicKey
     {
@@ -40,12 +40,12 @@ public class Il2CppAssemblyNameDefinition : ReadableClass
                 // 2019.4.15 until 2020 (24.4)
                 // 2020.1.11 until 2020.2.0 (24.4)
                 // 2020.2.0b7 and later (27+)
-                var result = LibCpp2IlMain.TheMetadata!.GetByteArrayFromIndex(publicKeyIndex);
+                var result = OwningContext.Metadata.GetByteArrayFromIndex(publicKeyIndex);
                 return result.Length == 0 ? null : result;
             }
             else
             {
-                var str = LibCpp2IlMain.TheMetadata!.GetStringFromIndex(publicKeyIndex);
+                var str = OwningContext.Metadata.GetStringFromIndex(publicKeyIndex);
 
                 if (str is "NULL")
                     return null; // No public key
@@ -141,7 +141,7 @@ public class Il2CppAssemblyNameDefinition : ReadableClass
         }
     }
 
-    public string HashValue => LibCpp2IlMain.MetadataVersion > 24.3f ? "NULL" : LibCpp2IlMain.TheMetadata!.GetStringFromIndex(hashValueIndex);
+    public string HashValue => MetadataVersion > 24.3f ? "NULL" : OwningContext.Metadata.GetStringFromIndex(hashValueIndex);
 
     public override string ToString()
     {
