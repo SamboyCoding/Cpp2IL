@@ -360,6 +360,14 @@ namespace LibCpp2IL
 
                 var ptrs = codeGenModuleMethodPointers[imageIndex];
                 var methodPointerIndex = methodToken & 0x00FFFFFFu;
+                
+                // Bounds check to prevent IndexOutOfRangeException
+                if (methodPointerIndex == 0 || methodPointerIndex > ptrs.Length)
+                {
+                    LibLogger.WarnNewline($"Method pointer index {methodPointerIndex} out of bounds for module {imageIndex} (max: {ptrs.Length}). Token: 0x{methodToken:X}, Method index: {methodIndex}, Method def index: {methodDefinitionIndex}");
+                    return 0;
+                }
+                
                 return ptrs[methodPointerIndex - 1];
             }
             else
