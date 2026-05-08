@@ -17,7 +17,7 @@ public static class ContextToTypeSignature
     public static TypeSignature ToTypeSignature(this TypeAnalysisContext context, ModuleDefinition parentModule) => context switch
     {
         ReferencedTypeAnalysisContext referencedTypeAnalysisContext => referencedTypeAnalysisContext.ToTypeSignature(parentModule),
-        _ => parentModule.DefaultImporter.ImportType(context.GetTypeDefinition()).ToTypeSignature(parentModule.RuntimeContext)
+        _ => parentModule.DefaultImporter.ImportType(context.GetTypeDefinition()).ToTypeSignature(context.IsValueType)
     };
 
     public static TypeSignature ToTypeSignature(this ReferencedTypeAnalysisContext context, ModuleDefinition parentModule) => context switch
@@ -32,7 +32,7 @@ public static class ContextToTypeSignature
     public static GenericInstanceTypeSignature ToTypeSignature(this GenericInstanceTypeAnalysisContext context, ModuleDefinition parentModule)
     {
         var genericType = context.GenericType.ToTypeSignature(parentModule).ToTypeDefOrRef();
-        var genericArguments = context.GenericArguments.Select(a => a.ToTypeSignature(parentModule)).ToArray();
+        var genericArguments = context.GenericArguments.Select(a => a.ToTypeSignature(parentModule));
 
         return new GenericInstanceTypeSignature(genericType, context.IsValueType, genericArguments);
     }

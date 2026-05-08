@@ -43,7 +43,7 @@ public static class ContextToMethodDescriptor
         }
         else
         {
-            var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature(parentModule)).ToArray();
+            var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature(parentModule));
             return parentModule.DefaultImporter.ImportMethod(memberReference.MakeGenericInstanceMethod(typeSignatures));
         }
     }
