@@ -56,7 +56,7 @@ public class Il2CppPropertyDefinition : ReadableClass, IIl2CppTokenProvider
         {
             if (LibCpp2IlMain.TheMetadata == null) return null;
             if (Getter != null) return Getter.RawReturnType;
-            if (Setter != null && Setter.Parameters is { Length: > 0 }) return Setter.Parameters[0].RawType;
+            if (Setter != null && Setter.Parameters is { Length: > 0 }) return Setter.Parameters[^1].RawType;
             return null;
         }
     }
