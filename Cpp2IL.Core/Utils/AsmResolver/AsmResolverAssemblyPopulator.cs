@@ -278,7 +278,13 @@ public static class AsmResolverAssemblyPopulator
                     CopyCustomAttributes(field, field.GetExtraData<FieldDefinition>("AsmResolverField")!.CustomAttributes);
 
                 foreach (var property in type.Properties)
-                    CopyCustomAttributes(property, property.GetExtraData<PropertyDefinition>("AsmResolverProperty")!.CustomAttributes);
+                {
+                    // Property may have been skipped in CopyPropertiesInType (e.g. badly stripped metadata can lead to
+                    // properties with no accessors). Skip custom attribute copy too.
+                    var propertyDef = property.GetExtraData<PropertyDefinition>("AsmResolverProperty");
+                    if (propertyDef == null) continue;
+                    CopyCustomAttributes(property, propertyDef.CustomAttributes);
+                }
 
                 foreach (var eventDefinition in type.Events)
                     CopyCustomAttributes(eventDefinition, eventDefinition.GetExtraData<EventDefinition>("AsmResolverEvent")!.CustomAttributes);
@@ -443,6 +449,10 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var propertyCtx in typeContext.Properties)
         {
+            // Skip bad properties with neither getter nor setter — their type can't be resolved.
+            if (propertyCtx.Getter == null && propertyCtx.Setter == null)
+                continue;
+
             var propertyTypeSig = propertyCtx.ToTypeSignature(importer.TargetModule);
             var propertySignature = propertyCtx.IsStatic
                 ? PropertySignature.CreateStatic(propertyTypeSig)

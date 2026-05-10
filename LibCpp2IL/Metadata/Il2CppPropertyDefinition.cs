@@ -39,11 +39,29 @@ public class Il2CppPropertyDefinition : ReadableClass, IIl2CppTokenProvider
 
     public Il2CppMethodDefinition? Setter => LibCpp2IlMain.TheMetadata == null || set.IsNull || DeclaringType == null ? null : LibCpp2IlMain.TheMetadata.GetMethodDefinitionFromIndex(DeclaringType.FirstMethodIdx + set);
 
-    public Il2CppTypeReflectionData? PropertyType => LibCpp2IlMain.TheMetadata == null ? null : Getter == null ? Setter!.Parameters![0].Type : Getter!.ReturnType;
+    public Il2CppTypeReflectionData? PropertyType
+    {
+        get
+        {
+            if (LibCpp2IlMain.TheMetadata == null) return null;
+            if (Getter != null) return Getter.ReturnType;
+            if (Setter != null && Setter.Parameters is { Length: > 0 }) return Setter.Parameters[0].Type;
+            return null;
+        }
+    }
 
-    public Il2CppType? RawPropertyType => LibCpp2IlMain.TheMetadata == null ? null : Getter == null ? Setter!.Parameters![0].RawType : Getter!.RawReturnType;
+    public Il2CppType? RawPropertyType
+    {
+        get
+        {
+            if (LibCpp2IlMain.TheMetadata == null) return null;
+            if (Getter != null) return Getter.RawReturnType;
+            if (Setter != null && Setter.Parameters is { Length: > 0 }) return Setter.Parameters[0].RawType;
+            return null;
+        }
+    }
 
-    public bool IsStatic => Getter == null ? Setter!.IsStatic : Getter!.IsStatic;
+    public bool IsStatic => Getter?.IsStatic ?? Setter?.IsStatic ?? false;
     public uint Token => token;
 
     public override void Read(ClassReadingBinaryReader reader)
