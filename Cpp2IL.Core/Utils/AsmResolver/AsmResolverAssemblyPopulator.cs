@@ -449,7 +449,7 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var propertyCtx in typeContext.Properties)
         {
-            // Skip bad properties with neither getter nor setter — their type can't be resolved.
+            // Skip properties whose getter and setter were both stripped.
             if (propertyCtx.Getter == null && propertyCtx.Setter == null)
                 continue;
 
