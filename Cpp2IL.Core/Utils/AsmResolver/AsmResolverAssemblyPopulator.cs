@@ -279,8 +279,8 @@ public static class AsmResolverAssemblyPopulator
 
                 foreach (var property in type.Properties)
                 {
-                    // Property may have been skipped in CopyPropertiesInType (e.g. badly stripped metadata can lead to
-                    // properties with no accessors). Skip custom attribute copy too.
+                    // Property with no accessors are skipped in CopyPropertiesInType.
+                    // Skip copying custom attributes, too.
                     var propertyDef = property.GetExtraData<PropertyDefinition>("AsmResolverProperty");
                     if (propertyDef == null) continue;
                     CopyCustomAttributes(property, propertyDef.CustomAttributes);
