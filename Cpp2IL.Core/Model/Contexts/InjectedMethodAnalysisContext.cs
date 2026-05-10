@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -23,24 +24,76 @@ public class InjectedMethodAnalysisContext : MethodAnalysisContext
         string name,
         TypeAnalysisContext returnType,
         MethodAttributes attributes,
-        TypeAnalysisContext[] injectedParameterTypes,
-        string[]? injectedParameterNames = null,
-        ParameterAttributes[]? injectedParameterAttributes = null,
-        MethodImplAttributes defaultImplAttributes = MethodImplAttributes.Managed) : base(null, parent)
+        IEnumerable<TypeAnalysisContext> injectedParameterTypes,
+        IEnumerable<string>? injectedParameterNames = null,
+        IEnumerable<ParameterAttributes>? injectedParameterAttributes = null,
+        MethodImplAttributes implAttributes = MethodImplAttributes.Managed) : this(parent, name, returnType, attributes, GetParameters(injectedParameterTypes, injectedParameterNames, injectedParameterAttributes), implAttributes)
+    {
+    }
+
+    public InjectedMethodAnalysisContext(
+        TypeAnalysisContext parent,
+        string name,
+        TypeAnalysisContext returnType,
+        MethodAttributes attributes,
+        IEnumerable<(TypeAnalysisContext Type, string? Name, ParameterAttributes Attributes)> parameters,
+        MethodImplAttributes implAttributes = MethodImplAttributes.Managed) : base(null, parent)
     {
         DefaultName = name;
         DefaultReturnType = returnType;
         DefaultAttributes = attributes;
 
-        for (var i = 0; i < injectedParameterTypes.Length; i++)
+        var i = 0;
+        foreach (var (parameterType, parameterName, parameterAttributes) in parameters)
         {
-            var injectedParameterType = injectedParameterTypes[i];
-            var injectedParameterName = injectedParameterNames?[i];
-            var injectedParameterAttribute = injectedParameterAttributes?[i] ?? ParameterAttributes.None;
-
-            Parameters.Add(new InjectedParameterAnalysisContext(injectedParameterName, injectedParameterType, injectedParameterAttribute, i, this));
+            Parameters.Add(new InjectedParameterAnalysisContext(parameterName, parameterType, parameterAttributes, i, this));
+            i++;
         }
 
-        DefaultImplAttributes = defaultImplAttributes;
+        DefaultImplAttributes = implAttributes;
+    }
+
+    private static IEnumerable<(TypeAnalysisContext Type, string? Name, ParameterAttributes Attributes)> GetParameters(
+        IEnumerable<TypeAnalysisContext> parameterTypes,
+        IEnumerable<string>? parameterNames = null,
+        IEnumerable<ParameterAttributes>? parameterAttributes = null)
+    {
+        var typeEnumerator = parameterTypes.GetEnumerator();
+        var nameEnumerator = parameterNames?.GetEnumerator();
+        var attributeEnumerator = parameterAttributes?.GetEnumerator();
+        if (nameEnumerator != null)
+        {
+            if (attributeEnumerator != null)
+            {
+                while (typeEnumerator.MoveNext() && nameEnumerator.MoveNext() && attributeEnumerator.MoveNext())
+                {
+                    yield return (typeEnumerator.Current, nameEnumerator.Current, attributeEnumerator.Current);
+                }
+            }
+            else
+            {
+                while (typeEnumerator.MoveNext() && nameEnumerator.MoveNext())
+                {
+                    yield return (typeEnumerator.Current, nameEnumerator.Current, ParameterAttributes.None);
+                }
+            }
+        }
+        else
+        {
+            if (attributeEnumerator != null)
+            {
+                while (typeEnumerator.MoveNext() && attributeEnumerator.MoveNext())
+                {
+                    yield return (typeEnumerator.Current, null, attributeEnumerator.Current);
+                }
+            }
+            else
+            {
+                while (typeEnumerator.MoveNext())
+                {
+                    yield return (typeEnumerator.Current, null, ParameterAttributes.None);
+                }
+            }
+        }
     }
 }
