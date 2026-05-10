@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
@@ -9,10 +10,10 @@ public class MultiAssemblyInjectedType(InjectedTypeAnalysisContext[] injectedTyp
 {
     public InjectedTypeAnalysisContext[] InjectedTypes { get; } = injectedTypes;
 
-    public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectMethodToAllAssemblies(string name, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
+    public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectMethodToAllAssemblies(string name, TypeAnalysisContext returnType, MethodAttributes attributes, params ReadOnlySpan<TypeAnalysisContext> args)
         => InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t => t.InjectMethodContext(name, returnType, attributes, args));
 
-    public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectConstructor(bool isStatic, params TypeAnalysisContext[] args)
+    public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectConstructor(bool isStatic, params ReadOnlySpan<TypeAnalysisContext> args)
     {
         var attributes = isStatic
             ? MethodAttributes.Public | MethodAttributes.SpecialName | MethodAttributes.RTSpecialName | MethodAttributes.HideBySig | MethodAttributes.Static
