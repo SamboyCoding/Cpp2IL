@@ -11,7 +11,14 @@ public class MultiAssemblyInjectedType(InjectedTypeAnalysisContext[] injectedTyp
     public InjectedTypeAnalysisContext[] InjectedTypes { get; } = injectedTypes;
 
     public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectMethodToAllAssemblies(string name, TypeAnalysisContext returnType, MethodAttributes attributes, params ReadOnlySpan<TypeAnalysisContext> args)
-        => InjectedTypes.ToDictionary(t => t.DeclaringAssembly, t => t.InjectMethodContext(name, returnType, attributes, args));
+    {
+        var dictionary = new Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext>();
+        foreach (var type in InjectedTypes)
+        {
+            dictionary[type.DeclaringAssembly] = type.InjectMethodContext(name, returnType, attributes, args);
+        }
+        return dictionary;
+    }
 
     public Dictionary<AssemblyAnalysisContext, InjectedMethodAnalysisContext> InjectConstructor(bool isStatic, params ReadOnlySpan<TypeAnalysisContext> args)
     {
