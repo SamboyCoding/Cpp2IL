@@ -11,9 +11,15 @@ public class PinnedTypeAnalysisContext(TypeAnalysisContext elementType, Assembly
     {
     }
 
-    public override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_PINNED;
+    public sealed override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_PINNED;
 
-    public override string DefaultName => ElementType.Name;
+    public sealed override string DefaultName => ElementType.DefaultName;
+
+    public sealed override string? OverrideName
+    {
+        get => ElementType.OverrideName;
+        set => ElementType.OverrideName = value;
+    }
 
     public sealed override bool IsValueType => false;
 }

@@ -60,7 +60,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
 
     public virtual string DefaultNamespace => Definition?.Namespace ?? throw new("Subclasses of TypeAnalysisContext must override DefaultNs");
 
-    public string? OverrideNamespace { get; set; }
+    public virtual string? OverrideNamespace { get; set; }
 
     public string Namespace
     {

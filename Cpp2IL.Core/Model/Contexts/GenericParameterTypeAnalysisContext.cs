@@ -16,9 +16,17 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public sealed override string DefaultNamespace => "";
 
+    public sealed override string? OverrideNamespace
+    {
+        get => null;
+        set
+        {
+        }
+    }
+
     public int Index { get; }
 
-    public override Il2CppTypeEnum Type { get; }
+    public sealed override Il2CppTypeEnum Type { get; }
 
     public new GenericParameterAttributes DefaultAttributes { get; }
     public new GenericParameterAttributes? OverrideAttributes { get; set; }

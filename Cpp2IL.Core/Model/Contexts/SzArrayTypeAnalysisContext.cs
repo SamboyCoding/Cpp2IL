@@ -1,3 +1,4 @@
+using System;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 
@@ -11,9 +12,15 @@ public class SzArrayTypeAnalysisContext(TypeAnalysisContext elementType, Assembl
     {
     }
 
-    public override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY;
+    public sealed override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY;
 
-    public override string DefaultName => $"{ElementType.Name}[]";
+    public sealed override string DefaultName => $"{ElementType.DefaultName}[]";
+
+    public sealed override string? OverrideName
+    {
+        get => $"{ElementType.Name}[]";
+        set => throw new NotSupportedException();
+    }
 
     public sealed override bool IsValueType => false;
 }

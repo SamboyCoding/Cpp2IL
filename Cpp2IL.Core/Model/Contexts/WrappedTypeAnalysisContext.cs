@@ -12,7 +12,13 @@ public abstract class WrappedTypeAnalysisContext(
 {
     public virtual TypeAnalysisContext ElementType { get; } = elementType;
 
-    public override string DefaultNamespace => ElementType.Namespace;
+    public sealed override string DefaultNamespace => ElementType.DefaultNamespace;
+
+    public sealed override string? OverrideNamespace
+    {
+        get => ElementType.OverrideNamespace;
+        set => ElementType.OverrideNamespace = value;
+    }
 
     public static WrappedTypeAnalysisContext Create(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
     {

@@ -15,15 +15,27 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
 
     public List<TypeAnalysisContext> GenericArguments { get; } = [];
 
-    public override TypeAttributes DefaultAttributes => GenericType.DefaultAttributes;
+    public sealed override TypeAttributes DefaultAttributes => GenericType.DefaultAttributes;
 
-    public override TypeAttributes? OverrideAttributes { get => GenericType.OverrideAttributes; set => GenericType.OverrideAttributes = value; }
+    public sealed override TypeAttributes? OverrideAttributes { get => GenericType.OverrideAttributes; set => GenericType.OverrideAttributes = value; }
 
-    public override string DefaultName => $"{GenericType.Name}<{string.Join(", ", GenericArguments.Select(a => a.Name))}>";
+    public sealed override string DefaultName => $"{GenericType.DefaultName}<{string.Join(", ", GenericArguments.Select(a => a.DefaultFullName))}>";
 
-    public override string DefaultNamespace => GenericType.Namespace;
+    public sealed override string? OverrideName
+    {
+        get => $"{GenericType.Name}<{string.Join(", ", GenericArguments.Select(a => a.FullName))}>";
+        set => throw new NotSupportedException();
+    }
 
-    public override TypeAnalysisContext? DefaultBaseType { get; }
+    public sealed override string DefaultNamespace => GenericType.DefaultNamespace;
+
+    public sealed override string? OverrideNamespace
+    {
+        get => GenericType.OverrideNamespace;
+        set => GenericType.OverrideNamespace = value;
+    }
+
+    public sealed override TypeAnalysisContext? DefaultBaseType { get; }
 
     public sealed override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST;
 

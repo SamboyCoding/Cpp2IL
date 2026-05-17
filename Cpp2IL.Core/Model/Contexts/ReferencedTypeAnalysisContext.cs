@@ -11,11 +11,6 @@ public abstract class ReferencedTypeAnalysisContext(AssemblyAnalysisContext refe
 {
     public override Il2CppTypeEnum Type => throw new NotImplementedException("Type must be set by derived classes");
 
-    public override string ToString()
-    {
-        return DefaultName;
-    }
-
     public override string GetCSharpSourceString()
     {
         return Name;
