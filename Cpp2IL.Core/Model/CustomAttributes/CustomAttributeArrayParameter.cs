@@ -5,6 +5,7 @@ using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
 
@@ -45,7 +46,7 @@ public class CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, Custom
             var enumTypeIndex = reader.BaseStream.ReadUnityCompressedInt();
 
             //Save the actual enum type for later.
-            EnumType = context.Binary.GetType(enumTypeIndex);
+            EnumType = context.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(enumTypeIndex)); //DynWidth: enumTypeIndex is already compressed, they didn't make it dynamic
 
             //We read as the primitive underlying type.
             var enumClass = EnumType.AsClass();
@@ -82,6 +83,6 @@ public class CustomAttributeArrayParameter(AnalyzedCustomAttribute owner, Custom
         if (EnumType != null)
             arrType = EnumType.AsClass().ToString();
 
-        return $"new {arrType}[] {{{string.Join(", ", ArrayElements.Select(x => x.ToString()))}}}]";
+        return $"new {arrType}[] {{{string.Join(", ", ArrayElements.Select(x => x.ToString()))}}}";
     }
 }

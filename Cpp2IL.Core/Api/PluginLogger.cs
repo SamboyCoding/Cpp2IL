@@ -13,6 +13,8 @@ public sealed class PluginLogger
         _name = $"Plugin: {plugin.Name}";
     }
 
+    public void VerboseNewlineIfDebug(string message, string source = "Program") => Logger.VerboseNewlineIfDebug($"{message}", _name);
+    
     public void VerboseNewline(string message, string source = "Program") => Logger.VerboseNewline($"{message}", _name);
 
     public void Verbose(string message, string source = "Program") => Logger.Verbose($"{message}", _name);

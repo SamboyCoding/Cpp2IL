@@ -1,6 +1,3 @@
-﻿using System;
-using System.Collections.Generic;
-
 namespace LibCpp2IL.MachO;
 
 public class MachOSymtabCommand : ReadableClass

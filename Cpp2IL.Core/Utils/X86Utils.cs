@@ -18,13 +18,13 @@ public static class X86Utils
     private static readonly ConcurrentDictionary<Register, string> CachedX86RegNamesNew = new();
 
     //TODO Consider implementing a CodeReader for Memory
-    public static InstructionList Disassemble(Memory<byte> bytes, ulong methodBase)
-        => Disassemble(bytes.ToArray(), methodBase);
+    public static InstructionList Disassemble(Memory<byte> bytes, ulong methodBase, bool is32Bit)
+        => Disassemble(bytes.ToArray(), methodBase, is32Bit);
 
-    public static InstructionList Disassemble(byte[] bytes, ulong methodBase)
+    public static InstructionList Disassemble(byte[] bytes, ulong methodBase, bool is32Bit)
     {
         var codeReader = new ByteArrayCodeReader(bytes);
-        var decoder = Decoder.Create(LibCpp2IlMain.Binary!.is32Bit ? 32 : 64, codeReader);
+        var decoder = Decoder.Create(is32Bit ? 32 : 64, codeReader);
         decoder.IP = methodBase;
         var instructions = new InstructionList();
         var endRip = decoder.IP + (uint)bytes.Length;
@@ -37,18 +37,18 @@ public static class X86Utils
 
     public static InstructionList Disassemble(MethodAnalysisContext context)
     {
-        return Disassemble(context.RawBytes, context.UnderlyingPointer);
+        return Disassemble(context.RawBytes, context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
     }
 
-    public static IEnumerable<Instruction> Iterate(Memory<byte> bytes, ulong methodBase)
+    public static IEnumerable<Instruction> Iterate(Memory<byte> bytes, ulong methodBase, bool is32Bit)
     {
-        return Iterate(bytes.AsEnumerable(), methodBase);
+        return Iterate(bytes.AsEnumerable(), methodBase, is32Bit);
     }
 
-    public static IEnumerable<Instruction> Iterate(IEnumerable<byte> bytes, ulong methodBase)
+    public static IEnumerable<Instruction> Iterate(IEnumerable<byte> bytes, ulong methodBase, bool is32Bit)
     {
         var codeReader = new EnumerableCodeReader(bytes);
-        var decoder = Decoder.Create(LibCpp2IlMain.Binary!.is32Bit ? 32 : 64, codeReader);
+        var decoder = Decoder.Create(is32Bit ? 32 : 64, codeReader);
         decoder.IP = methodBase;
 
         decoder.Decode(out var instruction);
@@ -61,30 +61,30 @@ public static class X86Utils
 
     public static IEnumerable<Instruction> Iterate(MethodAnalysisContext context)
     {
-        return Iterate(context.RawBytes, context.UnderlyingPointer);
+        return Iterate(context.RawBytes, context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
     }
 
-    public static Memory<byte> GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen)
+    public static Memory<byte> GetRawManagedOrCaCacheGenMethodBody(ulong ptr, bool isCaGen, Il2CppBinary binary)
     {
-        var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(ptr, false);
+        var rawAddr = binary.MapVirtualAddressToRaw(ptr, false);
 
         if (rawAddr <= 0)
             return Memory<byte>.Empty;
 
-        var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr);
+        var virtStartNextFunc = MiscUtils.GetAddressOfNextFunctionStart(ptr, binary);
 
         if (virtStartNextFunc == 0 || (isCaGen && virtStartNextFunc - ptr > 50000))
         {
-            GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
             return ret;
         }
 
-        var ra2 = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtStartNextFunc, false);
+        var ra2 = binary.MapVirtualAddressToRaw(virtStartNextFunc, false);
 
         if (ra2 <= 0)
         {
             //Don't have a known end point => fall back
-            GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
             return ret;
         }
 
@@ -93,18 +93,18 @@ public static class X86Utils
         if (startOfNextFunc < rawAddr)
         {
             Logger.WarnNewline($"StartOfNextFunc returned va 0x{virtStartNextFunc:X}, raw address 0x{startOfNextFunc:X}, for raw address 0x{rawAddr:X}. It should be more than raw address. Falling back to manual, slow, decompiler-based approach.");
-            GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
             return ret;
         }
 
-        var rawArray = LibCpp2IlMain.Binary.GetRawBinaryContent();
+        var rawArray = binary.GetRawBinaryContent();
 
         var lastPos = startOfNextFunc - 1;
 
         if (lastPos >= rawArray.Length)
         {
             Logger.WarnNewline($"StartOfNextFunc returned va 0x{virtStartNextFunc:X}, raw address 0x{startOfNextFunc:X}, for raw address 0x{rawAddr:X}. LastPos should be less than the raw array length. Falling back to manual, slow, decompiler-based approach.");
-            GetMethodBodyAtVirtAddressNew(ptr, false, out var ret);
+            GetMethodBodyAtVirtAddressNew(ptr, false, binary, out var ret);
             return ret;
         }
 
@@ -115,7 +115,7 @@ public static class X86Utils
         if (TryFindJumpTableStart(memArray, ptr, virtStartNextFunc, out var startIndex, out var jumpTableElements))
         {
             // TODO: Figure out what to do with jumpTableElements, how do we handle returning it from this function?
-            // we might need to return the address it was found at in TryFindJumpTableStart function too 
+            // we might need to return the address it was found at in TryFindJumpTableStart function too
             // Should clean up the way we handle the bytes array too
             /*
             foreach (var element in jumpTableElements)
@@ -152,18 +152,18 @@ public static class X86Utils
         return foundTable;
     }
 
-    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek) => GetMethodBodyAtVirtAddressNew(addr, peek, out _);
+    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary) => GetMethodBodyAtVirtAddressNew(addr, peek, binary, out _);
 
-    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, out byte[] rawBytes)
+    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary, out byte[] rawBytes)
     {
         var functionStart = addr;
         var ret = new InstructionList();
         var con = true;
         var buff = new List<byte>();
-        var rawAddr = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(addr);
-        var startOfNextFunc = MiscUtils.GetAddressOfNextFunctionStart(addr);
+        var rawAddr = binary.MapVirtualAddressToRaw(addr);
+        var startOfNextFunc = MiscUtils.GetAddressOfNextFunctionStart(addr, binary);
 
-        if (rawAddr < 0 || rawAddr >= LibCpp2IlMain.Binary.RawLength)
+        if (rawAddr < 0 || rawAddr >= binary.RawLength)
         {
             Logger.ErrorNewline($"Invalid call to GetMethodBodyAtVirtAddressNew, virt addr {addr} resolves to raw {rawAddr} which is out of bounds");
             rawBytes = [];
@@ -175,9 +175,9 @@ public static class X86Utils
             if (addr >= startOfNextFunc)
                 break;
 
-            buff.Add(LibCpp2IlMain.Binary.GetByteAtRawAddress((ulong)rawAddr));
+            buff.Add(binary.GetByteAtRawAddress((ulong)rawAddr));
 
-            ret = X86Utils.Disassemble(buff.ToArray(), functionStart);
+            ret = X86Utils.Disassemble(buff.ToArray(), functionStart, binary.is32Bit);
 
             if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
                 con = false;
@@ -189,7 +189,7 @@ public static class X86Utils
 
             addr++;
             rawAddr++;
-            if (rawAddr >= LibCpp2IlMain.Binary.RawLength)
+            if (rawAddr >= binary.RawLength)
                 con = false;
         }
 

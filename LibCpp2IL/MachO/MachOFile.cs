@@ -111,19 +111,23 @@ public class MachOFile : Il2CppBinary
         return (long)(sec.Offset + (uiAddr - sec.Address));
     }
 
-    public override ulong MapRawAddressToVirtual(uint offset)
+    public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
         var sec = Sections64.FirstOrDefault(s => s.Offset <= offset && offset < s.Offset + s.Size);
 
         if (sec == null)
-            throw new($"Could not find section for raw address 0x{offset:X}");
+            if (throwOnError)
+                throw new($"Could not find section for raw address 0x{offset:X}");
+            else
+                return 0;
 
         return sec.Address + (offset - sec.Offset);
     }
 
     public override ulong GetRva(ulong pointer)
     {
-        return pointer; //TODO?
+        // Mach-O doesn't have RVAs and instead uses virtual addresses, so we can just return the pointer as-is.
+        return pointer;
     }
 
     public override byte[] GetRawBinaryContent() => _raw;

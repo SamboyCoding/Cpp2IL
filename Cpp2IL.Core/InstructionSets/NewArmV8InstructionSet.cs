@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using Disarm;
 using Cpp2IL.Core.Api;
@@ -9,7 +8,6 @@ using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Disarm.InternalDisassembly;
-using LibCpp2IL;
 
 namespace Cpp2IL.Core.InstructionSets;
 
@@ -23,19 +21,21 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         if (context is not ConcreteGenericMethodAnalysisContext)
         {
             //Managed method or attr gen => grab raw byte range between a and b
-            var startOfNextFunction = (int)MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer);
+            var startOfNextFunction = (int)MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer, context.AppContext.Binary);
             var ptrAsInt = (int)context.UnderlyingPointer;
             var count = startOfNextFunction - ptrAsInt;
 
             if (startOfNextFunction > 0)
-                return LibCpp2IlMain.Binary!.GetRawBinaryContent().AsMemory(ptrAsInt, count);
+                return context.AppContext.Binary.GetRawBinaryContent().AsMemory(ptrAsInt, count);
         }
 
-        var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
-        var endVa = result.LastValid().Address + 4;
+        var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
+        var lastInsn = result.LastValid();
 
         var start = (int)context.AppContext.Binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
-        var end = (int)context.AppContext.Binary.MapVirtualAddressToRaw(endVa);
+        // Map the last instruction (always within segment) and add 4 (ARM64 instruction size).
+        // This avoids mapping endVa which may land exactly at a segment boundary gap.
+        var end = (int)context.AppContext.Binary.MapVirtualAddressToRaw(lastInsn.Address) + 4;
 
         //Sanity check
         if (start < 0 || end < 0 || start >= context.AppContext.Binary.RawLength || end >= context.AppContext.Binary.RawLength)
@@ -46,7 +46,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     public override List<InstructionSetIndependentInstruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
-        var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.UnderlyingPointer);
+        var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
 
         var builder = new IsilBuilder();
 

@@ -8,30 +8,30 @@ namespace Cpp2IL.Core.Utils;
 
 public static class NewArm64Utils
 {
-    public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
+    public static List<Arm64Instruction> GetArm64MethodBodyAtVirtualAddress(Il2CppBinary binary, ulong virtAddress, bool managed = true, int count = -1)
     {
         if (managed)
         {
-            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress);
+            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
 
             //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
             if (startOfNext > 0)
             {
-                var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(startOfNext);
+                var rawStartOfNextMethod = binary.MapVirtualAddressToRaw(startOfNext);
 
-                var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
+                var rawStart = binary.MapVirtualAddressToRaw(virtAddress);
                 if (rawStartOfNextMethod < rawStart)
-                    rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
+                    rawStartOfNextMethod = binary.RawLength;
 
-                var bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().AsSpan((int)rawStart, (int)(rawStartOfNextMethod - rawStart));
+                var bytes = binary.GetRawBinaryContent().AsSpan((int)rawStart, (int)(rawStartOfNextMethod - rawStart));
 
                 return Disassemble(bytes, virtAddress);
             }
         }
 
         //Unmanaged function, look for first b
-        var pos = (int)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
-        var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
+        var pos = (int)binary.MapVirtualAddressToRaw(virtAddress);
+        var allBytes = binary.GetRawBinaryContent();
         var span = allBytes.AsSpan(pos, 4);
         List<Arm64Instruction> ret = [];
 

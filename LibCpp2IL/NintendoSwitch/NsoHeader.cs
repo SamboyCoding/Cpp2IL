@@ -1,5 +1,3 @@
-﻿using System;
-
 namespace LibCpp2IL.NintendoSwitch;
 
 public class NsoHeader

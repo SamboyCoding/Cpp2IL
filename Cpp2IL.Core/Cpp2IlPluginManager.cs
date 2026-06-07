@@ -7,12 +7,15 @@ using System.Reflection;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Attributes;
 using Cpp2IL.Core.Logging;
+using LibCpp2IL;
 
 namespace Cpp2IL.Core;
 
 public static class Cpp2IlPluginManager
 {
     private static List<Cpp2IlPlugin> _loadedPlugins = [];
+    
+    internal static List<LibCpp2IlMain.MetadataFixupFunc>? MetadataFixupFuncs;
 
     [RequiresUnreferencedCode("Plugins are loaded dynamically.")]
     internal static void LoadFromDirectory(string pluginsDir)

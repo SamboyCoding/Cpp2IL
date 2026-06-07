@@ -20,9 +20,9 @@ public static class ArmV7Utils
         _armDisassembler = disassembler;
     }
 
-    public static byte[]? TryGetMethodBodyBytesFast(ulong virtAddress, bool isCAGen)
+    public static byte[]? TryGetMethodBodyBytesFast(Il2CppBinary binary, ulong virtAddress, bool isCAGen)
     {
-        var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress);
+        var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
 
         var length = (startOfNext - virtAddress);
         if (isCAGen && length > 50_000)
@@ -32,16 +32,16 @@ public static class ArmV7Utils
             //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
             return null;
 
-        var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(startOfNext);
+        var rawStartOfNextMethod = binary.MapVirtualAddressToRaw(startOfNext);
 
-        var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
+        var rawStart = binary.MapVirtualAddressToRaw(virtAddress);
         if (rawStartOfNextMethod < rawStart)
-            rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
+            rawStartOfNextMethod = binary.RawLength;
 
-        return LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
+        return binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
     }
 
-    public static List<ArmInstruction> GetArmV7MethodBodyAtVirtualAddress(ulong virtAddress, bool managed = true, int count = -1)
+    public static List<ArmInstruction> GetArmV7MethodBodyAtVirtualAddress(Il2CppBinary binary, ulong virtAddress, bool managed = true, int count = -1)
     {
         if (_armDisassembler == null)
             InitArmDecompilation();
@@ -51,18 +51,18 @@ public static class ArmV7Utils
         //But we can find the start of the next one! (If managed)
         if (managed)
         {
-            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress);
+            var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
 
             //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
             if (startOfNext > 0)
             {
-                var rawStartOfNextMethod = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(startOfNext);
+                var rawStartOfNextMethod = binary.MapVirtualAddressToRaw(startOfNext);
 
-                var rawStart = LibCpp2IlMain.Binary.MapVirtualAddressToRaw(virtAddress);
+                var rawStart = binary.MapVirtualAddressToRaw(virtAddress);
                 if (rawStartOfNextMethod < rawStart)
-                    rawStartOfNextMethod = LibCpp2IlMain.Binary.RawLength;
+                    rawStartOfNextMethod = binary.RawLength;
 
-                byte[] bytes = LibCpp2IlMain.Binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
+                byte[] bytes = binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
 
                 var iter = _armDisassembler!.Iterate(bytes, (long)virtAddress);
                 if (count > 0)
@@ -73,8 +73,8 @@ public static class ArmV7Utils
         }
 
         //Unmanaged function, look for first b or bl
-        var pos = (int)LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(virtAddress);
-        var allBytes = LibCpp2IlMain.Binary.GetRawBinaryContent();
+        var pos = (int)binary.MapVirtualAddressToRaw(virtAddress);
+        var allBytes = binary.GetRawBinaryContent();
         List<ArmInstruction> ret = [];
 
         while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))

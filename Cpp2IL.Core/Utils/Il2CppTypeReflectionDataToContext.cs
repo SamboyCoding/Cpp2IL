@@ -1,5 +1,4 @@
 using Cpp2IL.Core.Model.Contexts;
-using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 
 namespace Cpp2IL.Core.Utils;

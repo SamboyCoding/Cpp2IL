@@ -1,3 +1,4 @@
+using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.BinaryStructures;
@@ -5,15 +6,21 @@ namespace LibCpp2IL.BinaryStructures;
 public class Il2CppRGCTXDefinition : ReadableClass
 {
     public Il2CppRGCTXDataType type;
-    public int _rawIndex;
 
     public int MethodIndex => _defData?.MethodIndex ?? _constrainedData!.MethodIndex;
 
     public int TypeIndex => _defData?.TypeIndex ?? _constrainedData!.TypeIndex;
 
-    public Il2CppMethodSpec? MethodSpec => LibCpp2IlMain.Binary?.GetMethodSpec(MethodIndex);
+    public Il2CppMethodSpec MethodSpec => OwningContext.Binary.GetMethodSpec(MethodIndex);
 
-    public Il2CppTypeReflectionData? Type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(TypeIndex));
+    public Il2CppTypeReflectionData Type
+    {
+        get
+        {
+            var t = OwningContext.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(TypeIndex));
+            return LibCpp2ILUtils.GetTypeReflectionData(t);
+        }
+    }
 
 
     public class Il2CppRGCTXDefinitionData : ReadableClass
@@ -33,7 +40,7 @@ public class Il2CppRGCTXDefinition : ReadableClass
         public int _encodedMethodIndex;
         public int TypeIndex => _typeIndex;
         public int MethodIndex => _encodedMethodIndex;
-   
+
         public override void Read(ClassReadingBinaryReader reader)
         {
             _typeIndex = reader.ReadInt32();
@@ -44,6 +51,7 @@ public class Il2CppRGCTXDefinition : ReadableClass
     private Il2CppRGCTXConstrainedData? _constrainedData;
 
     private Il2CppRGCTXDefinitionData? _defData;
+
     public override void Read(ClassReadingBinaryReader reader)
     {
         type = IsLessThan(29) ? (Il2CppRGCTXDataType)reader.ReadInt32() : (Il2CppRGCTXDataType)reader.ReadInt64();
@@ -55,24 +63,22 @@ public class Il2CppRGCTXDefinition : ReadableClass
         else
         {
             var va = reader.ReadNUint();
+            var bakPosition = reader.Position;
+
+            reader.Position = OwningContext.Binary.MapVirtualAddressToRaw(va);
+
             if (type == Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_CONSTRAINED)
             {
-                var bakPosition = reader.Position;
-                reader.Position = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(va);
                 _constrainedData = new Il2CppRGCTXConstrainedData();
                 _constrainedData.Read(reader);
-                reader.Position = bakPosition;
             }
             else
             {
-                var bakPosition = reader.Position;
-                reader.Position = LibCpp2IlMain.Binary!.MapVirtualAddressToRaw(va);
                 _defData = new Il2CppRGCTXDefinitionData();
                 _defData.Read(reader);
-                reader.Position = bakPosition;
             }
 
+            reader.Position = bakPosition;
         }
-
     }
 }

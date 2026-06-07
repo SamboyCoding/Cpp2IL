@@ -7,21 +7,25 @@ public class Il2CppImageDefinition : ReadableClass
     public int nameIndex;
     public int assemblyIndex;
 
-    public int firstTypeIndex;
+    public Il2CppVariableWidthIndex<Il2CppTypeDefinition> firstTypeIndex;
     public uint typeCount;
 
-    [Version(Min = 24)] public int exportedTypeStart;
+    [Version(Min = 24)] public Il2CppVariableWidthIndex<Il2CppTypeDefinition> exportedTypeStart;
     [Version(Min = 24)] public uint exportedTypeCount;
 
-    public int entryPointIndex;
+    public Il2CppVariableWidthIndex<Il2CppMethodDefinition> entryPointIndex;
     public uint token;
 
     [Version(Min = 24.1f)] public int customAttributeStart;
     [Version(Min = 24.1f)] public uint customAttributeCount;
 
-    public string? Name => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.GetStringFromIndex(nameIndex);
+    public string? Name => OwningContext.Metadata.GetStringFromIndex(nameIndex);
 
-    public Il2CppTypeDefinition[]? Types => LibCpp2IlMain.TheMetadata == null ? null : LibCpp2IlMain.TheMetadata.typeDefs.Skip(firstTypeIndex).Take((int)typeCount).ToArray();
+    public Il2CppTypeDefinition[]? Types => Enumerable
+            .Range(firstTypeIndex.Value, (int)typeCount)
+            .Select(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage) // DynWidth: using Enumerable.Range, not read from file, so making temp is ok
+            .Select(OwningContext.Metadata.GetTypeDefinitionFromIndex)
+            .ToArray();
 
     public override string ToString()
     {
@@ -31,18 +35,18 @@ public class Il2CppImageDefinition : ReadableClass
     public override void Read(ClassReadingBinaryReader reader)
     {
         nameIndex = reader.ReadInt32();
-        assemblyIndex = reader.ReadInt32();
+        assemblyIndex = reader.ReadInt32();     
 
-        firstTypeIndex = reader.ReadInt32();
+        firstTypeIndex = Il2CppVariableWidthIndex<Il2CppTypeDefinition>.Read(reader);
         typeCount = reader.ReadUInt32();
 
         if (IsAtLeast(24f))
         {
-            exportedTypeStart = reader.ReadInt32();
+            exportedTypeStart = Il2CppVariableWidthIndex<Il2CppTypeDefinition>.Read(reader);
             exportedTypeCount = reader.ReadUInt32();
         }
 
-        entryPointIndex = reader.ReadInt32();
+        entryPointIndex = Il2CppVariableWidthIndex<Il2CppMethodDefinition>.Read(reader);
         token = reader.ReadUInt32();
 
         if (IsAtLeast(24.1f))

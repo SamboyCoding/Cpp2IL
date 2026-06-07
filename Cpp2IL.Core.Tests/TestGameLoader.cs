@@ -28,4 +28,11 @@ public static class TestGameLoader
         Cpp2IlApi.InitializeLibCpp2Il(Paths.Simple2022Game.GameAssembly, Paths.Simple2022Game.Metadata, new UnityVersion(2022, 3, 35, UnityVersionType.Final, 1));
         return Cpp2IlApi.CurrentAppContext!;
     }
+    
+    public static ApplicationAnalysisContext LoadSimpleV106Game()
+    {
+        EnsureInit();
+        Cpp2IlApi.InitializeLibCpp2Il(Paths.SimpleV106Game.GameAssembly, Paths.SimpleV106Game.Metadata, new UnityVersion(6000, 5, 0, UnityVersionType.Alpha, 6));
+        return Cpp2IlApi.CurrentAppContext!;
+    }
 }

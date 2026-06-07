@@ -7,9 +7,9 @@ public class Il2CppGenericInst : ReadableClass
     public ulong pointerCount;
     public ulong pointerStart;
 
-    public ulong[] Pointers => LibCpp2IlMain.Binary!.ReadNUintArrayAtVirtualAddress(pointerStart, (long)pointerCount);
+    public ulong[] Pointers => OwningContext.Binary.ReadNUintArrayAtVirtualAddress(pointerStart, (long)pointerCount);
 
-    public Il2CppType[] Types => Pointers.Select(LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer).ToArray();
+    public Il2CppType[] Types => Pointers.Select(OwningContext.Binary.GetIl2CppTypeFromPointer).ToArray();
 
     public override void Read(ClassReadingBinaryReader reader)
     {

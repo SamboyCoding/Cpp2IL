@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Cpp2IL.Core.Logging;
 using LibCpp2IL;
 
 namespace Cpp2IL.Core.Api;
@@ -35,6 +34,12 @@ public abstract class Cpp2IlPlugin
 
     protected void RegisterBinaryRegistrationFuncFallbackHandler(Il2CppBinary.RegistrationStructLocationFailureHandler handler) =>
         Il2CppBinary.OnRegistrationStructLocationFailure += handler;
+
+    protected void RegisterMetadataFixupFunc(LibCpp2IlMain.MetadataFixupFunc func)
+    {
+        Cpp2IlPluginManager.MetadataFixupFuncs ??= [];
+        Cpp2IlPluginManager.MetadataFixupFuncs.Add(func);
+    }
 
     /// <summary>
     /// Attempt to handle the given game path and populate the runtime arguments. For example, unpacking and populating the paths to the binary and metadata in a container format such as an APK.

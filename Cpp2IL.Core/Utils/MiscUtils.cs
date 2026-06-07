@@ -12,8 +12,6 @@ public static class MiscUtils
 {
     private static List<ulong>? _allKnownFunctionStarts;
 
-    private static Dictionary<string, ulong> _primitiveSizes = new();
-
     public static readonly List<char> InvalidPathChars = ['<', '>', ':', '"', '/', '\\', '|', '?', '*'];
 
     public static readonly HashSet<string> InvalidPathElements =
@@ -46,28 +44,6 @@ public static class MiscUtils
     {
         _allKnownFunctionStarts = null;
     }
-
-    internal static void Init()
-    {
-        _primitiveSizes = new(14)
-        {
-            { "Byte", 1 },
-            { "SByte", 1 },
-            { "Boolean", 1 },
-            { "Int16", 2 },
-            { "UInt16", 2 },
-            { "Char", 2 },
-            { "Int32", 4 },
-            { "UInt32", 4 },
-            { "Single", 4 },
-            { "Int64", 8 },
-            { "UInt64", 8 },
-            { "Double", 8 },
-            { "IntPtr", LibCpp2IlMain.Binary!.is32Bit ? 4UL : 8UL },
-            { "UIntPtr", LibCpp2IlMain.Binary.is32Bit ? 4UL : 8UL },
-        };
-    }
-
 
     internal static string[] GetGenericParams(string input)
     {
@@ -129,9 +105,9 @@ public static class MiscUtils
         return null;
     }
 
-    public static int GetSlotNum(int offset)
+    public static int GetSlotNum(int offset, float metadataVersion, bool is32Bit)
     {
-        var offsetInVtable = offset - Il2CppClassUsefulOffsets.VTABLE_OFFSET; //0x128 being the address of the vtable in an Il2CppClass
+        var offsetInVtable = offset - Il2CppClassUsefulOffsets.GetVtableOffset(metadataVersion, is32Bit); //0x128 being the address of the vtable in an Il2CppClass
 
         if (offsetInVtable % 0x10 != 0 && offsetInVtable % 0x8 == 0)
             offsetInVtable -= 0x8; //Handle read of the second pointer in the struct.
@@ -144,11 +120,6 @@ public static class MiscUtils
         }
 
         return -1;
-    }
-
-    public static int GetPointerSizeBytes()
-    {
-        return LibCpp2IlMain.Binary!.is32Bit ? 4 : 8;
     }
 
     internal static byte[] RawBytes(IConvertible original) =>
@@ -182,7 +153,7 @@ public static class MiscUtils
     }
     //TODO: End
 
-    public static ulong GetAddressOfNextFunctionStart(ulong current)
+    public static ulong GetAddressOfNextFunctionStart(ulong current, Il2CppBinary binary)
     {
         if (_allKnownFunctionStarts == null)
             throw new("Function starts not initialized!");
@@ -224,7 +195,7 @@ public static class MiscUtils
         if (ret <= current && upper == _allKnownFunctionStarts.Count - 1)
             return 0;
 
-        if (!LibCpp2IlMain.Binary!.TryMapVirtualAddressToRaw(ret, out _))
+        if (!binary.TryMapVirtualAddressToRaw(ret, out _))
             return 0;
 
         return ret;

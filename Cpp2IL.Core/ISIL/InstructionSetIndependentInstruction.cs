@@ -1,5 +1,3 @@
-using System.Collections.Generic;
-
 namespace Cpp2IL.Core.ISIL;
 
 public class InstructionSetIndependentInstruction : IsilOperandData

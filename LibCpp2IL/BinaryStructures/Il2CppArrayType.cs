@@ -1,3 +1,5 @@
+using System;
+
 namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppArrayType : ReadableClass
@@ -9,7 +11,7 @@ public class Il2CppArrayType : ReadableClass
     public ulong sizes;
     public ulong lobounds;
 
-    public Il2CppType ElementType => LibCpp2IlMain.Binary!.GetIl2CppTypeFromPointer(etype);
+    public Il2CppType ElementType => OwningContext.Binary.GetIl2CppTypeFromPointer(etype);
 
     public override void Read(ClassReadingBinaryReader reader)
     {

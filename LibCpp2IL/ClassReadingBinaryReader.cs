@@ -2,14 +2,13 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Text;
 using System.Threading;
+using LibCpp2IL.Metadata;
 
 namespace LibCpp2IL;
 
-public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
+public abstract class ClassReadingBinaryReader(Stream input) : EndianAwareBinaryReader(input)
 {
     /// <summary>
     /// Set this to true to enable storing of amount of bytes read of each readable structure.
@@ -19,7 +18,7 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
     private SpinLock PositionShiftLock;
 
     public bool is32Bit;
-    private MemoryStream? _memoryStream;
+    private readonly MemoryStream? _memoryStream = input as MemoryStream;
 
     public ulong PointerSize => is32Bit ? 4ul : 8ul;
 
@@ -28,17 +27,6 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
     public ConcurrentDictionary<Type, int> BytesReadPerClass = new();
     
     public abstract float MetadataVersion { get; }
-
-
-    public ClassReadingBinaryReader(MemoryStream input) : base(input)
-    {
-        _memoryStream = input;
-    }
-
-    public ClassReadingBinaryReader(Stream input) : base(input)
-    {
-        _memoryStream = null;
-    }
 
     public long Position
     {
@@ -176,6 +164,7 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
     private T InternalReadReadableClass<T>() where T : ReadableClass, new()
     {
         var t = new T { MetadataVersion = MetadataVersion };
+        OnReadableCreated(t);
 
         if (!_inReadableRead)
         {
@@ -190,6 +179,12 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
 
         return t;
     }
+
+    /// <summary>
+    /// Called after a ReadableClass instance is created but before Read is called.
+    /// Override in subclasses to set OwningContext on newly created instances.
+    /// </summary>
+    protected virtual void OnReadableCreated(ReadableClass instance) { }
 
     private object InternalReadClass(Type type, bool overrideArchCheck = false)
     {
@@ -234,6 +229,29 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
             for (var i = 0; i < count; i++)
             {
                 t[i] = InternalReadClass<T>();
+            }
+
+            return t;
+        }
+        finally
+        {
+            ReleaseLock();
+        }
+    }
+    
+    public Il2CppVariableWidthIndex<T>[] ReadIndexArrayAtRawAddress<T>(long offset, long count) where T : ReadableClass
+    {
+        var t = new Il2CppVariableWidthIndex<T>[count];
+
+        GetLockOrThrow();
+
+        try
+        {
+            if (offset != -1) Position = offset;
+
+            for (var i = 0; i < count; i++)
+            {
+                t[i] = Il2CppVariableWidthIndex<T>.Read(this);
             }
 
             return t;
@@ -423,8 +441,8 @@ public abstract class ClassReadingBinaryReader : EndianAwareBinaryReader
                 rawBytes = BitConverter.GetBytes(word);
             }
 
-            if (ShouldReverseArrays)
-                rawBytes = rawBytes.Reverse();
+            if (BitConverter.IsLittleEndian != IsLittleEndian)
+                Array.Reverse(rawBytes);
 
             if (position > _memoryStream.Length)
                 throw new Exception($"WriteWord: Position {position} beyond length {_memoryStream.Length}");

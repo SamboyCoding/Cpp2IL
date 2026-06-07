@@ -20,12 +20,12 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
 
             if (wasmDef == null)
             {
-                Logger.WarnNewline($"Could not find WASM definition for method {methodDefinition.HumanReadableSignature} in {methodDefinition.DeclaringType?.FullName}, probably incorrect signature calculation (signature was {WasmUtils.BuildSignature(context)})", "WasmInstructionSet");
+                Logger.WarnNewline($"Could not find WASM definition for method {methodDefinition.HumanReadableSignature} in {methodDefinition.DeclaringType?.FullName}, probably incorrect signature calculation (signature was {WasmUtils.BuildSignature(context)}, index is {context.UnderlyingPointer})", "WasmInstructionSet");
                 return Array.Empty<byte>();
             }
 
             if (wasmDef.AssociatedFunctionBody == null)
-                throw new($"WASM definition {wasmDef}, resolved from MethodAnalysisContext {context.Definition.HumanReadableSignature} in {context.DeclaringType?.FullName} has no associated function body (signature was {WasmUtils.BuildSignature(context)})");
+                throw new($"WASM definition {wasmDef}, resolved from MethodAnalysisContext {context.Definition.HumanReadableSignature} in {context.DeclaringType?.FullName} has no associated function body (signature was {WasmUtils.BuildSignature(context)}, index is {context.UnderlyingPointer})");
 
             return wasmDef.AssociatedFunctionBody.Instructions;
         }

@@ -1,127 +1,144 @@
 name: .NET Core - Release
 
 on:
-  push:
-    branches: [ new-analysis, development ]
-  pull_request:
-    branches: [ new-analysis, development ]
-  workflow_dispatch:
+    push:
+        branches: [ new-analysis, development ]
+    pull_request:
+        branches: [ new-analysis, development ]
+    workflow_dispatch:
 
 jobs:
-  release-net9:
-    strategy:     
-      matrix:
-        runtimeIdentifier: [linux-x64, linux-arm64, osx-x64, osx-arm64, win-x64, win-arm64]
-        project: [Cpp2IL]
-    name: Build Single-File Artifact
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4.1.0
-        with:
-          dotnet-version: 9.x
-      - id: git-vars
-        name: Get git branch information
-        shell: bash
-        run: |
-          echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
-          echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
-      - id: set-vars
-        uses: actions/github-script@v7
-        with:
-          script: |
-            core.setOutput("extension", "${{ matrix.runtimeIdentifier }}" === "win-x64" ? ".exe" : "");
-            
-            let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
-            let runNumber = "${{ github.run_number }}"; 
-            let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
-            console.log("rawGitRef: " + rawGitRef);
-            let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
-            if(gitRef.indexOf("refs/pull/") === 0) {
-              gitRef = "pr-" + gitRef.substring(10, gitRef.lastIndexOf("/"));
-            }
-            var versString = `${gitRef}.${runNumber}+${gitHash}`;
-            console.log(versString);
-            core.setOutput("versionString", versString);
-      - name: Restore
-        run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
-      - name: Build
-        working-directory: ./${{ matrix.project }}/
-        run: dotnet publish -c Release -f net9.0 -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
-      - name: Upload Executable
-        uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.project }}-net9-${{ matrix.runtimeIdentifier }}
-          path: ./${{ matrix.project }}/bin/Release/net9.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
-  release-netframework:
-    name: Build - Windows .NET Framework Zip
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4.1.0
-        with:
-          dotnet-version: 9.x
-      - name: Install dependencies
-        run: dotnet restore -r win-x64
-      - name: Build
-        working-directory: ./Cpp2IL/
-        run: dotnet publish -c Release -f net472 --no-restore -r win-x64
-      - name: Upload
-        uses: actions/upload-artifact@v4
-        with:
-          name: Cpp2IL-Netframework472-Windows
-          path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
-  tests:
-    name: Run Tests & Publish Dev Package
-    runs-on: ubuntu-latest
-    if: github.repository == 'SamboyCoding/Cpp2IL'
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4.1.0
-        with:
-          dotnet-version: 9.x
-      - id: git-vars
-        name: Set up environment
-        shell: bash
-        run: |
-          echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
-          echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
-      - id: set-vars
-        uses: actions/github-script@v7
-        with:
-          script: |
-            let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
-            let runNumber = "${{ github.run_number }}"; 
-            let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
-            console.log("rawGitRef: " + rawGitRef);
-            let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
-            if(gitRef.indexOf("refs/pull/") === 0) {
-              gitRef = "pr-" + gitRef.substring(10, gitRef.lastIndexOf("/"));
-            }
-            var versString = `${gitRef}.${runNumber}+${gitHash}`;
-            console.log(versString);
-            core.setOutput("versionString", versString);
-      - name: Install dependencies
-        run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
-      - name: Build all
-        run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
-      - name: Run Tests
-        run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
-      - name: Upload Coverage
-        uses: coverallsapp/github-action@v2.3.4
-        with:
-            github-token: ${{ secrets.GITHUB_TOKEN }}
-            files: ./Cpp2IL.Core.Tests/lcov.info ./LibCpp2ILTests/lcov.info
-      - name: Publish StableNameDotNet
-        if: github.event_name == 'push'
-        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./StableNameDotNet/bin/Release/*.nupkg
-      - name: Publish WasmDisassembler
-        if: github.event_name == 'push'
-        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./WasmDisassembler/bin/Release/*.nupkg
-      - name: Publish LibCpp2IL
-        if: github.event_name == 'push'
-        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./LibCpp2IL/bin/Release/*.nupkg
-      - name: Publish Cpp2IL.Core
-        if: github.event_name == 'push'
-        run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Core/bin/Release/*.nupkg
-      
+    release-net9:
+        strategy:
+            matrix:
+                runtimeIdentifier: [ linux-x64, linux-arm64, osx-x64, osx-arm64, win-x64, win-arm64 ]
+                project: [ Cpp2IL ]
+        name: Build Single-File Artifact
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v4
+            -   uses: actions/setup-dotnet@v4.1.0
+                with:
+                    dotnet-version: 10.x
+            -   id: git-vars
+                name: Get git branch information
+                shell: bash
+                run: |
+                    echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
+                    echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
+            -   id: set-vars
+                uses: actions/github-script@v7
+                with:
+                    script: |
+                        core.setOutput("extension", "${{ matrix.runtimeIdentifier }}" === "win-x64" ? ".exe" : "");
+                        
+                        let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
+                        let runNumber = "${{ github.run_number }}";
+                        let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
+                        console.log("rawGitRef: " + rawGitRef);
+                        let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
+                        if(gitRef.indexOf("refs/pull/") === 0) {
+                          gitRef = "pr-" + gitRef.substring(10, gitRef.lastIndexOf("/"));
+                        }
+                        var versString = `${gitRef}.${runNumber}+${gitHash}`;
+                        console.log(versString);
+                        core.setOutput("versionString", versString);
+            -   name: Restore
+                run: dotnet restore -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
+            -   name: Build
+                working-directory: ./${{ matrix.project }}/
+                run: dotnet publish -c Release -f net10.0 -r ${{ matrix.runtimeIdentifier }} /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --no-restore --self-contained
+            -   name: Upload Executable
+                uses: actions/upload-artifact@v4
+                with:
+                    name: ${{ matrix.project }}-net9-${{ matrix.runtimeIdentifier }}
+                    path: ./${{ matrix.project }}/bin/Release/net10.0/${{ matrix.runtimeIdentifier }}/publish/${{ matrix.project }}${{ steps.set-vars.outputs.extension }}
+    release-netframework:
+        name: Build - Windows .NET Framework Zip
+        runs-on: ubuntu-latest
+        steps:
+            -   uses: actions/checkout@v4
+            -   uses: actions/setup-dotnet@v4.1.0
+                with:
+                    dotnet-version: 10.x
+            -   name: Install dependencies
+                run: dotnet restore -r win-x64
+            -   name: Build
+                working-directory: ./Cpp2IL/
+                run: dotnet publish -c Release -f net472 --no-restore -r win-x64
+            -   name: Upload
+                uses: actions/upload-artifact@v4
+                with:
+                    name: Cpp2IL-Netframework472-Windows
+                    path: ./Cpp2IL/bin/Release/net472/win-x64/publish/
+    tests:
+        name: Run Tests & Publish Dev Package
+        runs-on: ubuntu-latest
+        if: github.repository == 'SamboyCoding/Cpp2IL'
+        steps:
+            -   uses: actions/checkout@v4
+            -   uses: actions/setup-dotnet@v4.1.0
+                with:
+                    dotnet-version: 10.x
+            -   id: git-vars
+                name: Set up environment
+                shell: bash
+                run: |
+                    echo "##[set-output name=git_branch;]$(echo $GITHUB_REF)"
+                    echo "::set-output name=git_hash::$(git rev-parse --short HEAD)"
+            -   id: set-vars
+                uses: actions/github-script@v7
+                with:
+                    script: |
+                        let gitHash = "${{ steps.git-vars.outputs.git_hash }}";
+                        let runNumber = "${{ github.run_number }}";
+                        let rawGitRef = "${{ steps.git-vars.outputs.git_branch }}";
+                        console.log("rawGitRef: " + rawGitRef);
+                        let gitRef = rawGitRef.replace(/^refs\/heads\//, "");
+                        if(gitRef.indexOf("refs/pull/") === 0) {
+                          gitRef = "pr-" + gitRef.substring(10, gitRef.lastIndexOf("/"));
+                        }
+                        var versString = `${gitRef}.${runNumber}+${gitHash}`;
+                        console.log(versString);
+                        core.setOutput("versionString", versString);
+            -   name: Install dependencies
+                run: dotnet restore /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
+            -   name: Build all
+                run: dotnet build -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }}
+            -   name: Run Tests
+                run: dotnet test -c Release /p:VersionSuffix=${{ steps.set-vars.outputs.versionString }} --verbosity normal /p:CollectCoverage=true /p:CoverletOutputFormat=lcov /p:CoverletOutput='./lcov.info' /p:ExcludeByAttribute="LibCpp2IL.Coverage.NoCoverageAttribute"
+            -   name: Upload Coverage
+                uses: coverallsapp/github-action@v2.3.4
+                with:
+                    github-token: ${{ secrets.GITHUB_TOKEN }}
+                    files: ./Cpp2IL.Core.Tests/lcov.info ./LibCpp2ILTests/lcov.info
+            -   name: Publish StableNameDotNet
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./StableNameDotNet/bin/Release/*.nupkg
+            -   name: Publish WasmDisassembler
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./WasmDisassembler/bin/Release/*.nupkg
+            -   name: Publish LibCpp2IL
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./LibCpp2IL/bin/Release/*.nupkg
+            -   name: Publish Cpp2IL.Core
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Core/bin/Release/*.nupkg
+            -   name: Publish Cpp2IL.Plugin.BuildReport
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.BuildReport/bin/Release/*.nupkg
+            -   name: Publish Cpp2IL.Plugin.ControlFlowGraph
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.ControlFlowGraph/bin/Release/*.nupkg
+            -   name: Publish Cpp2IL.Plugin.OrbisPkg
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.OrbisPkg/bin/Release/*.nupkg
+            -   name: Publish Cpp2IL.Plugin.Pdb
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.Pdb/bin/Release/*.nupkg
+            -   name: Publish Cpp2IL.Plugin.StrippedCodeRegSupport
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.StrippedCodeRegSupport/bin/Release/*.nupkg
+            -   name: Publish Cpp2IL.Plugin.Mfuscator
+                if: github.event_name == 'push'
+                run: dotnet nuget push -s https://nuget.samboy.dev/v3/index.json -k ${{ secrets.NUGET_KEY }} ./Cpp2IL.Plugin.Mfuscator/bin/Release/*.nupkg

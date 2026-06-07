@@ -25,7 +25,7 @@ public static class V29AttributeUtils
         if (ClassReadingBinaryReader.EnableReadableSizeInformation)
             context.Metadata.TrackRead<AnalyzedCustomAttribute>((int)(4 * count), trackIfFinishedReading: true);
 
-        return indices.Select(i => context.Metadata.methodDefs[i]).ToArray();
+        return indices.Select(i => context.Metadata.methodDefs[i]).ToArray(); //TODO DynWidth: Validate against v105 CA blob once we have one.
     }
 
     public static AnalyzedCustomAttribute ReadAttribute(Stream stream, MethodAnalysisContext constructor, ApplicationAnalysisContext context)
@@ -83,7 +83,7 @@ public static class V29AttributeUtils
             memberIndex = -(memberIndex + 1);
 
             //Resolve type
-            var typeDef = context.Metadata.typeDefs[typeIndex];
+            var typeDef = context.Metadata.GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage((int)typeIndex)); //DynWidth: typeIndex is already compressed, they didn't make it dynamic
             var typeContext = context.ResolveContextForType(typeDef) ?? throw new("Unable to find type " + typeDef);
 
             //Get member
@@ -118,7 +118,7 @@ public static class V29AttributeUtils
         {
             case Il2CppTypeEnum.IL2CPP_TYPE_ENUM:
                 var enumTypeIndex = reader.BaseStream.ReadUnityCompressedInt();
-                var enumType = context.Binary.GetType(enumTypeIndex);
+                var enumType = context.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(enumTypeIndex)); //DynWidth: enumTypeIndex is already compressed, they didn't make it dynamic
                 return new CustomAttributeEnumParameter(enumType, context, owner, kind, index);
             case Il2CppTypeEnum.IL2CPP_TYPE_SZARRAY:
                 return new CustomAttributeArrayParameter(owner, kind, index);

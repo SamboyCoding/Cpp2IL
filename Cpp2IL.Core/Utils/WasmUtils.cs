@@ -7,7 +7,6 @@ using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
 using LibCpp2IL.Wasm;
 
 namespace Cpp2IL.Core.Utils;
@@ -32,10 +31,9 @@ public static class WasmUtils
             : definition.ReturnType switch
             {
                 { Namespace: nameof(System), Name: "Void" } => "v",
-                { IsValueType: true, Definition: null or { Size: < 0 or > 8 } } => "vi", //Large or Generic Struct returns have a void return type, but the actual return value is the first parameter.
-                { IsValueType: true, Definition.Size: > 4 } => "j", //Medium structs are returned as longs
-                { IsValueType: true, Definition.Size: <= 4 } => "i", //Small structs are returned as ints
-                _ => GetSignatureLetter(definition.ReturnType!)
+                { IsValueType: true, Definition: null or { Size: > 8 } } => "vi", //Large or Generic Struct returns have a void return type, but the actual return value is the first parameter.
+                { IsValueType: true, Definition.Size: > 0 and < 4 } => "i", //Small structs are returned as ints
+                _ => GetSignatureLetter(definition.ReturnType!, forReturn: true)
             };
 
         return $"{returnTypeSignature}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.ParameterType, p.IsRef)))}i"; //Add an extra i on the end for the method info param
@@ -49,7 +47,7 @@ public static class WasmUtils
         return typeEnum is >= Il2CppTypeEnum.IL2CPP_TYPE_BOOLEAN and <= Il2CppTypeEnum.IL2CPP_TYPE_R8;
     }
 
-    private static string GetSignatureLetter(TypeAnalysisContext type, bool isRefOrOut = false)
+    private static string GetSignatureLetter(TypeAnalysisContext type, bool isRefOrOut = false, bool forReturn = false)
     {
         if (isRefOrOut)
             //ref/out params are passed as pointers 
@@ -62,6 +60,13 @@ public static class WasmUtils
         if (type.IsEnumType)
             type = type.EnumUnderlyingType ?? throw new($"Enum type {type} has no underlying type");
 
+        if (type.IsValueType && type is { Namespace: nameof(System), Name: nameof(DateTime) or nameof(TimeSpan) })
+            return "j"; //gross hardcoding but i think this is literally the only 2 cases?
+        
+        if(forReturn && type.IsValueType && type.Fields.Count(f => !f.IsStatic && (f.Attributes & FieldAttributes.Literal) == 0) > 1)
+            //this seems to work in my testing, at least
+            return "vi";
+
         // var typeDefinition = type.BaseType ?? type.AppContext.SystemTypes.SystemInt32Type;
 
         return type.Name switch
@@ -71,15 +76,14 @@ public static class WasmUtils
             "Single" => "f",
             "Double" => "d",
             "Int32" => "i",
-            _ when !type.IsWasmPrimitive() && type is { IsValueType: true, IsEnumType: false, Definition.Size: <= 8 and > 0 } => "j", //TODO check - value types < 16 bytes (including base object header which is irrelevant here) are passed directly as long?
             _ => "i"
         };
     }
 
-    public static string GetGhidraFunctionName(WasmFunctionDefinition functionDefinition)
+    public static string GetGhidraFunctionName(Il2CppBinary binary, WasmFunctionDefinition functionDefinition)
     {
         var index = functionDefinition.IsImport
-            ? ((WasmFile)LibCpp2IlMain.Binary!).FunctionTable.IndexOf(functionDefinition)
+            ? ((WasmFile)binary).FunctionTable.IndexOf(functionDefinition)
             : functionDefinition.FunctionTableIndex;
 
         return $"unnamed_function_{index}";
@@ -101,16 +105,16 @@ public static class WasmUtils
     {
         if (context.Definition == null)
             throw new($"Attempted to get wasm definition for probably-injected method context: {context}");
-        
+
         //First, we have to calculate the signature
         var signature = BuildSignature(context);
         try
         {
-            return ((WasmFile)LibCpp2IlMain.Binary!).GetFunctionFromIndexAndSignature(context.Definition.MethodPointer, signature);
+            return ((WasmFile)context.AppContext.Binary).GetFunctionFromIndexAndSignature(context.Definition.MethodPointer, signature);
         }
         catch (Exception e)
         {
-            throw new($"Failed to find wasm definition for {context}\nwhich has params {context.Parameters?.ToStringEnumerable()}", e);
+            throw new($"Failed to find wasm definition for {context}\nwhich has params {context.Parameters.ToStringEnumerable()}", e);
         }
     }
 

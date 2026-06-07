@@ -1,7 +1,7 @@
 ﻿ <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Company>Samboy063</Company>
-        <Copyright>Copyright © Samboy063 2019-2023</Copyright>
+        <Copyright>Copyright © Samboy063 2019-2026</Copyright>
         <Configurations>Debug;Release</Configurations>
         <DebugType>embedded</DebugType>
         <EnableCompressionInSingleFile>true</EnableCompressionInSingleFile>
@@ -10,7 +10,7 @@
         <Nullable>enable</Nullable>
         <OutputType>Exe</OutputType>
         <PublishSingleFile Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
-        <TargetFrameworks>net9.0;net472</TargetFrameworks>
+        <TargetFrameworks>net10.0;net472</TargetFrameworks>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <CETCompat>false</CETCompat>

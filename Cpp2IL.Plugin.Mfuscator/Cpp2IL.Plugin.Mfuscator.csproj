@@ -1,0 +1,31 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <DebugType>embedded</DebugType>
+        <Nullable>enable</Nullable>
+    </PropertyGroup>
+
+    <PropertyGroup>
+        <Authors>Sam Byass (Samboy063)</Authors>
+        <ContinuousIntegrationBuild Condition="'$(GITHUB_ACTIONS)' == 'true'">true</ContinuousIntegrationBuild>
+        <Copyright>Copyright © Samboy063 2024-2026</Copyright>
+        <Description>Plugin for Cpp2IL</Description>
+        <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+        <PackageId>Samboy063.$(MSBuildProjectName)</PackageId>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageProjectUrl>https://github.com/SamboyCoding/Cpp2IL</PackageProjectUrl>
+        <PublishRepositoryUrl>true</PublishRepositoryUrl>
+        <Title>$(MSBuildProjectName)</Title>
+        <VersionPrefix>2022.1.0</VersionPrefix>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Cpp2IL.Core\Cpp2IL.Core.csproj" Private="false" />
+      <ProjectReference Include="..\LibCpp2IL\LibCpp2IL.csproj" Private="false" />
+      <ProjectReference Include="..\StableNameDotNet\StableNameDotNet.csproj" Private="false" />
+      <ProjectReference Include="..\WasmDisassembler\WasmDisassembler.csproj" Private="false" />
+    </ItemGroup>
+
+</Project>

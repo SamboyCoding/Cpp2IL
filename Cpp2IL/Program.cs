@@ -197,10 +197,16 @@ internal static class Program
     {
         //Windows game.
         args.PathToAssembly = Path.Combine(gamePath, "GameAssembly.dll");
-        var exeName = Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
-            .FirstOrDefault(f => f.EndsWith(".exe") && !MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
-        exeName = inputExeName ?? exeName;
+        var exeName = inputExeName;
+        
+        //Try by _Data folder
+        exeName ??= Directory.GetDirectories(gamePath)
+            .FirstOrDefault(d => d.EndsWith("_Data") && File.Exists(Path.Combine(d, "il2cpp_data", "Metadata", "global-metadata.dat")))?.Replace("_Data", "");
+        
+        //Then by exe files in the root, ignoring blacklisted ones
+        exeName ??= Path.GetFileNameWithoutExtension(Directory.GetFiles(gamePath)
+            .FirstOrDefault(f => f.EndsWith(".exe") && !MiscUtils.BlacklistedExecutableFilenames.Any(f.EndsWith)));
 
         Logger.VerboseNewline($"Trying HandleWindowsGamePath as provided path is a directory with no GameAssembly.so, potential GA is {args.PathToAssembly} and executable {exeName}");
 

@@ -4,6 +4,7 @@ using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.CustomAttributes;
 
@@ -44,7 +45,7 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
             _type = null;
         else
         {
-            _type = context.Binary.GetType(typeIndex);
+            _type = context.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(typeIndex)); //DynWidth: typeIndex is already compressed, they didn't make it dynamic
         }
         _typeContext = null;
     }
@@ -55,7 +56,7 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
             return "(Type) null";
 
         if (TypeContext.Type is var typeEnum && typeEnum.IsIl2CppPrimitive())
-            return $"typeof({LibCpp2ILUtils.GetTypeName(TypeContext.Type)}";
+            return $"typeof({LibCpp2ILUtils.GetTypeName(TypeContext.Type)})";
 
         if (TypeContext is ReferencedTypeAnalysisContext)
         {

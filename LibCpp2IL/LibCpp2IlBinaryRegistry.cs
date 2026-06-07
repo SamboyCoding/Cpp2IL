@@ -5,7 +5,6 @@ using System.Linq;
 using LibCpp2IL.Elf;
 using LibCpp2IL.Logging;
 using LibCpp2IL.MachO;
-using LibCpp2IL.Metadata;
 using LibCpp2IL.NintendoSwitch;
 using LibCpp2IL.Wasm;
 
@@ -49,7 +48,7 @@ public static class LibCpp2IlBinaryRegistry
         _binaries.Add(new(name, source, isValid, factory));
     }
 
-    internal static Il2CppBinary CreateAndInit(byte[] buffer, Il2CppMetadata metadata)
+    internal static Il2CppBinary CreateAndInit(byte[] buffer, LibCpp2IlContext context)
     {
         if (_binaries.Count == 0)
             RegisterBuiltInBinarySupport();
@@ -64,21 +63,10 @@ public static class LibCpp2IlBinaryRegistry
         var memStream = new MemoryStream(buffer, 0, buffer.Length, true, true);
 
         LibLogger.InfoNewline("Searching Binary for Required Data...");
-        var start = DateTime.Now;
 
         var binary = match.FactoryFunc(memStream);
 
-        LibCpp2IlMain.Binary = binary;
-
-        var (codereg, metareg) = binary.FindCodeAndMetadataReg(metadata);
-
-        LibLogger.InfoNewline($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.");
-        LibLogger.InfoNewline("Initializing Binary...");
-        start = DateTime.Now;
-
-        binary.Init(codereg, metareg, metadata);
-
-        LibLogger.InfoNewline($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+        binary.Init(context);
 
         return binary;
     }

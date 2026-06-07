@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using LibCpp2IL;
@@ -18,14 +18,14 @@ public static class Il2CppMethodInfoUsefulOffsets
         new UsefulOffset("klass", X86_64_KLASS_OFFSET, typeof(IntPtr), false)
     ];
 
-    public static bool IsKlassPtr(uint offset)
+    public static bool IsKlassPtr(uint offset, Il2CppBinary binary)
     {
-        return GetOffsetName(offset) == "klass";
+        return GetOffsetName(offset, binary) == "klass";
     }
 
-    public static string? GetOffsetName(uint offset)
+    public static string? GetOffsetName(uint offset, Il2CppBinary binary)
     {
-        var is32Bit = LibCpp2IlMain.Binary!.is32Bit;
+        var is32Bit = binary.is32Bit;
 
         return UsefulOffsets.FirstOrDefault(o => o.is32Bit == is32Bit && o.offset == offset)?.name;
     }

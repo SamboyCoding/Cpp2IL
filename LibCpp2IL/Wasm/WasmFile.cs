@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using LibCpp2IL.Logging;
-using LibCpp2IL.Metadata;
 using WasmDisassembler;
 
 namespace LibCpp2IL.Wasm;
@@ -89,7 +88,10 @@ public sealed class WasmFile : Il2CppBinary
         index = (ulong)((long)(index & coefficients.andWith) + coefficients.addConstant);
 
         //Use element section to look up real index
-        var realIndex = ElementSection.Elements[0].FunctionIndices![(int)index]; //Minus 1 because the first element in the actual memory layout is FFFFFFFF
+        //Ghidra plugin inserts a 00000000 entry at the top of the table which makes it look like you don't need the -1 here
+        //i.e. pointer in metadata is 4386, you want the item which ghidra shows [4386] at the end of the line for
+        //but we don't have that, so without the -1 this would map to what ghidra shows as [4387], which is wrong.
+        var realIndex = ElementSection.Elements[0].FunctionIndices![(int)index - 1]; 
 
         //Look up real index in function table
         return FunctionTable[(int)realIndex];
@@ -155,6 +157,8 @@ public sealed class WasmFile : Il2CppBinary
                     LibLogger.WarnNewline($"\t\tCouldn't calculate coefficients for {signature}, got only 2 instructions but the last was {relevantInstructions[^1].Mnemonic}, not I32And or I32Add");
                     continue;
                 }
+                
+                LibLogger.VerboseNewline($"\t\tCoefficients for {signature}: andWith {andWith}, addConstant {add}");
             }
             else if (relevantInstructions.Length == 4)
             {
@@ -176,12 +180,15 @@ public sealed class WasmFile : Il2CppBinary
                     add = -add;
                     LibLogger.WarnNewline($"\t\tCoefficient for {signature} using I32Sub not I32Add, this may not work!");
                 }
+                
+                LibLogger.VerboseNewline($"\t\tCoefficients for {signature}: andWith {andWith}, addConstant {add}");
             }
             else if (disassembled.All(d => d.Mnemonic is WasmMnemonic.LocalGet or WasmMnemonic.CallIndirect or WasmMnemonic.End))
             {
                 //No remapping
                 andWith = int.MaxValue;
                 add = 0;
+                LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (method only contains LocalGet, CallIndirect, End instructions)");
             }
             else if (disassembled[^1].Mnemonic == WasmMnemonic.End && disassembled[^2].Mnemonic == WasmMnemonic.CallIndirect && disassembled[^3].Mnemonic == WasmMnemonic.LocalGet && (byte)disassembled[^3].Operands[0] == 0)
             {
@@ -190,13 +197,26 @@ public sealed class WasmFile : Il2CppBinary
                 LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (method ends with LocalGet 0, CallIndirect, End)");
                 andWith = int.MaxValue;
                 add = 0;
+            } else if (disassembled.FindIndex(i => i.Mnemonic == WasmMnemonic.CallIndirect) is var callIdx and > 0 &&
+                       Enumerable.Range(0, callIdx).Select(i => disassembled[i]).All(i => i.Mnemonic == WasmMnemonic.LocalGet))
+            {
+                //CallIndirect and everything before is just LocalGet, we assume not modified
+                LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (only LocalGet instructions before the CallIndirect)");
+                andWith = int.MaxValue;
+                add = 0;
+            } else if (disassembled.FindIndex(i => i.Mnemonic == WasmMnemonic.CallIndirect) is var callIdx2 and > 0 && disassembled[callIdx2 - 1] is { Mnemonic: WasmMnemonic.LocalGet, Operands: [(byte) 0] })
+            {
+                //CallIndirect with LocalGet 0 just before, assume not modified - this is sketchy though
+                LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (LocalGet 0 instruction immediately before the CallIndirect)");
+                andWith = int.MaxValue;
+                add = 0;
             }
             else
             {
                 LibLogger.WarnNewline($"\t\tCouldn't calculate coefficients for {signature}, got {relevantInstructions.Length} instructions; expecting 4");
                 continue;
             }
-
+            
             DynCallCoefficients[signature] = new() { andWith = andWith, addConstant = add, };
         }
     }
@@ -219,7 +239,7 @@ public sealed class WasmFile : Il2CppBinary
         return (long)uiAddr;
     }
 
-    public override ulong MapRawAddressToVirtual(uint offset)
+    public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
         var data = DataSection;
         if (offset > data.Pointer && offset < data.Pointer + (long)data.Size)

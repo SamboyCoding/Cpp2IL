@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
-using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.PE;
 
 namespace Cpp2IL.Core.Utils;

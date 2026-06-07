@@ -1,4 +1,3 @@
-using System;
 using System.Linq;
 
 namespace LibCpp2IL.Metadata;
@@ -7,17 +6,18 @@ public class Il2CppAssemblyDefinition : ReadableClass
 {
     public int ImageIndex;
     [Version(Min = 24.1f)] public uint Token;
+    [Version(Min = 38.0f)] public uint ModuleToken;
     [Version(Max = 24.0f)] public int CustomAttributeIndex;
     public int ReferencedAssemblyStart;
     public int ReferencedAssemblyCount;
     public Il2CppAssemblyNameDefinition AssemblyName = null!; //Late-read
 
-    public Il2CppImageDefinition Image => LibCpp2IlMain.TheMetadata!.imageDefinitions[ImageIndex];
+    public Il2CppImageDefinition Image => OwningContext.Metadata.imageDefinitions[ImageIndex];
 
     public Il2CppAssemblyDefinition[] ReferencedAssemblies => ReferencedAssemblyStart < 0
         ? []
-        : LibCpp2IlMain.TheMetadata!.referencedAssemblies.SubArray(ReferencedAssemblyStart, ReferencedAssemblyCount)
-            .Select(idx => LibCpp2IlMain.TheMetadata.AssemblyDefinitions[idx])
+        : OwningContext.Metadata.referencedAssemblies.SubArray(ReferencedAssemblyStart, ReferencedAssemblyCount)
+            .Select(idx => OwningContext.Metadata.AssemblyDefinitions[idx])
             .ToArray();
 
     public override string ToString() => AssemblyName.ToString();
@@ -27,6 +27,8 @@ public class Il2CppAssemblyDefinition : ReadableClass
         ImageIndex = reader.ReadInt32();
         if (IsAtLeast(24.1f))
             Token = reader.ReadUInt32();
+        if (IsAtLeast(38.0f))
+            ModuleToken = reader.ReadUInt32();
         if (IsAtMost(24.0f))
             CustomAttributeIndex = reader.ReadInt32();
         ReferencedAssemblyStart = reader.ReadInt32();

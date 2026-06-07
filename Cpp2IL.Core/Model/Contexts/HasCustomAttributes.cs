@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using Cpp2IL.Core.Extensions;
@@ -119,7 +118,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
         AttributeTypes = Enumerable.Range(AttributeTypeRange.start, AttributeTypeRange.count)
             .Select(attrIdx => AppContext.Metadata!.attributeTypes![attrIdx]) //Not null because we've checked we're not on v29
-            .Select(typeIdx => AppContext.Binary!.GetType(typeIdx))
+            .Select(typeIdx => AppContext.Binary!.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(typeIdx)))
             .ToList();
     }
 
@@ -146,8 +145,8 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         var attributeDataRange = AppContext.Metadata.AttributeDataRanges[caIndex];
         var next = AppContext.Metadata.AttributeDataRanges[caIndex + 1];
 
-        var blobStart = AppContext.Metadata.metadataHeader.attributeDataOffset + attributeDataRange.startOffset;
-        var blobEnd = AppContext.Metadata.metadataHeader.attributeDataOffset + next.startOffset;
+        var blobStart = AppContext.Metadata.metadataHeader.attributeData.Offset + attributeDataRange.startOffset;
+        var blobEnd = AppContext.Metadata.metadataHeader.attributeData.Offset + next.startOffset;
         return (blobStart, blobEnd);
     }
 

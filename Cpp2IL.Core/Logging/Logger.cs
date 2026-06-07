@@ -38,4 +38,11 @@ public static class Logger
     {
         ErrorLog(message, source);
     }
+
+    public static void VerboseNewlineIfDebug(string message, string source = "Program")
+    {
+#if DEBUG
+        VerboseNewline(message, source);
+#endif
+    }
 }

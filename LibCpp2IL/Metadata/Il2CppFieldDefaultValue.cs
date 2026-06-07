@@ -1,17 +1,19 @@
+using LibCpp2IL.BinaryStructures;
+
 namespace LibCpp2IL.Metadata;
 
 public class Il2CppFieldDefaultValue : ReadableClass
 {
-    public int fieldIndex;
-    public int typeIndex;
-    public int dataIndex;
+    public Il2CppVariableWidthIndex<Il2CppFieldDefinition> fieldIndex;
+    public Il2CppVariableWidthIndex<Il2CppType> typeIndex;
+    public Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> dataIndex;
 
-    public object? Value => dataIndex <= 0 ? null : LibCpp2ILUtils.GetDefaultValue(dataIndex, typeIndex);
+    public object? Value => dataIndex.IsNull ? null : LibCpp2ILUtils.GetDefaultValue(dataIndex, typeIndex, OwningContext);
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-        fieldIndex = reader.ReadInt32();
-        typeIndex = reader.ReadInt32();
-        dataIndex = reader.ReadInt32();
+        fieldIndex = Il2CppVariableWidthIndex<Il2CppFieldDefinition>.Read(reader);
+        typeIndex = Il2CppVariableWidthIndex<Il2CppType>.Read(reader);
+        dataIndex = Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy>.Read(reader);
     }
 }

@@ -82,7 +82,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
 
             if (Attributes.HasFlag(ParameterAttributes.HasDefault))
             {
-                DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(declaringMethod.Definition!.parameterStart + parameterIndex)!;
+                DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(declaringMethod.Definition!.parameterStart.Value + parameterIndex))!;
             }
         }
     }
@@ -102,7 +102,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         else if (ParameterType is ByRefTypeAnalysisContext)
             result.Append("ref ");
 
-        result.Append(CsFileUtils.GetTypeName(ParameterType.Name)).Append(' ');
+        result.Append(CsFileUtils.GetTypeName(ParameterType)).Append(' ');
 
         if (string.IsNullOrEmpty(ParameterName))
             result.Append("unnamed_param_").Append(ParameterIndex);

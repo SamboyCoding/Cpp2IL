@@ -1,13 +1,14 @@
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.Metadata;
 
 public class Il2CppInterfaceOffset : ReadableClass
 {
-    public int typeIndex;
+    public Il2CppVariableWidthIndex<Il2CppType> typeIndex;
     public int offset;
 
-    public Il2CppTypeReflectionData Type => LibCpp2ILUtils.GetTypeReflectionData(LibCpp2IlMain.Binary!.GetType(typeIndex));
+    public Il2CppTypeReflectionData Type => LibCpp2ILUtils.GetTypeReflectionData(OwningContext.Binary.GetType(typeIndex));
 
     public override string ToString()
     {
@@ -16,7 +17,7 @@ public class Il2CppInterfaceOffset : ReadableClass
 
     public override void Read(ClassReadingBinaryReader reader)
     {
-        typeIndex = reader.ReadInt32();
+        typeIndex = Il2CppVariableWidthIndex<Il2CppType>.Read(reader);
         offset = reader.ReadInt32();
     }
 }

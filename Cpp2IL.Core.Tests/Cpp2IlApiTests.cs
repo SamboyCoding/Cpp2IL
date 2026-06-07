@@ -1,5 +1,3 @@
-using NUnit.Framework;
-
 namespace Cpp2IL.Core.Tests;
 
 public class Cpp2IlApiTests

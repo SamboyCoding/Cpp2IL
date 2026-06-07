@@ -1,3 +1,4 @@
+using System;
 using System.Reflection;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -22,7 +23,7 @@ public class InjectedTypeAnalysisContext : TypeAnalysisContext
         DefaultAttributes = typeAttributes;
     }
 
-    public InjectedMethodAnalysisContext InjectMethodContext(string methodName, TypeAnalysisContext returnType, MethodAttributes attributes, params TypeAnalysisContext[] args)
+    public InjectedMethodAnalysisContext InjectMethodContext(string methodName, TypeAnalysisContext returnType, MethodAttributes attributes, params ReadOnlySpan<TypeAnalysisContext> args)
     {
         var method = new InjectedMethodAnalysisContext(this, methodName, returnType, attributes, args);
         Methods.Add(method);

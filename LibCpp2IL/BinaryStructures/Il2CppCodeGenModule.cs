@@ -1,3 +1,5 @@
+using System;
+
 namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppCodeGenModule : ReadableClass
@@ -37,13 +39,16 @@ public class Il2CppCodeGenModule : ReadableClass
         get
         {
             if (_cachedName == null)
-                _cachedName = LibCpp2IlMain.Binary!.ReadStringToNull(LibCpp2IlMain.Binary.MapVirtualAddressToRaw(moduleName));
+            {
+                var binary = OwningContext.Binary;
+                _cachedName = binary.ReadStringToNull(binary.MapVirtualAddressToRaw(moduleName));
+            }
 
             return _cachedName!;
         }
     }
 
-    public Il2CppTokenRangePair[] RGCTXRanges => LibCpp2IlMain.Binary!.GetRgctxRangePairsForModule(this);
+    public Il2CppTokenRangePair[] RGCTXRanges => OwningContext.Binary.GetRgctxRangePairsForModule(this);
 
     public override void Read(ClassReadingBinaryReader reader)
     {

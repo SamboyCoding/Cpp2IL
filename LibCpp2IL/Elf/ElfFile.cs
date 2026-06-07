@@ -115,9 +115,19 @@ public sealed class ElfFile : Il2CppBinary
         LibLogger.VerboseNewline("\tProcessing Symbols...");
         start = DateTime.Now;
 
-        ProcessSymbols();
+        try
+        {
+            ProcessSymbols();
 
-        LibLogger.VerboseNewline($"\tOK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.VerboseNewline($"\tOK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+        }
+        catch (Exception e)
+        {
+            LibLogger.ErrorNewline($"\tCaught {e.GetType().Name} processing symbols! Attempting to continue without symbol information (no exports, for example)...");
+#if DEBUG
+            LibLogger.ErrorNewline(e.ToString());
+#endif
+        }
 
         LibLogger.Verbose("\tProcessing Initializers...");
         start = DateTime.Now;
@@ -397,7 +407,12 @@ public sealed class ElfFile : Il2CppBinary
         {
             if (GetDynamicEntryOfType(ElfDynamicType.DT_SYMTAB) is { } dynamicSymTab)
             {
-                var end = _dynamicSection.Where(x => x.Value > dynamicSymTab.Value).OrderBy(x => x.Value).First().Value;
+                var endSection = _dynamicSection.Where(x => x.Value > dynamicSymTab.Value).OrderBy(x => x.Value).FirstOrDefault();
+                ulong end;
+                if(endSection != null)
+                    end = endSection.Value;
+                else
+                    end = GetProgramHeaderOfType(ElfProgramEntryType.PT_DYNAMIC) is {} dynamicSegment ? dynamicSegment.VirtualAddress + dynamicSegment.RawSize : (ulong)RawLength;
                 var dynSymSize = is32Bit ? 18ul : 24ul;
 
                 var address = (ulong)MapVirtualAddressToRaw(dynamicSymTab.Value);
@@ -671,17 +686,17 @@ public sealed class ElfFile : Il2CppBinary
     private (ulong codeReg, ulong metaReg) FindCodeAndMetadataRegDefaultBehavior(Il2CppMetadata metadata)
     {
         var methodCount = metadata.methodDefs.Count(x => x.methodIndex >= 0);
-        var typeDefinitionsCount = metadata.typeDefs.Length;
+        var typeDefinitionsCount = metadata.TypeDefinitionCount;
         
         LibLogger.VerboseNewline("Searching for il2cpp structures in an ELF binary using non-arch-specific method...");
-        var searcher = new BinarySearcher(this, methodCount, typeDefinitionsCount);
+        var searcher = new BinarySearcher(this, metadata, methodCount, typeDefinitionsCount);
 
         LibLogger.VerboseNewline("\tLooking for code reg (this might take a while)...");
-        var codeReg = metadata.MetadataVersion >= 24.2f ? searcher.FindCodeRegistrationPost2019(metadata) : searcher.FindCodeRegistrationPre2019();
+        var codeReg = metadata.MetadataVersion >= 24.2f ? searcher.FindCodeRegistrationPost2019() : searcher.FindCodeRegistrationPre2019();
         LibLogger.VerboseNewline($"\tGot code reg 0x{codeReg:X}");
 
         LibLogger.VerboseNewline($"\tLooking for meta reg ({(metadata.MetadataVersion >= 27f ? "post-27" : "pre-27")})...");
-        var metaReg = metadata.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost24_5(metadata) : searcher.FindMetadataRegistrationPre24_5();
+        var metaReg = metadata.MetadataVersion >= 27f ? searcher.FindMetadataRegistrationPost24_5() : searcher.FindMetadataRegistrationPre24_5();
         LibLogger.VerboseNewline($"\tGot meta reg 0x{metaReg:x}");
 
         return (codeReg, metaReg);
@@ -709,12 +724,20 @@ public sealed class ElfFile : Il2CppBinary
         return (long)(addr - (section.VirtualAddress - section.RawAddress));
     }
 
-    public override ulong MapRawAddressToVirtual(uint offset)
+    public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
         if (relocationBlocks.Any(b => b.start <= offset && b.end > offset))
-            throw new InvalidOperationException("Attempt to map a relocation block to a virtual address");
+            if (throwOnError)
+                throw new InvalidOperationException("Attempt to map a relocation block to a virtual address");
+            else
+                return 0;
 
-        var section = _elfProgramHeaderEntries.First(x => offset >= x.RawAddress && offset < x.RawAddress + x.RawSize);
+        var section = _elfProgramHeaderEntries.FirstOrDefault(x => offset >= x.RawAddress && offset < x.RawAddress + x.RawSize);
+        if (section == null)
+            if (throwOnError)
+                throw new InvalidOperationException($"No entry in the Elf PHT contains raw address 0x{offset:X}");
+            else
+                return 0;
 
         return section.VirtualAddress + offset - section.RawAddress;
     }

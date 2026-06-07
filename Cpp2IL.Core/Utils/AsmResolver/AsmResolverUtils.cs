@@ -6,6 +6,7 @@ using System.Linq;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
 using LibCpp2IL.BinaryStructures;
+using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Utils.AsmResolver;
 
@@ -14,7 +15,7 @@ public static class AsmResolverUtils
     private static readonly ConcurrentDictionary<string, TypeDefinition?> CachedTypeDefsByName = new();
     private static readonly ConcurrentDictionary<string, TypeSignature?> CachedTypeSignaturesByName = new();
 
-    public static readonly ConcurrentDictionary<long, TypeDefinition> TypeDefsByIndex = new();
+    public static readonly ConcurrentDictionary<Il2CppVariableWidthIndex<Il2CppTypeDefinition>, TypeDefinition> TypeDefsByIndex = new();
 
     internal static void Reset()
     {
@@ -142,7 +143,8 @@ public static class AsmResolverUtils
             typeArguments[i] = typeArgument;
         }
 
-        return baseType.MakeGenericInstanceType(typeArguments);
+        var runtimeContext = Cpp2IlApi.CurrentAppContext!.GetExtraData<RuntimeContext>("RuntimeContext") ?? throw new("AsmResolver runtime context not found in application analysis context");
+        return baseType.MakeGenericInstanceType(runtimeContext, typeArguments);
     }
 
     private readonly record struct ParsedTypeString(string BaseType, string Suffix, string[] GenericArguments);

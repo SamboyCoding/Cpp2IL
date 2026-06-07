@@ -24,7 +24,8 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     public readonly Dictionary<ulong, List<Cpp2IlMethodRef>> ConcreteGenericImplementationsByAddress = new();
     public ulong[] TypeDefinitionSizePointers = [];
 
-    private readonly long _maxMetadataUsages = LibCpp2IlMain.TheMetadata!.GetMaxMetadataUsages();
+    private long _maxMetadataUsages = 0;
+
     private Il2CppMetadataRegistration _metadataRegistration = null!;
     private Il2CppCodeRegistration _codeRegistration = null!;
 
@@ -47,10 +48,13 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     private Il2CppRGCTXDefinition[][] _codegenModuleRgctxs = [];
 
     private Dictionary<string, Il2CppCodeGenModule> _codeGenModulesByName = new(); //24.2+
-    private Dictionary<int, ulong> _genericMethodDictionary = new();
+    private Dictionary<Il2CppVariableWidthIndex<Il2CppMethodDefinition>, ulong> _genericMethodDictionary = new();
     private readonly Dictionary<ulong, Il2CppType> _typesByAddress = new();
 
     public abstract long RawLength { get; }
+
+    public int PointerSizeBytes => is32Bit ? 4 : 8;
+
     public int NumTypes => _types.Length;
 
     public Il2CppType[] AllTypes => _types;
@@ -60,23 +64,52 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     /// </summary>
     public virtual ClassReadingBinaryReader Reader => this;
 
-    private float _metadataVersion;
-    public sealed override float MetadataVersion => _metadataVersion; 
+    public sealed override float MetadataVersion =>
+        _context?.Metadata.MetadataVersion ?? 0;
 
     public int InBinaryMetadataSize { get; private set; }
 
+    private LibCpp2IlContext? _context;
+
+    protected override void OnReadableCreated(ReadableClass instance)
+    {
+        if (_context != null)
+            instance.OwningContext = _context;
+    }
+
+    public void Init(LibCpp2IlContext context)
+    {
+        var metadata = context.Metadata ?? throw new InvalidOperationException("The metadata must be initialized before the binary.");
+        context.Binary = this;
+        _context = context;
+
+        var start = DateTime.Now;
+
+        var (codereg, metareg) = FindCodeAndMetadataReg(metadata);
+
+        LibLogger.InfoNewline($"Got Binary codereg: 0x{codereg:X}, metareg: 0x{metareg:X} in {(DateTime.Now - start).TotalMilliseconds:F0}ms.");
+        LibLogger.InfoNewline("Initializing Binary...");
+
+        start = DateTime.Now;
+
+        Init(codereg, metareg, metadata);
+
+        LibLogger.InfoNewline($"Initialized Binary in {(DateTime.Now - start).TotalMilliseconds:F0}ms");
+    }
+
     public void Init(ulong pCodeRegistration, ulong pMetadataRegistration, Il2CppMetadata metadata)
     {
-        _metadataVersion = metadata.MetadataVersion;
-        
+        // Ensure any derived code that needs max metadata usages can access it without static metadata.
+        _maxMetadataUsages = metadata.GetMaxMetadataUsages();
+
         var cr = pCodeRegistration > 0 ? ReadReadableAtVirtualAddress<Il2CppCodeRegistration>(pCodeRegistration) : null;
         var mr = pMetadataRegistration > 0 ? ReadReadableAtVirtualAddress<Il2CppMetadataRegistration>(pMetadataRegistration) : null;
 
         if (cr == null || mr == null)
         {
             LibLogger.WarnNewline("At least one of the registration structs was not able to be found. Attempting to use fallback locator delegate to find them (this will fail unless you have a plugin that helps with this!)...");
-            OnRegistrationStructLocationFailure?.Invoke(this, LibCpp2IlMain.TheMetadata!, ref cr, ref mr);
-            LibLogger.VerboseNewline($"After fallback, code registration is {(cr == null ? "null" : "not null")} and metadata registration is {(mr == null ? "null" : "not null")}.");
+            OnRegistrationStructLocationFailure?.Invoke(this, metadata, ref cr, ref mr);
+            LibLogger.VerboseNewline($"After fallback, code registration is {(cr == null ? "null" : "not null")} and metadata registration is {(mr == null ? "null" : "not null")}." );
         }
 
         if (cr == null || mr == null)
@@ -84,7 +117,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
         _codeRegistration = cr;
         _metadataRegistration = mr;
-
+        
         InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
         LibLogger.Verbose("\tReading generic instances...");
@@ -197,6 +230,10 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
                         _codeGenModuleMethodPointers[i] = new ulong[codeGenModule.methodPointerCount];
                     }
                 }
+                else
+                {
+                    _codeGenModuleMethodPointers[i] = [];
+                }
 
                 if (codeGenModule.rgctxRangesCount > 0)
                 {
@@ -212,6 +249,10 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
                         _codegenModuleRgctxRanges[i] = new Il2CppTokenRangePair[codeGenModule.rgctxRangesCount];
                     }
                 }
+                else
+                {
+                    _codegenModuleRgctxRanges[i] = [];
+                }
 
                 if (codeGenModule.rgctxsCount > 0)
                 {
@@ -226,6 +267,10 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
                         LibLogger.VerboseNewline($"\t\t\tWARNING: Unable to get RGCTXs for {name}: {e.Message}");
                         _codegenModuleRgctxs[i] = new Il2CppRGCTXDefinition[codeGenModule.rgctxsCount];
                     }
+                }
+                else
+                {
+                    _codegenModuleRgctxs[i] = [];
                 }
             }
 
@@ -259,7 +304,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
         {
             LibLogger.Verbose("\tReading generic methods...");
             start = DateTime.Now;
-            _genericMethodDictionary = new Dictionary<int, ulong>();
+            _genericMethodDictionary = new();
             foreach (var table in _genericMethodTables)
             {
                 var genericMethodIndex = table.GenericMethodIndex;
@@ -284,11 +329,11 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
         _hasFinishedInitialRead = true;
     }
 
-    private int GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex)
+    private Il2CppVariableWidthIndex<Il2CppMethodDefinition> GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex)
     {
         Cpp2IlMethodRef? genericMethodRef;
         var methodSpec = GetMethodSpec(genericMethodIndex);
-        var methodDefIndex = methodSpec.methodDefinitionIndex;
+        var methodDefIndex = Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(methodSpec.methodDefinitionIndex); //DynWidth: method specs are in-binary, so the methodDefIndex is still the old fixed-width index, so we can make a temp here without issue.
         genericMethodRef = new Cpp2IlMethodRef(methodSpec);
 
         if (genericMethodPointerIndex >= 0)
@@ -315,28 +360,21 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
     public abstract byte GetByteAtRawAddress(ulong addr);
     public abstract long MapVirtualAddressToRaw(ulong uiAddr, bool throwOnError = true);
-    public abstract ulong MapRawAddressToVirtual(uint offset);
+    public abstract ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true);
     public abstract ulong GetRva(ulong pointer);
 
     public bool TryMapRawAddressToVirtual(in uint offset, out ulong va)
     {
-        try
-        {
-            va = MapRawAddressToVirtual(offset);
-            return true;
-        }
-        catch (Exception)
-        {
-            va = 0;
-            return false;
-        }
+        va = MapRawAddressToVirtual(offset, false);
+        return va != 0;
     }
 
     public bool TryMapVirtualAddressToRaw(ulong virtAddr, out long result)
     {
         result = MapVirtualAddressToRaw(virtAddr, false);
 
-        if (result != VirtToRawInvalidNoMatch)
+        // Negative results indicate error codes
+        if (result >= 0)
             return true;
 
         result = 0;
@@ -370,7 +408,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
             ? throw new ArgumentException($"GetMethodSpec: index {index} < 0")
             : _methodSpecs[index];
 
-    public Il2CppType GetType(int index) => _types[index];
+    public Il2CppType GetType(Il2CppVariableWidthIndex<Il2CppType> index) => _types[index.Value];
     public ulong GetRawMetadataUsage(uint index) => _metadataUsages[index];
     public ulong[] GetCodegenModuleMethodPointers(int codegenModuleIndex) => _codeGenModuleMethodPointers[codegenModuleIndex];
     public Il2CppCodeGenModule? GetCodegenModuleByName(string name) => _codeGenModulesByName[name];
@@ -382,14 +420,14 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
     public Il2CppType GetIl2CppTypeFromPointer(ulong pointer)
         => _typesByAddress[pointer];
 
-    public int GetFieldOffsetFromIndex(int typeIndex, int fieldIndexInType, int fieldIndex, bool isValueType, bool isStatic)
+    public int GetFieldOffsetFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition> typeIndex, int fieldIndexInType, Il2CppVariableWidthIndex<Il2CppFieldDefinition> fieldIndex, bool isValueType, bool isStatic)
     {
         try
         {
             var offset = -1;
-            if (LibCpp2IlMain.MetadataVersion > 21)
+            if (MetadataVersion > 21)
             {
-                var ptr = (ulong)_fieldOffsets[typeIndex];
+                var ptr = (ulong)_fieldOffsets[typeIndex.Value];
                 if (ptr > 0)
                 {
                     var offsetOffset = (ulong)MapVirtualAddressToRaw(ptr) + 4ul * (ulong)fieldIndexInType;
@@ -407,7 +445,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
             }
             else
             {
-                offset = (int)_fieldOffsets[fieldIndex];
+                offset = (int)_fieldOffsets[fieldIndex.Value];
             }
 
             if (offset > 0)
@@ -433,9 +471,9 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
         }
     }
 
-    public ulong GetMethodPointer(int methodIndex, int methodDefinitionIndex, int imageIndex, uint methodToken)
+    public ulong GetMethodPointer(int methodIndex, Il2CppVariableWidthIndex<Il2CppMethodDefinition> methodDefinitionIndex, int imageIndex, uint methodToken)
     {
-        if (LibCpp2IlMain.MetadataVersion >= 24.2f)
+        if (MetadataVersion >= 24.2f)
         {
             if (_genericMethodDictionary.TryGetValue(methodDefinitionIndex, out var methodPointer))
             {
@@ -460,10 +498,11 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
     public ulong GetCustomAttributeGenerator(int index) => _customAttributeGenerators![index];
 
-    public ulong[] AllCustomAttributeGenerators => LibCpp2IlMain.MetadataVersion >= 29 ? [] : LibCpp2IlMain.MetadataVersion >= 27 ? AllCustomAttributeGeneratorsV27 : _customAttributeGenerators!;
+    public ulong[] AllCustomAttributeGenerators => MetadataVersion >= 29 ? [] : MetadataVersion >= 27 ? AllCustomAttributeGeneratorsV27 : _customAttributeGenerators!;
 
     private ulong[] AllCustomAttributeGeneratorsV27 =>
-        LibCpp2IlMain.TheMetadata!.imageDefinitions
+        (_context?.Metadata ?? throw new InvalidOperationException("Binary not initialized"))
+            .imageDefinitions
             .Select(i => (image: i, cgm: GetCodegenModuleByName(i.Name!)!))
             .SelectMany(tuple => LibCpp2ILUtils.Range(0, (int)tuple.image.customAttributeCount).Select(o => tuple.cgm.customAttributeCacheGenerator + (ulong)o * PointerSize))
             .Select(ReadPointerAtVirtualAddress)
@@ -487,18 +526,21 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
     public virtual (ulong pCodeRegistration, ulong pMetadataRegistration) FindCodeAndMetadataReg(Il2CppMetadata metadata)
     {
+        if (MetadataVersion == 0)
+            throw new InvalidOperationException("MetadataVersion must be set before searching for code and metadata registration.");
+
         LibLogger.VerboseNewline("\tAttempting to locate code and metadata registration functions...");
 
         var methodCount = metadata.methodDefs.Count(x => x.methodIndex >= 0);
-        var typeDefinitionsCount = metadata.typeDefs.Length;
+        var typeDefinitionsCount = metadata.TypeDefinitionCount;
 
-        var plusSearch = new BinarySearcher(this, methodCount, typeDefinitionsCount);
+        var plusSearch = new BinarySearcher(this, metadata, methodCount, typeDefinitionsCount);
 
         LibLogger.VerboseNewline("\t\t-Searching for MetadataReg...");
 
         var pMetadataRegistration = metadata.MetadataVersion < 24.5f
             ? plusSearch.FindMetadataRegistrationPre24_5()
-            : plusSearch.FindMetadataRegistrationPost24_5(metadata);
+            : plusSearch.FindMetadataRegistrationPost24_5();
 
         LibLogger.VerboseNewline("\t\t-Searching for CodeReg...");
 
@@ -506,7 +548,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
         if (metadata.MetadataVersion >= 24.2f)
         {
             LibLogger.VerboseNewline("\t\t\tUsing mscorlib full-disassembly approach to get codereg, this may take a while...");
-            pCodeRegistration = plusSearch.FindCodeRegistrationPost2019(metadata);
+            pCodeRegistration = plusSearch.FindCodeRegistrationPost2019();
         }
         else
             pCodeRegistration = plusSearch.FindCodeRegistrationPre2019();
