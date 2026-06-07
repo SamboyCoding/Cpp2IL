@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
@@ -177,6 +178,10 @@ public static class AsmResolverUtils
 
         return importer.ImportType(type);
     }
+
+    public static bool IsManagedMethodWithBody(this MethodDefinition managedMethod) =>
+        managedMethod.Managed && !managedMethod.IsAbstract && !managedMethod.IsPInvokeImpl
+        && !managedMethod.IsInternalCall && !managedMethod.IsNative && !managedMethod.IsRuntime;
 
     internal static ArrayTypeSignature MakeArrayTypeWithLowerBounds(this TypeSignature elementType, int rank)
     {
