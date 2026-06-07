@@ -31,6 +31,11 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     public IEnumerable<TypeAnalysisContext> TopLevelTypes => Types.Where(t => t.DeclaringType == null);
 
     /// <summary>
+    /// The analysis context objects for all types exported by this assembly.
+    /// </summary>
+    public IEnumerable<TypeAnalysisContext> ExportedTypes => (Definition?.Image.ExportedTypes ?? []).Select(t => AppContext.ResolveContextForType(t)!);
+
+    /// <summary>
     /// The code gen module for this assembly.
     ///
     /// Null prior to 24.2
@@ -185,7 +190,7 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
 
         InitCustomAttributeData();
 
-        foreach (var il2CppTypeDefinition in Definition.Image.Types!)
+        foreach (var il2CppTypeDefinition in Definition.Image.Types)
         {
             var typeContext = new TypeAnalysisContext(il2CppTypeDefinition, this);
             Types.Add(typeContext);

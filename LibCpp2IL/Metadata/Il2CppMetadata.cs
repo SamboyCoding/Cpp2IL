@@ -52,6 +52,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     public Il2CppFieldRef[] fieldRefs;
     private Il2CppGenericParameter[] genericParameters;
     public Il2CppVariableWidthIndex<Il2CppType>[] constraintIndices;
+    public int[] exportedTypes;
 
     public int[] referencedAssemblies;
 
@@ -370,6 +371,16 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             stringLiterals = ReadMetadataClassArray<Il2CppStringLiteral>(metadataHeader.stringLiteral);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
+            if (MetadataVersion > 24)
+            {
+                LibLogger.Verbose("\tReading exported types...");
+                start = DateTime.Now;
+
+                exportedTypes = ReadClassArrayAtRawAddr<int>(metadataHeader.exportedTypeDefinitions.Offset, metadataHeader.exportedTypeDefinitions.Size / sizeof(int));
+
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
+
             if (MetadataVersion < 24.2f)
             {
                 LibLogger.Verbose("\tReading RGCTX data...");
@@ -685,6 +696,8 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     }
     
     public Il2CppTypeDefinition GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition> index) => typeDefs[index.Value];
+
+    public Il2CppTypeDefinition GetExportedTypeDefintionFromIndex(int index) => typeDefs[exportedTypes[index]];
     
     public Il2CppGenericContainer GetGenericContainerFromIndex(Il2CppVariableWidthIndex<Il2CppGenericContainer> index) => genericContainers[index.Value];
     

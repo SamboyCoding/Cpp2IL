@@ -41,6 +41,14 @@ public static class AsmResolverAssemblyPopulator
             foreach (var interfaceType in typeCtx.InterfaceContexts)
                 typeDefinition.Interfaces.Add(new(interfaceType.ToTypeSignature(typeDefinition.DeclaringModule!).ToTypeDefOrRef()));
         }
+
+        var assemblyDefinition = asmCtx.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + asmCtx);
+        var moduleDefinition = assemblyDefinition.ManifestModule!;
+        foreach (var typeCtx in asmCtx.ExportedTypes)
+        {
+            var owningAssembly = typeCtx.DeclaringAssembly.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + typeCtx.DeclaringAssembly);
+            moduleDefinition.ExportedTypes.Add(new ExportedType(owningAssembly.ToAssemblyReference(), typeCtx.Namespace, typeCtx.Name));
+        }
     }
 
     private static void PopulateGenericParamsForType(TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)

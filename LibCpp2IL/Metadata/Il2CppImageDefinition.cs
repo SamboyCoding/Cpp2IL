@@ -21,11 +21,18 @@ public class Il2CppImageDefinition : ReadableClass
 
     public string? Name => OwningContext.Metadata.GetStringFromIndex(nameIndex);
 
-    public Il2CppTypeDefinition[]? Types => Enumerable
+    public Il2CppTypeDefinition[] Types => Enumerable
             .Range(firstTypeIndex.Value, (int)typeCount)
             .Select(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage) // DynWidth: using Enumerable.Range, not read from file, so making temp is ok
             .Select(OwningContext.Metadata.GetTypeDefinitionFromIndex)
             .ToArray();
+
+    public Il2CppTypeDefinition[]? ExportedTypes => IsAtLeast(24)
+        ? Enumerable
+            .Range(exportedTypeStart.Value, (int)exportedTypeCount)
+            .Select(OwningContext.Metadata.GetExportedTypeDefintionFromIndex)
+            .ToArray()
+        : null;
 
     public override string ToString()
     {
