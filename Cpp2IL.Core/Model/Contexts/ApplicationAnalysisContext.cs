@@ -211,6 +211,17 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             
         return ConcreteGenericMethodsByRef.TryGetValue(methodReference, out var context) ? context : new(methodReference, this);
     }
+    
+    [return: NotNullIfNotNull(nameof(methodReference))]
+    public MethodAnalysisContext? ResolveContextForMethod(MetadataUsage? methodReference)
+    {
+        return methodReference?.Type switch
+        {
+            null => null,
+            MetadataUsageType.MethodDef => ResolveContextForMethod(methodReference.AsMethod()),
+            MetadataUsageType.MethodRef => ResolveContextForMethod(methodReference.AsGenericMethodRef()),
+        };
+    }
 
     public FieldAnalysisContext? ResolveContextForField(Il2CppFieldDefinition? field)
     {

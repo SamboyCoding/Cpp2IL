@@ -261,7 +261,9 @@ public static class AsmResolverAssemblyPopulator
         try
 #endif
         {
-            CopyCustomAttributes(asmContext, asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly")!.CustomAttributes);
+            var assembly = asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly")!;
+            CopyCustomAttributes(asmContext, assembly.CustomAttributes);
+            CopyCustomAttributes(asmContext.ManifestModule, assembly.ManifestModule!.CustomAttributes);
 
             foreach (var type in asmContext.Types)
             {

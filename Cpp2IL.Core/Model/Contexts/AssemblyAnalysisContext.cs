@@ -31,6 +31,11 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
     public IEnumerable<TypeAnalysisContext> TopLevelTypes => Types.Where(t => t.DeclaringType == null);
 
     /// <summary>
+    /// The analysis context object for the manifest module of the assembly.
+    /// </summary>
+    public ModuleAnalysisContext ManifestModule { get; }
+    
+    /// <summary>
     /// The analysis context objects for all types exported by this assembly.
     /// </summary>
     public IEnumerable<TypeAnalysisContext> ExportedTypes => (Definition?.Image.ExportedTypes ?? []).Select(t => AppContext.ResolveContextForType(t)!);
@@ -184,6 +189,8 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
             return;
 
         Definition = assemblyDefinition;
+
+        ManifestModule = new(this);
 
         if (AppContext.MetadataVersion >= 24.2f)
             CodeGenModule = AppContext.Binary.GetCodegenModuleByName(Definition.Image.Name!);
