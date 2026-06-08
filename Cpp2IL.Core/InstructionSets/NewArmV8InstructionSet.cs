@@ -48,7 +48,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
     {
-        return [];
+        // Is this correct (?)
+        return GetArgumentOperandsForCall(context);
     }
 
     public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)
@@ -97,10 +98,21 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     {
         var address = instruction.Address;
 
-        void Add(ulong address, OpCode opCode, params object[] operands)
+        Instruction Add(ulong address, OpCode opCode, params object[] operands)
         {
             addresses.Add(address);
-            instructions.Add(new Instruction(instructions.Count, opCode, operands));
+            var newInstruction = new Instruction(instructions.Count, opCode, operands);
+            instructions.Add(newInstruction);
+            return newInstruction;
+        }
+        
+        void AddCall(MethodAnalysisContext context, object? returnRegister2, ulong address, ulong target)
+        {
+            var call = returnRegister2 == null ? 
+                Add(address, OpCode.CallVoid, target) : 
+                Add(address, OpCode.Call, target, returnRegister2);
+
+            call.Operands.AddRange(GetArgumentOperandsForCall(context, target));
         }
 
         switch (instruction.Mnemonic)
@@ -238,7 +250,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 Add(address, OpCode.Move, dest2, mem2);
                 break;
             case Arm64Mnemonic.BL:
-                Add(address, OpCode.Call, instruction.BranchTarget, GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
+                AddCall(context, GetReturnRegisterForContext(context), address, instruction.BranchTarget);
                 break;
             case Arm64Mnemonic.RET:
                 var returnRegister = GetReturnRegisterForContext(context);
@@ -253,9 +265,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 if (target < context.UnderlyingPointer || target > context.UnderlyingPointer + (ulong)context.RawBytes.Length)
                 {
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
-
-                    Add(address, OpCode.Call, instruction.BranchTarget, GetArgumentOperandsForCall(context, instruction.BranchTarget).ToArray());
                     var returnRegister2 = GetReturnRegisterForContext(context);
+                    AddCall(context, returnRegister2, address, target);
+                    
                     if (returnRegister2 == null)
                         Add(address, OpCode.Return);
                     else
@@ -527,15 +539,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return new Register(null, nameof(Arm64Register.X0));
     }
 
-    private List<object> GetArgumentOperandsForCall(MethodAnalysisContext contextBeingAnalyzed, ulong callAddr)
+    private List<object> GetArgumentOperandsForCall(MethodAnalysisContext contextBeingCalled)
     {
-        if (!contextBeingAnalyzed.AppContext.MethodsByAddress.TryGetValue(callAddr, out var methodsAtAddress))
-            //TODO
-            return [];
-
-        //For the sake of arguments, all we care about is the first method at the address, because they'll only be shared if they have the same signature.
-        var contextBeingCalled = methodsAtAddress.First();
-
         var vectorCount = 0;
         var nonVectorCount = 0;
 
@@ -571,5 +576,14 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         }
 
         return ret;
+    }
+    
+    private List<object> GetArgumentOperandsForCall(MethodAnalysisContext contextBeingAnalyzed, ulong callAddr)
+    {
+        if (!contextBeingAnalyzed.AppContext.MethodsByAddress.TryGetValue(callAddr, out var methodsAtAddress))
+            //TODO
+            return [];
+
+        return GetArgumentOperandsForCall(methodsAtAddress.First());
     }
 }
