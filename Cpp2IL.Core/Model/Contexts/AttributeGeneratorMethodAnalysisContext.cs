@@ -7,6 +7,7 @@ public class AttributeGeneratorMethodAnalysisContext : MethodAnalysisContext
     public override ulong UnderlyingPointer { get; }
 
     protected override bool IsInjected => true;
+    public override string DefaultName => "<AttributeGenerator>";
     public override MethodAttributes DefaultAttributes => MethodAttributes.Public | MethodAttributes.Static | MethodAttributes.HideBySig;
     public override MethodImplAttributes DefaultImplAttributes => MethodImplAttributes.Managed;
     public override TypeAnalysisContext DefaultReturnType => AppContext.SystemTypes.SystemVoidType;
