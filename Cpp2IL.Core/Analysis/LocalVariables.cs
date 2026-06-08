@@ -80,7 +80,7 @@ public static class LocalVariables
         var operandOffset = method.IsStatic ? 0 : 1; // 'this'
 
         // 'this' param
-        if (!method.IsStatic && method.Locals.Count > 0)
+        if (!method.IsStatic && method.Locals.Count > 0 && method.ParameterOperands.Count > 0)
         {
             var thisOperand = (Register)method.ParameterOperands[0];
             var thisLocal = method.Locals.FirstOrDefault(l => l.Register.Number == thisOperand.Number && l.Register.Version == -1);
@@ -352,9 +352,22 @@ public static class LocalVariables
                     calledMethod.Name is ".ctor" or ".cctor" ? calledMethod.DeclaringType : calledMethod.ReturnType);
             }
 
+            
+            // Call operands
+            // 0. Target
+            // 1. ReturnValue
+            // 2. thisParam
+            // ... parameters
+            
+            // CallVoid operands
+            // 0. Target
+            // 1. thisParam
+            // ... parameters
+            var thisParamIndex = instruction.OpCode == OpCode.CallVoid ? 1 : 2;
+            
             // 'this' param
             if (!calledMethod.IsStatic
-                && instruction.Operands[instruction.OpCode == OpCode.CallVoid ? 1 : 2] is LocalVariable thisParam)
+                && instruction.Operands[thisParamIndex] is LocalVariable thisParam)
             {
                 changed |= SetTypeIfUnknown(thisParam, calledMethod.DeclaringType);
             }
