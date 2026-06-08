@@ -212,7 +212,10 @@ public static class IlGenerator
                     if ((instruction.Operands.Count - 1) >= thisParamIndex)
                         LoadOperand(instruction.Operands[thisParamIndex], method, locals, writeLine, stringCtor);
                     else
+                    {
                         instructions.Add(CilOpCodes.Ldstr, $"Non static method called without 'this' param ({instruction})");
+                        instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                    }
                 }
 
                 // Load normal params
@@ -439,7 +442,7 @@ public static class IlGenerator
                 break;
             default:
                 instructions.Add(CilOpCodes.Ldstr, "Unknown operand: " + operand.ToString());
-                instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(stringCtor));
+                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
                 break;
         }
     }
