@@ -36,7 +36,7 @@ public static class IlGenerator
             if (instruction.Operands.Count > 0 && instruction.Operands[0] is Block target)
             {
                 if (target.Instructions.Count > 0)
-                    instruction.Operands[0] = target.Instructions[^1];
+                    instruction.Operands[0] = target.Instructions[0];
             }
         }
 
