@@ -76,7 +76,7 @@ public sealed class WasmFile : Il2CppBinary
 
     public override long RawLength => _memoryBlock.Bytes.Length;
     public override byte GetByteAtRawAddress(ulong addr) => _memoryBlock.Bytes[addr];
-    public override byte[] GetRawBinaryContent() => _memoryBlock.Bytes;
+    public override ReadOnlySpan<byte> GetRawBinaryContent() => _memoryBlock.Bytes;
 
     public WasmFunctionDefinition GetFunctionFromIndexAndSignature(ulong index, string signature)
     {
@@ -274,7 +274,7 @@ public sealed class WasmFile : Il2CppBinary
         return 0; //Never going to be anything useful, so don't bother looking
     }
 
-    public override byte[] GetEntirePrimaryExecutableSection() => ((WasmCodeSection)Sections.First(s => s.Type == WasmSectionId.SEC_CODE)).RawSectionContent;
+    public override ReadOnlySpan<byte> GetEntirePrimaryExecutableSection() => ((WasmCodeSection)Sections.First(s => s.Type == WasmSectionId.SEC_CODE)).RawSectionContent;
 
     public override ulong GetVirtualAddressOfPrimaryExecutableSection() => (ulong)Sections.First(s => s.Type == WasmSectionId.SEC_CODE).Pointer;
 }

@@ -46,7 +46,7 @@ public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
                 var oldLength = primaryExecutableSection.Length;
 
                 var toRemove = (int)(attributeGeneratorList[^1] - primaryExecutableSectionVa);
-                primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+                primaryExecutableSection = primaryExecutableSection.Slice(toRemove);
 
                 primaryExecutableSectionVa = attributeGeneratorList[^1];
 
@@ -79,7 +79,7 @@ public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
                     oldLength = primaryExecutableSection.Length;
 
                     toRemove = (int)(startFrom - primaryExecutableSectionVa);
-                    primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+                    primaryExecutableSection = primaryExecutableSection.Slice(toRemove);
 
                     primaryExecutableSectionVa = startFrom;
 
@@ -99,7 +99,7 @@ public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
                     oldLength = primaryExecutableSection.Length;
 
                     toRemove = (int)(startFrom - primaryExecutableSectionVa);
-                    primaryExecutableSection = primaryExecutableSection.Skip(toRemove).ToArray();
+                    primaryExecutableSection = primaryExecutableSection.Slice(toRemove);
 
                     primaryExecutableSectionVa = startFrom;
 
@@ -115,7 +115,7 @@ public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
                 var oldLength = primaryExecutableSection.Length;
 
                 var toKeep = (int)(attributeGeneratorList[^1] - primaryExecutableSectionVa);
-                primaryExecutableSection = primaryExecutableSection.SubArray(..toKeep);
+                primaryExecutableSection = primaryExecutableSection[..toKeep];
 
                 //This doesn't change, we've trimmed the end, not the beginning
                 // primaryExecutableSectionVa = primaryExecutableSectionVa;
@@ -124,7 +124,7 @@ public class Arm64KeyFunctionAddresses : BaseKeyFunctionAddresses
             }
         }
 
-        _allInstructions = disassembler.Disassemble(primaryExecutableSection, (long)primaryExecutableSectionVa).ToList();
+        _allInstructions = disassembler.Disassemble(primaryExecutableSection.ToArray(), (long)primaryExecutableSectionVa).ToList();
     }
 
     protected override IEnumerable<ulong> FindAllThunkFunctions(ulong addr, uint maxBytesBack = 0, params ulong[] addressesToIgnore)

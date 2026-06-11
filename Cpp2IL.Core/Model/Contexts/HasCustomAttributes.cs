@@ -24,7 +24,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
     /// <summary>
     /// On V29, stores the custom attribute blob. Pre-29, stores the bytes for the custom attribute generator function.
     /// </summary>
-    public Memory<byte> RawIl2CppCustomAttributeData = Memory<byte>.Empty;
+    public BinarySlice RawIl2CppCustomAttributeData = BinarySlice.Empty;
 
     /// <summary>
     /// Stores the analyzed custom attribute data once analysis has actually run.
@@ -87,7 +87,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
     protected void InitCustomAttributeData()
     {
-        if(IsInjected)
+        if (IsInjected)
             return;
         
         _hasInitCustomAttributeData = true;
@@ -99,7 +99,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
                 return;
 
             var (blobStart, blobEnd) = offsets.Value;
-            RawIl2CppCustomAttributeData = AppContext.Metadata.ReadByteArrayAtRawAddress(blobStart, (int)(blobEnd - blobStart));
+            RawIl2CppCustomAttributeData = new BinarySlice(AppContext.Metadata.ReadByteArrayAtRawAddress(blobStart, (int)(blobEnd - blobStart)));
 
             return;
         }
@@ -111,14 +111,13 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
         if (AttributeTypeRange == null || AttributeTypeRange.count == 0)
         {
-            RawIl2CppCustomAttributeData = Array.Empty<byte>();
             AttributeTypes = [];
             return; //No attributes
         }
 
         AttributeTypes = Enumerable.Range(AttributeTypeRange.start, AttributeTypeRange.count)
-            .Select(attrIdx => AppContext.Metadata!.attributeTypes![attrIdx]) //Not null because we've checked we're not on v29
-            .Select(typeIdx => AppContext.Binary!.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(typeIdx)))
+            .Select(attrIdx => AppContext.Metadata.attributeTypes![attrIdx]) //Not null because we've checked we're not on v29
+            .Select(typeIdx => AppContext.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(typeIdx)))
             .ToList();
     }
 
@@ -138,7 +137,6 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
 
         if (caIndex < 0)
         {
-            RawIl2CppCustomAttributeData = Array.Empty<byte>();
             return null;
         }
 
@@ -157,7 +155,6 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         {
             if (rangeIndex < 0)
             {
-                RawIl2CppCustomAttributeData = Array.Empty<byte>();
                 return;
             }
 
@@ -168,7 +165,6 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
             catch (IndexOutOfRangeException)
             {
                 Logger.WarnNewline("Custom attribute generator out of range for " + this, "CA Restore");
-                RawIl2CppCustomAttributeData = Array.Empty<byte>();
                 return;
             }
         }
@@ -176,7 +172,6 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         {
             if(AttributeTypeRange == null || AttributeTypeRange.count == 0 || CustomAttributeAssembly.Definition is null)
             {
-                RawIl2CppCustomAttributeData = Array.Empty<byte>();
                 return;
             }
             
@@ -189,7 +184,6 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         if (generatorPtr == 0 || !AppContext.Binary.TryMapVirtualAddressToRaw(generatorPtr, out _))
         {
             Logger.WarnNewline($"Supposedly had custom attributes ({string.Join(", ", AttributeTypes ?? [])}), but generator was null for " + this, "CA Restore");
-            RawIl2CppCustomAttributeData = Memory<byte>.Empty;
             return;
         }
 

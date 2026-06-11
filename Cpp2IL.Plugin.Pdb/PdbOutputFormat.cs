@@ -2,6 +2,7 @@ using System.Reflection.PortableExecutable;
 using AssetRipper.Bindings.MsPdbCore;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Model.Contexts;
+using LibCpp2IL.PE;
 
 namespace Cpp2IL.Plugin.Pdb;
 
@@ -16,7 +17,7 @@ internal unsafe class PdbOutputFormat : Cpp2IlOutputFormat
         if (!Directory.Exists(outputRoot))
             Directory.CreateDirectory(outputRoot);
 
-        using var peReader = new PEReader(new MemoryStream(context.Binary.GetRawBinaryContent()));
+        using var peReader = new PEReader(((PE)context.Binary).ToStream());
 
         var pdbFilePath = Path.Combine(outputRoot, "GameAssembly.pdb");
         MsPdbCore.PDBOpen2W(pdbFilePath, "w", out var err, out var openError, out var pdb);

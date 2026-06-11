@@ -8,8 +8,6 @@ using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using Disarm.InternalDisassembly;
-using LibCpp2IL;
-using Cpp2IL.Core.Logging;
 
 namespace Cpp2IL.Core.InstructionSets;
 
@@ -18,32 +16,34 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     [ThreadStatic]
     private static Dictionary<Arm64Register, ulong> adrpOffsets = new();
 
-    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
+    public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
+        var binary = context.AppContext.Binary;
+
         if (context is not ConcreteGenericMethodAnalysisContext)
         {
             //Managed method or attr gen => grab raw byte range between a and b
-            var startOfNextFunction = (int)MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer, context.AppContext.Binary);
+            var startOfNextFunction = (int)MiscUtils.GetAddressOfNextFunctionStart(context.UnderlyingPointer, binary);
             var ptrAsInt = (int)context.UnderlyingPointer;
             var count = startOfNextFunction - ptrAsInt;
 
             if (startOfNextFunction > 0)
-                return context.AppContext.Binary.GetRawBinaryContent().AsMemory(ptrAsInt, count);
+                return new BinarySlice(binary, ptrAsInt, count);
         }
 
-        var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
+        var result = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(binary, context.UnderlyingPointer);
         var lastInsn = result.LastValid();
 
-        var start = (int)context.AppContext.Binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
+        var start = (int)binary.MapVirtualAddressToRaw(context.UnderlyingPointer);
         // Map the last instruction (always within segment) and add 4 (ARM64 instruction size).
         // This avoids mapping endVa which may land exactly at a segment boundary gap.
-        var end = (int)context.AppContext.Binary.MapVirtualAddressToRaw(lastInsn.Address) + 4;
+        var end = (int)binary.MapVirtualAddressToRaw(lastInsn.Address) + 4;
 
         //Sanity check
-        if (start < 0 || end < 0 || start >= context.AppContext.Binary.RawLength || end >= context.AppContext.Binary.RawLength)
-            throw new Exception($"Failed to map virtual address 0x{context.UnderlyingPointer:X} to raw address for method {context!.DeclaringType?.FullName}/{context.Name} - start: 0x{start:X}, end: 0x{end:X} are out of bounds for length {context.AppContext.Binary.RawLength}.");
+        if (start < 0 || end < 0 || start >= binary.RawLength || end >= binary.RawLength)
+            throw new Exception($"Failed to map virtual address 0x{context.UnderlyingPointer:X} to raw address for method {context!.DeclaringType?.FullName}/{context.Name} - start: 0x{start:X}, end: 0x{end:X} are out of bounds for length {binary.RawLength}.");
 
-        return context.AppContext.Binary.GetRawBinaryContent().AsMemory(start, end - start);
+        return new BinarySlice(binary, start, end - start);
     }
 
     public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
@@ -56,10 +56,10 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     {
         var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
 
-        if (adrpOffsets == null!) //Null suppress because thread static weirdness
+        if (adrpOffsets == null!) // initializers for ThreadStatic fields only run on the first thread
             adrpOffsets = new();
-
-        adrpOffsets.Clear();
+        else
+            adrpOffsets.Clear();
 
         var instructions = new List<Instruction>();
         var addresses = new List<ulong>();
@@ -267,7 +267,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     //Unconditional branch to outside the method, treat as call (tail-call, specifically) followed by return
                     var returnRegister2 = GetReturnRegisterForContext(context);
                     AddCall(context, returnRegister2, address, target);
-                    
+
                     if (returnRegister2 == null)
                         Add(address, OpCode.Return);
                     else
@@ -517,7 +517,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new NewArm64KeyFunctionAddresses();
 
-    public override string PrintAssembly(MethodAnalysisContext context) => context.RawBytes.Span.Length <= 0 ? "" : string.Join("\n", Disassembler.Disassemble(context.RawBytes.Span, context.UnderlyingPointer, new Disassembler.Options(true, true, false)).ToList());
+    public override string PrintAssembly(MethodAnalysisContext context) => context.RawBytes.Length <= 0 ? "" : string.Join("\n", Disassembler.Disassemble(context.RawBytes.AsSpan(), context.UnderlyingPointer, new Disassembler.Options(true, true, false)).ToList());
 
     private object? GetReturnRegisterForContext(MethodAnalysisContext context)
     {

@@ -61,9 +61,6 @@ public static class LibCpp2IlBinaryRegistry
         LibLogger.InfoNewline($"Using binary type {match.Name} (from {match.Source})");
 
         var memStream = new MemoryStream(buffer, 0, buffer.Length, true, true);
-
-        LibLogger.InfoNewline("Searching Binary for Required Data...");
-
         var binary = match.FactoryFunc(memStream);
 
         binary.Init(context);

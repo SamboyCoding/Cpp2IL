@@ -10,7 +10,7 @@ using LibCpp2IL.Metadata;
 
 namespace LibCpp2IL;
 
-public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReader(input)
+public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(input)
 {
     public delegate void RegistrationStructLocationFailureHandler(Il2CppBinary binary, Il2CppMetadata metadata, ref Il2CppCodeRegistration? codeReg, ref Il2CppMetadataRegistration? metaReg);
 
@@ -82,6 +82,8 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
         var metadata = context.Metadata ?? throw new InvalidOperationException("The metadata must be initialized before the binary.");
         context.Binary = this;
         _context = context;
+
+        LibLogger.InfoNewline("Searching Binary for Required Data...");
 
         var start = DateTime.Now;
 
@@ -508,7 +510,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
             .Select(ReadPointerAtVirtualAddress)
             .ToArray();
 
-    public abstract byte[] GetRawBinaryContent();
+    public abstract ReadOnlySpan<byte> GetRawBinaryContent();
     public abstract ulong GetVirtualAddressOfExportedFunctionByName(string toFind);
     public virtual bool IsExportedFunction(ulong addr) => false;
 
@@ -520,7 +522,7 @@ public abstract class Il2CppBinary(MemoryStream input) : ClassReadingBinaryReade
 
     public virtual IEnumerable<KeyValuePair<string, ulong>> GetExportedFunctions() => [];
 
-    public abstract byte[] GetEntirePrimaryExecutableSection();
+    public abstract ReadOnlySpan<byte> GetEntirePrimaryExecutableSection();
 
     public abstract ulong GetVirtualAddressOfPrimaryExecutableSection();
 

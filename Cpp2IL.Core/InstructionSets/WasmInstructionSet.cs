@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Il2CppApiFunctions;
@@ -12,7 +11,7 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class WasmInstructionSet : Cpp2IlInstructionSet
 {
-    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
+    public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         if (context.Definition is { } methodDefinition)
         {
@@ -21,16 +20,16 @@ public class WasmInstructionSet : Cpp2IlInstructionSet
             if (wasmDef == null)
             {
                 Logger.WarnNewline($"Could not find WASM definition for method {methodDefinition.HumanReadableSignature} in {methodDefinition.DeclaringType?.FullName}, probably incorrect signature calculation (signature was {WasmUtils.BuildSignature(context)}, index is {context.UnderlyingPointer})", "WasmInstructionSet");
-                return Array.Empty<byte>();
+                return BinarySlice.Empty;
             }
 
             if (wasmDef.AssociatedFunctionBody == null)
                 throw new($"WASM definition {wasmDef}, resolved from MethodAnalysisContext {context.Definition.HumanReadableSignature} in {context.DeclaringType?.FullName} has no associated function body (signature was {WasmUtils.BuildSignature(context)}, index is {context.UnderlyingPointer})");
 
-            return wasmDef.AssociatedFunctionBody.Instructions;
+            return new BinarySlice(wasmDef.AssociatedFunctionBody.Instructions);
         }
 
-        return Array.Empty<byte>();
+        return BinarySlice.Empty;
     }
 
     public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)

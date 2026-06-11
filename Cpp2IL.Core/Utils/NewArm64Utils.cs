@@ -23,7 +23,7 @@ public static class NewArm64Utils
                 if (rawStartOfNextMethod < rawStart)
                     rawStartOfNextMethod = binary.RawLength;
 
-                var bytes = binary.GetRawBinaryContent().AsSpan((int)rawStart, (int)(rawStartOfNextMethod - rawStart));
+                var bytes = binary.GetRawBinaryContent().Slice((int)rawStart, (int)(rawStartOfNextMethod - rawStart));
 
                 return Disassemble(bytes, virtAddress);
             }
@@ -32,7 +32,7 @@ public static class NewArm64Utils
         //Unmanaged function, look for first b
         var pos = (int)binary.MapVirtualAddressToRaw(virtAddress);
         var allBytes = binary.GetRawBinaryContent();
-        var span = allBytes.AsSpan(pos, 4);
+        var span = allBytes.Slice(pos, 4);
         List<Arm64Instruction> ret = [];
 
         while ((count == -1 || ret.Count < count) && !ret.Any(i => i.Mnemonic is Arm64Mnemonic.B || i.Mnemonic is Arm64Mnemonic.INVALID))
@@ -40,13 +40,13 @@ public static class NewArm64Utils
             ret = Disassemble(span, virtAddress);
 
             //All arm64 instructions are 4 bytes
-            span = allBytes.AsSpan(pos, span.Length + 4);
+            span = allBytes.Slice(pos, span.Length + 4);
         }
 
         return ret;
     }
 
-    private static List<Arm64Instruction> Disassemble(Span<byte> bytes, ulong virtAddress)
+    private static List<Arm64Instruction> Disassemble(ReadOnlySpan<byte> bytes, ulong virtAddress)
     {
         try
         {

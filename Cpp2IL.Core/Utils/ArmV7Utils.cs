@@ -1,6 +1,6 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
-using Cpp2IL.Core.Extensions;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm;
 using LibCpp2IL;
@@ -11,6 +11,7 @@ public static class ArmV7Utils
 {
     private static CapstoneArmDisassembler? _armDisassembler;
 
+    [MemberNotNull(nameof(_armDisassembler))]
     private static void InitArmDecompilation()
     {
         var disassembler = CapstoneDisassembler.CreateArmDisassembler(ArmDisassembleMode.Arm);
@@ -20,17 +21,17 @@ public static class ArmV7Utils
         _armDisassembler = disassembler;
     }
 
-    public static byte[]? TryGetMethodBodyBytesFast(Il2CppBinary binary, ulong virtAddress, bool isCAGen)
+    public static BinarySlice TryGetMethodBodyBytesFast(Il2CppBinary binary, ulong virtAddress, bool isCAGen)
     {
         var startOfNext = MiscUtils.GetAddressOfNextFunctionStart(virtAddress, binary);
 
         var length = (startOfNext - virtAddress);
         if (isCAGen && length > 50_000)
-            return null;
+            return BinarySlice.Empty;
 
         if (startOfNext <= 0)
             //We have to fall through to default behavior for the last method because we cannot accurately pinpoint its end
-            return null;
+            return BinarySlice.Empty;
 
         var rawStartOfNextMethod = binary.MapVirtualAddressToRaw(startOfNext);
 
@@ -38,7 +39,7 @@ public static class ArmV7Utils
         if (rawStartOfNextMethod < rawStart)
             rawStartOfNextMethod = binary.RawLength;
 
-        return binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
+        return new BinarySlice(binary, (int)rawStart, (int)(rawStartOfNextMethod - rawStart));
     }
 
     public static List<ArmInstruction> GetArmV7MethodBodyAtVirtualAddress(Il2CppBinary binary, ulong virtAddress, bool managed = true, int count = -1)
@@ -62,9 +63,9 @@ public static class ArmV7Utils
                 if (rawStartOfNextMethod < rawStart)
                     rawStartOfNextMethod = binary.RawLength;
 
-                byte[] bytes = binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
+                var bytes = binary.GetRawBinaryContent()[(int)rawStart..(int)rawStartOfNextMethod];
 
-                var iter = _armDisassembler!.Iterate(bytes, (long)virtAddress);
+                var iter = _armDisassembler.Iterate(bytes.ToArray(), (long)virtAddress);
                 if (count > 0)
                     iter = iter.Take(count);
 
@@ -80,7 +81,7 @@ public static class ArmV7Utils
         while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
         {
             //All arm64 instructions are 4 bytes
-            ret.AddRange(_armDisassembler!.Iterate(allBytes.SubArray(pos..(pos + 4)), (long)virtAddress));
+            ret.AddRange(_armDisassembler.Iterate(allBytes[pos..(pos + 4)].ToArray(), (long)virtAddress));
             virtAddress += 4;
             pos += 4;
         }

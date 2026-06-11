@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -12,14 +11,15 @@ namespace Cpp2IL.Core.InstructionSets;
 
 public class ArmV7InstructionSet : Cpp2IlInstructionSet
 {
-    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
+    public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
-        if (ArmV7Utils.TryGetMethodBodyBytesFast(context.AppContext.Binary, context.UnderlyingPointer, context is AttributeGeneratorMethodAnalysisContext) is { } ret)
-            return ret;
+        var slice = ArmV7Utils.TryGetMethodBodyBytesFast(context.AppContext.Binary, context.UnderlyingPointer, isAttributeGenerator);
+        if (slice.Length > 0)
+            return slice;
 
         var instructions = ArmV7Utils.GetArmV7MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);
 
-        return instructions.SelectMany(i => i.Bytes).ToArray();
+        return new BinarySlice(instructions.SelectMany(i => i.Bytes).ToArray());
     }
 
     public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)

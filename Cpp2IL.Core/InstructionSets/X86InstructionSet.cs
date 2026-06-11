@@ -31,7 +31,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         }
     }
 
-    public override Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator, context.AppContext.Binary);
+    public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator) => X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, isAttributeGenerator, context.AppContext.Binary);
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new X86KeyFunctionAddresses();
 
@@ -39,7 +39,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     {
         lock (Formatter)
         {
-            var insns = X86Utils.Iterate(X86Utils.GetRawManagedOrCaCacheGenMethodBody(context.UnderlyingPointer, false, context.AppContext.Binary), context.UnderlyingPointer, context.AppContext.Binary.is32Bit);
+            var insns = X86Utils.Iterate(context);
 
             return string.Join("\n", insns.Select(FormatInstructionInternal));
         }

@@ -13,41 +13,28 @@ namespace LibCpp2IL;
 
 public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int methodCount, int typeDefinitionsCount)
 {
-    private readonly byte[] _binaryBytes = binary.GetRawBinaryContent();
-
     //Used for codereg location pre-2019
     //Used for metadata reg location in 24.5+
 
-    private static int FindSequence(byte[] haystack, byte[] needle, int requiredAlignment = 1, int startOffset = 0)
+    private static int FindSequence(ReadOnlySpan<byte> haystack, ReadOnlySpan<byte> needle, int requiredAlignment = 1, int startOffset = 0)
     {
-        //Convert needle to a span now, rather than in the loop (implicitly as call to SequenceEqual)
-        var needleSpan = new ReadOnlySpan<byte>(needle);
-        var haystackSpan = haystack.AsSpan();
-        var firstByte = needleSpan[0];
-
-        //Find the first occurrence of the first byte of the needle
-        var nextMatchIdx = Array.IndexOf(haystack, firstByte, startOffset);
-
-        var needleLength = needleSpan.Length;
-        var endIdx = haystack.Length - needleLength;
-        var checkAlignment = requiredAlignment > 1;
-
-        while (0 <= nextMatchIdx && nextMatchIdx <= endIdx)
+        var currentHaystack = haystack[startOffset..];
+        while (true)
         {
-            //If we're not aligned, skip this match
-            if (!checkAlignment || nextMatchIdx % requiredAlignment == 0)
-            {
-                //Take a slice of the array at this position and the length of the needle, and compare
-                if (haystackSpan.Slice(nextMatchIdx, needleLength).SequenceEqual(needleSpan))
-                    return nextMatchIdx;
-            }
+            var relativeIdx = currentHaystack.IndexOf(needle);
 
-            //Find the next occurrence of the first byte of the needle
-            nextMatchIdx = Array.IndexOf(haystack, firstByte, nextMatchIdx + 1);
+            //No match found
+            if (relativeIdx == -1)
+                return -1;
+
+            var absoluteIdx = haystack.Length - currentHaystack.Length + relativeIdx;
+
+            if (requiredAlignment <= 1 || absoluteIdx % requiredAlignment == 0)
+                return absoluteIdx;
+
+            // If not aligned, slice the haystack to start searching just after this failed match
+            currentHaystack = currentHaystack[(relativeIdx + 1)..];
         }
-
-        //No match found
-        return -1;
     }
 
     // Find all occurrences of a sequence of bytes, using word alignment by default
@@ -58,7 +45,7 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
         var ptrSize = binary.is32Bit ? 4 : 8;
         while (offset != -1)
         {
-            offset = FindSequence(_binaryBytes, signature, alignment != 0 ? alignment : ptrSize, offset);
+            offset = FindSequence(binary.GetRawBinaryContent(), signature, alignment != 0 ? alignment : ptrSize, offset);
             if (offset != -1)
             {
                 yield return (uint)offset;

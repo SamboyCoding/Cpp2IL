@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Text;
-using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;

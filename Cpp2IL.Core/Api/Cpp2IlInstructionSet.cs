@@ -1,4 +1,3 @@
-using System;
 using System.Collections.Generic;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
@@ -15,7 +14,7 @@ public abstract class Cpp2IlInstructionSet
     /// <param name="context">The method to get the body for</param>
     /// <param name="isAttributeGenerator">True if this is an attribute generator function, false if it's a managed method</param>
     /// <returns>A byte array representing the method's body</returns>
-    public abstract Memory<byte> GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator);
+    public abstract BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator);
 
     /// <summary>
     /// Returns the virtual address from which the given method starts. By default, returns the <see cref="Il2CppMethodDefinition.MethodPointer"/> property, but

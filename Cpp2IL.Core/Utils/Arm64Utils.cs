@@ -1,7 +1,6 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
-using Cpp2IL.Core.Extensions;
 using Gee.External.Capstone;
 using Gee.External.Capstone.Arm64;
 using LibCpp2IL;
@@ -75,8 +74,8 @@ public static class Arm64Utils
             registerId = (registerId - Arm64RegisterId.ARM64_REG_H0) + Arm64RegisterId.ARM64_REG_V0;
 
         //S to V
-        if (registerId is >= Arm64RegisterId.ARM64_REG_B0 and <= Arm64RegisterId.ARM64_REG_B31)
-            registerId = (registerId - Arm64RegisterId.ARM64_REG_B0) + Arm64RegisterId.ARM64_REG_V0;
+        if (registerId is >= Arm64RegisterId.ARM64_REG_S0 and <= Arm64RegisterId.ARM64_REG_S31)
+            registerId = (registerId - Arm64RegisterId.ARM64_REG_S0) + Arm64RegisterId.ARM64_REG_V0;
 
         //D to V
         if (registerId is >= Arm64RegisterId.ARM64_REG_D0 and <= Arm64RegisterId.ARM64_REG_D31)
@@ -123,9 +122,9 @@ public static class Arm64Utils
                 if (rawStartOfNextMethod < rawStart)
                     rawStartOfNextMethod = binary.RawLength;
 
-                byte[] bytes = binary.GetRawBinaryContent().SubArray((int)rawStart..(int)rawStartOfNextMethod);
+                var bytes = binary.GetRawBinaryContent()[(int)rawStart..(int)rawStartOfNextMethod];
 
-                var iter = disassembler.Iterate(bytes, (long)virtAddress);
+                var iter = disassembler.Iterate(bytes.ToArray(), (long)virtAddress);
                 if (count > 0)
                     iter = iter.Take(count);
 
@@ -141,7 +140,7 @@ public static class Arm64Utils
         while (!ret.Any(i => i.Mnemonic is "b" or ".byte") && (count == -1 || ret.Count < count))
         {
             //All arm64 instructions are 4 bytes
-            ret.AddRange(disassembler.Iterate(allBytes.SubArray(pos..(pos + 4)), (long)virtAddress));
+            ret.AddRange(disassembler.Iterate(allBytes[pos..(pos + 4)].ToArray(), (long)virtAddress));
             virtAddress += 4;
             pos += 4;
         }

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Collections.Generic;
 using System.Linq;
@@ -130,7 +131,7 @@ public class MachOFile : Il2CppBinary
         return pointer;
     }
 
-    public override byte[] GetRawBinaryContent() => _raw;
+    public override ReadOnlySpan<byte> GetRawBinaryContent() => _raw;
 
     public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
     {
@@ -162,11 +163,11 @@ public class MachOFile : Il2CppBinary
         return textSection;
     }
 
-    public override byte[] GetEntirePrimaryExecutableSection()
+    public override ReadOnlySpan<byte> GetEntirePrimaryExecutableSection()
     {
         var textSection = GetTextSection64();
 
-        return _raw.SubArray((int)textSection.Offset, (int)textSection.Size);
+        return _raw.AsSpan((int)textSection.Offset, (int)textSection.Size);
     }
 
     public override ulong GetVirtualAddressOfPrimaryExecutableSection() => GetTextSection64().Address;

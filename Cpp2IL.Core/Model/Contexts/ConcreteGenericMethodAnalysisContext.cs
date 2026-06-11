@@ -124,9 +124,6 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         }
 
         DefaultReturnType = GenericInstantiation.Instantiate(BaseMethodContext.ReturnType, typeGenericParameters, methodGenericParameters);
-
-        if (UnderlyingPointer != 0)
-            rawMethodBody = AppContext.InstructionSet.GetRawBytesForMethod(this, false);
     }
 
     private static AssemblyAnalysisContext ResolveDeclaringAssembly(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext context)

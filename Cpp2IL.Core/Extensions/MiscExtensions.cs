@@ -160,7 +160,7 @@ public static class MiscExtensions
         });
     }
 
-    public static unsafe uint ReadUInt(this Span<byte> span, int start)
+    public static unsafe uint ReadUInt(this ReadOnlySpan<byte> span, int start)
     {
         if (start >= span.Length)
             throw new ArgumentOutOfRangeException(nameof(start), $"start=[{start}], mem.Length=[{span.Length}]");

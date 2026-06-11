@@ -1,5 +1,3 @@
-using System;
-
 namespace LibCpp2IL.BinaryStructures;
 
 public class Il2CppArrayType : ReadableClass

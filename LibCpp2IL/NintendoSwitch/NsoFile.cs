@@ -336,16 +336,16 @@ public sealed class NsoFile : Il2CppBinary
         return pointer;
     }
 
-    public override byte[] GetRawBinaryContent() => _raw;
+    public override ReadOnlySpan<byte> GetRawBinaryContent() => _raw;
 
     public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
     {
         return 0;
     }
 
-    public override byte[] GetEntirePrimaryExecutableSection()
+    public override ReadOnlySpan<byte> GetEntirePrimaryExecutableSection()
     {
-        return _raw.Skip((int)_header.TextSegment.FileOffset).Take((int)_header.TextSegment.DecompressedSize).ToArray();
+        return _raw.AsSpan((int)_header.TextSegment.FileOffset, (int)_header.TextSegment.DecompressedSize);
     }
 
     public override ulong GetVirtualAddressOfPrimaryExecutableSection()

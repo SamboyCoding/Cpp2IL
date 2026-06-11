@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using LibCpp2IL.Logging;
 
@@ -21,5 +22,5 @@ public class WasmCodeSection : WasmSection
         LibLogger.VerboseNewline($"\t\tRead {Functions.Count} function bodies");
     }
 
-    public byte[] RawSectionContent => _file.GetRawBinaryContent().SubArray((int)Pointer, (int)Size);
+    public ReadOnlySpan<byte> RawSectionContent => _file.GetRawBinaryContent().Slice((int)Pointer, (int)Size);
 }

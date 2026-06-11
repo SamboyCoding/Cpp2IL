@@ -746,7 +746,7 @@ public sealed class ElfFile : Il2CppBinary
 
     public override ulong GetRva(ulong pointer) => (ulong)((long)pointer - _globalOffset);
 
-    public override byte[] GetRawBinaryContent() => _raw;
+    public override ReadOnlySpan<byte> GetRawBinaryContent() => _raw;
 
     public override ulong GetVirtualAddressOfExportedFunctionByName(string toFind)
     {
@@ -778,13 +778,13 @@ public sealed class ElfFile : Il2CppBinary
 
     public override ulong GetVirtualAddressOfPrimaryExecutableSection() => _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress ?? 0;
 
-    public override byte[] GetEntirePrimaryExecutableSection()
+    public override ReadOnlySpan<byte> GetEntirePrimaryExecutableSection()
     {
         var primarySection = _elfSectionHeaderEntries.FirstOrDefault(s => s.Name == ".text");
 
         if (primarySection == null)
-            return [];
+            return ReadOnlySpan<byte>.Empty;
 
-        return GetRawBinaryContent().SubArray((int)primarySection.RawAddress, (int)primarySection.Size);
+        return GetRawBinaryContent().Slice((int)primarySection.RawAddress, (int)primarySection.Size);
     }
 }

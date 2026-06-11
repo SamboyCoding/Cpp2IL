@@ -10,11 +10,11 @@ namespace LibCpp2IL.PE;
 public sealed class PE : Il2CppBinary
 {
     //Initialized in constructor
-    internal readonly byte[] raw; //Internal for PlusSearch
+    private readonly byte[] raw;
 
     //PE-Specific Stuff
-    internal readonly SectionHeader[] peSectionHeaders; //Internal for the one use in PlusSearch
-    internal readonly ulong peImageBase; //Internal for the one use in PlusSearch
+    private readonly SectionHeader[] peSectionHeaders;
+    private readonly ulong peImageBase;
     private readonly OptionalHeader64? peOptionalHeader64;
     private readonly OptionalHeader? peOptionalHeader32;
 
@@ -246,14 +246,14 @@ public sealed class PE : Il2CppBinary
         return pointer - peImageBase;
     }
 
-    public override byte[] GetEntirePrimaryExecutableSection()
+    public override ReadOnlySpan<byte> GetEntirePrimaryExecutableSection()
     {
         var primarySection = peSectionHeaders.FirstOrDefault(s => s.Name == ".text");
 
         if (primarySection == null)
-            return [];
+            return ReadOnlySpan<byte>.Empty;
 
-        return GetRawBinaryContent().SubArray((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
+        return GetRawBinaryContent().Slice((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
     }
 
     public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress + peImageBase ?? 0;
@@ -262,5 +262,7 @@ public sealed class PE : Il2CppBinary
 
     public override long RawLength => raw.Length;
 
-    public override byte[] GetRawBinaryContent() => raw;
+    public override ReadOnlySpan<byte> GetRawBinaryContent() => raw;
+
+    public Stream ToStream() => new MemoryStream(raw, false);
 }
