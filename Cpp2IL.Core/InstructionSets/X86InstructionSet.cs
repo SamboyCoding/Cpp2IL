@@ -503,9 +503,8 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), 0);
                     break;
                 }
-
-                //Fall through to cmp, as test is just a cmp that doesn't set flags
-                goto case Mnemonic.Cmp;
+                AddTestInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                break;
             case Mnemonic.Cmp:
             case Mnemonic.Comiss: //comiss is just a floating point compare dest[31:0] == src[31:0]
             case Mnemonic.Ucomiss: // same, but unsigned
@@ -789,6 +788,22 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "SF"), temp1, 0); // SF = temp1 < 0
             Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "ZF"), temp1, 0); // ZF = temp1 == 0
             Add(ip, ISIL.OpCode.And, temp5, temp2, 1); // temp5 = tmp2 & 1
+            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "PF"), temp5, 0); // PF = temp5 == 0
+        }
+
+        void AddTestInstruction(ulong ip, object op0, object op1)
+        {
+            var temp = new ISIL.Register(null, "TEMP");
+            var temp2 = new ISIL.Register(null, "TEMP2");
+            var temp5 = new ISIL.Register(null, "TEMP5");
+
+            Add(ip, ISIL.OpCode.And, temp, op0, op1); // temp = op0 & op1
+            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "ZF"), temp, 0); // ZF = temp == 0
+            Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "SF"), temp, 0); // SF = temp < 0
+            Add(ip, ISIL.OpCode.Move, new ISIL.Register(null, "CF"), 0);  // CF = 0
+            Add(ip, ISIL.OpCode.Move, new ISIL.Register(null, "OF"), 0);  // OF = 0
+            Add(ip, ISIL.OpCode.Xor, temp2, temp, 0); // temp2 = temp ^ 0
+            Add(ip, ISIL.OpCode.And, temp5, temp2, 1); // temp5 = temp2 & 1
             Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "PF"), temp5, 0); // PF = temp5 == 0
         }
     }
