@@ -250,7 +250,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 Add(address, OpCode.Move, dest2, mem2);
                 break;
             case Arm64Mnemonic.BL:
-                AddCall(context, GetReturnRegisterForContext(context), address, instruction.BranchTarget);
+                if (context.AppContext.MethodsByAddress.TryGetValue(instruction.BranchTarget, out var possibleMethods))
+                {
+                    if (possibleMethods.Count != 1)
+                        break;
+                   
+                    AddCall(context, GetReturnRegisterForContext(possibleMethods[0]), address, instruction.BranchTarget);
+                }
                 break;
             case Arm64Mnemonic.RET:
                 var returnRegister = GetReturnRegisterForContext(context);
