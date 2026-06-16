@@ -185,12 +185,12 @@ public class AssemblyAnalysisContext : HasCustomAttributesAndName
 
     public AssemblyAnalysisContext(Il2CppAssemblyDefinition? assemblyDefinition, ApplicationAnalysisContext appContext) : base(assemblyDefinition?.Token ?? 0, appContext)
     {
+        ManifestModule = new(this);
+
         if (assemblyDefinition is null)
             return;
 
         Definition = assemblyDefinition;
-
-        ManifestModule = new(this);
 
         if (AppContext.MetadataVersion >= 24.2f)
             CodeGenModule = AppContext.Binary.GetCodegenModuleByName(Definition.Image.Name!);
