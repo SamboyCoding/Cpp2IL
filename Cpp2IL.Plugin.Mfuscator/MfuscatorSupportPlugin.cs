@@ -1,4 +1,4 @@
-﻿using System.Collections.Concurrent;
+using System.Collections.Concurrent;
 using System.Runtime.InteropServices;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Api;
@@ -463,7 +463,7 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
 
                 return decryptedSectionBytes;
             }
-            catch (Exception ex)
+            catch (Exception)
             {
                 continue;
             }

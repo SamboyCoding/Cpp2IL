@@ -53,7 +53,7 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
         var gClass = rawType.GetGenericClass();
         GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
 
-        GenericArguments.AddRange(gClass.Context.ClassInst.Types.Select(referencedFrom.ResolveIl2CppType)!);
+        GenericArguments.AddRange(gClass.Context.ClassInst!.Types.Select(referencedFrom.ResolveIl2CppType)!);
 
         SetDeclaringType();
     }

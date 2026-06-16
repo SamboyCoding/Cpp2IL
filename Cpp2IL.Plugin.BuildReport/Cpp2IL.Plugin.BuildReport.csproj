@@ -30,7 +30,6 @@
     </ItemGroup>
 
     <ItemGroup>
-      <PackageReference Include="System.Text.Json" Version="10.0.1" />
       <PackageReference Include="Microsoft.SourceLink.GitHub" Version="10.0.200" PrivateAssets="All" />
     </ItemGroup>
 

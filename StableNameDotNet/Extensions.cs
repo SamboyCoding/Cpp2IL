@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -24,7 +24,7 @@ public static class Extensions
         return false;
     }
 
-    public static TValue GetOrCreate<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, Func<TValue> defaultGetter)
+    public static TValue GetOrCreate<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, Func<TValue> defaultGetter) where TKey : notnull
     {
         if (dict.TryGetValue(key, out var value))
             return value;

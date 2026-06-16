@@ -318,7 +318,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
             var genericClass = type.GetGenericClass();
             var elementType = appContext.ResolveContextForType(genericClass.TypeDefinition)!;
 
-            var genericParamTypes = genericClass.Context.ClassInst.Types;
+            var genericParamTypes = genericClass.Context.ClassInst!.Types;
 
             if (genericParamTypes.Any(t => t.Type is Il2CppTypeEnum.IL2CPP_TYPE_VAR or Il2CppTypeEnum.IL2CPP_TYPE_MVAR))
                 //Discard non-fixed generic instances

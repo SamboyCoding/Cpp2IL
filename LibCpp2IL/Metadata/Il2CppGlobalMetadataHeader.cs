@@ -5,6 +5,8 @@ public class Il2CppGlobalMetadataHeader : ReadableClass
     public uint magicNumber;
     public int version;
 
+#nullable disable
+
     public Il2CppGlobalMetadataSectionHeader stringLiteral; // string data for managed code
     public Il2CppGlobalMetadataSectionHeader stringLiteralData;
     public Il2CppGlobalMetadataSectionHeader @string; // string data for metadata
@@ -55,6 +57,8 @@ public class Il2CppGlobalMetadataHeader : ReadableClass
     [Version(Min = 27)] public Il2CppGlobalMetadataSectionHeader windowsRuntimeStrings; // const char*
 
     [Version(Min = 24)] public Il2CppGlobalMetadataSectionHeader exportedTypeDefinitions; // TypeDefinitionIndex
+
+#nullable restore
 
     public override void Read(ClassReadingBinaryReader reader)
     {

@@ -39,7 +39,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     public int[]? attributeTypes; //Removed in v29
     public List<Il2CppCustomAttributeDataRange>? AttributeDataRanges; //Added in v29
 
-    public Il2CppInlineArrayLength[] TypeInlineArrays; //v104+. TODO: These theoretically map to [InlineArray] attributes in dummy dlls, but that's a recent language version feature, does unity actually support them yet?
+    public Il2CppInlineArrayLength[]? TypeInlineArrays; //v104+. TODO: These theoretically map to [InlineArray] attributes in dummy dlls, but that's a recent language version feature, does unity actually support them yet?
     
     public Il2CppVariableWidthIndex<Il2CppType>[] interfaceIndices;
 
@@ -52,14 +52,16 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     public Il2CppFieldRef[] fieldRefs;
     private Il2CppGenericParameter[] genericParameters;
     public Il2CppVariableWidthIndex<Il2CppType>[] constraintIndices;
-    public int[] exportedTypes;
+    public int[]? exportedTypes; //Added in v24
 
     public int[] referencedAssemblies;
 
+#nullable disable
     /// <summary>
     /// Set by <see cref="LibCpp2IlContextBuilder"/> after construction.
     /// </summary>
     public LibCpp2IlContext OwningContext { get; internal set; }
+#nullable restore
 
     private readonly Dictionary<Il2CppVariableWidthIndex<Il2CppFieldDefinition>, Il2CppFieldDefaultValue> _fieldDefaultValueLookup = new();
     private readonly Dictionary<Il2CppFieldDefinition, Il2CppFieldDefaultValue> _fieldDefaultLookupNew = new();
@@ -697,7 +699,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     
     public Il2CppTypeDefinition GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition> index) => typeDefs[index.Value];
 
-    public Il2CppTypeDefinition GetExportedTypeDefintionFromIndex(int index) => typeDefs[exportedTypes[index]];
+    public Il2CppTypeDefinition GetExportedTypeDefintionFromIndex(int index) => typeDefs[exportedTypes![index]];
     
     public Il2CppGenericContainer GetGenericContainerFromIndex(Il2CppVariableWidthIndex<Il2CppGenericContainer> index) => genericContainers[index.Value];
     

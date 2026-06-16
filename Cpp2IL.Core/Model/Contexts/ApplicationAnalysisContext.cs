@@ -217,9 +217,9 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     {
         return methodReference?.Type switch
         {
-            null => null,
             MetadataUsageType.MethodDef => ResolveContextForMethod(methodReference.AsMethod()),
             MetadataUsageType.MethodRef => ResolveContextForMethod(methodReference.AsGenericMethodRef()),
+            _ => null,
         };
     }
 
