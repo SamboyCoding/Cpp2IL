@@ -136,9 +136,7 @@ public static class MetadataResolver
             if (!method.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
                 continue;
 
-            // Several methods can share one address (identical native code merged by the linker, or
-            // generic sharing). Those are left as a numeric target here and disambiguated later by
-            // receiver type in ResolveAmbiguousCalls, once types are known.
+            // Duplicated/Shared method bodies are resolved later in ResolveCallsViaMethodInfo/ResolveAmbiguousCalls.
             if (targetMethods is not [{ } singleTargetMethod])
                 continue;
 
@@ -212,6 +210,66 @@ public static class MetadataResolver
     {
         var index = call.OpCode == OpCode.CallVoid ? 1 : 2;
         return index < call.Operands.Count ? call.Operands[index] as LocalVariable : null;
+    }
+
+    /// <summary>
+    /// Resolves calls whose address maps to more than one method by reading the runtime
+    /// <c>MethodInfo*</c> the caller passes in, if there is one.
+    /// </summary>
+    public static bool ResolveCallsViaMethodInfo(MethodAnalysisContext method)
+    {
+        var changed = false;
+
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (!instruction.IsCall)
+                continue;
+
+            var target = instruction.Operands[0];
+
+            if (!target.IsNumeric())
+                //Already resolved
+                continue;
+
+            if (!method.AppContext.MethodsByAddress.TryGetValue((ulong)target, out var candidates) || candidates.Count < 2)
+                //Not a managed method at all
+                continue;
+
+            if (GetMethodInfoArgument(instruction) is not { RepresentedMethod: { } representedMethod })
+                //No MethodInfo to work with
+                continue;
+
+            //Try to actually match on the method name so we don't just replace a call with something else.
+            var representedBase = BaseMethodOf(representedMethod);
+            if (!candidates.Any(candidate => ReferenceEquals(BaseMethodOf(candidate), representedBase)))
+                continue;
+
+            instruction.Operands[0] = representedMethod;
+            changed = true;
+        }
+
+        return changed;
+    }
+
+    private static MethodAnalysisContext BaseMethodOf(MethodAnalysisContext method) =>
+        method is ConcreteGenericMethodAnalysisContext { BaseMethodContext: { } baseMethod } ? baseMethod : method;
+
+    private static RuntimeMethodInfoAnalysisContext? GetMethodInfoArgument(Instruction call)
+    {
+        var firstArg = call.OpCode == OpCode.CallVoid ? 1 : 2;
+
+        for (var i = call.Operands.Count - 1; i >= firstArg; i--)
+        {
+            switch (call.Operands[i])
+            {
+                case RuntimeMethodInfoAnalysisContext methodInfo:
+                    return methodInfo;
+                case LocalVariable { Type: RuntimeMethodInfoAnalysisContext methodInfoLocal }:
+                    return methodInfoLocal;
+            }
+        }
+
+        return null;
     }
 
     private static void HandleKeyFunction(ApplicationAnalysisContext appContext, Instruction instruction, ulong target, BaseKeyFunctionAddresses kFA)

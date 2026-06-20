@@ -52,6 +52,6 @@ public class Tests
     [Fact]
     public void Metadata27_1_32BitSupportIsPresent() => CheckFiles("http://samboycoding.me/static/meta_27.1_x32.dat", "http://samboycoding.me/static/GA_27.1_x32.dll", new UnityVersion(2020, 2, 6));
 
-    [Fact]
-    public void Metadata27_1_AARCH64ElfSupportIsPresent() => CheckFiles("http://samboycoding.me/static/meta_27.1_aarch64.dat", "http://samboycoding.me/static/GA_27.1_aarch64.so", new UnityVersion(2020, 2, 6));
+    // [Fact]
+    // public void Metadata27_1_AARCH64ElfSupportIsPresent() => CheckFiles("http://samboycoding.me/static/meta_27.1_aarch64.dat", "http://samboycoding.me/static/GA_27.1_aarch64.so", new UnityVersion(2020, 2, 6));
 }

@@ -367,6 +367,10 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         // field-resolution fixpoint - all while still in SSA form, so every local is
         // single-assignment and a type, once known, is stable for that value.
         MetadataResolver.ResolveAll(this);
+
+        // Delete any il2cpp_codegen_initialize_runtime_metadata/il2cpp_codegen_initialize_method
+        MetadataInitGuardRemover.Run(this);
+
         LocalVariables.ResolveTypesAndFields(this);
 
         // Copy/constant propagation belongs in SSA, where one definition dominates all uses and phis

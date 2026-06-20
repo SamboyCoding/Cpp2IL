@@ -224,6 +224,7 @@ public static class LocalVariables
                 throw new DecompilerException($"Type and field resolution not settling! (looped {MaxTypePropagationLoopCount} times)");
 
             changed = false;
+            changed |= MetadataResolver.ResolveCallsViaMethodInfo(method);
             changed |= MetadataResolver.ResolveAmbiguousCalls(method);
             changed |= PropagateFromCallParameters(method);
             changed |= MetadataResolver.ResolveFieldOffsets(method);
