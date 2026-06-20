@@ -10,7 +10,9 @@ namespace LibCpp2IL.PE;
 public sealed class PE : Il2CppBinary
 {
     //Initialized in constructor
+    public readonly uint LastAddress;
     internal readonly byte[] raw; //Internal for PlusSearch
+    private readonly bool _isLoadedLayout;
 
     //PE-Specific Stuff
     internal readonly SectionHeader[] peSectionHeaders; //Internal for the one use in PlusSearch
@@ -30,8 +32,9 @@ public sealed class PE : Il2CppBinary
 
     //Pointers
 
-    public PE(MemoryStream input) : base(input)
+    public PE(MemoryStream input, bool isLoadedLayout = false) : base(input)
     {
+        _isLoadedLayout = isLoadedLayout;
         raw = input.GetBuffer();
         LibLogger.Verbose("\tReading PE File Header...");
         var start = DateTime.Now;
@@ -64,6 +67,9 @@ public sealed class PE : Il2CppBinary
 
         peSectionHeaders = ReadReadableArrayAtRawAddr<SectionHeader>(-1, fileHeader.NumberOfSections);
 
+        var last = peSectionHeaders[^1];
+        LastAddress = last.VirtualAddress + last.VirtualSize;
+
         LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
         LibLogger.VerboseNewline($"\t\tImage Base at 0x{peImageBase:X}");
         LibLogger.VerboseNewline($"\t\tDLL is {(is32Bit ? "32" : "64")}-bit");
@@ -88,14 +94,16 @@ public sealed class PE : Il2CppBinary
             return VirtToRawInvalidNoMatch;
         }
 
-        var last = peSectionHeaders[peSectionHeaders.Length - 1];
-        if (addr > last.VirtualAddress + last.VirtualSize)
+        if (addr > LastAddress)
         {
             if (throwOnError)
-                throw new ArgumentOutOfRangeException(nameof(uiAddr), $"Provided address maps to image offset 0x{addr:X} which is outside the range of the file (last section ends at 0x{last.VirtualAddress + last.VirtualSize:X})");
+                throw new ArgumentOutOfRangeException(nameof(uiAddr), $"Provided address maps to image offset 0x{addr:X} which is outside the range of the file (last section ends at 0x{LastAddress:X})");
 
             return VirtToRawInvalidOutOfBounds;
         }
+
+        if (_isLoadedLayout)
+            return addr;
 
         var section = peSectionHeaders.FirstOrDefault(x => addr >= x.VirtualAddress && addr < x.VirtualAddress + x.VirtualSize);
 
@@ -112,6 +120,9 @@ public sealed class PE : Il2CppBinary
 
     public override ulong MapRawAddressToVirtual(uint offset, bool throwOnError = true)
     {
+        if (_isLoadedLayout)
+            return peImageBase + offset;
+
         var section = peSectionHeaders.FirstOrDefault(x => offset >= x.PointerToRawData && offset < x.PointerToRawData + x.SizeOfRawData);
         if (section == null)
             if (throwOnError)
@@ -253,7 +264,10 @@ public sealed class PE : Il2CppBinary
         if (primarySection == null)
             return [];
 
-        return GetRawBinaryContent().SubArray((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
+        if (_isLoadedLayout)
+            return raw.SubArray((int)primarySection.VirtualAddress, (int)primarySection.VirtualSize);
+
+        return raw.SubArray((int)primarySection.PointerToRawData, (int)primarySection.SizeOfRawData);
     }
 
     public override ulong GetVirtualAddressOfPrimaryExecutableSection() => peSectionHeaders.FirstOrDefault(s => s.Name == ".text")?.VirtualAddress + peImageBase ?? 0;
