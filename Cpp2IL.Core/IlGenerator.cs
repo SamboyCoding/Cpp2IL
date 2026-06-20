@@ -93,9 +93,47 @@ public static class IlGenerator
 
         // Generate IL
         Dictionary<Instruction, List<CilInstruction>> instructionMap = [];
-        foreach (var instruction in context.ControlFlowGraph!.Instructions) // context.ConvertedIsil is probably not up to date anymore here
-            instructionMap.Add(instruction, GenerateInstructions(instruction, context, definition, locals, writeLine, stringCtor));
+        Dictionary<Block, CilInstruction> blockEntryMap = [];
+        List<(CilInstruction BranchInstruction, Block TargetBlock)> pendingBlockBranchFixups = [];
 
+        foreach (var block in context.ControlFlowGraph!.Blocks)
+        {
+            if (block == context.ControlFlowGraph.EntryBlock || block == context.ControlFlowGraph.ExitBlock)
+                continue;
+
+            if (block.Instructions.Count == 0)
+                continue;
+
+            foreach (var instruction in block.Instructions)
+            {
+                var generated = GenerateInstructions(instruction, context, definition, locals, writeLine, stringCtor);
+                instructionMap.Add(instruction, generated);
+
+                if (!blockEntryMap.ContainsKey(block) && generated.Count > 0)
+                    blockEntryMap[block] = generated[0];
+            }
+
+            var lastInstruction = block.Instructions.Last();
+            
+            if (lastInstruction.OpCode == OpCode.ConditionalJump)
+            {
+                var trueTarget = TryResolveJumpTargetBlock(lastInstruction, context.ControlFlowGraph);
+                var falseSuccessor = block.Successors.FirstOrDefault(s => s != trueTarget && s != context.ControlFlowGraph.ExitBlock);
+                if (falseSuccessor == null) continue;
+                var bridge = new CilInstruction(CilOpCodes.Br, new CilInstructionLabel());
+                definition.CilMethodBody!.Instructions.Add(bridge);
+                pendingBlockBranchFixups.Add((bridge, falseSuccessor));
+            }
+
+            else if (lastInstruction.OpCode != OpCode.Jump && lastInstruction.OpCode != OpCode.Return && lastInstruction.OpCode != OpCode.IndirectJump)
+            {
+                var successor = block.Successors.FirstOrDefault(s => s != context.ControlFlowGraph.ExitBlock);
+                if (successor == null) continue;
+                var bridge = new CilInstruction(CilOpCodes.Br, new CilInstructionLabel());
+                definition.CilMethodBody!.Instructions.Add(bridge);
+                pendingBlockBranchFixups.Add((bridge, successor));
+            }
+        }
         // Set IL branch targets
         foreach (var kvp in instructionMap)
         {
@@ -127,6 +165,20 @@ public static class IlGenerator
                 ilBranch.Operand = new CilInstructionLabel(instructionMap[target][0]);
             }
         }
+        
+        foreach (var (branchInstruction, targetBlock) in pendingBlockBranchFixups)
+        {
+            var target = ResolveBlockEntryInstruction(targetBlock, blockEntryMap);
+            if (target == null)
+            {
+                context.AddWarning($"Unable to resolve branch target block: {targetBlock}");
+                branchInstruction.OpCode = CilOpCodes.Nop;
+                branchInstruction.Operand = null;
+                continue;
+            }
+
+            branchInstruction.Operand = new CilInstructionLabel(target);
+        }
 
         // Add analysis warnings
         var instructions = body.Instructions;
@@ -135,6 +187,39 @@ public static class IlGenerator
             instructions.Add(CilOpCodes.Ldstr, "Warning: " + warning);
             instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
         }
+    }
+    
+    private static Block? TryResolveJumpTargetBlock(Instruction jumpInstruction, ISILControlFlowGraph cfg)
+    {
+        if (jumpInstruction.Operands.Count == 0)
+            return null;
+
+        if (jumpInstruction.Operands[0] is Block targetBlock)
+            return targetBlock;
+
+        if (jumpInstruction.Operands[0] is Instruction targetInstruction)
+            return cfg.FindBlockByInstruction(targetInstruction);
+
+        return null;
+    }
+
+    private static CilInstruction? ResolveBlockEntryInstruction(Block block,
+        Dictionary<Block, CilInstruction> blockEntryMap, HashSet<Block>? visited = null)
+    {
+        if (blockEntryMap.TryGetValue(block, out var target))
+            return target;
+
+        visited ??= [];
+        if (!visited.Add(block))
+            return null;
+
+        foreach (var successor in block.Successors)
+        {
+            var resolved = ResolveBlockEntryInstruction(successor, blockEntryMap, visited);
+            if (resolved != null)
+                return resolved;
+        }
+        return null;
     }
 
     private static List<CilInstruction> GenerateInstructions(Instruction instruction, MethodAnalysisContext context,
@@ -219,7 +304,9 @@ public static class IlGenerator
                 }
 
                 // Load normal params
-                var callParams = instruction.Operands.Skip(thisParamIndex + (targetMethod.IsStatic ? 0 : -1));
+                var callParams = instruction.Operands
+                    .Skip(thisParamIndex + (targetMethod.IsStatic ? 0 : -1))
+                    .Take(instruction.Operands.Count - 1 - thisParamIndex);
                 foreach (var param in callParams)
                     LoadOperand(param, method, locals, writeLine, stringCtor);
 
