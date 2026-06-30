@@ -26,6 +26,14 @@ public class CommandLineArgs
     [Option("force-unity-version", HelpText = "Override the unity version detection. Don't use unless you know what you're doing, and use in conjunction with the other force options.")]
     public string? ForcedUnityVersion { get; set; }
 
+    //Plugin options
+
+    [Option("plugins-dir", HelpText = "Specify a directory to load external Cpp2IL plugins from. Relative paths are resolved from the Cpp2IL application directory.")]
+    public string? PluginsDir { get; set; }
+
+    [Option("no-plugins", HelpText = "Disable loading external Cpp2IL plugins. Built-in plugins are still initialized.")]
+    public bool NoPlugins { get; set; }
+
     //Processor options
 
     [Option("list-processors", HelpText = "List the available processing layers and exit.")]

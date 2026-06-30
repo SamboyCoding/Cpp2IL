@@ -25,10 +25,24 @@ public static class Cpp2IlApi
     internal static bool LowMemoryMode => RuntimeOptions?.LowMemoryMode ?? false;
 
     [RequiresUnreferencedCode("Plugins are loaded dynamically.")]
-    public static void Init(string pluginsDir = "Plugins")
+    public static void Init(string pluginsDir = "Plugins", bool loadExternalPlugins = true)
     {
-        Cpp2IlPluginManager.LoadFromDirectory(Path.Combine(Environment.CurrentDirectory, pluginsDir));
+        if (loadExternalPlugins)
+            Cpp2IlPluginManager.LoadFromDirectory(ResolvePluginDirectory(pluginsDir));
+        else
+            Logger.InfoNewline("External plugin loading disabled.", "Plugins");
+
         Cpp2IlPluginManager.InitAll();
+    }
+
+    internal static string ResolvePluginDirectory(string pluginsDir)
+    {
+        if (string.IsNullOrWhiteSpace(pluginsDir))
+            pluginsDir = "Plugins";
+
+        return Path.GetFullPath(Path.IsPathRooted(pluginsDir)
+            ? pluginsDir
+            : Path.Combine(AppContext.BaseDirectory, pluginsDir));
     }
 
     public static UnityVersion DetermineUnityVersion(string? unityPlayerPath, string? gameDataPath)

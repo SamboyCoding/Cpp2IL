@@ -505,8 +505,11 @@ internal static class Program
 
         ConsoleLogger.ShowVerbose = options.Verbose;
 
+        if (options.NoPlugins && !string.IsNullOrWhiteSpace(options.PluginsDir))
+            throw new SoftException("--plugins-dir cannot be used together with --no-plugins");
+
 #pragma warning disable IL2026 // RequiresUnreferencedCode
-        Cpp2IlApi.Init();
+        Cpp2IlApi.Init(options.PluginsDir ?? "Plugins", !options.NoPlugins);
 #pragma warning restore IL2026
 
         if (options.ListProcessors)
