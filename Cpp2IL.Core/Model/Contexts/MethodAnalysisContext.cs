@@ -172,6 +172,11 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                 if (vtableEntry is null or { Type: not MetadataUsageType.MethodDef } || vtableEntry.AsMethod() != Definition)
                     continue;
 
+                if (IsInterfaceSlot(this, i))
+                {
+                    continue;
+                }
+
                 var baseType = DeclaringType?.DefaultBaseType;
                 while (baseType is not null)
                 {
@@ -232,13 +237,46 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                     if (i >= interfaceOffset.offset)
                     {
                         var interfaceTypeContext = interfaceOffset.Type.ToContext(CustomAttributeAssembly);
-                        if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, i - interfaceOffset.offset, out var method))
+                        var slot = i - interfaceOffset.offset;
+                        if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, slot, out var method) && !IsInterfaceSlot(method, slot))
                         {
                             yield return method;
                         }
                     }
                 }
             }
+        }
+    }
+
+    private static bool IsInterfaceSlot(MethodAnalysisContext method, int slot)
+    {
+        var declaringTypeDefinition = method.DeclaringType?.Definition;
+        if (declaringTypeDefinition == null)
+            return false;
+
+        foreach (var interfaceOffset in declaringTypeDefinition.InterfaceOffsets)
+        {
+            if (slot >= interfaceOffset.offset)
+            {
+                var interfaceTypeContext = interfaceOffset.Type.ToContext(method.CustomAttributeAssembly);
+                if (interfaceTypeContext != null && HasMethodForSlot(interfaceTypeContext, slot - interfaceOffset.offset))
+                {
+                    return true;
+                }
+            }
+        }
+        return false;
+    }
+
+    private static bool HasMethodForSlot(TypeAnalysisContext declaringType, int slot)
+    {
+        if (declaringType is GenericInstanceTypeAnalysisContext genericInstanceType)
+        {
+            return genericInstanceType.GenericType.Methods.Any(m => m.Slot == slot);
+        }
+        else
+        {
+            return declaringType.Methods.Any(m => m.Slot == slot);
         }
     }
 
