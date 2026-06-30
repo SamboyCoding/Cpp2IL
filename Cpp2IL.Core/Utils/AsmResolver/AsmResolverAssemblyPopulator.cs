@@ -346,8 +346,6 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var fieldContext in typeContext.Fields)
         {
-            var fieldInfo = fieldContext.BackingData;
-
             var fieldTypeSig = fieldContext.ToTypeSignature(importer.TargetModule);
 
             var managedField = new FieldDefinition(fieldContext.Name, (FieldAttributes)fieldContext.Attributes, fieldTypeSig);
@@ -360,12 +358,9 @@ public static class AsmResolverAssemblyPopulator
             if (managedField.HasFieldRva)
                 managedField.FieldRva = new DataSegment(fieldContext.StaticArrayInitialValue);
 
-            if (fieldInfo != null)
-            {
-                if (ilTypeDefinition.IsExplicitLayout && !fieldContext.IsStatic)
-                    //Copy field offset
-                    managedField.FieldOffset = fieldInfo.FieldOffset;
-            }
+            //Copy field offset
+            if (ilTypeDefinition.IsExplicitLayout && !fieldContext.IsStatic)
+                managedField.FieldOffset = fieldContext.Offset;
 
             fieldContext.PutExtraData("AsmResolverField", managedField);
 

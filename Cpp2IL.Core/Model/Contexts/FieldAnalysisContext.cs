@@ -53,7 +53,15 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
         set => OverrideConstantValue = value;
     }
 
-    public int Offset => BackingData == null ? 0 : AppContext.Binary.GetFieldOffsetFromIndex(DeclaringType.Definition!.TypeIndex, BackingData.IndexInParent, BackingData.Field.FieldIndex, DeclaringType.Definition.IsValueType, IsStatic);
+    public virtual int DefaultOffset => BackingData?.FieldOffset ?? -1;
+
+    public virtual int? OverrideOffset { get; set; }
+
+    public int Offset
+    {
+        get => OverrideOffset ?? DefaultOffset;
+        set => OverrideOffset = value;
+    }
 
     public virtual TypeAnalysisContext DefaultFieldType => DeclaringType.DeclaringAssembly.ResolveIl2CppType(RawFieldType)
                                                            ?? throw new($"Field type {RawFieldType} could not be resolved.");
