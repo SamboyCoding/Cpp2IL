@@ -277,8 +277,16 @@ public static class CsFileUtils
     /// This mainly involves stripping the backtick section from generic type names, and replacing certain system types with their primitive name.
     /// </summary>
     /// <param name="type"></param>
-    public static string GetTypeName(TypeAnalysisContext type)
+    public static string GetTypeName(TypeAnalysisContext? type)
     {
+        //GenericType/GenericArguments can observably be null here for a self-referencing generic type
+        //(e.g. `class Foo<T> : Bar<Foo<T>.Nested>`) - GenericInstanceTypeAnalysisContext caches itself in
+        //AssemblyAnalysisContext.GenericInstanceTypesByIl2CppType before its GenericType field is assigned,
+        //specifically to break resolution cycles (see https://github.com/SamboyCoding/Cpp2IL/issues/469),
+        //so a re-entrant resolution of the same type mid-construction can observe it as still-null.
+        if (type is null)
+            return "<unresolved type>";
+
         if (type is WrappedTypeAnalysisContext wrapped)
         {
             var elementTypeName = GetTypeName(wrapped.ElementType);
