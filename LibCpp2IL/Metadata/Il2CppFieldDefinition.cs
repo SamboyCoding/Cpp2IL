@@ -33,11 +33,21 @@ public class Il2CppFieldDefinition : ReadableClass
             if (FieldType is not { isArray: false, isPointer: false, isType: true, isGenericType: false })
                 return [];
 
-            if (FieldType.baseType!.Name?.StartsWith("__StaticArrayInitTypeSize=") != true)
-                return [];
-
-            var length = int.Parse(FieldType.baseType!.Name.Replace("__StaticArrayInitTypeSize=", ""));
             var (dataIndex, _) = OwningContext.Metadata.GetFieldDefaultValue(FieldIndex);
+
+            if (dataIndex.IsNull) return [];
+
+            int length;
+            if (FieldType.baseType != null)
+            {
+                length = FieldType.baseType!.Size;
+            }
+            else
+            {
+                return [];
+            }
+
+            if (length <= 0) return [];
 
             var pointer = OwningContext.Metadata.GetDefaultValueFromIndex(dataIndex);
 
