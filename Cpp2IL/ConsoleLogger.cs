@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Drawing;
-using System.IO;
+#if Windows
+using System.Runtime.InteropServices;
+#endif
 using Cpp2IL.Core.Logging;
 using Pastel;
 
@@ -64,12 +66,18 @@ internal static class ConsoleLogger
         //     WarnNewline("Looks like you're running on a non-windows platform. Disabling ANSI color codes.");
         // }
         /*else*/
-        if (Directory.Exists(@"Z:\usr\"))
+
+#if Windows
+        // https://devblogs.microsoft.com/oldnewthing/20120514-00/?p=7633
+        // https://github.com/lain804/winedetect/blob/5f622df8cda9b26b4a1e8ded7171e281aae85a13/wine%20vibe%20check/main.cpp#L9-L11
+        if (Kernel32.MulDiv(1, int.MinValue, int.MinValue) != -1)
         {
             DisableColor = true;
             Logger.WarnNewline("Looks like you're running in wine or proton. Disabling ANSI color codes.");
         }
-        else if (Environment.GetEnvironmentVariable("NO_COLOR") != null)
+        else
+#endif
+        if (Environment.GetEnvironmentVariable("NO_COLOR") != null)
         {
             DisableColor = true; //Just manually set this, even though Pastel respects the environment variable
             Logger.WarnNewline("NO_COLOR set, disabling ANSI color codes as you requested.");
@@ -81,3 +89,11 @@ internal static class ConsoleLogger
         }
     }
 }
+
+#if Windows
+file class Kernel32
+{
+    [DllImport("kernel32.dll")]
+    public static extern int MulDiv(int nNumber, int nNumerator, int nDenominator);
+}
+#endif

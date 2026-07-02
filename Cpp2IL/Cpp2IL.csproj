@@ -1,4 +1,4 @@
-﻿ <Project Sdk="Microsoft.NET.Sdk">
+﻿<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <Company>Samboy063</Company>
         <Copyright>Copyright © Samboy063 2019-2026</Copyright>
@@ -9,22 +9,31 @@
         <LangVersion>12</LangVersion>
         <Nullable>enable</Nullable>
         <OutputType>Exe</OutputType>
-        <PublishSingleFile Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
+        <PublishSingleFile
+            Condition="'$(TargetFramework)'!='net472' and '$(GITHUB_ACTIONS)' == 'true'">true</PublishSingleFile>
         <TargetFrameworks>net10.0;net472</TargetFrameworks>
         <VersionPrefix>2022.1.0</VersionPrefix>
         <ServerGarbageCollection>true</ServerGarbageCollection>
         <CETCompat>false</CETCompat>
     </PropertyGroup>
 
-    <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
+
+    <PropertyGroup
+        Condition="$(RuntimeIdentifier.StartsWith('win-')) Or ($(OS.Equals('Windows_NT')) And $(RuntimeIdentifier.Equals('')))">
+        <DefineConstants>Windows</DefineConstants>
+    </PropertyGroup>
+
+
+    <PropertyGroup
+        Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net6.0'))">
         <TrimMode>partial</TrimMode>
         <PublishTrimmed>true</PublishTrimmed>
     </PropertyGroup>
-     
-     <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
-         <TrimmerRootAssembly Include="System.Runtime" />
-         <TrimmerRootAssembly Include="System.Private.CoreLib" />
-     </ItemGroup>
+
+    <ItemGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'net7.0'))">
+        <TrimmerRootAssembly Include="System.Runtime" />
+        <TrimmerRootAssembly Include="System.Private.CoreLib" />
+    </ItemGroup>
 
     <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|x64' ">
         <OutputPath>bin\x64\Debug\</OutputPath>
@@ -34,8 +43,8 @@
         <PackageReference Include="CommandLineParser" Version="2.9.1" />
         <PackageReference Include="Pastel" Version="7.0.1" />
         <PackageReference Include="PolySharp" Version="1.15.0">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
 
