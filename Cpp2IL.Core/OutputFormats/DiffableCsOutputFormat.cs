@@ -16,6 +16,16 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 {
     public static bool IncludeMethodLength = false;
 
+    /// <summary>
+    /// Optional map of static array fields that carry NO field-RVA of their own but are initialized at runtime
+    /// in their declaring type's .cctor from another field's field-RVA blob (via RuntimeHelpers.InitializeArray).
+    /// When set (populated by the host from dataflow analysis — see Il2Cpp.Metadata.RuntimeArrayInitAnalyzer),
+    /// the recovered bytes are rendered under the target field just like a field-RVA literal, so a purely
+    /// structural view shows the real values instead of an empty declaration. Keyed by the FieldAnalysisContext
+    /// so identity is exact (no name matching).
+    /// </summary>
+    public static IReadOnlyDictionary<FieldAnalysisContext, byte[]>? RuntimeInitializedArrays;
+
     public override string OutputFormatId => "diffable-cs";
     public override string OutputFormatName => "Diffable C#";
 
@@ -114,7 +124,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
                 sb.Append('\t', indent);
                 sb.Append(enumValue.Name);
                 sb.Append(" = ");
-                sb.Append(enumValue.BackingData!.DefaultValue);
+                sb.Append(InvariantValue(enumValue.BackingData!.DefaultValue));
                 sb.Append(',');
                 sb.AppendLine();
             }
@@ -177,6 +187,31 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append(' ');
         sb.Append(field.Name);
 
+        // Static array field filled at runtime in the .cctor (RuntimeHelpers.InitializeArray) — emit its recovered
+        // value as a REAL C# array initializer (`= new T[] { .. }`) rather than a trailing comment, so the value
+        // reads as code. Only when the field has no compile-time default of its own.
+        if (field.BackingData?.DefaultValue is null
+            && RuntimeInitializedArrays != null && RuntimeInitializedArrays.TryGetValue(field, out var runtimeInit)
+            && runtimeInit.Length > 0)
+        {
+            AppendRuntimeInitInitializer(sb, field, runtimeInit, indent);
+            return;
+        }
+
+        // Field-RVA default bytes (the data IL2CPP hides in global-metadata.dat, e.g. obfuscation "vault" __Raw
+        // blobs and Roslyn array initializers) — emit as a REAL C# initializer (`= new byte[]/int[] { .. }`) rather
+        // than a trailing comment, so the value reads as code, matching the runtime-init arrays above. Only the
+        // bytes are shown; the RVA/pointer address stays hidden, so the file remains diff-stable.
+        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0 && field.BackingData != null)
+        {
+            var fieldRva = field.BackingData.Field.StaticArrayInitialValue;
+            if (fieldRva is { Length: > 0 })
+            {
+                AppendFieldRvaInitializer(sb, field, fieldRva, indent);
+                return;
+            }
+        }
+
         if (field.BackingData?.DefaultValue is { } defaultValue)
         {
             sb.Append(" = ");
@@ -186,7 +221,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             else if (defaultValue is char charDefaultValue)
                 sb.Append("'\\u").Append(((int)charDefaultValue).ToString("X")).Append("'");
             else
-                sb.Append(defaultValue);
+                sb.Append(InvariantValue(defaultValue));
         }
 
         sb.Append("; //Field offset: 0x");
@@ -194,27 +229,152 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 
         if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0 && field.BackingData != null)
         {
+            // Reached only when the field has field RVA but no decodable bytes (StaticArrayInitialValue empty) --
+            // the with-bytes case is emitted as a real initializer above and returns before here. Mark it and stop.
             sb.Append(" || Has Field RVA (address hidden for diffability)");
-            // var (dataIndex, _) = LibCpp2IlMain.TheMetadata!.GetFieldDefaultValue(field.BackingData.Field.FieldIndex);
-            // var pointer = LibCpp2IlMain.TheMetadata!.GetDefaultValueFromIndex(dataIndex);
-            // sb.Append(pointer.ToString("X8"));
-
-            var actualValue = field.BackingData.Field.StaticArrayInitialValue;
-            if (actualValue is { Length: > 0 })
-            {
-                sb.Append(" || Field RVA Decoded (hex blob): [");
-                sb.Append(actualValue[0].ToString("X2"));
-                for (var i = 1; i < actualValue.Length; i++)
-                {
-                    var b = actualValue[i];
-                    sb.Append(' ').Append(b.ToString("X2"));
-                }
-
-                sb.Append(']');
-            }
+            sb.AppendLine();
+            return;
         }
 
         sb.AppendLine();
+    }
+
+    /// <summary>Emit a static array field's runtime-recovered value (from a .cctor RuntimeHelpers.InitializeArray)
+    /// as a REAL C# array initializer appended after the field name: <c> = new T[] { .. }; //Field offset ..</c>.
+    /// Decoded per the field's declared element type: byte[]/bool[] as hex (16/line); signed/unsigned integer
+    /// arrays as decimals (12/line); char[]/float[]/double[]/unknown fall back to a raw byte[] hex dump. The
+    /// diffable is a structural view (bodies are empty, not compilable), so an exact-typed literal isn't required
+    /// — the point is that the value reads as code, not a comment.</summary>
+    private static void AppendRuntimeInitInitializer(StringBuilder sb, FieldAnalysisContext field, byte[] data, int indent)
+    {
+        var elemName = field.FieldType is SzArrayTypeAnalysisContext sz ? sz.ElementType.FullName : null;
+        var (elemSize, signed, keyword) = elemName switch
+        {
+            "System.SByte" => (1, true, "sbyte"),
+            "System.Int16" => (2, true, "short"),
+            "System.UInt16" => (2, false, "ushort"),
+            "System.Int32" => (4, true, "int"),
+            "System.UInt32" => (4, false, "uint"),
+            "System.Int64" => (8, true, "long"),
+            "System.UInt64" => (8, false, "ulong"),
+            _ => (0, false, (string?)null),   // byte/bool/char/float/double/unknown -> raw byte[] hex
+        };
+
+        var offset = $" //Field offset: 0x{field.Offset.ToString("X")} (restored from .cctor RuntimeHelpers.InitializeArray)";
+
+        // byte-sized / unknown element -> hex byte[] (16/line); multi-byte integer -> decimals (12/line).
+        if (keyword is null || elemSize == 0 || data.Length % elemSize != 0)
+        {
+            sb.Append(" = new byte[]").Append(offset).AppendLine();
+            sb.Append('\t', indent).Append('{').AppendLine();
+            for (var i = 0; i < data.Length; i += 16)
+            {
+                var n = System.Math.Min(16, data.Length - i);
+                sb.Append('\t', indent + 1);
+                for (var j = 0; j < n; j++)
+                {
+                    if (j > 0) sb.Append(", ");
+                    sb.Append("0x").Append(data[i + j].ToString("X2"));
+                }
+                if (i + n < data.Length) sb.Append(',');
+                sb.AppendLine();
+            }
+            sb.Append('\t', indent).Append("};").AppendLine();
+            return;
+        }
+
+        var values = new List<string>(data.Length / elemSize);
+        for (var i = 0; i < data.Length; i += elemSize)
+        {
+            long v = 0;
+            for (var k = 0; k < elemSize; k++) v |= (long)data[i + k] << (8 * k);      // little-endian
+            if (signed)
+            {
+                var bits = elemSize * 8;
+                if (bits < 64 && (v & (1L << (bits - 1))) != 0) v -= 1L << bits;         // sign-extend
+                values.Add(v.ToString());
+            }
+            else
+            {
+                values.Add(((ulong)v & (elemSize == 8 ? ulong.MaxValue : (1UL << (elemSize * 8)) - 1)).ToString());
+            }
+        }
+        sb.Append(" = new ").Append(keyword).Append("[]").Append(offset).AppendLine();
+        sb.Append('\t', indent).Append('{').AppendLine();
+        for (var i = 0; i < values.Count; i += 12)
+        {
+            var n = System.Math.Min(12, values.Count - i);
+            sb.Append('\t', indent + 1)
+              .Append(string.Join(", ", values.GetRange(i, n)))
+              .Append(i + n < values.Count ? "," : "")
+              .AppendLine();
+        }
+        sb.Append('\t', indent).Append("};").AppendLine();
+    }
+
+    /// <summary>
+    /// Render the field-RVA default bytes IL2CPP hides in global-metadata.dat as a REAL C# initializer appended
+    /// after the field name: <c> = new byte[] { .. }; //Field offset .. || Has Field RVA</c> — code, not a comment,
+    /// matching <see cref="AppendRuntimeInitInitializer"/>. The RVA/pointer address is never emitted, so the file
+    /// stays diff-stable. If the whole blob decodes as a little-endian int32 offset table (first == 0, strictly
+    /// ascending, non-negative) it is emitted as an <c>int[]</c> literal — that IS the real element type of the
+    /// array this data initializes via RuntimeHelpers.InitializeArray; otherwise a <c>byte[]</c> literal.
+    /// </summary>
+    private static void AppendFieldRvaInitializer(StringBuilder sb, FieldAnalysisContext field, byte[] data, int indent)
+    {
+        var tail = $" //Field offset: 0x{field.Offset.ToString("X")} || Has Field RVA (address hidden for diffability)";
+
+        if (TryAscendingInt32Array(data, out var ints))
+        {
+            sb.Append(" = new int[]").Append(tail).AppendLine();
+            sb.Append('\t', indent).Append('{').AppendLine();
+            for (var i = 0; i < ints.Count; i += 12)
+            {
+                var n = System.Math.Min(12, ints.Count - i);
+                sb.Append('\t', indent + 1)
+                  .Append(string.Join(", ", ints.GetRange(i, n)))
+                  .Append(i + n < ints.Count ? "," : "")
+                  .AppendLine();
+            }
+            sb.Append('\t', indent).Append("};").AppendLine();
+            return;
+        }
+
+        sb.Append(" = new byte[]").Append(tail).AppendLine();
+        sb.Append('\t', indent).Append('{').AppendLine();
+        for (var i = 0; i < data.Length; i += 16)
+        {
+            var n = System.Math.Min(16, data.Length - i);
+            sb.Append('\t', indent + 1);
+            for (var j = 0; j < n; j++)
+            {
+                if (j > 0) sb.Append(", ");
+                sb.Append("0x").Append(data[i + j].ToString("X2"));
+            }
+            if (i + n < data.Length) sb.Append(',');
+            sb.AppendLine();
+        }
+        sb.Append('\t', indent).Append("};").AppendLine();
+    }
+
+    /// <summary>True (with decoded values) if <paramref name="b"/> is a little-endian int32 offset table: length a
+    /// multiple of 4 (&gt;= 2 elements), first element 0, strictly ascending, non-negative. Uniquely matches offset
+    /// tables (a <c>static int[]</c>), never a key/blob/char array.</summary>
+    private static bool TryAscendingInt32Array(byte[] b, out List<int> ints)
+    {
+        ints = new List<int>();
+        if (b.Length < 8 || b.Length % 4 != 0)
+            return false;
+        long prev = long.MinValue;
+        for (var i = 0; i < b.Length; i += 4)
+        {
+            var v = System.BitConverter.ToInt32(b, i);
+            if (i == 0 && v != 0) return false;
+            if (v < 0 || v <= prev) return false;
+            prev = v;
+            ints.Add(v);
+        }
+        return true;
     }
 
     private static void AppendEvent(StringBuilder sb, EventAnalysisContext evt, int indent)
@@ -298,8 +458,9 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         }
         else
         {
-            //Constructor
-            sb.Append(method.DeclaringType!);
+            //Constructor: emit the simple type name (C# ctor syntax), NOT the TypeAnalysisContext whose
+            //ToString() is "Type: <FullName>". GetTypeName strips generic-arity backticks.
+            sb.Append(CsFileUtils.GetTypeName(method.DeclaringType!));
         }
 
         sb.Append('(');
@@ -332,4 +493,11 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 
     private static void AppendCustomAttributes(StringBuilder sb, HasCustomAttributes owner, int indent)
         => sb.Append(CsFileUtils.GetCustomAttributeStrings(owner, indent, true, true));
+
+    /// <summary>Format a default/enum constant value culture-invariantly, so float/double literals render as
+    /// `0.5` (not `0,5` on a comma-decimal locale, which is invalid C# and breaks diffability across machines).</summary>
+    private static string InvariantValue(object? value)
+        // null-safe: an enum member / const with no default-value blob (obfuscated metadata) passes null here;
+        // the old `StringBuilder.Append(object)` tolerated it, so we must too (else `null.ToString()` -> NRE).
+        => value is null ? "" : value is System.IFormattable f ? f.ToString(null, System.Globalization.CultureInfo.InvariantCulture) : value.ToString() ?? "";
 }

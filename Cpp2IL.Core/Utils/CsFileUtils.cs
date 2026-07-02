@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Logging;
@@ -277,8 +278,18 @@ public static class CsFileUtils
     /// This mainly involves stripping the backtick section from generic type names, and replacing certain system types with their primitive name.
     /// </summary>
     /// <param name="type"></param>
+    [ThreadStatic] private static int _getTypeNameDepth;
+
     public static string GetTypeName(TypeAnalysisContext type)
     {
+        // Recursion guard: GetTypeName recurses through wrapped element types and generic arguments. A cyclic /
+        // pathologically-nested generic instance in crafted/corrupt metadata could otherwise recurse until a
+        // StackOverflowException (uncatchable, kills the process). Bail with the raw name past a generous cap.
+        if (_getTypeNameDepth > 64)
+            return type.Name;
+        _getTypeNameDepth++;
+        try
+        {
         if (type is WrappedTypeAnalysisContext wrapped)
         {
             var elementTypeName = GetTypeName(wrapped.ElementType);
@@ -309,7 +320,12 @@ public static class CsFileUtils
         {
             var genericTypeName = GetTypeName(genericInstanceType.GenericType);
             var backTickIndex = genericTypeName.LastIndexOf('`');
-            return backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
+            var baseName = backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
+            // Emit the actual generic arguments (List<PuzzlePiece>, Dictionary<int, string>, Task<string>, ...)
+            // rather than dropping them to a bare `List`/`Dictionary`/`Task` — the args carry real semantics.
+            return genericInstanceType.GenericArguments.Count > 0
+                ? baseName + "<" + string.Join(", ", genericInstanceType.GenericArguments.Select(GetTypeName)) + ">"
+                : baseName;
         }
 
         if (type.Namespace is "System")
@@ -339,6 +355,8 @@ public static class CsFileUtils
         {
             return type.Name;
         }
+        }
+        finally { _getTypeNameDepth--; }
     }
 
     /// <summary>
