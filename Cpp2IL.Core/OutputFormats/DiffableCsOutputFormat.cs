@@ -370,7 +370,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     {
         ints = null;
 
-        if (b.Length < 8 || b.Length % 4 != 0)
+        if (b.Length < sizeof(int)*2 || b.Length % sizeof(int) != 0)
             return false;
 
         var values = new List<int>(b.Length / 4);
