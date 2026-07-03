@@ -24,7 +24,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     /// structural view shows the real values instead of an empty declaration. Keyed by the FieldAnalysisContext
     /// so identity is exact (no name matching).
     /// </summary>
-    public static IReadOnlyDictionary<FieldAnalysisContext, byte[]>? RuntimeInitializedArrays;
+    private IReadOnlyDictionary<FieldAnalysisContext, byte[]>? RuntimeInitializedArrays;
 
     public override string OutputFormatId => "diffable-cs";
     public override string OutputFormatName => "Diffable C#";
