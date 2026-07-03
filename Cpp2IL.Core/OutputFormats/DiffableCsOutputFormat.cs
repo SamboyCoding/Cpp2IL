@@ -227,7 +227,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append("; //Field offset: 0x");
         sb.Append(field.Offset.ToString("X"));
 
-        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0 && field.BackingData != null)
+        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0)
         {
             // Reached only when the field has field RVA but no decodable bytes (StaticArrayInitialValue empty) --
             // the with-bytes case is emitted as a real initializer above and returns before here. Mark it and stop.
