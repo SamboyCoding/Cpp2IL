@@ -1,14 +1,18 @@
+using System.Diagnostics.CodeAnalysis;
 using System.Collections.Generic;
 using System.IO;
+using System;
 using System.Linq;
 using System.Reflection;
 using System.Text;
+using System.Buffers.Binary;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
+
 
 namespace Cpp2IL.Core.OutputFormats;
 
@@ -24,7 +28,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     /// structural view shows the real values instead of an empty declaration. Keyed by the FieldAnalysisContext
     /// so identity is exact (no name matching).
     /// </summary>
-    private IReadOnlyDictionary<FieldAnalysisContext, byte[]>? RuntimeInitializedArrays;
+    public static IReadOnlyDictionary<FieldAnalysisContext, byte[]>? RuntimeInitializedArrays;
 
     public override string OutputFormatId => "diffable-cs";
     public override string OutputFormatName => "Diffable C#";
@@ -328,14 +332,16 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         {
             sb.Append(" = new int[]").Append(tail).AppendLine();
             sb.Append('\t', indent).Append('{').AppendLine();
-            for (var i = 0; i < ints.Count; i += 12)
+
+            for (var i = 0; i < ints.Length; i += 12)
             {
-                var n = System.Math.Min(12, ints.Count - i);
+                var n = System.Math.Min(12, ints.Length - i);
                 sb.Append('\t', indent + 1)
-                  .Append(string.Join(", ", ints.GetRange(i, n)))
-                  .Append(i + n < ints.Count ? "," : "")
+                  .Append(string.Join(", ", ints.Skip(i).Take(n)))
+                  .Append(i + n < ints.Length ? "," : "")
                   .AppendLine();
             }
+
             sb.Append('\t', indent).Append("};").AppendLine();
             return;
         }
@@ -362,18 +368,29 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     /// tables (a <c>static int[]</c>), never a key/blob/char array.</summary>
     private static bool TryAscendingInt32Array(byte[] b, [NotNullWhen(true)] out int[]? ints)
     {
-        ints = new List<int>();
+        ints = null;
+
         if (b.Length < 8 || b.Length % 4 != 0)
             return false;
+
+        var values = new List<int>(b.Length / 4);
         long prev = long.MinValue;
+
         for (var i = 0; i < b.Length; i += 4)
         {
-            var v = System.BitConverter.ToInt32(b, i);
-            if (i == 0 && v != 0) return false;
-            if (v < 0 || v <= prev) return false;
+            var v = BinaryPrimitives.ReadInt32LittleEndian(b.AsSpan(i, sizeof(int)));
+
+            if (i == 0 && v != 0)
+                return false;
+
+            if (v < 0 || v <= prev)
+                return false;
+
             prev = v;
-            ints.Add(v);
+            values.Add(v);
         }
+
+        ints = values.ToArray();
         return true;
     }
 
