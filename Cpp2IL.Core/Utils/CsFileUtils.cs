@@ -306,12 +306,7 @@ public static class CsFileUtils
         {
             var genericTypeName = GetTypeName(genericInstanceType.GenericType);
             var backTickIndex = genericTypeName.LastIndexOf('`');
-            var baseName = backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
-            // Emit the actual generic arguments (List<PuzzlePiece>, Dictionary<int, string>, Task<string>, ...)
-            // rather than dropping them to a bare `List`/`Dictionary`/`Task` — the args carry real semantics.
-            return genericInstanceType.GenericArguments.Count > 0
-                ? baseName + "<" + string.Join(", ", genericInstanceType.GenericArguments.Select(GetTypeName)) + ">"
-                : baseName;
+            return backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
         }
 
         if (type.Namespace is "System")
