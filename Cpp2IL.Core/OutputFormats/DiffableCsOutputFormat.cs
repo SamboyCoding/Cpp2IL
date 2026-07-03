@@ -202,10 +202,10 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         // blobs and Roslyn array initializers) — emit as a REAL C# initializer (`= new byte[]/int[] { .. }`) rather
         // than a trailing comment, so the value reads as code, matching the runtime-init arrays above. Only the
         // bytes are shown; the RVA/pointer address stays hidden, so the file remains diff-stable.
-        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0 && field.BackingData != null)
+        if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0)
         {
-            var fieldRva = field.BackingData.Field.StaticArrayInitialValue;
-            if (fieldRva is { Length: > 0 })
+            var fieldRva = field.StaticArrayInitialValue;
+            if (fieldRva.Length > 0 )
             {
                 AppendFieldRvaInitializer(sb, field, fieldRva, indent);
                 return;
