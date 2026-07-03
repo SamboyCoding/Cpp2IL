@@ -37,15 +37,7 @@ public class Il2CppFieldDefinition : ReadableClass
 
             if (dataIndex.IsNull) return [];
 
-            int length;
-            if (FieldType.baseType != null)
-            {
-                length = FieldType.baseType!.Size;
-            }
-            else
-            {
-                return [];
-            }
+            int length = FieldType.baseType?.Size ?? 0;
 
             if (length <= 0) return [];
 
