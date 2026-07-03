@@ -51,9 +51,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         }
     }
 
-    private static Dictionary<string, StringBuilder> BuildOutput(
-        ApplicationAnalysisContext context, 
-        string outputRoot)
+    private static Dictionary<string, StringBuilder> BuildOutput(ApplicationAnalysisContext context, string outputRoot)
     {
         var ret = new Dictionary<string, StringBuilder>();
 
@@ -87,10 +85,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         return ret;
     }
 
-    private static void AppendType(
-        StringBuilder sb,
-        TypeAnalysisContext type,
-        int indent = 0)
+    private static void AppendType(StringBuilder sb, TypeAnalysisContext type, int indent = 0)
     {
         // if (type.IsCompilerGeneratedBasedOnCustomAttributes)
         //Do not output compiler-generated types
@@ -170,10 +165,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.AppendLine().AppendLine();
     }
 
-    private static void AppendField(
-        StringBuilder sb,
-        FieldAnalysisContext field,
-        int indent)
+    private static void AppendField(StringBuilder sb, FieldAnalysisContext field, int indent)
     {
         if (field is InjectedFieldAnalysisContext)
             return;
