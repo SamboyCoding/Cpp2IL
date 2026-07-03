@@ -360,7 +360,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     /// <summary>True (with decoded values) if <paramref name="b"/> is a little-endian int32 offset table: length a
     /// multiple of 4 (&gt;= 2 elements), first element 0, strictly ascending, non-negative. Uniquely matches offset
     /// tables (a <c>static int[]</c>), never a key/blob/char array.</summary>
-    private static bool TryAscendingInt32Array(byte[] b, out List<int> ints)
+    private static bool TryAscendingInt32Array(byte[] b, [NotNullWhen(true)] out int[]? ints)
     {
         ints = new List<int>();
         if (b.Length < 8 || b.Length % 4 != 0)
