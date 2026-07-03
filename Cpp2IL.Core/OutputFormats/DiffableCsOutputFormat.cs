@@ -20,16 +20,6 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
 {
     public static bool IncludeMethodLength = false;
 
-    /// <summary>
-    /// Optional map of static array fields that carry NO field-RVA of their own but are initialized at runtime
-    /// in their declaring type's .cctor from another field's field-RVA blob (via RuntimeHelpers.InitializeArray).
-    /// When set (populated by the host from dataflow analysis — see Il2Cpp.Metadata.RuntimeArrayInitAnalyzer),
-    /// the recovered bytes are rendered under the target field just like a field-RVA literal, so a purely
-    /// structural view shows the real values instead of an empty declaration. Keyed by the FieldAnalysisContext
-    /// so identity is exact (no name matching).
-    /// </summary>
-    public static IReadOnlyDictionary<FieldAnalysisContext, byte[]>? RuntimeInitializedArrays;
-
     public override string OutputFormatId => "diffable-cs";
     public override string OutputFormatName => "Diffable C#";
 
@@ -61,7 +51,9 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         }
     }
 
-    private static Dictionary<string, StringBuilder> BuildOutput(ApplicationAnalysisContext context, string outputRoot)
+    private static Dictionary<string, StringBuilder> BuildOutput(
+        ApplicationAnalysisContext context, 
+        string outputRoot)
     {
         var ret = new Dictionary<string, StringBuilder>();
 
@@ -95,7 +87,10 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         return ret;
     }
 
-    private static void AppendType(StringBuilder sb, TypeAnalysisContext type, int indent = 0)
+    private static void AppendType(
+        StringBuilder sb,
+        TypeAnalysisContext type,
+        int indent = 0)
     {
         // if (type.IsCompilerGeneratedBasedOnCustomAttributes)
         //Do not output compiler-generated types
@@ -175,7 +170,10 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.AppendLine().AppendLine();
     }
 
-    private static void AppendField(StringBuilder sb, FieldAnalysisContext field, int indent)
+    private static void AppendField(
+        StringBuilder sb,
+        FieldAnalysisContext field,
+        int indent)
     {
         if (field is InjectedFieldAnalysisContext)
             return;
@@ -190,17 +188,6 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         sb.Append(CsFileUtils.GetTypeName(field.FieldType));
         sb.Append(' ');
         sb.Append(field.Name);
-
-        // Static array field filled at runtime in the .cctor (RuntimeHelpers.InitializeArray) — emit its recovered
-        // value as a REAL C# array initializer (`= new T[] { .. }`) rather than a trailing comment, so the value
-        // reads as code. Only when the field has no compile-time default of its own.
-        if (field.BackingData?.DefaultValue is null
-            && RuntimeInitializedArrays != null && RuntimeInitializedArrays.TryGetValue(field, out var runtimeInit)
-            && runtimeInit.Length > 0)
-        {
-            AppendRuntimeInitInitializer(sb, field, runtimeInit, indent);
-            return;
-        }
 
         // Field-RVA default bytes (the data IL2CPP hides in global-metadata.dat, e.g. obfuscation "vault" __Raw
         // blobs and Roslyn array initializers) — emit as a REAL C# initializer (`= new byte[]/int[] { .. }`) rather
