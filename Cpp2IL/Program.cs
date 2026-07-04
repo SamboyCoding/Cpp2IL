@@ -14,7 +14,7 @@ using Cpp2IL.Core.Utils;
 #if !DEBUG
 using Cpp2IL.Core.Exceptions;
 #endif
-using LibCpp2IL.Wasm;
+using LibCpp2IL;
 using AssetRipper.Primitives;
 using Cpp2IL.Core.Extensions;
 
@@ -674,15 +674,15 @@ internal static class Program
                 var frameworkJs = File.ReadAllText(runtimeArgs.WasmFrameworkJsFile);
                 var remaps = WasmUtils.ExtractAndParseDynCallRemaps(frameworkJs);
                 Logger.InfoNewline($"Parsed {remaps.Count} dynCall remaps from {runtimeArgs.WasmFrameworkJsFile}");
-                WasmFile.RemappedDynCallFunctions = remaps;
+                LibCpp2IlBinaryRegistry.WasmRemappedDynCallFunctions = remaps;
             }
             catch (Exception e)
             {
-                WasmFile.RemappedDynCallFunctions = null;
+                LibCpp2IlBinaryRegistry.WasmRemappedDynCallFunctions = null;
                 Logger.WarnNewline($"Failed to parse dynCall remaps from Wasm Framework Javascript File: {e}. They will not be used, so you probably won't get method bodies!");
             }
         else
-            WasmFile.RemappedDynCallFunctions = null;
+            LibCpp2IlBinaryRegistry.WasmRemappedDynCallFunctions = null;
 
         Cpp2IlApi.InitializeLibCpp2Il(runtimeArgs.PathToAssembly, runtimeArgs.PathToMetadata, runtimeArgs.UnityVersion);
 

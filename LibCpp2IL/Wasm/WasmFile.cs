@@ -9,8 +9,6 @@ namespace LibCpp2IL.Wasm;
 
 public sealed class WasmFile : Il2CppBinary
 {
-    public static Dictionary<string, string>? RemappedDynCallFunctions;
-
     public readonly List<WasmFunctionDefinition> FunctionTable = [];
 
     internal readonly List<WasmSection> Sections = [];
@@ -23,7 +21,7 @@ public sealed class WasmFile : Il2CppBinary
 
     internal LibCpp2IlContext? Context => _context;
 
-    public WasmFile(MemoryStream input) : base(input)
+    public WasmFile(MemoryStream input, IReadOnlyDictionary<string, string>? remappedDynCallFuncs = null) : base(input)
     {
         is32Bit = true;
         InstructionSetId = DefaultInstructionSets.WASM;
@@ -69,7 +67,7 @@ public sealed class WasmFile : Il2CppBinary
 
         LibLogger.VerboseNewline($"\tBuilt function table of {FunctionTable.Count} entries. Calculating dynCall coefficients...");
 
-        CalculateDynCallOffsets();
+        CalculateDynCallOffsets(remappedDynCallFuncs);
 
         LibLogger.VerboseNewline($"\tGot dynCall coefficients for {DynCallCoefficients.Count} signatures");
     }
@@ -112,15 +110,15 @@ public sealed class WasmFile : Il2CppBinary
     internal WasmElementSection ElementSection => (WasmElementSection)Sections.First(s => s.Type == WasmSectionId.SEC_ELEMENT);
     internal WasmExportSection ExportSection => (WasmExportSection)Sections.First(s => s.Type == WasmSectionId.SEC_EXPORT);
 
-    private void CalculateDynCallOffsets()
+    private void CalculateDynCallOffsets(IReadOnlyDictionary<string, string>? remappedDynCallFuncs)
     {
         //Remap any exported functions we have remaps for
 
-        if (RemappedDynCallFunctions != null)
+        if (remappedDynCallFuncs != null)
         {
             foreach (var exportSectionExport in ExportSection.Exports.Where(e => e.Kind == WasmExternalKind.EXT_FUNCTION))
             {
-                if (!RemappedDynCallFunctions.TryGetValue(exportSectionExport.Name, out var remappedName))
+                if (!remappedDynCallFuncs.TryGetValue(exportSectionExport.Name, out var remappedName))
                     continue;
 
                 LibLogger.VerboseNewline($"\t\tRemapped exported function {exportSectionExport.Name} to {remappedName}");
