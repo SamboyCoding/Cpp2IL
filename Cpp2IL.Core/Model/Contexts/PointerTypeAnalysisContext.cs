@@ -4,11 +4,11 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class PointerTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom)
-    : WrappedTypeAnalysisContext(elementType, referencedFrom)
+public class PointerTypeAnalysisContext(TypeAnalysisContext elementType)
+    : WrappedTypeAnalysisContext(elementType)
 {
-    public PointerTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
-        : this(referencedFrom.ResolveIl2CppType(rawType.GetEncapsulatedType()), referencedFrom)
+    public PointerTypeAnalysisContext(Il2CppType rawType, ApplicationAnalysisContext context)
+        : this(context.ResolveIl2CppType(rawType.GetEncapsulatedType()))
     {
     }
 

@@ -43,29 +43,29 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
     public sealed override bool IsValueType => GenericType.IsValueType; //We don't set a definition so the default implementation cannot determine if we're a value type or not. 
 
     // instances being constructed on the current thread, keyed by their cache identity (see GetOrCreate for why)
-    [ThreadStatic] private static Dictionary<(AssemblyAnalysisContext, Il2CppType), GenericInstanceTypeAnalysisContext>? _underConstruction;
+    [ThreadStatic] private static Dictionary<(ApplicationAnalysisContext, Il2CppType), GenericInstanceTypeAnalysisContext>? _underConstruction;
 
-    private GenericInstanceTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
+    private GenericInstanceTypeAnalysisContext(Il2CppType rawType, ApplicationAnalysisContext context) : base(context.ResolveContextForAssembly(rawType.GetGenericClass().TypeDefinition.DeclaringAssembly!))
     {
         var underConstruction = _underConstruction ??= new();
-        underConstruction[(referencedFrom, rawType)] = this;
+        underConstruction[(context, rawType)] = this;
         try
         {
             //Generic type has to be a type definition
             var gClass = rawType.GetGenericClass();
-            GenericType = AppContext.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
+            GenericType = context.ResolveContextForType(gClass.TypeDefinition) ?? throw new($"Could not resolve type {gClass.TypeDefinition.FullName} for generic instance base type");
 
-            GenericArguments.AddRange(gClass.Context.ClassInst!.Types.Select(referencedFrom.ResolveIl2CppType)!);
+            GenericArguments.AddRange(gClass.Context.ClassInst!.Types.Select(context.ResolveIl2CppType)!);
 
             SetDeclaringType();
         }
         finally
         {
-            underConstruction.Remove((referencedFrom, rawType));
+            underConstruction.Remove((context, rawType));
         }
     }
 
-    public GenericInstanceTypeAnalysisContext(TypeAnalysisContext genericType, IEnumerable<TypeAnalysisContext> genericArguments, AssemblyAnalysisContext referencedFrom) : base(referencedFrom)
+    public GenericInstanceTypeAnalysisContext(TypeAnalysisContext genericType, IEnumerable<TypeAnalysisContext> genericArguments) : base(genericType.CustomAttributeAssembly)
     {
         GenericType = genericType;
         GenericArguments.AddRange(genericArguments);
@@ -80,7 +80,7 @@ public class GenericInstanceTypeAnalysisContext : ReferencedTypeAnalysisContext
     /// <param name="rawType">The underlying <see cref="Il2CppType"/>.</param>
     /// <param name="referencedFrom">The assembly that is referencing this generic instance.</param>
     /// <returns>The context for the <paramref name="rawType"/>.</returns>
-    public static GenericInstanceTypeAnalysisContext GetOrCreate(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
+    public static GenericInstanceTypeAnalysisContext GetOrCreate(Il2CppType rawType, ApplicationAnalysisContext referencedFrom)
     {
         if (rawType.Type != Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST)
             throw new ArgumentException($"Cannot create {nameof(GenericInstanceTypeAnalysisContext)} from type {rawType.Type}. Expected {Il2CppTypeEnum.IL2CPP_TYPE_GENERICINST}.");

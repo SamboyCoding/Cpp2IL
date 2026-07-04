@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -11,6 +12,7 @@ using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Model.Contexts;
@@ -86,6 +88,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     public bool HasFinishedInitializing { get; private set; }
 
     private readonly Dictionary<Il2CppImageDefinition, AssemblyAnalysisContext> AssembliesByImageDefinition = new();
+
+    /// <summary>
+    /// Cache for <see cref="GenericInstanceTypeAnalysisContext.GetOrCreate(Il2CppType, AssemblyAnalysisContext)"/>
+    /// </summary>
+    internal readonly ConcurrentDictionary<Il2CppType, Lazy<GenericInstanceTypeAnalysisContext>> GenericInstanceTypesByIl2CppType = new();
 
     public ApplicationAnalysisContext(LibCpp2IlContext context)
     {
@@ -179,6 +186,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         return AssembliesByName[name];
     }
 
+    [return: NotNullIfNotNull(nameof(imageDefinition))]
     public AssemblyAnalysisContext? ResolveContextForAssembly(Il2CppImageDefinition? imageDefinition)
     {
         return imageDefinition is not null
@@ -186,6 +194,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             : null;
     }
 
+    [return: NotNullIfNotNull(nameof(assemblyDefinition))]
     public AssemblyAnalysisContext? ResolveContextForAssembly(Il2CppAssemblyDefinition? assemblyDefinition)
     {
         return ResolveContextForAssembly(assemblyDefinition?.Image);

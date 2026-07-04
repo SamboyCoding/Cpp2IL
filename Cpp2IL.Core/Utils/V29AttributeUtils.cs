@@ -88,7 +88,7 @@ public static class V29AttributeUtils
             //Resolve type
             TypeAnalysisContext typeContext;
             if (context.Metadata.MetadataVersion >= 104)
-                typeContext = constructor.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(context.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage((int)typeIndex)));
+                typeContext = context.ResolveIl2CppType(context.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage((int)typeIndex)));
             else
             {
                 var typeDef = context.Metadata.GetTypeDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppTypeDefinition>.MakeTemporaryForFixedWidthUsage((int)typeIndex)); //DynWidth: typeIndex is already compressed, they didn't make it dynamic

@@ -77,7 +77,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
         set => OverrideAttributes = value;
     }
 
-    public virtual TypeAnalysisContext? DefaultBaseType => Definition == null || DefaultAttributes.HasFlag(TypeAttributes.Interface) ? null : DeclaringAssembly.ResolveIl2CppType(Definition.RawBaseType);
+    public virtual TypeAnalysisContext? DefaultBaseType => Definition == null || DefaultAttributes.HasFlag(TypeAttributes.Interface) ? null : AppContext.ResolveIl2CppType(Definition.RawBaseType);
 
     public TypeAnalysisContext? OverrideBaseType { get; set; }
 
@@ -89,7 +89,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
-    public TypeAnalysisContext? EnumUnderlyingType => Definition == null ? null : DeclaringAssembly.ResolveIl2CppType(Definition.EnumUnderlyingType);
+    public TypeAnalysisContext? EnumUnderlyingType => Definition == null ? null : AppContext.ResolveIl2CppType(Definition.EnumUnderlyingType);
 
     private List<TypeAnalysisContext>? _interfaceContexts;
     public List<TypeAnalysisContext> InterfaceContexts
@@ -97,7 +97,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
         get
         {
             // Lazy load the interface contexts
-            _interfaceContexts ??= (Definition?.RawInterfaces.Select(DeclaringAssembly.ResolveIl2CppType).ToList() ?? [])!;
+            _interfaceContexts ??= (Definition?.RawInterfaces.Select(AppContext.ResolveIl2CppType).ToList() ?? [])!;
             return _interfaceContexts;
         }
     }
@@ -244,42 +244,42 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
 
     public ArrayTypeAnalysisContext MakeArrayType(int rank)
     {
-        return new(this, rank, DeclaringAssembly);
+        return new(this, rank);
     }
 
     public ByRefTypeAnalysisContext MakeByReferenceType()
     {
-        return new(this, DeclaringAssembly);
+        return new(this);
     }
 
     public GenericInstanceTypeAnalysisContext MakeGenericInstanceType(params IEnumerable<TypeAnalysisContext> genericArguments)
     {
-        return new(this, genericArguments, DeclaringAssembly);
+        return new(this, genericArguments);
     }
 
     public PointerTypeAnalysisContext MakePointerType()
     {
-        return new(this, DeclaringAssembly);
+        return new(this);
     }
 
     public SzArrayTypeAnalysisContext MakeSzArrayType()
     {
-        return new(this, DeclaringAssembly);
+        return new(this);
     }
 
     public PinnedTypeAnalysisContext MakePinnedType()
     {
-        return new(this, DeclaringAssembly);
+        return new(this);
     }
 
     public BoxedTypeAnalysisContext MakeBoxedType()
     {
-        return new(this, DeclaringAssembly);
+        return new(this);
     }
 
     public CustomModifierTypeAnalysisContext MakeCustomModifierType(TypeAnalysisContext modifierType, bool required)
     {
-        return new(this, modifierType, required, DeclaringAssembly);
+        return new(this, modifierType, required);
     }
 
     public InjectedTypeAnalysisContext InjectNestedType(string name, TypeAnalysisContext? baseType, TypeAttributes typeAttributes = TypeAttributes.NestedPublic | TypeAttributes.Sealed)

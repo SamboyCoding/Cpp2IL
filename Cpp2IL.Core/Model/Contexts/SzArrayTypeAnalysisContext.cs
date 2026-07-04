@@ -4,11 +4,11 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class SzArrayTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom)
-    : WrappedTypeAnalysisContext(elementType, referencedFrom)
+public class SzArrayTypeAnalysisContext(TypeAnalysisContext elementType)
+    : WrappedTypeAnalysisContext(elementType)
 {
-    public SzArrayTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
-        : this(referencedFrom.ResolveIl2CppType(rawType.GetEncapsulatedType()), referencedFrom)
+    public SzArrayTypeAnalysisContext(Il2CppType rawType, ApplicationAnalysisContext context)
+        : this(context.ResolveIl2CppType(rawType.GetEncapsulatedType()))
     {
     }
 

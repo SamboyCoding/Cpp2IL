@@ -9,7 +9,6 @@ namespace Cpp2IL.Core.Model.Contexts;
 
 public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 {
-    public readonly AssemblyAnalysisContext DeclaringAsm;
     public readonly Cpp2IlMethodRef? MethodRef;
     public readonly MethodAnalysisContext BaseMethodContext;
 
@@ -61,10 +60,9 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         : this(
               methodRef,
               ResolveBaseMethod(methodRef, declaringAssembly.GetTypeByDefinition(methodRef.DeclaringType)!),
-              ResolveDeclaringType(methodRef, declaringAssembly),
-              ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly),
-              ResolveTypeArray(methodRef.MethodGenericParams, declaringAssembly),
-              declaringAssembly)
+              ResolveDeclaringType(methodRef, declaringAssembly.AppContext),
+              ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly.AppContext),
+              ResolveTypeArray(methodRef.MethodGenericParams, declaringAssembly.AppContext))
     {
     }
 
@@ -88,8 +86,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
               baseMethod,
               typeGenericParameters.Length > 0 ? baseMethod.DeclaringType!.MakeGenericInstanceType(typeGenericParameters) : baseMethod.DeclaringType!,
               typeGenericParameters,
-              methodGenericParameters,
-              baseMethod.CustomAttributeAssembly)
+              methodGenericParameters)
     {
         if (baseMethod.DeclaringType!.GenericParameters.Count != typeGenericParameters.Length)
             throw new ArgumentException("The number of type generic parameters must match the number of generic parameters on the declaring type.");
@@ -98,11 +95,10 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
             throw new ArgumentException("The number of method generic parameters must match the number of generic parameters on the base method.");
     }
 
-    private ConcreteGenericMethodAnalysisContext(Cpp2IlMethodRef? methodRef, MethodAnalysisContext baseMethodContext, TypeAnalysisContext declaringType, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters, AssemblyAnalysisContext declaringAssembly)
+    private ConcreteGenericMethodAnalysisContext(Cpp2IlMethodRef? methodRef, MethodAnalysisContext baseMethodContext, TypeAnalysisContext declaringType, TypeAnalysisContext[] typeGenericParameters, TypeAnalysisContext[] methodGenericParameters)
         : base(null, declaringType)
     {
         MethodRef = methodRef;
-        DeclaringAsm = declaringAssembly;
         BaseMethodContext = baseMethodContext;
 
         TypeGenericParameters = typeGenericParameters;
@@ -132,20 +128,20 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
                ?? throw new($"Unable to resolve declaring assembly {methodRef.DeclaringType.DeclaringAssembly?.Name} for generic method {methodRef}");
     }
 
-    private static TypeAnalysisContext ResolveDeclaringType(Cpp2IlMethodRef methodRef, AssemblyAnalysisContext declaringAssembly)
+    private static TypeAnalysisContext ResolveDeclaringType(Cpp2IlMethodRef methodRef, ApplicationAnalysisContext appContext)
     {
-        var baseType = declaringAssembly.AppContext.ResolveContextForType(methodRef.DeclaringType)
+        var baseType = appContext.ResolveContextForType(methodRef.DeclaringType)
                        ?? throw new($"Unable to resolve declaring type {methodRef.DeclaringType.FullName} for generic method {methodRef}");
 
         if (methodRef.TypeGenericParams.Length == 0)
             return baseType;
 
-        var genericParams = ResolveTypeArray(methodRef.TypeGenericParams, declaringAssembly);
+        var genericParams = ResolveTypeArray(methodRef.TypeGenericParams, appContext);
 
-        return new GenericInstanceTypeAnalysisContext(baseType, genericParams, declaringAssembly);
+        return new GenericInstanceTypeAnalysisContext(baseType, genericParams);
     }
 
-    private static TypeAnalysisContext[] ResolveTypeArray(Il2CppTypeReflectionData[] array, AssemblyAnalysisContext declaringAssembly)
+    private static TypeAnalysisContext[] ResolveTypeArray(Il2CppTypeReflectionData[] array, ApplicationAnalysisContext appContext)
     {
         if (array.Length == 0)
             return [];
@@ -153,7 +149,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         var ret = new TypeAnalysisContext[array.Length];
         for (var i = 0; i < array.Length; i++)
         {
-            ret[i] = array[i].ToContext(declaringAssembly)
+            ret[i] = array[i].ToContext(appContext)
                      ?? throw new($"Unable to resolve generic parameter {array[i]} for generic method.");
         }
 

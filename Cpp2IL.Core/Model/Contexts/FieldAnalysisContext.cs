@@ -63,7 +63,7 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
         set => OverrideOffset = value;
     }
 
-    public virtual TypeAnalysisContext DefaultFieldType => DeclaringType.DeclaringAssembly.ResolveIl2CppType(RawFieldType)
+    public virtual TypeAnalysisContext DefaultFieldType => AppContext.ResolveIl2CppType(RawFieldType)
                                                            ?? throw new($"Field type {RawFieldType} could not be resolved.");
 
     public TypeAnalysisContext? OverrideFieldType { get; set; }
