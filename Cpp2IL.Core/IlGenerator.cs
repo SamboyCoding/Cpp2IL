@@ -326,7 +326,7 @@ public static class IlGenerator
 
                 // Load normal params
                 var callParamIndex = instruction.OpCode == OpCode.Call ? (targetMethod.IsStatic ? 2 : 3) : (targetMethod.IsStatic ? 1 : 2);
-                var callParams = instruction.Operands.Skip(callParamIndex);
+                var callParams = instruction.Operands.Skip(callParamIndex).Take(instruction.Operands.Count - 1 - thisParamIndex);
                 foreach (var param in callParams)
                     LoadOperand(param, method, locals, writeLine, stringCtor);
 
