@@ -93,6 +93,10 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// Cache for <see cref="GenericInstanceTypeAnalysisContext.GetOrCreate(Il2CppType, AssemblyAnalysisContext)"/>
     /// </summary>
     internal readonly ConcurrentDictionary<Il2CppType, Lazy<GenericInstanceTypeAnalysisContext>> GenericInstanceTypesByIl2CppType = new();
+    /// <summary>
+    /// Cache for <see cref="GenericInstanceTypeAnalysisContext.GetOrCreate(TypeAnalysisContext, IEnumerable{TypeAnalysisContext})"/>
+    /// </summary>
+    internal readonly ConcurrentDictionary<(TypeAnalysisContext, GenericArgumentList), Lazy<GenericInstanceTypeAnalysisContext>> GenericInstanceTypesByConstruction = new();
 
     public ApplicationAnalysisContext(LibCpp2IlContext context)
     {
