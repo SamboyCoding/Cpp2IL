@@ -23,6 +23,12 @@ public static class CsFileUtils
         return string.Join(", ", method.Parameters);
     }
 
+    /// <summary>
+    /// Gets the C# access modifier string for the given type analysis context.
+    /// Examples: "public", "internal", "private", "protected", "protected internal", "private protected".
+    /// </summary>
+    /// <param name="type">The type analysis context to inspect.</param>
+    /// <returns>The access modifier keyword appropriate for the type.</returns>
     public static string GetAccessModifiers(TypeAnalysisContext type) => type.Visibility switch
     {
         TypeAttributes.Public => "public",
@@ -36,6 +42,12 @@ public static class CsFileUtils
         _ => throw new ArgumentOutOfRangeException($"Unknown visibility for type {type.FullName}: {type.Visibility}")
     };
 
+    /// <summary>
+    /// Gets the C# access modifier string for the given field analysis context.
+    /// Examples: "public", "private", "protected", "internal", "protected internal", "private protected".
+    /// </summary>
+    /// <param name="field">The field analysis context to inspect.</param>
+    /// <returns>The access modifier keyword appropriate for the field.</returns>
     public static string GetAccessModifiers(FieldAnalysisContext field) => field.Visibility switch
     {
         FieldAttributes.Public => "public",
@@ -47,10 +59,25 @@ public static class CsFileUtils
         _ => throw new ArgumentOutOfRangeException($"Unknown visibility for field {field.DeclaringType.FullName}.{field.Name}: {field.Visibility}")
     };
 
+    /// <summary>
+    /// Gets the C# access modifier string for the given method analysis context.
+    /// </summary>
+    /// <param name="method">The method analysis context to inspect.</param>
+    /// <returns>The access modifier keyword appropriate for the method.</returns>
     public static string GetAccessModifiers(MethodAnalysisContext method) => GetAccessModifiers(method.Visibility);
 
+    /// <summary>
+    /// Gets the C# access modifier string for the given property analysis context.
+    /// </summary>
+    /// <param name="property">The property analysis context to inspect.</param>
+    /// <returns>The access modifier keyword appropriate for the property.</returns>
     public static string GetAccessModifiers(PropertyAnalysisContext property) => GetAccessModifiers(property.Visibility);
 
+    /// <summary>
+    /// Gets the C# access modifier string for the given event analysis context.
+    /// </summary>
+    /// <param name="evt">The event analysis context to inspect.</param>
+    /// <returns>The access modifier keyword appropriate for the event.</returns>
     public static string GetAccessModifiers(EventAnalysisContext evt) => GetAccessModifiers(evt.Visibility);
 
     private static string GetAccessModifiers(MethodAttributes visibility) => visibility switch
@@ -64,6 +91,12 @@ public static class CsFileUtils
         _ => throw new ArgumentOutOfRangeException($"Unknown visibility: {visibility}")
     };
 
+    /// <summary>
+    /// Returns the C# keyword that declares the kind of type represented by the context.
+    /// Examples: "class", "struct", "enum", "interface", "delegate".
+    /// </summary>
+    /// <param name="type">The type analysis context to evaluate.</param>
+    /// <returns>The declaration keyword for the type.</returns>
     public static string GetTypeDeclarationKeyword(TypeAnalysisContext type)
     {
         if (type.IsEnumType)
@@ -77,6 +110,12 @@ public static class CsFileUtils
         return "class";
     }
 
+    /// <summary>
+    /// Returns a class-level inheritance modifier for the given type, if applicable.
+    /// Examples: "static", "abstract", "sealed", or null when no modifier should be emitted.
+    /// </summary>
+    /// <param name="type">The type analysis context to inspect.</param>
+    /// <returns>The inheritance modifier keyword or null.</returns>
     public static string? GetClassInheritanceKeyword(TypeAnalysisContext type)
     {
         if (type.IsStatic)
@@ -102,7 +141,7 @@ public static class CsFileUtils
     }
 
     /// <summary>
-    /// Returns all the keywords that would be present in the c# source file to generate this method, i.e. access modifiers, static/const/etc.
+    /// Returns all the keywords that would be present in the c# source file to generate this field, i.e. access modifiers, static/const/etc.
     /// Does not include the type of the field or its name.
     /// </summary>
     /// <param name="field">The field to generate keywords for</param>
@@ -157,16 +196,32 @@ public static class CsFileUtils
         }
     }
 
+    /// <summary>
+    /// Determines the appropriate virtual/slot-related keyword for a method.
+    /// Examples: "abstract", "virtual", "override", "sealed override", or null when no slot keyword applies.
+    /// </summary>
+    /// <param name="method">The method analysis context to inspect.</param>
+    /// <returns>The slot-related keyword or null if none should be emitted.</returns>
     public static string? GetVirtualLookupKeyword(MethodAnalysisContext method)
     {
         return GetVirtualLookupKeyword(method.DeclaringType?.IsInterface ?? false, method.IsStatic, method.IsAbstract, method.IsVirtual, method.IsNewSlot, method.IsFinal);
     }
 
+    /// <summary>
+    /// Determines the appropriate virtual/slot-related keyword for a property.
+    /// </summary>
+    /// <param name="property">The property analysis context to inspect.</param>
+    /// <returns>The slot-related keyword or null if none should be emitted.</returns>
     public static string? GetVirtualLookupKeyword(PropertyAnalysisContext property)
     {
         return GetVirtualLookupKeyword(property.DeclaringType.IsInterface, property.IsStatic, property.IsAbstract, property.IsVirtual, property.IsNewSlot, property.IsFinal);
     }
 
+    /// <summary>
+    /// Determines the appropriate virtual/slot-related keyword for an event.
+    /// </summary>
+    /// <param name="evt">The event analysis context to inspect.</param>
+    /// <returns>The slot-related keyword or null if none should be emitted.</returns>
     public static string? GetVirtualLookupKeyword(EventAnalysisContext evt)
     {
         return GetVirtualLookupKeyword(evt.DeclaringType.IsInterface, evt.IsStatic, evt.IsAbstract, evt.IsVirtual, evt.IsNewSlot, evt.IsFinal);
@@ -275,7 +330,12 @@ public static class CsFileUtils
         }
     }
 
-
+    /// <summary>
+    /// Returns the C#-style name for the given type analysis context.
+    /// Handles built-in System type aliases (e.g. System.Int32 -> int), arrays, pointers, by-ref and generic instances.
+    /// </summary>
+    /// <param name="type">The type analysis context to convert to a C# type name.</param>
+    /// <returns>The C# type name as it should appear in source.</returns>
     public static string GetTypeName(TypeAnalysisContext type)
     {
         if (type is WrappedTypeAnalysisContext wrapped)
@@ -346,8 +406,8 @@ public static class CsFileUtils
     /// Writes inheritance data (base class and interfaces) for the given type to the given writer.
     /// If the base class is System.Object, System.ValueType, System.Enum, or System.MulticastDelegate, it will be ignored
     /// </summary>
-    /// <param name="type"></param>
-    /// <param name="writer"></param>
+    /// <param name="type">The type analysis context whose inheritance is to be written.</param>
+    /// <param name="writer">The writer to which the inheritance information will be written.</param>
     public static void WriteInheritanceInfo(TypeAnalysisContext type, IndentedTextWriter writer)
     {
         var baseType = type.BaseType;
