@@ -1,4 +1,5 @@
 using System;
+using System.CodeDom.Compiler;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Logging;
@@ -376,6 +377,34 @@ public static class CsFileUtils
             addComma = true;
 
             sb.Append(GetTypeName(iface));
+        }
+    }
+    public static void WriteInheritanceInfo(TypeAnalysisContext type, IndentedTextWriter writer)
+    {
+        var baseType = type.BaseType;
+        var needsBaseClass = baseType is not ReferencedTypeAnalysisContext and ({ Namespace: not "System" } or { Name: not "Object" and not "ValueType" and not "Enum" and not "MulticastDelegate" });
+        if (needsBaseClass)
+        {
+            writer.Write(" : ");
+            writer.Write(GetTypeName(baseType!));
+        }
+
+        //Interfaces
+        if (type.InterfaceContexts.Count <= 0)
+            return;
+
+        if (!needsBaseClass)
+            writer.Write(" : ");
+
+        var addComma = needsBaseClass;
+        foreach (var iface in type.InterfaceContexts)
+        {
+            if (addComma)
+                writer.Write(", ");
+
+            addComma = true;
+
+            writer.Write(GetTypeName(iface));
         }
     }
 }

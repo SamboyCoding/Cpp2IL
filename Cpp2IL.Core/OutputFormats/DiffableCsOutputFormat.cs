@@ -1,12 +1,12 @@
 using System;
 using System.Buffers.Binary;
+using System.CodeDom.Compiler;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Logging;
@@ -51,9 +51,9 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         }
     }
 
-    private static Dictionary<string, StringBuilder> BuildOutput(ApplicationAnalysisContext context, string outputRoot)
+    private static Dictionary<string, StringWriter> BuildOutput(ApplicationAnalysisContext context, string outputRoot)
     {
-        var ret = new Dictionary<string, StringBuilder>();
+        var ret = new Dictionary<string, StringWriter>();
 
         foreach (var assembly in context.Assemblies)
         {
@@ -68,43 +68,50 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
                 var path = Path.Combine(asmPath, type.NamespaceAsSubdirs, MiscUtils.CleanPathElement(type.Name + ".cs"));
                 Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
-                var sb = new StringBuilder();
+                var stringWriter = new StringWriter();
+                var writer = new IndentedTextWriter(stringWriter, "\t");
 
                 //Namespace at top of file
                 if (!string.IsNullOrEmpty(type.Namespace))
-                    sb.AppendLine($"namespace {type.Namespace};").AppendLine();
+                {
+                    writer.WriteLine($"namespace {type.Namespace};");
+                    writer.WriteLine();
+                }
                 else
-                    sb.AppendLine("//Type is in global namespace").AppendLine();
+                {
+                    writer.WriteLine("//Type is in global namespace");
+                    writer.WriteLine();
+                }
 
-                AppendType(sb, type);
+                AppendType(writer, type);
 
-                ret[path] = sb;
+                ret[path] = stringWriter;
             }
         }
 
         return ret;
     }
 
-    private static void AppendType(StringBuilder sb, TypeAnalysisContext type, int indent = 0)
+    private static void AppendType(IndentedTextWriter writer, TypeAnalysisContext type, int indent = 0)
     {
         // if (type.IsCompilerGeneratedBasedOnCustomAttributes)
         //Do not output compiler-generated types
         // return;
 
         //Custom attributes for type. Includes a trailing newline
-        AppendCustomAttributes(sb, type, indent);
+        AppendCustomAttributes(writer, type, indent);
 
         //Type declaration line
-        sb.Append('\t', indent);
+        writer.Write(new string('\t', indent));
 
-        sb.Append(CsFileUtils.GetKeyWordsForType(type));
-        sb.Append(' ');
-        sb.Append(CsFileUtils.GetTypeName(type));
-        CsFileUtils.AppendInheritanceInfo(type, sb);
-        sb.AppendLine();
-        sb.Append('\t', indent);
-        sb.Append('{');
-        sb.AppendLine();
+        writer.Write(CsFileUtils.GetKeyWordsForType(type));
+        writer.Write(' ');
+        writer.Write(CsFileUtils.GetTypeName(type));
+        CsFileUtils.WriteInheritanceInfo(type, writer);
+        writer.WriteLine();
+        writer.Write(new string('\t', indent));
+        writer.Write('{');
+        writer.WriteLine();
 
         //Type declaration done, increase indent
         indent++;
@@ -115,12 +122,12 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             enumValues.SortByExtractedKey(e => e.Token); //Not as good as sorting by value but it'll do
             foreach (var enumValue in enumValues)
             {
-                sb.Append('\t', indent);
-                sb.Append(enumValue.Name);
-                sb.Append(" = ");
-                sb.Append(InvariantValue(enumValue.BackingData!.DefaultValue));
-                sb.Append(',');
-                sb.AppendLine();
+                writer.Write(new string('\t', indent));
+                writer.Write(enumValue.Name);
+                writer.Write(" = ");
+                writer.Write(InvariantValue(enumValue.BackingData!.DefaultValue));
+                writer.Write(',');
+                writer.WriteLine();
             }
         }
         else
@@ -129,128 +136,150 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             var nestedTypes = type.NestedTypes.Clone();
             nestedTypes.SortByExtractedKey(t => t.Name);
             foreach (var nested in nestedTypes)
-                AppendType(sb, nested, indent);
+                AppendType(writer, nested, indent);
 
             //Fields, offset order, static first
             var fields = type.Fields.Clone();
             fields.SortByExtractedKey(f => f.IsStatic ? f.Offset : f.Offset + 0x1000);
             foreach (var field in fields)
-                AppendField(sb, field, indent);
+                AppendField(writer, field, indent);
 
-            sb.AppendLine();
+            writer.WriteLine();
 
             //Events, alphabetical order
             var events = type.Events.Clone();
             events.SortByExtractedKey(e => e.Name);
             foreach (var evt in events)
-                AppendEvent(sb, evt, indent);
+                AppendEvent(writer, evt, indent);
 
             //Properties, alphabetical order
             var properties = type.Properties.Clone();
             properties.SortByExtractedKey(p => p.Name);
             foreach (var prop in properties)
-                AppendProperty(sb, prop, indent);
+                AppendProperty(writer, prop, indent);
 
             //Methods, alphabetical order
             var methods = type.Methods.Clone();
             methods.SortByExtractedKey(m => m.Name);
             foreach (var method in methods)
-                AppendMethod(sb, method, indent);
+                AppendMethod(writer, method, indent);
         }
 
         //Decrease indent, close brace
         indent--;
-        sb.Append('\t', indent);
-        sb.Append('}');
-        sb.AppendLine().AppendLine();
+        writer.Write(new string('\t', indent));
+        writer.Write('}');
+        writer.WriteLine();
+        writer.WriteLine();
     }
 
-    private static void AppendField(StringBuilder sb, FieldAnalysisContext field, int indent)
+    private static void AppendField(IndentedTextWriter writer, FieldAnalysisContext field, int indent)
     {
         if (field is InjectedFieldAnalysisContext)
             return;
 
         //Custom attributes for field. Includes a trailing newline
-        AppendCustomAttributes(sb, field, indent);
+        AppendCustomAttributes(writer, field, indent);
 
         //Field declaration line
-        sb.Append('\t', indent);
-        sb.Append(CsFileUtils.GetKeyWordsForField(field));
-        sb.Append(' ');
-        sb.Append(CsFileUtils.GetTypeName(field.FieldType));
-        sb.Append(' ');
-        sb.Append(field.Name);
+        writer.Write(new string('\t', indent));
+        writer.Write(CsFileUtils.GetKeyWordsForField(field));
+        writer.Write(' ');
+        writer.Write(CsFileUtils.GetTypeName(field.FieldType));
+        writer.Write(' ');
+        writer.Write(field.Name);
 
         if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0)
         {
             var fieldRva = field.StaticArrayInitialValue;
             if (fieldRva.Length > 0)
             {
-                AppendFieldRvaInitializer(sb, field, fieldRva, indent);
+                AppendFieldRvaInitializer(writer, field, fieldRva, indent);
                 return;
             }
         }
 
         if (field.BackingData?.DefaultValue is { } defaultValue)
         {
-            sb.Append(" = ");
+            writer.Write(" = ");
 
             if (defaultValue is string stringDefaultValue)
-                sb.Append('"').Append(stringDefaultValue).Append('"');
+            {
+                writer.Write('"');
+                writer.Write(stringDefaultValue);
+                writer.Write('"');
+            }
             else if (defaultValue is char charDefaultValue)
-                sb.Append("'\\u").Append(((int)charDefaultValue).ToString("X")).Append("'");
+            {
+                writer.Write("'\\u");
+                writer.Write(((int)charDefaultValue).ToString("X"));
+                writer.Write("'");
+            }
             else
-                sb.Append(InvariantValue(defaultValue));
+                writer.Write(InvariantValue(defaultValue));
         }
 
-        sb.Append("; //Field offset: 0x");
-        sb.Append(field.Offset.ToString("X"));
+        writer.Write("; //Field offset: 0x");
+        writer.Write(field.Offset.ToString("X"));
 
         if ((field.Attributes & FieldAttributes.HasFieldRVA) != 0)
-            sb.Append(" || Has Field RVA (address hidden for diffability)");
+            writer.Write(" || Has Field RVA (address hidden for diffability)");
 
-        sb.AppendLine();
+        writer.WriteLine();
     }
 
-    private static void AppendFieldRvaInitializer(StringBuilder sb, FieldAnalysisContext field, byte[] data, int indent)
+    private static void AppendFieldRvaInitializer(IndentedTextWriter writer, FieldAnalysisContext field, byte[] data, int indent)
     {
         var tail = $" //Field offset: 0x{field.Offset.ToString("X")} || Has Field RVA (address hidden for diffability)";
 
         if (TryAscendingInt32Array(data, out var ints))
         {
-            sb.Append(" = new int[]").Append(tail).AppendLine();
-            sb.Append('\t', indent).Append('{').AppendLine();
+            writer.Write(" = new int[]");
+            writer.Write(tail);
+            writer.WriteLine();
+            writer.Write(new string('\t', indent));
+            writer.Write('{');
+            writer.WriteLine();
             for (var i = 0; i < ints.Length; i += 12)
             {
                 var n = Math.Min(12, ints.Length - i);
-                sb.Append('\t', indent + 1);
+                writer.Write(new string('\t', indent + 1));
                 for (var j = 0; j < n; j++)
                 {
-                    if (j > 0) sb.Append(", ");
-                    sb.Append(ints[i + j]);
+                    if (j > 0) writer.Write(", ");
+                    writer.Write(ints[i + j]);
                 }
-                if (i + n < ints.Length) sb.Append(',');
-                sb.AppendLine();
+                if (i + n < ints.Length) writer.Write(',');
+                writer.WriteLine();
             }
-            sb.Append('\t', indent).Append("};").AppendLine();
+            writer.Write(new string('\t', indent));
+            writer.Write("};");
+            writer.WriteLine();
             return;
         }
 
-        sb.Append(" = new byte[]").Append(tail).AppendLine();
-        sb.Append('\t', indent).Append('{').AppendLine();
+        writer.Write(" = new byte[]");
+        writer.Write(tail);
+        writer.WriteLine();
+        writer.Write(new string('\t', indent));
+        writer.Write('{');
+        writer.WriteLine();
         for (var i = 0; i < data.Length; i += 16)
         {
             var n = Math.Min(16, data.Length - i);
-            sb.Append('\t', indent + 1);
+            writer.Write(new string('\t', indent + 1));
             for (var j = 0; j < n; j++)
             {
-                if (j > 0) sb.Append(", ");
-                sb.Append("0x").Append(data[i + j].ToString("X2"));
+                if (j > 0) writer.Write(", ");
+                writer.Write("0x");
+                writer.Write(data[i + j].ToString("X2"));
             }
-            if (i + n < data.Length) sb.Append(',');
-            sb.AppendLine();
+            if (i + n < data.Length) writer.Write(',');
+            writer.WriteLine();
         }
-        sb.Append('\t', indent).Append("};").AppendLine();
+        writer.Write(new string('\t', indent));
+        writer.Write("};");
+        writer.WriteLine();
     }
 
     //blobs that decode as 0 followed by strictly ascending little-endian int32s are (probably) offset tables,
@@ -284,121 +313,125 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         return true;
     }
 
-    private static void AppendEvent(StringBuilder sb, EventAnalysisContext evt, int indent)
+    private static void AppendEvent(IndentedTextWriter writer, EventAnalysisContext evt, int indent)
     {
         //Custom attributes for event. Includes a trailing newline
-        AppendCustomAttributes(sb, evt, indent);
+        AppendCustomAttributes(writer, evt, indent);
 
         //Event declaration line
-        sb.Append('\t', indent);
-        sb.Append(CsFileUtils.GetKeyWordsForEvent(evt));
-        sb.Append(' ');
-        sb.Append(CsFileUtils.GetTypeName(evt.EventType));
-        sb.Append(' ');
-        sb.Append(evt.Name).AppendLine();
-        sb.Append('\t', indent);
-        sb.Append('{');
-        sb.AppendLine();
+        writer.Write(new string('\t', indent));
+        writer.Write(CsFileUtils.GetKeyWordsForEvent(evt));
+        writer.Write(' ');
+        writer.Write(CsFileUtils.GetTypeName(evt.EventType));
+        writer.Write(' ');
+        writer.Write(evt.Name);
+        writer.WriteLine();
+        writer.Write(new string('\t', indent));
+        writer.Write('{');
+        writer.WriteLine();
 
         //Add/Remove/Invoke
         indent++;
         if (evt.Adder != null)
-            AppendAccessor(sb, evt.Adder, "add", indent, evt.Visibility);
+            AppendAccessor(writer, evt.Adder, "add", indent, evt.Visibility);
         if (evt.Remover != null)
-            AppendAccessor(sb, evt.Remover, "remove", indent, evt.Visibility);
+            AppendAccessor(writer, evt.Remover, "remove", indent, evt.Visibility);
         if (evt.Invoker != null)
-            AppendAccessor(sb, evt.Invoker, "fire", indent, evt.Visibility);
+            AppendAccessor(writer, evt.Invoker, "fire", indent, evt.Visibility);
         indent--;
 
-        sb.Append('\t', indent);
-        sb.Append('}');
-        sb.AppendLine().AppendLine();
+        writer.Write(new string('\t', indent));
+        writer.Write('}');
+        writer.WriteLine();
+        writer.WriteLine();
     }
 
-    private static void AppendProperty(StringBuilder sb, PropertyAnalysisContext prop, int indent)
+    private static void AppendProperty(IndentedTextWriter writer, PropertyAnalysisContext prop, int indent)
     {
         //Custom attributes for property. Includes a trailing newline
-        AppendCustomAttributes(sb, prop, indent);
+        AppendCustomAttributes(writer, prop, indent);
 
         //Property declaration line
-        sb.Append('\t', indent);
-        sb.Append(CsFileUtils.GetKeyWordsForProperty(prop));
-        sb.Append(' ');
-        sb.Append(CsFileUtils.GetTypeName(prop.PropertyType));
-        sb.Append(' ');
-        sb.Append(prop.Name);
-        sb.AppendLine();
-        sb.Append('\t', indent);
-        sb.Append('{');
-        sb.AppendLine();
+        writer.Write(new string('\t', indent));
+        writer.Write(CsFileUtils.GetKeyWordsForProperty(prop));
+        writer.Write(' ');
+        writer.Write(CsFileUtils.GetTypeName(prop.PropertyType));
+        writer.Write(' ');
+        writer.Write(prop.Name);
+        writer.WriteLine();
+        writer.Write(new string('\t', indent));
+        writer.Write('{');
+        writer.WriteLine();
 
         //Get/Set
         indent++;
         if (prop.Getter != null)
-            AppendAccessor(sb, prop.Getter, "get", indent, prop.Visibility);
+            AppendAccessor(writer, prop.Getter, "get", indent, prop.Visibility);
         if (prop.Setter != null)
-            AppendAccessor(sb, prop.Setter, "set", indent, prop.Visibility);
+            AppendAccessor(writer, prop.Setter, "set", indent, prop.Visibility);
         indent--;
 
-        sb.Append('\t', indent);
-        sb.Append('}');
-        sb.AppendLine().AppendLine();
+        writer.Write(new string('\t', indent));
+        writer.Write('}');
+        writer.WriteLine();
+        writer.WriteLine();
     }
 
-    private static void AppendMethod(StringBuilder sb, MethodAnalysisContext method, int indent)
+    private static void AppendMethod(IndentedTextWriter writer, MethodAnalysisContext method, int indent)
     {
         if (method is InjectedMethodAnalysisContext)
             return;
 
         //Custom attributes for method. Includes a trailing newline
-        AppendCustomAttributes(sb, method, indent);
+        AppendCustomAttributes(writer, method, indent);
 
         //Method declaration line
-        sb.Append('\t', indent);
-        sb.Append(CsFileUtils.GetKeyWordsForMethod(method));
-        sb.Append(' ');
+        writer.Write(new string('\t', indent));
+        writer.Write(CsFileUtils.GetKeyWordsForMethod(method));
+        writer.Write(' ');
         if (method.Name is not ".ctor" and not ".cctor")
         {
-            sb.Append(CsFileUtils.GetTypeName(method.ReturnType));
-            sb.Append(' ');
-            sb.Append(method.Name);
+            writer.Write(CsFileUtils.GetTypeName(method.ReturnType));
+            writer.Write(' ');
+            writer.Write(method.Name);
         }
         else
         {
             //Constructor
-            sb.Append(CsFileUtils.GetTypeName(method.DeclaringType!));
+            writer.Write(CsFileUtils.GetTypeName(method.DeclaringType!));
         }
 
-        sb.Append('(');
-        sb.Append(CsFileUtils.GetMethodParameterString(method));
-        sb.Append(") { }");
+        writer.Write('(');
+        writer.Write(CsFileUtils.GetMethodParameterString(method));
+        writer.Write(") { }");
 
         if (IncludeMethodLength)
         {
-            sb.Append(" //Length: ");
-            sb.Append(method.RawBytes.Length);
+            writer.Write(" //Length: ");
+            writer.Write(method.RawBytes.Length);
         }
 
-        sb.AppendLine().AppendLine();
+        writer.WriteLine();
+        writer.WriteLine();
     }
 
     //get/set/add/remove/raise
-    private static void AppendAccessor(StringBuilder sb, MethodAnalysisContext accessor, string accessorType, int indent, MethodAttributes parentVisibility)
+    private static void AppendAccessor(IndentedTextWriter writer, MethodAnalysisContext accessor, string accessorType, int indent, MethodAttributes parentVisibility)
     {
         //Custom attributes for accessor. Includes a trailing newline
-        AppendCustomAttributes(sb, accessor, indent);
+        AppendCustomAttributes(writer, accessor, indent);
 
-        sb.Append('\t', indent);
-        sb.Append(CsFileUtils.GetKeyWordsForMethod(accessor, parentVisibility));
-        sb.Append(' ');
-        sb.Append(accessorType);
-        sb.Append(" { } //Length: ");
-        sb.Append(accessor.RawBytes.Length);
-        sb.AppendLine();
+        writer.Write(new string('\t', indent));
+        writer.Write(CsFileUtils.GetKeyWordsForMethod(accessor, parentVisibility));
+        writer.Write(' ');
+        writer.Write(accessorType);
+        writer.Write(" { } //Length: ");
+        writer.Write(accessor.RawBytes.Length);
+        writer.WriteLine();
     }
 
-    private static void AppendCustomAttributes(StringBuilder sb, HasCustomAttributes owner, int indent)
-        => sb.Append(CsFileUtils.GetCustomAttributeStrings(owner, indent, true, true));
+    private static void AppendCustomAttributes(IndentedTextWriter writer, HasCustomAttributes owner, int indent)
+        => writer.Write(CsFileUtils.GetCustomAttributeStrings(owner, indent, true, true));
 
     private static string InvariantValue(object? value)
         => value is null ? "" : value is IFormattable f ? f.ToString(null, CultureInfo.InvariantCulture) : value.ToString() ?? "";
