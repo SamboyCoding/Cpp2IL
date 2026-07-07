@@ -243,16 +243,15 @@ public static class CsFileUtils
     }
 
     /// <summary>
-    /// Returns all the custom attributes for the given entity, as they would appear in a C# source file (i.e. properly wrapped in square brackets, with params if known)
+    /// Writes all the custom attributes for the given entity to the given writer, as they would appear in a C# source file (i.e. properly wrapped in square brackets, with params if known).
+    /// Each attribute is written on its own line, indented according to the writer's current <see cref="IndentedTextWriter.Indent"/> level.
     /// </summary>
-    /// <param name="context">The entity to generate custom attribute strings for</param>
-    /// <param name="indentCount">The number of tab characters to emit at the start of each line</param>
+    /// <param name="context">The entity to write custom attribute strings for</param>
+    /// <param name="writer">The writer to write the custom attribute strings to</param>
     /// <param name="analyze">True to call <see cref="HasCustomAttributes.AnalyzeCustomAttributeData"/> before generating.</param>
     /// <param name="includeIncomplete">True to emit custom attributes even if they have required parameters that aren't known</param>
-    public static string GetCustomAttributeStrings(HasCustomAttributes context, int indentCount, bool analyze = true, bool includeIncomplete = true)
+    public static void WriteCustomAttributeStrings(HasCustomAttributes context, IndentedTextWriter writer, bool analyze = true, bool includeIncomplete = true)
     {
-        var sb = new StringBuilder();
-
         if (analyze)
             context.AnalyzeCustomAttributeData();
 
@@ -264,21 +263,16 @@ public static class CsFileUtils
             if (!includeIncomplete && !analyzedCustomAttribute.IsSuitableForEmission)
                 continue;
 
-            if (indentCount > 0)
-                sb.Append('\t', indentCount);
-
             try
             {
-                sb.AppendLine(analyzedCustomAttribute.ToString());
+                writer.WriteLine(analyzedCustomAttribute.ToString());
             }
             catch (Exception e)
             {
                 Logger.WarnNewline("Exception printing/formatting custom attribute: " + e, "C# Generator");
-                sb.Append("/*Cpp2IL: Exception outputting custom attribute of type ").Append(analyzedCustomAttribute.Constructor.DeclaringType?.Name ?? "<unknown type?>").AppendLine("*/");
+                writer.WriteLine($"/*Cpp2IL: Exception outputting custom attribute of type {analyzedCustomAttribute.Constructor.DeclaringType?.Name ?? "<unknown type?>"}*/");
             }
         }
-
-        return sb.ToString();
     }
 
 
@@ -349,36 +343,11 @@ public static class CsFileUtils
     }
 
     /// <summary>
-    /// Appends inheritance data (base class and interfaces) for the given type to the given string builder.
+    /// Writes inheritance data (base class and interfaces) for the given type to the given writer.
     /// If the base class is System.Object, System.ValueType, System.Enum, or System.MulticastDelegate, it will be ignored
     /// </summary>
     /// <param name="type"></param>
-    /// <param name="sb"></param>
-    public static void AppendInheritanceInfo(TypeAnalysisContext type, StringBuilder sb)
-    {
-        var baseType = type.BaseType;
-        var needsBaseClass = baseType is not ReferencedTypeAnalysisContext and ({ Namespace: not "System" } or { Name: not "Object" and not "ValueType" and not "Enum" and not "MulticastDelegate" });
-        if (needsBaseClass)
-            sb.Append(" : ").Append(GetTypeName(baseType!));
-
-        //Interfaces
-        if (type.InterfaceContexts.Count <= 0)
-            return;
-
-        if (!needsBaseClass)
-            sb.Append(" : ");
-
-        var addComma = needsBaseClass;
-        foreach (var iface in type.InterfaceContexts)
-        {
-            if (addComma)
-                sb.Append(", ");
-
-            addComma = true;
-
-            sb.Append(GetTypeName(iface));
-        }
-    }
+    /// <param name="writer"></param>
     public static void WriteInheritanceInfo(TypeAnalysisContext type, IndentedTextWriter writer)
     {
         var baseType = type.BaseType;
