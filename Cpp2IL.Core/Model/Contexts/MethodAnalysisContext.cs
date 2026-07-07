@@ -89,6 +89,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public bool IsNewSlot => (Attributes & MethodAttributes.NewSlot) != 0;
 
+    public bool IsFinal => (Attributes & MethodAttributes.Final) != 0;
+
     protected override int CustomAttributeIndex => Definition?.customAttributeIndex ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeIndex if they have custom attributes");
 
     public override AssemblyAnalysisContext CustomAttributeAssembly => DeclaringType?.DeclaringAssembly ?? throw new("Subclasses of MethodAnalysisContext should override CustomAttributeAssembly if they have custom attributes");

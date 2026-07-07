@@ -18,19 +18,73 @@ public static class CsFileUtils
     /// <returns>A properly-formatted parameter string as described above.</returns>
     public static string GetMethodParameterString(MethodAnalysisContext method)
     {
-        var sb = new StringBuilder();
-        var first = true;
-        foreach (var paramData in method!.Parameters!)
-        {
-            if (!first)
-                sb.Append(", ");
+        // ToString on the ParameterData will do the right thing.
+        return string.Join(", ", method.Parameters);
+    }
 
-            first = false;
+    public static string GetAccessModifiers(TypeAnalysisContext type) => type.Visibility switch
+    {
+        TypeAttributes.Public => "public",
+        TypeAttributes.NotPublic => "internal",
+        TypeAttributes.NestedPublic => "public",
+        TypeAttributes.NestedAssembly => "internal",
+        TypeAttributes.NestedPrivate => "private",
+        TypeAttributes.NestedFamily => "protected",
+        TypeAttributes.NestedFamORAssem => "protected internal",
+        TypeAttributes.NestedFamANDAssem => "private protected",
+        _ => throw new ArgumentOutOfRangeException($"Unknown visibility for type {type.FullName}: {type.Visibility}")
+    };
 
-            sb.Append(paramData); //ToString on the ParameterData will do the right thing.
-        }
+    public static string GetAccessModifiers(FieldAnalysisContext field) => field.Visibility switch
+    {
+        FieldAttributes.Public => "public",
+        FieldAttributes.Private => "private",
+        FieldAttributes.Family => "protected",
+        FieldAttributes.Assembly => "internal",
+        FieldAttributes.FamORAssem => "protected internal",
+        FieldAttributes.FamANDAssem => "private protected",
+        _ => throw new ArgumentOutOfRangeException($"Unknown visibility for field {field.DeclaringType.FullName}.{field.Name}: {field.Visibility}")
+    };
 
-        return sb.ToString();
+    public static string GetAccessModifiers(MethodAnalysisContext method) => GetAccessModifiers(method.Visibility);
+
+    public static string GetAccessModifiers(PropertyAnalysisContext property) => GetAccessModifiers(property.Visibility);
+
+    public static string GetAccessModifiers(EventAnalysisContext evt) => GetAccessModifiers(evt.Visibility);
+
+    private static string GetAccessModifiers(MethodAttributes visibility) => visibility switch
+    {
+        MethodAttributes.Public => "public",
+        MethodAttributes.Private or MethodAttributes.PrivateScope => "private",
+        MethodAttributes.Family => "protected",
+        MethodAttributes.Assembly => "internal",
+        MethodAttributes.FamORAssem => "protected internal",
+        MethodAttributes.FamANDAssem => "private protected",
+        _ => throw new ArgumentOutOfRangeException($"Unknown visibility: {visibility}")
+    };
+
+    public static string GetTypeDeclarationKeyword(TypeAnalysisContext type)
+    {
+        if (type.IsEnumType)
+            return "enum";
+        if (type.IsValueType)
+            return "struct";
+        if (type.IsInterface)
+            return "interface";
+        if (type.IsDelegate)
+            return "delegate";
+        return "class";
+    }
+
+    public static string? GetClassInheritanceKeyword(TypeAnalysisContext type)
+    {
+        if (type.IsStatic)
+            return "static";
+        if (type.IsAbstract && !type.IsInterface)
+            return "abstract";
+        if (type.IsSealed && !type.IsValueType && !type.IsDelegate)
+            return "sealed";
+        return null;
     }
 
     /// <summary>
@@ -40,36 +94,10 @@ public static class CsFileUtils
     /// <param name="type">The type to generate the keywords for</param>
     public static string GetKeyWordsForType(TypeAnalysisContext type)
     {
-        var sb = new StringBuilder();
-        var attributes = type.Definition!.Attributes;
-
-        if (attributes.HasFlag(TypeAttributes.NestedPrivate))
-            sb.Append("private ");
-        else if (attributes.HasFlag(TypeAttributes.Public))
-            sb.Append("public ");
-        else
-            sb.Append("internal "); //private top-level classes don't exist, for obvious reasons
-
-        if (type.IsEnumType)
-            sb.Append("enum ");
-        else if (type.IsValueType)
-            sb.Append("struct ");
-        else if (attributes.HasFlag(TypeAttributes.Interface))
-            sb.Append("interface ");
-        else
-        {
-            if (attributes.HasFlag(TypeAttributes.Abstract) && attributes.HasFlag(TypeAttributes.Sealed))
-                //Abstract Sealed => Static
-                sb.Append("static ");
-            else if (attributes.HasFlag(TypeAttributes.Abstract))
-                sb.Append("abstract ");
-            else if (attributes.HasFlag(TypeAttributes.Sealed))
-                sb.Append("sealed ");
-
-            sb.Append("class ");
-        }
-
-        return sb.ToString().Trim();
+        var visibility = GetAccessModifiers(type);
+        var inheritance = GetClassInheritanceKeyword(type);
+        var declaration = GetTypeDeclarationKeyword(type);
+        return inheritance is null ? $"{visibility} {declaration}" : $"{visibility} {inheritance} {declaration}";
     }
 
     /// <summary>
@@ -80,16 +108,9 @@ public static class CsFileUtils
     public static string GetKeyWordsForField(FieldAnalysisContext field)
     {
         var sb = new StringBuilder();
-        var attributes = field.BackingData!.Attributes;
+        var attributes = field.Attributes;
 
-        if (attributes.HasFlag(FieldAttributes.Public))
-            sb.Append("public ");
-        else if (attributes.HasFlag(FieldAttributes.Family))
-            sb.Append("protected ");
-        if (attributes.HasFlag(FieldAttributes.Assembly))
-            sb.Append("internal ");
-        else if (attributes.HasFlag(FieldAttributes.Private))
-            sb.Append("private ");
+        sb.Append(GetAccessModifiers(field)).Append(' ');
 
         if (attributes.HasFlag(FieldAttributes.Literal))
             sb.Append("const ");
@@ -102,7 +123,52 @@ public static class CsFileUtils
                 sb.Append("readonly ");
         }
 
-        return sb.ToString().Trim();
+        return sb.ToString().TrimEnd();
+    }
+
+    private static string? GetVirtualLookupKeyword(bool isInterfaceMember, bool isStatic, bool isAbstract, bool isVirtual, bool isNewSlot, bool isFinal)
+    {
+        // slot-related modifiers like abstract, virtual, override, sealed
+
+        if (isInterfaceMember)
+        {
+            if (isAbstract)
+                return isStatic ? "abstract" : null;
+            else if (isVirtual)
+                return isStatic ? "virtual" : null;
+            else
+                return isStatic ? null : "sealed";
+        }
+        else if (isAbstract)
+        {
+            return "abstract";
+        }
+        else if (isVirtual)
+        {
+            if (isNewSlot)
+                return isFinal ? null : "virtual"; // final, virtual, newslot means an interface implementation
+            else
+                return isFinal ? "sealed override" : "override";
+        }
+        else
+        {
+            return null;
+        }
+    }
+
+    public static string? GetVirtualLookupKeyword(MethodAnalysisContext method)
+    {
+        return GetVirtualLookupKeyword(method.DeclaringType?.IsInterface ?? false, method.IsStatic, method.IsAbstract, method.IsVirtual, method.IsNewSlot, method.IsFinal);
+    }
+
+    public static string? GetVirtualLookupKeyword(PropertyAnalysisContext property)
+    {
+        return GetVirtualLookupKeyword(property.DeclaringType.IsInterface, property.IsStatic, property.IsAbstract, property.IsVirtual, property.IsNewSlot, property.IsFinal);
+    }
+
+    public static string? GetVirtualLookupKeyword(EventAnalysisContext evt)
+    {
+        return GetVirtualLookupKeyword(evt.DeclaringType.IsInterface, evt.IsStatic, evt.IsAbstract, evt.IsVirtual, evt.IsNewSlot, evt.IsFinal);
     }
 
     /// <summary>
@@ -110,42 +176,25 @@ public static class CsFileUtils
     /// Does not include the return type, name, or parameters.
     /// </summary>
     /// <param name="method">The method to generate keywords for</param>
-    /// <param name="skipSlotRelated">Skip slot-related modifiers like abstract, virtual, override</param>
-    /// <param name="skipKeywordsInvalidForAccessors">Skip the public and static keywords, as those aren't valid for property accessors</param>
-    public static string GetKeyWordsForMethod(MethodAnalysisContext method, bool skipSlotRelated = false, bool skipKeywordsInvalidForAccessors = false)
+    /// <param name="parentVisibility">The visibility of the parent, used to determine if the method's visibility should be included</param>
+    public static string GetKeyWordsForMethod(MethodAnalysisContext method, MethodAttributes? parentVisibility = null)
     {
         var sb = new StringBuilder();
-        var attributes = method.Definition!.Attributes;
 
-        if (!skipKeywordsInvalidForAccessors)
+        if (method.Visibility != parentVisibility)
+            sb.Append(GetAccessModifiers(method)).Append(' ');
+
+        if (parentVisibility is null)
         {
-            if (attributes.HasFlag(MethodAttributes.Public))
-                sb.Append("public ");
-            else if (attributes.HasFlag(MethodAttributes.Family))
-                sb.Append("protected ");
+            if (method.IsStatic)
+                sb.Append("static ");
+
+            var slotKeyword = GetVirtualLookupKeyword(method);
+            if (slotKeyword != null)
+                sb.Append(slotKeyword);
         }
 
-        if (attributes.HasFlag(MethodAttributes.Assembly))
-            sb.Append("internal ");
-        else if (attributes.HasFlag(MethodAttributes.Private))
-            sb.Append("private ");
-
-        if (!skipKeywordsInvalidForAccessors && attributes.HasFlag(MethodAttributes.Static))
-            sb.Append("static ");
-
-        if (method.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface) || skipSlotRelated)
-        {
-            //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
-        }
-        else if (attributes.HasFlag(MethodAttributes.Abstract))
-            sb.Append("abstract ");
-        else if (attributes.HasFlag(MethodAttributes.NewSlot))
-            sb.Append("override ");
-        else if (attributes.HasFlag(MethodAttributes.Virtual))
-            sb.Append("virtual ");
-
-
-        return sb.ToString().Trim();
+        return sb.ToString().TrimEnd();
     }
 
     /// <summary>
@@ -157,80 +206,39 @@ public static class CsFileUtils
     {
         var sb = new StringBuilder();
 
-        var addAttrs = evt.Adder?.Attributes ?? 0;
-        var removeAttrs = evt.Remover?.Attributes ?? 0;
-        var raiseAttrs = evt.Invoker?.Attributes ?? 0;
+        sb.Append(GetAccessModifiers(evt)).Append(' ');
 
-        var all = addAttrs | removeAttrs | raiseAttrs;
-
-        //Accessibility must be that of the most accessible method
-        if (addAttrs.HasFlag(MethodAttributes.Public) || removeAttrs.HasFlag(MethodAttributes.Public) || raiseAttrs.HasFlag(MethodAttributes.Public))
-            sb.Append("public ");
-        else if (all.HasFlag(MethodAttributes.Family)) //Family is only one bit so we can use the OR'd attributes
-            sb.Append("protected ");
-        if (addAttrs.HasFlag(MethodAttributes.Assembly) || removeAttrs.HasFlag(MethodAttributes.Assembly) || raiseAttrs.HasFlag(MethodAttributes.Assembly))
-            sb.Append("internal ");
-        else if (all.HasFlag(MethodAttributes.Private))
-            sb.Append("private ");
-
-        if (all.HasFlag(MethodAttributes.Static))
+        if (evt.IsStatic)
             sb.Append("static ");
 
-        if (evt.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface))
-        {
-            //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
-        }
-        else if (all.HasFlag(MethodAttributes.Abstract))
-            sb.Append("abstract ");
-        else if (all.HasFlag(MethodAttributes.NewSlot))
-            sb.Append("override ");
-        else if (all.HasFlag(MethodAttributes.Virtual))
-            sb.Append("virtual ");
+        var slotKeyword = GetVirtualLookupKeyword(evt);
+        if (slotKeyword != null)
+            sb.Append(slotKeyword).Append(' ');
 
-        sb.Append("event ");
+        sb.Append("event");
 
-        return sb.ToString().Trim();
+        return sb.ToString();
     }
 
     /// <summary>
-    /// Returns all the keywords that would be present in the c# source file to generate this event, i.e. access modifiers, static/abstract/etc.
-    /// Does not include the event type or name
+    /// Returns all the keywords that would be present in the c# source file to generate this property, i.e. access modifiers, static/abstract/etc.
+    /// Does not include the property type or name
     /// </summary>
-    /// <param name="prop">The event to generate keywords for</param>
+    /// <param name="prop">The property to generate keywords for</param>
     public static string GetKeyWordsForProperty(PropertyAnalysisContext prop)
     {
         var sb = new StringBuilder();
 
-        var getterAttributes = prop.Getter?.Attributes ?? 0;
-        var setterAttributes = prop.Setter?.Attributes ?? 0;
+        sb.Append(GetAccessModifiers(prop)).Append(' ');
 
-        var all = getterAttributes | setterAttributes;
-
-        //Accessibility must be that of the most accessible method
-        if (getterAttributes.HasFlag(MethodAttributes.Public) || setterAttributes.HasFlag(MethodAttributes.Public))
-            sb.Append("public ");
-        else if (all.HasFlag(MethodAttributes.Family)) //Family is only one bit so we can use the OR'd attributes
-            sb.Append("protected ");
-        if (getterAttributes.HasFlag(MethodAttributes.Assembly) || setterAttributes.HasFlag(MethodAttributes.Assembly))
-            sb.Append("internal ");
-        else if (all.HasFlag(MethodAttributes.Private))
-            sb.Append("private ");
-
-        if (all.HasFlag(MethodAttributes.Static))
+        if (prop.IsStatic)
             sb.Append("static ");
 
-        if (prop.DeclaringType!.Definition!.Attributes.HasFlag(TypeAttributes.Interface))
-        {
-            //Deliberate no-op to avoid unnecessarily marking interface methods as abstract
-        }
-        else if (all.HasFlag(MethodAttributes.Abstract))
-            sb.Append("abstract ");
-        else if (all.HasFlag(MethodAttributes.NewSlot))
-            sb.Append("override ");
-        else if (all.HasFlag(MethodAttributes.Virtual))
-            sb.Append("virtual ");
+        var slotKeyword = GetVirtualLookupKeyword(prop);
+        if (slotKeyword != null)
+            sb.Append(slotKeyword);
 
-        return sb.ToString().Trim();
+        return sb.ToString().TrimEnd();
     }
 
     /// <summary>
@@ -326,6 +334,8 @@ public static class CsFileUtils
                 "UInt64" => "ulong",
                 "Int16" => "short",
                 "UInt16" => "ushort",
+                "IntPtr" => "nint",
+                "UIntPtr" => "nuint",
                 "String" => "string",
                 "Object" => "object",
                 _ => type.Name,
@@ -339,14 +349,14 @@ public static class CsFileUtils
 
     /// <summary>
     /// Appends inheritance data (base class and interfaces) for the given type to the given string builder.
-    /// If the base class is System.Object, System.ValueType, or System.Enum, it will be ignored
+    /// If the base class is System.Object, System.ValueType, System.Enum, or System.MulticastDelegate, it will be ignored
     /// </summary>
     /// <param name="type"></param>
     /// <param name="sb"></param>
     public static void AppendInheritanceInfo(TypeAnalysisContext type, StringBuilder sb)
     {
         var baseType = type.BaseType;
-        var needsBaseClass = baseType is { FullName: not "System.Object" and not "System.ValueType" and not "System.Enum" };
+        var needsBaseClass = baseType is not ReferencedTypeAnalysisContext and ({ Namespace: not "System" } or { Name: not "Object" and not "ValueType" and not "Enum" and not "MulticastDelegate" });
         if (needsBaseClass)
             sb.Append(" : ").Append(GetTypeName(baseType!));
 

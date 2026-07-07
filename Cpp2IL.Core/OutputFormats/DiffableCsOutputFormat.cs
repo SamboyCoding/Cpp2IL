@@ -303,11 +303,11 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         //Add/Remove/Invoke
         indent++;
         if (evt.Adder != null)
-            AppendAccessor(sb, evt.Adder, "add", indent);
+            AppendAccessor(sb, evt.Adder, "add", indent, evt.Visibility);
         if (evt.Remover != null)
-            AppendAccessor(sb, evt.Remover, "remove", indent);
+            AppendAccessor(sb, evt.Remover, "remove", indent, evt.Visibility);
         if (evt.Invoker != null)
-            AppendAccessor(sb, evt.Invoker, "fire", indent);
+            AppendAccessor(sb, evt.Invoker, "fire", indent, evt.Visibility);
         indent--;
 
         sb.Append('\t', indent);
@@ -335,9 +335,9 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         //Get/Set
         indent++;
         if (prop.Getter != null)
-            AppendAccessor(sb, prop.Getter, "get", indent);
+            AppendAccessor(sb, prop.Getter, "get", indent, prop.Visibility);
         if (prop.Setter != null)
-            AppendAccessor(sb, prop.Setter, "set", indent);
+            AppendAccessor(sb, prop.Setter, "set", indent, prop.Visibility);
         indent--;
 
         sb.Append('\t', indent);
@@ -383,13 +383,13 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     }
 
     //get/set/add/remove/raise
-    private static void AppendAccessor(StringBuilder sb, MethodAnalysisContext accessor, string accessorType, int indent)
+    private static void AppendAccessor(StringBuilder sb, MethodAnalysisContext accessor, string accessorType, int indent, MethodAttributes parentVisibility)
     {
         //Custom attributes for accessor. Includes a trailing newline
         AppendCustomAttributes(sb, accessor, indent);
 
         sb.Append('\t', indent);
-        sb.Append(CsFileUtils.GetKeyWordsForMethod(accessor, true, true));
+        sb.Append(CsFileUtils.GetKeyWordsForMethod(accessor, parentVisibility));
         sb.Append(' ');
         sb.Append(accessorType);
         sb.Append(" { } //Length: ");

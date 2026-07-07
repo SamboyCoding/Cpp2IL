@@ -174,6 +174,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
     public bool IsAbstract => (Attributes & TypeAttributes.Abstract) != default;
     public bool IsSealed => (Attributes & TypeAttributes.Sealed) != default;
     public bool IsStatic => IsAbstract && IsSealed;
+    public bool IsDelegate => BaseType is not ReferencedTypeAnalysisContext and { Namespace: "System", Name: "MulticastDelegate" };
 
     /// <summary>
     /// Returns the namespace of this type expressed as a folder hierarchy, with each sub-namespace becoming a sub-directory.
