@@ -83,7 +83,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
                     writer.WriteLineNoTabs(string.Empty);
                 }
 
-                AppendType(writer, type);
+                WriteType(writer, type);
 
                 ret[path] = stringWriter;
             }
@@ -92,14 +92,14 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         return ret;
     }
 
-    private static void AppendType(IndentedTextWriter writer, TypeAnalysisContext type)
+    private static void WriteType(IndentedTextWriter writer, TypeAnalysisContext type)
     {
         // if (type.IsCompilerGeneratedBasedOnCustomAttributes)
         //Do not output compiler-generated types
         // return;
 
         //Custom attributes for type. Includes a trailing newline
-        AppendCustomAttributes(writer, type);
+        WriteCustomAttributes(writer, type);
 
         //Type declaration line
         writer.Write(CsFileUtils.GetKeyWordsForType(type));
@@ -130,13 +130,13 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             var nestedTypes = type.NestedTypes.Clone();
             nestedTypes.SortByExtractedKey(t => t.Name);
             foreach (var nested in nestedTypes)
-                AppendType(writer, nested);
+                WriteType(writer, nested);
 
             //Fields, offset order, static first
             var fields = type.Fields.Clone();
             fields.SortByExtractedKey(f => f.IsStatic ? f.Offset : f.Offset + 0x1000);
             foreach (var field in fields)
-                AppendField(writer, field);
+                WriteField(writer, field);
 
             writer.WriteLineNoTabs(string.Empty);
 
@@ -144,19 +144,19 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             var events = type.Events.Clone();
             events.SortByExtractedKey(e => e.Name);
             foreach (var evt in events)
-                AppendEvent(writer, evt);
+                WriteEvent(writer, evt);
 
             //Properties, alphabetical order
             var properties = type.Properties.Clone();
             properties.SortByExtractedKey(p => p.Name);
             foreach (var prop in properties)
-                AppendProperty(writer, prop);
+                WriteProperty(writer, prop);
 
             //Methods, alphabetical order
             var methods = type.Methods.Clone();
             methods.SortByExtractedKey(m => m.Name);
             foreach (var method in methods)
-                AppendMethod(writer, method);
+                WriteMethod(writer, method);
         }
 
         //Decrease indent, close brace
@@ -165,13 +165,13 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         writer.WriteLineNoTabs(string.Empty);
     }
 
-    private static void AppendField(IndentedTextWriter writer, FieldAnalysisContext field)
+    private static void WriteField(IndentedTextWriter writer, FieldAnalysisContext field)
     {
         if (field is InjectedFieldAnalysisContext)
             return;
 
         //Custom attributes for field. Includes a trailing newline
-        AppendCustomAttributes(writer, field);
+        WriteCustomAttributes(writer, field);
 
         //Field declaration line
         writer.Write(CsFileUtils.GetKeyWordsForField(field));
@@ -185,7 +185,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             var fieldRva = field.StaticArrayInitialValue;
             if (fieldRva.Length > 0)
             {
-                AppendFieldRvaInitializer(writer, field, fieldRva);
+                WriteFieldRvaInitializer(writer, field, fieldRva);
                 return;
             }
         }
@@ -219,7 +219,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         writer.WriteLine();
     }
 
-    private static void AppendFieldRvaInitializer(IndentedTextWriter writer, FieldAnalysisContext field, byte[] data)
+    private static void WriteFieldRvaInitializer(IndentedTextWriter writer, FieldAnalysisContext field, byte[] data)
     {
         var tail = $" //Field offset: 0x{field.Offset.ToString("X")} || Has Field RVA (address hidden for diffability)";
 
@@ -298,10 +298,10 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         return true;
     }
 
-    private static void AppendEvent(IndentedTextWriter writer, EventAnalysisContext evt)
+    private static void WriteEvent(IndentedTextWriter writer, EventAnalysisContext evt)
     {
         //Custom attributes for event. Includes a trailing newline
-        AppendCustomAttributes(writer, evt);
+        WriteCustomAttributes(writer, evt);
 
         //Event declaration line
         writer.Write(CsFileUtils.GetKeyWordsForEvent(evt));
@@ -315,21 +315,21 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         //Add/Remove/Invoke
         writer.Indent++;
         if (evt.Adder != null)
-            AppendAccessor(writer, evt.Adder, "add", evt.Visibility);
+            WriteAccessor(writer, evt.Adder, "add", evt.Visibility);
         if (evt.Remover != null)
-            AppendAccessor(writer, evt.Remover, "remove", evt.Visibility);
+            WriteAccessor(writer, evt.Remover, "remove", evt.Visibility);
         if (evt.Invoker != null)
-            AppendAccessor(writer, evt.Invoker, "fire", evt.Visibility);
+            WriteAccessor(writer, evt.Invoker, "fire", evt.Visibility);
         writer.Indent--;
 
         writer.WriteLine('}');
         writer.WriteLineNoTabs(string.Empty);
     }
 
-    private static void AppendProperty(IndentedTextWriter writer, PropertyAnalysisContext prop)
+    private static void WriteProperty(IndentedTextWriter writer, PropertyAnalysisContext prop)
     {
         //Custom attributes for property. Includes a trailing newline
-        AppendCustomAttributes(writer, prop);
+        WriteCustomAttributes(writer, prop);
 
         //Property declaration line
         writer.Write(CsFileUtils.GetKeyWordsForProperty(prop));
@@ -343,22 +343,22 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         //Get/Set
         writer.Indent++;
         if (prop.Getter != null)
-            AppendAccessor(writer, prop.Getter, "get", prop.Visibility);
+            WriteAccessor(writer, prop.Getter, "get", prop.Visibility);
         if (prop.Setter != null)
-            AppendAccessor(writer, prop.Setter, "set", prop.Visibility);
+            WriteAccessor(writer, prop.Setter, "set", prop.Visibility);
         writer.Indent--;
 
         writer.WriteLine('}');
         writer.WriteLineNoTabs(string.Empty);
     }
 
-    private static void AppendMethod(IndentedTextWriter writer, MethodAnalysisContext method)
+    private static void WriteMethod(IndentedTextWriter writer, MethodAnalysisContext method)
     {
         if (method is InjectedMethodAnalysisContext)
             return;
 
         //Custom attributes for method. Includes a trailing newline
-        AppendCustomAttributes(writer, method);
+        WriteCustomAttributes(writer, method);
 
         //Method declaration line
         writer.Write(CsFileUtils.GetKeyWordsForMethod(method));
@@ -390,10 +390,10 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
     }
 
     //get/set/add/remove/raise
-    private static void AppendAccessor(IndentedTextWriter writer, MethodAnalysisContext accessor, string accessorType, MethodAttributes parentVisibility)
+    private static void WriteAccessor(IndentedTextWriter writer, MethodAnalysisContext accessor, string accessorType, MethodAttributes parentVisibility)
     {
         //Custom attributes for accessor. Includes a trailing newline
-        AppendCustomAttributes(writer, accessor);
+        WriteCustomAttributes(writer, accessor);
 
         writer.Write(CsFileUtils.GetKeyWordsForMethod(accessor, parentVisibility));
         writer.Write(' ');
@@ -403,7 +403,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         writer.WriteLine();
     }
 
-    private static void AppendCustomAttributes(IndentedTextWriter writer, HasCustomAttributes owner)
+    private static void WriteCustomAttributes(IndentedTextWriter writer, HasCustomAttributes owner)
         => CsFileUtils.WriteCustomAttributeStrings(owner, writer, true, true);
 
     private static string InvariantValue(object? value)
