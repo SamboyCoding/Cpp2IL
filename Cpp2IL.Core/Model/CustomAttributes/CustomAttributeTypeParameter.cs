@@ -20,7 +20,7 @@ public class CustomAttributeTypeParameter : BaseCustomAttributeTypeParameter
     {
         get
         {
-            return _typeContext ??= Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(_type);
+            return _typeContext ??= Owner.Constructor.AppContext.ResolveIl2CppType(_type);
         }
     }
 

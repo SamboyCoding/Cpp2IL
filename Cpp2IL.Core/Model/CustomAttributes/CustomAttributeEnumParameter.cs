@@ -12,7 +12,7 @@ public class CustomAttributeEnumParameter : BaseCustomAttributeParameter
     public readonly Il2CppType UnderlyingPrimitiveType;
     public readonly CustomAttributePrimitiveParameter UnderlyingPrimitiveParameter;
     
-    public TypeAnalysisContext EnumTypeContext => Owner.Constructor.CustomAttributeAssembly.ResolveIl2CppType(EnumType);
+    public TypeAnalysisContext EnumTypeContext => Owner.Constructor.AppContext.ResolveIl2CppType(EnumType);
 
     public CustomAttributeEnumParameter(Il2CppType enumType, ApplicationAnalysisContext context, AnalyzedCustomAttribute owner, CustomAttributeParameterKind kind, int index) : base(owner, kind, index)
     {

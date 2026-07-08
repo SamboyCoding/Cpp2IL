@@ -60,7 +60,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public Il2CppParameterDefaultValue? DefaultValue { get; }
 
-    public virtual TypeAnalysisContext DefaultParameterType => DeclaringMethod.DeclaringType!.DeclaringAssembly.ResolveIl2CppType(Definition?.RawType) ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
+    public virtual TypeAnalysisContext DefaultParameterType => AppContext.ResolveIl2CppType(Definition?.RawType) ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
 
     public TypeAnalysisContext? OverrideParameterType { get; set; }
 

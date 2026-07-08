@@ -144,7 +144,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     private ushort Slot => Definition?.slot ?? ushort.MaxValue;
 
-    public virtual TypeAnalysisContext DefaultReturnType => DeclaringType?.DeclaringAssembly.ResolveIl2CppType(Definition?.RawReturnType) ?? throw new($"Subclasses of MethodAnalysisContext should override {nameof(DefaultReturnType)}");
+    public virtual TypeAnalysisContext DefaultReturnType => AppContext.ResolveIl2CppType(Definition?.RawReturnType) ?? throw new($"Subclasses of MethodAnalysisContext should override {nameof(DefaultReturnType)}");
 
     public TypeAnalysisContext? OverrideReturnType { get; set; }
 
@@ -236,7 +236,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                 {
                     if (i >= interfaceOffset.offset)
                     {
-                        var interfaceTypeContext = interfaceOffset.Type.ToContext(CustomAttributeAssembly);
+                        var interfaceTypeContext = interfaceOffset.Type.ToContext(AppContext);
                         var slot = i - interfaceOffset.offset;
                         if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, slot, out var method) && !IsInterfaceSlot(method, slot))
                         {
@@ -258,7 +258,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         {
             if (slot >= interfaceOffset.offset)
             {
-                var interfaceTypeContext = interfaceOffset.Type.ToContext(method.CustomAttributeAssembly);
+                var interfaceTypeContext = interfaceOffset.Type.ToContext(method.AppContext);
                 if (interfaceTypeContext != null && HasMethodForSlot(interfaceTypeContext, slot - interfaceOffset.offset))
                 {
                     return true;

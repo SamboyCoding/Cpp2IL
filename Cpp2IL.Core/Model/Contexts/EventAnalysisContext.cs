@@ -30,7 +30,7 @@ public class EventAnalysisContext : HasCustomAttributesAndName, IEventInfoProvid
         set => OverrideAttributes = value;
     }
 
-    public virtual TypeAnalysisContext DefaultEventType => DeclaringType.DeclaringAssembly.ResolveIl2CppType(Definition?.RawType) ?? throw new($"Subclasses must override {nameof(DefaultEventType)}.");
+    public virtual TypeAnalysisContext DefaultEventType => AppContext.ResolveIl2CppType(Definition?.RawType) ?? throw new($"Subclasses must override {nameof(DefaultEventType)}.");
 
     public TypeAnalysisContext? OverrideEventType { get; set; }
 

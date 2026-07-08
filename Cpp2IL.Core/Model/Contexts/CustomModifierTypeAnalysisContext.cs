@@ -3,8 +3,8 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class CustomModifierTypeAnalysisContext(TypeAnalysisContext elementType, TypeAnalysisContext modifierType, bool required, AssemblyAnalysisContext referencedFrom)
-    : WrappedTypeAnalysisContext(elementType, referencedFrom)
+public class CustomModifierTypeAnalysisContext(TypeAnalysisContext elementType, TypeAnalysisContext modifierType, bool required)
+    : WrappedTypeAnalysisContext(elementType)
 {
     public TypeAnalysisContext ModifierType { get; } = modifierType;
 
