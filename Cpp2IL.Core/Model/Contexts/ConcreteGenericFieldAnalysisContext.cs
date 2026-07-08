@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
+using LibCpp2IL;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -9,8 +10,8 @@ public class ConcreteGenericFieldAnalysisContext : FieldAnalysisContext
     public FieldAnalysisContext BaseFieldContext { get; }
     public override FieldAttributes DefaultAttributes => BaseFieldContext.DefaultAttributes;
     public override FieldAttributes? OverrideAttributes { get => BaseFieldContext.OverrideAttributes; set => BaseFieldContext.OverrideAttributes = value; }
-    public override object? DefaultConstantValue => BaseFieldContext.DefaultConstantValue;
-    public override object? OverrideConstantValue { get => BaseFieldContext.OverrideConstantValue; set => BaseFieldContext.OverrideConstantValue = value; }
+    public override DefaultValue? DefaultConstantValue => BaseFieldContext.DefaultConstantValue;
+    public override DefaultValue? OverrideConstantValue { get => BaseFieldContext.OverrideConstantValue; set => BaseFieldContext.OverrideConstantValue = value; }
     public override int DefaultOffset => BaseFieldContext.DefaultOffset;
     public override int? OverrideOffset { get => BaseFieldContext.OverrideOffset; set => BaseFieldContext.OverrideOffset = value; }
     public override byte[] DefaultStaticArrayInitialValue => BaseFieldContext.DefaultStaticArrayInitialValue;

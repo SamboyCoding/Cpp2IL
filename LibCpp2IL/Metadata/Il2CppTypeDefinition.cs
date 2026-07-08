@@ -248,7 +248,7 @@ public class Il2CppTypeDefinition : ReadableClass
         .Select(t => (FieldAttributes)t.Attrs)
         .ToArray();
 
-    public object?[]? FieldDefaults => Fields?
+    public DefaultValue?[]? FieldDefaults => Fields?
         .Select((f, idx) => (f.FieldIndex, FieldAttributes![idx]))
         .Select(tuple => (tuple.Item2 & System.Reflection.FieldAttributes.HasDefault) != 0 ? OwningContext.Metadata.GetFieldDefaultValueFromIndex(tuple.FieldIndex) : null)
         .Select(def => def == null ? null : LibCpp2ILUtils.GetDefaultValue(def.dataIndex, def.typeIndex, OwningContext))
@@ -270,8 +270,8 @@ public class Il2CppTypeDefinition : ReadableClass
             {
                 ret[i] = new(
                     fields[i],
-                    attributes![i],
-                    defaults![i],
+                    attributes[i],
+                    defaults[i],
                     i,
                     OwningContext.Binary.GetFieldOffsetFromIndex(TypeIndex, i, fields[i].FieldIndex, IsValueType, attributes[i].HasFlag(System.Reflection.FieldAttributes.Static))
                 );

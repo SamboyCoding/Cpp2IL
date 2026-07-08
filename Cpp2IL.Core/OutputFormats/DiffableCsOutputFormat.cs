@@ -120,7 +120,7 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             {
                 writer.Write(enumValue.Name);
                 writer.Write(" = ");
-                writer.Write(InvariantValue(enumValue.BackingData!.DefaultValue));
+                writer.Write(InvariantValue(enumValue.ConstantValue?.Value));
                 writer.WriteLine(',');
             }
         }
@@ -190,24 +190,24 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
             }
         }
 
-        if (field.BackingData?.DefaultValue is { } defaultValue)
+        if (field.ConstantValue is { } defaultValue)
         {
             writer.Write(" = ");
 
-            if (defaultValue is string stringDefaultValue)
+            if (defaultValue.Value is string stringDefaultValue)
             {
                 writer.Write('"');
                 writer.Write(stringDefaultValue);
                 writer.Write('"');
             }
-            else if (defaultValue is char charDefaultValue)
+            else if (defaultValue.Value is char charDefaultValue)
             {
                 writer.Write("'\\u");
                 writer.Write(((int)charDefaultValue).ToString("X"));
                 writer.Write("'");
             }
             else
-                writer.Write(InvariantValue(defaultValue));
+                writer.Write(InvariantValue(defaultValue.Value));
         }
 
         writer.Write("; //Field offset: 0x");
@@ -407,5 +407,5 @@ public class DiffableCsOutputFormat : Cpp2IlOutputFormat
         => CsFileUtils.WriteCustomAttributeStrings(owner, writer, true, true);
 
     private static string InvariantValue(object? value)
-        => value is null ? "" : value is IFormattable f ? f.ToString(null, CultureInfo.InvariantCulture) : value.ToString() ?? "";
+        => value is null ? "null" : value is IFormattable f ? f.ToString(null, CultureInfo.InvariantCulture) : value.ToString() ?? "";
 }

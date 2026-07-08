@@ -28,7 +28,7 @@ public class CustomAttributeEnumParameter : BaseCustomAttributeParameter
     public override string ToString()
     {
         var enumTypeDef = EnumType.AsClass();
-        var matchingField = enumTypeDef.Fields?.FirstOrDefault(f => Equals(f.DefaultValue?.Value, UnderlyingPrimitiveParameter.PrimitiveValue));
+        var matchingField = enumTypeDef.Fields?.FirstOrDefault(f => Equals(f.DefaultValue?.Value?.Value, UnderlyingPrimitiveParameter.PrimitiveValue));
 
         if (matchingField != null)
             return $"{enumTypeDef.Name}::{matchingField.Name} ({UnderlyingPrimitiveParameter.PrimitiveValue})";

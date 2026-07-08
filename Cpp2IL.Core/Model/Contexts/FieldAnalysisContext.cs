@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
+using LibCpp2IL;
 using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Reflection;
 using StableNameDotNet.Providers;
@@ -43,11 +44,11 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public bool IsStatic => (Attributes & FieldAttributes.Static) != 0;
 
-    public virtual object? DefaultConstantValue => BackingData?.Field.DefaultValue?.Value;
+    public virtual DefaultValue? DefaultConstantValue => BackingData?.Field.DefaultValue?.Value;
 
-    public virtual object? OverrideConstantValue { get; set; }
+    public virtual DefaultValue? OverrideConstantValue { get; set; }
 
-    public object? ConstantValue
+    public DefaultValue? ConstantValue
     {
         get => OverrideConstantValue ?? DefaultConstantValue;
         set => OverrideConstantValue = value;

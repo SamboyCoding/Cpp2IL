@@ -1,4 +1,4 @@
-﻿using System.Reflection;
+using System.Reflection;
 using System.Text;
 using LibCpp2IL.BinaryStructures;
 
@@ -11,7 +11,7 @@ public class Il2CppParameterReflectionData
     public Il2CppType RawType;
     public Il2CppTypeReflectionData Type;
     public ParameterAttributes Attributes;
-    public object? DefaultValue;
+    public DefaultValue? DefaultValue;
     public int ParameterIndex;
 
     public bool IsRefOrOut => Attributes.HasFlag(ParameterAttributes.Out) || RawType.Byref == 1;
@@ -34,8 +34,8 @@ public class Il2CppParameterReflectionData
         else
             result.Append(ParameterName);
 
-        if (Attributes.HasFlag(ParameterAttributes.HasDefault))
-            result.Append(" = ").Append(DefaultValue ?? "null");
+        if (Attributes.HasFlag(ParameterAttributes.HasDefault) && DefaultValue != null)
+            result.Append(" = ").Append(DefaultValue.ToString());
 
         return result.ToString();
     }

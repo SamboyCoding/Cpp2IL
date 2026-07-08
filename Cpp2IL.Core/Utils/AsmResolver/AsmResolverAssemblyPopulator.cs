@@ -352,7 +352,7 @@ public static class AsmResolverAssemblyPopulator
 
             //Field default values
             if (managedField.HasDefault && fieldContext.ConstantValue is { } constVal)
-                managedField.Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
+                managedField.Constant = AsmResolverConstants.GetOrCreateConstant(constVal.Value);
 
             //Field Initial Values (used for allocation of Array Literals)
             if (managedField.HasFieldRva)
@@ -389,12 +389,7 @@ public static class AsmResolverAssemblyPopulator
                     continue;
 
                 if (defaultValueData?.ContainedDefaultValue is { } constVal)
-                    parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
-                else if (defaultValueData is { dataIndex.IsNull: true })
-                {
-                    //Literal null
-                    parameterDefinitions[i].Constant = AsmResolverConstants.Null;
-                }
+                    parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(constVal.Value);
             }
 
 

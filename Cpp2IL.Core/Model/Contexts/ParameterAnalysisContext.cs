@@ -109,17 +109,17 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         else
             result.Append(ParameterName);
 
-        if (Attributes.HasFlag(ParameterAttributes.HasDefault))
+        if (Attributes.HasFlag(ParameterAttributes.HasDefault) && DefaultValue?.ContainedDefaultValue is { } defaultValue)
         {
-            var defaultValue = DefaultValue!.ContainedDefaultValue;
-            if (defaultValue is string stringDefaultValue)
-                defaultValue = $"\"{stringDefaultValue}\"";
-            else if (defaultValue is bool boolDefaultValue)
-                defaultValue = boolDefaultValue.ToString().ToLowerInvariant();
-            else if (defaultValue is null)
-                defaultValue = "null";
+            string defaultValueString;
+            if (defaultValue.Value is string stringDefaultValue)
+                defaultValueString = $"\"{stringDefaultValue}\"";
+            else if (defaultValue.Value is bool boolDefaultValue)
+                defaultValueString = boolDefaultValue.ToString().ToLowerInvariant();
+            else
+                defaultValueString = defaultValue.ToString();
 
-            result.Append(" = ").Append(defaultValue);
+            result.Append(" = ").Append(defaultValueString);
         }
 
         return result.ToString();

@@ -171,12 +171,12 @@ public static class LibCpp2ILUtils
         return ret;
     }
 
-    internal static object? GetDefaultValue(Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> dataIndex, Il2CppVariableWidthIndex<Il2CppType> typeIndex, LibCpp2IlContext context)
+    internal static DefaultValue? GetDefaultValue(Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy> dataIndex, Il2CppVariableWidthIndex<Il2CppType> typeIndex, LibCpp2IlContext context)
     {
         var metadata = context.Metadata;
 
         if (dataIndex.IsNull)
-            return null; //Literally null.
+            return DefaultValue.Null;
 
         var pointer = metadata.GetDefaultValueFromIndex(dataIndex);
         if (pointer <= 0) return null;
