@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Utils;
+using LibCpp2IL;
 using LibCpp2IL.Metadata;
 using StableNameDotNet.Providers;
 
@@ -55,10 +56,31 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
     /// </summary>
     public bool IsRef => ParameterType is ByRefTypeAnalysisContext || Attributes.HasFlag(ParameterAttributes.Out);
 
+    public virtual ConstantValue? OriginalDefaultValue
+    {
+        get
+        {
+            if (!DefaultAttributes.HasFlag(ParameterAttributes.HasDefault))
+                return null;
+
+            if (Definition is null)
+                return null;
+
+            var il2CppDefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(DeclaringMethod.Definition!.parameterStart.Value + ParameterIndex))!;
+            return il2CppDefaultValue.ContainedDefaultValue;
+        }
+    }
+
+    public virtual ConstantValue? OverrideDefaultValue { get; set; }
+
     /// <summary>
     /// The default value data for this parameter. Null if, and only if, the parameter has no default value. If it has a default value of literally null, this will be non-null and have a data index of -1.
     /// </summary>
-    public Il2CppParameterDefaultValue? DefaultValue { get; }
+    public ConstantValue? DefaultValue
+    {
+        get => OverrideDefaultValue ?? OriginalDefaultValue;
+        set => OverrideDefaultValue = value;
+    }
 
     public virtual TypeAnalysisContext DefaultParameterType => AppContext.ResolveIl2CppType(Definition?.RawType) ?? throw new("Subclasses of ParameterAnalysisContext must provide a parameter type");
 
@@ -79,11 +101,6 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         if (Definition != null)
         {
             InitCustomAttributeData();
-
-            if (Attributes.HasFlag(ParameterAttributes.HasDefault))
-            {
-                DefaultValue = AppContext.Metadata.GetParameterDefaultValueFromIndex(Il2CppVariableWidthIndex<Il2CppParameterDefinition>.MakeTemporaryForFixedWidthUsage(declaringMethod.Definition!.parameterStart.Value + parameterIndex))!;
-            }
         }
     }
 
@@ -109,7 +126,7 @@ public class ParameterAnalysisContext : HasCustomAttributesAndName, IParameterIn
         else
             result.Append(ParameterName);
 
-        if (Attributes.HasFlag(ParameterAttributes.HasDefault) && DefaultValue?.ContainedDefaultValue is { } defaultValue)
+        if (Attributes.HasFlag(ParameterAttributes.HasDefault) && DefaultValue is { } defaultValue)
         {
             string defaultValueString;
             if (defaultValue.Value is string stringDefaultValue)

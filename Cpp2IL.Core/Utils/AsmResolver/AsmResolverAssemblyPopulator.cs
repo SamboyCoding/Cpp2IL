@@ -388,7 +388,7 @@ public static class AsmResolverAssemblyPopulator
                 if (parameterAnalysisContext.DefaultValue is not { } defaultValueData || !parameterAnalysisContext.Attributes.HasFlag(System.Reflection.ParameterAttributes.HasDefault))
                     continue;
 
-                if (defaultValueData?.ContainedDefaultValue is { } constVal)
+                if (defaultValueData is { } constVal)
                     parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(constVal.Value);
             }
 
