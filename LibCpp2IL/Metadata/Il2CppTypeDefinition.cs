@@ -248,7 +248,7 @@ public class Il2CppTypeDefinition : ReadableClass
         .Select(t => (FieldAttributes)t.Attrs)
         .ToArray();
 
-    public DefaultValue?[]? FieldDefaults => Fields?
+    public ConstantValue?[]? FieldDefaults => Fields?
         .Select((f, idx) => (f.FieldIndex, FieldAttributes![idx]))
         .Select(tuple => (tuple.Item2 & System.Reflection.FieldAttributes.HasDefault) != 0 ? OwningContext.Metadata.GetFieldDefaultValueFromIndex(tuple.FieldIndex) : null)
         .Select(def => def == null ? null : LibCpp2ILUtils.GetDefaultValue(def.dataIndex, def.typeIndex, OwningContext))

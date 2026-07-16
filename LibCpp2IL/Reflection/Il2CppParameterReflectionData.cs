@@ -11,7 +11,7 @@ public class Il2CppParameterReflectionData
     public Il2CppType RawType;
     public Il2CppTypeReflectionData Type;
     public ParameterAttributes Attributes;
-    public DefaultValue? DefaultValue;
+    public ConstantValue? DefaultValue;
     public int ParameterIndex;
 
     public bool IsRefOrOut => Attributes.HasFlag(ParameterAttributes.Out) || RawType.Byref == 1;

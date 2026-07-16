@@ -44,11 +44,11 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public bool IsStatic => (Attributes & FieldAttributes.Static) != 0;
 
-    public virtual DefaultValue? DefaultConstantValue => BackingData?.Field.DefaultValue?.Value;
+    public virtual ConstantValue? DefaultConstantValue => BackingData?.Field.DefaultValue?.Value;
 
-    public virtual DefaultValue? OverrideConstantValue { get; set; }
+    public virtual ConstantValue? OverrideConstantValue { get; set; }
 
-    public DefaultValue? ConstantValue
+    public ConstantValue? ConstantValue
     {
         get => OverrideConstantValue ?? DefaultConstantValue;
         set => OverrideConstantValue = value;

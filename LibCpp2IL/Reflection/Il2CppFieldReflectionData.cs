@@ -6,13 +6,13 @@ namespace LibCpp2IL.Reflection;
 public class Il2CppFieldReflectionData(
     Il2CppFieldDefinition field,
     FieldAttributes attributes,
-    DefaultValue? defaultValue,
+    ConstantValue? defaultValue,
     int indexInParent,
     int fieldOffset)
 {
     public Il2CppFieldDefinition Field = field;
     public FieldAttributes Attributes = attributes;
-    public DefaultValue? DefaultValue = defaultValue;
+    public ConstantValue? DefaultValue = defaultValue;
     public int IndexInParent = indexInParent;
     public int FieldOffset = fieldOffset;
 }
