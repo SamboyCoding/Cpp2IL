@@ -75,68 +75,58 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
         }
     }
     
-    private static byte DeriveXorKey(Span<byte> encryptedHeader, out bool isPlus)
+    private static IEnumerable<(byte key, bool isPlus)> DeriveXorKeyCandidates(byte[] encryptedHeader)
     {
+        var seen = new HashSet<(byte, bool)>();
         var valueOffset = 0;
         while (valueOffset + 4 + 3 < encryptedHeader.Length)
         {
             var knownZeroByte = encryptedHeader[valueOffset + 3];
             var knownZeroByteTwo = encryptedHeader[valueOffset + 4 + 3];
-            
+
             var looksLikePlus = ((int) knownZeroByte + 4) % 256 == knownZeroByteTwo;
             var looksLikeMinus = ((int) knownZeroByte - 4) % 256 == knownZeroByteTwo;
 
-            if (!looksLikeMinus && !looksLikePlus)
+            if (looksLikePlus || looksLikeMinus)
             {
-                valueOffset += 4;
-                continue;
+                var isPlus = looksLikePlus;
+                var key = (byte) ((isPlus
+                    ? (knownZeroByte - valueOffset - 3)
+                    : (knownZeroByte + valueOffset + 3)
+                ) & 0xFF);
+                if (seen.Add((key, isPlus)))
+                    yield return (key, isPlus);
             }
-            
-            isPlus = looksLikePlus;
-            return (byte) ((isPlus 
-                ? (knownZeroByte - valueOffset - 3)
-                : (knownZeroByte + valueOffset + 3)
-            ) & 0xFF);
+            valueOffset += 4;
         }
-
-        throw new Exception("Failed to derive XOR key");
     }
 
-    private byte[] DecryptHeader(Span<byte> encryptedHeader, out byte stringLiteralsXorKey, out bool stringLiteralsIsPlus)
+    private IEnumerable<(byte[] header, byte xorKey, byte stringLiteralsXorKey, bool stringLiteralsIsPlus)> DecryptHeaderCandidates(byte[] encryptedHeader, byte xorKey, bool isPlus)
     {
-        var xorKey = DeriveXorKey(encryptedHeader, out var isPlus);
-        
-        Logger.VerboseNewline($"Derived header XOR key: 0x{xorKey:X2}. Header fields use {(isPlus ? "plus" : "minus")} rotation.");
-
         //Header size isn't actually known, we just pass the first 480 bytes in
         //So let's work it out
         var headerSize = 0;
-        
-        Span<byte> decryptedWord = stackalloc byte[4];
         while (headerSize < MaxHeaderSize)
         {
-            var encryptedWord = encryptedHeader[headerSize..(headerSize + 4)];
+            Span<byte> decryptedWord = stackalloc byte[4];
+            var encryptedWord = encryptedHeader.AsSpan(headerSize, 4);
             CyclicXorHeader(encryptedWord, decryptedWord, xorKey, isPlus, headerSize);
 
             headerSize += 4;
 
             //Top byte of every header field is expected to be 0 (ie no metadata offset or length is > 32mb), so when we find a non-zero byte we've reached end of header and grabbed the beginning of the string literal data
             if (decryptedWord[0] == 0)
-            {
-                //Still in the header
-                continue;
-            }
+                continue; //Still in the header
 
             //We've reached the string literal data, so we can stop now. We just need to determine whether the string literals use plus or minus key rotation to know how to decode them later.
             var stringLiteralsLookLikePlus = ((encryptedWord[0] + 1) & 0xFF) == encryptedWord[1];
             var stringLiteralsLookLikeMinus = ((encryptedWord[0] - 1) & 0xFF) == encryptedWord[1];
-            
+
             if(!stringLiteralsLookLikeMinus && !stringLiteralsLookLikePlus)
                 continue; //not this one.
-            
+
             //The first 4 bytes of the string literals section should all be 0, i.e. they should be sequential bytes when a sequential XOR is applied. Check this.
             var addend = stringLiteralsLookLikePlus ? 1 : (stringLiteralsLookLikeMinus ? -1 : 0);
-            
             var looksValid = true;
             for (var i = 0; i < 3; i++)
             {
@@ -149,18 +139,15 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
 
             if (looksValid)
             {
-                headerSize -= 4; //the last 4 bytes we read were actually the start of the string literal data, so remove them from the header size
-                
-                var decryptedHeader = new byte[headerSize];
-                CyclicXorHeader(encryptedHeader[..headerSize], decryptedHeader, xorKey, isPlus);
-                stringLiteralsXorKey = encryptedWord[0];
-                var nextEncryptedWord = encryptedHeader[(headerSize + 4)..(headerSize + 8)];
-                stringLiteralsIsPlus = nextEncryptedWord[0] == encryptedWord[0] + 4;
-                return decryptedHeader;
+                var candidateHeaderSize = headerSize - 4;
+                var decryptedHeaderBytes = new byte[candidateHeaderSize];
+                CyclicXorHeader(encryptedHeader.AsSpan(0, candidateHeaderSize), decryptedHeaderBytes, xorKey, isPlus);
+                var stringLiteralsXorKey = encryptedWord[0];
+                var nextEncryptedWord = encryptedHeader.AsSpan(candidateHeaderSize + 4, 4);
+                var stringLiteralsIsPlus = nextEncryptedWord[0] == encryptedWord[0] + 4;
+                yield return (decryptedHeaderBytes, xorKey, stringLiteralsXorKey, stringLiteralsIsPlus);
             }
         }
-        
-        throw new Exception("Failed to determine header size");
     }
 
     private List<List<ReconstructedSection>> FindPathsThroughMetadata(uint[] headerWords, int dataStart, int fileEnd, out SortedCollection<DeadEnd> bestDeadEnds, int maxResults = 10, int debugBestN = 10, int? expectedSectionCount = null, Dictionary<int, int>? alignBefore = null, int? originalHeaderSize = null)
@@ -505,16 +492,8 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
 
     private byte[]? TryFixupMfuscatorMetadata(byte[] originalBytes, UnityVersion unityVersion)
     {
-        var decryptedHeader = DecryptHeader(originalBytes, out var stringLiteralsXorKey, out var stringLiteralsIsPlus);
-        
-        var headerLength = decryptedHeader.Length;
-         
-        var headerWords = MemoryMarshal.Cast<byte, uint>(decryptedHeader).ToArray();
-        
-        //There is some garbage data at the end of the file, which confuses the actual length of the metadata (which we use to find a chain through the real/fake values in the header to identify the real ones)
         //So we unfortunately have to bruteforce it, reducing the length of the metadata by 4 bytes at a time until we get a path.
         var metadataLength = originalBytes.Length;
-
         var sectionAlignments = new Dictionary<int, int>
         {
             { 8, 8 }, //fieldAndParameterDefaultValueData
@@ -566,74 +545,84 @@ public class MfuscatorSupportPlugin : Cpp2IlPlugin
             throw new NotImplementedException("Metadata versions with 12 bytes per section header field aren't currently supported");
         
         var originalHeaderSize = 8 + expectedSectionCount * bytesPerSectionHeaderField; //magic + version + 8 bytes per section header field
-        
-        Logger.InfoNewline($"Mfuscator header decrypted successfully. Header length: {headerLength} bytes. String literals XOR key: 0x{stringLiteralsXorKey:X2}. String literals use {(stringLiteralsIsPlus ? "plus" : "minus")} rotation. Will rebuild as version {MetadataVersion} metadata with assemblies section at index {assembliesSectionIndex}.");
-        
-        Logger.VerboseNewline("Decrypted header: " + string.Join("", decryptedHeader.Select(b => b.ToString("X2"))));
-        
-        var lengthsToTry = Enumerable.Sequence(metadataLength, headerLength, -4).ToArray();
-        byte[]? rebuiltMetadata = null;
-        var winningIndex = long.MaxValue;
-        var rebuiltMetadataLock = new object();
 
-        // Preserve the original highest-length-first behavior while still stopping lower-priority work once a candidate is found.
-        Parallel.ForEach(Partitioner.Create(lengthsToTry, loadBalance: true), (length, loopState, index) =>
+        foreach (var keyCandidate in DeriveXorKeyCandidates(originalBytes))
         {
-            if (index > loopState.LowestBreakIteration || index > Interlocked.Read(ref winningIndex))
-                return;
-
-            Logger.VerboseNewlineIfDebug($"Trying metadata length 0x{length:X4}");
-            
-            var paths = FindPathsThroughMetadata(headerWords, headerLength, length, out var bestDeadEnds, maxResults: 65536, debugBestN: 0, expectedSectionCount: expectedSectionCount, alignBefore: sectionAlignments, originalHeaderSize: originalHeaderSize);
-
-            if (paths.Count > 0)
+            foreach (var (decryptedHeader, xorKey, stringLiteralsXorKey, stringLiteralsIsPlus) in DecryptHeaderCandidates(originalBytes, keyCandidate.key, keyCandidate.isPlus))
             {
-                //We'll likely get a couple dozen paths due to the fake offsets, which vary in supposed position and delta, but they should all agree on *actual* position in file.
-                //We check that that's the case, and take those actual positions as gospel.
-                //NB actually we don't check if that's the case because they sometimes differ in unimportant sections, too bad!
-                Logger.VerboseNewlineIfDebug($"Found {paths.Count} possible section layouts with metadata length 0x{length:X4} bytes.");
-                
-                var actualRanges = paths.Select(path => path.Select(section => (section.ActualOffset, section.ActualOffset + section.Length)).ToArray()).ToArray();
+                var headerLength = decryptedHeader.Length;
+                var headerWords = MemoryMarshal.Cast<byte, uint>(decryptedHeader).ToArray();
 
-                var distinct = actualRanges.Distinct(new SectionRangeComparer()).ToArray();
+                Logger.InfoNewline($"Mfuscator header decrypted successfully. Header length: {headerLength} bytes. String literals XOR key: 0x{stringLiteralsXorKey:X2}. String literals use {(stringLiteralsIsPlus ? "plus" : "minus")} rotation. Will rebuild as version {MetadataVersion} metadata with assemblies section at index {assembliesSectionIndex}.");
                 
-                Logger.VerboseNewlineIfDebug($"These collapse to {distinct.Length} distinct actual section layouts.");
+                Logger.VerboseNewline("Decrypted header: " + string.Join("", decryptedHeader.Select(b => b.ToString("X2"))));
 
-                foreach (var acceptedLayout in distinct)
+                var lengthsToTry = Enumerable.Sequence(metadataLength, headerLength, -4).ToArray();
+                byte[]? rebuiltMetadata = null;
+                var winningIndex = long.MaxValue;
+                var rebuiltMetadataLock = new object();
+
+                // Preserve the original highest-length-first behavior while still stopping lower-priority work once a candidate is found.
+                Parallel.ForEach(Partitioner.Create(lengthsToTry, loadBalance: true), (length, loopState, index) =>
                 {
+                    if (index > loopState.LowestBreakIteration || index > Interlocked.Read(ref winningIndex))
+                        return;
 
-                    Logger.VerboseNewlineIfDebug($"Trying section layout: " + string.Join(", ", acceptedLayout.Select(range => $"({range.Item1:X4}-{range.Item2:X4})")));
+                    Logger.VerboseNewlineIfDebug($"Trying metadata length 0x{length:X4}");
 
-                    try
+                    var paths = FindPathsThroughMetadata(headerWords, headerLength, length, out var bestDeadEnds, maxResults: 65536, debugBestN: 0, expectedSectionCount: expectedSectionCount, alignBefore: sectionAlignments, originalHeaderSize: originalHeaderSize);
+
+                    if (paths.Count > 0)
                     {
-                        var ret = RebuildMetadata(originalBytes, acceptedLayout.ToList(), stringLiteralsXorKey, stringLiteralsIsPlus, offsetDelta: originalHeaderSize - headerLength, MetadataVersion, assembliesSectionIndex);
-                        var installedWinningResult = false;
-                        lock (rebuiltMetadataLock)
+                        //We'll likely get a couple dozen paths due to the fake offsets, which vary in supposed position and delta, but they should all agree on *actual* position in file.
+                        //We check that that's the case, and take those actual positions as gospel.
+                        //NB actually we don't check if that's the case because they sometimes differ in unimportant sections, too bad!
+                        Logger.VerboseNewlineIfDebug($"Found {paths.Count} possible section layouts with metadata length 0x{length:X4} bytes.");
+
+                        var actualRanges = paths.Select(path => path.Select(section => (section.ActualOffset, section.ActualOffset + section.Length)).ToArray()).ToArray();
+                        var distinct = actualRanges.Distinct(new SectionRangeComparer()).ToArray();
+
+                        Logger.VerboseNewlineIfDebug($"These collapse to {distinct.Length} distinct actual section layouts.");
+
+                        foreach (var acceptedLayout in distinct)
                         {
-                            if (index < winningIndex)
+                            Logger.VerboseNewlineIfDebug($"Trying section layout: " + string.Join(", ", acceptedLayout.Select(range => $"({range.Item1:X4}-{range.Item2:X4})")));
+
+                            try
                             {
-                                winningIndex = index;
-                                rebuiltMetadata = ret;
-                                installedWinningResult = true;
+                                var ret = RebuildMetadata(originalBytes, acceptedLayout.ToList(), stringLiteralsXorKey, stringLiteralsIsPlus, offsetDelta: originalHeaderSize - headerLength, MetadataVersion, assembliesSectionIndex);
+                                var installedWinningResult = false;
+                                lock (rebuiltMetadataLock)
+                                {
+                                    if (index < winningIndex)
+                                    {
+                                        winningIndex = index;
+                                        rebuiltMetadata = ret;
+                                        installedWinningResult = true;
+                                    }
+                                }
+
+                                if (!installedWinningResult)
+                                    return;
+
+                                Logger.InfoNewline("Returning decrypted metadata now...");
+                                loopState.Break();
+                                return;
+                            }
+                            catch (Exception)
+                            {
+                                continue;
                             }
                         }
-
-                        if (!installedWinningResult)
-                            return;
-
-                        Logger.InfoNewline("Returning decrypted metadata now...");
-                        loopState.Break();
-                        return;
                     }
-                    catch (Exception)
-                    {
-                        continue;
-                    }
-                }
+
+                });
+
+                if (rebuiltMetadata != null)
+                    return rebuiltMetadata;
             }
+        }
 
-        });
-        
-        return rebuiltMetadata;
+        return null;
     }
 }
