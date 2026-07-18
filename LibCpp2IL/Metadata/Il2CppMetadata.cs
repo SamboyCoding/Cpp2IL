@@ -373,7 +373,7 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             stringLiterals = ReadMetadataClassArray<Il2CppStringLiteral>(metadataHeader.stringLiteral);
             LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-            if (MetadataVersion > 24)
+            if (MetadataVersion >= 24)
             {
                 LibLogger.Verbose("\tReading exported types...");
                 start = DateTime.Now;

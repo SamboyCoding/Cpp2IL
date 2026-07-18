@@ -12,6 +12,8 @@ namespace LibCpp2IL;
 
 public static class LibCpp2IlBinaryRegistry
 {
+    public static Dictionary<string, string>? WasmRemappedDynCallFunctions;
+
     private static List<RegisteredBinary> _binaries = [];
 
     public static void RegisterBuiltInBinarySupport()
@@ -30,7 +32,7 @@ public static class LibCpp2IlBinaryRegistry
 
         Register("WebAssembly File", "LibCpp2IL",
             bytes => BitConverter.ToInt32(bytes, 0) == 0x6D736100, //\0WASM
-            (memStream) => new WasmFile(memStream));
+            (memStream) => new WasmFile(memStream, WasmRemappedDynCallFunctions));
 
         Register("Mach-O File", "LibCppIL",
             bytes => BitConverter.ToUInt32(bytes, 0) is 0xFEEDFACE or 0xFEEDFACF,

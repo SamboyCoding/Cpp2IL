@@ -5,31 +5,31 @@ namespace Cpp2IL.Core.Utils;
 
 public static class Il2CppTypeReflectionDataToContext
 {
-    public static TypeAnalysisContext? ToContext(this Il2CppTypeReflectionData reflectionData, AssemblyAnalysisContext assembly)
+    public static TypeAnalysisContext? ToContext(this Il2CppTypeReflectionData reflectionData, ApplicationAnalysisContext appContext)
     {
         TypeAnalysisContext? pointerElementType;
 
         if (reflectionData.isArray)
         {
-            var arrayElementType = reflectionData.arrayType?.ToContext(assembly);
+            var arrayElementType = reflectionData.arrayType?.ToContext(appContext);
             if (arrayElementType is null)
             {
                 return null;
             }
 
-            pointerElementType = new ArrayTypeAnalysisContext(arrayElementType, reflectionData.arrayRank, assembly);
+            pointerElementType = new ArrayTypeAnalysisContext(arrayElementType, reflectionData.arrayRank);
         }
         else if (!reflectionData.isType)
         {
-            pointerElementType = assembly.AppContext.ResolveContextForGenericParameter(reflectionData.GenericParameter);
+            pointerElementType = appContext.ResolveContextForGenericParameter(reflectionData.GenericParameter);
         }
         else if (!reflectionData.isGenericType)
         {
-            pointerElementType = reflectionData.baseType is null ? null : assembly.AppContext.ResolveContextForType(reflectionData.baseType);
+            pointerElementType = reflectionData.baseType is null ? null : appContext.ResolveContextForType(reflectionData.baseType);
         }
         else
         {
-            var baseType = reflectionData.baseType is null ? null : assembly.AppContext.ResolveContextForType(reflectionData.baseType);
+            var baseType = reflectionData.baseType is null ? null : appContext.ResolveContextForType(reflectionData.baseType);
             if (baseType == null)
             {
                 return null;
@@ -38,7 +38,7 @@ public static class Il2CppTypeReflectionDataToContext
             var genericParams = new TypeAnalysisContext[reflectionData.genericParams.Length];
             for (var i = 0; i < reflectionData.genericParams.Length; i++)
             {
-                var param = reflectionData.genericParams[i].ToContext(assembly);
+                var param = reflectionData.genericParams[i].ToContext(appContext);
                 if (param == null)
                 {
                     return null;
@@ -47,12 +47,12 @@ public static class Il2CppTypeReflectionDataToContext
                 genericParams[i] = param;
             }
 
-            pointerElementType = new GenericInstanceTypeAnalysisContext(baseType, genericParams, assembly);
+            pointerElementType = new GenericInstanceTypeAnalysisContext(baseType, genericParams);
         }
 
         if (reflectionData.isPointer && pointerElementType is not null)
         {
-            return new PointerTypeAnalysisContext(pointerElementType, assembly);
+            return new PointerTypeAnalysisContext(pointerElementType);
         }
         else
         {

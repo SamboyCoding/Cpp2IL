@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Drawing;
 using System.IO;
+using System.Runtime.InteropServices;
 using Cpp2IL.Core.Logging;
 using Pastel;
 
@@ -64,7 +65,7 @@ internal static class ConsoleLogger
         //     WarnNewline("Looks like you're running on a non-windows platform. Disabling ANSI color codes.");
         // }
         /*else*/
-        if (Directory.Exists(@"Z:\usr\"))
+        if (CheckWine())
         {
             DisableColor = true;
             Logger.WarnNewline("Looks like you're running in wine or proton. Disabling ANSI color codes.");
@@ -79,5 +80,26 @@ internal static class ConsoleLogger
             //Ensure we run the cctor for Pastel now.
             ConsoleExtensions.Enable();
         }
+    }
+
+    private static bool CheckWine()
+    {
+#if NET472
+        if (Environment.OSVersion.Platform != PlatformID.Win32NT)
+            return false;
+
+        [DllImport("kernel32.dll")]
+        static extern IntPtr GetModuleHandle(string name);
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Ansi)]
+        static extern IntPtr GetProcAddress(IntPtr module, string name);
+
+        return GetProcAddress(GetModuleHandle("ntdll.dll"), "wine_get_version") != IntPtr.Zero;
+#else
+        if(!OperatingSystem.IsWindows())
+            return false;
+        
+        return NativeLibrary.TryGetExport(NativeLibrary.Load("ntdll.dll"), "wine_get_version", out _);
+#endif
     }
 }

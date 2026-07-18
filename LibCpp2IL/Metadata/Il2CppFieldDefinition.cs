@@ -33,11 +33,20 @@ public class Il2CppFieldDefinition : ReadableClass
             if (FieldType is not { isArray: false, isPointer: false, isType: true, isGenericType: false })
                 return [];
 
-            if (FieldType.baseType!.Name?.StartsWith("__StaticArrayInitTypeSize=") != true)
+            var (dataIndex, _) = OwningContext.Metadata.GetFieldDefaultValue(FieldIndex);
+
+            if (dataIndex.IsNull) return [];
+
+            var baseType = FieldType.baseType;
+            if (baseType == null)
                 return [];
 
-            var length = int.Parse(FieldType.baseType!.Name.Replace("__StaticArrayInitTypeSize=", ""));
-            var (dataIndex, _) = OwningContext.Metadata.GetFieldDefaultValue(FieldIndex);
+            //prefer the N encoded in the type name, as the binary's native_size can be -1 or wrong on some il2cpp versions
+            var length = baseType.Size;
+            if (baseType.Name?.StartsWith("__StaticArrayInitTypeSize=") == true && int.TryParse(baseType.Name["__StaticArrayInitTypeSize=".Length..], out var parsedLength))
+                length = parsedLength;
+
+            if (length <= 0) return [];
 
             var pointer = OwningContext.Metadata.GetDefaultValueFromIndex(dataIndex);
 

@@ -217,7 +217,8 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             case Arm64Mnemonic.ADRP:
                 //Just handle as a move
                 Add(address, OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
-                adrpOffsets[instruction.Op0Reg] = (ulong)instruction.Op1Imm;
+                var pageAddress = address & ~0xFFFUL;
+                adrpOffsets[instruction.Op0Reg] = (ulong)((long)pageAddress + instruction.Op1Imm);
                 break;
             case Arm64Mnemonic.LDP when instruction.Op2Kind == Arm64OperandKind.Memory:
                 //LDP (dest1, dest2, [mem]) - basically just treat as two loads, with the second offset by the length of the first

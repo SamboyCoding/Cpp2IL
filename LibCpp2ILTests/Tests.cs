@@ -3,7 +3,6 @@ using System.Net.Http;
 using AssetRipper.Primitives;
 using LibCpp2IL;
 using Xunit;
-using Xunit.Abstractions;
 
 namespace LibCpp2ILTests;
 

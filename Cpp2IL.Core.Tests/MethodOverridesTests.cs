@@ -14,6 +14,8 @@ public class MethodOverridesTests
         var list = mscorlib.GetTypeByFullName("System.Collections.Generic.List`1")!;
         var iList = mscorlib.GetTypeByFullName("System.Collections.IList")!;
         var ordinalComparer = mscorlib.GetTypeByFullName("System.OrdinalComparer")!;
+        var resourceSet = mscorlib.GetTypeByFullName("System.Resources.ResourceSet")!;
+        var runtimeResourceSet = mscorlib.GetTypeByFullName("System.Resources.RuntimeResourceSet")!;
         using (Assert.EnterMultipleScope())
         {
             // Simple override
@@ -36,6 +38,12 @@ public class MethodOverridesTests
 
             // Interface methods should not override anything
             Assert.That(iList.Methods.Select(m => m.Overrides.Count), Is.All.EqualTo(0));
+
+            // System.Resources.RuntimeResourceSet inherits from System.Resources.ResourceSet.
+            // Both implement System.Collections.IEnumerable::GetEnumerator() explicitly.
+            Assert.That(resourceSet.Methods.Any(m => m.Name == "System.Collections.IEnumerable.GetEnumerator"));
+            Assert.That(runtimeResourceSet.BaseType, Is.EqualTo(resourceSet));
+            Assert.That(runtimeResourceSet.GetMethod("System.Collections.IEnumerable.GetEnumerator").BaseMethod, Is.Null);
         }
     }
 

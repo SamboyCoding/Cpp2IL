@@ -41,7 +41,7 @@ public class GenericParameterTypeAnalysisContext : ReferencedTypeAnalysisContext
     {
         get
         {
-            _constraintTypes ??= definition?.ConstraintTypes.Select(t => DeclaringAssembly.ResolveIl2CppType(t)).ToList() ?? [];
+            _constraintTypes ??= definition?.ConstraintTypes.Select(t => AppContext.ResolveIl2CppType(t)).ToList() ?? [];
             return _constraintTypes;
         }
     }

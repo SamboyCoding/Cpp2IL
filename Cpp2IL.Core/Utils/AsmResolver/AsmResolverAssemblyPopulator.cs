@@ -346,8 +346,6 @@ public static class AsmResolverAssemblyPopulator
     {
         foreach (var fieldContext in typeContext.Fields)
         {
-            var fieldInfo = fieldContext.BackingData;
-
             var fieldTypeSig = fieldContext.ToTypeSignature(importer.TargetModule);
 
             var managedField = new FieldDefinition(fieldContext.Name, (FieldAttributes)fieldContext.Attributes, fieldTypeSig);
@@ -360,12 +358,9 @@ public static class AsmResolverAssemblyPopulator
             if (managedField.HasFieldRva)
                 managedField.FieldRva = new DataSegment(fieldContext.StaticArrayInitialValue);
 
-            if (fieldInfo != null)
-            {
-                if (ilTypeDefinition.IsExplicitLayout && !fieldContext.IsStatic)
-                    //Copy field offset
-                    managedField.FieldOffset = fieldInfo.FieldOffset;
-            }
+            //Copy field offset
+            if (ilTypeDefinition.IsExplicitLayout && !fieldContext.IsStatic)
+                managedField.FieldOffset = fieldContext.Offset;
 
             fieldContext.PutExtraData("AsmResolverField", managedField);
 
@@ -545,11 +540,13 @@ public static class AsmResolverAssemblyPopulator
 
         foreach (var methodContext in typeContext.Methods)
         {
-            if ((methodContext.Attributes & System.Reflection.MethodAttributes.MemberAccessMask) != System.Reflection.MethodAttributes.Private)
-                continue;
+            var isPrivate = (methodContext.Attributes & System.Reflection.MethodAttributes.MemberAccessMask) == System.Reflection.MethodAttributes.Private;
 
             foreach (var overrideContext in methodContext.Overrides)
             {
+                if (overrideContext.Name == methodContext.Name && !isPrivate)
+                    continue;
+
                 var interfaceMethod = (IMethodDefOrRef)overrideContext.ToMethodDescriptor(importer.TargetModule);
                 var method = methodContext.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {methodContext}");
                 type.MethodImplementations.Add(new MethodImplementation(interfaceMethod, method));

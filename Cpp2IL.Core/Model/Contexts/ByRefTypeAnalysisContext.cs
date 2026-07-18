@@ -3,14 +3,9 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class ByRefTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom)
-    : WrappedTypeAnalysisContext(elementType, referencedFrom)
+public class ByRefTypeAnalysisContext(TypeAnalysisContext elementType)
+    : WrappedTypeAnalysisContext(elementType)
 {
-    public ByRefTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
-        : this(default(TypeAnalysisContext)!, referencedFrom)
-    {
-    }
-
     public sealed override Il2CppTypeEnum Type => Il2CppTypeEnum.IL2CPP_TYPE_BYREF;
 
     public sealed override string DefaultName => $"{ElementType.DefaultName}&";

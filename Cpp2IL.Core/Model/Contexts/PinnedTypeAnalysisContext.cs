@@ -3,11 +3,11 @@ using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
-public class PinnedTypeAnalysisContext(TypeAnalysisContext elementType, AssemblyAnalysisContext referencedFrom)
-    : WrappedTypeAnalysisContext(elementType, referencedFrom)
+public class PinnedTypeAnalysisContext(TypeAnalysisContext elementType)
+    : WrappedTypeAnalysisContext(elementType)
 {
-    public PinnedTypeAnalysisContext(Il2CppType rawType, AssemblyAnalysisContext referencedFrom)
-        : this(referencedFrom.ResolveIl2CppType(rawType.GetEncapsulatedType()), referencedFrom)
+    public PinnedTypeAnalysisContext(Il2CppType rawType, ApplicationAnalysisContext context)
+        : this(context.ResolveIl2CppType(rawType.GetEncapsulatedType()))
     {
     }
 
