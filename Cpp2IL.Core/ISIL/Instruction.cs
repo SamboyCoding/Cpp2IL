@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
@@ -6,7 +7,7 @@ using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class Instruction(int index, OpCode opcode, params object[] operands)
+public class Instruction(int index, OpCode opcode, params object[] operands) : IEquatable<Instruction>
 {
     public int Index = index;
 
@@ -118,9 +119,17 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             return $"{Index} {OpCode} {jumpTarget2:X4}, {FormatOperand(Operands[1])}";
 
         if ((OpCode is OpCode.CallVoid or OpCode.Call) && Operands[0] is ulong callTarget)
-            return $"{Index} {OpCode} {callTarget:X4}, {string.Join(", ", Operands.Skip(1).Select(FormatOperand))}";
+        {
+            var remainingOperands = string.Join(", ", Operands.Skip(1).Select(FormatOperand));
+            return string.IsNullOrEmpty(remainingOperands)
+                ? $"{Index} {OpCode} {callTarget:X4}"
+                : $"{Index} {OpCode} {callTarget:X4}, {remainingOperands}";
+        }
 
-        return $"{Index} {OpCode} {string.Join(", ", Operands.Select(FormatOperand))}";
+        var formattedOperands = string.Join(", ", Operands.Select(FormatOperand));
+        return string.IsNullOrEmpty(formattedOperands)
+            ? $"{Index} {OpCode}"
+            : $"{Index} {OpCode} {formattedOperands}";
     }
 
     private static string FormatOperand(object operand)
@@ -147,4 +156,60 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             MemoryOperand memory => memory.IsConstant,
             _ => true
         };
+
+    public static bool operator ==(Instruction? left, Instruction? right)
+    {
+        if (left is null && right is null)
+            return true;
+        if (left is null || right is null)
+            return false;
+
+        return left.Equals(right);
+    }
+
+    public static bool operator !=(Instruction? left, Instruction? right) => !(left == right);
+
+    public bool Equals(Instruction? other)
+    {
+        if (ReferenceEquals(this, other))
+            return true;
+
+        if (other is null)
+            return false;
+
+        if (OpCode != other.OpCode)
+            return false;
+        
+        if (Index != other.Index)
+            return false;
+
+        if (Operands.Count != other.Operands.Count)
+            return false;
+
+        for (int i = 0; i < Operands.Count; i++)
+        {
+            var thisOperand = Operands[i];
+            var otherOperand = other.Operands[i];
+
+            if (!thisOperand.Equals(otherOperand))
+                return false;
+        }
+
+        return true;
+    }
+
+    public override bool Equals(object? obj) => obj is Instruction other && Equals(other);
+
+    public override int GetHashCode()
+    {
+        unchecked
+        {
+            var hashCode = Index;
+            hashCode = (hashCode * 397) ^ OpCode.GetHashCode();
+            foreach (var operand in Operands)
+                hashCode = (hashCode * 397) ^ operand.GetHashCode();
+            return hashCode;
+        }
+    }
+
 }
