@@ -1,5 +1,6 @@
 using System;
 using System.CodeDom.Compiler;
+using System.Linq;
 using System.Reflection;
 using System.Text;
 using Cpp2IL.Core.Logging;
@@ -368,7 +369,10 @@ public static class CsFileUtils
         {
             var genericTypeName = GetTypeName(genericInstanceType.GenericType);
             var backTickIndex = genericTypeName.LastIndexOf('`');
-            return backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
+            var baseName = backTickIndex > 0 ? genericTypeName[..backTickIndex] : genericTypeName;
+            return genericInstanceType.GenericArguments.Count > 0
+                ? baseName + "<" + string.Join(", ", genericInstanceType.GenericArguments.Select(GetTypeName)) + ">"
+                : baseName;
         }
 
         if (type.Namespace is "System")
