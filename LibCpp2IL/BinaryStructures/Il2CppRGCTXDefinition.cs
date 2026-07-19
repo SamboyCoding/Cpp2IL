@@ -11,7 +11,7 @@ public class Il2CppRGCTXDefinition : ReadableClass
 
     public int TypeIndex => _defData?.TypeIndex ?? _constrainedData!.TypeIndex;
 
-    public Il2CppMethodSpec MethodSpec => OwningContext.Binary.GetMethodSpec(MethodIndex);
+    public Il2CppMethodSpec MethodSpec => OwningContext.Metadata.GetMethodSpec(MethodIndex);
 
     public Il2CppTypeReflectionData Type
     {
@@ -54,6 +54,15 @@ public class Il2CppRGCTXDefinition : ReadableClass
 
     public override void Read(ClassReadingBinaryReader reader)
     {
+        if (IsAtLeast(108))
+        {
+            //packed down to 5 bytes now that it lives in the metadata file
+            type = (Il2CppRGCTXDataType)reader.ReadByte();
+            _defData = new Il2CppRGCTXDefinitionData();
+            _defData.Read(reader);
+            return;
+        }
+
         type = IsLessThan(29) ? (Il2CppRGCTXDataType)reader.ReadInt32() : (Il2CppRGCTXDataType)reader.ReadInt64();
         if (IsLessThan(27.2f))
         {

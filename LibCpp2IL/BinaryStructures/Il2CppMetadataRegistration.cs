@@ -16,18 +16,19 @@ public class Il2CppMetadataRegistration : ReadableClass
      * so when calculating the total size of this struct, we need to take that into account.
      */
     public static int GetStructSize(bool isBinary32Bit, float metadataMetadataVersion)
-        => (NumIntFields + NumPointerFields + (metadataMetadataVersion >= 106.1f ? 2 : 0)) * (isBinary32Bit ? sizeof(int) : sizeof(long)); //On 32-bit platforms, all pointers (represented in fields by long/ulong) are 32-bit. If this struct is updated, update the number of fields above.
+        //todo refactor this if they ever make it more complex. optional plus-2-minus-4 is cursed.
+        => (NumIntFields + NumPointerFields + (metadataMetadataVersion >= 106.1f ? 2 : 0) + (metadataMetadataVersion >= 108 ? -4 : 0)) * (isBinary32Bit ? sizeof(int) : sizeof(long)); //On 32-bit platforms, all pointers (represented in fields by long/ulong) are 32-bit. If this struct is updated, update the number of fields above.
 
     public long genericClassesCount;
     public ulong genericClasses;
     public long genericInstsCount;
     public ulong genericInsts;
-    public long genericMethodTableCount;
-    public ulong genericMethodTable;
+    [Version(Max = 108)] public long genericMethodTableCount;
+    [Version(Max = 108)] public ulong genericMethodTable;
     public long numTypes;
     public ulong typeAddressListAddress;
-    public long methodSpecsCount;
-    public ulong methodSpecs;
+    [Version(Max = 108)] public long methodSpecsCount;
+    [Version(Max = 108)] public ulong methodSpecs;
 
     public long fieldOffsetsCount;
     public ulong fieldOffsetListAddress;
@@ -47,12 +48,21 @@ public class Il2CppMetadataRegistration : ReadableClass
         genericClasses = reader.ReadNUint();
         genericInstsCount = reader.ReadNInt();
         genericInsts = reader.ReadNUint();
-        genericMethodTableCount = reader.ReadNInt();
-        genericMethodTable = reader.ReadNUint();
+
+        if (IsLessThan(108))
+        {
+            genericMethodTableCount = reader.ReadNInt();
+            genericMethodTable = reader.ReadNUint();
+        }
+
         numTypes = reader.ReadNInt();
         typeAddressListAddress = reader.ReadNUint();
-        methodSpecsCount = reader.ReadNInt();
-        methodSpecs = reader.ReadNUint();
+
+        if (IsLessThan(108))
+        {
+            methodSpecsCount = reader.ReadNInt();
+            methodSpecs = reader.ReadNUint();
+        }
 
         fieldOffsetsCount = reader.ReadNInt();
         fieldOffsetListAddress = reader.ReadNUint();

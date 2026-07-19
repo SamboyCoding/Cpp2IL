@@ -327,8 +327,11 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
         LibLogger.VerboseNewline($"\t\t\tLooking for the number of type definitions, 0x{typeDefinitionsCount:X}");
         var ptrsToNumberOfTypes = FindAllMappedWords((ulong)typeDefinitionsCount).ToList();
 
+        //typeDefinitionsSizesCount sits 4 fields from the end of the struct, or 6 on >= 106.1 which added the two alwaysInitMetadataUsages fields after it
+        var typeDefSizesCountFieldsFromEnd = metadata.MetadataVersion >= 106.1f ? 6ul : 4ul;
+
         LibLogger.VerboseNewline($"\t\t\tFound {ptrsToNumberOfTypes.Count} instances of the number of type definitions: [{string.Join(", ", ptrsToNumberOfTypes.Select(p => p.ToString("X")))}]");
-        var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * 4).ToList();
+        var possibleMetadataUsages = ptrsToNumberOfTypes.Select(a => a - sizeOfMr + ptrSize * typeDefSizesCountFieldsFromEnd).ToList();
 
         LibLogger.VerboseNewline($"\t\t\tFound {possibleMetadataUsages.Count} potential metadata registrations: [{string.Join(", ", possibleMetadataUsages.Select(p => p.ToString("X")))}]");
 
@@ -356,7 +359,8 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
                         //Pointer
                         if (mrWords[i] == 0)
                         {
-                            ok = i >= 14; //Maybe need an investigation here, but metadataUsages can be (always is?) a null ptr on v27
+                            //Maybe need an investigation here, but metadataUsages can be (always is?) a null ptr on v27. It's at index 11 on v108+ (which dropped two count/pointer pairs), 14 otherwise.
+                            ok = i >= (metadata.MetadataVersion >= 108 ? 11 : 14);
                             ok |= i == 1; //genericClasses can rarely be null on v39?
                             if (!ok)
                                 LibLogger.VerboseNewline($"\t\t\tRejecting metadata registration 0x{va:X} because the pointer at index {i} is 0.");

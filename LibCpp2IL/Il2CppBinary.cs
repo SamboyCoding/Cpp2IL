@@ -40,9 +40,7 @@ public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(inpu
     private ulong[][] _codeGenModuleMethodPointers = []; //24.2+
 
     private Il2CppType[] _types = [];
-    private Il2CppGenericMethodFunctionsDefinitions[] _genericMethodTables = [];
     private Il2CppGenericInst[] _genericInsts = [];
-    private Il2CppMethodSpec[] _methodSpecs = [];
     private Il2CppCodeGenModule[] _codeGenModules = []; //24.2+
     private Il2CppTokenRangePair[][] _codegenModuleRgctxRanges = [];
     private Il2CppRGCTXDefinition[][] _codegenModuleRgctxs = [];
@@ -288,31 +286,35 @@ public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(inpu
 
         InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
-        LibLogger.Verbose("\tReading generic method tables...");
-        start = DateTime.Now;
-        _genericMethodTables = ReadReadableArrayAtVirtualAddress<Il2CppGenericMethodFunctionsDefinitions>(_metadataRegistration.genericMethodTable, _metadataRegistration.genericMethodTableCount);
-        LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+        if (metadata.MetadataVersion < 108)
+        {
+            //On v108+ these are read from the metadata file instead, by the Il2CppMetadata constructor
+            LibLogger.Verbose("\tReading generic method tables...");
+            start = DateTime.Now;
+            metadata.genericMethodTables = ReadReadableArrayAtVirtualAddress<Il2CppGenericMethodFunctionsDefinitions>(_metadataRegistration.genericMethodTable, _metadataRegistration.genericMethodTableCount);
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-        InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
 
-        LibLogger.Verbose("\tReading method specifications...");
-        start = DateTime.Now;
-        _methodSpecs = ReadReadableArrayAtVirtualAddress<Il2CppMethodSpec>(_metadataRegistration.methodSpecs, _metadataRegistration.methodSpecsCount);
-        LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            LibLogger.Verbose("\tReading method specifications...");
+            start = DateTime.Now;
+            metadata.methodSpecs = ReadReadableArrayAtVirtualAddress<Il2CppMethodSpec>(_metadataRegistration.methodSpecs, _metadataRegistration.methodSpecsCount);
+            LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
 
-        InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
+            InBinaryMetadataSize += GetNumBytesReadSinceLastCallAndClear();
+        }
 
         if (_genericMethodPointers.Length > 0)
         {
             LibLogger.Verbose("\tReading generic methods...");
             start = DateTime.Now;
             _genericMethodDictionary = new();
-            foreach (var table in _genericMethodTables)
+            foreach (var table in metadata.genericMethodTables)
             {
                 var genericMethodIndex = table.GenericMethodIndex;
-                var genericMethodPointerIndex = table.Indices.methodIndex;
+                var genericMethodPointerIndex = table.methodIndex;
 
-                var methodDefIndex = GetGenericMethodFromIndex(genericMethodIndex, genericMethodPointerIndex);
+                var methodDefIndex = GetGenericMethodFromIndex(metadata, genericMethodIndex, genericMethodPointerIndex);
 
                 if (!_genericMethodDictionary.ContainsKey(methodDefIndex) && genericMethodPointerIndex < _genericMethodPointers.Length)
                 {
@@ -331,11 +333,11 @@ public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(inpu
         _hasFinishedInitialRead = true;
     }
 
-    private Il2CppVariableWidthIndex<Il2CppMethodDefinition> GetGenericMethodFromIndex(int genericMethodIndex, int genericMethodPointerIndex)
+    private Il2CppVariableWidthIndex<Il2CppMethodDefinition> GetGenericMethodFromIndex(Il2CppMetadata metadata, int genericMethodIndex, int genericMethodPointerIndex)
     {
         Cpp2IlMethodRef? genericMethodRef;
-        var methodSpec = GetMethodSpec(genericMethodIndex);
-        var methodDefIndex = Il2CppVariableWidthIndex<Il2CppMethodDefinition>.MakeTemporaryForFixedWidthUsage(methodSpec.methodDefinitionIndex); //DynWidth: method specs are in-binary, so the methodDefIndex is still the old fixed-width index, so we can make a temp here without issue.
+        var methodSpec = metadata.GetMethodSpec(genericMethodIndex);
+        var methodDefIndex = methodSpec.methodDefinitionIndex;
         genericMethodRef = new Cpp2IlMethodRef(methodSpec);
 
         if (genericMethodPointerIndex >= 0)
@@ -400,15 +402,7 @@ public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(inpu
         return Reader.ReadNUintAtRawAddress(MapVirtualAddressToRaw(addr));
     }
 
-    public Il2CppGenericInst GetGenericInst(int index) => _genericInsts[index];
-
-    public Il2CppMethodSpec[] AllGenericMethodSpecs => _methodSpecs;
-
-    public Il2CppMethodSpec GetMethodSpec(int index) => index >= _methodSpecs.Length
-        ? throw new ArgumentException($"GetMethodSpec: index {index} >= length {_methodSpecs.Length}")
-        : index < 0
-            ? throw new ArgumentException($"GetMethodSpec: index {index} < 0")
-            : _methodSpecs[index];
+    public Il2CppGenericInst GetGenericInst(Il2CppVariableWidthIndex<Il2CppGenericInst> index) => _genericInsts[index.Value];
 
     public Il2CppType GetType(Il2CppVariableWidthIndex<Il2CppType> index) => _types[index.Value];
     public ulong GetRawMetadataUsage(uint index) => _metadataUsages[index];

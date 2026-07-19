@@ -43,7 +43,7 @@ public class MetadataUsage(MetadataUsageType type, ulong offset, uint value, Lib
             MetadataUsageType.MethodDef => value < context.Metadata.MethodDefinitionCount,
             MetadataUsageType.FieldInfo => value < context.Metadata.fieldRefs.Length,
             MetadataUsageType.StringLiteral => value < context.Metadata.stringLiterals.Length,
-            MetadataUsageType.MethodRef => value < context.Binary.AllGenericMethodSpecs.Length,
+            MetadataUsageType.MethodRef => value < context.Metadata.AllGenericMethodSpecs.Length,
             _ => false
         };
 
@@ -136,7 +136,7 @@ public class MetadataUsage(MetadataUsageType type, ulong offset, uint value, Lib
             switch (Type)
             {
                 case MetadataUsageType.MethodRef:
-                    var methodSpec = context.Binary.GetMethodSpec((int)value);
+                    var methodSpec = context.Metadata.GetMethodSpec((int)value);
 
                     _cachedGenericMethod = new Cpp2IlMethodRef(methodSpec);
                     _cachedName = _cachedGenericMethod.ToString();

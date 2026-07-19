@@ -27,7 +27,7 @@ public class Il2CppGlobalMetadataHeader : ReadableClass
     public Il2CppGlobalMetadataSectionHeader vtableMethods; // EncodedMethodIndex
     public Il2CppGlobalMetadataSectionHeader interfaceOffsets; // Il2CppInterfaceOffsetPair
     public Il2CppGlobalMetadataSectionHeader typeDefinitions; // Il2CppTypeDefinition
-    
+
     [Version(Min = 104f)] public Il2CppGlobalMetadataSectionHeader typeInlineArrays; // Il2CppInlineArrayLength
 
     [Version(Max = 24.15f)] public Il2CppGlobalMetadataSectionHeader rgctxEntries; // Il2CppRGCTXDefinition
@@ -58,6 +58,16 @@ public class Il2CppGlobalMetadataHeader : ReadableClass
 
     [Version(Min = 24)] public Il2CppGlobalMetadataSectionHeader exportedTypeDefinitions; // TypeDefinitionIndex
 
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader methodSpecsOnGenericType; // Il2CppMethodSpecOnGenericType
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader genericMethodSpecsOnType; // Il2CppGenericMethodSpecOnType
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader methodSpecs; // Il2CppMethodSpec
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader genericMethodFunctionsDefinitions; // Il2CppGenericMethodFunctionsDefinitions
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader genericMethodFunctionsDefinitionsWithAdjustor; // Il2CppGenericMethodFunctionsDefinitionsWithAdjustor
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader invokerIndices; // InvokerTableIndex per method, per image, in image order
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader rgctxRanges; // Il2CppTokenRangePair (token + global start + length), per image in image order
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader rgctxValues; // Il2CppRGCTXDefinition (byte type + int32 data)
+    [Version(Min = 108)] public Il2CppGlobalMetadataSectionHeader staticConstructorTypeIndices; // TypeDefinitionIndex per eager-init type, per image in image order
+
 #nullable restore
 
     public override void Read(ClassReadingBinaryReader reader)
@@ -85,7 +95,7 @@ public class Il2CppGlobalMetadataHeader : ReadableClass
         vtableMethods = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
         interfaceOffsets = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
         typeDefinitions = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
-        
+
         if (IsAtLeast(104f))
             typeInlineArrays = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
 
@@ -124,5 +134,18 @@ public class Il2CppGlobalMetadataHeader : ReadableClass
 
         if (IsAtLeast(24f))
             exportedTypeDefinitions = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+
+        if (IsAtLeast(108))
+        {
+            methodSpecsOnGenericType = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            genericMethodSpecsOnType = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            methodSpecs = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            genericMethodFunctionsDefinitions = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            genericMethodFunctionsDefinitionsWithAdjustor = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            invokerIndices = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            rgctxRanges = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            rgctxValues = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+            staticConstructorTypeIndices = reader.ReadReadableHereNoLock<Il2CppGlobalMetadataSectionHeader>();
+        }
     }
 }

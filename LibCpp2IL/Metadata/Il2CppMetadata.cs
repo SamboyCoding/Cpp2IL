@@ -35,7 +35,18 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     public Il2CppMetadataUsageList[]? metadataUsageLists; //Removed in v27
     private Il2CppMetadataUsagePair[]? metadataUsagePairs; //Removed in v27
     public Il2CppRGCTXDefinition[]? RgctxDefinitions; //Moved to binary in v24.2
-    
+
+    //These two are read from here on v108+, and populated from the binary by Il2CppBinary.Init on older versions
+    public Il2CppMethodSpec[] methodSpecs = null!;
+    public Il2CppGenericMethodFunctionsDefinitions[] genericMethodTables = null!;
+
+    //v108+ only. Pre-108 the rgctx data is per-codegen-module in the binary
+    public Il2CppTokenRangePair[]? RgctxRanges;
+    public Il2CppRGCTXDefinition[]? RgctxValues;
+
+    public Il2CppVariableWidthIndex<Il2CppInvokerTableDummy>[]? InvokerIndices; //v108+ only
+    public Il2CppVariableWidthIndex<Il2CppTypeDefinition>[]? StaticConstructorTypeIndices; //v108+ only
+
     public int[]? attributeTypes; //Removed in v29
     public List<Il2CppCustomAttributeDataRange>? AttributeDataRanges; //Added in v29
 
@@ -90,9 +101,9 @@ public class Il2CppMetadata : ClassReadingBinaryReader
         }
 
         var version = BitConverter.ToInt32(bytes, 4);
-        if (version is < 23 or > 106)
+        if (version is < 23 or > 108)
         {
-            throw new FormatException("Unsupported metadata version found! We support 23-106, got " + version);
+            throw new FormatException("Unsupported metadata version found! We support 23-108, got " + version);
         }
 
         LibLogger.VerboseNewline($"\tIL2CPP Metadata Declares its version as {version}");
@@ -159,6 +170,15 @@ public class Il2CppMetadata : ClassReadingBinaryReader
                 actualVersion = 106.1f;
             else
                 actualVersion = 106;
+        } else if (version == 107)
+        {
+            //v107 was introduced in 6.6.0a7, one alpha after 106.1, so it looks like they realized their mistake.
+            //...and then they backported it to 6.5.1. So now there's two distinct versions of v107 - on 6.5 full release and 6.6 full release - and they're quite different
+            if (unityVersion.LessThan(6000, 6))
+                actualVersion = 106; //it's actually identical to 106
+            else
+                //technically 6.6 107 is identical to 106.1. so in reality we never use v107. cursed!
+                actualVersion = 106.1f;
         }
         else
         {
@@ -181,6 +201,15 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             //6.5.0a5 => v105
             //  - changes MethodIndex to variable size.
             //  - brings the Il2CppClass changes from v38 to v10x.
+            //6.5.0a6 => v106 (see above case)
+            //6.6.0a6 => v106.1 (see above case)
+            //6.6.0a7 => v107
+            //  - no functional changes from 106.1. Thanks unity?
+            //  ...and then 6.5.1f1 backported the bump to v107 without the actual 106.1 changes
+            //6.6.0b1 => v108
+            //  - invoker pointers, rgctx, static constructor type indices from metareg => metadata
+            //  - generic method table, and method specs from codereg => metadata
+            //  - generic inst index, generic method index, method pointer table index, invoker table index, adjustor thunk index all variable size
             actualVersion = version;
         }
 
@@ -228,7 +257,45 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             var genericParameterIndexWidth = metadataVersion >= 106 ? GetIndexWidth(metadataHeader.genericParameters.Count) : sizeof(int);
             var fieldIndexWidth = metadataVersion >= 106 ? GetIndexWidth(metadataHeader.fields.Count) : sizeof(int);
             var defaultValueDataIndexWidth = metadataVersion >= 106 ? GetIndexWidth(metadataHeader.fieldAndParameterDefaultValueData.Count) : sizeof(int);
-            
+
+            //v108 moves method specs, generic method tables, rgctx data, invoker indices, and static constructor type indices into the metadata,
+            //and makes indices into the generic inst table, the combined method spec table, and the binary's generic method/invoker/adjustor pointer tables variable width.
+            //The referenced tables live in the binary (which we haven't read yet), so the widths have to be derived from the element sizes of the new metadata sections instead.
+            var genericInstIndexWidth = sizeof(int);
+            var methodSpecIndexWidth = sizeof(int);
+            var genericMethodPointerIndexWidth = sizeof(int);
+            var invokerIndexWidth = sizeof(int);
+            var adjustorThunkIndexWidth = sizeof(int);
+            if (metadataVersion >= 108)
+            {
+                var specsOnGenericType = metadataHeader.methodSpecsOnGenericType;
+                var genericSpecsOnType = metadataHeader.genericMethodSpecsOnType;
+                var fullSpecs = metadataHeader.methodSpecs;
+
+                //spec table elements are a method def index plus one generic inst index (two for the full spec table)
+                if (specsOnGenericType.Count > 0)
+                    genericInstIndexWidth = specsOnGenericType.Size / specsOnGenericType.Count - methodDefinitionIndexWidth;
+                else if (genericSpecsOnType.Count > 0)
+                    genericInstIndexWidth = genericSpecsOnType.Size / genericSpecsOnType.Count - methodDefinitionIndexWidth;
+                else if (fullSpecs.Count > 0)
+                    genericInstIndexWidth = (fullSpecs.Size / fullSpecs.Count - methodDefinitionIndexWidth) / 2;
+
+                //the three spec tables share one index space, so the width is based on the combined count
+                methodSpecIndexWidth = GetIndexWidth(specsOnGenericType.Count + genericSpecsOnType.Count + fullSpecs.Count);
+
+                if (metadataHeader.invokerIndices.Count > 0)
+                    invokerIndexWidth = metadataHeader.invokerIndices.Size / metadataHeader.invokerIndices.Count;
+
+                //generic method table element = spec index + generic method pointer index + invoker index (plus adjustor thunk index in the second table)
+                var gmfd = metadataHeader.genericMethodFunctionsDefinitions;
+                if (gmfd.Count > 0)
+                    genericMethodPointerIndexWidth = gmfd.Size / gmfd.Count - methodSpecIndexWidth - invokerIndexWidth;
+
+                var gmfdwa = metadataHeader.genericMethodFunctionsDefinitionsWithAdjustor;
+                if (gmfdwa.Count > 0)
+                    adjustorThunkIndexWidth = gmfdwa.Size / gmfdwa.Count - methodSpecIndexWidth - invokerIndexWidth - genericMethodPointerIndexWidth;
+            }
+
             LibLogger.VerboseNewline($"\tDetermined variable index widths - Il2CppTypeDefinition: {typeDefinitionIndexWidth * 8} bits, Il2CppGenericContainer: {genericContainerIndexWidth * 8} bits, Il2CppType: {typeIndexSize * 8} bits, Il2CppParameterDefinition: {parameterDefinitionIndexWidth * 8} bits");
             
             if(metadataVersion >= 104)
@@ -236,8 +303,11 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             
             if(metadataVersion >= 105)
                 LibLogger.VerboseNewline($"\t...MethodDefinitionIndex: {methodDefinitionIndexWidth * 8} bits, GenericParameterIndex: {genericParameterIndexWidth * 8} bits, FieldIndex: {fieldIndexWidth * 8} bits, DefaultValueDataIndex: {defaultValueDataIndexWidth * 8} bits");
-            
-            
+
+            if(metadataVersion >= 108)
+                LibLogger.VerboseNewline($"\t...GenericInstIndex: {genericInstIndexWidth * 8} bits, MethodSpecIndex: {methodSpecIndexWidth * 8} bits, GenericMethodPointerIndex: {genericMethodPointerIndexWidth * 8} bits, InvokerIndex: {invokerIndexWidth * 8} bits, AdjustorThunkIndex: {adjustorThunkIndexWidth * 8} bits");
+
+
             Il2CppVariableWidthIndex<Il2CppType>.BeginReadSession(typeIndexSize);
             Il2CppVariableWidthIndex<Il2CppTypeDefinition>.BeginReadSession(typeDefinitionIndexWidth);
             Il2CppVariableWidthIndex<Il2CppGenericContainer>.BeginReadSession(genericContainerIndexWidth);
@@ -252,6 +322,12 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             Il2CppVariableWidthIndex<Il2CppGenericParameter>.BeginReadSession(genericParameterIndexWidth);
             Il2CppVariableWidthIndex<Il2CppFieldDefinition>.BeginReadSession(fieldIndexWidth);
             Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy>.BeginReadSession(defaultValueDataIndexWidth);
+
+            Il2CppVariableWidthIndex<Il2CppGenericInst>.BeginReadSession(genericInstIndexWidth);
+            Il2CppVariableWidthIndex<Il2CppMethodSpec>.BeginReadSession(methodSpecIndexWidth);
+            Il2CppVariableWidthIndex<Il2CppGenericMethodPointerTableDummy>.BeginReadSession(genericMethodPointerIndexWidth);
+            Il2CppVariableWidthIndex<Il2CppInvokerTableDummy>.BeginReadSession(invokerIndexWidth);
+            Il2CppVariableWidthIndex<Il2CppAdjustorThunkTableDummy>.BeginReadSession(adjustorThunkIndexWidth);
         }
         else
         {
@@ -273,6 +349,12 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             Il2CppVariableWidthIndex<Il2CppGenericParameter>.BeginReadSessionOnLegacyVersion();
             Il2CppVariableWidthIndex<Il2CppFieldDefinition>.BeginReadSessionOnLegacyVersion();
             Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy>.BeginReadSessionOnLegacyVersion();
+
+            Il2CppVariableWidthIndex<Il2CppGenericInst>.BeginReadSessionOnLegacyVersion();
+            Il2CppVariableWidthIndex<Il2CppMethodSpec>.BeginReadSessionOnLegacyVersion();
+            Il2CppVariableWidthIndex<Il2CppGenericMethodPointerTableDummy>.BeginReadSessionOnLegacyVersion();
+            Il2CppVariableWidthIndex<Il2CppInvokerTableDummy>.BeginReadSessionOnLegacyVersion();
+            Il2CppVariableWidthIndex<Il2CppAdjustorThunkTableDummy>.BeginReadSessionOnLegacyVersion();
         }
 
         try
@@ -439,7 +521,48 @@ public class Il2CppMetadata : ClassReadingBinaryReader
                 start = DateTime.Now;
 
                 TypeInlineArrays = ReadMetadataClassArray<Il2CppInlineArrayLength>(metadataHeader.typeInlineArrays);
-                
+
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+            }
+
+            //v108 moved all of this data from the binary into the metadata
+            if (MetadataVersion >= 108)
+            {
+                LibLogger.Verbose("\tReading method specifications...");
+                start = DateTime.Now;
+                var specsOnGenericType = ReadMetadataClassArray<Il2CppMethodSpecOnGenericType>(metadataHeader.methodSpecsOnGenericType);
+                var genericSpecsOnType = ReadMetadataClassArray<Il2CppGenericMethodSpecOnType>(metadataHeader.genericMethodSpecsOnType);
+                var fullSpecs = ReadMetadataClassArray<Il2CppMethodSpec>(metadataHeader.methodSpecs);
+
+                //the three tables share a single index space, in this order
+                methodSpecs = specsOnGenericType
+                    .Select(s => new Il2CppMethodSpec { methodDefinitionIndex = s.methodDefinitionIndex, classIndexIndex = s.classIndexIndex, methodIndexIndex = Il2CppVariableWidthIndex<Il2CppGenericInst>.Null })
+                    .Concat(genericSpecsOnType.Select(s => new Il2CppMethodSpec { methodDefinitionIndex = s.methodDefinitionIndex, classIndexIndex = Il2CppVariableWidthIndex<Il2CppGenericInst>.Null, methodIndexIndex = s.methodIndexIndex }))
+                    .Concat(fullSpecs)
+                    .ToArray();
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
+                LibLogger.Verbose("\tReading generic method tables...");
+                start = DateTime.Now;
+                var plainTables = ReadMetadataClassArray<Il2CppGenericMethodFunctionsDefinitions>(metadataHeader.genericMethodFunctionsDefinitions);
+                var adjustorTables = ReadMetadataClassArray<Il2CppGenericMethodFunctionsDefinitionsWithAdjustor>(metadataHeader.genericMethodFunctionsDefinitionsWithAdjustor);
+                genericMethodTables = [..plainTables, ..adjustorTables];
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
+                LibLogger.Verbose("\tReading invoker indices...");
+                start = DateTime.Now;
+                InvokerIndices = ReadIndexArrayAtRawAddress<Il2CppInvokerTableDummy>(metadataHeader.invokerIndices.Offset, metadataHeader.invokerIndices.Count);
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
+                LibLogger.Verbose("\tReading RGCTX data...");
+                start = DateTime.Now;
+                RgctxRanges = ReadMetadataClassArray<Il2CppTokenRangePair>(metadataHeader.rgctxRanges);
+                RgctxValues = ReadMetadataClassArray<Il2CppRGCTXDefinition>(metadataHeader.rgctxValues);
+                LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
+
+                LibLogger.Verbose("\tReading static constructor type indices...");
+                start = DateTime.Now;
+                StaticConstructorTypeIndices = ReadIndexArrayAtRawAddress<Il2CppTypeDefinition>(metadataHeader.staticConstructorTypeIndices.Offset, metadataHeader.staticConstructorTypeIndices.Count);
                 LibLogger.VerboseNewline($"OK ({(DateTime.Now - start).TotalMilliseconds} ms)");
             }
 
@@ -476,6 +599,12 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             Il2CppVariableWidthIndex<Il2CppGenericParameter>.EndReadSession();
             Il2CppVariableWidthIndex<Il2CppFieldDefinition>.EndReadSession();
             Il2CppVariableWidthIndex<Il2CppDefaultValueDataDummy>.EndReadSession();
+
+            Il2CppVariableWidthIndex<Il2CppGenericInst>.EndReadSession();
+            Il2CppVariableWidthIndex<Il2CppMethodSpec>.EndReadSession();
+            Il2CppVariableWidthIndex<Il2CppGenericMethodPointerTableDummy>.EndReadSession();
+            Il2CppVariableWidthIndex<Il2CppInvokerTableDummy>.EndReadSession();
+            Il2CppVariableWidthIndex<Il2CppAdjustorThunkTableDummy>.EndReadSession();
         }
     }
 #pragma warning restore 8618
@@ -502,6 +631,15 @@ public class Il2CppMetadata : ClassReadingBinaryReader
 
         if (RgctxDefinitions != null)
             SetOwningContext(RgctxDefinitions, context);
+
+        //v108+, on older versions these are populated (with context already set) by Il2CppBinary.Init
+        if (MetadataVersion >= 108)
+        {
+            SetOwningContext(methodSpecs, context);
+            SetOwningContext(genericMethodTables, context);
+            SetOwningContext(RgctxRanges!, context);
+            SetOwningContext(RgctxValues!, context);
+        }
 
         // Set on sub-objects not directly in arrays
         foreach (var asm in AssemblyDefinitions)
@@ -727,6 +865,14 @@ public class Il2CppMetadata : ClassReadingBinaryReader
     
     public Il2CppEventDefinition[] GetEventDefinitionsFromIndexAndCount(Il2CppVariableWidthIndex<Il2CppEventDefinition> index, int count) => eventDefs.SubArray(index.Value, count);
     
+    public Il2CppMethodSpec[] AllGenericMethodSpecs => methodSpecs;
+
+    public Il2CppMethodSpec GetMethodSpec(int index) => index >= methodSpecs.Length
+        ? throw new ArgumentException($"GetMethodSpec: index {index} >= length {methodSpecs.Length}")
+        : index < 0
+            ? throw new ArgumentException($"GetMethodSpec: index {index} < 0")
+            : methodSpecs[index];
+
     public Il2CppMethodDefinition GetMethodDefinitionFromIndex(Il2CppVariableWidthIndex<Il2CppMethodDefinition> index) => methodDefs[index.Value];
 
     public Il2CppMethodDefinition GetMethodDefinitionFromOffset(Il2CppVariableWidthIndex<Il2CppMethodDefinition> startIndex, ushort offset) => methodDefs[startIndex.Value + offset];
