@@ -131,7 +131,7 @@ public class StableRenamingProcessingLayer : Cpp2IlProcessingLayer
                 if (!StableNameGenerator.IsObfuscated(field.Name))
                     continue;
 
-                field.OverrideName = $"EnumValue" + field.BackingData!.DefaultValue;
+                field.OverrideName = $"EnumValue{field.ConstantValue}";
             }
         }
 
