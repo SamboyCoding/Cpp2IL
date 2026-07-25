@@ -79,7 +79,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
 
     public virtual TypeAnalysisContext? DefaultBaseType => Definition == null || DefaultAttributes.HasFlag(TypeAttributes.Interface) ? null : AppContext.ResolveIl2CppType(Definition.RawBaseType);
 
-    public TypeAnalysisContext? OverrideBaseType { get; set; }
+    public virtual TypeAnalysisContext? OverrideBaseType { get; set; }
 
     public TypeAnalysisContext? BaseType
     {
@@ -97,10 +97,11 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
         get
         {
             // Lazy load the interface contexts
-            _interfaceContexts ??= (Definition?.RawInterfaces.Select(AppContext.ResolveIl2CppType).ToList() ?? [])!;
+            _interfaceContexts ??= GetInterfaceContexts();
             return _interfaceContexts;
         }
     }
+    protected virtual List<TypeAnalysisContext> GetInterfaceContexts() => (Definition?.RawInterfaces.Select(AppContext.ResolveIl2CppType).ToList() ?? [])!;
 
     private List<GenericParameterTypeAnalysisContext>? _genericParameters;
     public override List<GenericParameterTypeAnalysisContext> GenericParameters
@@ -255,7 +256,7 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
 
     public GenericInstanceTypeAnalysisContext MakeGenericInstanceType(params IEnumerable<TypeAnalysisContext> genericArguments)
     {
-        return new(this, genericArguments);
+        return GenericInstanceTypeAnalysisContext.GetOrCreate(this, genericArguments);
     }
 
     public PointerTypeAnalysisContext MakePointerType()

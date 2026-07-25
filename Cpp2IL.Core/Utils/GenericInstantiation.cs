@@ -86,7 +86,7 @@ internal static class GenericInstantiation
                 }
 
                 return createNew
-                    ? new GenericInstanceTypeAnalysisContext(genericType, genericArguments)
+                    ? GenericInstanceTypeAnalysisContext.GetOrCreate(genericType, genericArguments)
                     : genericInstanceTypeAnalysisContext;
             }
             default:

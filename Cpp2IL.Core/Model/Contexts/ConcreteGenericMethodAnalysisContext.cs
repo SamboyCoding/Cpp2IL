@@ -138,7 +138,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
 
         var genericParams = ResolveTypeArray(methodRef.TypeGenericParams, appContext);
 
-        return new GenericInstanceTypeAnalysisContext(baseType, genericParams);
+        return GenericInstanceTypeAnalysisContext.GetOrCreate(baseType, genericParams);
     }
 
     private static TypeAnalysisContext[] ResolveTypeArray(Il2CppTypeReflectionData[] array, ApplicationAnalysisContext appContext)

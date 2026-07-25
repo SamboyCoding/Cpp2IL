@@ -47,7 +47,7 @@ public static class Il2CppTypeReflectionDataToContext
                 genericParams[i] = param;
             }
 
-            pointerElementType = new GenericInstanceTypeAnalysisContext(baseType, genericParams);
+            pointerElementType = GenericInstanceTypeAnalysisContext.GetOrCreate(baseType, genericParams);
         }
 
         if (reflectionData.isPointer && pointerElementType is not null)
