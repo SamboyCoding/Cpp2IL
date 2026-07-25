@@ -1,5 +1,4 @@
 using LibCpp2IL.Metadata;
-using LibCpp2IL.Reflection;
 
 namespace LibCpp2IL.BinaryStructures;
 
@@ -13,14 +12,7 @@ public class Il2CppRGCTXDefinition : ReadableClass
 
     public Il2CppMethodSpec MethodSpec => OwningContext.Metadata.GetMethodSpec(MethodIndex);
 
-    public Il2CppTypeReflectionData Type
-    {
-        get
-        {
-            var t = OwningContext.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(TypeIndex));
-            return LibCpp2ILUtils.GetTypeReflectionData(t);
-        }
-    }
+    public Il2CppType Type => OwningContext.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage(TypeIndex));
 
 
     public class Il2CppRGCTXDefinitionData : ReadableClass

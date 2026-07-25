@@ -52,10 +52,10 @@ public static class MetadataResolver
             // Type metadata usage (Il2CppType* / Il2CppClass*).
             if (method.DeclaringType is { } declaringType)
             {
-                var typeContext = libContext.GetTypeGlobalByAddress(address)?.ToContext(declaringType.AppContext);
-                if (typeContext != null)
+                var typeGlobal = libContext.GetTypeGlobalByAddress(address);
+                if (typeGlobal != null)
                 {
-                    instruction.Operands[1] = typeContext;
+                    instruction.Operands[1] = declaringType.AppContext.ResolveIl2CppType(typeGlobal);
                     continue;
                 }
             }

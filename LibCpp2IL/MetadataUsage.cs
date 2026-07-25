@@ -13,7 +13,6 @@ public class MetadataUsage(MetadataUsageType type, ulong offset, uint value, Lib
     private string? _cachedName;
 
     private Il2CppType? _cachedType;
-    private Il2CppTypeReflectionData? _cachedTypeReflectionData;
 
     private Il2CppMethodDefinition? _cachedMethod;
 
@@ -47,9 +46,9 @@ public class MetadataUsage(MetadataUsageType type, ulong offset, uint value, Lib
             _ => false
         };
 
-    public Il2CppTypeReflectionData AsType()
+    public Il2CppType AsType()
     {
-        if (_cachedTypeReflectionData == null)
+        if (_cachedType == null)
         {
             switch (Type)
             {
@@ -58,8 +57,7 @@ public class MetadataUsage(MetadataUsageType type, ulong offset, uint value, Lib
                     try
                     {
                         _cachedType = context.Binary.GetType(Il2CppVariableWidthIndex<Il2CppType>.MakeTemporaryForFixedWidthUsage((int) value)); //DynWidth: value is always masked out of 32-bits, ok for temp usage
-                        _cachedTypeReflectionData = LibCpp2ILUtils.GetTypeReflectionData(_cachedType);
-                        _cachedName = _cachedTypeReflectionData?.ToString();
+                        _cachedName = _cachedType.ToString();
                     }
                     catch (Exception e)
                     {
@@ -72,7 +70,7 @@ public class MetadataUsage(MetadataUsageType type, ulong offset, uint value, Lib
             }
         }
 
-        return _cachedTypeReflectionData!;
+        return _cachedType!;
     }
 
     public Il2CppMethodDefinition AsMethod()

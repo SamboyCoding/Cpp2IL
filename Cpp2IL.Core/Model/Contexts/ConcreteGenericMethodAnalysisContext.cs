@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Cpp2IL.Core.Utils;
 using LibCpp2IL;
-using LibCpp2IL.Reflection;
+using LibCpp2IL.BinaryStructures;
 
 namespace Cpp2IL.Core.Model.Contexts;
 
@@ -141,7 +141,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         return new GenericInstanceTypeAnalysisContext(baseType, genericParams);
     }
 
-    private static TypeAnalysisContext[] ResolveTypeArray(Il2CppTypeReflectionData[] array, ApplicationAnalysisContext appContext)
+    private static TypeAnalysisContext[] ResolveTypeArray(Il2CppType[] array, ApplicationAnalysisContext appContext)
     {
         if (array.Length == 0)
             return [];
@@ -149,8 +149,7 @@ public class ConcreteGenericMethodAnalysisContext : MethodAnalysisContext
         var ret = new TypeAnalysisContext[array.Length];
         for (var i = 0; i < array.Length; i++)
         {
-            ret[i] = array[i].ToContext(appContext)
-                     ?? throw new($"Unable to resolve generic parameter {array[i]} for generic method.");
+            ret[i] = appContext.ResolveIl2CppType(array[i]);
         }
 
         return ret;

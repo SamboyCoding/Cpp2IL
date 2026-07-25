@@ -32,9 +32,9 @@ public class Il2CppMethodSpec : ReadableClass
         }
     }
 
-    public Il2CppTypeReflectionData[] GenericClassParams => classIndexIndex.IsNull ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericClassInst!);
+    public Il2CppType[] GenericClassParams => classIndexIndex.IsNull ? [] : GenericClassInst!.Types;
 
-    public Il2CppTypeReflectionData[] GenericMethodParams => methodIndexIndex.IsNull ? [] : LibCpp2ILUtils.GetGenericTypeParams(GenericMethodInst!);
+    public Il2CppType[] GenericMethodParams => methodIndexIndex.IsNull ? [] : GenericMethodInst!.Types;
 
     public override string ToString()
     {

@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Text.RegularExpressions;
 using AssetRipper.Primitives;
+using LibCpp2IL.BinaryStructures;
 using LibCpp2IL.Logging;
 using LibCpp2IL.Metadata;
 using LibCpp2IL.Reflection;
@@ -225,7 +226,7 @@ public static class LibCpp2IlMain
     public static MetadataUsage? GetRawTypeGlobalByAddress(ulong address) => DefaultContext.GetRawTypeGlobalByAddress(address);
 
     [Obsolete("Use context.GetTypeGlobalByAddress instead.")]
-    public static Il2CppTypeReflectionData? GetTypeGlobalByAddress(ulong address) => DefaultContext.GetTypeGlobalByAddress(address);
+    public static Il2CppType? GetTypeGlobalByAddress(ulong address) => DefaultContext.GetTypeGlobalByAddress(address);
 
     [Obsolete("Use context.GetRawFieldGlobalByAddress instead.")]
     public static MetadataUsage? GetRawFieldGlobalByAddress(ulong address) => DefaultContext.GetRawFieldGlobalByAddress(address);

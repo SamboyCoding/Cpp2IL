@@ -238,9 +238,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
                 {
                     if (i >= interfaceOffset.offset)
                     {
-                        var interfaceTypeContext = interfaceOffset.Type.ToContext(AppContext);
+                        var interfaceTypeContext = AppContext.ResolveIl2CppType(interfaceOffset.Type);
                         var slot = i - interfaceOffset.offset;
-                        if (interfaceTypeContext != null && TryGetMethodForSlot(interfaceTypeContext, slot, out var method) && !IsInterfaceSlot(method, slot))
+                        if (TryGetMethodForSlot(interfaceTypeContext, slot, out var method) && !IsInterfaceSlot(method, slot))
                         {
                             yield return method;
                         }
@@ -260,8 +260,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
         {
             if (slot >= interfaceOffset.offset)
             {
-                var interfaceTypeContext = interfaceOffset.Type.ToContext(method.AppContext);
-                if (interfaceTypeContext != null && HasMethodForSlot(interfaceTypeContext, slot - interfaceOffset.offset))
+                var interfaceTypeContext = method.AppContext.ResolveIl2CppType(interfaceOffset.Type);
+                if (HasMethodForSlot(interfaceTypeContext, slot - interfaceOffset.offset))
                 {
                     return true;
                 }
