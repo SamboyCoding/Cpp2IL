@@ -67,8 +67,10 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
                 Logger.WarnNewline($"Skipping {methodContext.FullName}: {e.Message}");
             else
                 Logger.ErrorNewline($"Decompiling {methodContext.FullName} failed: {detail}");
+            
+            methodDefinition.CilMethodBody = new();
+            instructions = methodDefinition.CilMethodBody.Instructions;
 
-            // throw new Exception(detail);
             var factory = module.CorLibTypeFactory;
             var exceptionCtor = factory.CorLibScope
                 .CreateTypeReference("System", "Exception")

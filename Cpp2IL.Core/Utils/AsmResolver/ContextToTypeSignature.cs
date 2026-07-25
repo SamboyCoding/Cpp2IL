@@ -26,8 +26,8 @@ public static class ContextToTypeSignature
         GenericInstanceTypeAnalysisContext genericInstanceTypeAnalysisContext => genericInstanceTypeAnalysisContext.ToTypeSignature(parentModule),
         WrappedTypeAnalysisContext wrappedTypeAnalysisContext => wrappedTypeAnalysisContext.ToTypeSignature(parentModule),
         SentinelTypeAnalysisContext => SentinelTypeSignature.Instance,
-        // An Il2CppClass* runtime handle has no managed type; lower it to a raw pointer-sized value.
-        RuntimeClassTypeAnalysisContext => parentModule.CorLibTypeFactory.IntPtr,
+        // An Il2CppClass*/MethodInfo* runtime handle has no managed type; lower it to a raw pointer-sized value.
+        RuntimeClassTypeAnalysisContext or RuntimeMethodInfoAnalysisContext => parentModule.CorLibTypeFactory.IntPtr,
         _ => throw new ArgumentException($"Unknown referenced type context {context.GetType()}", nameof(context))
     };
 
