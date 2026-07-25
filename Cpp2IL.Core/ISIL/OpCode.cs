@@ -107,5 +107,10 @@ public enum OpCode
     /// <summary>
     /// Allocates a new, uninitialized instance of the type described by op 2 and moves it into op 1.
     /// </summary>
-    Newobj
+    Newobj,
+
+    /// <summary>
+    /// Throws a new instance of the exception type described by op 1.
+    /// </summary>
+    Throw
 }

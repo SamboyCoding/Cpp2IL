@@ -403,6 +403,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
         // Needs type resolved for delegate locals
         DelegateInvokeRecovery.Run(this);
+        BooleanFlagSimplifier.Run(this);
         DeadCodeEliminator.Run(this);
 
         // Copy/constant propagation belongs in SSA, where one definition dominates all uses and phis

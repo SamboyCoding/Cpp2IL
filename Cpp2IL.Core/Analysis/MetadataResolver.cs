@@ -97,10 +97,22 @@ public static class MetadataResolver
                 if (memory.Base is not LocalVariable local || local?.Type == null)
                     continue;
 
-                var field = local.Type.Fields.FirstOrDefault(f => f.BackingData?.FieldOffset == memory.Addend);
+                // check if static field access
+                var staticOwner = (local.Type as StaticFieldStorageTypeAnalysisContext)?.OwnerType;
+
+                // a generic instance keeps its members on the definition, so look there for the statics.
+                var candidates = staticOwner == null
+                    ? local.Type.Fields
+                    : ((staticOwner as GenericInstanceTypeAnalysisContext)?.GenericType ?? staticOwner).Fields;
+
+                var field = candidates.FirstOrDefault(f => f.IsStatic == (staticOwner != null) && f.BackingData?.FieldOffset == memory.Addend);
 
                 if (field == null) // TODO: Support nested fields (Field1.Field2.Field3)
                     continue;
+
+                // make sure we have a full GIT for ldsfld. open type is bad.
+                if (staticOwner is GenericInstanceTypeAnalysisContext genericOwner)
+                    field = new ConcreteGenericFieldAnalysisContext(field, genericOwner);
 
                 instruction.Operands[i] = new FieldReference(field, local, (int)memory.Addend);
                 changed = true;
@@ -135,7 +147,17 @@ public static class MetadataResolver
 
             //Non-key function call. Try to find a single match
             if (!method.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
+            {
+                // Not a managed method at all. It may be one of the runtime helpers that exist purely to
+                // throw, in which case restore the throw itself
+                if (ThrowHelperRecovery.GetThrownException(method.AppContext, target) is { } thrown)
+                {
+                    callInstruction.OpCode = OpCode.Throw;
+                    callInstruction.Operands = [thrown];
+                }
+
                 continue;
+            }
 
             // Duplicated/Shared method bodies are resolved later in ResolveCallsViaMethodInfo/ResolveAmbiguousCalls.
             if (targetMethods is not [{ } singleTargetMethod])

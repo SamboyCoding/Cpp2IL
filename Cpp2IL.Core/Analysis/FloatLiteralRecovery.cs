@@ -15,26 +15,43 @@ public static class FloatLiteralRecovery
     {
         foreach (var instruction in method.ControlFlowGraph!.Blocks.SelectMany(block => block.Instructions))
         {
-            if (instruction.OpCode != OpCode.Move || instruction.Operands.Count < 2)
-                continue;
+            if (instruction.OpCode == OpCode.Move && instruction.Operands is [FieldReference field, _])
+                TryConvert(instruction, 1, field.Field.FieldType);
+            else if (instruction.IsCall && instruction.Operands is [MethodAnalysisContext target, ..])
+                ConvertArguments(instruction, target);
+        }
+    }
 
-            if (instruction.Operands[0] is not FieldReference field)
-                continue;
+    private static void ConvertArguments(Instruction call, MethodAnalysisContext target)
+    {
+        var firstArgument = (call.OpCode == OpCode.Call ? 2 : 1) + (target.IsStatic ? 0 : 1);
 
-            if (!TryGetIntegerBits(instruction.Operands[1], out var bits))
-                continue;
+        for (var i = 0; i < target.Parameters.Count; i++)
+        {
+            var index = firstArgument + i;
 
-            // TODO FIXME: We have to compare by name, not reference, because a field on a generic type resolves
-            // TODO FIXME: to its own Single/Double context instance rather than the canonical one in SystemTypes.
-            switch (field.Field.FieldType.FullName)
-            {
-                case "System.Single" when !IsSubnormalSingle((uint)bits):
-                    instruction.Operands[1] = BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0);
-                    break;
-                case "System.Double" when !IsSubnormalDouble(bits):
-                    instruction.Operands[1] = BitConverter.ToDouble(BitConverter.GetBytes(bits), 0);
-                    break;
-            }
+            if (index >= call.Operands.Count)
+                break;
+
+            TryConvert(call, index, target.Parameters[i].ParameterType);
+        }
+    }
+
+    private static void TryConvert(Instruction instruction, int operandIndex, TypeAnalysisContext type)
+    {
+        if (!TryGetIntegerBits(instruction.Operands[operandIndex], out var bits))
+            return;
+
+        // TODO FIXME: We have to compare by name, not reference, because a field on a generic type resolves
+        // TODO FIXME: to its own Single/Double context instance rather than the canonical one in SystemTypes.
+        switch (type.FullName)
+        {
+            case "System.Single" when !IsSubnormalSingle((uint)bits):
+                instruction.Operands[operandIndex] = BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0);
+                break;
+            case "System.Double" when !IsSubnormalDouble(bits):
+                instruction.Operands[operandIndex] = BitConverter.ToDouble(BitConverter.GetBytes(bits), 0);
+                break;
         }
     }
 

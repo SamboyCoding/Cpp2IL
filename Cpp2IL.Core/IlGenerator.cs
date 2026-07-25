@@ -253,16 +253,11 @@ public static class IlGenerator
             case OpCode.Move:
                 if (instruction.Operands[0] is FieldReference field) // stfld takes instance before value so LoadOperand StoreToOperand doesn't work
                 {
-                    var param = method.Parameters.FirstOrDefault(p => p.Name == field.Local.Name);
-                    if (param != null)
-                        instructions.Add(CilOpCodes.Ldarg, param);
-                    else if (field.Local.IsThis)
-                        instructions.Add(CilOpCodes.Ldarg_0);
-                    else
-                        instructions.Add(CilOpCodes.Ldloc, locals[field.Local]);
+                    if (!field.Field.IsStatic)
+                        LoadLocal(field.Local, method, locals);
 
-                    LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
-                    instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(module));
+                    LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor, field.Field.FieldType);
+                    instructions.Add(field.Field.IsStatic ? CilOpCodes.Stsfld : CilOpCodes.Stfld, field.Field.ToFieldDescriptor(module));
                     break;
                 }
 
@@ -275,8 +270,11 @@ public static class IlGenerator
                 // If we can't, just fall back to an Ldnull.
                 if (FindConstructorCall(context, instruction) is { Operands: [MethodAnalysisContext constructor, _, ..] } constructorCall)
                 {
-                    foreach (var argument in constructorCall.Operands.Skip(2))
-                        LoadOperand(argument, method, locals, writeLine, stringCtor);
+                    // Operands are [ctor, newObject, arguments..., methodInfo], so take only as many as
+                    // the constructor declares (i.e. drop methodInfo)
+                    var constructorArgs = constructorCall.Operands.Skip(2).Take(constructor.Parameters.Count).ToList();
+                    for (var i = 0; i < constructorArgs.Count; i++)
+                        LoadOperand(constructorArgs[i], method, locals, writeLine, stringCtor, constructor.Parameters[i].ParameterType);
 
                     instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(constructor.ToMethodDescriptor(module)));
                     StoreToOperand(instruction.Operands[0], method, locals, writeLine);
@@ -289,6 +287,16 @@ public static class IlGenerator
                     instructions.Add(CilOpCodes.Ldnull);
                     StoreToOperand(instruction.Operands[0], method, locals, writeLine);
                 }
+                break;
+
+            case OpCode.Throw:
+                if (instruction.Operands is [TypeAnalysisContext exceptionType]
+                    && exceptionType.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0) is { } exceptionCtor)
+                    instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(exceptionCtor.ToMethodDescriptor(module)));
+                else
+                    instructions.Add(CilOpCodes.Ldnull);
+
+                instructions.Add(CilOpCodes.Throw);
                 break;
 
             case OpCode.Phi:
@@ -316,19 +324,30 @@ public static class IlGenerator
                 if (!targetMethod.IsStatic) // Load 'this' param
                 {
                     if ((instruction.Operands.Count - 1) >= thisParamIndex)
-                        LoadOperand(instruction.Operands[thisParamIndex], method, locals, writeLine, stringCtor);
+                        LoadOperand(instruction.Operands[thisParamIndex], method, locals, writeLine, stringCtor, targetMethod.DeclaringType);
                     else
                     {
                         instructions.Add(CilOpCodes.Ldstr, $"Non static method called without 'this' param ({instruction})");
                         instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                        instructions.Add(CilOpCodes.Ldnull);
                     }
                 }
 
                 // Load normal params
                 var callParamIndex = instruction.OpCode == OpCode.Call ? (targetMethod.IsStatic ? 2 : 3) : (targetMethod.IsStatic ? 1 : 2);
-                var callParams = instruction.Operands.Skip(callParamIndex).Take(targetMethod.Parameters.Count);
-                foreach (var param in callParams)
-                    LoadOperand(param, method, locals, writeLine, stringCtor);
+                // A call whose target was only identified after lifting still carries the operands the
+                // unknown-callee convention gave it, which may be fewer than the method actually takes.
+                // The stack still has to match the signature, so anything missing gets a placeholder.
+                var availableArgs = instruction.Operands.Count - callParamIndex;
+                for (var i = 0; i < targetMethod.Parameters.Count; i++)
+                {
+                    var parameterType = targetMethod.Parameters[i].ParameterType;
+
+                    if (i < availableArgs)
+                        LoadOperand(instruction.Operands[callParamIndex + i], method, locals, writeLine, stringCtor, parameterType);
+                    else
+                        PushDefaultOf(parameterType, instructions);
+                }
 
                 instructions.Add(CilOpCodes.Call, importedMethod);
 
@@ -343,8 +362,13 @@ public static class IlGenerator
                 break;
 
             case OpCode.Return:
-                if (!context.IsVoid && instruction.Operands.Count == 1)
-                    LoadOperand(instruction.Operands[0], method, locals, writeLine, stringCtor);
+                if (!context.IsVoid)
+                {
+                    if (instruction.Operands.Count == 1)
+                        LoadOperand(instruction.Operands[0], method, locals, writeLine, stringCtor, context.ReturnType);
+                    else
+                        instructions.Add(CilOpCodes.Ldnull); // ret still pops a value even if we lost track of it
+                }
                 instructions.Add(CilOpCodes.Ret);
                 break;
 
@@ -433,11 +457,15 @@ public static class IlGenerator
             case OpCode.Negate:
                 LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
 
-                switch (instruction.OpCode)
+                if (instruction.OpCode == OpCode.Negate)
+                    instructions.Add(CilOpCodes.Neg);
+                else if (IsBoolean(instruction.Operands[1], context))
                 {
-                    case OpCode.Not: instructions.Add(CilOpCodes.Not); break;
-                    case OpCode.Negate: instructions.Add(CilOpCodes.Neg); break;
+                    instructions.Add(CilOpCodes.Ldc_I4_0);
+                    instructions.Add(CilOpCodes.Ceq);
                 }
+                else
+                    instructions.Add(CilOpCodes.Not);
 
                 StoreToOperand(instruction.Operands[0], method, locals, writeLine);
                 break;
@@ -477,12 +505,21 @@ public static class IlGenerator
     }
 
     private static void LoadOperand(object operand, MethodDefinition method,
-        Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine, MemberReference stringCtor)
+        Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine, MemberReference stringCtor,
+        TypeAnalysisContext? expectedType = null)
     {
         var instructions = method.CilMethodBody!.Instructions;
 
         var module = method.DeclaringModule!;
         var importer = module.DefaultImporter!;
+
+        // A null reference reaches us as an integer zero, which would otherwise be emitted as a literal 0
+        // and read back as a cast from a number.
+        if (expectedType is { IsValueType: false } && IsZeroConstant(operand))
+        {
+            instructions.Add(CilOpCodes.Ldnull);
+            return;
+        }
 
         switch (operand)
         {
@@ -523,32 +560,38 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Ldstr, s);
                 break;
             case LocalVariable local:
-                var param = method.Parameters.FirstOrDefault(p => p.Name == local.Name);
-                if (param != null)
-                    instructions.Add(CilOpCodes.Ldarg, param);
-                else
-                    instructions.Add(CilOpCodes.Ldloc, locals[local]);
+                LoadLocal(local, method, locals);
                 break;
             case FieldReference field:
-                instructions.Add(CilOpCodes.Ldarg_0); // TODO: Use local instead of 'this' without causing stack imbalance, i have no idea why that happens
-                //instructions.Add(CilOpCodes.Ldloca, _locals[field.Local]);
+                if (field.Field.IsStatic)
+                {
+                    instructions.Add(CilOpCodes.Ldsfld, field.Field.ToFieldDescriptor(module));
+                    break;
+                }
+
+                LoadLocal(field.Local, method, locals);
                 instructions.Add(CilOpCodes.Ldfld, field.Field.ToFieldDescriptor(module));
                 break;
             case MemoryOperand memory:
                 if (memory.Index == null && memory.Addend == 0 && memory.Scale == 0
                     && memory.Base is LocalVariable local2)
                 {
-                    var param2 = method.Parameters.FirstOrDefault(p => p.Name == local2.Name);
-                    if (param2 != null)
-                        instructions.Add(CilOpCodes.Ldarg, param2);
-                    else
-                        instructions.Add(CilOpCodes.Ldloc, locals[local2]);
+                    LoadLocal(local2, method, locals);
                     break;
                 }
                 instructions.Add(CilOpCodes.Ldstr, "Unmanaged memory load: " + operand.ToString());
                 instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Ldc_I4_0);
+                instructions.Add(CilOpCodes.Conv_I);
                 break;
-            case RuntimeMethodInfoAnalysisContext:
+            case RuntimeMethodInfoAnalysisContext runtimeMethod:
+                // A delegate constructor takes its target as a native pointer, which is exactly ldftn.
+                if (expectedType?.FullName == "System.IntPtr")
+                {
+                    instructions.Add(CilOpCodes.Ldftn, importer.ImportMethod(runtimeMethod.RepresentedMethod.ToMethodDescriptor(module)));
+                    break;
+                }
+
                 //Not fully implemented, these basically shouldn't actually ever exist in the final IL.
                 instructions.Add(CilOpCodes.Ldc_I4_0);
                 instructions.Add(CilOpCodes.Conv_I);
@@ -563,13 +606,14 @@ public static class IlGenerator
                 }
 
                 // Try to first get constructor without params
-                var constructor = type.Methods.FirstOrDefault(m => m.Parameters.Count == 0 && m.Name == ".ctor" || m.Name == ".cctor");
-                constructor ??= type.Methods.FirstOrDefault(m => m.Name == ".ctor" || m.Name == ".cctor");
+                var constructor = type.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0);
+                constructor ??= type.Methods.FirstOrDefault(m => m.Name == ".ctor");
 
                 if (constructor == null)
                 {
                     instructions.Add(CilOpCodes.Ldstr, $"Constructor not found for: {operand} (probably static type)");
                     instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                    instructions.Add(CilOpCodes.Ldnull);
                     break;
                 }
 
@@ -580,8 +624,63 @@ public static class IlGenerator
             default:
                 instructions.Add(CilOpCodes.Ldstr, "Unknown operand: " + operand.ToString());
                 instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Ldnull);
                 break;
         }
+    }
+
+    private static void PushDefaultOf(TypeAnalysisContext type, CilInstructionCollection instructions)
+    {
+        //TODO Remove this, we should be handling arguments correctly in ISIL resolution, this is a hack to emit balanced stacks.
+        //TODO At the *very* least we should emit a console.writeline saying that we did this.
+        if (!type.IsValueType)
+        {
+            instructions.Add(CilOpCodes.Ldnull);
+            return;
+        }
+
+        switch (type.FullName)
+        {
+            case "System.Single": instructions.Add(CilOpCodes.Ldc_R4, 0f); break;
+            case "System.Double": instructions.Add(CilOpCodes.Ldc_R8, 0d); break;
+            case "System.Int64" or "System.UInt64": instructions.Add(CilOpCodes.Ldc_I8, 0L); break;
+            default: instructions.Add(CilOpCodes.Ldc_I4_0); break;
+        }
+    }
+
+    private static bool IsBoolean(object operand, MethodAnalysisContext context) =>
+        operand is LocalVariable { Type: { } type } && type == context.AppContext.SystemTypes.SystemBooleanType;
+
+    private static bool IsZeroConstant(object operand) =>
+        operand switch
+        {
+            int i => i == 0,
+            uint ui => ui == 0,
+            long l => l == 0,
+            ulong ul => ul == 0,
+            short s => s == 0,
+            ushort us => us == 0,
+            byte b => b == 0,
+            sbyte sb => sb == 0,
+            _ => false,
+        };
+
+    private static void LoadLocal(LocalVariable local, MethodDefinition method, Dictionary<LocalVariable, CilLocalVariable> locals)
+    {
+        var instructions = method.CilMethodBody!.Instructions;
+
+        if (local.IsThis)
+        {
+            instructions.Add(CilOpCodes.Ldarg_0);
+            return;
+        }
+
+        var parameter = method.Parameters.FirstOrDefault(p => p.Name == local.Name);
+
+        if (parameter != null)
+            instructions.Add(CilOpCodes.Ldarg, parameter);
+        else
+            instructions.Add(CilOpCodes.Ldloc, locals[local]);
     }
 
     private static void StoreToOperand(object operand, MethodDefinition method,
@@ -599,8 +698,23 @@ public static class IlGenerator
                 break;
 
             case FieldReference field:
-                instructions.Add(CilOpCodes.Ldarg_0);
-                instructions.Add(CilOpCodes.Stfld, field.Field.ToFieldDescriptor(module));
+                var fieldDescriptor = field.Field.ToFieldDescriptor(module);
+
+                if (field.Field.IsStatic)
+                {
+                    instructions.Add(CilOpCodes.Stsfld, fieldDescriptor);
+                    break;
+                }
+
+                // stfld wants the object underneath the value, but the value is already on the stack, so
+                // park it in a temporary while we load the object.
+                var scratch = new CilLocalVariable(fieldDescriptor.Signature!.FieldType);
+                method.CilMethodBody!.LocalVariables.Add(scratch);
+
+                instructions.Add(CilOpCodes.Stloc, scratch);
+                LoadLocal(field.Local, method, locals);
+                instructions.Add(CilOpCodes.Ldloc, scratch);
+                instructions.Add(CilOpCodes.Stfld, fieldDescriptor);
                 break;
 
             case MemoryOperand memory:
@@ -609,12 +723,15 @@ public static class IlGenerator
                 {
                     // Can pointer assignments just be ignored because it's C#? (Move [local], 123)
                     instructions.Add(CilOpCodes.Stloc, locals[local2]);
+                    break;
                 }
+                instructions.Add(CilOpCodes.Pop);
                 break;
 
             default:
                 instructions.Add(CilOpCodes.Ldstr, $"Store into unknown operand: {operand}");
                 instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Pop);
                 break;
         }
     }

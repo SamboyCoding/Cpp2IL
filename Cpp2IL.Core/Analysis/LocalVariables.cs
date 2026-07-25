@@ -9,6 +9,9 @@ public static class LocalVariables
 {
     public static int MaxTypePropagationLoopCount = 5000;
 
+    private const long StaticFieldsOffset64 = 0xB8;
+    private const long StaticFieldsOffset32 = 0x5C;
+
     public static void CreateAll(MethodAnalysisContext method)
     {
         var cfg = method.ControlFlowGraph!;
@@ -232,6 +235,8 @@ public static class LocalVariables
             changed |= MetadataResolver.ResolveAmbiguousCalls(method);
             changed |= PropagateFromCallParameters(method);
             changed |= MetadataResolver.ResolveFieldOffsets(method);
+            changed |= RgctxResolver.Run(method);
+            changed |= PropagateStaticFieldStorage(method);
             changed |= PropagateTypesOnce(method);
         }
     }
@@ -315,6 +320,32 @@ public static class LocalVariables
 
         local.Type = type;
         return true;
+    }
+    
+    private static bool PropagateStaticFieldStorage(MethodAnalysisContext method)
+    {
+        var staticFieldsOffset = method.AppContext.Binary.is32Bit ? StaticFieldsOffset32 : StaticFieldsOffset64;
+        var changed = false;
+
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode != OpCode.Move || instruction.Operands.Count < 2)
+                continue;
+
+            if (instruction.Operands[0] is not LocalVariable destination || destination.Type is StaticFieldStorageTypeAnalysisContext)
+                continue;
+
+            if (instruction.Operands[1] is not MemoryOperand { Index: null, Scale: 0 } memory || memory.Addend != staticFieldsOffset)
+                continue;
+
+            if (memory.Base is not LocalVariable { Type: RuntimeClassTypeAnalysisContext { RepresentedType: var owner } })
+                continue;
+
+            destination.Type = new StaticFieldStorageTypeAnalysisContext(owner, owner.DeclaringAssembly);
+            changed = true;
+        }
+
+        return changed;
     }
 
     // A single propagation sweep over every move and phi. Returns whether it filled in any type.

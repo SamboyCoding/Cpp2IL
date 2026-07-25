@@ -201,6 +201,10 @@ public static class Simplifier
 
                         instruction.Operands[j] = memory;
                     }
+
+                    // The object a field is accessed on is an address just like a memory base.
+                    if (operand is FieldReference field && replacement is LocalVariable fieldReplacement && field.Local == local)
+                        field.Local = fieldReplacement;
                 }
             }
 
@@ -240,6 +244,17 @@ public static class Simplifier
                 // Direct usage check
                 if (instruction.Sources.Contains(local))
                     return true;
+
+                // A field access reads the object it is on, whether the field is being read or written,
+                // so the destination has to be considered too - a store is not in Sources.
+                foreach (var operand in instruction.Operands)
+                {
+                    if (operand is FieldReference field && field.Local == local)
+                    {
+                        usedByMemory2 = true;
+                        return true;
+                    }
+                }
 
                 // Used in memory operand
                 foreach (var source in instruction.Sources)

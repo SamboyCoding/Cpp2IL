@@ -88,7 +88,9 @@ public static class DeadCodeEliminator
                     if (memory.Index is LocalVariable indexLocal)
                         yield return indexLocal;
                     break;
-                case FieldReference field when field.Local is { } fieldLocal:
+                // A static field access doesn't read the storage pointer it was resolved from, so that
+                // pointer (and the class load feeding it) is free to die.
+                case FieldReference { Field.IsStatic: false, Local: { } fieldLocal }:
                     yield return fieldLocal;
                     break;
             }

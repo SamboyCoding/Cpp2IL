@@ -156,18 +156,7 @@ public static class X64CallingConventionResolver
 
             var i = 0;
 
-            if (isReturningAnOversizedStructure)
-            {
-                args.Add(ToOperand(MicrosoftNormalRegister.rcx + i));
-                i++;
-            }
-
-            if (addThis)
-            {
-                args.Add(ToOperand(MicrosoftNormalRegister.rcx + i));
-                i++;
-            }
-
+            // i is the argument slot, which is not the parameter index once 'this' has taken slot zero.
             void AddParameter(ParameterAnalysisContext? par)
             {
                 if (i < 4)
@@ -178,11 +167,23 @@ public static class X64CallingConventionResolver
                 {
                     args.Add(new StackOffset((i - 4) * ptrSize));
                 }
+
+                i++;
             }
 
-            for (; i < ctx.Parameters.Count; i++)
+            if (isReturningAnOversizedStructure)
             {
-                AddParameter(ctx.Parameters[i]);
+                AddParameter(null);
+            }
+
+            if (addThis)
+            {
+                AddParameter(null);
+            }
+
+            foreach (var par in ctx.Parameters)
+            {
+                AddParameter(par);
             }
 
             AddParameter(null); // The MethodInfo argument

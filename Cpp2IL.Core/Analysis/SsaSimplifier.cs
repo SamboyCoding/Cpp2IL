@@ -92,6 +92,11 @@ public static class SsaSimplifier
                         memory.Index = indexReplacement;
                     instruction.Operands[i] = memory; // MemoryOperand is a struct, write the copy back
                     break;
+
+                // Same as a memory base: the object a field is read from must stay a local.
+                case FieldReference { Local: { } fieldLocal } field when resolved.TryGetValue(fieldLocal, out var fieldValue) && fieldValue is LocalVariable fieldReplacement:
+                    field.Local = fieldReplacement;
+                    break;
             }
         }
     }
