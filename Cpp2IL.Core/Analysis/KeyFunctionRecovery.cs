@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 
@@ -28,7 +29,15 @@ public static class KeyFunctionRecovery
 
             if (ObjectNewFunctions.Contains(keyFunction))
                 RewriteObjectNew(instruction);
+            else if (keyFunction == nameof(BaseKeyFunctionAddresses.il2cpp_codegen_write_barrier))
+                RemoveWriteBarrier(instruction);
         }
+    }
+
+    private static void RemoveWriteBarrier(Instruction instruction)
+    {
+        instruction.OpCode = OpCode.Nop;
+        instruction.Operands = [];
     }
     
     private static void RewriteObjectNew(Instruction instruction)

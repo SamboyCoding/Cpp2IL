@@ -48,6 +48,8 @@ public abstract class BaseKeyFunctionAddresses
 
     public ulong il2cpp_vm_object_is_inst; //Not exported, not thunked. Can be located via the Type#IsInstanceOfType icall.
 
+    public ulong il2cpp_codegen_write_barrier; //Not exported, not thunked. Located via corlib methods which store a reference into a field. Zero if the build has write barriers disabled.
+
     public ulong AddrPInvokeLookup; //TODO Re-find this and fix name
 
     public IEnumerable<KeyValuePair<string, ulong>> Pairs => resolvedAddressMap;
@@ -115,6 +117,9 @@ public abstract class BaseKeyFunctionAddresses
 
         //Object IsInst
         il2cpp_vm_object_is_inst = GetObjectIsInstFromSystemType();
+
+        //GC write barrier
+        il2cpp_codegen_write_barrier = GetWriteBarrier();
 
         AttemptInstructionAnalysisToFillGaps();
 
@@ -276,6 +281,12 @@ public abstract class BaseKeyFunctionAddresses
     protected abstract ulong GetObjectIsInstFromSystemType();
 
     /// <summary>
+    /// Locates Il2CppCodeGenWriteBarrier, the GC write barrier emitted after every reference store into a
+    /// heap object. Returns 0 where it can't be found, including builds which have write barriers disabled.
+    /// </summary>
+    protected virtual ulong GetWriteBarrier() => 0;
+
+    /// <summary>
     /// Given a function at addr, find a function which serves no purpose other than to call addr.
     /// </summary>
     /// <param name="addr">The address of the function to call.</param>
@@ -338,6 +349,8 @@ public abstract class BaseKeyFunctionAddresses
         AddResolved(il2cpp_codegen_raise_exception);
 
         AddResolved(il2cpp_vm_object_is_inst);
+
+        AddResolved(il2cpp_codegen_write_barrier);
 
         AddResolved(AddrPInvokeLookup);
 

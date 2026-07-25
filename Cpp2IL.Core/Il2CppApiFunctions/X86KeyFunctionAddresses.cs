@@ -9,6 +9,17 @@ namespace Cpp2IL.Core.Il2CppApiFunctions;
 
 public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
 {
+    // Corlib methods which assign a reference to a field and so are followed by a write barrier. Several,
+    // because any one of them can be stripped, and because agreement between them rules out a false match.
+    private static readonly (string Namespace, string Type, string Method)[] WriteBarrierAnchors =
+    [
+        ("System.Threading.Tasks", "Task`1", "GetAwaiter"),
+        ("System.Threading.Tasks", "Task", "GetAwaiter"),
+        ("System.Threading", "ExecutionContext", "get_LogicalCallContext"),
+        ("System.Threading", "CancellationTokenSource", "get_Token"),
+        ("System", "BadImageFormatException", "get_Message"),
+    ];
+
     private InstructionList? _cachedDisassembledBytes;
 
     private InstructionList DisassembleTextSection()
@@ -105,6 +116,99 @@ public class X86KeyFunctionAddresses : BaseKeyFunctionAddresses
 
         Logger.VerboseNewline($"Success. IsInst found at 0x{lastCall.NearBranchTarget:X}");
         return lastCall.NearBranchTarget;
+    }
+
+    protected override ulong GetWriteBarrier()
+    {
+        Logger.Verbose("\tLooking for Il2CppCodeGenWriteBarrier via corlib reference-field stores...");
+
+        var votes = new Dictionary<ulong, int>();
+
+        foreach (var (@namespace, typeName, methodName) in WriteBarrierAnchors)
+        {
+            var method = ReflectionCache.GetType(typeName, @namespace)?.Methods?.FirstOrDefault(m => m.Name == methodName);
+
+            if (method == null || method.MethodPointer == 0)
+                continue;
+
+            var body = X86Utils.GetMethodBodyAtVirtAddressNew(method.MethodPointer, false, _appContext.Binary);
+
+            foreach (var target in FindWriteBarrierCalls(body).Distinct())
+                votes[target] = (votes.TryGetValue(target, out var count) ? count : 0) + 1;
+        }
+
+        var best = 0ul;
+        var bestVotes = 0;
+
+        foreach (var vote in votes)
+        {
+            if (vote.Value <= bestVotes)
+                continue;
+
+            best = vote.Key;
+            bestVotes = vote.Value;
+        }
+
+        if (best == 0)
+        {
+            Logger.VerboseNewline("Not found. Write barriers disabled?");
+            return 0;
+        }
+
+        Logger.VerboseNewline($"Found at 0x{best:X} (found in {bestVotes} of {WriteBarrierAnchors.Length} checked methods)");
+
+        return best;
+    }
+
+    /// <summary>
+    /// Returns the target of every call in <paramref name="body"/> which is preceded by both a 64-bit store
+    /// into some slot and an <c>lea rcx</c> of that same slot - that is, Il2CppCodeGenWriteBarrier(&amp;slot, value)
+    /// immediately following the store it guards. The two setup instructions appear in either order.
+    /// </summary>
+    private static IEnumerable<ulong> FindWriteBarrierCalls(InstructionList body)
+    {
+        const int window = 6;
+
+        for (var i = 0; i < body.Count; i++)
+        {
+            var call = body[i];
+
+            if (call.Mnemonic != Mnemonic.Call || call.Op0Kind != OpKind.NearBranch64)
+                continue;
+
+            if (IsPrecededByGuardedStore(body, i, window))
+                yield return call.NearBranchTarget;
+        }
+    }
+
+    private static bool IsPrecededByGuardedStore(InstructionList body, int callIndex, int window)
+    {
+        var start = callIndex - window < 0 ? 0 : callIndex - window;
+
+        for (var i = start; i < callIndex; i++)
+        {
+            var lea = body[i];
+
+            if (lea.Mnemonic != Mnemonic.Lea || lea.Op0Register != Register.RCX || lea.MemoryBase == Register.None)
+                continue;
+
+            for (var j = start; j < callIndex; j++)
+            {
+                var store = body[j];
+
+                if (store.Mnemonic != Mnemonic.Mov || store.Op0Kind != OpKind.Memory || store.Op1Kind != OpKind.Register)
+                    continue;
+
+                if (store.MemorySize is not (MemorySize.UInt64 or MemorySize.Int64))
+                    continue;
+
+                if (store.MemoryBase == lea.MemoryBase && store.MemoryIndex == lea.MemoryIndex
+                    && store.MemoryDisplacement64 == lea.MemoryDisplacement64)
+                    return true;
+            }
+        }
+
+        return false;
     }
 
     protected override ulong FindFunctionThisIsAThunkOf(ulong thunkPtr, bool prioritiseCall = false)
