@@ -61,7 +61,10 @@ public class StackAnalyzer
                     // Nop the shift stack instruction
                     instruction.OpCode = OpCode.Nop;
                     instruction.Operands = [];
+                    continue;
                 }
+
+                int? state = null;
 
                 // Correct offset for stack operands.
                 for (var i = 0; i < instruction.Operands.Count; i++)
@@ -70,8 +73,11 @@ public class StackAnalyzer
 
                     if (op is StackOffset offset)
                     {
-                        var state = _instructionState[instruction].Size;
-                        var actual = state + offset.Offset;
+                        // This can only be done before modifying any of the instruction operands,
+                        // as doing so will make the dictionary lookup impossible.
+                        state ??= _instructionState[instruction].Size;
+
+                        var actual = state.Value + offset.Offset;
                         instruction.Operands[i] = new StackOffset(actual);
                     }
                 }
@@ -80,59 +86,67 @@ public class StackAnalyzer
     }
 
     // Traverse the graph and calculate the stack state for each block and instruction
-    private void TraverseGraph(Block block, int visitedBlockCount = 0)
+    private void TraverseGraph(Block initialBlock, int initialVisitedBlockCount = 0)
     {
-        // Copy current state
-        var incomingState = _inComingState[block];
-        var currentState = incomingState.Copy();
+        var blockLevelState = new Stack<(Block, int)>();
+        blockLevelState.Push((initialBlock, initialVisitedBlockCount));
 
-        // Process instructions
-        foreach (var instruction in block.Instructions)
+        while (blockLevelState.Count > 0)
         {
-            _instructionState[instruction] = currentState;
+            var (block, visitedBlockCount) = blockLevelState.Pop();
 
-            if (instruction.OpCode == OpCode.ShiftStack)
+            // Copy current state
+            var incomingState = _inComingState[block];
+            var currentState = incomingState.Copy();
+
+            // Process instructions
+            foreach (var instruction in block.Instructions)
             {
-                var offset = (int)instruction.Operands[0];
-                currentState = currentState.Copy();
-                currentState.Size += offset;
-            }
-            else if (block.Instructions[block.Instructions.Count - 1] == instruction && block.BlockType == BlockType.TailCall)
-            {
-                // Tail calls clear stack
-                currentState = currentState.Copy();
-                currentState.Size = 0;
-            }
-        }
+                _instructionState[instruction] = currentState;
 
-        // Tail calls clear stack
-        if (block.BlockType == BlockType.TailCall)
-            currentState.Size = 0;
-
-        _outGoingState[block] = currentState;
-
-        visitedBlockCount++;
-
-        if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-            throw new DecompilerException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
-
-        // Visit successors
-        foreach (var successor in block.Successors)
-        {
-            // Already visited
-            if (_inComingState.TryGetValue(successor, out var existingState))
-            {
-                if (existingState.Size != currentState.Size)
+                if (instruction.OpCode == OpCode.ShiftStack)
                 {
-                    _inComingState[successor] = currentState.Copy();
-                    TraverseGraph(successor, visitedBlockCount + 1);
+                    var offset = (int)instruction.Operands[0];
+                    currentState = currentState.Copy();
+                    currentState.Size += offset;
+                }
+                else if (block.Instructions[^1] == instruction && block.BlockType == BlockType.TailCall)
+                {
+                    // Tail calls clear stack
+                    currentState = currentState.Copy();
+                    currentState.Size = 0;
                 }
             }
-            else
+
+            // Tail calls clear stack
+            if (block.BlockType == BlockType.TailCall)
+                currentState.Size = 0;
+
+            _outGoingState[block] = currentState;
+
+            visitedBlockCount++;
+
+            if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
+                throw new DecompilerException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
+
+            // Visit successors
+            foreach (var successor in block.Successors)
             {
-                // Set incoming delta and add to queue
-                _inComingState[successor] = currentState.Copy();
-                TraverseGraph(successor, visitedBlockCount + 1);
+                // Already visited
+                if (_inComingState.TryGetValue(successor, out var existingState))
+                {
+                    if (existingState.Size != currentState.Size)
+                    {
+                        _inComingState[successor] = currentState.Copy();
+                        blockLevelState.Push((successor, visitedBlockCount + 1));
+                    }
+                }
+                else
+                {
+                    // Set incoming delta and add to queue
+                    _inComingState[successor] = currentState.Copy();
+                    blockLevelState.Push((successor, visitedBlockCount + 1));
+                }
             }
         }
     }
