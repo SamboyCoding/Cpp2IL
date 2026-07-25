@@ -351,8 +351,8 @@ public static class AsmResolverAssemblyPopulator
             var managedField = new FieldDefinition(fieldContext.Name, (FieldAttributes)fieldContext.Attributes, fieldTypeSig);
 
             //Field default values
-            if (managedField.HasDefault && fieldContext.ConstantValue is { } constVal)
-                managedField.Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
+            if (managedField.HasDefault)
+                managedField.Constant = AsmResolverConstants.GetOrCreateConstant(fieldContext.ConstantValue);
 
             //Field Initial Values (used for allocation of Array Literals)
             if (managedField.HasFieldRva)
@@ -385,16 +385,8 @@ public static class AsmResolverAssemblyPopulator
                 var sequence = (ushort)(i + 1); //Add one because sequence 0 is the return type
                 parameterDefinitions[i] = new(sequence, parameterAnalysisContext.Name, (ParameterAttributes)parameterAnalysisContext.Attributes);
 
-                if (parameterAnalysisContext.DefaultValue is not { } defaultValueData || !parameterAnalysisContext.Attributes.HasFlag(System.Reflection.ParameterAttributes.HasDefault))
-                    continue;
-
-                if (defaultValueData?.ContainedDefaultValue is { } constVal)
-                    parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(constVal);
-                else if (defaultValueData is { dataIndex.IsNull: true })
-                {
-                    //Literal null
-                    parameterDefinitions[i].Constant = AsmResolverConstants.Null;
-                }
+                if (parameterAnalysisContext.Attributes.HasFlag(System.Reflection.ParameterAttributes.HasDefault))
+                    parameterDefinitions[i].Constant = AsmResolverConstants.GetOrCreateConstant(parameterAnalysisContext.DefaultValue);
             }
 
 

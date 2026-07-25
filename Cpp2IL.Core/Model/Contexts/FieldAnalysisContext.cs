@@ -45,11 +45,13 @@ public class FieldAnalysisContext : HasCustomAttributesAndName, IFieldInfoProvid
 
     public virtual object? DefaultConstantValue => BackingData?.Field.DefaultValue?.Value;
 
+    public virtual bool UseOverrideConstantValue { get; set; } = false;
+
     public virtual object? OverrideConstantValue { get; set; }
 
     public object? ConstantValue
     {
-        get => OverrideConstantValue ?? DefaultConstantValue;
+        get => UseOverrideConstantValue ? OverrideConstantValue : DefaultConstantValue;
         set => OverrideConstantValue = value;
     }
 
