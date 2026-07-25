@@ -70,7 +70,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
 
     public List<string> AnalysisWarnings = [];
 
-    private const int MaxMethodSizeBytes = 18000; // 18KB
+    public static int MaxMethodSizeBytes = 18000; // 18KB
 
     public List<ParameterAnalysisContext> Parameters = [];
 
@@ -345,7 +345,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     [MemberNotNull(nameof(ConvertedIsil))]
     public void Analyze()
     {
-        if (RawBytes.Length > MaxMethodSizeBytes)
+        if (MaxMethodSizeBytes != -1 && RawBytes.Length > MaxMethodSizeBytes)
         {
             Logger.WarnNewline($"Method {FullName} is too big ({RawBytes.Length} bytes), skipping analysis.");
             ConvertedIsil = [];
