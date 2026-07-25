@@ -110,6 +110,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             return newInstruction;
         }
 
+        // Preserve all the argument registers as we don't know which ones are used
+        void AddIndirectCall(Instruction source)
+        {
+            var call = Add(source.IP, ISIL.OpCode.IndirectCall, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
+            call.Operands.AddRange(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
+        }
+
         switch (instruction.Mnemonic)
         {
             case Mnemonic.Mov:
@@ -427,7 +434,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                 if (instruction.Op0Kind == OpKind.Register || instruction.Op0Kind == OpKind.Memory)
                 {
-                    Add(instruction.IP, ISIL.OpCode.IndirectCall, ConvertOperand(instruction, 0));
+                    AddIndirectCall(instruction);
                 }
                 else if (context.AppContext.MethodsByAddress.TryGetValue(target, out var possibleMethods))
                 {
@@ -647,7 +654,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 }
                 if (instruction.Op0Kind == OpKind.Register) // ex: jmp rax
                 {
-                    Add(instruction.IP, ISIL.OpCode.IndirectCall, ConvertOperand(instruction, 0));
+                    AddIndirectCall(instruction);
                     break;
                 }
 

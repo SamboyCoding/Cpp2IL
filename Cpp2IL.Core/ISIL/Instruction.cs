@@ -67,6 +67,7 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             // CallVoid has no return value and so has no destination, and a Call may also be emitted
             // without a return-value operand, in which case it likewise has no destination.
             case OpCode.Call:
+            case OpCode.IndirectCall:
                 if (Operands.Count < 2)
                     return null;
                 if (newDestination != null)
@@ -93,6 +94,12 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
                 => [Operands[2], Operands[1]],
 
             OpCode.Call => Operands.Skip(2).ToList(),
+
+            // Unlike a direct call, operand 0 is the address being called and so is itself a source.
+            OpCode.IndirectCall => Operands.Count > 2
+                ? Operands.Skip(2).Prepend(Operands[0]).ToList()
+                : Operands.Take(1).ToList(),
+
             OpCode.CallVoid or OpCode.Phi => Operands.Skip(1).ToList(),
             OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
                 or OpCode.CheckNotEqual or OpCode.CheckGreaterOrEqual or OpCode.CheckLessOrEqual
