@@ -89,7 +89,15 @@ public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
 
     public TypeAnalysisContext? DeclaringType { get; protected internal set; }
 
-    public TypeAnalysisContext? EnumUnderlyingType => Definition == null ? null : AppContext.ResolveIl2CppType(Definition.EnumUnderlyingType);
+    public TypeAnalysisContext? OverrideEnumUnderlyingType { get; set; }
+
+    public TypeAnalysisContext? EnumUnderlyingType
+    {
+        get => OverrideEnumUnderlyingType ?? DefaultEnumUnderlyingType;
+        set => OverrideEnumUnderlyingType = value;
+    }
+
+    public TypeAnalysisContext? DefaultEnumUnderlyingType => Definition == null ? null : AppContext.ResolveIl2CppType(Definition.EnumUnderlyingType);
 
     private List<TypeAnalysisContext>? _interfaceContexts;
     public List<TypeAnalysisContext> InterfaceContexts
