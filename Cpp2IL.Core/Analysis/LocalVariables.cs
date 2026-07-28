@@ -15,10 +15,11 @@ public static class LocalVariables
     public static void CreateAll(MethodAnalysisContext method)
     {
         var cfg = method.ControlFlowGraph!;
+        var instructions = cfg.Instructions;
 
         // Get all registers
         var registers = new List<Register>();
-        foreach (var instruction in cfg.Instructions)
+        foreach (var instruction in instructions)
             registers.AddRange(GetRegisters(instruction));
 
         // Remove duplicates
@@ -33,7 +34,7 @@ public static class LocalVariables
         }
 
         // Replace registers with locals
-        foreach (var instruction in cfg.Instructions)
+        foreach (var instruction in instructions)
         {
             for (var i = 0; i < instruction.Operands.Count; i++)
             {
@@ -65,9 +66,8 @@ public static class LocalVariables
 
         // Return local names
         var retValIndex = 0;
-        for (var i = 0; i < cfg.Instructions.Count; i++)
+        foreach (var instruction in instructions)
         {
-            var instruction = cfg.Instructions[i];
             if (instruction.OpCode != OpCode.Return || instruction.Operands.Count != 1) continue;
 
             var returnLocal = (LocalVariable)instruction.Sources[0];
@@ -147,16 +147,18 @@ public static class LocalVariables
         var cfg = method.ControlFlowGraph!;
         cfg.BuildUseDefLists();
 
-        for (var i = 0; i < method.Locals.Count; i++)
+        var usedLocals = new HashSet<LocalVariable>();
+
+        foreach (var block in cfg.Blocks)
         {
-            var local = method.Locals[i];
+            foreach (var usedVar in block.Use.OfType<LocalVariable>())
+                usedLocals.Add(usedVar);
 
-            if (cfg.Blocks.Any(b => b.Use.Contains(local) || b.Def.Contains(local)))
-                continue;
-
-            method.Locals.Remove(local);
-            i--;
+            foreach (var definedVar in block.Def.OfType<LocalVariable>())
+                usedLocals.Add(definedVar);
         }
+
+        method.Locals.RemoveAll(x => !usedLocals.Contains(x));
     }
 
     private static List<Register> GetRegisters(Instruction instruction)
@@ -257,7 +259,7 @@ public static class LocalVariables
                 destination.Type = new RuntimeClassTypeAnalysisContext(type, type.DeclaringAssembly);
         }
     }
-    
+
     private static void SeedNewobjResults(MethodAnalysisContext method)
     {
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
@@ -321,7 +323,7 @@ public static class LocalVariables
         local.Type = type;
         return true;
     }
-    
+
     private static bool PropagateStaticFieldStorage(MethodAnalysisContext method)
     {
         var staticFieldsOffset = method.AppContext.Binary.is32Bit ? StaticFieldsOffset32 : StaticFieldsOffset64;
@@ -444,19 +446,19 @@ public static class LocalVariables
                     calledMethod.Name is ".ctor" or ".cctor" ? calledMethod.DeclaringType : calledMethod.ReturnType);
             }
 
-            
+
             // Call operands
             // 0. Target
             // 1. ReturnValue
             // 2. thisParam
             // ... parameters
-            
+
             // CallVoid operands
             // 0. Target
             // 1. thisParam
             // ... parameters
             var thisParamIndex = instruction.OpCode == OpCode.CallVoid ? 1 : 2;
-            
+
             // 'this' param
             if (!calledMethod.IsStatic
                 && instruction.Operands[thisParamIndex] is LocalVariable thisParam)
