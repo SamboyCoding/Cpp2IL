@@ -570,10 +570,10 @@ public class Il2CppMetadata : ClassReadingBinaryReader
             start = DateTime.Now;
             for (var i = 0; i < fieldDefaultValues.Length; i++)
             {
-                if(MetadataVersion >= 104 && i == fieldDefaultValues.Length - 1 && fieldDefaultValues[i].fieldIndex.Value == -1)
+                if(MetadataVersion >= 104 && i == fieldDefaultValues.Length - 1 && (fieldDefaultValues[i].fieldIndex.Value == -1 || fieldDefaultValues[i].fieldIndex.Value == int.MaxValue))
                     //v104 added this silly dummy entry at the end with field and type index -1. We skip it.
+                    //v106 changed it to int.MaxValue, which we will also test for and skip.
                     continue;
-                
                 var il2CppFieldDefaultValue = fieldDefaultValues[i];
                 _fieldDefaultValueLookup[il2CppFieldDefaultValue.fieldIndex] = il2CppFieldDefaultValue;
                 _fieldDefaultLookupNew[GetFieldDefinitionFromIndex(il2CppFieldDefaultValue.fieldIndex)] = il2CppFieldDefaultValue;
