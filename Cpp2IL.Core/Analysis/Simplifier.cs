@@ -186,7 +186,10 @@ public static class Simplifier
                     var operand = instruction.Operands[j];
 
                     if (operand is LocalVariable usedLocal && usedLocal == local)
+                    {
                         instruction.Operands[j] = replacement;
+                        instruction.ResetSources();
+                    }
 
                     // A memory operand's base/index holds an address, so only a local replacement may
                     // be substituted there (copy propagation). A constant/value replacement is left in
@@ -200,6 +203,7 @@ public static class Simplifier
                             memory.Index = replacement;
 
                         instruction.Operands[j] = memory;
+                        instruction.ResetSources();
                     }
 
                     // The object a field is accessed on is an address just like a memory base.

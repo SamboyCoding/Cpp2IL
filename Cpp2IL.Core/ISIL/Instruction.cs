@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using System.Linq;
 using Cpp2IL.Core.Graphs;
@@ -6,13 +8,35 @@ using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.ISIL;
 
-public class Instruction(int index, OpCode opcode, params object[] operands)
+public class Instruction
 {
-    public int Index = index;
+    public int Index;
 
-    public OpCode OpCode = opcode;
+    public OpCode OpCode
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
 
-    public List<object> Operands = operands.ToList();
+            field = value;
+            ResetSources();
+        }
+    }
+
+    public List<object> Operands
+    {
+        get;
+        set
+        {
+            if (field == value)
+                return;
+
+            field = value;
+            ResetSources();
+        }
+    }
 
     public bool IsFallThrough =>
         OpCode switch
@@ -25,9 +49,19 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
 
     public bool IsAssignment => Destination != null;
 
-    public List<object> Sources => GetSources();
+    public List<object> Sources => _sources.Value;
+    private Lazy<List<object>> _sources;
 
-    public List<object> SourcesAndConstants => GetSources(false);
+    public List<object> SourcesAndConstants => _sourcesAndConstants.Value;
+    private Lazy<List<object>> _sourcesAndConstants;
+
+    public Instruction(int index, OpCode opcode, params object[] operands)
+    {
+        Index = index;
+        OpCode = opcode;
+        Operands = [.. operands];
+        ResetSources();
+    }
 
     public object? Destination
     {
@@ -77,6 +111,13 @@ public class Instruction(int index, OpCode opcode, params object[] operands)
             default:
                 return null;
         }
+    }
+
+    [MemberNotNull(nameof(_sources), nameof(_sourcesAndConstants))]
+    public void ResetSources()
+    {
+        _sources = new Lazy<List<object>>(() => GetSources());
+        _sourcesAndConstants = new Lazy<List<object>>(() => GetSources(false));
     }
 
     private List<object> GetSources(bool constantsOnly = true)

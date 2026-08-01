@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace Cpp2IL.Core.Graphs;
 
@@ -13,10 +14,14 @@ public class DominatorInfo
 
     public DominatorInfo(ISILControlFlowGraph graph)
     {
+        // The post dominators are not actually used by anything.
+
         CalculateDominators(graph);
-        CalculatePostDominators(graph);
+        //CalculatePostDominators(graph);
+
         CalculateImmediateDominators(graph);
-        CalculateImmediatePostDominators(graph);
+        //CalculateImmediatePostDominators(graph);
+
         CalculateDominanceFrontiers(graph);
         BuildDominanceTree();
     }
@@ -25,8 +30,10 @@ public class DominatorInfo
     {
         if (a == b)
             return true;
-        if (Dominators.ContainsKey(b) && Dominators.ContainsKey(a))
-            return Dominators[b].Contains(a);
+
+        if (Dominators.TryGetValue(b, out var bDominators) && Dominators.ContainsKey(a))
+            return bDominators.Contains(a);
+
         return false;
     }
 
@@ -57,32 +64,31 @@ public class DominatorInfo
                 Dominators[block] = new HashSet<Block>(graph.Blocks);
         }
 
-        var changed = true;
+        var remaining = new Stack<Block>(graph.Blocks);
 
         // Get dominators
-        while (changed)
+        while (remaining.Count > 0)
         {
-            changed = false;
+            var block = remaining.Pop();
 
-            foreach (var block in graph.Blocks)
+            if (block == graph.EntryBlock)
+                continue;
+
+            var tempDoms = block.Predecessors.Count == 0
+                ? new HashSet<Block>()
+                : new HashSet<Block>(Dominators[block.Predecessors[0]]);
+
+            for (var i = 1; i < block.Predecessors.Count; i++)
+                tempDoms.IntersectWith(Dominators[block.Predecessors[i]]);
+
+            tempDoms.Add(block);
+
+            if (!tempDoms.SetEquals(Dominators[block]))
             {
-                if (block == graph.EntryBlock)
-                    continue;
+                Dominators[block] = tempDoms;
 
-                var tempDoms = block.Predecessors.Count == 0
-                    ? new HashSet<Block>()
-                    : new HashSet<Block>(Dominators[block.Predecessors[0]]);
-
-                for (var i = 1; i < block.Predecessors.Count; i++)
-                    tempDoms.IntersectWith(Dominators[block.Predecessors[i]]);
-
-                tempDoms.Add(block);
-
-                if (!tempDoms.SetEquals(Dominators[block]))
-                {
-                    Dominators[block] = tempDoms;
-                    changed = true;
-                }
+                foreach (var successor in block.Successors)
+                    remaining.Push(successor);
             }
         }
     }
@@ -99,31 +105,29 @@ public class DominatorInfo
                 PostDominators[block] = new HashSet<Block>(graph.Blocks);
         }
 
-        var changed = true;
+        var remaining = new Stack<Block>(((IEnumerable<Block>)graph.Blocks).Reverse());
 
-        while (changed)
+        while (remaining.Count > 0)
         {
-            changed = false;
+            var block = remaining.Pop();
 
-            foreach (var block in graph.Blocks)
+            if (block.Successors.Count == 0 && block != graph.ExitBlock)
+                continue;
+
+            var tempPostDoms = block.Successors.Count == 0
+                ? new HashSet<Block>()
+                : new HashSet<Block>(PostDominators[block.Successors[0]]);
+
+            for (var i = 1; i < block.Successors.Count; i++)
+                tempPostDoms.IntersectWith(PostDominators[block.Successors[i]]);
+
+            tempPostDoms.Add(block);
+
+            if (!tempPostDoms.SetEquals(PostDominators[block]))
             {
-                if (block.Successors.Count == 0 && block != graph.ExitBlock)
-                    continue;
-
-                var tempPostDoms = block.Successors.Count == 0
-                    ? new HashSet<Block>()
-                    : new HashSet<Block>(PostDominators[block.Successors[0]]);
-
-                for (var i = 1; i < block.Successors.Count; i++)
-                    tempPostDoms.IntersectWith(PostDominators[block.Successors[i]]);
-
-                tempPostDoms.Add(block);
-
-                if (!tempPostDoms.SetEquals(PostDominators[block]))
-                {
-                    PostDominators[block] = tempPostDoms;
-                    changed = true;
-                }
+                PostDominators[block] = tempPostDoms;
+                foreach (var predecessor in block.Predecessors)
+                    remaining.Push(predecessor);
             }
         }
     }
