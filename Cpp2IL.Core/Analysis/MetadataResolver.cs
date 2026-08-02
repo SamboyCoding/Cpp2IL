@@ -99,19 +99,31 @@ public static class MetadataResolver
 
                 // check if static field access
                 var staticOwner = (local.Type as StaticFieldStorageTypeAnalysisContext)?.OwnerType;
+                var owner = staticOwner ?? local.Type;
+                var genericOwner = owner as GenericInstanceTypeAnalysisContext;
 
-                // a generic instance keeps its members on the definition, so look there for the statics.
-                var candidates = staticOwner == null
-                    ? local.Type.Fields
-                    : ((staticOwner as GenericInstanceTypeAnalysisContext)?.GenericType ?? staticOwner).Fields;
+                FieldAnalysisContext? field;
+                if (genericOwner != null && staticOwner == null)
+                {
+                    // metadata has all-0 offsets for generic definitions, so recompute layout
+                    // TODO support user-defined value types
+                    if (genericOwner.GenericArguments.Any(a => a.IsValueType))
+                        continue;
 
-                var field = candidates.FirstOrDefault(f => f.IsStatic == (staticOwner != null) && f.BackingData?.FieldOffset == memory.Addend);
+                    field = GenericInstanceFieldLayout.FindFieldAtOffset(genericOwner, memory.Addend);
+                }
+                else
+                {
+                    // a generic instance keeps its members on the definition, so look there
+                    var candidates = (genericOwner?.GenericType ?? owner).Fields;
+                    field = candidates.FirstOrDefault(f => f.IsStatic == (staticOwner != null) && f.BackingData?.FieldOffset == memory.Addend);
+                }
 
                 if (field == null) // TODO: Support nested fields (Field1.Field2.Field3)
                     continue;
 
-                // make sure we have a full GIT for ldsfld. open type is bad.
-                if (staticOwner is GenericInstanceTypeAnalysisContext genericOwner)
+                // make sure we have a full GIT for field access. open type is bad.
+                if (genericOwner != null)
                     field = new ConcreteGenericFieldAnalysisContext(field, genericOwner);
 
                 instruction.SetOperand(i, new FieldReference(field, local, (int)memory.Addend));
@@ -193,27 +205,29 @@ public static class MetadataResolver
             if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates) || candidates.Count < 2)
                 continue;
 
-            if (GetReceiver(instruction) is not { Type: { } receiverType })
+            if (GetReceiver(instruction) is not { Type: { } receiverType } receiver)
                 continue;
 
-            MethodAnalysisContext? match = null;
-            var ambiguous = false;
+            // Prefer picking base ctor if we are a ctor
+            var callerIsCtor = method.Name == ".ctor" && receiver.IsThis;
 
-            foreach (var candidate in candidates)
+            // Handle methods with shared bodies
+            var match = default(MethodAnalysisContext);
+
+            for (var type = receiverType; type != null && match == null; type = type.BaseType)
             {
-                if (candidate.IsStatic || !ReferenceEquals(candidate.DeclaringType, receiverType))
-                    continue;
+                var matches = candidates.Where(c => !c.IsStatic && ReferenceEquals(c.DeclaringType, type)).ToList();
 
-                if (match != null)
-                {
-                    ambiguous = true;
+                if (matches.Count > 1 && callerIsCtor)
+                    matches = matches.Where(c => c.Name == ".ctor").ToList();
+
+                if (matches.Count > 1)
                     break;
-                }
 
-                match = candidate;
+                match = matches.SingleOrDefault();
             }
 
-            if (ambiguous || match == null)
+            if (match == null)
                 continue;
 
             instruction.SetOperand(0, match);
@@ -304,12 +318,27 @@ public static class MetadataResolver
                 //Already resolved
                 continue;
 
-            if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates) || candidates.Count < 2)
-                //Not a managed method at all
-                continue;
-
             if (GetMethodInfoArgument(instruction) is not { RepresentedMethod: { } representedMethod })
                 //No MethodInfo to work with
+                continue;
+
+            if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates))
+            {
+                // Some shared generic bodies aren't in the address map at all (todo investigate?).
+                // Il2cpp still passes the concrete MethodInfo as the hidden final parameter, so we can use a methodof there if we have one.
+                var firstArg = instruction.OpCode == OpCode.CallVoid ? 1 : 2;
+                var hiddenParamIndex = firstArg + (representedMethod.IsStatic ? 0 : 1) + representedMethod.Parameters.Count;
+
+                if (hiddenParamIndex >= instruction.Operands.Count
+                    || AsMethodInfo(instruction.Operands[hiddenParamIndex]) == null)
+                    continue;
+
+                instruction.SetOperand(0, representedMethod);
+                changed = true;
+                continue;
+            }
+
+            if (candidates.Count < 2)
                 continue;
 
             //Try to actually match on the method name so we don't just replace a call with something else.
@@ -333,17 +362,20 @@ public static class MetadataResolver
 
         for (var i = call.Operands.Count - 1; i >= firstArg; i--)
         {
-            switch (call.Operands[i])
-            {
-                case RuntimeMethodInfoAnalysisContext methodInfo:
-                    return methodInfo;
-                case LocalVariable { Type: RuntimeMethodInfoAnalysisContext methodInfoLocal }:
-                    return methodInfoLocal;
-            }
+            if (AsMethodInfo(call.Operands[i]) is { } methodInfo)
+                return methodInfo;
         }
 
         return null;
     }
+
+    private static RuntimeMethodInfoAnalysisContext? AsMethodInfo(IOperand operand) =>
+        operand switch
+        {
+            RuntimeMethodInfoAnalysisContext methodInfo => methodInfo,
+            LocalVariable { Type: RuntimeMethodInfoAnalysisContext methodInfoLocal } => methodInfoLocal,
+            _ => null
+        };
 
     private static void HandleKeyFunction(ApplicationAnalysisContext appContext, Instruction instruction, ulong target, BaseKeyFunctionAddresses kFA)
     {

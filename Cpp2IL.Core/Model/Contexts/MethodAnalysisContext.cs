@@ -399,6 +399,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // Delete any il2cpp_codegen_initialize_runtime_metadata/il2cpp_codegen_initialize_method
         MetadataInitGuardRemover.Run(this);
 
+        NullCheckRemover.Run(this);
+
         LocalVariables.ResolveTypesAndFields(this);
 
         // Needs type resolved for delegate locals
