@@ -307,7 +307,6 @@ public static class Simplifier
                     // Direct usage check
                     if (sources.Contains(local))
                         return true;
-                    }
 
                     // Likewise, an array element or length reads the array, and taking a slot's address reads it
                     // however the callee uses it - none of which are in Sources when they sit in a destination position.
