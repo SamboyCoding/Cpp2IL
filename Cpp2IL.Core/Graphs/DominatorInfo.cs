@@ -58,13 +58,31 @@ public class DominatorInfo
         // Entry block dominates itself, all others are initialized with all blocks
         foreach (var block in graph.Blocks)
         {
+            var dominators = new HashSet<Block>();
+
+#if NET5_0_OR_GREATER
+            dominators.EnsureCapacity(graph.Blocks.Count);
+#endif
+
             if (block == graph.EntryBlock)
-                Dominators[block] = [block];
+            {
+                dominators.Add(block);
+            }
             else
-                Dominators[block] = new HashSet<Block>(graph.Blocks);
+            {
+                foreach (var graphBlock in graph.Blocks)
+                    dominators.Add(graphBlock);
+            }
+
+            Dominators[block] = dominators;
         }
 
         var remaining = new Stack<Block>(graph.Blocks);
+        var tempDoms = new HashSet<Block>();
+
+#if NET5_0_OR_GREATER
+        tempDoms.EnsureCapacity(graph.Blocks.Count);
+#endif
 
         // Get dominators
         while (remaining.Count > 0)
@@ -74,21 +92,33 @@ public class DominatorInfo
             if (block == graph.EntryBlock)
                 continue;
 
-            var tempDoms = block.Predecessors.Count == 0
-                ? new HashSet<Block>()
-                : new HashSet<Block>(Dominators[block.Predecessors[0]]);
+            tempDoms.Clear();
 
-            for (var i = 1; i < block.Predecessors.Count; i++)
-                tempDoms.IntersectWith(Dominators[block.Predecessors[i]]);
+            if (block.Predecessors.Count != 0)
+            {
+                foreach (var predecessor in Dominators[block.Predecessors[0]])
+                    tempDoms.Add(predecessor);
+
+                for (var i = 1; i < block.Predecessors.Count; i++)
+                    tempDoms.IntersectWith(Dominators[block.Predecessors[i]]);
+            }
 
             tempDoms.Add(block);
 
-            if (!tempDoms.SetEquals(Dominators[block]))
+            // Given that all dominators can be at most the intersection of their predecessor dominators,
+            // there is no case in which an entirely new dominator gets added to a dominator set.
+            // this means that we do not have to compare all dominators by value; rather,
+            // we can just compare if the amount of dominators is the same, as the only way for that
+            // to be possible is for the same dominators to be in both sets.
+
+            if (tempDoms.Count != Dominators[block].Count)
             {
-                Dominators[block] = tempDoms;
+                (Dominators[block], tempDoms) = (tempDoms, Dominators[block]);
 
                 foreach (var successor in block.Successors)
+                {
                     remaining.Push(successor);
+                }
             }
         }
     }
