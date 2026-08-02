@@ -110,6 +110,11 @@ public enum OpCode
     Newobj,
 
     /// <summary>
+    /// Allocates a new array of the type described by op 2, with the length in op 3, into op 1.
+    /// </summary>
+    NewArr,
+
+    /// <summary>
     /// Throws a new instance of the exception type described by op 1.
     /// </summary>
     Throw

@@ -114,9 +114,11 @@ public static class MetadataResolver
                 }
                 else
                 {
-                    // a generic instance keeps its members on the definition, so look there
-                    var candidates = (genericOwner?.GenericType ?? owner).Fields;
-                    field = candidates.FirstOrDefault(f => f.IsStatic == (staticOwner != null) && f.BackingData?.FieldOffset == memory.Addend);
+                    // an inherited field exists on the base type but sits at the same offset in the
+                    // derived layout, so the whole chain is searched
+                    field = null;
+                    for (var candidateOwner = genericOwner?.GenericType ?? owner; candidateOwner != null && field == null; candidateOwner = candidateOwner.BaseType)
+                        field = candidateOwner.Fields.FirstOrDefault(f => f.IsStatic == (staticOwner != null) && f.BackingData?.FieldOffset == memory.Addend);
                 }
 
                 if (field == null) // TODO: Support nested fields (Field1.Field2.Field3)
@@ -205,6 +207,15 @@ public static class MetadataResolver
             if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates) || candidates.Count < 2)
                 continue;
 
+            // e.g. string.Equals and string.op_Equality, identical params, instance type, and bodies are shared
+            // we can't differentiate which is being called but it doesn't matter
+            if (AreInterchangeable(candidates))
+            {
+                instruction.SetOperand(0, PreferredOf(candidates));
+                changed = true;
+                continue;
+            }
+
             if (GetReceiver(instruction) is not { Type: { } receiverType } receiver)
                 continue;
 
@@ -236,6 +247,32 @@ public static class MetadataResolver
 
         return changed;
     }
+
+    private static bool AreInterchangeable(List<MethodAnalysisContext> candidates)
+    {
+        var first = candidates[0];
+
+        return candidates.All(c => c.IsStatic == first.IsStatic
+            && ReferenceEquals(c.DeclaringType, first.DeclaringType)
+            && ReferenceEquals(c.ReturnType, first.ReturnType)
+            && c.Parameters.Count == first.Parameters.Count
+            && SameParameterTypes(c, first));
+    }
+
+    private static bool SameParameterTypes(MethodAnalysisContext a, MethodAnalysisContext b)
+    {
+        for (var i = 0; i < a.Parameters.Count; i++)
+        {
+            if (!ReferenceEquals(a.Parameters[i].ParameterType, b.Parameters[i].ParameterType))
+                return false;
+        }
+
+        return true;
+    }
+
+    // Prefer operators if possible
+    private static MethodAnalysisContext PreferredOf(List<MethodAnalysisContext> candidates) =>
+        candidates.FirstOrDefault(c => c.Name.StartsWith("op_")) ?? candidates[0];
 
     // The receiver ('this') of a call is the first integer-slot argument: operand 1 for CallVoid
     // (after the target), operand 2 for Call (after the target and the return value).
@@ -351,6 +388,93 @@ public static class MetadataResolver
         }
 
         return changed;
+    }
+
+    // Offset of Il2CppClass::vtable, VirtualInvokeData entries of {methodPtr, MethodInfo*}.
+    // TODO this is almost certainly not correct on every version
+    private const long VTableOffset64 = 0x138;
+    private const long VTableOffset32 = 0xC0;
+    
+    // Resolves virtual dispatch through <c>[klass + vtableOffset + slot * sizeof(VirtualInvokeData)]</c>
+    // as long as the klass local's represented type is known.
+    public static bool ResolveVirtualCalls(MethodAnalysisContext method)
+    {
+        var pointerSize = method.AppContext.Binary.PointerSizeBytes;
+        var vtableOffset = pointerSize == 8 ? VTableOffset64 : VTableOffset32;
+        var invokeDataSize = 2L * pointerSize;
+        var changed = false;
+
+        var loads = new Dictionary<LocalVariable, MemoryOperand>();
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode == OpCode.Move
+                && instruction.Operands[0] is LocalVariable destination
+                && instruction.Operands[1] is MemoryOperand { Index: null, Scale: 0 } load)
+                loads[destination] = load;
+        }
+
+        foreach (var instruction in method.ControlFlowGraph.Instructions)
+        {
+            if (instruction.OpCode != OpCode.IndirectCall)
+                continue;
+
+            if (SlotLoad(instruction.Operands[0]) is not { } target
+                || target.Base is not LocalVariable { Type: RuntimeClassTypeAnalysisContext { RepresentedType: { } receiverType } } klassLocal)
+                continue;
+
+            var offset = target.Addend - vtableOffset;
+            if (offset < 0 || offset % invokeDataSize != 0)
+                continue;
+
+            var slot = (int)(offset / invokeDataSize);
+            if (ResolveVTableSlot(method.AppContext, receiverType, slot) is not { } resolved)
+                continue;
+
+            var assembly = resolved.DeclaringType?.DeclaringAssembly ?? method.DeclaringType?.DeclaringAssembly;
+
+            // the MethodInfo field is also the same method, name it, for cleanliness and so it can
+            // serve as a hidden final parameter if needed
+            for (var i = 1; i < instruction.Operands.Count && assembly != null; i++)
+            {
+                if (SlotLoad(instruction.Operands[i]) is { } methodInfoLoad
+                    && ReferenceEquals(methodInfoLoad.Base, klassLocal)
+                    && methodInfoLoad.Addend == target.Addend + pointerSize)
+                    instruction.SetOperand(i, new RuntimeMethodInfoAnalysisContext(resolved, assembly));
+            }
+
+            instruction.OpCode = OpCode.Call; // same operand layout as IndirectCall, and we've resolved it now
+            instruction.SetOperand(0, resolved);
+            changed = true;
+        }
+
+        return changed;
+
+        MemoryOperand? SlotLoad(IOperand operand) => operand switch
+        {
+            MemoryOperand { Index: null, Scale: 0 } inlined => inlined,
+            LocalVariable local when loads.TryGetValue(local, out var load) => load,
+            _ => null
+        };
+    }
+
+    private static MethodAnalysisContext? ResolveVTableSlot(ApplicationAnalysisContext appContext, TypeAnalysisContext type, int slot)
+    {
+        var definition = (type as GenericInstanceTypeAnalysisContext)?.GenericType.Definition ?? type.Definition;
+
+        if (definition == null || slot >= definition.VtableCount)
+            return null;
+
+        if (appContext.ResolveContextForMethod(definition.VTable[slot]) is { } implementation)
+            return implementation;
+
+        // an abstract method has no implementation, try to resolve it
+        for (var declarer = type; declarer != null; declarer = declarer.BaseType)
+        {
+            if (declarer.Methods.FirstOrDefault(m => m.Definition?.slot == slot) is { } declaration)
+                return declaration;
+        }
+
+        return null;
     }
 
     private static MethodAnalysisContext BaseMethodOf(MethodAnalysisContext method) =>

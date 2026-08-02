@@ -30,12 +30,111 @@ public class SsaForm
 
     public static void Build(ISILControlFlowGraph graph, DominatorInfo dominatorInfo)
     {
-        graph.BuildUseDefLists();
-
         var ssa = new SsaForm();
+        ssa.FindClobberingAddressTakes(graph);
+
+        graph.BuildUseDefLists(ssa._clobbering);
+
         ssa.CollectRegisters(graph);
         ssa.InsertPhiFunctions(graph, dominatorInfo);
         ssa.Rename(graph.EntryBlock, dominatorInfo);
+    }
+
+    // The address-takes whose slot is read again afterwards, and so have to be treated as definitions.
+    private readonly HashSet<Instruction> _clobbering = [];
+
+    private void FindClobberingAddressTakes(ISILControlFlowGraph graph)
+    {
+        foreach (var block in graph.Blocks)
+        {
+            for (var i = 0; i < block.Instructions.Count; i++)
+            {
+                var instruction = block.Instructions[i];
+
+                foreach (var operand in instruction.Operands)
+                {
+                    if (operand is AddressOf { Target: Register addressed } && IsReadAfter(block, i, addressed))
+                        _clobbering.Add(instruction);
+                }
+            }
+        }
+    }
+
+    private static bool IsReadAfter(Block block, int index, Register register)
+    {
+        if (ScanForRead(block, index + 1, register, out var continuePastBlock))
+            return true;
+
+        if (!continuePastBlock)
+            return false;
+
+        var visited = new HashSet<Block>();
+        var queue = new Queue<Block>(block.Successors);
+
+        while (queue.Count > 0)
+        {
+            var reachable = queue.Dequeue();
+
+            if (!visited.Add(reachable))
+                continue;
+
+            if (ScanForRead(reachable, 0, register, out var keepGoing))
+                return true;
+
+            if (!keepGoing)
+                continue;
+
+            foreach (var successor in reachable.Successors)
+                queue.Enqueue(successor);
+        }
+
+        return false;
+    }
+
+    // Scans a block from an index. Reports whether the register is read, and whether the paths beyond
+    // this block are still worth following (they aren't once something has reassigned it).
+    private static bool ScanForRead(Block block, int from, Register register, out bool continuePastBlock)
+    {
+        continuePastBlock = true;
+
+        for (var i = from; i < block.Instructions.Count; i++)
+        {
+            var instruction = block.Instructions[i];
+
+            if (Reads(instruction, register))
+                return true;
+
+            if (instruction.Destination is Register defined && defined.Number == register.Number)
+            {
+                continuePastBlock = false;
+                return false;
+            }
+        }
+
+        return false;
+    }
+
+    // A plain read of the register's value. The address-takes themselves don't count.
+    private static bool Reads(Instruction instruction, Register register)
+    {
+        for (var i = 0; i < instruction.Operands.Count; i++)
+        {
+            if (i == 0 && instruction.Destination is Register)
+                continue;
+
+            var reads = instruction.Operands[i] switch
+            {
+                Register other => other.Number == register.Number,
+                MemoryOperand memory => (memory.Base as Register?)?.Number == register.Number
+                    || (memory.Index as Register?)?.Number == register.Number,
+                _ => false
+            };
+
+            if (reads)
+                return true;
+        }
+
+        return false;
     }
 
     private void CollectRegisters(ISILControlFlowGraph graph)
@@ -52,6 +151,8 @@ public class SsaForm
         {
             if (operand is Register register)
                 yield return register;
+            else if (operand is AddressOf { Target: Register addressed })
+                yield return addressed;
             else if (operand is MemoryOperand memory)
             {
                 if (memory.Base is Register baseRegister)
@@ -149,6 +250,16 @@ public class SsaForm
 
             if (instruction.Destination is Register definition)
                 instruction.Destination = NewName(definition, definedHere);
+
+            for (var i = 0; i < instruction.Operands.Count; i++)
+            {
+                // Taking a slot's address lets the callee assign it, so the slot stops holding anything that reached this point, UNLESS
+                // nothing reads it afterwards, in which case any write is unobservable and the callee is only reading the value it has now
+                if (instruction.Operands[i] is AddressOf { Target: Register addressed })
+                    instruction.SetOperand(i, new AddressOf(_clobbering.Contains(instruction)
+                        ? NewName(addressed, definedHere)
+                        : CurrentVersion(addressed.Number)));
+            }
         }
 
         // Resolve the phi operands of successors that correspond to this block's outgoing edge.

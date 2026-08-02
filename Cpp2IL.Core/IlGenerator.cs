@@ -62,6 +62,20 @@ public static class IlGenerator
             if (operand is MemoryOperand memory && memory.Base is LocalVariable local3)
                 local = local3;
 
+            if (operand is ArrayAccess arrayAccess)
+            {
+                local = arrayAccess.Array;
+
+                if (arrayAccess.Index is LocalVariable index && !context.Locals.Contains(index))
+                    context.Locals.Add(index);
+            }
+
+            if (operand is ArrayLength arrayLength)
+                local = arrayLength.Array;
+
+            if (operand is AddressOf { Target: LocalVariable addressed })
+                local = addressed;
+
             if (local != null && !context.Locals.Contains(local))
                 context.Locals.Add(local);
         }
@@ -261,12 +275,35 @@ public static class IlGenerator
                     break;
                 }
 
-                LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
+                // stelem needs array and index before the value, so like stfld it can't go through LoadOperand/StoreToOperand.
+                // This also lets ILSpy handle it as a proper array initializer
+                if (instruction.Operands[0] is ArrayAccess { Array.Type: SzArrayTypeAnalysisContext { ElementType: { } stored } } target)
+                {
+                    LoadLocal(target.Array, method, locals);
+                    LoadOperand(target.Index, method, locals, writeLine, stringCtor);
+                    LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor, stored);
+                    instructions.Add(CilOpCodes.Stelem, importer.ImportTypeSignature(stored.ToTypeSignature(module)).ToTypeDefOrRef());
+                    break;
+                }
+
+                LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor, DestinationType(instruction.Operands[0]));
+                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                break;
+
+            case OpCode.NewArr:
+                if (instruction.Operands is [_, SzArrayTypeAnalysisContext { ElementType: { } newArrayElement }, { } length])
+                {
+                    LoadOperand(length, method, locals, writeLine, stringCtor);
+                    instructions.Add(CilOpCodes.Newarr, importer.ImportTypeSignature(newArrayElement.ToTypeSignature(module)).ToTypeDefOrRef());
+                }
+                else
+                    instructions.Add(CilOpCodes.Ldnull);
+
                 StoreToOperand(instruction.Operands[0], method, locals, writeLine);
                 break;
 
             case OpCode.Newobj:
-                // Try and fuse our Newobj + the follow up constructor CallVoid into one IL newobj. 
+                // Try and fuse our Newobj + the follow up constructor CallVoid into one IL newobj.
                 // If we can't, just fall back to an Ldnull.
                 if (FindConstructorCall(context, instruction) is { Operands: [MethodAnalysisContext constructor, _, ..] } constructorCall)
                 {
@@ -541,6 +578,20 @@ public static class IlGenerator
             case LocalVariable local:
                 LoadLocal(local, method, locals);
                 break;
+            case ArrayLength arrayLength:
+                LoadLocal(arrayLength.Array, method, locals);
+                instructions.Add(CilOpCodes.Ldlen);
+                instructions.Add(CilOpCodes.Conv_I4);
+                break;
+            case AddressOf { Target: LocalVariable addressed }:
+                instructions.Add(CilOpCodes.Ldloca, locals[addressed]);
+                break;
+            case ArrayAccess arrayAccess:
+                LoadLocal(arrayAccess.Array, method, locals);
+                LoadOperand(arrayAccess.Index, method, locals, writeLine, stringCtor);
+                instructions.Add(CilOpCodes.Ldelem,
+                    importer.ImportTypeSignature(((SzArrayTypeAnalysisContext)arrayAccess.Array.Type!).ElementType.ToTypeSignature(module)).ToTypeDefOrRef());
+                break;
             case FieldReference field:
                 if (field.Field.IsStatic)
                 {
@@ -631,6 +682,15 @@ public static class IlGenerator
         operand is LocalVariable { Type: { } type } && type == context.AppContext.SystemTypes.SystemBooleanType;
 
     private static bool IsZeroConstant(IOperand operand) => operand is Immediate { Value: 0 };
+    
+    private static TypeAnalysisContext? DestinationType(IOperand destination) =>
+        destination switch
+        {
+            LocalVariable local => local.Type,
+            FieldReference field => field.Field.FieldType,
+            ArrayAccess { Array.Type: SzArrayTypeAnalysisContext array } => array.ElementType,
+            _ => null
+        };
 
     private static void LoadLocal(LocalVariable local, MethodDefinition method, Dictionary<LocalVariable, CilLocalVariable> locals)
     {
@@ -682,6 +742,19 @@ public static class IlGenerator
                 LoadLocal(field.Local, method, locals);
                 instructions.Add(CilOpCodes.Ldloc, scratch);
                 instructions.Add(CilOpCodes.Stfld, fieldDescriptor);
+                break;
+
+            case ArrayAccess arrayAccess:
+                // stelem needs array and index before the value, so the same trick as stfld
+                var elementType = ((SzArrayTypeAnalysisContext)arrayAccess.Array.Type!).ElementType;
+                var elementScratch = new CilLocalVariable(elementType.ToTypeSignature(module));
+                method.CilMethodBody!.LocalVariables.Add(elementScratch);
+
+                instructions.Add(CilOpCodes.Stloc, elementScratch);
+                LoadLocal(arrayAccess.Array, method, locals);
+                LoadOperand(arrayAccess.Index, method, locals, writeLine, writeLine);
+                instructions.Add(CilOpCodes.Ldloc, elementScratch);
+                instructions.Add(CilOpCodes.Stelem, importer.ImportTypeSignature(elementType.ToTypeSignature(module)).ToTypeDefOrRef());
                 break;
 
             case MemoryOperand memory:

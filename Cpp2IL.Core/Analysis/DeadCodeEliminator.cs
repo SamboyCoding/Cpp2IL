@@ -93,6 +93,10 @@ public static class DeadCodeEliminator
                 case FieldReference { Field.IsStatic: false, Local: { } fieldLocal }:
                     yield return fieldLocal;
                     break;
+                // Handing out a slot's address is a read of it as far as we can tell, whatever the callee then does with it.
+                case AddressOf { Target: LocalVariable addressed }:
+                    yield return addressed;
+                    break;
             }
         }
     }

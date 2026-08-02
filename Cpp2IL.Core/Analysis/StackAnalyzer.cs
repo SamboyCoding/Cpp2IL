@@ -71,14 +71,21 @@ public class StackAnalyzer
                 {
                     var op = instruction.Operands[i];
 
-                    if (op is StackOffset offset)
+                    var slot = op switch
+                    {
+                        StackOffset direct => direct,
+                        AddressOf { Target: StackOffset addressed } => addressed,
+                        _ => (StackOffset?)null
+                    };
+
+                    if (slot is { } offset)
                     {
                         // This can only be done before modifying any of the instruction operands,
                         // as doing so will make the dictionary lookup impossible.
                         state ??= _instructionState[instruction].Size;
 
-                        var actual = state.Value + offset.Offset;
-                        instruction.SetOperand(i, new StackOffset(actual));
+                        var actual = new StackOffset(state.Value + offset.Offset);
+                        instruction.SetOperand(i, op is AddressOf ? new AddressOf(actual) : actual);
                     }
                 }
             }
@@ -163,10 +170,10 @@ public class StackAnalyzer
                 var operand = instruction.Operands[i];
 
                 if (operand is StackOffset offset)
-                {
-                    var name = offset.Offset < 0 ? $"stack_-{-offset.Offset:X}" : $"stack_{offset.Offset:X}";
-                    instruction.SetOperand(i, new Register(null, name));
-                }
+                    instruction.SetOperand(i, new Register(null, NameForSlot(offset)));
+
+                if (operand is AddressOf { Target: StackOffset addressed })
+                    instruction.SetOperand(i, new AddressOf(new Register(null, NameForSlot(addressed))));
             }
         }
 
@@ -176,10 +183,9 @@ public class StackAnalyzer
             var parameter = method.ParameterOperands[i];
 
             if (parameter is StackOffset offset)
-            {
-                var name = offset.Offset < 0 ? $"stack_-{-offset.Offset:X}" : $"stack_{offset.Offset:X}";
-                method.ParameterOperands[i] = new Register(null, name);
-            }
+                method.ParameterOperands[i] = new Register(null, NameForSlot(offset));
         }
     }
+
+    private static string NameForSlot(StackOffset offset) => offset.Offset < 0 ? $"stack_-{-offset.Offset:X}" : $"stack_{offset.Offset:X}";
 }

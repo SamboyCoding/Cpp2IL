@@ -307,6 +307,27 @@ public static class Simplifier
                     // Direct usage check
                     if (sources.Contains(local))
                         return true;
+                    }
+
+                    // Likewise, an array element or length reads the array, and taking a slot's address reads it
+                    // however the callee uses it - none of which are in Sources when they sit in a destination position.
+                    if (operand is ArrayAccess array && (array.Array == local || array.Index == local as IOperand))
+                    {
+                        usedByMemory = true;
+                        return true;
+                    }
+
+                    if (operand is ArrayLength length && length.Array == local)
+                    {
+                        usedByMemory = true;
+                        return true;
+                    }
+
+                    if (operand is AddressOf { Target: LocalVariable addressed } && addressed == local)
+                    {
+                        usedByMemory = true;
+                        return true;
+                    }
 
                     // A field access reads the object it is on, whether the field is being read or written,
                     // so the destination has to be considered too - a store is not in Sources.

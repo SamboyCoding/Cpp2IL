@@ -43,6 +43,9 @@ public static class LocalVariables
                 if (operand is Register register)
                     instruction.SetOperand(i, locals[register]);
 
+                if (operand is AddressOf { Target: Register addressed })
+                    instruction.SetOperand(i, new AddressOf(locals[addressed]));
+
                 if (operand is MemoryOperand memory)
                 {
                     if (memory.Base != null)
@@ -167,6 +170,12 @@ public static class LocalVariables
 
         foreach (var operand in instruction.Operands)
         {
+            if (operand is AddressOf { Target: Register addressed })
+            {
+                if (!registers.Contains(addressed))
+                    registers.Add(addressed);
+            }
+
             if (operand is Register register)
             {
                 if (!registers.Contains(register))
@@ -235,6 +244,7 @@ public static class LocalVariables
             changed = false;
             changed |= MetadataResolver.ResolveCallsViaMethodInfo(method);
             changed |= MetadataResolver.ResolveAmbiguousCalls(method);
+            changed |= MetadataResolver.ResolveVirtualCalls(method);
             changed |= PropagateFromCallParameters(method);
             changed |= MetadataResolver.ResolveFieldOffsets(method);
             changed |= RgctxResolver.Run(method);
@@ -310,6 +320,37 @@ public static class LocalVariables
 
             if (instruction.Destination is LocalVariable destination)
                 destination.Type = booleanType;
+        }
+    }
+    
+    //Handles typing of locals for ref/out params
+    public static void TypeAddressedLocals(MethodAnalysisContext method)
+    {
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (!instruction.IsCall || instruction.Operands[0] is not MethodAnalysisContext calledMethod)
+                continue;
+
+            var firstArg = instruction.OpCode == OpCode.CallVoid ? 1 : 2;
+
+            // the receiver of a value type's instance method is a pointer to the value
+            if (!calledMethod.IsStatic && firstArg < instruction.Operands.Count
+                && instruction.Operands[firstArg] is AddressOf { Target: LocalVariable receiver }
+                && calledMethod.DeclaringType is { IsValueType: true } declaringType)
+                SetTypeIfUnknown(receiver, declaringType);
+
+            var paramOffset = firstArg + (calledMethod.IsStatic ? 0 : 1);
+
+            for (var i = paramOffset; i < instruction.Operands.Count; i++)
+            {
+                var parameterIndex = i - paramOffset;
+                if (parameterIndex > calledMethod.Parameters.Count - 1) // Probably MethodInfo*
+                    continue;
+
+                if (instruction.Operands[i] is AddressOf { Target: LocalVariable referenced }
+                    && calledMethod.Parameters[parameterIndex].ParameterType is ByRefTypeAnalysisContext { ElementType: { } referencedType })
+                    SetTypeIfUnknown(referenced, referencedType);
+            }
         }
     }
 
@@ -389,6 +430,13 @@ public static class LocalVariables
         if (destination is FieldReference storeField && source is LocalVariable storeSource)
             return SetTypeIfUnknown(storeSource, storeField.Field.FieldType);
 
+        // Move local, [obj]: offset 0 of a reference-typed value is its klass pointer.
+        if (destination is LocalVariable { Type: null } klassDest
+            && source is MemoryOperand { Index: null, Scale: 0, Addend: 0, Base: LocalVariable { Type: { } baseType } }
+            && baseType is not (RuntimeClassTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext or RuntimeMethodInfoAnalysisContext)
+            && !baseType.IsValueType)
+            return SetTypeIfUnknown(klassDest, new RuntimeClassTypeAnalysisContext(baseType, baseType.DeclaringAssembly));
+
         return false;
     }
 
@@ -431,7 +479,25 @@ public static class LocalVariables
     {
         var changed = false;
 
+        // A lea and the call it's passed to are still separate here. The address only gets folded into the
+        // call later, so an argument's address-of has to be found through the local carrying it.
+        var addressesOf = new Dictionary<LocalVariable, LocalVariable>();
         foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode == OpCode.Move
+                && instruction.Operands[0] is LocalVariable pointer
+                && instruction.Operands[1] is AddressOf { Target: LocalVariable pointee })
+                addressesOf[pointer] = pointee;
+        }
+
+        LocalVariable? Addressed(IOperand operand) => operand switch
+        {
+            AddressOf { Target: LocalVariable direct } => direct,
+            LocalVariable local when addressesOf.TryGetValue(local, out var indirect) => indirect,
+            _ => null
+        };
+
+        foreach (var instruction in method.ControlFlowGraph.Instructions)
         {
             if (!instruction.IsCall)
                 continue;
@@ -466,6 +532,14 @@ public static class LocalVariables
                 changed |= SetTypeIfUnknown(thisParam, calledMethod.DeclaringType);
             }
 
+            // Value type instance method, first arg is address of value, but we need to type the value
+            if (!calledMethod.IsStatic
+                && Addressed(instruction.Operands[thisParamIndex]) is { } addressedReceiver
+                && calledMethod.DeclaringType is { IsValueType: true } valueType)
+            {
+                changed |= SetTypeIfUnknown(addressedReceiver, valueType);
+            }
+
             // Remaining arguments map positionally onto the callee's declared parameters.
             var paramOffset = calledMethod.IsStatic ? 1 : 2;
             if (instruction.OpCode == OpCode.Call) // Skip the return value operand
@@ -473,14 +547,21 @@ public static class LocalVariables
 
             for (var i = paramOffset; i < instruction.Operands.Count; i++)
             {
-                if (instruction.Operands[i] is not LocalVariable local)
-                    continue;
-
                 var parameterIndex = i - paramOffset;
                 if (parameterIndex > calledMethod.Parameters.Count - 1) // Probably MethodInfo*
                     continue;
 
-                changed |= SetTypeIfUnknown(local, calledMethod.Parameters[parameterIndex].ParameterType);
+                var parameterType = calledMethod.Parameters[parameterIndex].ParameterType;
+
+                if (parameterType is ByRefTypeAnalysisContext { ElementType: { } referencedType }
+                    && Addressed(instruction.Operands[i]) is { } referenced)
+                {
+                    changed |= SetTypeIfUnknown(referenced, referencedType);
+                    continue;
+                }
+
+                if (instruction.Operands[i] is LocalVariable local)
+                    changed |= SetTypeIfUnknown(local, parameterType);
             }
         }
 
