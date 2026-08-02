@@ -20,7 +20,7 @@ public class SsaAndDominators
         foreach (var instruction in instructions)
         {
             if (instruction.OpCode is OpCode.Jump or OpCode.ConditionalJump)
-                instruction.SetOperand(0, instructions[(int)instruction.Operands[0]]);
+                instruction.SetOperand(0, instructions[(int)((Immediate)instruction.Operands[0]).Value]);
         }
 
         return new ISILControlFlowGraph(instructions.ToList());
@@ -29,7 +29,7 @@ public class SsaAndDominators
     private static List<Instruction> Diamond()
     {
         var instructions = new List<Instruction>();
-        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, operands));
+        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, Ops(operands)));
 
         Add(0, OpCode.Move, new Register(null, "x"), 0);                              // entry def of x
         Add(1, OpCode.ConditionalJump, 4, new Register(null, "cond"));               // branch
@@ -45,7 +45,7 @@ public class SsaAndDominators
     private static List<Instruction> Loop()
     {
         var instructions = new List<Instruction>();
-        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, operands));
+        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, Ops(operands)));
 
         Add(0, OpCode.Move, new Register(null, "i"), 0);                             // pre-header: i = 0
         Add(1, OpCode.CheckLess, new Register(null, "cmp"), new Register(null, "i"), 10); // header: cmp = i < 10

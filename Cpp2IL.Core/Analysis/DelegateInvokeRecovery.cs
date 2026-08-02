@@ -68,7 +68,7 @@ public static class DelegateInvokeRecovery
         if (abi.Any(operand => operand is Register register && register.Name.StartsWith("xmm")))
             return;
 
-        var operands = new List<object> { invoke };
+        var operands = new List<IOperand> { invoke };
 
         if (!invoke.IsVoid)
             operands.Add(call.Operands[1]);
@@ -79,6 +79,6 @@ public static class DelegateInvokeRecovery
             operands.Add(call.Operands[2 + i]);
 
         call.OpCode = invoke.IsVoid ? OpCode.CallVoid : OpCode.Call;
-        call.Operands = operands;
+        call.SetOperands(operands);
     }
 }

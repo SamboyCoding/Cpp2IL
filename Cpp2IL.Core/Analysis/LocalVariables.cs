@@ -272,7 +272,7 @@ public static class LocalVariables
         }
     }
 
-    private static TypeAnalysisContext? InstantiatedType(object classOperand) =>
+    private static TypeAnalysisContext? InstantiatedType(IOperand classOperand) =>
         classOperand switch
         {
             LocalVariable { Type: RuntimeClassTypeAnalysisContext { RepresentedType: var t } } => t,

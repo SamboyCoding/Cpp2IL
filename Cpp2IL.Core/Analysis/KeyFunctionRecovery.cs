@@ -24,7 +24,7 @@ public static class KeyFunctionRecovery
     {
         foreach (var instruction in method.ControlFlowGraph!.Blocks.SelectMany(block => block.Instructions))
         {
-            if (instruction.Operands is not [string keyFunction, ..])
+            if (instruction.Operands is not [StringLiteral { Value: var keyFunction }, ..])
                 continue;
 
             if (ObjectNewFunctions.Contains(keyFunction))
@@ -37,7 +37,7 @@ public static class KeyFunctionRecovery
     private static void RemoveWriteBarrier(Instruction instruction)
     {
         instruction.OpCode = OpCode.Nop;
-        instruction.Operands = [];
+        instruction.SetOperands();
     }
     
     private static void RewriteObjectNew(Instruction instruction)
@@ -50,6 +50,6 @@ public static class KeyFunctionRecovery
         var klass = instruction.Operands[2];
 
         instruction.OpCode = OpCode.Newobj;
-        instruction.Operands = [result, klass];
+        instruction.SetOperands(result, klass);
     }
 }

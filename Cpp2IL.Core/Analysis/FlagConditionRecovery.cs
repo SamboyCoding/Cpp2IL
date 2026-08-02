@@ -47,7 +47,7 @@ public static class FlagConditionRecovery
                 // Its destination (the condition local the branch reads) is preserved.
                 var definition = defOf[condition];
                 definition.OpCode = relop;
-                definition.Operands = new List<object> { definition.Operands[0], op0!, op1! };
+                definition.SetOperands(definition.Operands[0], op0!, op1!);
             }
         }
     }
@@ -65,7 +65,7 @@ public static class FlagConditionRecovery
     }
 
     private static bool TryClassify(LocalVariable condition, Dictionary<LocalVariable, Instruction> defOf,
-        out OpCode relop, out object? op0, out object? op1)
+        out OpCode relop, out IOperand? op0, out IOperand? op1)
     {
         relop = default;
 
@@ -108,7 +108,7 @@ public static class FlagConditionRecovery
     }
 
     // ZF: local := CheckEqual(t, 0) where t := Subtract(a, b)
-    private static bool IsZeroFlag(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out object? op0, out object? op1)
+    private static bool IsZeroFlag(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out IOperand? op0, out IOperand? op1)
     {
         op0 = op1 = null;
         var def = Def(local, defOf);
@@ -118,7 +118,7 @@ public static class FlagConditionRecovery
     }
 
     // SF: local := CheckLess(t, 0) where t := Subtract(a, b)
-    private static bool IsSignFlag(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out object? op0, out object? op1)
+    private static bool IsSignFlag(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out IOperand? op0, out IOperand? op1)
     {
         op0 = op1 = null;
         var def = Def(local, defOf);
@@ -128,7 +128,7 @@ public static class FlagConditionRecovery
     }
 
     // local := Subtract(a, b)
-    private static bool IsSubtraction(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out object? op0, out object? op1)
+    private static bool IsSubtraction(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out IOperand? op0, out IOperand? op1)
     {
         op0 = op1 = null;
         var def = Def(local, defOf);
@@ -140,7 +140,7 @@ public static class FlagConditionRecovery
     }
 
     // local := CheckEqual(SF, OF) - the signed "not less" test. Operands are taken from the SF side.
-    private static bool IsSignEqualsOverflow(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out object? op0, out object? op1)
+    private static bool IsSignEqualsOverflow(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out IOperand? op0, out IOperand? op1)
     {
         op0 = op1 = null;
         var def = Def(local, defOf);
@@ -150,7 +150,7 @@ public static class FlagConditionRecovery
     }
 
     // local := Not(CheckEqual(SF, OF))
-    private static bool IsNotSignEqualsOverflow(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out object? op0, out object? op1)
+    private static bool IsNotSignEqualsOverflow(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf, out IOperand? op0, out IOperand? op1)
     {
         op0 = op1 = null;
         var def = Def(local, defOf);
@@ -167,7 +167,7 @@ public static class FlagConditionRecovery
     }
 
     // And((SF==OF), !ZF), in either operand order
-    private static bool IsSignGreater(Instruction and, Dictionary<LocalVariable, Instruction> defOf, out object? op0, out object? op1)
+    private static bool IsSignGreater(Instruction and, Dictionary<LocalVariable, Instruction> defOf, out IOperand? op0, out IOperand? op1)
     {
         var left = AsLocal(and.Operands[1]);
         var right = AsLocal(and.Operands[2]);
@@ -182,7 +182,7 @@ public static class FlagConditionRecovery
     }
 
     // Or(!(SF==OF), ZF), in either operand order
-    private static bool IsSignLessOrEqual(Instruction or, Dictionary<LocalVariable, Instruction> defOf, out object? op0, out object? op1)
+    private static bool IsSignLessOrEqual(Instruction or, Dictionary<LocalVariable, Instruction> defOf, out IOperand? op0, out IOperand? op1)
     {
         var left = AsLocal(or.Operands[1]);
         var right = AsLocal(or.Operands[2]);
@@ -199,18 +199,7 @@ public static class FlagConditionRecovery
     private static Instruction? Def(LocalVariable? local, Dictionary<LocalVariable, Instruction> defOf)
         => local != null && defOf.TryGetValue(local, out var def) ? def : null;
 
-    private static LocalVariable? AsLocal(object operand) => operand as LocalVariable;
+    private static LocalVariable? AsLocal(IOperand operand) => operand as LocalVariable;
 
-    private static bool IsZeroConstant(object operand) =>
-        operand switch
-        {
-            int v => v == 0,
-            long v => v == 0,
-            uint v => v == 0,
-            ulong v => v == 0,
-            short v => v == 0,
-            byte v => v == 0,
-            sbyte v => v == 0,
-            _ => false
-        };
+    private static bool IsZeroConstant(IOperand operand) => operand is Immediate { Value: 0 };
 }

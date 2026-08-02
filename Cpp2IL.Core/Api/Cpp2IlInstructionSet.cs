@@ -38,7 +38,7 @@ public abstract class Cpp2IlInstructionSet
     /// </summary>
     /// <param name="context">The method to get parameters from.</param>
     /// <returns>A list of parameter operands.</returns>
-    public abstract List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context);
+    public abstract List<IOperand> GetParameterOperandsFromMethod(MethodAnalysisContext context);
 
     /// <summary>
     /// Create and populate a BaseKeyFunctionAddresses object which can then be populated.

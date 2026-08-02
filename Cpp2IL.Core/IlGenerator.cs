@@ -280,7 +280,7 @@ public static class IlGenerator
                     StoreToOperand(instruction.Operands[0], method, locals, writeLine);
 
                     constructorCall.OpCode = OpCode.Nop;
-                    constructorCall.Operands = [];
+                    constructorCall.SetOperands();
                 }
                 else
                 {
@@ -308,8 +308,8 @@ public static class IlGenerator
             case OpCode.CallVoid:
                 if (instruction.Operands[0] is not MethodAnalysisContext targetMethod)
                 {
-                    if (instruction.Operands[0] is ulong targetAddress)
-                        instructions.Add(CilOpCodes.Ldstr, $"Method not found @{targetAddress:X}");
+                    if (instruction.Operands[0] is Immediate targetAddress)
+                        instructions.Add(CilOpCodes.Ldstr, $"Method not found @{targetAddress.UnsignedValue:X}");
                     else // Probably key function
                         instructions.Add(CilOpCodes.Ldstr, $"Unknown call target operand: {instruction}");
 
@@ -504,7 +504,7 @@ public static class IlGenerator
         return null;
     }
 
-    private static void LoadOperand(object operand, MethodDefinition method,
+    private static void LoadOperand(IOperand operand, MethodDefinition method,
         Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine, MemberReference stringCtor,
         TypeAnalysisContext? expectedType = null)
     {
@@ -523,41 +523,20 @@ public static class IlGenerator
 
         switch (operand)
         {
-            case int i:
-                instructions.Add(CilOpCodes.Ldc_I4, i);
+            case Immediate { Value: >= int.MinValue and <= int.MaxValue } immediate:
+                instructions.Add(CilOpCodes.Ldc_I4, (int)immediate.Value);
                 break;
-            case uint ui:
-                instructions.Add(CilOpCodes.Ldc_I4, unchecked((int)ui));
+            case Immediate immediate:
+                instructions.Add(CilOpCodes.Ldc_I8, immediate.Value);
                 break;
-            case short s:
-                instructions.Add(CilOpCodes.Ldc_I4, s);
+            case FloatLiteral f:
+                instructions.Add(CilOpCodes.Ldc_R4, f.Value);
                 break;
-            case ushort us:
-                instructions.Add(CilOpCodes.Ldc_I4, us);
+            case DoubleLiteral d:
+                instructions.Add(CilOpCodes.Ldc_R8, d.Value);
                 break;
-            case byte b8:
-                instructions.Add(CilOpCodes.Ldc_I4, b8);
-                break;
-            case sbyte sb8:
-                instructions.Add(CilOpCodes.Ldc_I4, sb8);
-                break;
-            case long l:
-                instructions.Add(CilOpCodes.Ldc_I8, l);
-                break;
-            case ulong ul:
-                instructions.Add(CilOpCodes.Ldc_I8, unchecked((long)ul));
-                break;
-            case float f:
-                instructions.Add(CilOpCodes.Ldc_R4, f);
-                break;
-            case double d:
-                instructions.Add(CilOpCodes.Ldc_R8, d);
-                break;
-            case bool b:
-                instructions.Add(CilOpCodes.Ldc_I4, b ? 1 : 0);
-                break;
-            case string s:
-                instructions.Add(CilOpCodes.Ldstr, s);
+            case StringLiteral s:
+                instructions.Add(CilOpCodes.Ldstr, s.Value);
                 break;
             case LocalVariable local:
                 LoadLocal(local, method, locals);
@@ -648,22 +627,10 @@ public static class IlGenerator
         }
     }
 
-    private static bool IsBoolean(object operand, MethodAnalysisContext context) =>
+    private static bool IsBoolean(IOperand operand, MethodAnalysisContext context) =>
         operand is LocalVariable { Type: { } type } && type == context.AppContext.SystemTypes.SystemBooleanType;
 
-    private static bool IsZeroConstant(object operand) =>
-        operand switch
-        {
-            int i => i == 0,
-            uint ui => ui == 0,
-            long l => l == 0,
-            ulong ul => ul == 0,
-            short s => s == 0,
-            ushort us => us == 0,
-            byte b => b == 0,
-            sbyte sb => sb == 0,
-            _ => false,
-        };
+    private static bool IsZeroConstant(IOperand operand) => operand is Immediate { Value: 0 };
 
     private static void LoadLocal(LocalVariable local, MethodDefinition method, Dictionary<LocalVariable, CilLocalVariable> locals)
     {
@@ -683,7 +650,7 @@ public static class IlGenerator
             instructions.Add(CilOpCodes.Ldloc, locals[local]);
     }
 
-    private static void StoreToOperand(object operand, MethodDefinition method,
+    private static void StoreToOperand(IOperand operand, MethodDefinition method,
         Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine)
     {
         var instructions = method.CilMethodBody!.Instructions;

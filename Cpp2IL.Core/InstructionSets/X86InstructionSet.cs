@@ -17,6 +17,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
     private static readonly MasmFormatter Formatter = new();
     private static readonly StringOutput Output = new();
 
+    private static ISIL.Immediate Imm(long value) => new(value);
+    private static ISIL.Immediate Imm(ulong value) => new(unchecked((long)value));
+
     private static string FormatInstructionInternal(Instruction instruction)
     {
         Formatter.Format(instruction, Output);
@@ -74,13 +77,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             if (instruction.OpCode != ISIL.OpCode.Jump && instruction.OpCode != ISIL.OpCode.ConditionalJump)
                 continue;
 
-            var targetAddress = (ulong)instruction.Operands[0];
+            var targetAddress = ((ISIL.Immediate)instruction.Operands[0]).UnsignedValue;
             var targetIndex = addresses.FindIndex(addr => addr == targetAddress);
 
             if (targetIndex == -1)
             {
                 instruction.OpCode = ISIL.OpCode.Invalid;
-                instruction.Operands = [$"Jump target not found in method: 0x{targetAddress:X4}"];
+                instruction.SetOperands(new ISIL.StringLiteral($"Jump target not found in method: 0x{targetAddress:X4}"));
                 continue;
             }
 
@@ -92,7 +95,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return instructions;
     }
 
-    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    public override List<ISIL.IOperand> GetParameterOperandsFromMethod(MethodAnalysisContext context)
     {
         return X64CallingConventionResolver.ResolveForManaged(context).ToList();
     }
@@ -102,7 +105,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         var callNoReturn = false;
         int operandSize;
 
-        ISIL.Instruction Add(ulong address, ISIL.OpCode opCode, params object[] operands)
+        ISIL.Instruction Add(ulong address, ISIL.OpCode opCode, params List<ISIL.IOperand> operands)
         {
             addresses.Add(address);
             var newInstruction = new ISIL.Instruction(instructions.Count, opCode, operands);
@@ -154,14 +157,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     // The CWD instruction copies the sign (bit 15) of the value in the AX register into every bit position in the DX register
                     var temp = new ISIL.Register(null, "TEMP");
                     Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, X86Utils.GetRegisterName(Register.AX))); // TEMP = AX
-                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, 15); // TEMP >>= 15
-                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, 1); // temp == 1
+                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, Imm(15)); // TEMP >>= 15
+                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, Imm(1)); // temp == 1
                     Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = !temp
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp);
                     // temp == 1 ? DX := ushort.Max (1111111111) or DX := 0
-                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.DX)), ushort.MaxValue);
-                    Add(instruction.IP, ISIL.OpCode.Jump, instruction.IP + 2);
-                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.DX)), 0);
+                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.DX)), new ISIL.Immediate(ushort.MaxValue));
+                    Add(instruction.IP, ISIL.OpCode.Jump, Imm(instruction.IP + 2));
+                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.DX)), Imm(0));
                     Add(instruction.IP + 2, ISIL.OpCode.Nop);
                     break;
                 }
@@ -170,14 +173,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     // The CDQ instruction copies the sign (bit 31) of the value in the EAX register into every bit position in the EDX register.
                     var temp = new ISIL.Register(null, "TEMP");
                     Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EAX))); // TEMP = EAX
-                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, 31); // TEMP >>= 31
-                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, 1); // temp == 1
+                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, Imm(31)); // TEMP >>= 31
+                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, Imm(1)); // temp == 1
                     Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = !temp
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp);
                     // temp == 1 ? EDX := uint.Max (1111111111) or EDX := 0
-                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EDX)), uint.MaxValue);
-                    Add(instruction.IP, ISIL.OpCode.Jump, instruction.IP + 2);
-                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EDX)), 0);
+                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EDX)), new ISIL.Immediate(uint.MaxValue));
+                    Add(instruction.IP, ISIL.OpCode.Jump, Imm(instruction.IP + 2));
+                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.EDX)), Imm(0));
                     Add(instruction.IP + 2, ISIL.OpCode.Nop);
                     break;
                 }
@@ -186,14 +189,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     // The CQO instruction copies the sign (bit 63) of the value in the EAX register into every bit position in the RDX register.
                     var temp = new ISIL.Register(null, "TEMP");
                     Add(instruction.IP, ISIL.OpCode.Move, temp, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RAX))); // TEMP = RAX
-                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, 63); // TEMP >>= 63
-                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, 1); // temp == 1
+                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, temp, Imm(63)); // TEMP >>= 63
+                    Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, temp, Imm(1)); // temp == 1
                     Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = !temp
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp);
                     // temp == 1 ? RDX := ulong.Max (1111111111) or RDX := 0
-                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX)), ulong.MaxValue);
-                    Add(instruction.IP, ISIL.OpCode.Jump, instruction.IP + 2);
-                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX)), 0);
+                    Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX)), Imm(ulong.MaxValue));
+                    Add(instruction.IP, ISIL.OpCode.Jump, Imm(instruction.IP + 2));
+                    Add(instruction.IP + 1, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.RDX)), Imm(0));
                     Add(instruction.IP + 2, ISIL.OpCode.Nop);
                     break;
                 }
@@ -203,7 +206,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Xor:
             case Mnemonic.Xorps: //xorps is just floating point xor
                 if (instruction.Op0Kind == OpKind.Register && instruction.Op1Kind == OpKind.Register && instruction.Op0Register == instruction.Op1Register)
-                    Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), 0);
+                    Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), Imm(0));
                 else
                     Add(instruction.IP, ISIL.OpCode.Xor, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
@@ -293,13 +296,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 break;
             case Mnemonic.Push:
                 operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
-                Add(instruction.IP, ISIL.OpCode.ShiftStack, -operandSize);
+                Add(instruction.IP, ISIL.OpCode.ShiftStack, Imm(-operandSize));
                 Add(instruction.IP, ISIL.OpCode.Move, new ISIL.StackOffset(0), ConvertOperand(instruction, 0));
                 break;
             case Mnemonic.Pop:
                 operandSize = instruction.Op0Kind == OpKind.Register ? instruction.Op0Register.GetSize() : instruction.MemorySize.GetSize();
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), new ISIL.StackOffset(0));
-                Add(instruction.IP, ISIL.OpCode.ShiftStack, operandSize);
+                Add(instruction.IP, ISIL.OpCode.ShiftStack, Imm(operandSize));
                 break;
             case Mnemonic.Sub:
             case Mnemonic.Add:
@@ -309,7 +312,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 if (instruction.Op0Register == Register.RSP && instruction.Op1Kind.IsImmediate())
                 {
                     var amount = (int)instruction.GetImmediate(1);
-                    Add(instruction.IP, ISIL.OpCode.ShiftStack, isSubtract ? -amount : amount);
+                    Add(instruction.IP, ISIL.OpCode.ShiftStack, Imm(isSubtract ? -amount : amount));
                     break;
                 }
 
@@ -326,9 +329,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 {
                     // Addss and subss are just floating point add/sub, but we don't need to handle the stack stuff
                     // But we do need to handle 2 vs 3 operand forms
-                    object dest;
-                    object src1;
-                    object src2;
+                    ISIL.IOperand dest;
+                    ISIL.IOperand src1;
+                    ISIL.IOperand src2;
 
                     if (instruction.OpCount == 3)
                     {
@@ -355,10 +358,10 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 }
             // The following pair of instructions does not update the Carry Flag (CF):
             case Mnemonic.Dec:
-                Add(instruction.IP, ISIL.OpCode.Subtract, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), 1);
+                Add(instruction.IP, ISIL.OpCode.Subtract, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), Imm(1));
                 break;
             case Mnemonic.Inc:
-                Add(instruction.IP, ISIL.OpCode.Add, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), 1);
+                Add(instruction.IP, ISIL.OpCode.Add, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), Imm(1));
                 break;
 
             case Mnemonic.Shufps: // Packed Interleave Shuffle of Quadruplets of Single Precision Floating-Point Values
@@ -443,9 +446,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         ISIL.Instruction call;
 
                         if (possibleMethods[0].IsVoid)
-                            call = Add(instruction.IP, ISIL.OpCode.CallVoid, target);
+                            call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, target, new ISIL.Register(null, "rax") /* return value */);
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
 
                         call.AddOperands(X64CallingConventionResolver.ResolveForManaged(possibleMethods[0]));
                     }
@@ -472,9 +475,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         ISIL.Instruction call;
 
                         if (ctx.IsVoid)
-                            call = Add(instruction.IP, ISIL.OpCode.CallVoid, target);
+                            call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, target, new ISIL.Register(null, "rax") /* return value */);
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
 
                         call.AddOperands(X64CallingConventionResolver.ResolveForManaged(ctx));
                     }
@@ -485,7 +488,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     // This will need to be rewritten if we ever stumble upon an unmanaged method that accepts more than 4 parameters.
                     // These can be converted to dedicated ISIL instructions for specific API functions at a later stage. (by a post-processing step)
 
-                    var call = Add(instruction.IP, ISIL.OpCode.Call, target, new ISIL.Register(null, "rax") /* return value */);
+                    var call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
                     call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, target));
                 }
 
@@ -507,7 +510,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Test:
                 if (instruction.Op0Kind == OpKind.Register && instruction.Op1Kind == OpKind.Register && instruction.Op0Register == instruction.Op1Register)
                 {
-                    AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), 0);
+                    AddCompareInstruction(instruction.IP, ConvertOperand(instruction, 0), Imm(0));
                     break;
                 }
                 AddTestInstruction(instruction.IP, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
@@ -534,17 +537,17 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 {
                     case Mnemonic.Cmove: // equals
                         Add(instruction.IP, ISIL.OpCode.Not, new ISIL.Register(null, "TEMP"), new ISIL.Register(null, "ZF")); // TEMP = !ZF
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, new ISIL.Register(null, "TEMP")); // skip if not eq
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), new ISIL.Register(null, "TEMP")); // skip if not eq
                         break;
                     case Mnemonic.Cmovne: // not equals
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, new ISIL.Register(null, "ZF")); // skip if eq
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), new ISIL.Register(null, "ZF")); // skip if eq
                         break;
                     case Mnemonic.Cmovs: // sign
                         Add(instruction.IP, ISIL.OpCode.Not, new ISIL.Register(null, "TEMP"), new ISIL.Register(null, "SF")); // TEMP = !SF
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, new ISIL.Register(null, "TEMP")); // skip if not sign
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), new ISIL.Register(null, "TEMP")); // skip if not sign
                         break;
                     case Mnemonic.Cmovns: // not sign
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, new ISIL.Register(null, "SF")); // skip if sign
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), new ISIL.Register(null, "SF")); // skip if sign
                         break;
                     case Mnemonic.Cmova:
                     case Mnemonic.Cmovg: // greater
@@ -552,20 +555,20 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
                         Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // TEMP = !TEMP
                         Add(instruction.IP, ISIL.OpCode.Or, temp, temp, new ISIL.Register(null, "ZF")); // TEMP = TEMP || ZF
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp); // skip if not gt
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp); // skip if not gt
                         break;
                     case Mnemonic.Cmovae:
                     case Mnemonic.Cmovge: // greater or eq
                         temp = new ISIL.Register(null, "TEMP");
                         Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
                         Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // TEMP = !TEMP
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp); // skip if not gt or eq
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp); // skip if not gt or eq
                         break;
                     case Mnemonic.Cmovb:
                     case Mnemonic.Cmovl: // less
                         temp = new ISIL.Register(null, "TEMP");
                         Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp); // skip if not lt
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp); // skip if not lt
                         break;
                     case Mnemonic.Cmovbe:
                     case Mnemonic.Cmovle: // less or eq
@@ -574,7 +577,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
                         Add(instruction.IP, ISIL.OpCode.Not, temp2, new ISIL.Register(null, "ZF")); // TEMP2 = !ZF
                         Add(instruction.IP, ISIL.OpCode.And, temp, temp, temp2); // TEMP = TEMP && TEMP2
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp); // skip if not lt or eq
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp); // skip if not lt or eq
                         break;
                 }
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1)); // set if cond
@@ -591,7 +594,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     {
                         var temp = new ISIL.Register(null, "TEMP");
                         Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp); // enter if dest < src
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp); // enter if dest < src
                     }
                     else
                     {
@@ -599,7 +602,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
                         Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // TEMP = !TEMP
                         Add(instruction.IP, ISIL.OpCode.Or, temp, temp, new ISIL.Register(null, "ZF")); // TEMP = TEMP || ZF
-                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, temp); // enter if dest > src
+                        Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), temp); // enter if dest > src
                     }
 
                     Add(instruction.IP, ISIL.OpCode.Move, dest, src); // dest = src
@@ -621,10 +624,10 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     var src = ConvertOperand(instruction, 1);
                     AddCompareInstruction(instruction.IP, accumulator, dest); // compare dest & accumulator
                     Add(instruction.IP, ISIL.OpCode.Not, new ISIL.Register(null, "TEMP"), new ISIL.Register(null, "ZF")); // TEMP = !ZF
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, instruction.IP + 1, new ISIL.Register(null, "TEMP")); // if accumulator == dest
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(instruction.IP + 1), new ISIL.Register(null, "TEMP")); // if accumulator == dest
                                                                                                                            // SET ZF = 1
                     Add(instruction.IP, ISIL.OpCode.Move, dest, src); // DEST = SRC
-                    Add(instruction.IP, ISIL.OpCode.Jump, instruction.IP + 2); // END IF
+                    Add(instruction.IP, ISIL.OpCode.Jump, Imm(instruction.IP + 2)); // END IF
                                                                                // ELSE
                                                                                // SET ZF = 0
                     Add(instruction.IP + 1, ISIL.OpCode.Move, accumulator, dest); // accumulator = dest
@@ -648,7 +651,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     }
                     else
                     {
-                        Add(instruction.IP, ISIL.OpCode.Jump, jumpTarget);
+                        Add(instruction.IP, ISIL.OpCode.Jump, Imm(jumpTarget));
                         break;
                     }
                 }
@@ -664,7 +667,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 {
                     var jumpTarget = instruction.NearBranchTarget;
 
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, new ISIL.Register(null, "ZF")); // if ZF == 1
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), new ISIL.Register(null, "ZF")); // if ZF == 1
                     break;
                 }
 
@@ -675,7 +678,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     var jumpTarget = instruction.NearBranchTarget;
 
                     Add(instruction.IP, ISIL.OpCode.Not, new ISIL.Register(null, "TEMP"), new ISIL.Register(null, "ZF")); // TEMP = !ZF
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, new ISIL.Register(null, "TEMP"));
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), new ISIL.Register(null, "TEMP"));
                     break;
                 }
                 goto default;
@@ -684,7 +687,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 {
                     var jumpTarget = instruction.NearBranchTarget;
 
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, new ISIL.Register(null, "SF")); // if SF == 1
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), new ISIL.Register(null, "SF")); // if SF == 1
                     break;
                 }
 
@@ -695,7 +698,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     var jumpTarget = instruction.NearBranchTarget;
 
                     Add(instruction.IP, ISIL.OpCode.Not, new ISIL.Register(null, "TEMP"), new ISIL.Register(null, "SF")); // TEMP = !SF
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, new ISIL.Register(null, "TEMP"));
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), new ISIL.Register(null, "TEMP"));
                     break;
                 }
 
@@ -711,7 +714,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
                     Add(instruction.IP, ISIL.OpCode.Not, temp2, new ISIL.Register(null, "ZF")); // TEMP2 = !ZF
                     Add(instruction.IP, ISIL.OpCode.And, temp, temp, temp2); // TEMP = TEMP && TEMP2
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, temp);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), temp);
                     break;
                 }
 
@@ -725,7 +728,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
                     Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
                     Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // TEMP = !TEMP
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, temp);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), temp);
                     break;
                 }
 
@@ -738,7 +741,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     var temp = new ISIL.Register(null, "TEMP");
 
                     Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, temp);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), temp);
                     break;
                 }
 
@@ -753,7 +756,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, new ISIL.Register(null, "SF"), new ISIL.Register(null, "OF")); // TEMP = SF == OF
                     Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // TEMP = !TEMP
                     Add(instruction.IP, ISIL.OpCode.Or, temp, temp, new ISIL.Register(null, "ZF")); // TEMP = TEMP || ZF
-                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, jumpTarget, temp);
+                    Add(instruction.IP, ISIL.OpCode.ConditionalJump, Imm(jumpTarget), temp);
                     break;
                 }
 
@@ -774,11 +777,11 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 Add(instruction.IP, ISIL.OpCode.Nop);
                 break;
             default:
-                Add(instruction.IP, ISIL.OpCode.NotImplemented, FormatInstruction(instruction));
+                Add(instruction.IP, ISIL.OpCode.NotImplemented, new ISIL.StringLiteral(FormatInstruction(instruction)));
                 break;
         }
 
-        void AddCompareInstruction(ulong ip, object op0, object op1)
+        void AddCompareInstruction(ulong ip, ISIL.IOperand op0, ISIL.IOperand op1)
         {
             var temp1 = new ISIL.Register(null, "TEMP1");
             var temp2 = new ISIL.Register(null, "TEMP2");
@@ -791,39 +794,39 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             Add(ip, ISIL.OpCode.Xor, temp2, op0, op1); // temp2 = op1 ^ op2
             Add(ip, ISIL.OpCode.Xor, temp3, op0, temp1); // temp3 = op1 ^ temp1
             Add(ip, ISIL.OpCode.And, temp4, temp2, temp3); // temp4 = temp2 & temp3
-            Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "OF"), temp4, 0); // OF = temp4 < 0
-            Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "SF"), temp1, 0); // SF = temp1 < 0
-            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "ZF"), temp1, 0); // ZF = temp1 == 0
-            Add(ip, ISIL.OpCode.And, temp5, temp2, 1); // temp5 = tmp2 & 1
-            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "PF"), temp5, 0); // PF = temp5 == 0
+            Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "OF"), temp4, Imm(0)); // OF = temp4 < 0
+            Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "SF"), temp1, Imm(0)); // SF = temp1 < 0
+            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "ZF"), temp1, Imm(0)); // ZF = temp1 == 0
+            Add(ip, ISIL.OpCode.And, temp5, temp2, Imm(1)); // temp5 = tmp2 & 1
+            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "PF"), temp5, Imm(0)); // PF = temp5 == 0
         }
 
-        void AddTestInstruction(ulong ip, object op0, object op1)
+        void AddTestInstruction(ulong ip, ISIL.IOperand op0, ISIL.IOperand op1)
         {
             var temp = new ISIL.Register(null, "TEMP");
             var temp2 = new ISIL.Register(null, "TEMP2");
             var temp5 = new ISIL.Register(null, "TEMP5");
 
             Add(ip, ISIL.OpCode.And, temp, op0, op1); // temp = op0 & op1
-            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "ZF"), temp, 0); // ZF = temp == 0
-            Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "SF"), temp, 0); // SF = temp < 0
-            Add(ip, ISIL.OpCode.Move, new ISIL.Register(null, "CF"), 0);  // CF = 0
-            Add(ip, ISIL.OpCode.Move, new ISIL.Register(null, "OF"), 0);  // OF = 0
-            Add(ip, ISIL.OpCode.Xor, temp2, temp, 0); // temp2 = temp ^ 0
-            Add(ip, ISIL.OpCode.And, temp5, temp2, 1); // temp5 = temp2 & 1
-            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "PF"), temp5, 0); // PF = temp5 == 0
+            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "ZF"), temp, Imm(0)); // ZF = temp == 0
+            Add(ip, ISIL.OpCode.CheckLess, new ISIL.Register(null, "SF"), temp, Imm(0)); // SF = temp < 0
+            Add(ip, ISIL.OpCode.Move, new ISIL.Register(null, "CF"), Imm(0));  // CF = 0
+            Add(ip, ISIL.OpCode.Move, new ISIL.Register(null, "OF"), Imm(0));  // OF = 0
+            Add(ip, ISIL.OpCode.Xor, temp2, temp, Imm(0)); // temp2 = temp ^ 0
+            Add(ip, ISIL.OpCode.And, temp5, temp2, Imm(1)); // temp5 = temp2 & 1
+            Add(ip, ISIL.OpCode.CheckEqual, new ISIL.Register(null, "PF"), temp5, Imm(0)); // PF = temp5 == 0
         }
     }
 
 
-    private object ConvertOperand(Instruction instruction, int operand, bool isLeaAddress = false)
+    private ISIL.IOperand ConvertOperand(Instruction instruction, int operand, bool isLeaAddress = false)
     {
         var kind = instruction.GetOpKind(operand);
 
         if (kind == OpKind.Register)
             return new ISIL.Register(null, X86Utils.GetRegisterName(instruction.GetOpRegister(operand)));
         if (kind.IsImmediate())
-            return instruction.GetImmediate(operand);
+            return new ISIL.Immediate((long)instruction.GetImmediate(operand));
         if (kind == OpKind.Memory && instruction.MemoryBase == Register.RSP)
             return new ISIL.StackOffset((int)instruction.MemoryDisplacement32);
 

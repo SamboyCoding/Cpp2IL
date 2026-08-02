@@ -16,6 +16,9 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     [ThreadStatic]
     private static Dictionary<Arm64Register, ulong> adrpOffsets = new();
 
+    private static Immediate Imm(long value) => new(value);
+    private static Immediate Imm(ulong value) => new(unchecked((long)value));
+
     public override BinarySlice GetRawBytesForMethod(MethodAnalysisContext context, bool isAttributeGenerator)
     {
         var binary = context.AppContext.Binary;
@@ -46,7 +49,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return new BinarySlice(binary, start, end - start);
     }
 
-    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    public override List<IOperand> GetParameterOperandsFromMethod(MethodAnalysisContext context)
     {
         // Is this correct (?)
         return GetArgumentOperandsForCall(context);
@@ -75,13 +78,13 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             if (instruction.OpCode != OpCode.Jump && instruction.OpCode != OpCode.ConditionalJump)
                 continue;
 
-            var targetAddress = (ulong)instruction.Operands[0];
+            var targetAddress = ((Immediate)instruction.Operands[0]).UnsignedValue;
             var targetIndex = addresses.FindIndex(addr => addr == targetAddress);
 
             if (targetIndex == -1)
             {
                 instruction.OpCode = OpCode.Invalid;
-                instruction.Operands = [$"Jump target not found in method: 0x{targetAddress:X4}"];
+                instruction.SetOperands(new StringLiteral($"Jump target not found in method: 0x{targetAddress:X4}"));
                 continue;
             }
 
@@ -98,7 +101,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
     {
         var address = instruction.Address;
 
-        Instruction Add(ulong address, OpCode opCode, params object[] operands)
+        Instruction Add(ulong address, OpCode opCode, params List<IOperand> operands)
         {
             addresses.Add(address);
             var newInstruction = new Instruction(instructions.Count, opCode, operands);
@@ -106,11 +109,11 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             return newInstruction;
         }
         
-        void AddCall(MethodAnalysisContext context, object? returnRegister2, ulong address, ulong target)
+        void AddCall(MethodAnalysisContext context, IOperand? returnRegister2, ulong address, ulong target)
         {
             var call = returnRegister2 == null ? 
-                Add(address, OpCode.CallVoid, target) : 
-                Add(address, OpCode.Call, target, returnRegister2);
+                Add(address, OpCode.CallVoid, Imm(target)) : 
+                Add(address, OpCode.Call, Imm(target), returnRegister2);
 
             call.AddOperands(GetArgumentOperandsForCall(context, target));
         }
@@ -136,7 +139,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     {
                         var register = (Register)operand.Base!;
                         // X19= X19, #0x30
-                        Add(address, OpCode.Add, register, register, operand.Addend);
+                        Add(address, OpCode.Add, register, register, Imm(operand.Addend));
                         //X8 = [X19]
                         Add(address, OpCode.Move, ConvertOperand(instruction, 0), new MemoryOperand(new Register(null, register.ToString()!.ToUpperInvariant())));
                         break;
@@ -164,7 +167,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     adrpOffsets.Remove(instruction.Op0Reg);
 
                 Add(address, OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
-                Add(address, OpCode.CheckEqual, new Register(null, "Z"), ConvertOperand(instruction, 0), 0);
+                Add(address, OpCode.CheckEqual, new Register(null, "Z"), ConvertOperand(instruction, 0), Imm(0));
                 break;
             case Arm64Mnemonic.MOVN:
                 {
@@ -209,7 +212,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                         var firstRegister = ConvertOperand(instruction, 0);
                         long size = ((Register)firstRegister).Name[0] == 'W' ? 4 : 8;
                         Add(address, OpCode.Move, dest3, firstRegister);
-                        Add(address, OpCode.Add, dest3, dest3, size);
+                        Add(address, OpCode.Add, dest3, dest3, Imm(size));
                         Add(address, OpCode.Move, dest3, ConvertOperand(instruction, 1));
                     }
                 }
@@ -288,7 +291,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 }
                 else
                 {
-                    Add(address, OpCode.Jump, instruction.BranchTarget);
+                    Add(address, OpCode.Jump, Imm(instruction.BranchTarget));
                 }
 
                 break;
@@ -303,17 +306,17 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     var targetAddr = (ulong)((long)instruction.Address + instruction.Op1Imm);
 
                     //Compare to zero...
-                    Add(address, OpCode.CheckEqual, new Register(null, "Z"), ConvertOperand(instruction, 0), 0);
+                    Add(address, OpCode.CheckEqual, new Register(null, "Z"), ConvertOperand(instruction, 0), Imm(0));
 
                     //And jump if (not) equal
                     if (instruction.Mnemonic == Arm64Mnemonic.CBZ)
                     {
-                        Add(address, OpCode.ConditionalJump, targetAddr, new Register(null, "Z"));
+                        Add(address, OpCode.ConditionalJump, Imm(targetAddr), new Register(null, "Z"));
                     }
                     else
                     {
                         Add(address, OpCode.Not, new Register(null, "TEMP"), new Register(null, "Z"));
-                        Add(address, OpCode.ConditionalJump, targetAddr, new Register(null, "TEMP"));
+                        Add(address, OpCode.ConditionalJump, Imm(targetAddr), new Register(null, "TEMP"));
                     }
                 }
                 break;
@@ -324,7 +327,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 var temp = new Register(null, "TEMP");
 
                 Add(address, OpCode.Subtract, temp, op1, op2);
-                Add(address, OpCode.CheckEqual, new Register(null, "Z"), temp, 0);
+                Add(address, OpCode.CheckEqual, new Register(null, "Z"), temp, Imm(0));
                 break;
 
             case Arm64Mnemonic.TBNZ:
@@ -339,16 +342,16 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     var temp2 = new Register(null, "TEMP");
                     var src = ConvertOperand(instruction, 0);
                     Add(address, OpCode.Move, temp2, src); // temp = src
-                    Add(address, OpCode.Move, temp2, bit); // temp = temp & bit
-                    Add(address, OpCode.Move, temp2, bit); // result = temp == bit
+                    Add(address, OpCode.Move, temp2, Imm(bit)); // temp = temp & bit
+                    Add(address, OpCode.Move, temp2, Imm(bit)); // result = temp == bit
                     if (instruction.Mnemonic == Arm64Mnemonic.TBNZ)
                     {
-                        Add(address, OpCode.ConditionalJump, targetAddr, new Register(null, "Z")); // if (result) goto targetAddr
+                        Add(address, OpCode.ConditionalJump, Imm(targetAddr), new Register(null, "Z")); // if (result) goto targetAddr
                     }
                     else
                     {
                         Add(address, OpCode.Not, new Register(null, "TEMP"), new Register(null, "Z"));
-                        Add(address, OpCode.ConditionalJump, targetAddr, new Register(null, "TEMP")); // if (result) goto targetAddr
+                        Add(address, OpCode.ConditionalJump, Imm(targetAddr), new Register(null, "TEMP")); // if (result) goto targetAddr
                     }
                 }
                 break;
@@ -360,7 +363,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                     Add(address, OpCode.Move, dest3, ConvertOperand(instruction, 1)); // dest = src
                     Add(address, OpCode.ShiftRight, dest3, dest3, ConvertOperand(instruction, 2)); // dest = dest >> #<immr>
                     var imms = (int)instruction.Op3Imm;
-                    Add(address, OpCode.And, dest3, dest3, (1 << imms) - 1); // dest = dest & constexpr { ((1 << #<imms>) - 1) }
+                    Add(address, OpCode.And, dest3, dest3, Imm((1 << imms) - 1)); // dest = dest & constexpr { ((1 << #<imms>) - 1) }
                 }
                 break;
 
@@ -403,7 +406,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 };
 
                 Add(address, opCode, dest, src1, src2);
-                Add(address, OpCode.CheckEqual, new Register(null, "Z"), dest, 0);
+                Add(address, OpCode.CheckEqual, new Register(null, "Z"), dest, Imm(0));
                 break;
 
             case Arm64Mnemonic.ORR:
@@ -417,12 +420,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 break;
 
             default:
-                Add(address, OpCode.NotImplemented, $"Instruction {instruction.Mnemonic} not yet implemented.");
+                Add(address, OpCode.NotImplemented, new StringLiteral($"Instruction {instruction.Mnemonic} not yet implemented."));
                 break;
         }
     }
 
-    private object ConvertOperand(Arm64Instruction instruction, int operand)
+    private IOperand ConvertOperand(Arm64Instruction instruction, int operand)
     {
         var kind = operand switch
         {
@@ -447,7 +450,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             if (kind == Arm64OperandKind.ImmediatePcRelative)
                 imm += (long)instruction.Address + 4; //Add 4 to the address to get the address of the next instruction (PC-relative addressing is relative to the address of the next instruction, not the current one
 
-            return imm;
+            return new Immediate(imm);
         }
 
         if (kind == Arm64OperandKind.FloatingPointImmediate)
@@ -461,7 +464,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 _ => throw new ArgumentOutOfRangeException(nameof(operand), $"Operand must be between 0 and 3, inclusive. Got {operand}")
             };
 
-            return imm;
+            return new DoubleLiteral(imm);
         }
 
         if (kind == Arm64OperandKind.Register)
@@ -525,14 +528,14 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
             return new Register(null, name);
         }
 
-        return $"<UNIMPLEMENTED OPERAND TYPE {kind}>";
+        return new StringLiteral($"<UNIMPLEMENTED OPERAND TYPE {kind}>");
     }
 
     public override BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance() => new NewArm64KeyFunctionAddresses();
 
     public override string PrintAssembly(MethodAnalysisContext context) => context.RawBytes.Length <= 0 ? "" : string.Join("\n", Disassembler.Disassemble(context.RawBytes.AsSpan(), context.UnderlyingPointer, new Disassembler.Options(true, true, false)).ToList());
 
-    private object? GetReturnRegisterForContext(MethodAnalysisContext context)
+    private IOperand? GetReturnRegisterForContext(MethodAnalysisContext context)
     {
         var returnType = context.ReturnType;
         if (returnType.Namespace == nameof(System))
@@ -552,12 +555,12 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return new Register(null, nameof(Arm64Register.X0));
     }
 
-    private List<object> GetArgumentOperandsForCall(MethodAnalysisContext contextBeingCalled)
+    private List<IOperand> GetArgumentOperandsForCall(MethodAnalysisContext contextBeingCalled)
     {
         var vectorCount = 0;
         var nonVectorCount = 0;
 
-        var ret = new List<object>();
+        var ret = new List<IOperand>();
 
         //Handle 'this' if it's an instance method
         if (!contextBeingCalled.IsStatic)
@@ -591,7 +594,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return ret;
     }
     
-    private List<object> GetArgumentOperandsForCall(MethodAnalysisContext contextBeingAnalyzed, ulong callAddr)
+    private List<IOperand> GetArgumentOperandsForCall(MethodAnalysisContext contextBeingAnalyzed, ulong callAddr)
     {
         if (!contextBeingAnalyzed.AppContext.MethodsByAddress.TryGetValue(callAddr, out var methodsAtAddress))
             //TODO

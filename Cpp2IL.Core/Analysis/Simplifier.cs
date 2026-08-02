@@ -77,7 +77,7 @@ public static class Simplifier
 
                         // Change that move to nop
                         instruction.OpCode = OpCode.Nop;
-                        instruction.Operands = [];
+                        instruction.SetOperands();
 
                         changed = true;
                     }
@@ -133,7 +133,7 @@ public static class Simplifier
 
                     // Change that move to nop
                     instruction.OpCode = OpCode.Nop;
-                    instruction.Operands = [];
+                    instruction.SetOperands();
                 }
             }
 
@@ -160,7 +160,7 @@ public static class Simplifier
         return counts;
     }
 
-    private static void ReplaceLocalsUntilReassignment(Block block, int startIndex, LocalVariable local, object replacement, bool stopAtJoins)
+    private static void ReplaceLocalsUntilReassignment(Block block, int startIndex, LocalVariable local, IOperand replacement, bool stopAtJoins)
     {
         var visited = new HashSet<(Block, int)>();
 
@@ -188,7 +188,6 @@ public static class Simplifier
                     if (operand is LocalVariable usedLocal && usedLocal == local)
                     {
                         instruction.SetOperand(j, replacement);
-                        instruction.ResetSources();
                     }
 
                     // A memory operand's base/index holds an address, so only a local replacement may
@@ -203,7 +202,6 @@ public static class Simplifier
                             memory.Index = replacement;
 
                         instruction.SetOperand(j, memory);
-                        instruction.ResetSources();
                     }
 
                     // The object a field is accessed on is an address just like a memory base.

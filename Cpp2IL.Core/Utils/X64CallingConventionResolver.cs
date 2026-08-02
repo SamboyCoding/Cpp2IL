@@ -25,7 +25,7 @@ public static class X64CallingConventionResolver
             || parameterType == parameterType.AppContext.SystemTypes.SystemDoubleType;
     }
 
-    public static object[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
+    public static ISIL.IOperand[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
     {
         // This is mostly a stub and may be extended in the future. You can traverse exports here for example.
         // For now, we'll return all normal registers and omit the floating point registers.
@@ -45,12 +45,12 @@ public static class X64CallingConventionResolver
         };
     }
 
-    public static object[] ResolveForManaged(MethodAnalysisContext ctx)
+    public static ISIL.IOperand[] ResolveForManaged(MethodAnalysisContext ctx)
     {
         // if (ctx.AppContext.Binary.is32Bit)
         //    throw new NotSupportedException("Resolution of 64-bit calling conventions in 32-bit binaries is not supported.");
 
-        List<object> args = new();
+        List<ISIL.IOperand> args = new();
 
         var addThis = !ctx.IsStatic;
         var isReturningAnOversizedStructure = false; // TODO: Determine whether we return a structure and whether that structure is oversized.
@@ -260,7 +260,7 @@ public static class X64CallingConventionResolver
         return args.ToArray();
     }
 
-    private static object ToOperand(MicrosoftNormalRegister Reg) => Reg switch
+    private static ISIL.IOperand ToOperand(MicrosoftNormalRegister Reg) => Reg switch
     {
         MicrosoftNormalRegister.rcx => new Register(null, "rcx"),
         MicrosoftNormalRegister.rdx => new Register(null, "rdx"),
@@ -269,7 +269,7 @@ public static class X64CallingConventionResolver
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static object ToOperand(LinuxNormalRegister Reg) => Reg switch
+    private static ISIL.IOperand ToOperand(LinuxNormalRegister Reg) => Reg switch
     {
         LinuxNormalRegister.rdi => new Register(null, "rdi"),
         LinuxNormalRegister.rsi => new Register(null, "rsi"),
@@ -280,7 +280,7 @@ public static class X64CallingConventionResolver
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static object ToOperand(LinuxFloatingRegister Reg) => Reg switch
+    private static ISIL.IOperand ToOperand(LinuxFloatingRegister Reg) => Reg switch
     {
         LinuxFloatingRegister.xmm0 => new Register(null, "xmm0"),
         LinuxFloatingRegister.xmm1 => new Register(null, "xmm1"),

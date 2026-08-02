@@ -16,7 +16,7 @@ public static class SsaSimplifier
     {
         // dest -> value for every forwardable copy/constant. SSA's single-assignment property means a
         // local is defined at most once, so there is never a conflicting entry for the same key.
-        var forwarded = new Dictionary<LocalVariable, object>();
+        var forwarded = new Dictionary<LocalVariable, IOperand>();
 
         foreach (var block in cfg.Blocks)
             foreach (var instruction in block.Instructions)
@@ -30,7 +30,7 @@ public static class SsaSimplifier
             return;
 
         // Collapse copy chains (t1 := a; t2 := t1; ...) so each local maps straight to its final value.
-        var resolved = new Dictionary<LocalVariable, object>();
+        var resolved = new Dictionary<LocalVariable, IOperand>();
         foreach (var dest in forwarded.Keys)
             resolved[dest] = Resolve(dest, forwarded);
 
@@ -51,13 +51,13 @@ public static class SsaSimplifier
                     && !reads.Contains(dest))
                 {
                     instruction.OpCode = OpCode.Nop;
-                    instruction.Operands = [];
+                    instruction.SetOperands();
                 }
     }
 
     // Follows local-to-local copies to the end of the chain. The visited set guards against a cycle a
     // malformed graph could present; a well-formed SSA graph (definitions dominate uses) has none.
-    private static object Resolve(LocalVariable dest, Dictionary<LocalVariable, object> forwarded)
+    private static IOperand Resolve(LocalVariable dest, Dictionary<LocalVariable, IOperand> forwarded)
     {
         var value = forwarded[dest];
         var visited = new HashSet<LocalVariable> { dest };
@@ -68,7 +68,7 @@ public static class SsaSimplifier
         return value;
     }
 
-    private static void ReplaceUses(Instruction instruction, Dictionary<LocalVariable, object> resolved)
+    private static void ReplaceUses(Instruction instruction, Dictionary<LocalVariable, IOperand> resolved)
     {
         // The single definition position (a Move/Call destination local) must not be rewritten - only
         // reads are forwarded. In SSA the local being eliminated never appears as a use of itself, so
@@ -137,7 +137,7 @@ public static class SsaSimplifier
 
     // Pure values that are safe to duplicate across uses: other locals (copies) and constants. Memory
     // and field loads are excluded so a load is never re-executed; they are handled post-SSA instead.
-    private static bool IsForwardable(object value) =>
+    private static bool IsForwardable(IOperand value) =>
         value switch
         {
             LocalVariable => true,

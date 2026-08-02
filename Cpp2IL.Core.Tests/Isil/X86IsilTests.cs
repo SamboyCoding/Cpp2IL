@@ -45,7 +45,7 @@ public class X86IsilTests
         var instructions = new List<Instruction>();
 
         void Add(int index, OpCode opCode, params object[] operands) =>
-            instructions.Add(new Instruction(index, opCode, operands));
+            instructions.Add(new Instruction(index, opCode, Ops(operands)));
         
         Add(0, OpCode.Move, rax, new MemoryOperand(rcx, null, 0x48));
         Add(1, OpCode.CheckLess, CF, rax, 0);
@@ -74,7 +74,7 @@ public class X86IsilTests
         {
             var instruction = instructions[i];
             if (instruction.OpCode is OpCode.Jump or OpCode.ConditionalJump)
-                instruction.SetOperand(0, instructions[(int)instruction.Operands[0]]);
+                instruction.SetOperand(0, instructions[(int)((Immediate)instruction.Operands[0]).Value]);
 
             Assert.True(instruction.IsStructurallyEqualTo(isil[i]), $"expected: {instruction}, but got {isil[i]}");
         }

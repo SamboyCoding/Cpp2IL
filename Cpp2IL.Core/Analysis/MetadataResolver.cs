@@ -45,7 +45,7 @@ public static class MetadataResolver
             var stringLiteral = libContext.GetLiteralByAddress(address);
             if (stringLiteral != null)
             {
-                instruction.SetOperand(1, stringLiteral);
+                instruction.SetOperand(1, new StringLiteral(stringLiteral));
                 continue;
             }
 
@@ -130,12 +130,10 @@ public static class MetadataResolver
                 continue;
 
             var callInstruction = block.Instructions[^1];
-            var dest = callInstruction.Operands[0];
-
-            if (!dest.IsNumeric())
+            if (callInstruction.Operands[0] is not Immediate dest)
                 continue;
 
-            var target = (ulong)dest;
+            var target = dest.UnsignedValue;
 
             var keyFunctionAddresses = method.AppContext.GetOrCreateKeyFunctionAddresses();
 
@@ -153,7 +151,7 @@ public static class MetadataResolver
                 if (ThrowHelperRecovery.GetThrownException(method.AppContext, target) is { } thrown)
                 {
                     callInstruction.OpCode = OpCode.Throw;
-                    callInstruction.Operands = [thrown];
+                    callInstruction.SetOperands(thrown);
                 }
 
                 continue;
@@ -188,13 +186,11 @@ public static class MetadataResolver
             if (!instruction.IsCall)
                 continue;
 
-            var target = instruction.Operands[0];
-
             // A resolved call's target is a method/key-function name; only unresolved ones are still numeric.
-            if (!target.IsNumeric())
+            if (instruction.Operands[0] is not Immediate target)
                 continue;
 
-            if (!method.AppContext.MethodsByAddress.TryGetValue((ulong)target, out var candidates) || candidates.Count < 2)
+            if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates) || candidates.Count < 2)
                 continue;
 
             if (GetReceiver(instruction) is not { Type: { } receiverType })
@@ -249,10 +245,10 @@ public static class MetadataResolver
 
         foreach (var instruction in method.ControlFlowGraph.Instructions)
         {
-            if (!instruction.IsCall || !instruction.Operands[0].IsNumeric())
+            if (!instruction.IsCall || instruction.Operands[0] is not Immediate callTarget)
                 continue;
 
-            if (!method.AppContext.MethodsByAddress.TryGetValue((ulong)instruction.Operands[0], out var candidates))
+            if (!method.AppContext.MethodsByAddress.TryGetValue(callTarget.UnsignedValue, out var candidates))
                 continue;
 
             if (GetReceiver(instruction) is not { } receiver || AllocatedType(receiver, definitions) is not { } allocatedType)
@@ -304,13 +300,11 @@ public static class MetadataResolver
             if (!instruction.IsCall)
                 continue;
 
-            var target = instruction.Operands[0];
-
-            if (!target.IsNumeric())
+            if (instruction.Operands[0] is not Immediate target)
                 //Already resolved
                 continue;
 
-            if (!method.AppContext.MethodsByAddress.TryGetValue((ulong)target, out var candidates) || candidates.Count < 2)
+            if (!method.AppContext.MethodsByAddress.TryGetValue(target.UnsignedValue, out var candidates) || candidates.Count < 2)
                 //Not a managed method at all
                 continue;
 
@@ -376,7 +370,7 @@ public static class MetadataResolver
 
         if (method != "")
         {
-            instruction.SetOperand(0, method);
+            instruction.SetOperand(0, new StringLiteral(method));
         }
     }
 

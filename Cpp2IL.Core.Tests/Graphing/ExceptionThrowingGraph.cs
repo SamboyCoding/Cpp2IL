@@ -12,7 +12,7 @@ public class ExceptionThrowingGraph
     public void Setup()
     {
         var instructions = new List<Instruction>();
-        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, operands));
+        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, Ops(operands)));
 
         Add(001, OpCode.ShiftStack, -8);
         Add(002, OpCode.Move, new StackOffset(0), new Register(null, "reg1"));
@@ -74,7 +74,7 @@ public class ExceptionThrowingGraph
         {
             if (instruction.OpCode != OpCode.Jump && instruction.OpCode != OpCode.ConditionalJump)
                 continue;
-            instruction.SetOperand(0, instructions[(int)instruction.Operands[0]]);
+            instruction.SetOperand(0, instructions[(int)((Immediate)instruction.Operands[0]).Value]);
         }
 
         graph = new ISILControlFlowGraph(instructions);

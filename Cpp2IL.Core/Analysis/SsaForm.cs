@@ -128,10 +128,9 @@ public class SsaForm
     {
         var register = _repr[regNumber];
 
-        var operands = new object[1 + block.Predecessors.Count];
-        operands[0] = register; // destination
+        var operands = new List<IOperand>(1 + block.Predecessors.Count) { register }; // destination first
         for (var i = 0; i < block.Predecessors.Count; i++)
-            operands[1 + i] = register; // one source per predecessor, filled in during renaming
+            operands.Add(register); // one source per predecessor, filled in during renaming
 
         block.Instructions.Insert(0, new Instruction(-1, OpCode.Phi, operands));
     }
@@ -276,7 +275,7 @@ public class SsaForm
             foreach (var phi in phiInstructions)
             {
                 phi.OpCode = OpCode.Nop;
-                phi.Operands = [];
+                phi.SetOperands();
             }
         }
 

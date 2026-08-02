@@ -47,7 +47,7 @@ public static class DeadCodeEliminator
                         continue;
 
                     instruction.OpCode = OpCode.Nop;
-                    instruction.Operands = [];
+                    instruction.SetOperands();
                     changed = true;
                 }
             }

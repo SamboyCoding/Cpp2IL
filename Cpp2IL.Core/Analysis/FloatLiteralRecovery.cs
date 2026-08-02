@@ -47,28 +47,24 @@ public static class FloatLiteralRecovery
         switch (type.FullName)
         {
             case "System.Single" when !IsSubnormalSingle((uint)bits):
-                instruction.SetOperand(operandIndex, BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0));
+                instruction.SetOperand(operandIndex, new FloatLiteral(BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0)));
                 break;
             case "System.Double" when !IsSubnormalDouble(bits):
-                instruction.SetOperand(operandIndex, BitConverter.ToDouble(BitConverter.GetBytes(bits), 0));
+                instruction.SetOperand(operandIndex, new DoubleLiteral(BitConverter.ToDouble(BitConverter.GetBytes(bits), 0)));
                 break;
         }
     }
 
-    private static bool TryGetIntegerBits(object operand, out ulong bits)
+    private static bool TryGetIntegerBits(IOperand operand, out ulong bits)
     {
-        switch (operand)
+        if (operand is Immediate immediate)
         {
-            case ulong v: bits = v; return true;
-            case long v: bits = unchecked((ulong)v); return true;
-            case uint v: bits = v; return true;
-            case int v: bits = unchecked((uint)v); return true;
-            case ushort v: bits = v; return true;
-            case short v: bits = unchecked((ushort)v); return true;
-            case byte v: bits = v; return true;
-            case sbyte v: bits = unchecked((byte)v); return true;
-            default: bits = 0; return false;
+            bits = immediate.UnsignedValue;
+            return true;
         }
+
+        bits = 0;
+        return false;
     }
 
     // A subnormal has a zero exponent and a non-zero mantissa (zero itself is exempt). Real source

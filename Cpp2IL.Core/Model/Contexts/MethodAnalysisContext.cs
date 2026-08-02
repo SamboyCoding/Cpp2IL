@@ -17,7 +17,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents one method within the application. Can be analyzed to attempt to reconstruct the function body.
 /// </summary>
-public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
+public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, ISIL.IOperand
 {
     /// <summary>
     /// The underlying metadata for the method.
@@ -56,7 +56,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider
     /// <summary>
     /// Operands used as parameters.
     /// </summary>
-    public List<object> ParameterOperands = [];
+    public List<ISIL.IOperand> ParameterOperands = [];
 
     /// <summary>
     /// The control flow graph for this method, if one is built.

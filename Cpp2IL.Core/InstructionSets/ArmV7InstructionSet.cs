@@ -27,7 +27,7 @@ public class ArmV7InstructionSet : Cpp2IlInstructionSet
         return [];
     }
 
-    public override List<object> GetParameterOperandsFromMethod(MethodAnalysisContext context)
+    public override List<IOperand> GetParameterOperandsFromMethod(MethodAnalysisContext context)
     {
         return [];
     }

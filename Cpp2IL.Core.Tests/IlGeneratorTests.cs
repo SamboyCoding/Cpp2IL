@@ -49,10 +49,10 @@ public class IlGeneratorTests
         var instructions = new List<Instruction>
         {
             
-            new(0, OpCode.Move, x, 5),
-            new(1, OpCode.Move, y, 10),
+            new(0, OpCode.Move, x, Imm(5)),
+            new(1, OpCode.Move, y, Imm(10)),
             // Operand layout: target, arg0, arg1, trailing-non-parameter.
-            new(2, OpCode.CallVoid, targetContext, x, y, 999),
+            new(2, OpCode.CallVoid, targetContext, x, y, Imm(999)),
             new(3, OpCode.Return),
         };
 

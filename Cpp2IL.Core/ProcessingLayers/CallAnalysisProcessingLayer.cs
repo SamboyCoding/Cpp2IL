@@ -98,7 +98,7 @@ public class CallAnalysisProcessingLayer : Cpp2IlProcessingLayer
                         continue;
                     }
 
-                    if (instruction.Operands.Count > 0 && instruction.Operands[0] is ulong address)
+                    if (instruction.Operands.Count > 0 && instruction.Operands[0] is Immediate { UnsignedValue: var address })
                     {
                         if (appContext.MethodsByAddress.TryGetValue(address, out var list))
                         {

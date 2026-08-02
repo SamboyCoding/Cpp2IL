@@ -14,7 +14,7 @@ namespace Cpp2IL.Core.Model.Contexts;
 /// <summary>
 /// Represents one managed type in the application.
 /// </summary>
-public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider
+public class TypeAnalysisContext : HasGenericParameters, ITypeInfoProvider, ISIL.IOperand
 {
     /// <summary>
     /// The context for the assembly this type was defined in.

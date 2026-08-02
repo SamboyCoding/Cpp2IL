@@ -7,7 +7,7 @@ public class IsilFormattingTests
 	[Test]
 	public void ToString_FormatsJumpWithHexTarget()
 	{
-		var instruction = new Instruction(12, OpCode.Jump, (ulong)0x1Au);
+		var instruction = new Instruction(12, OpCode.Jump, Imm(0x1Au));
 
 		Assert.That(instruction.ToString(), Is.EqualTo("12 Jump 001A"));
 	}
@@ -16,7 +16,7 @@ public class IsilFormattingTests
 	public void ToString_FormatsConditionalJumpWithHexTargetAndCondition()
 	{
 		var condition = new Register(null, "ZF");
-		var instruction = new Instruction(5, OpCode.ConditionalJump, (ulong)0x2Bu, condition);
+		var instruction = new Instruction(5, OpCode.ConditionalJump, Imm(0x2Bu), condition);
 
 		Assert.That(instruction.ToString(), Is.EqualTo("5 ConditionalJump 002B, ZF"));
 	}
@@ -26,7 +26,7 @@ public class IsilFormattingTests
 	public void ToString_FormatsCallLikeOpCodesWithHexTargetAndRemainingOperands(OpCode opcode)
 	{
 		var arg0 = new Register(null, "rcx");
-		var instruction = new Instruction(42, opcode, (ulong)0x1234u, arg0, "hello");
+		var instruction = new Instruction(42, opcode, Imm(0x1234), arg0, Str("hello"));
 
 		Assert.That(instruction.ToString(), Is.EqualTo($"42 {opcode} 1234, rcx, \"hello\""));
 	}

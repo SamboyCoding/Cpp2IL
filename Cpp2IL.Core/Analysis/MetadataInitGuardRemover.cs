@@ -56,14 +56,7 @@ public static class MetadataInitGuardRemover
             || TryExcise(cfg, guard, second, first, initialisedFlagTest);
     }
 
-    // i long to drop ns2.0 and be able to use generic math
-    private static bool IsOne(object operand) =>
-        operand switch
-        {
-            int i => i == 1, uint ui => ui == 1, long l => l == 1, ulong ul => ul == 1,
-            short s => s == 1, ushort us => us == 1, byte b => b == 1, sbyte sb => sb == 1,
-            _ => false,
-        };
+    private static bool IsOne(IOperand operand) => operand is Immediate { Value: 1 };
 
     private static bool TryExcise(ISILControlFlowGraph cfg, Block guard, Block initEntry, Block merge, bool initialisedFlagTest)
     {
@@ -151,7 +144,7 @@ public static class MetadataInitGuardRemover
                     break;
 
                 case OpCode.Call or OpCode.CallVoid:
-                    if (instruction.Operands is not [string name, ..])
+                    if (instruction.Operands is not [StringLiteral { Value: var name }, ..])
                         return false;
 
                     if (name is InitializeRuntimeMetadata or InitializeMethod)
@@ -213,7 +206,7 @@ public static class MetadataInitGuardRemover
 
         var terminator = guard.Instructions[^1];
         terminator.OpCode = OpCode.Jump;
-        terminator.Operands = [merge];
+        terminator.SetOperands(merge);
         guard.CalculateBlockType();
 
         // 3. Delete the region. 

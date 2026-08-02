@@ -60,7 +60,7 @@ public class StackAnalyzer
                 {
                     // Nop the shift stack instruction
                     instruction.OpCode = OpCode.Nop;
-                    instruction.Operands = [];
+                    instruction.SetOperands();
                     continue;
                 }
 
@@ -106,7 +106,7 @@ public class StackAnalyzer
 
                 if (instruction.OpCode == OpCode.ShiftStack)
                 {
-                    var offset = (int)instruction.Operands[0];
+                    var offset = (int)((Immediate)instruction.Operands[0]).Value;
                     currentState = currentState.Copy();
                     currentState.Size += offset;
                 }

@@ -235,8 +235,8 @@ public class ISILControlFlowGraph
     {
         foreach (var block in Blocks)
         {
-            var use = new List<object>();
-            var def = new List<object>();
+            var use = new List<IOperand>();
+            var def = new List<IOperand>();
 
             foreach (var instruction in block.Instructions)
             {

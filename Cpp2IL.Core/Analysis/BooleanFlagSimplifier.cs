@@ -25,21 +25,9 @@ public static class BooleanFlagSimplifier
                 continue;
 
             instruction.OpCode = instruction.OpCode == OpCode.CheckNotEqual ? OpCode.Move : OpCode.Not;
-            instruction.Operands = [instruction.Operands[0], instruction.Operands[1]];
+            instruction.SetOperands(instruction.Operands[0], instruction.Operands[1]);
         }
     }
 
-    private static bool IsZeroConstant(object operand) =>
-        operand switch
-        {
-            int i => i == 0,
-            uint ui => ui == 0,
-            long l => l == 0,
-            ulong ul => ul == 0,
-            short s => s == 0,
-            ushort us => us == 0,
-            byte b => b == 0,
-            sbyte sb => sb == 0,
-            _ => false,
-        };
+    private static bool IsZeroConstant(IOperand operand) => operand is Immediate { Value: 0 };
 }
