@@ -122,6 +122,15 @@ public static class MiscUtils
         return -1;
     }
 
+    public static bool DescribesSameThing(TypeAnalysisContext? existing, TypeAnalysisContext candidate) =>
+        (existing, candidate) switch
+        {
+            (RuntimeClassTypeAnalysisContext a, RuntimeClassTypeAnalysisContext b) => ReferenceEquals(a.RepresentedType, b.RepresentedType),
+            (RgctxTableTypeAnalysisContext a, RgctxTableTypeAnalysisContext b) => ReferenceEquals(a.OwnerType, b.OwnerType),
+            (GenericInstanceTypeAnalysisContext a, GenericInstanceTypeAnalysisContext b) => ReferenceEquals(a.GenericType, b.GenericType),
+            _ => ReferenceEquals(existing, candidate),
+        };
+
     internal static byte[] RawBytes(IConvertible original) =>
         original switch
         {

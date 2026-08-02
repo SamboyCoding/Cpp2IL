@@ -201,7 +201,7 @@ public static class MetadataResolver
 
             foreach (var candidate in candidates)
             {
-                if (candidate.IsStatic || !ReferenceEquals(candidate.DeclaringType, receiverType))
+                if (candidate.IsStatic || !MiscUtils.DescribesSameThing(candidate.DeclaringType, receiverType))
                     continue;
 
                 if (match != null)
@@ -254,7 +254,7 @@ public static class MetadataResolver
             if (GetReceiver(instruction) is not { } receiver || AllocatedType(receiver, definitions) is not { } allocatedType)
                 continue;
 
-            var constructor = candidates.FirstOrDefault(c => !c.IsStatic && c.Name == ".ctor" && ReferenceEquals(c.DeclaringType, allocatedType));
+            var constructor = candidates.FirstOrDefault(c => !c.IsStatic && c.Name == ".ctor" && MiscUtils.DescribesSameThing(c.DeclaringType, allocatedType));
             if (constructor == null)
                 continue;
 

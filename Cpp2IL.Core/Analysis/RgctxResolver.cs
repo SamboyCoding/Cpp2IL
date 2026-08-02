@@ -48,7 +48,7 @@ public static class RgctxResolver
 
             // Wrappers are not unique objects, so compare what they contain, not references
             // TODO maybe fix this? It's allocation spam if nothing else. Just make a canonical RuntimeClassTypeAnalysisContext/RgctxTableTypeAnalysisContext
-            if (resolved == null || DescribesSameThing(destination.Type, resolved))
+            if (resolved == null || MiscUtils.DescribesSameThing(destination.Type, resolved))
                 continue;
 
             destination.Type = resolved;
@@ -57,14 +57,6 @@ public static class RgctxResolver
 
         return changed;
     }
-
-    private static bool DescribesSameThing(TypeAnalysisContext? existing, TypeAnalysisContext candidate) =>
-        (existing, candidate) switch
-        {
-            (RuntimeClassTypeAnalysisContext a, RuntimeClassTypeAnalysisContext b) => ReferenceEquals(a.RepresentedType, b.RepresentedType),
-            (RgctxTableTypeAnalysisContext a, RgctxTableTypeAnalysisContext b) => ReferenceEquals(a.OwnerType, b.OwnerType),
-            _ => ReferenceEquals(existing, candidate),
-        };
 
     private static TypeAnalysisContext? ResolveEntry(TypeAnalysisContext instance, int index)
     {
