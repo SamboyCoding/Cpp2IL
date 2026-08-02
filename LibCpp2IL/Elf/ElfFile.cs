@@ -717,7 +717,7 @@ public sealed class ElfFile : Il2CppBinary
         if (addr >= section.VirtualAddress + section.RawSize)
             if (throwOnError)
                 throw new InvalidOperationException(
-                    $"Virtual address {section.VirtualAddress:X} is located outside of the file-backed portion of Elf PHT section at 0x{section.VirtualAddress:X}");
+                    $"Virtual address {addr:X} is located outside of the file-backed portion of Elf PHT section at 0x{section.VirtualAddress:X}");
             else
                 return VirtToRawInvalidOutOfBounds;
 
