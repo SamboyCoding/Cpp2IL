@@ -6,8 +6,8 @@ using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Analysis;
 
-// Remove null checks which are explict in il2cpp but implicit in IL
-public static class NullCheckRemover
+// Remove null and bounds checks which are explicit in il2cpp but implicit in IL
+public static class InjectedCheckRemover
 {
     public static void Run(MethodAnalysisContext method) => Run(method.ControlFlowGraph!);
 
@@ -26,13 +26,12 @@ public static class NullCheckRemover
             if (terminator.OpCode != OpCode.ConditionalJump)
                 continue;
 
-            if (terminator.Operands[0] is not Block target || !IsNullCheckThrowBlock(target))
+            if (terminator.Operands[0] is not Block target || GetInjectedThrowType(target) is not { } thrownType)
                 continue;
 
             if (terminator.Operands[1] is not LocalVariable condition
                 || !defOf.TryGetValue(condition, out var definition)
-                || definition.OpCode != OpCode.CheckEqual
-                || definition.Operands[2] is not Immediate { Value: 0 })
+                || !IsInjectedCheck(definition, thrownType))
                 continue;
 
             terminator.OpCode = OpCode.Nop;
@@ -47,43 +46,43 @@ public static class NullCheckRemover
         if (!removedAny)
             return;
 
-        foreach (var block in cfg.Blocks.ToList())
-        {
-            if (block == cfg.EntryBlock || block.Predecessors.Count > 0 || !IsNullCheckThrowBlock(block))
-                continue;
-
-            foreach (var successor in block.Successors)
-                successor.Predecessors.Remove(block);
-
-            block.Successors.Clear();
-            cfg.Blocks.Remove(block);
-        }
-
+        // delete any throw blocks
+        cfg.RemoveUnreachableBlocks();
         DeadCodeEliminator.Run(cfg);
     }
 
-    private static bool IsNullCheckThrowBlock(Block block)
+    private static bool IsInjectedCheck(Instruction definition, string thrownType) =>
+        thrownType switch
+        {
+            "System.NullReferenceException" => definition is { OpCode: OpCode.CheckEqual } && definition.Operands[2] is Immediate { Value: 0 },
+            "System.IndexOutOfRangeException" => definition.OpCode is >= OpCode.CheckEqual and <= OpCode.CheckLessOrEqual,
+            _ => false
+        };
+
+    // The full name of the exception if this block does nothing but throw an injected check's exception, else null.
+    private static string? GetInjectedThrowType(Block block)
     {
-        var sawThrow = false;
+        string? thrown = null;
 
         foreach (var instruction in block.Instructions)
         {
             switch (instruction.OpCode)
             {
-                case OpCode.Nop:
-                case OpCode.Return when sawThrow:
+                case OpCode.Nop or OpCode.Interrupt:
+                case OpCode.Return when thrown != null:
                     continue;
 
-                case OpCode.Throw when instruction.Operands is [TypeAnalysisContext { FullName: "System.NullReferenceException" }]:
-                    sawThrow = true;
+                case OpCode.Throw when thrown == null
+                    && instruction.Operands is [TypeAnalysisContext { FullName: "System.NullReferenceException" or "System.IndexOutOfRangeException" } exception]:
+                    thrown = exception.FullName;
                     continue;
 
                 default:
-                    return false;
+                    return null;
             }
         }
 
-        return sawThrow;
+        return thrown;
     }
 
     private static Dictionary<LocalVariable, Instruction> BuildDefMap(ISILControlFlowGraph cfg)

@@ -201,9 +201,20 @@ public class ISILControlFlowGraph
 
             if (block.Instructions.Count == 0)
             {
+                // jumps into the removed block must be retargeted, which needs an unambiguous successor
+                if (block.Successors.Count != 1 && HasJumpOperandTo(block))
+                    continue;
+
+                var jumpTarget = block.Successors.Count == 1 ? block.Successors[0] : null;
+
                 // Redirect predecessors to successors
                 foreach (var pred in block.Predecessors)
                 {
+                    if (pred.Instructions.Count > 0
+                        && pred.Instructions[^1] is { OpCode: OpCode.Jump or OpCode.ConditionalJump } jump
+                        && ReferenceEquals(jump.Operands[0], block))
+                        jump.SetOperand(0, jumpTarget!);
+
                     pred.Successors.Remove(block);
                     foreach (var succ in block.Successors)
                     {
@@ -231,7 +242,12 @@ public class ISILControlFlowGraph
             Blocks.Remove(block);
     }
 
-    public void BuildUseDefLists()
+    private bool HasJumpOperandTo(Block block) =>
+        block.Predecessors.Any(pred => pred.Instructions.Count > 0
+            && pred.Instructions[^1] is { OpCode: OpCode.Jump or OpCode.ConditionalJump } jump
+            && ReferenceEquals(jump.Operands[0], block));
+
+    public void BuildUseDefLists(HashSet<Instruction>? clobberingAddressTakes = null)
     {
         foreach (var block in Blocks)
         {
@@ -245,6 +261,13 @@ public class ISILControlFlowGraph
 
                 if (instruction.Destination != null && !def.Contains(instruction.Destination))
                     def.Add(instruction.Destination);
+
+                if (clobberingAddressTakes?.Contains(instruction) == true)
+                {
+                    foreach (var operand in instruction.Operands)
+                        if (operand is AddressOf { Target: { } addressed } && !def.Contains(addressed))
+                            def.Add(addressed);
+                }
             }
 
             block.Use = use;

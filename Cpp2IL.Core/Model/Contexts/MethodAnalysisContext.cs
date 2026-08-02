@@ -399,7 +399,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // Delete any il2cpp_codegen_initialize_runtime_metadata/il2cpp_codegen_initialize_method
         MetadataInitGuardRemover.Run(this);
 
-        NullCheckRemover.Run(this);
+        InjectedCheckRemover.Run(this);
 
         LocalVariables.ResolveTypesAndFields(this);
 
@@ -414,6 +414,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
         SsaForm.Remove(this);
 
+        // Phi removal leaves a copy per merged version, most of which can share one local
+        CopyCoalescer.Run(this);
+
         // Now out of SSA: clean up the per-edge copies that phi removal introduced (a local can have
         // several definitions merging at a join here, so this pass propagates conservatively), then
         // drop dead locals.
@@ -421,6 +424,19 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
         // Fix float literals
         FloatLiteralRecovery.Run(this);
+
+        // Runs late so the array type and length reach the allocation call as operands after copy propagation has inlined them
+        ArrayRecovery.Run(this);
+
+        LocalVariables.TypeAddressedLocals(this);
+
+        // Near-last, as it depends on the final block layout
+        EqualityBranchInverter.Run(this);
+
+        // Every call that was going to resolve now has. Any argument registers it ended up
+        // not using are just keeping their definitions alive, so drop them.
+        CallArgumentTrimmer.Run(this);
+        DeadCodeEliminator.Run(this);
 
         LocalVariables.RemoveUnused(this);
     }

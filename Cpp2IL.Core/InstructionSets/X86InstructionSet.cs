@@ -828,7 +828,10 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         if (kind.IsImmediate())
             return new ISIL.Immediate((long)instruction.GetImmediate(operand));
         if (kind == OpKind.Memory && instruction.MemoryBase == Register.RSP)
-            return new ISIL.StackOffset((int)instruction.MemoryDisplacement32);
+        {
+            var slot = new ISIL.StackOffset((int)instruction.MemoryDisplacement32);
+            return isLeaAddress ? new ISIL.AddressOf(slot) : slot;
+        }
 
         //Memory
         //Most complex to least complex

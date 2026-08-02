@@ -256,6 +256,26 @@ public static class Simplifier
                         usedByMemory2 = true;
                         return true;
                     }
+
+                    // Likewise, an array element or length reads the array, and taking a slot's address reads it
+                    // however the callee uses it - none of which are in Sources when they sit in a destination position.
+                    if (operand is ArrayAccess array && (array.Array == local || array.Index == local as IOperand))
+                    {
+                        usedByMemory2 = true;
+                        return true;
+                    }
+
+                    if (operand is ArrayLength length && length.Array == local)
+                    {
+                        usedByMemory2 = true;
+                        return true;
+                    }
+
+                    if (operand is AddressOf { Target: LocalVariable addressed } && addressed == local)
+                    {
+                        usedByMemory2 = true;
+                        return true;
+                    }
                 }
 
                 // Used in memory operand
