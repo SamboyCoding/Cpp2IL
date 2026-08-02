@@ -29,7 +29,7 @@ public class FlagConditionRecoveryTests
 
         // The conditional jump's target (operand 0) is the last instruction's index.
         var conditionalJump = instructions.First(i => i.OpCode == OpCode.ConditionalJump);
-        conditionalJump.Operands[0] = instructions[index + 1];
+        conditionalJump.SetOperand(0, instructions[index + 1]);
 
         var graph = new ISILControlFlowGraph(instructions);
         FlagConditionRecovery.Run(graph);

@@ -78,7 +78,7 @@ public class StackAnalyzer
                         state ??= _instructionState[instruction].Size;
 
                         var actual = state.Value + offset.Offset;
-                        instruction.Operands[i] = new StackOffset(actual);
+                        instruction.SetOperand(i, new StackOffset(actual));
                     }
                 }
             }
@@ -165,7 +165,7 @@ public class StackAnalyzer
                 if (operand is StackOffset offset)
                 {
                     var name = offset.Offset < 0 ? $"stack_-{-offset.Offset:X}" : $"stack_{offset.Offset:X}";
-                    instruction.Operands[i] = new Register(null, name);
+                    instruction.SetOperand(i, new Register(null, name));
                 }
             }
         }

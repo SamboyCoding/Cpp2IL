@@ -80,7 +80,7 @@ public static class SsaSimplifier
             switch (instruction.Operands[i])
             {
                 case LocalVariable local when !ReferenceEquals(local, destination) && resolved.TryGetValue(local, out var value):
-                    instruction.Operands[i] = value;
+                    instruction.SetOperand(i, value);
                     break;
 
                 // A memory base/index must stay an address-holding local, so only a local replacement
@@ -90,7 +90,7 @@ public static class SsaSimplifier
                         memory.Base = baseReplacement;
                     if (memory.Index is LocalVariable indexLocal && resolved.TryGetValue(indexLocal, out var indexValue) && indexValue is LocalVariable indexReplacement)
                         memory.Index = indexReplacement;
-                    instruction.Operands[i] = memory; // MemoryOperand is a struct, write the copy back
+                    instruction.SetOperand(i, memory); // MemoryOperand is a struct, write the copy back
                     break;
 
                 // Same as a memory base: the object a field is read from must stay a local.

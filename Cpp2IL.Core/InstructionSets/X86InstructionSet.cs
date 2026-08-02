@@ -86,7 +86,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
             var targetInstruction = instructions[targetIndex];
 
-            instruction.Operands[0] = targetInstruction;
+            instruction.SetOperand(0, targetInstruction);
         }
 
         return instructions;
@@ -114,7 +114,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         void AddIndirectCall(Instruction source)
         {
             var call = Add(source.IP, ISIL.OpCode.IndirectCall, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
-            call.Operands.AddRange(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
+            call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
         }
 
         switch (instruction.Mnemonic)
@@ -447,7 +447,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         else
                             call = Add(instruction.IP, ISIL.OpCode.Call, target, new ISIL.Register(null, "rax") /* return value */);
 
-                        call.Operands.AddRange(X64CallingConventionResolver.ResolveForManaged(possibleMethods[0]));
+                        call.AddOperands(X64CallingConventionResolver.ResolveForManaged(possibleMethods[0]));
                     }
                     else
                     {
@@ -476,7 +476,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         else
                             call = Add(instruction.IP, ISIL.OpCode.Call, target, new ISIL.Register(null, "rax") /* return value */);
 
-                        call.Operands.AddRange(X64CallingConventionResolver.ResolveForManaged(ctx));
+                        call.AddOperands(X64CallingConventionResolver.ResolveForManaged(ctx));
                     }
                 }
                 else
@@ -486,7 +486,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     // These can be converted to dedicated ISIL instructions for specific API functions at a later stage. (by a post-processing step)
 
                     var call = Add(instruction.IP, ISIL.OpCode.Call, target, new ISIL.Register(null, "rax") /* return value */);
-                    call.Operands.AddRange(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, target));
+                    call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, target));
                 }
 
                 if (callNoReturn)

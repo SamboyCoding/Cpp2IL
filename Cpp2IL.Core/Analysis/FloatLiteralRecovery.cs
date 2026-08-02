@@ -47,10 +47,10 @@ public static class FloatLiteralRecovery
         switch (type.FullName)
         {
             case "System.Single" when !IsSubnormalSingle((uint)bits):
-                instruction.Operands[operandIndex] = BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0);
+                instruction.SetOperand(operandIndex, BitConverter.ToSingle(BitConverter.GetBytes((uint)bits), 0));
                 break;
             case "System.Double" when !IsSubnormalDouble(bits):
-                instruction.Operands[operandIndex] = BitConverter.ToDouble(BitConverter.GetBytes(bits), 0);
+                instruction.SetOperand(operandIndex, BitConverter.ToDouble(BitConverter.GetBytes(bits), 0));
                 break;
         }
     }

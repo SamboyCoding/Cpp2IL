@@ -178,7 +178,7 @@ public class ISILControlFlowGraph
                 for (var i = 0; i < instr.Operands.Count; i++)
                 {
                     if (instr.Operands[i] is Instruction target && instructionReplacement.TryGetValue(target, out var newTarget))
-                        instr.Operands[i] = newTarget;
+                        instr.SetOperand(i, newTarget);
                 }
             }
         }
@@ -398,7 +398,7 @@ public class ISILControlFlowGraph
         foreach (var instruction in Blocks.SelectMany(block => block.Instructions))
         {
             if (instruction.Operands.Count > 0 && instruction.Operands[0] is Instruction target)
-                instruction.Operands[0] = FindBlockByInstruction(target)!;
+                instruction.SetOperand(0, FindBlockByInstruction(target)!);
         }
     }
 

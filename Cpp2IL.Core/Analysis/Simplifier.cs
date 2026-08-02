@@ -187,7 +187,7 @@ public static class Simplifier
 
                     if (operand is LocalVariable usedLocal && usedLocal == local)
                     {
-                        instruction.Operands[j] = replacement;
+                        instruction.SetOperand(j, replacement);
                         instruction.ResetSources();
                     }
 
@@ -202,7 +202,7 @@ public static class Simplifier
                         if (memory.Index is LocalVariable indexLocal && indexLocal == local)
                             memory.Index = replacement;
 
-                        instruction.Operands[j] = memory;
+                        instruction.SetOperand(j, memory);
                         instruction.ResetSources();
                     }
 

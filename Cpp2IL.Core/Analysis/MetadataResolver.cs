@@ -45,7 +45,7 @@ public static class MetadataResolver
             var stringLiteral = libContext.GetLiteralByAddress(address);
             if (stringLiteral != null)
             {
-                instruction.Operands[1] = stringLiteral;
+                instruction.SetOperand(1, stringLiteral);
                 continue;
             }
 
@@ -55,7 +55,7 @@ public static class MetadataResolver
                 var typeGlobal = libContext.GetTypeGlobalByAddress(address);
                 if (typeGlobal != null)
                 {
-                    instruction.Operands[1] = declaringType.AppContext.ResolveIl2CppType(typeGlobal);
+                    instruction.SetOperand(1, declaringType.AppContext.ResolveIl2CppType(typeGlobal));
                     continue;
                 }
             }
@@ -66,7 +66,7 @@ public static class MetadataResolver
             var methodUsage = libContext.GetMethodGlobalByAddress(address);
             if (methodUsage?.Type is MetadataUsageType.MethodDef or MetadataUsageType.MethodRef
                 && method.AppContext.ResolveContextForMethod(methodUsage) is { DeclaringType: { } methodDeclaringType } methodContext)
-                instruction.Operands[1] = new RuntimeMethodInfoAnalysisContext(methodContext, methodDeclaringType.DeclaringAssembly);
+                instruction.SetOperand(1, new RuntimeMethodInfoAnalysisContext(methodContext, methodDeclaringType.DeclaringAssembly));
         }
     }
 
@@ -114,7 +114,7 @@ public static class MetadataResolver
                 if (staticOwner is GenericInstanceTypeAnalysisContext genericOwner)
                     field = new ConcreteGenericFieldAnalysisContext(field, genericOwner);
 
-                instruction.Operands[i] = new FieldReference(field, local, (int)memory.Addend);
+                instruction.SetOperand(i, new FieldReference(field, local, (int)memory.Addend));
                 changed = true;
             }
         }
@@ -163,7 +163,7 @@ public static class MetadataResolver
             if (targetMethods is not [{ } singleTargetMethod])
                 continue;
 
-            callInstruction.Operands[0] = singleTargetMethod;
+            callInstruction.SetOperand(0, singleTargetMethod);
         }
 
         method.ControlFlowGraph.MergeCallBlocks();
@@ -220,7 +220,7 @@ public static class MetadataResolver
             if (ambiguous || match == null)
                 continue;
 
-            instruction.Operands[0] = match;
+            instruction.SetOperand(0, match);
             changed = true;
         }
 
@@ -262,7 +262,7 @@ public static class MetadataResolver
             if (constructor == null)
                 continue;
 
-            instruction.Operands[0] = constructor;
+            instruction.SetOperand(0, constructor);
             changed = true;
         }
 
@@ -323,7 +323,7 @@ public static class MetadataResolver
             if (!candidates.Any(candidate => ReferenceEquals(BaseMethodOf(candidate), representedBase)))
                 continue;
 
-            instruction.Operands[0] = representedMethod;
+            instruction.SetOperand(0, representedMethod);
             changed = true;
         }
 
@@ -376,7 +376,7 @@ public static class MetadataResolver
 
         if (method != "")
         {
-            instruction.Operands[0] = method;
+            instruction.SetOperand(0, method);
         }
     }
 
@@ -405,7 +405,7 @@ public static class MetadataResolver
             if (field == null)
                 return;
 
-            instr.Operands[0] = new FieldReference(field, local, (int)memory.Addend);
+            instr.SetOperand(0, new FieldReference(field, local, (int)memory.Addend));
         }
     }
 }

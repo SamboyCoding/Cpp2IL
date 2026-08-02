@@ -74,7 +74,7 @@ public class ExceptionThrowingGraph
         {
             if (instruction.OpCode != OpCode.Jump && instruction.OpCode != OpCode.ConditionalJump)
                 continue;
-            instruction.Operands[0] = instructions[(int)instruction.Operands[0]];
+            instruction.SetOperand(0, instructions[(int)instruction.Operands[0]]);
         }
 
         graph = new ISILControlFlowGraph(instructions);

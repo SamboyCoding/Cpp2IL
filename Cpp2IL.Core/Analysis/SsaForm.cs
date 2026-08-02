@@ -165,7 +165,7 @@ public class SsaForm
                     continue;
 
                 var regNumber = ((Register)phi.Operands[0]).Number;
-                phi.Operands[1 + predIndex] = CurrentVersion(regNumber);
+                phi.SetOperand(1 + predIndex, CurrentVersion(regNumber));
             }
         }
 
@@ -187,7 +187,7 @@ public class SsaForm
 
             if (operand is Register register)
             {
-                instruction.Operands[i] = CurrentVersion(register.Number);
+                instruction.SetOperand(i, CurrentVersion(register.Number));
             }
             else if (operand is MemoryOperand memory)
             {
@@ -196,7 +196,7 @@ public class SsaForm
                 if (memory.Index is Register indexRegister)
                     memory.Index = CurrentVersion(indexRegister.Number);
 
-                instruction.Operands[i] = memory; // MemoryOperand is a struct, write the copy back
+                instruction.SetOperand(i, memory); // MemoryOperand is a struct, write the copy back
             }
         }
     }

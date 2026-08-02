@@ -202,7 +202,7 @@ public static class MetadataInitGuardRemover
 
             foreach (var phi in merge.Instructions)
                 if (phi.OpCode == OpCode.Phi && 1 + i < phi.Operands.Count)
-                    phi.Operands.RemoveAt(1 + i);
+                    phi.RemoveOperandAt(1 + i);
 
             merge.Predecessors.RemoveAt(i);
         }

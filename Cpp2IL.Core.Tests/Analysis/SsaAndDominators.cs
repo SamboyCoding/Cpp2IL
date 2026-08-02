@@ -20,7 +20,7 @@ public class SsaAndDominators
         foreach (var instruction in instructions)
         {
             if (instruction.OpCode is OpCode.Jump or OpCode.ConditionalJump)
-                instruction.Operands[0] = instructions[(int)instruction.Operands[0]];
+                instruction.SetOperand(0, instructions[(int)instruction.Operands[0]]);
         }
 
         return new ISILControlFlowGraph(instructions.ToList());

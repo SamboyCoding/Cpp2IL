@@ -63,6 +63,24 @@ public class Instruction
         ResetSources();
     }
 
+    public void SetOperand(int index, object value)
+    {
+        Operands[index] = value;
+        ResetSources();
+    }
+
+    public void AddOperands(IEnumerable<object> operands)
+    {
+        Operands.AddRange(operands);
+        ResetSources();
+    }
+
+    public void RemoveOperandAt(int index)
+    {
+        Operands.RemoveAt(index);
+        ResetSources();
+    }
+
     public object? Destination
     {
         get => GetOrSetDestination();
@@ -94,7 +112,7 @@ public class Instruction
             case OpCode.CheckLessOrEqual:
             case OpCode.Newobj:
                 if (newDestination != null)
-                    Operands[0] = newDestination;
+                    SetOperand(0, newDestination);
                 return IsConstantValue(Operands[0]) ? null : Operands[0];
 
             // A call's operand 0 is the target; its return value is operand 1 (per OpCode.Call).
@@ -105,7 +123,7 @@ public class Instruction
                 if (Operands.Count < 2)
                     return null;
                 if (newDestination != null)
-                    Operands[1] = newDestination;
+                    SetOperand(1, newDestination);
                 return IsConstantValue(Operands[1]) ? null : Operands[1];
 
             default:

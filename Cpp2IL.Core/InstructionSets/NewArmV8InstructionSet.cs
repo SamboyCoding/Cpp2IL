@@ -87,7 +87,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
 
             var targetInstruction = instructions[targetIndex];
 
-            instruction.Operands[0] = targetInstruction;
+            instruction.SetOperand(0, targetInstruction);
         }
 
         adrpOffsets.Clear();
@@ -112,7 +112,7 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
                 Add(address, OpCode.CallVoid, target) : 
                 Add(address, OpCode.Call, target, returnRegister2);
 
-            call.Operands.AddRange(GetArgumentOperandsForCall(context, target));
+            call.AddOperands(GetArgumentOperandsForCall(context, target));
         }
 
         switch (instruction.Mnemonic)

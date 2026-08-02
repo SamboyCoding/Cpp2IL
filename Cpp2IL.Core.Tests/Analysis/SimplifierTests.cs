@@ -47,7 +47,7 @@ public class SimplifierTests
             if (instruction.OpCode is not (OpCode.Jump or OpCode.ConditionalJump))
                 continue;
 
-            instruction.Operands[0] = instructions[(int)instruction.Operands[0]];
+            instruction.SetOperand(0, instructions[(int)instruction.Operands[0]]);
         }
 
         var graph = new ISILControlFlowGraph(instructions);

@@ -41,7 +41,7 @@ public static class LocalVariables
                 var operand = instruction.Operands[i];
 
                 if (operand is Register register)
-                    instruction.Operands[i] = locals[register];
+                    instruction.SetOperand(i, locals[register]);
 
                 if (operand is MemoryOperand memory)
                 {
@@ -57,7 +57,7 @@ public static class LocalVariables
                         memory.Index = locals[index];
                     }
 
-                    instruction.Operands[i] = memory;
+                    instruction.SetOperand(i, memory);
                 }
             }
         }
