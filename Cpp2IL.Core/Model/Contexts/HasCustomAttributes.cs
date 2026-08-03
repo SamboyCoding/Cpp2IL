@@ -188,6 +188,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
         }
 
         CaCacheGeneratorAnalysis = new(generatorPtr, AppContext, this);
+        CaCacheGeneratorAnalysis.EnsureRawBytes();
         RawIl2CppCustomAttributeData = CaCacheGeneratorAnalysis.RawBytes;
     }
 
@@ -241,7 +242,7 @@ public abstract class HasCustomAttributes(uint token, ApplicationAnalysisContext
             var attributeTypeContext = AppContext.ResolveContextForType(typeDef) ?? throw new("Unable to find type " + typeDef.FullName);
 
             AnalyzedCustomAttribute attribute;
-            if (attributeTypeContext.Methods.FirstOrDefault(c => c.Name == ".ctor" && c.Definition!.parameterCount == 0) is { } constructor)
+            if (attributeTypeContext.Methods.FirstOrDefault(c => c.Name == ".ctor" && c.Parameters.Count == 0) is { } constructor)
             {
                 attribute = new(constructor);
             }
