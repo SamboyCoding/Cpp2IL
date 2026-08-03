@@ -236,57 +236,73 @@ public class SsaForm
         block.Instructions.Insert(0, new Instruction(-1, OpCode.Phi, operands));
     }
 
-    private void Rename(Block block, DominatorInfo dominance)
+    private void Rename(Block initialBlock, DominatorInfo dominance)
     {
-        // Register numbers newly defined in this block, so we can pop their versions on the way out.
-        var definedHere = new List<int>();
+        var remaining = new Stack<(Stack<Block>, List<int>)>();
+        remaining.Push((new Stack<Block>([initialBlock]), []));
 
-        foreach (var instruction in block.Instructions)
+        while (remaining.Count > 0)
         {
-            // A phi's operands belong to the incoming edges, so they are filled by predecessors;
-            // only its destination is renamed here.
-            if (instruction.OpCode != OpCode.Phi)
-                RewriteUses(instruction);
-
-            if (instruction.Destination is Register definition)
-                instruction.Destination = NewName(definition, definedHere);
-
-            for (var i = 0; i < instruction.Operands.Count; i++)
+            var (blocks, parentDefinedRegisters) = remaining.Pop();
+            if (blocks.Count == 0)
             {
-                // Taking a slot's address lets the callee assign it, so the slot stops holding anything that reached this point, UNLESS
-                // nothing reads it afterwards, in which case any write is unobservable and the callee is only reading the value it has now
-                if (instruction.Operands[i] is AddressOf { Target: Register addressed })
-                    instruction.SetOperand(i, new AddressOf(_clobbering.Contains(instruction)
-                        ? NewName(addressed, definedHere)
-                        : CurrentVersion(addressed.Number)));
-            }
-        }
+                // Leaving the block: pop the versions it defined.
+                foreach (var regNumber in parentDefinedRegisters)
+                    _stacks[regNumber].Pop();
 
-        // Resolve the phi operands of successors that correspond to this block's outgoing edge.
-        foreach (var successor in block.Successors)
-        {
-            var predIndex = successor.Predecessors.IndexOf(block);
-            if (predIndex < 0)
                 continue;
+            }
 
-            foreach (var phi in successor.Instructions)
+            var block = blocks.Pop();
+            remaining.Push((blocks, parentDefinedRegisters));
+
+            // Register numbers newly defined in this block, so we can pop their versions on the way out.
+            var definedHere = new List<int>();
+
+            foreach (var instruction in block.Instructions)
             {
-                if (phi.OpCode != OpCode.Phi)
+                // A phi's operands belong to the incoming edges, so they are filled by predecessors;
+                // only its destination is renamed here.
+                if (instruction.OpCode != OpCode.Phi)
+                    RewriteUses(instruction);
+
+                if (instruction.Destination is Register definition)
+                    instruction.Destination = NewName(definition, definedHere);
+
+                for (var i = 0; i < instruction.Operands.Count; i++)
+                {
+                    // Taking a slot's address lets the callee assign it, so the slot stops holding anything that reached this point, UNLESS
+                    // nothing reads it afterwards, in which case any write is unobservable and the callee is only reading the value it has now
+                    if (instruction.Operands[i] is AddressOf { Target: Register addressed })
+                        instruction.SetOperand(i, new AddressOf(_clobbering.Contains(instruction)
+                            ? NewName(addressed, definedHere)
+                            : CurrentVersion(addressed.Number)));
+                }
+            }
+
+            // Resolve the phi operands of successors that correspond to this block's outgoing edge.
+            foreach (var successor in block.Successors)
+            {
+                var predIndex = successor.Predecessors.IndexOf(block);
+                if (predIndex < 0)
                     continue;
 
-                var regNumber = ((Register)phi.Operands[0]).Number;
-                phi.SetOperand(1 + predIndex, CurrentVersion(regNumber));
+                foreach (var phi in successor.Instructions)
+                {
+                    if (phi.OpCode != OpCode.Phi)
+                        continue;
+
+                    var regNumber = ((Register)phi.Operands[0]).Number;
+                    phi.SetOperand(1 + predIndex, CurrentVersion(regNumber));
+                }
+            }
+
+            // Recurse over the dominator tree.
+            if (dominance.DominanceTree.TryGetValue(block, out var children))
+            {
+                remaining.Push((new Stack<Block>(children), definedHere));
             }
         }
-
-        // Recurse over the dominator tree.
-        if (dominance.DominanceTree.TryGetValue(block, out var children))
-            foreach (var child in children)
-                Rename(child, dominance);
-
-        // Leaving the block: pop the versions it defined.
-        foreach (var regNumber in definedHere)
-            _stacks[regNumber].Pop();
     }
 
     private void RewriteUses(Instruction instruction)
