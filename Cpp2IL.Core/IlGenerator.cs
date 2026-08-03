@@ -62,7 +62,9 @@ public static class IlGenerator
             if (operand is MemoryOperand memory && memory.Base is LocalVariable local3)
                 local = local3;
 
-            if (operand is ArrayAccess arrayAccess)
+            var elementOperand = operand is AddressOf { Target: ArrayAccess elementAddress } ? elementAddress : operand;
+
+            if (elementOperand is ArrayAccess arrayAccess)
             {
                 local = arrayAccess.Array;
 
@@ -585,6 +587,12 @@ public static class IlGenerator
                 break;
             case AddressOf { Target: LocalVariable addressed }:
                 instructions.Add(CilOpCodes.Ldloca, locals[addressed]);
+                break;
+            case AddressOf { Target: ArrayAccess elementAddress }:
+                LoadLocal(elementAddress.Array, method, locals);
+                LoadOperand(elementAddress.Index, method, locals, writeLine, stringCtor);
+                instructions.Add(CilOpCodes.Ldelema,
+                    importer.ImportTypeSignature(((SzArrayTypeAnalysisContext)elementAddress.Array.Type!).ElementType.ToTypeSignature(module)).ToTypeDefOrRef());
                 break;
             case ArrayAccess arrayAccess:
                 LoadLocal(arrayAccess.Array, method, locals);

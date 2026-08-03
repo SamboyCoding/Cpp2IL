@@ -401,6 +401,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
         InjectedCheckRemover.Run(this);
 
+        InterfaceDispatchRecovery.Run(this);
+
         LocalVariables.ResolveTypesAndFields(this);
 
         // Needs type resolved for delegate locals

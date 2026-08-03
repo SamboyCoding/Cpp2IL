@@ -298,10 +298,8 @@ public class SsaForm
             }
 
             // Recurse over the dominator tree.
-            if (dominance.DominanceTree.TryGetValue(block, out var children))
-            {
-                remaining.Push((new Stack<Block>(children), definedHere));
-            }
+            dominance.DominanceTree.TryGetValue(block, out var children);
+            remaining.Push((new Stack<Block>(children ?? []), definedHere));
         }
     }
 

@@ -141,4 +141,47 @@ public class SsaAndDominators
         Assert.That(header.Instructions, Does.Contain(phi));
         Assert.That(phi.Operands.Count, Is.EqualTo(1 + header.Predecessors.Count));
     }
+
+    // Two sibling leaves under the entry branch, one redefining x and one reading it. Both orders tested
+    // since the rename walk can visit them either way round.
+    private static List<Instruction> SiblingLeaves(bool defIsFallthrough)
+    {
+        var instructions = new List<Instruction>();
+        void Add(int index, OpCode opCode, params object[] operands) => instructions.Add(new Instruction(index, opCode, Ops(operands)));
+
+        Add(0, OpCode.Move, new Register(null, "x"), 0);                              // entry def of x
+        Add(1, OpCode.ConditionalJump, 4, new Register(null, "cond"));
+        if (defIsFallthrough)
+        {
+            Add(2, OpCode.Move, new Register(null, "x"), 1);                          // one arm: x = 1
+            Add(3, OpCode.Jump, 6);
+            Add(4, OpCode.Move, new Register(null, "ret"), new Register(null, "x")); // other arm: reads x
+        }
+        else
+        {
+            Add(2, OpCode.Move, new Register(null, "ret"), new Register(null, "x"));
+            Add(3, OpCode.Jump, 6);
+            Add(4, OpCode.Move, new Register(null, "x"), 1);
+        }
+        Add(5, OpCode.Jump, 6);
+        Add(6, OpCode.Return);
+
+        return instructions;
+    }
+
+    [TestCase(true)]
+    [TestCase(false)]
+    public void SiblingLeafDefinitionDoesNotLeakIntoOtherArm(bool defIsFallthrough)
+    {
+        var graph = BuildGraph(SiblingLeaves(defIsFallthrough));
+        SsaForm.Build(graph, new DominatorInfo(graph));
+
+        var entryDef = graph.Blocks.SelectMany(b => b.Instructions)
+            .First(i => i.OpCode == OpCode.Move && RegName(i.Operands[0]) == "x" && i.Operands[1] is Immediate { Value: 0 });
+        var use = graph.Blocks.SelectMany(b => b.Instructions)
+            .First(i => i.OpCode == OpCode.Move && RegName(i.Operands[0]) == "ret");
+
+        // the read arm is only reachable via the entry, so it can't see the sibling's version
+        Assert.That(((Register)use.Operands[1]).Version, Is.EqualTo(((Register)entryDef.Operands[0]).Version));
+    }
 }

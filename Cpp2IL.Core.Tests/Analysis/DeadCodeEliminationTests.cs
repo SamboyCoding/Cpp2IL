@@ -71,4 +71,31 @@ public class DeadCodeEliminationTests
 
         Assert.That(Live(graph).Any(i => i.OpCode == OpCode.CallVoid), Is.True, "calls must never be removed");
     }
+
+    [Test]
+    public void ArrayOperandsCountTheirLocalsAsUses()
+    {
+        // arr and i are only read inside array operands, so their definitions have to survive
+        var array = new LocalVariable("arr", new Register(null, "arr"));
+        var index = new LocalVariable("i", new Register(null, "i"));
+        var element = new LocalVariable("elem", new Register(null, "elem"));
+        var length = new LocalVariable("len", new Register(null, "len"));
+        var pointer = new LocalVariable("ptr", new Register(null, "ptr"));
+
+        var graph = new ISILControlFlowGraph(new List<Instruction>
+        {
+            new(0, OpCode.Move, index, Imm(1)),
+            new(1, OpCode.Move, element, new ArrayAccess(array, index)),
+            new(2, OpCode.Move, length, new ArrayLength(array)),
+            new(3, OpCode.Move, pointer, new AddressOf(new ArrayAccess(array, index))),
+            new(4, OpCode.Add, element, element, length),
+            new(5, OpCode.Add, element, element, pointer),
+            new(6, OpCode.Return, element),
+        });
+
+        DeadCodeEliminator.Run(graph);
+
+        Assert.That(Live(graph).Any(i => i.OpCode == OpCode.Move && ReferenceEquals(i.Operands[0], index)), Is.True,
+            "index definition is used inside the array operands and must survive");
+    }
 }

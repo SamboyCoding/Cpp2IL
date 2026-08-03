@@ -56,29 +56,19 @@ public static class DelegateInvokeRecovery
 
     private static void RewriteAsInvoke(Instruction call, LocalVariable delegateLocal, MethodAnalysisContext invoke)
     {
-        //TODO This needs to run for the actual instruction set, not hardcoded x64
-        var abi = X64CallingConventionResolver.ResolveForManaged(invoke);
-
-        // Operands are [target, returnValue, <argument registers>], and the resolved list is in the same
-        // register order, so they align from index 2 onwards
-        if (call.Operands.Count - 2 < abi.Length)
-            return;
-        
-        // TODO fix this (handle float registers not being present here and so possible DCE'd) and make this not x64 hardcoded
-        if (abi.Any(operand => operand is Register register && register.Name.StartsWith("xmm")))
+        //TODO Still x64 specific, other instruction sets won't match the layout and get left alone
+        if (!X64CallingConventionResolver.HasRawArgumentLayout(call, invoke.AppContext))
             return;
 
-        var operands = new List<IOperand> { invoke };
-
-        if (!invoke.IsVoid)
-            operands.Add(call.Operands[1]);
-
-        operands.Add(delegateLocal); // Replaces invoke_impl_this, which isn't the delegate
-
-        for (var i = 1; i < abi.Length; i++)
-            operands.Add(call.Operands[2 + i]);
+        if (invoke.IsVoid)
+            call.RemoveOperandAt(1);
 
         call.OpCode = invoke.IsVoid ? OpCode.CallVoid : OpCode.Call;
-        call.SetOperands(operands);
+        call.SetOperand(0, invoke);
+
+        // the receiver register holds invoke_impl_this rather than the delegate itself
+        call.SetOperand(invoke.IsVoid ? 1 : 2, delegateLocal);
+
+        X64CallingConventionResolver.RemapRawArguments(call, invoke);
     }
 }

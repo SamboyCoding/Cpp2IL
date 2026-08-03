@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 
 namespace Cpp2IL.Core.Analysis;
 
@@ -143,6 +144,16 @@ public static class LocalVariables
         }
 
         method.ParameterLocals = paramLocals;
+
+        // the hidden return buffer takes the first argument register. we type it as the return
+        // type so stores into it resolve to fields
+        if (method.AppContext.Binary.PointerSizeBytes == 8
+            && X64CallingConventionResolver.HiddenReturnBufferRegister(method) is { } bufferRegister
+            && method.Locals.FirstOrDefault(l => l.Register.Number == bufferRegister.Number && l.Register.Version == -1) is { } bufferLocal)
+        {
+            bufferLocal.Name = "returnBuffer";
+            bufferLocal.Type = method.ReturnType;
+        }
     }
 
     public static void RemoveUnused(MethodAnalysisContext method)
@@ -401,7 +412,7 @@ public static class LocalVariables
             switch (instruction.OpCode)
             {
                 case OpCode.Move:
-                    changed |= PropagateMove(instruction);
+                    changed |= PropagateMove(instruction, method.AppContext.Binary.PointerSizeBytes);
                     break;
                 case OpCode.Phi:
                     changed |= PropagatePhi(instruction);
@@ -412,7 +423,7 @@ public static class LocalVariables
         return changed;
     }
 
-    private static bool PropagateMove(Instruction move)
+    private static bool PropagateMove(Instruction move, int pointerSize)
     {
         var destination = move.Operands[0];
         var source = move.Operands[1];
@@ -429,6 +440,12 @@ public static class LocalVariables
         // Move field, local: a field store types the stored value with the field's type.
         if (destination is FieldReference storeField && source is LocalVariable storeSource)
             return SetTypeIfUnknown(storeSource, storeField.Field.FieldType);
+
+        // An element of T[] is a T, whether we loaded it (reference arrays) or only computed its address
+        if (destination is LocalVariable { Type: null } elementDest
+            && source is MemoryOperand { Base: LocalVariable { Type: SzArrayTypeAnalysisContext { ElementType: { } elementType } } } elementAccess
+            && (elementAccess.Index != null || elementAccess.Addend >= 4L * pointerSize))
+            return SetTypeIfUnknown(elementDest, elementType);
 
         // Move local, [obj]: offset 0 of a reference-typed value is its klass pointer.
         if (destination is LocalVariable { Type: null } klassDest

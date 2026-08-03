@@ -97,8 +97,27 @@ public static class DeadCodeEliminator
                 case AddressOf { Target: LocalVariable addressed }:
                     yield return addressed;
                     break;
+                case AddressOf { Target: ArrayAccess addressedElement }:
+                    foreach (var used in ArrayAccessLocals(addressedElement))
+                        yield return used;
+                    break;
+                case ArrayAccess access:
+                    foreach (var used in ArrayAccessLocals(access))
+                        yield return used;
+                    break;
+                case ArrayLength { Array: { } lengthArray }:
+                    yield return lengthArray;
+                    break;
             }
         }
+    }
+
+    private static IEnumerable<LocalVariable> ArrayAccessLocals(ArrayAccess access)
+    {
+        yield return access.Array;
+
+        if (access.Index is LocalVariable index)
+            yield return index;
     }
 
     /// <summary>

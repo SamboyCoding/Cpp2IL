@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.PE;
@@ -18,32 +19,126 @@ public static class X64CallingConventionResolver
 
     const int ptrSize = 8;
 
-    private static bool IsXMM(ParameterAnalysisContext par)
+    private static bool IsXMM(ParameterAnalysisContext par) => IsFloatingPoint(par.ParameterType);
+
+    public static bool IsFloatingPoint(TypeAnalysisContext type)
+        => type == type.AppContext.SystemTypes.SystemSingleType || type == type.AppContext.SystemTypes.SystemDoubleType;
+
+    public static Register ReturnRegister(MethodAnalysisContext ctx)
+        => new(null, IsFloatingPoint(ctx.ReturnType) ? "xmm0" : "rax");
+
+    public static Register? HiddenReturnBufferRegister(MethodAnalysisContext ctx)
+        => ReturnsViaHiddenBuffer(ctx) ? new Register(null, ctx.AppContext.Binary is PE ? "rcx" : "rdi") : null;
+
+    public static bool ReturnsViaHiddenBuffer(MethodAnalysisContext ctx)
     {
-        var parameterType = par.ParameterType;
-        return parameterType == parameterType.AppContext.SystemTypes.SystemSingleType
-            || parameterType == parameterType.AppContext.SystemTypes.SystemDoubleType;
+        if (ctx.IsVoid)
+            return false;
+
+        var returnType = ctx.ReturnType;
+        if (!returnType.IsValueType || IsFloatingPoint(returnType))
+            return false;
+
+        var size = TypeSizes.UnboxedSize(returnType, ptrSize);
+        if (size == 0)
+            return false; // unknown size (e.g. generic): assume a register return
+
+        return ctx.AppContext.Binary is PE ? size is not (1 or 2 or 4 or 8) : size > 16;
     }
+
+    private static readonly string[] PeIntegerRegisters = ["rcx", "rdx", "r8", "r9"];
+    private static readonly string[] PeFloatRegisters = ["xmm0", "xmm1", "xmm2", "xmm3"];
+    private static readonly string[] SysVIntegerRegisters = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
+    private static readonly string[] SysVFloatRegisters = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"];
 
     public static ISIL.IOperand[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
     {
         // This is mostly a stub and may be extended in the future. You can traverse exports here for example.
-        // For now, we'll return all normal registers and omit the floating point registers.
 
-        return app.Binary is PE ? new[] {
-            ToOperand(MicrosoftNormalRegister.rcx),
-            ToOperand(MicrosoftNormalRegister.rdx),
-            ToOperand(MicrosoftNormalRegister.r8),
-            ToOperand(MicrosoftNormalRegister.r9)
-        } : new[] {
-            ToOperand(LinuxNormalRegister.rdi),
-            ToOperand(LinuxNormalRegister.rsi),
-            ToOperand(LinuxNormalRegister.rdx),
-            ToOperand(LinuxNormalRegister.rcx),
-            ToOperand(LinuxNormalRegister.r8),
-            ToOperand(LinuxNormalRegister.r9)
-        };
+        var (integerRegisters, floatRegisters) = RawRegisters(app);
+        return integerRegisters.Concat(floatRegisters).Select(name => (ISIL.IOperand)new Register(null, name)).ToArray();
     }
+
+    private static (string[] Integer, string[] Float) RawRegisters(ApplicationAnalysisContext app)
+        => app.Binary is PE ? (PeIntegerRegisters, PeFloatRegisters) : (SysVIntegerRegisters, SysVFloatRegisters);
+
+    public static bool HasRawArgumentLayout(ISIL.Instruction call, ApplicationAnalysisContext app)
+    {
+        var (integerRegisters, floatRegisters) = RawRegisters(app);
+        var argBase = ArgBase(call);
+
+        if (call.Operands.Count != argBase + integerRegisters.Length + floatRegisters.Length)
+            return false;
+
+        for (var i = 0; i < integerRegisters.Length; i++)
+            if (RegisterName(call.Operands[argBase + i]) != integerRegisters[i])
+                return false;
+
+        for (var i = 0; i < floatRegisters.Length; i++)
+            if (RegisterName(call.Operands[argBase + integerRegisters.Length + i]) != floatRegisters[i])
+                return false;
+
+        return true;
+    }
+
+    // TODO Fix handling of params on the stack here
+    public static void RemapRawArguments(ISIL.Instruction call, MethodAnalysisContext resolved)
+    {
+        var app = resolved.AppContext;
+
+        if (!HasRawArgumentLayout(call, app))
+            return;
+
+        var (integerRegisters, floatRegisters) = RawRegisters(app);
+        var argBase = ArgBase(call);
+
+        var slots = new List<(bool IsFloat, bool Emit)>();
+        if (ReturnsViaHiddenBuffer(resolved))
+            slots.Add((false, false));
+        if (!resolved.IsStatic)
+            slots.Add((false, true));
+        foreach (var parameter in resolved.Parameters)
+            slots.Add((IsXMM(parameter), true));
+        slots.Add((false, true)); // the MethodInfo argument
+
+        var operands = new List<ISIL.IOperand>(argBase + slots.Count);
+        for (var i = 0; i < argBase; i++)
+            operands.Add(call.Operands[i]);
+
+        if (app.Binary is PE)
+        {
+            // MSVC shadows: slot n is rcx+n or xmm{n}, never both
+            for (var slot = 0; slot < slots.Count && slot < integerRegisters.Length; slot++)
+                if (slots[slot].Emit)
+                    operands.Add(call.Operands[argBase + (slots[slot].IsFloat ? integerRegisters.Length + slot : slot)]);
+        }
+        else
+        {
+            // SysV keeps independent integer/float counters
+            var (integer, floating) = (0, 0);
+
+            foreach (var (isFloat, emit) in slots)
+            {
+                if (isFloat ? floating >= floatRegisters.Length : integer >= integerRegisters.Length)
+                    break;
+
+                var operand = call.Operands[argBase + (isFloat ? integerRegisters.Length + floating++ : integer++)];
+                if (emit)
+                    operands.Add(operand);
+            }
+        }
+
+        call.SetOperands(operands);
+    }
+
+    private static int ArgBase(ISIL.Instruction call) => call.OpCode is ISIL.OpCode.CallVoid ? 1 : 2;
+
+    private static string? RegisterName(ISIL.IOperand operand) => operand switch
+    {
+        Register register => register.Name,
+        LocalVariable { Register.Name: var name } => name,
+        _ => null
+    };
 
     public static ISIL.IOperand[] ResolveForManaged(MethodAnalysisContext ctx)
     {
@@ -53,7 +148,9 @@ public static class X64CallingConventionResolver
         List<ISIL.IOperand> args = new();
 
         var addThis = !ctx.IsStatic;
-        var isReturningAnOversizedStructure = false; // TODO: Determine whether we return a structure and whether that structure is oversized.
+        // the buffer takes the first argument register but deliberately isn't in the list, as
+        // everything downstream reads that as [this?, params..., MethodInfo]
+        var isReturningAnOversizedStructure = ReturnsViaHiddenBuffer(ctx);
 
         /*
         GCC:
@@ -173,7 +270,7 @@ public static class X64CallingConventionResolver
 
             if (isReturningAnOversizedStructure)
             {
-                AddParameter(null);
+                i++; // rcx holds the return buffer pointer, not an argument operand
             }
 
             if (addThis)
@@ -240,7 +337,7 @@ public static class X64CallingConventionResolver
 
             if (isReturningAnOversizedStructure)
             {
-                args.Add(ToOperand(nreg++));
+                nreg++; // rdi holds the return buffer pointer, not an argument operand
             }
 
             if (addThis)

@@ -455,7 +455,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         if (possibleMethods[0].IsVoid)
                             call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), X64CallingConventionResolver.ReturnRegister(possibleMethods[0]));
 
                         call.AddOperands(X64CallingConventionResolver.ResolveForManaged(possibleMethods[0]));
                     }
@@ -484,7 +484,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         if (ctx.IsVoid)
                             call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), X64CallingConventionResolver.ReturnRegister(ctx));
 
                         call.AddOperands(X64CallingConventionResolver.ResolveForManaged(ctx));
                     }
@@ -859,7 +859,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         {
             var mBase = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryBase));
             var mIndex = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryIndex));
-            return new ISIL.MemoryOperand(mBase, mIndex, instruction.MemoryIndexScale);
+            return new ISIL.MemoryOperand(mBase, mIndex, scale: instruction.MemoryIndexScale);
         }
 
         //No base
