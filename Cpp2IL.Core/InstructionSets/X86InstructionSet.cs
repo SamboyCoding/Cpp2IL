@@ -119,6 +119,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             var call = Add(source.IP, ISIL.OpCode.IndirectCall, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
             call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
         }
+        
+        // Preserve all the argument registers as we don't know which ones are used
+        void AddIndirectJmp(Instruction source)
+        {
+            var call = Add(source.IP, ISIL.OpCode.IndirectJump, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
+            call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
+        }
 
         switch (instruction.Mnemonic)
         {
@@ -657,7 +664,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 }
                 if (instruction.Op0Kind == OpKind.Register) // ex: jmp rax
                 {
-                    AddIndirectCall(instruction);
+                    AddIndirectJmp(instruction);
                     break;
                 }
 

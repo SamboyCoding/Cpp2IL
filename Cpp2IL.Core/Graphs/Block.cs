@@ -47,7 +47,7 @@ public class Block : ISIL.IOperand
         {
             OpCode.Jump => BlockType.OneWay,
             OpCode.ConditionalJump => BlockType.TwoWay,
-            OpCode.IndirectJump => BlockType.NWay,
+            OpCode.IndirectJump => BlockType.TailCall, //TODO this is wrong for switch statements but that's better than tail calls to virtual methods stopping the stack settling
             OpCode.Call or OpCode.CallVoid => BlockType.Call,
             OpCode.Return => BlockType.Return,
             _ => BlockType.Fall,

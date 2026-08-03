@@ -22,7 +22,7 @@ public class StackAnalyzer
     /// <summary>
     /// Max allowed count of blocks to visit (-1 for no limit).
     /// </summary>
-    public static int MaxBlockVisitCount = 2000;
+    public static int MaxBlockVisitCount = 500000; //High enough to not be legitimately hit, but still give up if something loops infinitely.
 
     public static void Analyze(MethodAnalysisContext method)
     {
@@ -134,7 +134,7 @@ public class StackAnalyzer
             visitedBlockCount++;
 
             if (MaxBlockVisitCount != -1 && visitedBlockCount > MaxBlockVisitCount)
-                throw new DecompilerException($"Stack state not settling! ({MaxBlockVisitCount} blocks already visited)");
+                throw new DecompilerException($"Stack state not settling! ({visitedBlockCount} blocks already visited)");
 
             // Visit successors
             foreach (var successor in block.Successors)

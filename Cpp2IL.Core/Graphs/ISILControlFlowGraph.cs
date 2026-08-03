@@ -336,6 +336,7 @@ public class ISILControlFlowGraph
             {
                 case OpCode.Jump:
                 case OpCode.ConditionalJump:
+                case OpCode.IndirectJump:
                     currentBlock.AddInstruction(instructions[i]);
 
                     if (!isLast)
@@ -343,7 +344,7 @@ public class ISILControlFlowGraph
                         newBlock = new Block() { ID = idCounter++ };
                         AddBlock(newBlock);
 
-                        if (instructions[i].OpCode == OpCode.Jump)
+                        if (instructions[i].OpCode is OpCode.Jump or OpCode.IndirectJump)
                         {
                             if (TryGetTargetJumpInstructionIndex(instructions[i], out int jumpTargetIndex))
                                 currentBlock.Dirty = true;
