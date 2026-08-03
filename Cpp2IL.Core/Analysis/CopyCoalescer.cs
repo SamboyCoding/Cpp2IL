@@ -141,40 +141,35 @@ public static class CopyCoalescer
             liveOut[block] = [];
         }
 
-        var changed = true;
-        while (changed)
+        var remaining = new Stack<Block>(cfg.Blocks);
+
+        while (remaining.Count > 0)
         {
-            changed = false;
+            var block = remaining.Pop();
 
-            foreach (var block in cfg.Blocks)
+            var outSet = new HashSet<LocalVariable>();
+            foreach (var successor in block.Successors)
+                outSet.UnionWith(liveIn[successor]);
+
+            var inSet = new HashSet<LocalVariable>(outSet);
+            for (var i = block.Instructions.Count - 1; i >= 0; i--)
             {
-                var outSet = new HashSet<LocalVariable>();
-                foreach (var successor in block.Successors)
-                    outSet.UnionWith(liveIn[successor]);
+                var instruction = block.Instructions[i];
 
-                var inSet = new HashSet<LocalVariable>(outSet);
-                for (var i = block.Instructions.Count - 1; i >= 0; i--)
-                {
-                    var instruction = block.Instructions[i];
+                if (Defined(instruction) is { } defined)
+                    inSet.Remove(defined);
 
-                    if (Defined(instruction) is { } defined)
-                        inSet.Remove(defined);
+                foreach (var used in Used(instruction))
+                    inSet.Add(used);
+            }
 
-                    foreach (var used in Used(instruction))
-                        inSet.Add(used);
-                }
-
-                if (!outSet.SetEquals(liveOut[block]))
-                {
-                    liveOut[block] = outSet;
-                    changed = true;
-                }
-
-                if (!inSet.SetEquals(liveIn[block]))
-                {
-                    liveIn[block] = inSet;
-                    changed = true;
-                }
+            if (!outSet.SetEquals(liveOut[block]) || !inSet.SetEquals(liveIn[block]))
+            {
+                liveOut[block] = outSet;
+                liveIn[block] = inSet;
+                
+                foreach (var predecessor in block.Predecessors)
+                    remaining.Push(predecessor);
             }
         }
 

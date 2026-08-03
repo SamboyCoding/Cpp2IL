@@ -76,7 +76,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     /// Exception type name thrown by the runtime helper at each address, or null where the address turned
     /// out not to be a throw helper. Populated on demand by <see cref="Analysis.ThrowHelperRecovery"/>.
     /// </summary>
-    public readonly Dictionary<ulong, string?> ThrowHelperNamesByAddress = new();
+    public readonly ConcurrentDictionary<ulong, string?> ThrowHelperNamesByAddress = new();
 
     /// <summary>
     /// A dictionary of all the generic method variants to their corresponding analysis contexts.

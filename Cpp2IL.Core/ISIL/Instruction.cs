@@ -131,6 +131,11 @@ public class Instruction : IOperand
     [MemberNotNull(nameof(_sources), nameof(_sourcesAndConstants))]
     private void ResetSources()
     {
+        if (_sources is { IsValueCreated: false } && _sourcesAndConstants is { IsValueCreated: false })
+        {
+            return;
+        }
+
         _sources = new Lazy<List<IOperand>>(() => GetSources());
         _sourcesAndConstants = new Lazy<List<IOperand>>(() => GetSources(false));
     }
