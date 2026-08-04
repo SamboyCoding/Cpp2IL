@@ -1,5 +1,8 @@
 ﻿using Cpp2IL.Core.ISIL;
+using Cpp2IL.Core.InstructionSets;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
 
 namespace Cpp2IL.Core.Tests.Isil;
 
@@ -77,6 +80,47 @@ public class X86IsilTests
                 instruction.SetOperand(0, instructions[(int)((Immediate)instruction.Operands[0]).Value]);
 
             Assert.True(instruction.IsStructurallyEqualTo(isil[i]), $"expected: {instruction}, but got {isil[i]}");
+        }
+    }
+    
+    [Test]
+    public void X86IsilLeaInstructionTests()
+    {
+        Register Register(string name) => new(null, name);
+
+        var testCases = new (string Bytes, ulong Ip, Instruction[] Expected)[]
+        {
+            ("8d 03", 0, [new(0, OpCode.Move, Register("rax"), Register("rbx"))]), // lea eax, [rbx]
+            ("8d 43 01", 0, [new(0, OpCode.Add, Register("rax"), Register("rbx"), Imm(1L))]), // lea eax, [rbx+0x1]
+            ("8d 4b ff", 0, [new(0, OpCode.Subtract, Register("rcx"), Register("rbx"), Imm(1L))]), // lea ecx, [rbx-0x1]
+            ("48 8d 0c 24", 0, [new(0, OpCode.Move, Register("rcx"), new AddressOf(new StackOffset(0)))]), // lea rcx, [rsp]
+            ("48 8d 4c 24 30", 0, [new(0, OpCode.Move, Register("rcx"), new AddressOf(new StackOffset(0x30)))]), // lea rcx, [rsp+0x30]
+            ("48 8d 4c 24 f0", 0, [new(0, OpCode.Move, Register("rcx"), new AddressOf(new StackOffset(-0x10)))]), // lea rcx, [rsp-0x10]
+            ("48 8d 04 0b", 0, [new(0, OpCode.Add, Register("rax"), Register("rbx"), Register("rcx"))]), // lea rax, [rbx+rcx]
+            ("48 8d 44 8b 10", 0, [new(0, OpCode.Multiply, Register("TEMP"), Register("rcx"), Imm(4)), 
+                                   new(1, OpCode.Add, Register("rax"), Register("rbx"), Register("TEMP")), 
+                                   new(2, OpCode.Add, Register("rax"), Register("rax"), Imm(0x10L))]), // lea rax, [rbx+rcx*4+0x10]
+            ("48 8d 04 8d 78 56 34 12", 0, [new(0, OpCode.Multiply, Register("rax"), Register("rcx"), Imm(4)), 
+                                            new(1, OpCode.Add, Register("rax"), Register("rax"), Imm(0x12345678L))]), // lea rax, [rcx*4+0x12345678]
+            ("48 8d 04 25 78 56 34 12", 0, [new(0, OpCode.Move, Register("rax"), Imm(0x12345678L))]), // lea rax, [0x12345678]
+            ("48 8d 83 00 00 00 80", 0, [new(0, OpCode.Subtract, Register("rax"), Register("rbx"), Imm(0x80000000L))]), // lea rax, [rbx-0x80000000]
+            ("48 8d 45 00", 0, [new(0, OpCode.Move, Register("rax"), Register("rbp"))]), // lea rax, [rbp]
+            ("48 8d 04 80", 0, [new(0, OpCode.Multiply, Register("TEMP"), Register("rax"), Imm(4)), 
+                                new(1, OpCode.Add, Register("rax"), Register("rax"), Register("TEMP"))]), // lea rax, [rax+rax*4]
+            ("48 8d 0d 10 4b d1 01", 0x1803A2C51UL, [new(0, OpCode.Move, Register("rcx"), Imm(0x1820B7768L))]), // lea rcx, [rel 0x1820b7768]
+        };
+        foreach (var (bytes, ip, expected) in testCases)
+        {
+            var instructionBytes = bytes.Split(' ').Select(byteValue => byte.Parse(byteValue, NumberStyles.HexNumber));
+            var decoder = Iced.Intel.Decoder.Create(64, new Iced.Intel.ByteArrayCodeReader(instructionBytes.ToArray()));
+            decoder.IP = ip;
+            decoder.Decode(out var x86Instruction);
+
+            var isil = new X86InstructionSet().GetIsilFromInstruction(x86Instruction);
+            
+            Assert.That(isil.Count, Is.EqualTo(expected.Length), x86Instruction.ToString);
+            for (var i = 0; i < expected.Length; i++)
+                Assert.That(isil[i].IsStructurallyEqualTo(expected[i]), Is.True, x86Instruction.ToString);
         }
     }
 }

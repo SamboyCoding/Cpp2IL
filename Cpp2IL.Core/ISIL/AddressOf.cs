@@ -6,5 +6,9 @@ public class AddressOf(IOperand target) : IOperand
 {
     public IOperand Target = target;
 
+    public override bool Equals(object? obj) => obj is AddressOf other && Target.Equals(other.Target);
+
+    public override int GetHashCode() => Target.GetHashCode();
+
     public override string ToString() => $"&{Target}";
 }

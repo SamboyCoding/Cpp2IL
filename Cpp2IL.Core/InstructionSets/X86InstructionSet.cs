@@ -100,6 +100,13 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return X64CallingConventionResolver.ResolveForManaged(context).ToList();
     }
 
+    internal List<ISIL.Instruction> GetIsilFromInstruction(Instruction instruction)
+    {
+        var instructions = new List<ISIL.Instruction>();
+        ConvertInstructionStatement(instruction, instructions, [], null!);
+        return instructions;
+    }
+
     private void ConvertInstructionStatement(Instruction instruction, List<ISIL.Instruction> instructions, List<ulong> addresses, MethodAnalysisContext context)
     {
         var callNoReturn = false;
@@ -208,7 +215,82 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     break;
                 }
             case Mnemonic.Lea:
-                Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1, true));
+                var destination = ConvertOperand(instruction, 0);
+
+                // RIP-relative LEA is effectively loading the absolute address.
+                if (instruction.IsIPRelativeMemoryOperand)
+                {
+                    Add(instruction.IP, ISIL.OpCode.Move, destination, Imm((long)instruction.IPRelativeMemoryAddress));
+                    return;
+                }
+
+                // Stack-address LEA keeps stack semantics represented as address-of stack slot.
+                if (instruction is { MemoryBase: Register.RSP, MemoryIndex: Register.None })
+                {
+                    Add(instruction.IP, ISIL.OpCode.Move, destination, ConvertOperand(instruction, 1, true));
+                    return;
+                }
+
+                // Absolute-address LEA also computes a value rather than loading from memory.
+                if (instruction.MemoryBase == Register.None && instruction.MemoryIndex == Register.None)
+                {
+                    Add(instruction.IP, ISIL.OpCode.Move, destination, Imm((long)instruction.MemoryDisplacement64));
+                    return;
+                }
+
+                if (instruction.MemoryIndex != Register.None)
+                {
+                    ISIL.IOperand? baseRegister = instruction.MemoryBase != Register.None
+                        ? new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryBase))
+                        : null;
+                    var indexRegister = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryIndex));
+                    var source = (ISIL.IOperand)indexRegister;
+
+                    if (instruction.MemoryIndexScale > 1)
+                    {
+                        if (baseRegister != null)
+                        {
+                            var temp = new ISIL.Register(null, "TEMP");
+                            Add(instruction.IP, ISIL.OpCode.Multiply, temp, indexRegister, Imm(instruction.MemoryIndexScale));
+                            source = temp;
+                        }
+                        else
+                        {
+                            Add(instruction.IP, ISIL.OpCode.Multiply, destination, indexRegister, Imm(instruction.MemoryIndexScale));
+                            source = destination;
+                        }
+                    }
+
+                    if (baseRegister != null)
+                        Add(instruction.IP, ISIL.OpCode.Add, destination, baseRegister, source);
+                    else if (!ReferenceEquals(source, destination))
+                        Add(instruction.IP, ISIL.OpCode.Move, destination, source);
+
+                    var displacement = unchecked((long)instruction.MemoryDisplacement64);
+                    if (displacement > 0)
+                        Add(instruction.IP, ISIL.OpCode.Add, destination, destination, Imm(displacement));
+                    else if (displacement < 0)
+                        Add(instruction.IP, ISIL.OpCode.Subtract, destination, destination, Imm(-displacement));
+
+                    return;
+                }
+
+                if (instruction.MemoryBase != Register.None && instruction.MemoryBase != Register.RSP)
+                {
+                    var baseRegister = new ISIL.Register(null, X86Utils.GetRegisterName(instruction.MemoryBase));
+                    var displacement = unchecked((long)instruction.MemoryDisplacement64);
+
+                    if (displacement == 0)
+                        Add(instruction.IP, ISIL.OpCode.Move, destination, baseRegister);
+                    else if (displacement > 0)
+                        Add(instruction.IP, ISIL.OpCode.Add, destination, baseRegister, Imm(displacement));
+                    else
+                        Add(instruction.IP, ISIL.OpCode.Subtract, destination, baseRegister, Imm(-displacement));
+
+                    return;
+                }
+
+                Add(instruction.IP, ISIL.OpCode.Move, destination, ConvertOperand(instruction, 1, true));
                 break;
             case Mnemonic.Xor:
             case Mnemonic.Xorps: //xorps is just floating point xor
