@@ -368,6 +368,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
             return; //Nothing to do, empty function
 
         ControlFlowGraph = new ISILControlFlowGraph(ConvertedIsil);
+        
+        // Detect switch-style jump table dispatches before stack analysis.
+        JumpTableRestoration.Run(this);
 
         // Indirect jumps/calls should probably be resolved here before stack analysis
 

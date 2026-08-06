@@ -477,6 +477,32 @@ public class ISILControlFlowGraph
         return null;
     }
 
+    /// <summary>
+    /// Gets the block beginning at <paramref name="instruction"/>, splitting its current block when needed.
+    /// </summary>
+    internal Block? GetOrSplitBlockForInstruction(Instruction instruction)
+    {
+        var block = FindBlockByInstruction(instruction);
+        if (block == null)
+            return null;
+
+        var index = block.Instructions.FindIndex(candidate => ReferenceEquals(candidate, instruction));
+        return index < 0 ? null : SplitAndCreate(block, index);
+    }
+
+    /// <summary>
+    /// Replaces every outgoing edge from <paramref name="from"/> with edges to <paramref name="successors"/>.
+    /// </summary>
+    internal void ReplaceSuccessors(Block from, IEnumerable<Block> successors)
+    {
+        foreach (var successor in from.Successors)
+            successor.Predecessors.Remove(from);
+        from.Successors.Clear();
+
+        foreach (var successor in successors.Distinct())
+            AddDirectedEdge(from, successor);
+    }
+
     private Block SplitAndCreate(Block target, int index)
     {
         if (index < 0 || index >= target.Instructions.Count)

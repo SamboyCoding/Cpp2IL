@@ -11,6 +11,11 @@ public class Instruction : IOperand
 {
     public int Index;
 
+    /// <summary>
+    /// Virtual address of the native instruction that produced this ISIL instruction, or 0 when synthetic.
+    /// </summary>
+    public ulong IP;
+
     public OpCode OpCode
     {
         get;
@@ -31,7 +36,7 @@ public class Instruction : IOperand
     public bool IsFallThrough =>
         OpCode switch
         {
-            OpCode.Return or OpCode.Jump or OpCode.ConditionalJump or OpCode.IndirectJump or OpCode.Throw => false,
+            OpCode.Return or OpCode.Jump or OpCode.ConditionalJump or OpCode.IndirectJump or OpCode.Throw or OpCode.Switch => false,
             _ => true
         };
 
@@ -162,6 +167,7 @@ public class Instruction : IOperand
                 : _operands.Take(1).ToList(),
 
             OpCode.CallVoid or OpCode.Phi => _operands.Skip(1).ToList(),
+            OpCode.Switch => [_operands[0]],
             OpCode.CheckEqual or OpCode.CheckGreater or OpCode.CheckLess
                 or OpCode.CheckNotEqual or OpCode.CheckGreaterOrEqual or OpCode.CheckLessOrEqual
                 => [_operands[1], _operands[2]],

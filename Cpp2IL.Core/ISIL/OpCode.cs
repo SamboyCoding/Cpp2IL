@@ -117,5 +117,10 @@ public enum OpCode
     /// <summary>
     /// Throws a new instance of the exception type described by op 1.
     /// </summary>
-    Throw
+    Throw,
+
+    /// <summary>
+    /// Switches on op 1 and jumps to one of the case targets in op 2
+    /// </summary>
+    Switch,
 }

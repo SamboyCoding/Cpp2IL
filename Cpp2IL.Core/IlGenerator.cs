@@ -111,6 +111,7 @@ public static class IlGenerator
         Dictionary<Instruction, List<CilInstruction>> instructionMap = [];
         Dictionary<Block, CilInstruction> blockEntryMap = [];
         List<(CilInstruction BranchInstruction, Block TargetBlock)> pendingBlockBranchFixups = [];
+        List<(CilInstruction SwitchInstruction, SwitchTargets Targets)> pendingSwitchFixups = [];
 
         foreach (var block in context.ControlFlowGraph!.Blocks)
         {
@@ -124,6 +125,13 @@ public static class IlGenerator
             {
                 var generated = GenerateInstructions(instruction, context, definition, locals, writeLine, stringCtor);
                 instructionMap.Add(instruction, generated);
+
+                if (instruction is { OpCode: OpCode.Switch, Operands: [_, SwitchTargets targets] })
+                {
+                    var switchInstruction = generated.FirstOrDefault(il => il.OpCode == CilOpCodes.Switch);
+                    if (switchInstruction != null)
+                        pendingSwitchFixups.Add((switchInstruction, targets));
+                }
 
                 if (!blockEntryMap.ContainsKey(block) && generated.Count > 0)
                     blockEntryMap[block] = generated[0];
@@ -141,7 +149,8 @@ public static class IlGenerator
                 pendingBlockBranchFixups.Add((bridge, falseSuccessor));
             }
 
-            else if (lastInstruction.OpCode != OpCode.Jump && lastInstruction.OpCode != OpCode.Return && lastInstruction.OpCode != OpCode.IndirectJump)
+            else if (lastInstruction.OpCode != OpCode.Jump && lastInstruction.OpCode != OpCode.Return &&
+                     lastInstruction.OpCode != OpCode.IndirectJump && lastInstruction.OpCode != OpCode.Switch)
             {
                 var successor = block.Successors.FirstOrDefault(s => s != context.ControlFlowGraph.ExitBlock);
                 if (successor == null) continue;
@@ -194,6 +203,27 @@ public static class IlGenerator
             }
 
             branchInstruction.Operand = new CilInstructionLabel(target);
+        }
+
+        foreach (var (switchInstruction, targets) in pendingSwitchFixups)
+        {
+            var labels = new CilInstructionLabel[targets.Blocks.Count];
+            for (var index = 0; index < targets.Blocks.Count; index++)
+            {
+                var target = ResolveBlockEntryInstruction(targets.Blocks[index], blockEntryMap);
+                if (target == null)
+                {
+                    context.AddWarning($"Unable to resolve switch target block: {targets.Blocks[index]}");
+                    switchInstruction.OpCode = CilOpCodes.Nop;
+                    switchInstruction.Operand = null;
+                    break;
+                }
+
+                labels[index] = new CilInstructionLabel(target);
+            }
+
+            if (switchInstruction.OpCode == CilOpCodes.Switch)
+                switchInstruction.Operand = labels;
         }
 
         // Add analysis warnings
@@ -418,6 +448,19 @@ public static class IlGenerator
             case OpCode.ConditionalJump:
                 LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
                 instructions.Add(CilOpCodes.Brtrue, new CilInstructionLabel());
+                break;
+
+            case OpCode.Switch:
+                if (instruction.Operands is [var selector, SwitchTargets targets])
+                {
+                    LoadOperand(selector, method, locals, writeLine, stringCtor);
+                    instructions.Add(CilOpCodes.Switch, new CilInstructionLabel[targets.Blocks.Count]);
+                }
+                else
+                {
+                    instructions.Add(CilOpCodes.Ldstr, $"Invalid switch instruction: {instruction}");
+                    instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                }
                 break;
 
             case OpCode.IndirectJump:
