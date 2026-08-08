@@ -399,6 +399,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // Delete any il2cpp_codegen_initialize_runtime_metadata/il2cpp_codegen_initialize_method
         MetadataInitGuardRemover.Run(this);
 
+        // Delete inlined GC write barriers
+        WriteBarrierRecovery.Run(this);
+
         InjectedCheckRemover.Run(this);
 
         InterfaceDispatchRecovery.Run(this);

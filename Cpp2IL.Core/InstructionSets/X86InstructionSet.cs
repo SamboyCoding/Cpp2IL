@@ -344,6 +344,17 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Orps: //Floating point or
                 Add(instruction.IP, ISIL.OpCode.Or, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
+            case Mnemonic.Bts: // CF = old bit, then set it
+                {
+                    var dest = ConvertOperand(instruction, 0);
+                    var bit = ConvertOperand(instruction, 1);
+                    var temp = new ISIL.Register(null, "TEMP");
+                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, dest, bit);
+                    Add(instruction.IP, ISIL.OpCode.And, new ISIL.Register(null, "CF"), temp, Imm(1));
+                    Add(instruction.IP, ISIL.OpCode.ShiftLeft, temp, Imm(1), bit);
+                    Add(instruction.IP, ISIL.OpCode.Or, dest, dest, temp);
+                    break;
+                }
             case Mnemonic.Not:
                 Add(instruction.IP, ISIL.OpCode.Not, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0));
                 break;

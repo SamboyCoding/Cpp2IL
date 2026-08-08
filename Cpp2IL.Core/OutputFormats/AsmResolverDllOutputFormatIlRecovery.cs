@@ -29,7 +29,9 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
         var start = DateTime.Now;
         _ = context.GetOrCreateKeyFunctionAddresses();
         Logger.InfoNewline($"Key function addresses found in {DateTime.Now.Subtract(start).TotalMilliseconds}ms");
-        
+
+        IlGenerator.InjectHelpersType(context);
+
         return base.BuildAssemblies(context);
     }
 
@@ -74,6 +76,9 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
             // Known analysis limitations (DecompilerException) get a one-line warning; anything
             // else is an unexpected bug and keeps its (collapsed) stack trace.
             var detail = e is DecompilerException ? e.Message : e.ToCollapsedString();
+
+            if (detail.Length > 1000) // unbounded ldstrs can overflow the 24 bit #US heap offset space
+                detail = detail[..1000] + "…";
 
             if (e is DecompilerException)
                 Logger.WarnNewline($"Skipping {methodContext.FullName}: {e.Message}");

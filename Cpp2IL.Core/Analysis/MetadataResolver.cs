@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using Cpp2IL.Core.Extensions;
 using Cpp2IL.Core.Graphs;
 using Cpp2IL.Core.Il2CppApiFunctions;
@@ -118,7 +119,9 @@ public static class MetadataResolver
                     // derived layout, so the whole chain is searched
                     field = null;
                     for (var candidateOwner = genericOwner?.GenericType ?? owner; candidateOwner != null && field == null; candidateOwner = candidateOwner.BaseType)
-                        field = candidateOwner.Fields.FirstOrDefault(f => f.IsStatic == (staticOwner != null) && f.BackingData?.FieldOffset == memory.Addend);
+                        field = candidateOwner.Fields.FirstOrDefault(f => f.IsStatic == (staticOwner != null)
+                            && (f.Attributes & FieldAttributes.Literal) == 0 // consts have no storage but their metadata offset is 0, which would match
+                            && f.BackingData?.FieldOffset == memory.Addend);
                 }
 
                 if (field == null) // TODO: Support nested fields (Field1.Field2.Field3)
@@ -309,7 +312,8 @@ public static class MetadataResolver
             if (GetReceiver(instruction) is not { } receiver || AllocatedType(receiver, definitions) is not { } allocatedType)
                 continue;
 
-            var constructor = candidates.FirstOrDefault(c => !c.IsStatic && c.Name == ".ctor" && ReferenceEquals(c.DeclaringType, allocatedType));
+            var constructor = candidates.FirstOrDefault(c => !c.IsStatic && c.Name == ".ctor" && ReferenceEquals(c.DeclaringType, allocatedType))
+                              ?? FindConstructorForSharedBody(allocatedType, candidates);
             if (constructor == null)
                 continue;
 
@@ -319,6 +323,28 @@ public static class MetadataResolver
         }
 
         return changed;
+    }
+
+    private static MethodAnalysisContext? FindConstructorForSharedBody(TypeAnalysisContext allocatedType, List<MethodAnalysisContext> candidates)
+    {
+        var candidateParamCounts = new HashSet<int>(candidates
+            .Where(c => c is { IsStatic: false, Name: ".ctor" })
+            .Select(c => c.Parameters.Count));
+
+        if (candidateParamCounts.Count == 0)
+            return null;
+
+        var definition = allocatedType is GenericInstanceTypeAnalysisContext genericInstance ? genericInstance.GenericType : allocatedType;
+        var matches = definition.Methods
+            .Where(m => m is { IsStatic: false, Name: ".ctor" } && candidateParamCounts.Contains(m.Parameters.Count))
+            .ToList();
+
+        if (matches is not [{ } match])
+            return null;
+
+        return allocatedType is GenericInstanceTypeAnalysisContext instance
+            ? new ConcreteGenericMethodAnalysisContext(match, instance.GenericArguments, [])
+            : match;
     }
 
     // Follow SSA copies from a local back to the Newobj that produced the value
