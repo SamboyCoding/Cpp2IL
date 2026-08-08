@@ -20,13 +20,17 @@ public static class WasmUtils
     {
         var instanceParam = definition.IsStatic ? "" : "i";
 
-        //Something still off about p/invoke functions. They do have methodinfo args, but something is wrong somewhere.
-        
-        //Also, this is STILL wrong for a lot of methods in DateTimeFormat and TimeZoneInfo.
-        //It feels like it's something to do with when DateTime is considered a struct and when it's considered a class.
-        //But I can find no rhyme nor reason to it.
+        return $"{GetReturnTypeSignature(definition)}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.ParameterType, p.IsRef)))}i"; //Add an extra i on the end for the method info param
+    }
 
-        var returnTypeSignature = definition.ReturnType.IsWasmPrimitive()
+    //Something still off about p/invoke functions. They do have methodinfo args, but something is wrong somewhere.
+
+    //Also, this is STILL wrong for a lot of methods in DateTimeFormat and TimeZoneInfo.
+    //It feels like it's something to do with when DateTime is considered a struct and when it's considered a class.
+    //But I can find no rhyme nor reason to it.
+
+    private static string GetReturnTypeSignature(MethodAnalysisContext definition) =>
+        definition.ReturnType.IsWasmPrimitive()
             ? GetSignatureLetter(definition.ReturnType)
             : definition.ReturnType switch
             {
@@ -36,8 +40,7 @@ public static class WasmUtils
                 _ => GetSignatureLetter(definition.ReturnType!, forReturn: true)
             };
 
-        return $"{returnTypeSignature}{instanceParam}{string.Join("", definition.Parameters!.Select(p => GetSignatureLetter(p.ParameterType, p.IsRef)))}i"; //Add an extra i on the end for the method info param
-    }
+    public static bool HasReturnBuffer(MethodAnalysisContext context) => GetReturnTypeSignature(context) == "vi";
 
     public static bool IsWasmPrimitive(this TypeAnalysisContext type)
     {
@@ -110,47 +113,13 @@ public static class WasmUtils
         var signature = BuildSignature(context);
         try
         {
-            return ((WasmFile)context.AppContext.Binary).GetFunctionFromIndexAndSignature(context.Definition.MethodPointer, signature);
+            return ((WasmFile)context.AppContext.Binary).GetFunctionFromIndexAndSignature(context.UnderlyingPointer, signature);
         }
         catch (Exception e)
         {
             throw new($"Failed to find wasm definition for {context}\nwhich has params {context.Parameters.ToStringEnumerable()}", e);
         }
     }
-
-    // private static void CalculateAllMethodDefinitionIndices()
-    // {
-    //     foreach (var il2CppMethodDefinition in LibCpp2IlMain.TheMetadata!.methodDefs)
-    //     {
-    //         var methodDefinition = il2CppMethodDefinition;
-    //
-    //         try
-    //         {
-    //             var wasmDef = GetWasmDefinition(methodDefinition);
-    //             var index = ((WasmFile)LibCpp2IlMain.Binary!).FunctionTable.IndexOf(wasmDef);
-    //
-    //             if (!MethodDefinitionIndices.TryGetValue(index, out var mDefs))
-    //                 MethodDefinitionIndices[index] = mDefs = [];
-    //
-    //             mDefs.Add(methodDefinition);
-    //         }
-    //         catch (Exception)
-    //         {
-    //             //Ignore
-    //         }
-    //     }
-    // }
-    //
-    // public static List<Il2CppMethodDefinition>? GetMethodDefinitionsAtIndex(int index)
-    // {
-    //     if (MethodDefinitionIndices.Count == 0)
-    //         CalculateAllMethodDefinitionIndices();
-    //
-    //     if (MethodDefinitionIndices.TryGetValue(index, out var methodDefinitions))
-    //         return methodDefinitions;
-    //
-    //     return null;
-    // }
 
     public static Dictionary<string, string> ExtractAndParseDynCallRemaps(string frameworkJsFile)
     {

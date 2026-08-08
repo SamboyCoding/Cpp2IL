@@ -274,7 +274,9 @@ public abstract class BaseKeyFunctionAddresses
             potentialThunks.SortByExtractedKey(pair => pair.count);
             potentialThunks.Reverse();
 
-            il2cpp_codegen_runtime_class_init = potentialThunks.FirstOrDefault().ptr;
+            // don't clobber a value an instruction-set-specific pass already found (wasm finds no thunks here)
+            if (potentialThunks.FirstOrDefault().ptr is var thunk && thunk != 0)
+                il2cpp_codegen_runtime_class_init = thunk;
 
             Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_runtime_class_init:X}");
         }

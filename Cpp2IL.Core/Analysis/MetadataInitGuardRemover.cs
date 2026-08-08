@@ -33,8 +33,33 @@ public static class MetadataInitGuardRemover
         foreach (var guard in cfg.Blocks.ToList())
             removedAny |= TryRemoveGuard(cfg, guard, initialisedFlagOffset);
 
+        removedAny |= RemoveBareClassInitCalls(cfg);
+
         if (removedAny)
             DeadCodeEliminator.Run(cfg);
+    }
+
+    // wasm keeps the initialized-flag check inside the class-init function, so callers make bare unguarded
+    // calls with no region to excise (just drop the call)
+    private static bool RemoveBareClassInitCalls(ISILControlFlowGraph cfg)
+    {
+        var removedAny = false;
+
+        foreach (var block in cfg.Blocks)
+        {
+            foreach (var instruction in block.Instructions)
+            {
+                if (!instruction.IsCall
+                    || instruction.Operands[0] is not StringLiteral { Value: ClassInitExport or ClassInitActual or ClassInitCodegen })
+                    continue;
+
+                instruction.OpCode = OpCode.Nop;
+                instruction.SetOperands();
+                removedAny = true;
+            }
+        }
+
+        return removedAny;
     }
 
     private static bool TryRemoveGuard(ISILControlFlowGraph cfg, Block guard, long initialisedFlagOffset)

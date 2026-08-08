@@ -97,6 +97,8 @@ public sealed class WasmFile : Il2CppBinary
         return FunctionTable[(int)realIndex];
     }
 
+    public WasmTypeEntry GetTypeEntry(int index) => TypeSection.Types[index];
+
     internal WasmGlobalType[] GlobalTypes => ImportSection.Entries.Where(e => e.Kind == WasmExternalKind.EXT_GLOBAL).Select(e => e.GlobalEntry!).Concat(GlobalSection.Globals.Select(g => g.Type)).ToArray();
 
     internal WasmGlobalSection GlobalSection => (WasmGlobalSection)Sections.First(s => s.Type == WasmSectionId.SEC_GLOBAL);
@@ -190,7 +192,7 @@ public sealed class WasmFile : Il2CppBinary
                 add = 0;
                 LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (method only contains LocalGet, CallIndirect, End instructions)");
             }
-            else if (disassembled[^1].Mnemonic == WasmMnemonic.End && disassembled[^2].Mnemonic == WasmMnemonic.CallIndirect && disassembled[^3].Mnemonic == WasmMnemonic.LocalGet && (byte)disassembled[^3].Operands[0] == 0)
+            else if (disassembled[^1].Mnemonic == WasmMnemonic.End && disassembled[^2].Mnemonic == WasmMnemonic.CallIndirect && disassembled[^3].Mnemonic == WasmMnemonic.LocalGet && (ulong)disassembled[^3].Operands[0] == 0)
             {
                 //If we're ending with LocalGet 0, CallIndirect, End, then we're *probably* just keeping the same index as was passed in
                 //Tentatively assume we're doing shenanigans only to the params and we don't touch the index
@@ -204,7 +206,7 @@ public sealed class WasmFile : Il2CppBinary
                 LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (only LocalGet instructions before the CallIndirect)");
                 andWith = int.MaxValue;
                 add = 0;
-            } else if (disassembled.FindIndex(i => i.Mnemonic == WasmMnemonic.CallIndirect) is var callIdx2 and > 0 && disassembled[callIdx2 - 1] is { Mnemonic: WasmMnemonic.LocalGet, Operands: [(byte) 0] })
+            } else if (disassembled.FindIndex(i => i.Mnemonic == WasmMnemonic.CallIndirect) is var callIdx2 and > 0 && disassembled[callIdx2 - 1] is { Mnemonic: WasmMnemonic.LocalGet, Operands: [0UL] })
             {
                 //CallIndirect with LocalGet 0 just before, assume not modified - this is sketchy though
                 LibLogger.VerboseNewline($"\t\tAssuming index is not manipulated for dynCall_{signature} (LocalGet 0 instruction immediately before the CallIndirect)");
