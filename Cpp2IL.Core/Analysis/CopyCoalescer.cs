@@ -14,8 +14,9 @@ public static class CopyCoalescer
     public static void Run(ISILControlFlowGraph cfg)
     {
         var copies = FindSameSlotCopies(cfg);
+        var escapedSlots = FindEscapedSlotGroups(cfg);
 
-        if (copies.Count == 0)
+        if (copies.Count == 0 && escapedSlots.Count == 0)
             return;
 
         var candidates = new HashSet<LocalVariable>();
@@ -24,9 +25,25 @@ public static class CopyCoalescer
             candidates.Add(destination);
             candidates.Add(source);
         }
+        foreach (var group in escapedSlots)
+            candidates.UnionWith(group);
 
         var interference = BuildInterference(cfg, candidates);
         var groups = new DisjointSet(candidates);
+
+        foreach (var group in escapedSlots)
+        {
+            for (var i = 1; i < group.Count; i++)
+            {
+                var a = groups.Find(group[0]);
+                var b = groups.Find(group[i]);
+
+                if (a == b || (a.Type != null && b.Type != null && !ReferenceEquals(a.Type, b.Type)))
+                    continue;
+
+                groups.Union(a, b);
+            }
+        }
 
         foreach (var (destination, source, _) in copies)
         {
@@ -61,6 +78,38 @@ public static class CopyCoalescer
         }
 
         return copies;
+    }
+
+    private static List<List<LocalVariable>> FindEscapedSlotGroups(ISILControlFlowGraph cfg)
+    {
+        var escapedSlotNumbers = new HashSet<int>();
+        foreach (var instruction in cfg.Instructions)
+            foreach (var operand in instruction.Operands)
+                if (operand is AddressOf { Target: LocalVariable addressed })
+                    escapedSlotNumbers.Add(addressed.Register.Number);
+
+        if (escapedSlotNumbers.Count == 0)
+            return [];
+
+        var bySlot = new Dictionary<int, List<LocalVariable>>();
+        var seen = new HashSet<LocalVariable>();
+
+        foreach (var instruction in cfg.Instructions)
+        {
+            var locals = Used(instruction);
+            if (Defined(instruction) is { } defined)
+                locals = locals.Append(defined);
+
+            foreach (var local in locals)
+                if (escapedSlotNumbers.Contains(local.Register.Number) && seen.Add(local))
+                {
+                    if (!bySlot.TryGetValue(local.Register.Number, out var versions))
+                        bySlot[local.Register.Number] = versions = [];
+                    versions.Add(local);
+                }
+        }
+
+        return bySlot.Values.Where(versions => versions.Count > 1).ToList();
     }
 
     private static bool Interferes(Dictionary<LocalVariable, HashSet<LocalVariable>> interference, DisjointSet groups, LocalVariable a, LocalVariable b)

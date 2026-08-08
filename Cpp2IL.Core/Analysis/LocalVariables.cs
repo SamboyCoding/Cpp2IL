@@ -235,6 +235,7 @@ public static class LocalVariables
         SeedNewobjResults(method);
         SeedMethodInfoTypes(method);
         SeedComparisonResults(method);
+        SeedFloatLiterals(method);
 
         // Everywhere there's a CallVoid after a Newobj, we can resolve the constructor call.
         MetadataResolver.ResolveConstructorCalls(method);
@@ -423,11 +424,53 @@ public static class LocalVariables
                 case OpCode.Phi:
                     changed |= PropagatePhi(instruction);
                     break;
+                case OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide:
+                    changed |= PropagateArithmetic(instruction, method);
+                    break;
             }
         }
 
         return changed;
     }
+
+    // A local assigned a float/double literal (a lifted rodata constant load) is that float type
+    private static void SeedFloatLiterals(MethodAnalysisContext method)
+    {
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode != OpCode.Move || instruction.Operands[0] is not LocalVariable destination)
+                continue;
+
+            destination.Type = instruction.Operands[1] switch
+            {
+                FloatLiteral => method.AppContext.SystemTypes.SystemSingleType,
+                DoubleLiteral => method.AppContext.SystemTypes.SystemDoubleType,
+                _ => destination.Type,
+            };
+        }
+    }
+
+    // Arithmetic on a float operand is float arithmetic, so the result is that float type.
+    private static bool PropagateArithmetic(Instruction instruction, MethodAnalysisContext method)
+    {
+        if (instruction.Operands is not [LocalVariable { Type: null } destination, var left, var right])
+            return false;
+
+        if ((FloatOperandType(left, method) ?? FloatOperandType(right, method)) is not { } floatType)
+            return false;
+
+        return SetTypeIfUnknown(destination, floatType);
+    }
+
+    private static TypeAnalysisContext? FloatOperandType(IOperand operand, MethodAnalysisContext method) =>
+        operand switch
+        {
+            FloatLiteral => method.AppContext.SystemTypes.SystemSingleType,
+            DoubleLiteral => method.AppContext.SystemTypes.SystemDoubleType,
+            LocalVariable { Type: { FullName: "System.Single" } single } => single,
+            LocalVariable { Type: { FullName: "System.Double" } @double } => @double,
+            _ => null,
+        };
 
     private static bool PropagateMove(Instruction move, int pointerSize)
     {
@@ -453,10 +496,16 @@ public static class LocalVariables
             && (elementAccess.Index != null || elementAccess.Addend >= 4L * pointerSize))
             return SetTypeIfUnknown(elementDest, elementType);
 
+        // Move local, [byref]: dereferencing a managed pointer to a reference type yields that referent
+        // (a struct byref accesses fields directly with no deref, so this only fires for class referents).
+        if (destination is LocalVariable { Type: null } derefDest
+            && source is MemoryOperand { Index: null, Scale: 0, Addend: 0, Base: LocalVariable { Type: ByRefTypeAnalysisContext { ElementType: { IsValueType: false } referent } } })
+            return SetTypeIfUnknown(derefDest, referent);
+
         // Move local, [obj]: offset 0 of a reference-typed value is its klass pointer.
         if (destination is LocalVariable { Type: null } klassDest
             && source is MemoryOperand { Index: null, Scale: 0, Addend: 0, Base: LocalVariable { Type: { } baseType } }
-            && baseType is not (RuntimeClassTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext or RuntimeMethodInfoAnalysisContext or RuntimeFieldInfoAnalysisContext)
+            && baseType is not (RuntimeClassTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext or RuntimeMethodInfoAnalysisContext or RuntimeFieldInfoAnalysisContext or ByRefTypeAnalysisContext)
             && !baseType.IsValueType)
             return SetTypeIfUnknown(klassDest, new RuntimeClassTypeAnalysisContext(baseType, baseType.DeclaringAssembly));
 

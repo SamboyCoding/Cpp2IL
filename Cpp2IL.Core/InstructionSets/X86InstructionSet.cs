@@ -199,16 +199,27 @@ public class X86InstructionSet : Cpp2IlInstructionSet
             case Mnemonic.Movsxd: // same
             case Mnemonic.Movaps: // Movaps is basically just a mov but with the potential future detail that the size is dependent on reg size
             case Mnemonic.Movups: // Movaps but unaligned
-            case Mnemonic.Movss: // Same as movaps but for floats
             case Mnemonic.Movd: // Mov but specifically dword
             case Mnemonic.Movq: // Mov but specifically qword
-            case Mnemonic.Movsd: // Mov but specifically double
             case Mnemonic.Movdqa: // Movaps but multiple integers at once in theory
             case Mnemonic.Cvtdq2ps: // Technically a convert double to single, but for analysis purposes we can just treat it as a move
             case Mnemonic.Cvtps2pd: // same, but float to double
+            case Mnemonic.Cvtdq2pd: // int to double
+            case Mnemonic.Cvtpd2ps: // double to float
             case Mnemonic.Cvttsd2si: // same, but double to integer
             case Mnemonic.Movdqu: // DEST[127:0] := SRC[127:0]
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
+                break;
+            case Mnemonic.Movss: // scalar single - as a move, but a load from a constant address is a float literal
+            case Mnemonic.Movsd: // scalar double
+                if (context != null && instruction.Op0Kind == OpKind.Register && instruction.Op1Kind == OpKind.Memory
+                    && (instruction.IsIPRelativeMemoryOperand || instruction is { MemoryBase: Register.None, MemoryIndex: Register.None })
+                    && ReadFloatConstant(context.AppContext.Binary,
+                        instruction.IsIPRelativeMemoryOperand ? instruction.IPRelativeMemoryAddress : instruction.MemoryDisplacement64,
+                        instruction.Mnemonic == Mnemonic.Movss) is { } literal)
+                    Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), literal);
+                else
+                    Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1));
                 break;
             case Mnemonic.Cbw: // AX := sign-extend AL
                 Add(instruction.IP, ISIL.OpCode.Move, new ISIL.Register(null, X86Utils.GetRegisterName(Register.AX)),
@@ -975,6 +986,24 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         }
     }
 
+
+    private static ISIL.IOperand? ReadFloatConstant(LibCpp2IL.Il2CppBinary binary, ulong addr, bool single)
+    {
+        if (!binary.TryMapVirtualAddressToRaw(addr, out var raw))
+            return null;
+
+        var content = binary.GetRawBinaryContent();
+        var size = single ? 4 : 8;
+
+        if (raw < 0 || raw + size > content.Length)
+            return null;
+
+        var bytes = content.Slice((int)raw, size).ToArray();
+
+        return single
+            ? new ISIL.FloatLiteral(BitConverter.ToSingle(bytes, 0))
+            : new ISIL.DoubleLiteral(BitConverter.ToDouble(bytes, 0));
+    }
 
     private ISIL.IOperand ConvertOperand(Instruction instruction, int operand, bool isLeaAddress = false)
     {

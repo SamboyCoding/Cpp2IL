@@ -477,8 +477,16 @@ public static class IlGenerator
                     && TryEmitExactTypeComparison(instruction, method, locals, writeLine))
                     break;
 
+                // Float arithmetic on a promoted integer operand needs an explicit conversion, so both
+                // operands are coerced to the (float) result type. A no-op when they already match.
+                var floatConversion = FloatArithmeticConversion(instruction);
+
                 LoadOperand(instruction.Operands[1], method, locals, writeLine);
+                if (floatConversion is { } conv1)
+                    instructions.Add(conv1);
                 LoadOperand(instruction.Operands[2], method, locals, writeLine);
+                if (floatConversion is { } conv2)
+                    instructions.Add(conv2);
 
                 switch (instruction.OpCode)
                 {
@@ -572,6 +580,19 @@ public static class IlGenerator
         return null;
     }
 
+    private static CilOpCode? FloatArithmeticConversion(Instruction instruction)
+    {
+        if (instruction.OpCode is not (OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide))
+            return null;
+
+        return (instruction.Operands[0] as LocalVariable)?.Type?.FullName switch
+        {
+            "System.Single" => CilOpCodes.Conv_R4,
+            "System.Double" => CilOpCodes.Conv_R8,
+            _ => null,
+        };
+    }
+
     private static void LoadOperand(IOperand operand, MethodDefinition method,
         Dictionary<LocalVariable, CilLocalVariable> locals, IMethodDescriptor writeLine,
         TypeAnalysisContext? expectedType = null)
@@ -644,6 +665,12 @@ public static class IlGenerator
                     && memory.Base is LocalVariable local2)
                 {
                     LoadLocal(local2, method, locals);
+
+                    // A load through a managed pointer (byref) dereferences it to yield the referent.
+                    if (local2.Type is ByRefTypeAnalysisContext { ElementType: { } referent })
+                        instructions.Add(referent.IsValueType
+                            ? new CilInstruction(CilOpCodes.Ldobj, importer.ImportTypeSignature(referent.ToTypeSignature(module)).ToTypeDefOrRef())
+                            : new CilInstruction(CilOpCodes.Ldind_Ref));
                     break;
                 }
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic("Unmanaged memory load: " + operand));
