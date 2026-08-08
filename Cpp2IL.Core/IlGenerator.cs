@@ -448,6 +448,11 @@ public static class IlGenerator
             case OpCode.And:
             case OpCode.Or:
             case OpCode.Xor:
+                // klass pointer read => GetType
+                if (instruction.OpCode is OpCode.CheckEqual or OpCode.CheckNotEqual
+                    && TryEmitExactTypeComparison(instruction, method, locals, writeLine, stringCtor))
+                    break;
+
                 LoadOperand(instruction.Operands[1], method, locals, writeLine, stringCtor);
                 LoadOperand(instruction.Operands[2], method, locals, writeLine, stringCtor);
 
@@ -635,29 +640,17 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Conv_I);
                 break;
             case TypeAnalysisContext type:
-                if (type.Name == "T")
-                {
-                    // idk what to do here
-                    instructions.Add(CilOpCodes.Ldstr, "<T>");
-                    instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(stringCtor));
-                    break;
-                }
+                //typeof(T)
+                var corLibScope = module.CorLibTypeFactory.CorLibScope;
+                var typeFromHandle = corLibScope
+                    .CreateTypeReference("System", "Type")
+                    .CreateMemberReference("GetTypeFromHandle", MethodSignature.CreateStatic(
+                        corLibScope.CreateTypeReference("System", "Type").ToTypeSignature(false),
+                        [corLibScope.CreateTypeReference("System", "RuntimeTypeHandle").ToTypeSignature(true)]))
+                    .ImportWith(importer);
 
-                // Try to first get constructor without params
-                var constructor = type.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0);
-                constructor ??= type.Methods.FirstOrDefault(m => m.Name == ".ctor");
-
-                if (constructor == null)
-                {
-                    instructions.Add(CilOpCodes.Ldstr, $"Constructor not found for: {operand} (probably static type)");
-                    instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
-                    instructions.Add(CilOpCodes.Ldnull);
-                    break;
-                }
-
-                foreach (var param2 in constructor.Parameters)
-                    instructions.Add(CilOpCodes.Ldstr, "Constructor param: " + param2);
-                instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(constructor.ToMethodDescriptor(module)));
+                instructions.Add(CilOpCodes.Ldtoken, importer.ImportType(type.ToTypeSignature(module).ToTypeDefOrRef()));
+                instructions.Add(CilOpCodes.Call, importer.ImportMethod(typeFromHandle));
                 break;
             default:
                 instructions.Add(CilOpCodes.Ldstr, "Unknown operand: " + operand.ToString());
@@ -665,6 +658,59 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Ldnull);
                 break;
         }
+    }
+    
+    private static bool TryEmitExactTypeComparison(Instruction instruction, MethodDefinition method,
+        Dictionary<LocalVariable, CilLocalVariable> locals, MemberReference writeLine, MemberReference stringCtor)
+    {
+        var left = instruction.Operands[1];
+        var right = instruction.Operands[2];
+
+        IOperand typeOperand;
+        LocalVariable objLocal;
+
+        if (left is TypeAnalysisContext && IsKlassPointerLoad(right, out var rightLocal))
+            (typeOperand, objLocal) = (left, rightLocal);
+        else if (right is TypeAnalysisContext && IsKlassPointerLoad(left, out var leftLocal))
+            (typeOperand, objLocal) = (right, leftLocal);
+        else
+            return false;
+
+        var module = method.DeclaringModule!;
+        var importer = module.DefaultImporter!;
+        var instructions = method.CilMethodBody!.Instructions;
+
+        var getType = module.CorLibTypeFactory.CorLibScope
+            .CreateTypeReference("System", "Object")
+            .CreateMemberReference("GetType", MethodSignature.CreateInstance(
+                module.CorLibTypeFactory.CorLibScope.CreateTypeReference("System", "Type").ToTypeSignature(false)))
+            .ImportWith(importer);
+
+        LoadLocal(objLocal, method, locals);
+        instructions.Add(CilOpCodes.Callvirt, importer.ImportMethod(getType));
+        LoadOperand(typeOperand, method, locals, writeLine, stringCtor); // emits typeof(T)
+        instructions.Add(CilOpCodes.Ceq);
+
+        if (instruction.OpCode == OpCode.CheckNotEqual)
+        {
+            instructions.Add(CilOpCodes.Ldc_I4_0);
+            instructions.Add(CilOpCodes.Ceq);
+        }
+
+        StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+        return true;
+    }
+    
+    private static bool IsKlassPointerLoad(IOperand operand, out LocalVariable local)
+    {
+        if (operand is MemoryOperand { Index: null, Addend: 0, Scale: 0, Base: LocalVariable { Type.IsValueType: false } baseLocal })
+        {
+            local = baseLocal;
+            return true;
+        }
+
+        local = null!;
+        return false;
     }
 
     private static void PushDefaultOf(TypeAnalysisContext type, CilInstructionCollection instructions)
