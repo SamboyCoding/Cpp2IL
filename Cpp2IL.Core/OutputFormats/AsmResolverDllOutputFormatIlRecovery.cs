@@ -21,6 +21,17 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
     public override string OutputFormatName => "DLL files with IL Recovery";
 
+    public override List<AssemblyDefinition> BuildAssemblies(ApplicationAnalysisContext context)
+    {
+        //We're going to need key function addresses, so grab them. This way the logging is more consistent
+        Logger.InfoNewline("Finding key function addresses...");
+        var start = DateTime.Now;
+        _ = context.GetOrCreateKeyFunctionAddresses();
+        Logger.InfoNewline($"Key function addresses found in {DateTime.Now.Subtract(start).TotalMilliseconds}ms");
+        
+        return base.BuildAssemblies(context);
+    }
+
     protected override void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext)
     {
         var module = methodDefinition.DeclaringModule!;
