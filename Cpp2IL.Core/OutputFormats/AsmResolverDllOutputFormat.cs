@@ -1,6 +1,7 @@
 // #define VERBOSE_LOGGING
 
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -114,7 +115,7 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
         //Fill method bodies - this should always be done last
         start = DateTime.Now;
         Logger.Verbose($"Filling method bodies (in parallel)...", "DllOutput");
-        MiscUtils.ExecuteParallel(context.Assemblies, FillMethodBodies);
+        FillAllMethodBodies(context);
 
         Logger.VerboseNewline($"{(DateTime.Now - start).TotalMilliseconds:F1}ms", "DllOutput");
 
@@ -124,33 +125,53 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
     }
 
     protected abstract void FillMethodBody(MethodDefinition methodDefinition, MethodAnalysisContext methodContext);
-
-    protected virtual void FillMethodBodies(AssemblyAnalysisContext context)
+    
+    private void FillAllMethodBodies(ApplicationAnalysisContext context)
     {
-        foreach (var typeContext in context.Types)
+        var work = new List<(TypeAnalysisContext Type, MethodAnalysisContext Method)>();
+
+        foreach (var assembly in context.Assemblies)
         {
-            if (AsmResolverAssemblyPopulator.IsTypeContextModule(typeContext))
-                continue;
+            foreach (var typeContext in assembly.Types)
+            {
+                if (AsmResolverAssemblyPopulator.IsTypeContextModule(typeContext))
+                    continue;
+
+                foreach (var methodCtx in typeContext.Methods)
+                    work.Add((typeContext, methodCtx));
+            }
+        }
+
+        void FillOne((TypeAnalysisContext Type, MethodAnalysisContext Method) pair)
+        {
+            var (typeContext, methodCtx) = pair;
 
 #if !DEBUG
             try
 #endif
             {
-                foreach (var methodCtx in typeContext.Methods)
-                {
-                    var managedMethod = methodCtx.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {typeContext.FullName}.{methodCtx.Name}");
+                var managedMethod = methodCtx.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {typeContext.FullName}.{methodCtx.Name}");
 
-                    FillMethodBody(managedMethod, methodCtx);
-                }
+                FillMethodBody(managedMethod, methodCtx);
             }
 #if !DEBUG
             catch (System.Exception e)
             {
                 var managedType = typeContext.GetExtraData<TypeDefinition>("AsmResolverType") ?? throw new($"AsmResolver type not found in type analysis context for {typeContext.FullName}");
-                throw new($"Failed to process type {managedType.FullName} (module {managedType.DeclaringModule?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {context.Name}", e);
+                throw new($"Failed to process method {methodCtx.Name} of type {managedType.FullName} (module {managedType.DeclaringModule?.Name}, declaring type {managedType.DeclaringType?.FullName}) in {typeContext.DeclaringAssembly.Name}", e);
             }
 #endif
         }
+
+#if DEBUG
+        if (System.Diagnostics.Debugger.IsAttached)
+        {
+            work.ForEach(FillOne);
+            return;
+        }
+#endif
+
+        Parallel.ForEach(Partitioner.Create(work, true), FillOne);
     }
 
     private List<AssemblyDefinition> BuildStubAssemblies(ApplicationAnalysisContext context)

@@ -16,6 +16,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 {
     private static readonly MasmFormatter Formatter = new();
     private static readonly StringOutput Output = new();
+    private static readonly X64CallingConventionResolver CallingConventions = new();
+
+    public override BaseCallingConventionResolver CallingConventionResolver => CallingConventions;
 
     private static ISIL.Immediate Imm(long value) => new(value);
     private static ISIL.Immediate Imm(ulong value) => new(unchecked((long)value));
@@ -97,7 +100,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
 
     public override List<ISIL.IOperand> GetParameterOperandsFromMethod(MethodAnalysisContext context)
     {
-        return X64CallingConventionResolver.ResolveForManaged(context).ToList();
+        return CallingConventions.ResolveForManaged(context).ToList();
     }
 
     internal List<ISIL.Instruction> GetIsilFromInstruction(Instruction instruction)
@@ -124,14 +127,14 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         void AddIndirectCall(Instruction source)
         {
             var call = Add(source.IP, ISIL.OpCode.IndirectCall, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
-            call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
+            call.AddOperands(CallingConventions.ResolveForUnmanaged(context.AppContext, source.IP));
         }
         
         // Preserve all the argument registers as we don't know which ones are used
         void AddIndirectJmp(Instruction source)
         {
             var call = Add(source.IP, ISIL.OpCode.IndirectJump, ConvertOperand(source, 0), new ISIL.Register(null, "rax") /* return value */);
-            call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, source.IP));
+            call.AddOperands(CallingConventions.ResolveForUnmanaged(context.AppContext, source.IP));
         }
 
         switch (instruction.Mnemonic)
@@ -537,9 +540,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         if (possibleMethods[0].IsVoid)
                             call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), X64CallingConventionResolver.ReturnRegister(possibleMethods[0]));
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), CallingConventions.ReturnRegister(possibleMethods[0]));
 
-                        call.AddOperands(X64CallingConventionResolver.ResolveForManaged(possibleMethods[0]));
+                        call.AddOperands(CallingConventions.ResolveForManaged(possibleMethods[0]));
                     }
                     else
                     {
@@ -558,7 +561,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                             }
                         }
 
-                        // On post-analysis, you can discard methods according to the registers used, see X64CallingConventionResolver.
+                        // On post-analysis, you can discard methods according to the registers used, see CallingConventions.
                         // This is less effective on GCC because MSVC doesn't overlap registers.
 
                         ISIL.Instruction call;
@@ -566,9 +569,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                         if (ctx.IsVoid)
                             call = Add(instruction.IP, ISIL.OpCode.CallVoid, Imm(target));
                         else
-                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), X64CallingConventionResolver.ReturnRegister(ctx));
+                            call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), CallingConventions.ReturnRegister(ctx));
 
-                        call.AddOperands(X64CallingConventionResolver.ResolveForManaged(ctx));
+                        call.AddOperands(CallingConventions.ResolveForManaged(ctx));
                     }
                 }
                 else
@@ -578,7 +581,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     // These can be converted to dedicated ISIL instructions for specific API functions at a later stage. (by a post-processing step)
 
                     var call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), new ISIL.Register(null, "rax") /* return value */);
-                    call.AddOperands(X64CallingConventionResolver.ResolveForUnmanaged(context.AppContext, target));
+                    call.AddOperands(CallingConventions.ResolveForUnmanaged(context.AppContext, target));
                 }
 
                 if (callNoReturn)

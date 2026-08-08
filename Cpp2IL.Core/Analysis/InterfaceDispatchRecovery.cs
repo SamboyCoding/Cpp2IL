@@ -193,15 +193,16 @@ public static class InterfaceDispatchRecovery
     private static void RewriteDispatch(MethodAnalysisContext method, Instruction dispatch, Block block, Match match, Dictionary<LocalVariable, Instruction> definitions)
     {
         var resolved = match.Resolved;
+        var callingConventions = resolved.AppContext.InstructionSet.CallingConventionResolver;
         var isTailCall = dispatch.OpCode == OpCode.IndirectJump;
 
-        // an IndirectJump's rax operand is a stale use rather than a return slot, so rebuild from scratch
+        // an IndirectJump's return register operand is a stale use rather than a return slot, so rebuild from scratch
         if (isTailCall)
         {
             var operands = new List<IOperand> { resolved };
 
             if (!resolved.IsVoid)
-                operands.Add(new LocalVariable("interfaceTailCallResult", new Register(null, "rax")));
+                operands.Add(new LocalVariable("interfaceTailCallResult", callingConventions?.ReturnRegister(resolved) ?? new Register(null, "rax")));
 
             operands.AddRange(dispatch.Operands.Skip(2));
             dispatch.SetOperands(operands);
@@ -215,7 +216,7 @@ public static class InterfaceDispatchRecovery
         }
 
         dispatch.OpCode = resolved.IsVoid ? OpCode.CallVoid : OpCode.Call;
-        X64CallingConventionResolver.RemapRawArguments(dispatch, resolved);
+        callingConventions?.RemapRawArguments(dispatch, resolved);
 
         // name [phi+8] as the hidden MethodInfo param, like ResolveVirtualCalls. A tail call's target
         // register doubles as an argument slot, so a stale [phi] load can turn up as an argument too,

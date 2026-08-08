@@ -16,6 +16,7 @@ public static class MetadataInitGuardRemover
     private const string InitializeMethod = "il2cpp_codegen_initialize_method";
     private const string ClassInitExport = "il2cpp_runtime_class_init_export";
     private const string ClassInitActual = "il2cpp_runtime_class_init_actual";
+    private const string ClassInitCodegen = "il2cpp_codegen_runtime_class_init";
 
     // Byte holding Il2CppClass's bitfield, of which bit 0 is initialized_and_no_error.
     // TODO this is almost certainly not correct on every version... but which?
@@ -149,7 +150,7 @@ public static class MetadataInitGuardRemover
 
                     if (name is InitializeRuntimeMetadata or InitializeMethod)
                         sawMetadataInit = true;
-                    else if (name is ClassInitExport or ClassInitActual)
+                    else if (name is ClassInitExport or ClassInitActual or ClassInitCodegen)
                         sawClassInit = true;
                     else
                         return false;

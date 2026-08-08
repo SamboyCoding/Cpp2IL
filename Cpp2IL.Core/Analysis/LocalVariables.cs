@@ -148,7 +148,7 @@ public static class LocalVariables
         // the hidden return buffer takes the first argument register. we type it as the return
         // type so stores into it resolve to fields
         if (method.AppContext.Binary.PointerSizeBytes == 8
-            && X64CallingConventionResolver.HiddenReturnBufferRegister(method) is { } bufferRegister
+            && method.AppContext.InstructionSet.CallingConventionResolver?.HiddenReturnBufferRegister(method) is { } bufferRegister
             && method.Locals.FirstOrDefault(l => l.Register.Number == bufferRegister.Number && l.Register.Version == -1) is { } bufferLocal)
         {
             bufferLocal.Name = "returnBuffer";

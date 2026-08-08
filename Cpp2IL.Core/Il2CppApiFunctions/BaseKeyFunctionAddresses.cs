@@ -19,6 +19,7 @@ public abstract class BaseKeyFunctionAddresses
     public ulong il2cpp_vm_metadatacache_initializemethodmetadata; //This is thunked from the above (but only pre-27?)
     public ulong il2cpp_runtime_class_init_export; //Api function (exported)
     public ulong il2cpp_runtime_class_init_actual; //Thunked from above
+    public ulong il2cpp_codegen_runtime_class_init; //Thunked TO the above, called by managed method bodies
     public ulong il2cpp_object_new; //Api Function (exported)
     public ulong il2cpp_vm_object_new; //Thunked from above
     public ulong il2cpp_codegen_object_new; //Thunked TO above
@@ -81,9 +82,7 @@ public abstract class BaseKeyFunctionAddresses
         Init(applicationAnalysisContext);
 
         //Try to find System.Exception (should always be there)
-        if (applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_32 || applicationAnalysisContext.Binary.InstructionSetId == DefaultInstructionSets.X86_64)
-            //TODO make this abstract and implement in subclasses.
-            TryGetInitMetadataFromException();
+        TryGetInitMetadataFromException();
 
         //New Object
         FindExport("il2cpp_object_new", out il2cpp_object_new);
@@ -135,14 +134,13 @@ public abstract class BaseKeyFunctionAddresses
         var type = ReflectionCache.GetType("Exception", "System")!;
         Logger.VerboseNewline("\t\tType Located. Ensuring method exists...");
         var targetMethod = type.Methods!.FirstOrDefault(m => m.Name == "get_Message");
-        if (targetMethod != null) //Check struct contains valid data 
+        if (targetMethod != null) //Check struct contains valid data
         {
             Logger.VerboseNewline($"\t\tTarget Method Located at {targetMethod.MethodPointer}. Taking first CALL as the (version-specific) metadata initialization function...");
 
-            var disasm = X86Utils.GetMethodBodyAtVirtAddressNew(targetMethod.MethodPointer, false, _appContext.Binary);
-            var calls = disasm.Where(i => i.Mnemonic == Mnemonic.Call).ToList();
+            var target = FindFirstCallTargetInMethod(targetMethod.MethodPointer);
 
-            if (calls.Count == 0)
+            if (target == 0)
             {
                 Logger.WarnNewline("Couldn't find any call instructions in the method body. This is not expected. Will not have metadata initialization function.");
                 return;
@@ -150,16 +148,19 @@ public abstract class BaseKeyFunctionAddresses
 
             if (_appContext.MetadataVersion < 27)
             {
-                il2cpp_codegen_initialize_method = calls.First().NearBranchTarget;
+                il2cpp_codegen_initialize_method = target;
                 Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_method => 0x{il2cpp_codegen_initialize_method:X}");
             }
             else
             {
-                il2cpp_codegen_initialize_runtime_metadata = calls.First().NearBranchTarget;
+                il2cpp_codegen_initialize_runtime_metadata = target;
                 Logger.VerboseNewline($"\t\til2cpp_codegen_initialize_runtime_metadata => 0x{il2cpp_codegen_initialize_runtime_metadata:X}");
             }
         }
     }
+
+    // the address the first call instruction in the method at methodVa targets, or 0 if there is none or this isn't supported
+    protected virtual ulong FindFirstCallTargetInMethod(ulong methodVa) => 0;
 
     protected virtual void AttemptInstructionAnalysisToFillGaps()
     {
@@ -263,6 +264,21 @@ public abstract class BaseKeyFunctionAddresses
             Logger.VerboseNewline($"Found at 0x{il2cpp_runtime_class_init_actual:X}");
         }
 
+        if (il2cpp_runtime_class_init_actual != 0)
+        {
+            Logger.Verbose("\tLooking for il2cpp_codegen_runtime_class_init as a thunk of Runtime::ClassInit...");
+
+            var potentialThunks = FindAllThunkFunctions(il2cpp_runtime_class_init_actual, 16, il2cpp_runtime_class_init_export)
+                .Select(ptr => (ptr, count: GetCallerCount(ptr)))
+                .ToList();
+            potentialThunks.SortByExtractedKey(pair => pair.count);
+            potentialThunks.Reverse();
+
+            il2cpp_codegen_runtime_class_init = potentialThunks.FirstOrDefault().ptr;
+
+            Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_runtime_class_init:X}");
+        }
+
         if (il2cpp_array_new_specific != 0)
         {
             Logger.Verbose("\tMapping il2cpp_array_new_specific to vm::Array::NewSpecific...");
@@ -321,6 +337,7 @@ public abstract class BaseKeyFunctionAddresses
         AddResolved(il2cpp_vm_metadatacache_initializemethodmetadata);
         AddResolved(il2cpp_runtime_class_init_export);
         AddResolved(il2cpp_runtime_class_init_actual);
+        AddResolved(il2cpp_codegen_runtime_class_init);
         AddResolved(il2cpp_object_new);
         AddResolved(il2cpp_vm_object_new);
         AddResolved(il2cpp_codegen_object_new);

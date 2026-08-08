@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using AsmResolver.DotNet;
 using AsmResolver.DotNet.Signatures;
 using AsmResolver.PE.DotNet.Cil;
@@ -55,7 +56,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
         try
         {
-            TotalMethodCount++;
+            Interlocked.Increment(ref TotalMethodCount);
 
             methodContext.Analyze();
 
@@ -66,7 +67,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
             //WriteControlFlowGraph(methodContext, Path.Combine(Environment.CurrentDirectory, "Cpp2IL", "bin", "Debug", "net9.0", "cpp2il_out", "cfg"));
 
-            SuccessfulMethodCount++;
+            Interlocked.Increment(ref SuccessfulMethodCount);
         }
         catch (Exception e)
         {

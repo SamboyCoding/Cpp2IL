@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using LibCpp2IL.PE;
@@ -9,7 +8,7 @@ namespace Cpp2IL.Core.Utils;
 
 #pragma warning disable IDE0305, IDE0300
 
-public static class X64CallingConventionResolver
+public class X64CallingConventionResolver : BaseCallingConventionResolver
 {
     // TODO: GCC(Linux) ABI
 
@@ -21,16 +20,13 @@ public static class X64CallingConventionResolver
 
     private static bool IsXMM(ParameterAnalysisContext par) => IsFloatingPoint(par.ParameterType);
 
-    public static bool IsFloatingPoint(TypeAnalysisContext type)
-        => type == type.AppContext.SystemTypes.SystemSingleType || type == type.AppContext.SystemTypes.SystemDoubleType;
-
-    public static Register ReturnRegister(MethodAnalysisContext ctx)
+    public override Register ReturnRegister(MethodAnalysisContext ctx)
         => new(null, IsFloatingPoint(ctx.ReturnType) ? "xmm0" : "rax");
 
-    public static Register? HiddenReturnBufferRegister(MethodAnalysisContext ctx)
+    public override Register? HiddenReturnBufferRegister(MethodAnalysisContext ctx)
         => ReturnsViaHiddenBuffer(ctx) ? new Register(null, ctx.AppContext.Binary is PE ? "rcx" : "rdi") : null;
 
-    public static bool ReturnsViaHiddenBuffer(MethodAnalysisContext ctx)
+    public override bool ReturnsViaHiddenBuffer(MethodAnalysisContext ctx)
     {
         if (ctx.IsVoid)
             return false;
@@ -51,101 +47,17 @@ public static class X64CallingConventionResolver
     private static readonly string[] SysVIntegerRegisters = ["rdi", "rsi", "rdx", "rcx", "r8", "r9"];
     private static readonly string[] SysVFloatRegisters = ["xmm0", "xmm1", "xmm2", "xmm3", "xmm4", "xmm5", "xmm6", "xmm7"];
 
-    public static ISIL.IOperand[] ResolveForUnmanaged(ApplicationAnalysisContext app, ulong target)
-    {
-        // This is mostly a stub and may be extended in the future. You can traverse exports here for example.
-
-        var (integerRegisters, floatRegisters) = RawRegisters(app);
-        return integerRegisters.Concat(floatRegisters).Select(name => (ISIL.IOperand)new Register(null, name)).ToArray();
-    }
-
-    private static (string[] Integer, string[] Float) RawRegisters(ApplicationAnalysisContext app)
+    protected override (string[] Integer, string[] Float) RawRegisters(ApplicationAnalysisContext app)
         => app.Binary is PE ? (PeIntegerRegisters, PeFloatRegisters) : (SysVIntegerRegisters, SysVFloatRegisters);
 
-    public static bool HasRawArgumentLayout(ISIL.Instruction call, ApplicationAnalysisContext app)
-    {
-        var (integerRegisters, floatRegisters) = RawRegisters(app);
-        var argBase = ArgBase(call);
+    protected override bool UsesShadowedArgumentSlots(ApplicationAnalysisContext app) => app.Binary is PE;
 
-        if (call.Operands.Count != argBase + integerRegisters.Length + floatRegisters.Length)
-            return false;
-
-        for (var i = 0; i < integerRegisters.Length; i++)
-            if (RegisterName(call.Operands[argBase + i]) != integerRegisters[i])
-                return false;
-
-        for (var i = 0; i < floatRegisters.Length; i++)
-            if (RegisterName(call.Operands[argBase + integerRegisters.Length + i]) != floatRegisters[i])
-                return false;
-
-        return true;
-    }
-
-    // TODO Fix handling of params on the stack here
-    public static void RemapRawArguments(ISIL.Instruction call, MethodAnalysisContext resolved)
-    {
-        var app = resolved.AppContext;
-
-        if (!HasRawArgumentLayout(call, app))
-            return;
-
-        var (integerRegisters, floatRegisters) = RawRegisters(app);
-        var argBase = ArgBase(call);
-
-        var slots = new List<(bool IsFloat, bool Emit)>();
-        if (ReturnsViaHiddenBuffer(resolved))
-            slots.Add((false, false));
-        if (!resolved.IsStatic)
-            slots.Add((false, true));
-        foreach (var parameter in resolved.Parameters)
-            slots.Add((IsXMM(parameter), true));
-        slots.Add((false, true)); // the MethodInfo argument
-
-        var operands = new List<ISIL.IOperand>(argBase + slots.Count);
-        for (var i = 0; i < argBase; i++)
-            operands.Add(call.Operands[i]);
-
-        if (app.Binary is PE)
-        {
-            // MSVC shadows: slot n is rcx+n or xmm{n}, never both
-            for (var slot = 0; slot < slots.Count && slot < integerRegisters.Length; slot++)
-                if (slots[slot].Emit)
-                    operands.Add(call.Operands[argBase + (slots[slot].IsFloat ? integerRegisters.Length + slot : slot)]);
-        }
-        else
-        {
-            // SysV keeps independent integer/float counters
-            var (integer, floating) = (0, 0);
-
-            foreach (var (isFloat, emit) in slots)
-            {
-                if (isFloat ? floating >= floatRegisters.Length : integer >= integerRegisters.Length)
-                    break;
-
-                var operand = call.Operands[argBase + (isFloat ? integerRegisters.Length + floating++ : integer++)];
-                if (emit)
-                    operands.Add(operand);
-            }
-        }
-
-        call.SetOperands(operands);
-    }
-
-    private static int ArgBase(ISIL.Instruction call) => call.OpCode is ISIL.OpCode.CallVoid ? 1 : 2;
-
-    private static string? RegisterName(ISIL.IOperand operand) => operand switch
-    {
-        Register register => register.Name,
-        LocalVariable { Register.Name: var name } => name,
-        _ => null
-    };
-
-    public static ISIL.IOperand[] ResolveForManaged(MethodAnalysisContext ctx)
+    public override IOperand[] ResolveForManaged(MethodAnalysisContext ctx)
     {
         // if (ctx.AppContext.Binary.is32Bit)
         //    throw new NotSupportedException("Resolution of 64-bit calling conventions in 32-bit binaries is not supported.");
 
-        List<ISIL.IOperand> args = new();
+        List<IOperand> args = new();
 
         var addThis = !ctx.IsStatic;
         // the buffer takes the first argument register but deliberately isn't in the list, as
@@ -357,7 +269,7 @@ public static class X64CallingConventionResolver
         return args.ToArray();
     }
 
-    private static ISIL.IOperand ToOperand(MicrosoftNormalRegister Reg) => Reg switch
+    private static IOperand ToOperand(MicrosoftNormalRegister Reg) => Reg switch
     {
         MicrosoftNormalRegister.rcx => new Register(null, "rcx"),
         MicrosoftNormalRegister.rdx => new Register(null, "rdx"),
@@ -366,7 +278,7 @@ public static class X64CallingConventionResolver
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static ISIL.IOperand ToOperand(LinuxNormalRegister Reg) => Reg switch
+    private static IOperand ToOperand(LinuxNormalRegister Reg) => Reg switch
     {
         LinuxNormalRegister.rdi => new Register(null, "rdi"),
         LinuxNormalRegister.rsi => new Register(null, "rsi"),
@@ -377,7 +289,7 @@ public static class X64CallingConventionResolver
         _ => throw new InvalidOperationException("Went past the register limit during resolution.")
     };
 
-    private static ISIL.IOperand ToOperand(LinuxFloatingRegister Reg) => Reg switch
+    private static IOperand ToOperand(LinuxFloatingRegister Reg) => Reg switch
     {
         LinuxFloatingRegister.xmm0 => new Register(null, "xmm0"),
         LinuxFloatingRegister.xmm1 => new Register(null, "xmm1"),

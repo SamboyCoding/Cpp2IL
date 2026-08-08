@@ -56,8 +56,8 @@ public static class DelegateInvokeRecovery
 
     private static void RewriteAsInvoke(Instruction call, LocalVariable delegateLocal, MethodAnalysisContext invoke)
     {
-        //TODO Still x64 specific, other instruction sets won't match the layout and get left alone
-        if (!X64CallingConventionResolver.HasRawArgumentLayout(call, invoke.AppContext))
+        if (invoke.AppContext.InstructionSet.CallingConventionResolver is not { } callingConventions
+            || !callingConventions.HasRawArgumentLayout(call, invoke.AppContext))
             return;
 
         if (invoke.IsVoid)
@@ -69,6 +69,6 @@ public static class DelegateInvokeRecovery
         // the receiver register holds invoke_impl_this rather than the delegate itself
         call.SetOperand(invoke.IsVoid ? 1 : 2, delegateLocal);
 
-        X64CallingConventionResolver.RemapRawArguments(call, invoke);
+        callingConventions.RemapRawArguments(call, invoke);
     }
 }

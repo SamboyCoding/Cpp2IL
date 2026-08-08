@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using Cpp2IL.Core.Il2CppApiFunctions;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
+using Cpp2IL.Core.Utils;
 using LibCpp2IL.Metadata;
 
 namespace Cpp2IL.Core.Api;
@@ -45,6 +46,12 @@ public abstract class Cpp2IlInstructionSet
     /// </summary>
     /// <returns>A subclass of <see cref="BaseKeyFunctionAddresses"/> specific to this instruction set</returns>
     public abstract BaseKeyFunctionAddresses CreateKeyFunctionAddressesInstance();
+
+    /// <summary>
+    /// The calling convention model for this instruction set, used by analysis passes to reason about call
+    /// arguments and return values. Null if this instruction set does not model calling conventions.
+    /// </summary>
+    public virtual BaseCallingConventionResolver? CallingConventionResolver => null;
 
     /// <summary>
     /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available. 
