@@ -78,6 +78,64 @@ public class NewArmV8InstructionSet : Cpp2IlInstructionSet
         return CallingConventions.ResolveForManaged(context).ToList();
     }
 
+    public override (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
+    {
+        //Deliberately not calling NewArm64Utils here, it's too slow
+        const int maxInstructions = 48;
+
+        var binary = context.Binary;
+        var rawStart = (int)binary.MapVirtualAddressToRaw(address);
+        if (rawStart <= 0)
+            return ([], []);
+
+        var content = binary.GetRawBinaryContent();
+        var window = System.Math.Min(maxInstructions * 4, content.Length - rawStart);
+        if (window < 4)
+            return ([], []);
+
+        List<Arm64Instruction> body;
+        try
+        {
+            body = Disassembler.Disassemble(content.Slice(rawStart, window), address, new Disassembler.Options(true, true, false)).ToList();
+        }
+        catch
+        {
+            return ([], []);
+        }
+
+        var dataReferences = new List<ulong>();
+        var callTargets = new List<ulong>();
+        var pages = new Dictionary<Arm64Register, ulong>();
+
+        foreach (var insn in body)
+        {
+            switch (insn.Mnemonic)
+            {
+                case Arm64Mnemonic.ADRP:
+                    pages[insn.Op0Reg] = (ulong)((long)(insn.Address & ~0xFFFUL) + insn.Op1Imm);
+                    break;
+                case Arm64Mnemonic.ADD when insn.Op2Kind == Arm64OperandKind.Immediate && pages.TryGetValue(insn.Op1Reg, out var page):
+                    dataReferences.Add(page + (ulong)insn.Op2Imm);
+                    break;
+                case Arm64Mnemonic.ADR:
+                    dataReferences.Add((ulong)((long)insn.Address + insn.Op1Imm));
+                    break;
+                case Arm64Mnemonic.BL:
+                    callTargets.Add(insn.BranchTarget);
+                    break;
+            }
+
+            if (insn.Mnemonic != Arm64Mnemonic.ADRP && insn.Op0Kind == Arm64OperandKind.Register)
+                pages.Remove(insn.Op0Reg);
+            
+            if (insn.Mnemonic is Arm64Mnemonic.RET or Arm64Mnemonic.RETAA or Arm64Mnemonic.RETAB or Arm64Mnemonic.BR or Arm64Mnemonic.INVALID
+                || (insn.Mnemonic == Arm64Mnemonic.B && insn.MnemonicConditionCode is Arm64ConditionCode.NONE or Arm64ConditionCode.AL))
+                break;
+        }
+
+        return (dataReferences, callTargets);
+    }
+
     public override List<Instruction> GetIsilFromMethod(MethodAnalysisContext context)
     {
         var insns = NewArm64Utils.GetArm64MethodBodyAtVirtualAddress(context.AppContext.Binary, context.UnderlyingPointer);

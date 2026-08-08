@@ -103,6 +103,32 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return CallingConventions.ResolveForManaged(context).ToList();
     }
 
+    public override (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
+    {
+        Iced.Intel.InstructionList body;
+        try
+        {
+            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context.Binary);
+        }
+        catch
+        {
+            return ([], []);
+        }
+
+        var dataReferences = new List<ulong>();
+        var callTargets = new List<ulong>();
+
+        foreach (var insn in body)
+        {
+            if (insn.Mnemonic == Mnemonic.Lea && insn.IsIPRelativeMemoryOperand)
+                dataReferences.Add(insn.IPRelativeMemoryAddress);
+            else if (insn.Mnemonic == Mnemonic.Call && insn.Op0Kind == OpKind.NearBranch64)
+                callTargets.Add(insn.NearBranchTarget);
+        }
+
+        return (dataReferences, callTargets);
+    }
+
     internal List<ISIL.Instruction> GetIsilFromInstruction(Instruction instruction)
     {
         var instructions = new List<ISIL.Instruction>();

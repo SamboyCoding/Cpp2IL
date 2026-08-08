@@ -54,6 +54,14 @@ public abstract class Cpp2IlInstructionSet
     public virtual BaseCallingConventionResolver? CallingConventionResolver => null;
 
     /// <summary>
+    /// For the function at <paramref name="address"/>, returns the absolute
+    /// addresses it references as constant data (candidate C-string pointers, e.g. an exception type name)
+    /// and the addresses it calls (so a chain of helpers can be followed).
+    /// </summary>
+    public virtual (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
+        => ([], []);
+
+    /// <summary>
     /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available. 
     /// </summary>
     /// <param name="context">The method context to disassemble.</param>

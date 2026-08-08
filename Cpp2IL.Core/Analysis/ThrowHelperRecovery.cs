@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
 using Cpp2IL.Core.Model.Contexts;
-using Cpp2IL.Core.Utils;
-using Iced.Intel;
 
 namespace Cpp2IL.Core.Analysis;
 
@@ -39,27 +37,15 @@ public static class ThrowHelperRecovery
         // Insert before recursing so a cycle terminates
         appContext.ThrowHelperNamesByAddress[address] = null;
 
-        InstructionList body;
+        var (dataReferences, callTargets) = appContext.InstructionSet.InspectPotentialThrowHelper(appContext, address);
 
-        try
-        {
-            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, appContext.Binary);
-        }
-        catch
-        {
-            return null;
-        }
-
-        var name = FindExceptionName(appContext, body);
+        var name = FindExceptionName(appContext, dataReferences);
 
         if (name == null)
         {
-            foreach (var instruction in body)
+            foreach (var target in callTargets)
             {
-                if (instruction.Mnemonic != Mnemonic.Call || instruction.Op0Kind != OpKind.NearBranch64)
-                    continue;
-
-                name = ResolveName(appContext, instruction.NearBranchTarget, depth + 1);
+                name = ResolveName(appContext, target, depth + 1);
 
                 if (name != null)
                     break;
@@ -70,16 +56,11 @@ public static class ThrowHelperRecovery
         return name;
     }
 
-    private static string? FindExceptionName(ApplicationAnalysisContext appContext, InstructionList body)
+    private static string? FindExceptionName(ApplicationAnalysisContext appContext, IReadOnlyList<ulong> dataReferences)
     {
-        foreach (var instruction in body)
-        {
-            if (instruction.Mnemonic != Mnemonic.Lea || !instruction.IsIPRelativeMemoryOperand)
-                continue;
-
-            if (ReadCStringAtVirtualAddress(appContext, instruction.IPRelativeMemoryAddress) is { } text && text.EndsWith("Exception", StringComparison.Ordinal))
+        foreach (var address in dataReferences)
+            if (ReadCStringAtVirtualAddress(appContext, address) is { } text && text.EndsWith("Exception", StringComparison.Ordinal))
                 return text;
-        }
 
         return null;
     }
