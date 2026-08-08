@@ -1,4 +1,4 @@
-using System.Linq;
+using System.Collections.Generic;
 using Cpp2IL.Core.ISIL;
 using Cpp2IL.Core.Model.Contexts;
 using Cpp2IL.Core.Utils;
@@ -16,6 +16,7 @@ public static class RgctxResolver
         var is32Bit = method.AppContext.Binary.is32Bit;
         var klassOffset = is32Bit ? 0x10 : 0x20;
         var rgctxOffset = is32Bit ? 0x60 : 0xC0;
+        var methodRgctxOffset = is32Bit ? 0x1C : 0x38; // MethodInfo::rgctx_data
         var pointerSize = is32Bit ? 4 : 8;
 
         var changed = false;
@@ -36,18 +37,23 @@ public static class RgctxResolver
                 // MethodInfo::klass - the instance the method belongs to, which is what carries the RGCTX
                 RuntimeMethodInfoAnalysisContext info when memory.Addend == klassOffset && info.RepresentedMethod.DeclaringType is { } declaring
                     => new RuntimeClassTypeAnalysisContext(declaring, declaring.DeclaringAssembly),
+                
+                RuntimeMethodInfoAnalysisContext { RepresentedMethod: ConcreteGenericMethodAnalysisContext { MethodGenericParameters.Count: > 0 } genericMethod } when memory.Addend == methodRgctxOffset
+                    => new MethodRgctxTableTypeAnalysisContext(genericMethod, genericMethod.CustomAttributeAssembly),
 
                 RuntimeClassTypeAnalysisContext { RepresentedType: var owner } when memory.Addend == rgctxOffset
                     => new RgctxTableTypeAnalysisContext(owner, owner.DeclaringAssembly),
 
-                RgctxTableTypeAnalysisContext { OwnerType: var instance } when memory.Addend % pointerSize == 0
-                    => ResolveEntry(instance, (int)(memory.Addend / pointerSize)),
+                RgctxTableTypeAnalysisContext table when memory.Addend % pointerSize == 0
+                    => GetOrResolveEntry(table.ResolvedEntries, (int)(memory.Addend / pointerSize), () => ResolveTypeEntry(table.OwnerType, (int)(memory.Addend / pointerSize))),
+
+                MethodRgctxTableTypeAnalysisContext { OwnerMethod: ConcreteGenericMethodAnalysisContext ownerMethod } table when memory.Addend % pointerSize == 0
+                    => GetOrResolveEntry(table.ResolvedEntries, (int)(memory.Addend / pointerSize), () => ResolveMethodEntry(ownerMethod, (int)(memory.Addend / pointerSize))),
 
                 _ => null,
             };
 
             // Wrappers are not unique objects, so compare what they contain, not references
-            // TODO maybe fix this? It's allocation spam if nothing else. Just make a canonical RuntimeClassTypeAnalysisContext/RgctxTableTypeAnalysisContext
             if (resolved == null || DescribesSameThing(destination.Type, resolved))
                 continue;
 
@@ -63,52 +69,93 @@ public static class RgctxResolver
         {
             (RuntimeClassTypeAnalysisContext a, RuntimeClassTypeAnalysisContext b) => ReferenceEquals(a.RepresentedType, b.RepresentedType),
             (RgctxTableTypeAnalysisContext a, RgctxTableTypeAnalysisContext b) => ReferenceEquals(a.OwnerType, b.OwnerType),
+            (MethodRgctxTableTypeAnalysisContext a, MethodRgctxTableTypeAnalysisContext b) => ReferenceEquals(a.OwnerMethod, b.OwnerMethod),
             _ => ReferenceEquals(existing, candidate),
         };
 
-    private static TypeAnalysisContext? ResolveEntry(TypeAnalysisContext instance, int index)
+    private static TypeAnalysisContext? GetOrResolveEntry(Dictionary<int, TypeAnalysisContext?> cache, int index, System.Func<TypeAnalysisContext?> resolve)
+    {
+        if (cache.TryGetValue(index, out var cached))
+            return cached;
+
+        return cache[index] = resolve();
+    }
+
+    private static TypeAnalysisContext? ResolveTypeEntry(TypeAnalysisContext instance, int index)
     {
         var definition = (instance as GenericInstanceTypeAnalysisContext)?.GenericType ?? instance;
 
         if (definition.Definition is not { } typeDefinition)
             return null;
 
-        var entries = typeDefinition.RgctXs;
+        var typeArguments = (instance as GenericInstanceTypeAnalysisContext)?.GenericArguments ?? [];
 
+        return ResolveEntry(typeDefinition.RgctXs, index, typeArguments, [], instance.AppContext);
+    }
+
+    private static TypeAnalysisContext? ResolveMethodEntry(ConcreteGenericMethodAnalysisContext owner, int index)
+    {
+        if (owner.IsPartialInstantiation || owner.BaseMethodContext.Definition is not { } definition)
+            return null;
+
+        return ResolveEntry(definition.RgctXs, index, owner.TypeGenericParameters, owner.MethodGenericParameters, owner.AppContext);
+    }
+
+    private static TypeAnalysisContext? ResolveEntry(Il2CppRGCTXDefinition[] entries, int index, IReadOnlyList<TypeAnalysisContext> typeArguments, IReadOnlyList<TypeAnalysisContext> methodArguments, ApplicationAnalysisContext appContext)
+    {
         if (index < 0 || index >= entries.Length)
             return null;
 
         var entry = entries[index];
 
-        if (entry.type is not (Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_CLASS or Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_TYPE))
+        // malformed/exotic metadata can make any of the lookups or inflations below throw, treat that as unresolvable
+        try
+        {
+            switch (entry.type)
+            {
+                case Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_CLASS or Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_TYPE:
+                {
+                    var inflated = GenericInstantiation.Instantiate(appContext.ResolveIl2CppType(entry.Type), typeArguments, methodArguments);
+                    return new RuntimeClassTypeAnalysisContext(inflated, inflated.DeclaringAssembly);
+                }
+
+                case Il2CppRGCTXDataType.IL2CPP_RGCTX_DATA_METHOD:
+                {
+                    var spec = entry.MethodSpec;
+
+                    if (spec.MethodDefinition is not { } baseDefinition
+                        || appContext.ResolveContextForMethod(baseDefinition) is not { DeclaringType: { } declaringType } baseContext)
+                        return null;
+
+                    var specTypeArguments = InflateAll(spec.GenericClassParams, typeArguments, methodArguments, appContext);
+                    var specMethodArguments = InflateAll(spec.GenericMethodParams, typeArguments, methodArguments, appContext);
+
+                    var inflatedMethod = specTypeArguments.Length == 0 && specMethodArguments.Length == 0
+                        ? baseContext
+                        : new ConcreteGenericMethodAnalysisContext(baseContext, specTypeArguments, specMethodArguments);
+
+                    return new RuntimeMethodInfoAnalysisContext(inflatedMethod, declaringType.DeclaringAssembly);
+                }
+
+                default:
+                    return null;
+            }
+        }
+        catch
+        {
             return null;
-
-        var entryType = instance.AppContext.ResolveIl2CppType(entry.Type);
-
-        if (Inflate(entryType, instance) is not { } inflated)
-            return null;
-
-        return new RuntimeClassTypeAnalysisContext(inflated, inflated.DeclaringAssembly);
+        }
     }
 
-    private static TypeAnalysisContext? Inflate(TypeAnalysisContext? type, TypeAnalysisContext instance)
+    private static TypeAnalysisContext[] InflateAll(Il2CppType[] types, IReadOnlyList<TypeAnalysisContext> typeArguments, IReadOnlyList<TypeAnalysisContext> methodArguments, ApplicationAnalysisContext appContext)
     {
-        if (instance is not GenericInstanceTypeAnalysisContext { GenericArguments: var arguments })
-            return type;
+        var result = new TypeAnalysisContext[types.Length];
 
-        switch (type)
+        for (var i = 0; i < types.Length; i++)
         {
-            case GenericParameterTypeAnalysisContext { Index: var i }:
-                return i >= 0 && i < arguments.Count ? arguments[i] : null;
-
-            case GenericInstanceTypeAnalysisContext nested:
-                // Self-reference inflates to the instance we already have.
-                return nested.GenericArguments.All(a => a is GenericParameterTypeAnalysisContext)
-                    ? instance
-                    : null;
-
-            default:
-                return type;
+            result[i] = GenericInstantiation.Instantiate(appContext.ResolveIl2CppType(types[i]), typeArguments, methodArguments);
         }
+
+        return result;
     }
 }

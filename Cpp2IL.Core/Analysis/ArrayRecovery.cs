@@ -11,7 +11,12 @@ namespace Cpp2IL.Core.Analysis;
 // Turns the raw Il2CppArray layout (header, then length, then inline elements) back into array ops
 public static class ArrayRecovery
 {
-    private const string SzArrayNew = "SzArrayNew";
+    private static readonly HashSet<string> ArrayNewFunctions =
+    [
+        "SzArrayNew",
+        "il2cpp_vm_array_new_specific",
+        "il2cpp_array_new_specific",
+    ];
 
     // Il2CppArray is {Il2CppObject obj; void* bounds; il2cpp_array_size_t max_length;} then the elements, on all versions(?)
     private static long LengthOffset(int pointerSize) => 3L * pointerSize;
@@ -151,12 +156,15 @@ public static class ArrayRecovery
     private static void RecoverAllocation(Instruction instruction)
     {
         // Call "SzArrayNew", result, typeof(T[]), length, ...
-        if (!instruction.IsCall || instruction.Operands is not [StringLiteral { Value: SzArrayNew }, LocalVariable result, TypeAnalysisContext type, { } length, ..])
+        if (!instruction.IsCall || instruction.Operands is not [StringLiteral { Value: var name }, LocalVariable result, TypeAnalysisContext type, { } length, ..]
+            || !ArrayNewFunctions.Contains(name))
             return;
 
         instruction.OpCode = OpCode.NewArr;
         instruction.SetOperands(result, type, length);
-        result.Type ??= type;
+
+        if (result.Type is not SzArrayTypeAnalysisContext)
+            result.Type = type;
     }
 
     private static IOperand? ElementIndex(MemoryOperand memory, SzArrayTypeAnalysisContext arrayType, int pointerSize)

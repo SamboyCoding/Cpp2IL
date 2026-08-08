@@ -205,6 +205,7 @@ public class Instruction : IOperand
         {
             MethodAnalysisContext method => $"{method.DeclaringType!.Name}.{method.Name}",
             RuntimeMethodInfoAnalysisContext methodInfo => $"methodof({methodInfo.RepresentedMethod.FullName})",
+            RuntimeFieldInfoAnalysisContext fieldInfo => $"fieldof({fieldInfo.RepresentedField.DeclaringType.FullName}.{fieldInfo.RepresentedField.Name})",
             TypeAnalysisContext type => $"typeof({type.FullName})",
             Instruction instruction => $"@{instruction.Index}",
             Block block => $"@b{block.ID}",

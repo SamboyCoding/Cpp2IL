@@ -70,7 +70,7 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
 
     public List<string> AnalysisWarnings = [];
 
-    public static int MaxMethodSizeBytes = 18000; // 18KB
+    public static int MaxMethodSizeBytes = 30000; // 30KB
 
     public List<ParameterAnalysisContext> Parameters = [];
 
@@ -407,6 +407,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         InterfaceDispatchRecovery.Run(this);
 
         LocalVariables.ResolveTypesAndFields(this);
+
+        // Needs the MethodInfo* receivers typed, so runs after resolution unlike the class-init guards
+        MetadataInitGuardRemover.RunRgctx(this);
 
         // Needs type resolved for delegate locals
         DelegateInvokeRecovery.Run(this);

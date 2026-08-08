@@ -23,8 +23,55 @@ public static class MetadataInitGuardRemover
     private const long InitialisedFlagOffset64 = 0x135;
     private const long InitialisedFlagOffset32 = 0xBD;
 
+    // Offset of MethodInfo::rgctx_data
+    private const long MethodRgctxOffset64 = 0x38;
+    private const long MethodRgctxOffset32 = 0x1C;
+
     public static void Run(MethodAnalysisContext method)
         => Run(method.ControlFlowGraph!, method.AppContext.Binary.is32Bit ? InitialisedFlagOffset32 : InitialisedFlagOffset64);
+    
+    // Removes the lazy-init guards protecting a generic method's inlined RGCTX metadata lookups.
+    public static void RunRgctx(MethodAnalysisContext method)
+    {
+        var cfg = method.ControlFlowGraph!;
+        var rgctxOffset = method.AppContext.Binary.is32Bit ? MethodRgctxOffset32 : MethodRgctxOffset64;
+
+        var removedAny = false;
+
+        foreach (var guard in cfg.Blocks.ToList())
+            removedAny |= TryRemoveRgctxGuard(cfg, guard, rgctxOffset);
+
+        if (removedAny)
+            DeadCodeEliminator.Run(cfg);
+    }
+
+    private static bool TryRemoveRgctxGuard(ISILControlFlowGraph cfg, Block guard, long rgctxOffset)
+    {
+        if (guard.BlockType != BlockType.TwoWay || guard.Successors.Count != 2
+            || guard.Instructions.Count == 0 || guard.Instructions[^1].OpCode != OpCode.ConditionalJump)
+            return false;
+
+        var isRgctxGuard = guard.Instructions.Any(i =>
+            i.OpCode is OpCode.CheckEqual or OpCode.CheckNotEqual
+            && (IsRgctxLoad(i.Operands[1], rgctxOffset) && IsZero(i.Operands[2])
+                || IsRgctxLoad(i.Operands[2], rgctxOffset) && IsZero(i.Operands[1])));
+
+        if (!isRgctxGuard)
+            return false;
+
+        var first = guard.Successors[0];
+        var second = guard.Successors[1];
+
+        // treat region calls as init boilerplate, exactly as the class-init flag test does
+        return TryExcise(cfg, guard, first, second, true)
+            || TryExcise(cfg, guard, second, first, true);
+    }
+
+    private static bool IsRgctxLoad(IOperand operand, long rgctxOffset) =>
+        operand is MemoryOperand { Index: null, Scale: 0, Base: LocalVariable { Type: RuntimeMethodInfoAnalysisContext } } memory
+        && memory.Addend == rgctxOffset;
+
+    private static bool IsZero(IOperand operand) => operand is Immediate { Value: 0 };
 
     public static void Run(ISILControlFlowGraph cfg, long initialisedFlagOffset)
     {

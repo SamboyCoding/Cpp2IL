@@ -103,6 +103,34 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return CallingConventions.ResolveForManaged(context).ToList();
     }
 
+    public override ulong GetThunkTarget(ApplicationAnalysisContext context, ulong thunkAddress)
+    {
+        var binary = context.Binary;
+
+        if (!binary.TryMapVirtualAddressToRaw(thunkAddress, out var rawAddress))
+            return 0;
+
+        var raw = binary.GetRawBinaryContent();
+        var length = (int)Math.Min(32, raw.Length - rawAddress);
+        if (length <= 0)
+            return 0;
+
+        var decoder = Decoder.Create(binary.is32Bit ? 32 : 64, new ByteArrayCodeReader(raw.Slice((int)rawAddress, length).ToArray()), thunkAddress);
+        
+        for (var i = 0; i < 4; i++)
+        {
+            var instruction = decoder.Decode();
+
+            if (instruction.FlowControl == FlowControl.UnconditionalBranch && instruction.Op0Kind is OpKind.NearBranch16 or OpKind.NearBranch32 or OpKind.NearBranch64)
+                return instruction.NearBranchTarget;
+
+            if (instruction.FlowControl != FlowControl.Next)
+                return 0;
+        }
+
+        return 0;
+    }
+
     public override (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
     {
         Iced.Intel.InstructionList body;

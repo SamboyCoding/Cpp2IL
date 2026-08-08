@@ -309,12 +309,21 @@ public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(inpu
             LibLogger.Verbose("\tReading generic methods...");
             start = DateTime.Now;
             _genericMethodDictionary = new();
+
+            var maxAdjustorThunkIndex = metadata.genericMethodTables.Length == 0 ? -1 : metadata.genericMethodTables.Max(t => t.adjustorThunk);
+            var adjustorThunkPointers = _codeRegistration.genericAdjustorThunks != 0 && maxAdjustorThunkIndex >= 0
+                ? ReadNUintArrayAtVirtualAddress(_codeRegistration.genericAdjustorThunks, maxAdjustorThunkIndex + 1)
+                : [];
+
             foreach (var table in metadata.genericMethodTables)
             {
                 var genericMethodIndex = table.GenericMethodIndex;
                 var genericMethodPointerIndex = table.methodIndex;
+                var adjustorThunkPtr = table.adjustorThunk >= 0 && table.adjustorThunk < adjustorThunkPointers.Length
+                    ? adjustorThunkPointers[table.adjustorThunk]
+                    : 0;
 
-                var methodDefIndex = GetGenericMethodFromIndex(metadata, genericMethodIndex, genericMethodPointerIndex);
+                var methodDefIndex = GetGenericMethodFromIndex(metadata, genericMethodIndex, genericMethodPointerIndex, adjustorThunkPtr);
 
                 if (!_genericMethodDictionary.ContainsKey(methodDefIndex) && genericMethodPointerIndex < _genericMethodPointers.Length)
                 {
@@ -333,12 +342,13 @@ public abstract class Il2CppBinary(Stream input) : ClassReadingBinaryReader(inpu
         _hasFinishedInitialRead = true;
     }
 
-    private Il2CppVariableWidthIndex<Il2CppMethodDefinition> GetGenericMethodFromIndex(Il2CppMetadata metadata, int genericMethodIndex, int genericMethodPointerIndex)
+    private Il2CppVariableWidthIndex<Il2CppMethodDefinition> GetGenericMethodFromIndex(Il2CppMetadata metadata, int genericMethodIndex, int genericMethodPointerIndex, ulong adjustorThunkPtr)
     {
         Cpp2IlMethodRef? genericMethodRef;
         var methodSpec = metadata.GetMethodSpec(genericMethodIndex);
         var methodDefIndex = methodSpec.methodDefinitionIndex;
         genericMethodRef = new Cpp2IlMethodRef(methodSpec);
+        genericMethodRef.AdjustorThunkPtr = adjustorThunkPtr;
 
         if (genericMethodPointerIndex >= 0)
         {

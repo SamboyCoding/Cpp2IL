@@ -15,16 +15,54 @@ public static class MetadataResolver
 {
     public static void ResolveAll(MethodAnalysisContext method)
     {
+        ResolveStringLiteralAccessors(method);
         ResolveCalls(method);
         ResolveGetter(method);
         ResolveMetadataUsages(method);
     }
 
+    private static void ResolveStringLiteralAccessors(MethodAnalysisContext method)
+    {
+        var libContext = method.AppContext.LibCpp2IlContext;
+
+        var definitions = new Dictionary<LocalVariable, Instruction>();
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+            if (instruction.Destination is LocalVariable destination)
+                definitions[destination] = instruction;
+
+        foreach (var instruction in method.ControlFlowGraph.Instructions)
+        {
+            if (instruction.OpCode != OpCode.Call || instruction.Operands[1] is not LocalVariable result)
+                continue;
+
+            for (var i = 2; i < instruction.Operands.Count; i++)
+            {
+                if (LiteralSlotAddress(instruction.Operands[i], definitions) is not { } address
+                    || libContext.GetLiteralByAddress(address) is not { } literal)
+                    continue;
+
+                instruction.OpCode = OpCode.Move;
+                instruction.SetOperands(result, new StringLiteral(literal));
+                break;
+            }
+        }
+    }
+
+    private static ulong? LiteralSlotAddress(IOperand operand, Dictionary<LocalVariable, Instruction> definitions) =>
+        operand switch
+        {
+            Immediate immediate => immediate.UnsignedValue,
+            LocalVariable local when definitions.TryGetValue(local, out var definition)
+                && definition is { OpCode: OpCode.Move, Operands: [_, Immediate immediate] } => immediate.UnsignedValue,
+            _ => null,
+        };
+
     /// <summary>
     /// Resolves <c>Move local, [absoluteAddress]</c> loads of IL2CPP metadata-usage globals into a
     /// strongly-typed operand: a string literal, a <see cref="TypeAnalysisContext"/> (an Il2CppType*/
     /// Il2CppClass* usage) or, for a MethodInfo* usage, a <see cref="RuntimeMethodInfoAnalysisContext"/>
-    /// naming the method it refers to (also used to type the local - see <see cref="LocalVariables"/>).
+    /// naming the method it refers to (also used to type the local - see <see cref="LocalVariables"/>),
+    /// or likewise a <see cref="RuntimeFieldInfoAnalysisContext"/> for a FieldInfo* usage.
     /// </summary>
     private static void ResolveMetadataUsages(MethodAnalysisContext method)
     {
@@ -67,7 +105,15 @@ public static class MetadataResolver
             var methodUsage = libContext.GetMethodGlobalByAddress(address);
             if (methodUsage?.Type is MetadataUsageType.MethodDef or MetadataUsageType.MethodRef
                 && method.AppContext.ResolveContextForMethod(methodUsage) is { DeclaringType: { } methodDeclaringType } methodContext)
+            {
                 instruction.SetOperand(1, new RuntimeMethodInfoAnalysisContext(methodContext, methodDeclaringType.DeclaringAssembly));
+                continue;
+            }
+
+            // Field metadata usage (FieldInfo*), e.g. the RuntimeFieldHandle passed to InitializeArray.
+            if (libContext.GetRawFieldGlobalByAddress(address) is { Type: MetadataUsageType.FieldInfo } fieldUsage
+                && method.AppContext.ResolveContextForField(fieldUsage.AsField()) is { DeclaringType.DeclaringAssembly: { } fieldAssembly } fieldContext)
+                instruction.SetOperand(1, new RuntimeFieldInfoAnalysisContext(fieldContext, fieldAssembly));
         }
     }
 
@@ -233,7 +279,7 @@ public static class MetadataResolver
 
             for (var type = receiverType; type != null && match == null; type = type.BaseType)
             {
-                var matches = candidates.Where(c => !c.IsStatic && ReferenceEquals(c.DeclaringType, type)).ToList();
+                var matches = candidates.Where(c => !c.IsStatic && IsSameType(c.DeclaringType, type)).ToList();
 
                 if (matches.Count > 1 && callerIsCtor)
                     matches = matches.Where(c => c.Name == ".ctor").ToList();
@@ -283,10 +329,42 @@ public static class MetadataResolver
 
     // The receiver ('this') of a call is the first integer-slot argument: operand 1 for CallVoid
     // (after the target), operand 2 for Call (after the target and the return value).
+    // A value type receiver is passed byref, so it arrives as an AddressOf over the local.
     private static LocalVariable? GetReceiver(Instruction call)
     {
         var index = call.OpCode == OpCode.CallVoid ? 1 : 2;
-        return index < call.Operands.Count ? call.Operands[index] as LocalVariable : null;
+
+        return index < call.Operands.Count
+            ? call.Operands[index] switch
+            {
+                LocalVariable local => local,
+                AddressOf { Target: LocalVariable addressed } => addressed,
+                _ => null
+            }
+            : null;
+    }
+
+    // Concrete generic method contexts build their declaring type fresh rather than via the
+    // GetOrCreate cache, so generic instances also need comparing structurally.
+    // TODO Fix this, concrete generic methods should use GetOrCreate
+    private static bool IsSameType(TypeAnalysisContext? a, TypeAnalysisContext? b)
+    {
+        if (ReferenceEquals(a, b))
+            return true;
+
+        if (a is not GenericInstanceTypeAnalysisContext leftInstance
+            || b is not GenericInstanceTypeAnalysisContext rightInstance
+            || !ReferenceEquals(leftInstance.GenericType, rightInstance.GenericType)
+            || leftInstance.GenericArguments.Count != rightInstance.GenericArguments.Count)
+            return false;
+
+        for (var i = 0; i < leftInstance.GenericArguments.Count; i++)
+        {
+            if (!IsSameType(leftInstance.GenericArguments[i], rightInstance.GenericArguments[i]))
+                return false;
+        }
+
+        return true;
     }
 
     /// <summary>

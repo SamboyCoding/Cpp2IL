@@ -165,6 +165,16 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
 
             MethodsByAddress[ptr].Add(gm);
             ConcreteGenericMethodsByRef[methodRef] = gm;
+
+            if (methodRef.AdjustorThunkPtr != 0
+                && InstructionSet.GetThunkTarget(this, methodRef.AdjustorThunkPtr) is not 0 and var thunkTarget
+                && thunkTarget != ptr)
+            {
+                if (!MethodsByAddress.TryGetValue(thunkTarget, out var atTarget))
+                    MethodsByAddress[thunkTarget] = atTarget = [];
+
+                atTarget.Add(gm);
+            }
 #if !DEBUG
             }
             catch (Exception e)

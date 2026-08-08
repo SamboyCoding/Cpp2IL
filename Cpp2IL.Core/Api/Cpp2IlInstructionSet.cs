@@ -62,7 +62,13 @@ public abstract class Cpp2IlInstructionSet
         => ([], []);
 
     /// <summary>
-    /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available. 
+    /// For a simple thunk function, returns the jump target. Returns 0 if the function at <paramref name="thunkAddress"/>
+    /// is not such a thunk, or if this instruction set does not implement thunk following.
+    /// </summary>
+    public virtual ulong GetThunkTarget(ApplicationAnalysisContext context, ulong thunkAddress) => 0;
+
+    /// <summary>
+    /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available.
     /// </summary>
     /// <param name="context">The method context to disassemble.</param>
     /// <returns>A string containing one instruction per line.</returns>

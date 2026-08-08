@@ -663,6 +663,17 @@ public static class IlGenerator
                 instructions.Add(CilOpCodes.Ldc_I4_0);
                 instructions.Add(CilOpCodes.Conv_I);
                 break;
+            case RuntimeFieldInfoAnalysisContext runtimeField:
+                // fieldof(F), e.g. the handle InitializeArray takes.
+                if (expectedType?.FullName == "System.RuntimeFieldHandle")
+                {
+                    instructions.Add(CilOpCodes.Ldtoken, runtimeField.RepresentedField.ToFieldDescriptor(module));
+                    break;
+                }
+
+                instructions.Add(CilOpCodes.Ldc_I4_0);
+                instructions.Add(CilOpCodes.Conv_I);
+                break;
             case TypeAnalysisContext type:
                 //typeof(T)
                 var corLibScope = module.CorLibTypeFactory.CorLibScope;
