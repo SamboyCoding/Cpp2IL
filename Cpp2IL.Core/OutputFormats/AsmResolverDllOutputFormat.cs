@@ -10,6 +10,7 @@ using AsmResolver.DotNet;
 using AsmResolver.DotNet.Builder;
 using AsmResolver.PE.Builder;
 using AsmResolver.PE.DotNet.Metadata.Tables;
+using AssetRipper.CIL;
 using Cpp2IL.Core.Api;
 using Cpp2IL.Core.Logging;
 using Cpp2IL.Core.Model.Contexts;
@@ -24,6 +25,21 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
     private AssemblyDefinition? MostRecentCorLib { get; set; }
     protected int TotalMethodCount;
     protected int SuccessfulMethodCount;
+
+    private static readonly ConcurrentDictionary<ModuleDefinition, object> StubLocks = new();
+
+    //TODO revert this once AsmResolver.CIL stops calling AsmResolver's Importer
+    protected static void FillMethodBodyWithStub(MethodDefinition methodDefinition)
+    {
+        if (methodDefinition.DeclaringModule is not { } module)
+        {
+            methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
+            return;
+        }
+
+        lock (StubLocks.GetOrAdd(module, _ => new object()))
+            methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
+    }
 
     public sealed override void DoOutput(ApplicationAnalysisContext context, string outputRoot)
     {

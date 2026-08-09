@@ -51,7 +51,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
 
         if (shouldSkip)
         {
-            methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
+            FillMethodBodyWithStub(methodDefinition);
             return;
         }
 
@@ -62,7 +62,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
             methodContext.Analyze();
 
             if (methodContext.ConvertedIsil.Count == 0)
-                methodDefinition.ReplaceMethodBodyWithMinimalImplementation();
+                FillMethodBodyWithStub(methodDefinition);
             else
                 IlGenerator.GenerateIl(methodContext, methodDefinition);
 
