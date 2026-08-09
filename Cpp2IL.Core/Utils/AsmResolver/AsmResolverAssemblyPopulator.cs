@@ -53,8 +53,6 @@ public static class AsmResolverAssemblyPopulator
 
     private static void PopulateGenericParamsForType(TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
-        var importer = ilTypeDefinition.DeclaringModule!.DefaultImporter;
-
         foreach (var param in cppTypeDefinition.GenericParameters)
         {
             var p = new GenericParameter(param.Name, (GenericParameterAttributes)param.Attributes);
@@ -62,7 +60,7 @@ public static class AsmResolverAssemblyPopulator
             ilTypeDefinition.GenericParameters.Add(p);
 
             param.ConstraintTypes
-                .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.DeclaringModule).ToTypeDefOrRef()))
+                .Select(c => new GenericParameterConstraint(c.ToTypeSignature(ilTypeDefinition.DeclaringModule!).ToTypeDefOrRef()))
                 .ToList()
                 .ForEach(p.Constraints.Add);
         }
@@ -223,10 +221,7 @@ public static class AsmResolverAssemblyPopulator
         }
 #endif
 
-        var importedCtor = assemblyDefinition.ManifestModule!.DefaultImporter.ImportMethod(ctor);
-
-        var newAttribute = new CustomAttribute((ICustomAttributeType)importedCtor, signature);
-        return newAttribute;
+        return new CustomAttribute((ICustomAttributeType)ctor, signature);
     }
 
     private static void CopyCustomAttributes(HasCustomAttributes source, IList<CustomAttribute> destination)
@@ -331,22 +326,22 @@ public static class AsmResolverAssemblyPopulator
 
     private static void CopyIl2CppDataToManagedType(TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
-        var importer = ilTypeDefinition.DeclaringModule!.DefaultImporter;
+        var module = ilTypeDefinition.DeclaringModule!;
 
-        CopyFieldsInType(importer, typeContext, ilTypeDefinition);
+        CopyFieldsInType(module, typeContext, ilTypeDefinition);
 
-        CopyMethodsInType(importer, typeContext, ilTypeDefinition);
+        CopyMethodsInType(module, typeContext, ilTypeDefinition);
 
-        CopyPropertiesInType(importer, typeContext, ilTypeDefinition);
+        CopyPropertiesInType(module, typeContext, ilTypeDefinition);
 
-        CopyEventsInType(importer, typeContext, ilTypeDefinition);
+        CopyEventsInType(module, typeContext, ilTypeDefinition);
     }
 
-    private static void CopyFieldsInType(ReferenceImporter importer, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
+    private static void CopyFieldsInType(ModuleDefinition module, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
         foreach (var fieldContext in typeContext.Fields)
         {
-            var fieldTypeSig = fieldContext.ToTypeSignature(importer.TargetModule);
+            var fieldTypeSig = fieldContext.ToTypeSignature(module);
 
             var managedField = new FieldDefinition(fieldContext.Name, (FieldAttributes)fieldContext.Attributes, fieldTypeSig);
 
@@ -368,11 +363,11 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void CopyMethodsInType(ReferenceImporter importer, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
+    private static void CopyMethodsInType(ModuleDefinition module, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
         foreach (var methodCtx in typeContext.Methods)
         {
-            var returnType = methodCtx.ReturnType.ToTypeSignature(importer.TargetModule);
+            var returnType = methodCtx.ReturnType.ToTypeSignature(module);
 
             var paramData = methodCtx.Parameters;
             var parameterTypes = new TypeSignature[paramData.Count];
@@ -380,7 +375,7 @@ public static class AsmResolverAssemblyPopulator
             foreach (var parameterAnalysisContext in methodCtx.Parameters)
             {
                 var i = parameterAnalysisContext.ParameterIndex;
-                parameterTypes[i] = parameterAnalysisContext.ParameterType.ToTypeSignature(importer.TargetModule);
+                parameterTypes[i] = parameterAnalysisContext.ParameterType.ToTypeSignature(module);
 
                 var sequence = (ushort)(i + 1); //Add one because sequence 0 is the return type
                 parameterDefinitions[i] = new(sequence, parameterAnalysisContext.Name, (ParameterAttributes)parameterAnalysisContext.Attributes);
@@ -404,7 +399,7 @@ public static class AsmResolverAssemblyPopulator
                 {
                     var unmanagedCallersOnlyType = typeContext.AppContext.SystemTypes.UnmanagedCallersOnlyAttributeType.GetExtraData<TypeDefinition>("AsmResolverType");
                     if(unmanagedCallersOnlyType != null)
-                        managedMethod.CustomAttributes.Add(new CustomAttribute((ICustomAttributeType)importer.ImportMethod(unmanagedCallersOnlyType.GetConstructor()!), new()));
+                        managedMethod.CustomAttributes.Add(new CustomAttribute((ICustomAttributeType)unmanagedCallersOnlyType.GetConstructor()!, new()));
                 }
 
             }
@@ -436,11 +431,11 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void CopyPropertiesInType(ReferenceImporter importer, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
+    private static void CopyPropertiesInType(ModuleDefinition module, TypeAnalysisContext typeContext, TypeDefinition ilTypeDefinition)
     {
         foreach (var propertyCtx in typeContext.Properties)
         {
-            var propertyTypeSig = propertyCtx.ToTypeSignature(importer.TargetModule);
+            var propertyTypeSig = propertyCtx.ToTypeSignature(module);
             var propertySignature = propertyCtx.IsStatic
                 ? PropertySignature.CreateStatic(propertyTypeSig)
                 : PropertySignature.CreateInstance(propertyTypeSig);
@@ -476,11 +471,11 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void CopyEventsInType(ReferenceImporter importer, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
+    private static void CopyEventsInType(ModuleDefinition module, TypeAnalysisContext cppTypeDefinition, TypeDefinition ilTypeDefinition)
     {
         foreach (var eventCtx in cppTypeDefinition.Events)
         {
-            var eventType = eventCtx.ToTypeSignature(importer.TargetModule).ToTypeDefOrRef();
+            var eventType = eventCtx.ToTypeSignature(module).ToTypeDefOrRef();
 
             var managedEvent = new EventDefinition(eventCtx.Name, (EventAttributes)eventCtx.Attributes, eventType);
 
@@ -501,7 +496,7 @@ public static class AsmResolverAssemblyPopulator
         var managedAssembly = asmContext.GetExtraData<AssemblyDefinition>("AsmResolverAssembly") ?? throw new("AsmResolver assembly not found in assembly analysis context for " + asmContext);
         var runtimeContext = asmContext.AppContext.GetExtraData<RuntimeContext>("AsmResolverRuntimeContext") ?? throw new("AsmResolver runtime context not found in application analysis context");
 
-        var importer = managedAssembly.ManifestModule!.DefaultImporter;
+        var module = managedAssembly.ManifestModule!;
 
         foreach (var typeContext in asmContext.Types)
         {
@@ -514,7 +509,7 @@ public static class AsmResolverAssemblyPopulator
             try
 #endif
             {
-                AddExplicitInterfaceImplementations(managedType, typeContext, importer, runtimeContext);
+                AddExplicitInterfaceImplementations(managedType, typeContext, module, runtimeContext);
             }
 #if !DEBUG
             catch (Exception e)
@@ -525,7 +520,7 @@ public static class AsmResolverAssemblyPopulator
         }
     }
 
-    private static void AddExplicitInterfaceImplementations(TypeDefinition type, TypeAnalysisContext typeContext, ReferenceImporter importer, RuntimeContext runtimeContext)
+    private static void AddExplicitInterfaceImplementations(TypeDefinition type, TypeAnalysisContext typeContext, ModuleDefinition module, RuntimeContext runtimeContext)
     {
         List<(PropertyDefinition InterfaceProperty, TypeSignature InterfaceType, MethodDefinition Method)>? getMethodsToCreate = null;
         List<(PropertyDefinition InterfaceProperty, TypeSignature InterfaceType, MethodDefinition Method)>? setMethodsToCreate = null;
@@ -539,7 +534,7 @@ public static class AsmResolverAssemblyPopulator
                 if (overrideContext.Name == methodContext.Name && !isPrivate)
                     continue;
 
-                var interfaceMethod = (IMethodDefOrRef)overrideContext.ToMethodDescriptor(importer.TargetModule);
+                var interfaceMethod = (IMethodDefOrRef)overrideContext.ToMethodDescriptor(module);
                 var method = methodContext.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {methodContext}");
                 type.MethodImplementations.Add(new MethodImplementation(interfaceMethod, method));
                 var resolutionStatus = interfaceMethod.Resolve(runtimeContext, out var interfaceMethodResolved);

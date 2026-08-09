@@ -20,7 +20,7 @@ public static class ContextToFieldDescriptor
     {
         return context is ConcreteGenericFieldAnalysisContext concreteField
             ? concreteField.ToFieldDescriptor(parentModule)
-            : parentModule.DefaultImporter.ImportField(context.GetFieldDefinition());
+            : context.GetFieldDefinition();
     }
 
     public static IFieldDescriptor ToFieldDescriptor(this ConcreteGenericFieldAnalysisContext context, ModuleDefinition parentModule)

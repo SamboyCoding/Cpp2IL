@@ -17,7 +17,7 @@ public static class ContextToTypeSignature
     public static TypeSignature ToTypeSignature(this TypeAnalysisContext context, ModuleDefinition parentModule) => context switch
     {
         ReferencedTypeAnalysisContext referencedTypeAnalysisContext => referencedTypeAnalysisContext.ToTypeSignature(parentModule),
-        _ => parentModule.DefaultImporter.ImportType(context.GetTypeDefinition()).ToTypeSignature(context.IsValueType)
+        _ => context.GetTypeDefinition().ToTypeSignature(context.IsValueType)
     };
 
     public static TypeSignature ToTypeSignature(this ReferencedTypeAnalysisContext context, ModuleDefinition parentModule) => context switch

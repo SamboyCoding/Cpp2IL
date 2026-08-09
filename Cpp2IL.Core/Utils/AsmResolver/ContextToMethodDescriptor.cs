@@ -26,7 +26,7 @@ public static class ContextToMethodDescriptor
     {
         return context is ConcreteGenericMethodAnalysisContext concreteMethod
             ? concreteMethod.ToMethodDescriptor(parentModule)
-            : parentModule.DefaultImporter.ImportMethod(context.GetMethodDefinition());
+            : context.GetMethodDefinition();
     }
 
     public static IMethodDescriptor ToMethodDescriptor(this ConcreteGenericMethodAnalysisContext context, ModuleDefinition parentModule)
@@ -38,13 +38,9 @@ public static class ContextToMethodDescriptor
 
         var methodGenericParameters = context.MethodGenericParameters;
         if (methodGenericParameters.Count == 0)
-        {
-            return parentModule.DefaultImporter.ImportMethod(memberReference);
-        }
-        else
-        {
-            var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature(parentModule));
-            return parentModule.DefaultImporter.ImportMethod(memberReference.MakeGenericInstanceMethod(typeSignatures));
-        }
+            return memberReference;
+
+        var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature(parentModule));
+        return memberReference.MakeGenericInstanceMethod(typeSignatures);
     }
 }

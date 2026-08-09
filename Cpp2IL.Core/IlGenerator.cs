@@ -37,7 +37,6 @@ public static class IlGenerator
     {
         var assembly = context.DeclaringType!.DeclaringAssembly;
         var module = definition.DeclaringModule!;
-        var importer = module.DefaultImporter;
         var factory = module.CorLibTypeFactory;
 
         var noteIssueContext = assembly
@@ -47,8 +46,7 @@ public static class IlGenerator
             ? noteIssueContext.ToMethodDescriptor(module)
             : factory.CorLibScope
                 .CreateTypeReference("System", "Console")
-                .CreateMemberReference("WriteLine", MethodSignature.CreateStatic(factory.Void, [factory.String]))
-                .ImportWith(importer);
+                .CreateMemberReference("WriteLine", MethodSignature.CreateStatic(factory.Void, [factory.String]));
 
         // Change branch targets to instructions
         foreach (var instruction in context.ControlFlowGraph!.Blocks.SelectMany(block => block.Instructions))
@@ -108,8 +106,8 @@ public static class IlGenerator
         {
             TypeSignature ilType;
 
-            // Use object if type couldn't be determined
-            if (local.Type != null)
+            // Use object if type couldn't be determined, or if it's void, which no locals sig can hold
+            if (local.Type != null && local.Type != context.AppContext.SystemTypes.SystemVoidType)
                 ilType = local.Type.ToTypeSignature(module);
             else
                 ilType = module.CorLibTypeFactory.Object;
@@ -221,7 +219,7 @@ public static class IlGenerator
         foreach (var warning in context.AnalysisWarnings)
         {
             instructions.Add(CilOpCodes.Ldstr, Diagnostic("Warning: " + warning));
-            instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+            instructions.Add(CilOpCodes.Call, writeLine);
         }
     }
 
@@ -271,18 +269,17 @@ public static class IlGenerator
         var startIndex = instructions.Count;
 
         var module = method.DeclaringModule!;
-        var importer = module.DefaultImporter!;
 
         switch (instruction.OpCode)
         {
             case OpCode.Invalid:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Invalid instruction: {instruction}"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 break;
 
             case OpCode.NotImplemented:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Not implemented instruction: {instruction.Operands[0]}"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 break;
 
             case OpCode.Interrupt:
@@ -308,7 +305,7 @@ public static class IlGenerator
                     LoadLocal(target.Array, method, locals);
                     LoadOperand(target.Index, method, locals, writeLine);
                     LoadOperand(instruction.Operands[1], method, locals, writeLine, stored);
-                    instructions.Add(CilOpCodes.Stelem, importer.ImportTypeSignature(stored.ToTypeSignature(module)).ToTypeDefOrRef());
+                    instructions.Add(CilOpCodes.Stelem, stored.ToTypeSignature(module).ToTypeDefOrRef());
                     break;
                 }
 
@@ -320,7 +317,7 @@ public static class IlGenerator
                 if (instruction.Operands is [_, SzArrayTypeAnalysisContext { ElementType: { } newArrayElement }, { } length])
                 {
                     LoadOperand(length, method, locals, writeLine);
-                    instructions.Add(CilOpCodes.Newarr, importer.ImportTypeSignature(newArrayElement.ToTypeSignature(module)).ToTypeDefOrRef());
+                    instructions.Add(CilOpCodes.Newarr, newArrayElement.ToTypeSignature(module).ToTypeDefOrRef());
                 }
                 else
                     instructions.Add(CilOpCodes.Ldnull);
@@ -339,7 +336,7 @@ public static class IlGenerator
                     for (var i = 0; i < constructorArgs.Count; i++)
                         LoadOperand(constructorArgs[i], method, locals, writeLine, constructor.Parameters[i].ParameterType);
 
-                    instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(constructor.ToMethodDescriptor(module)));
+                    instructions.Add(CilOpCodes.Newobj, constructor.ToMethodDescriptor(module));
                     StoreToOperand(instruction.Operands[0], method, locals, writeLine);
 
                     constructorCall.OpCode = OpCode.Nop;
@@ -355,7 +352,7 @@ public static class IlGenerator
             case OpCode.Throw:
                 if (instruction.Operands is [TypeAnalysisContext exceptionType]
                     && exceptionType.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0) is { } exceptionCtor)
-                    instructions.Add(CilOpCodes.Newobj, importer.ImportMethod(exceptionCtor.ToMethodDescriptor(module)));
+                    instructions.Add(CilOpCodes.Newobj, exceptionCtor.ToMethodDescriptor(module));
                 else
                     instructions.Add(CilOpCodes.Ldnull);
 
@@ -364,7 +361,7 @@ public static class IlGenerator
 
             case OpCode.Phi:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Phi opcodes should not exist at this point in decompilation ({instruction})"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 break;
 
             case OpCode.Call:
@@ -376,11 +373,11 @@ public static class IlGenerator
                     else // Probably key function. Just the target, the full operand dump is huge and blows the 16MB #US heap limit
                         instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Unknown call target operand: {instruction.Operands[0]}"));
 
-                    instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                    instructions.Add(CilOpCodes.Call, writeLine);
                     break;
                 }
 
-                var importedMethod = importer.ImportMethod(targetMethod.ToMethodDescriptor(module));
+                var importedMethod = targetMethod.ToMethodDescriptor(module);
 
                 var thisParamIndex = instruction.OpCode == OpCode.Call ? 2 : 1;
 
@@ -391,7 +388,7 @@ public static class IlGenerator
                     else
                     {
                         instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Non static method called without 'this' param ({instruction})"));
-                        instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                        instructions.Add(CilOpCodes.Call, writeLine);
                         instructions.Add(CilOpCodes.Ldnull);
                     }
                 }
@@ -414,14 +411,21 @@ public static class IlGenerator
 
                 instructions.Add(CilOpCodes.Call, importedMethod);
 
-                if (instruction.OpCode == OpCode.Call) // Store return value
-                    StoreToOperand(instruction.Operands[1], method, locals, writeLine);
+                // the lifter's guess at whether the callee returns anything can disagree with the
+                // signature we later resolved, so go by the signature and balance the stack
+                if (!targetMethod.IsVoid)
+                {
+                    if (instruction.OpCode == OpCode.Call)
+                        StoreToOperand(instruction.Operands[1], method, locals, writeLine);
+                    else
+                        instructions.Add(CilOpCodes.Pop);
+                }
 
                 break;
 
             case OpCode.IndirectCall:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Indirect call: {instruction.Operands[0]} (should have been resolved before IL gen)"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 break;
 
             case OpCode.Return:
@@ -446,12 +450,12 @@ public static class IlGenerator
 
             case OpCode.IndirectJump:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Indirect jump: {instruction.Operands[0]} (should have been resolved before IL gen)"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 break;
 
             case OpCode.ShiftStack:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Stack shift: {instruction} (stack analysis should have removed these)"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 break;
 
             case OpCode.CheckEqual:
@@ -548,7 +552,7 @@ public static class IlGenerator
 
             default:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Unknown instruction: {instruction}"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 break;
         }
 
@@ -600,7 +604,6 @@ public static class IlGenerator
         var instructions = method.CilMethodBody!.Instructions;
 
         var module = method.DeclaringModule!;
-        var importer = module.DefaultImporter!;
 
         // A null reference reaches us as an integer zero, which would otherwise be emitted as a literal 0
         // and read back as a cast from a number.
@@ -642,13 +645,13 @@ public static class IlGenerator
                 LoadLocal(elementAddress.Array, method, locals);
                 LoadOperand(elementAddress.Index, method, locals, writeLine);
                 instructions.Add(CilOpCodes.Ldelema,
-                    importer.ImportTypeSignature(((SzArrayTypeAnalysisContext)elementAddress.Array.Type!).ElementType.ToTypeSignature(module)).ToTypeDefOrRef());
+                    ((SzArrayTypeAnalysisContext)elementAddress.Array.Type!).ElementType.ToTypeSignature(module).ToTypeDefOrRef());
                 break;
             case ArrayAccess arrayAccess:
                 LoadLocal(arrayAccess.Array, method, locals);
                 LoadOperand(arrayAccess.Index, method, locals, writeLine);
                 instructions.Add(CilOpCodes.Ldelem,
-                    importer.ImportTypeSignature(((SzArrayTypeAnalysisContext)arrayAccess.Array.Type!).ElementType.ToTypeSignature(module)).ToTypeDefOrRef());
+                    ((SzArrayTypeAnalysisContext)arrayAccess.Array.Type!).ElementType.ToTypeSignature(module).ToTypeDefOrRef());
                 break;
             case FieldReference field:
                 if (field.Field.IsStatic)
@@ -669,12 +672,12 @@ public static class IlGenerator
                     // A load through a managed pointer (byref) dereferences it to yield the referent.
                     if (local2.Type is ByRefTypeAnalysisContext { ElementType: { } referent })
                         instructions.Add(referent.IsValueType
-                            ? new CilInstruction(CilOpCodes.Ldobj, importer.ImportTypeSignature(referent.ToTypeSignature(module)).ToTypeDefOrRef())
+                            ? new CilInstruction(CilOpCodes.Ldobj, referent.ToTypeSignature(module).ToTypeDefOrRef())
                             : new CilInstruction(CilOpCodes.Ldind_Ref));
                     break;
                 }
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic("Unmanaged memory load: " + operand));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 instructions.Add(CilOpCodes.Ldc_I4_0);
                 instructions.Add(CilOpCodes.Conv_I);
                 break;
@@ -682,7 +685,7 @@ public static class IlGenerator
                 // A delegate constructor takes its target as a native pointer, which is exactly ldftn.
                 if (expectedType?.FullName == "System.IntPtr")
                 {
-                    instructions.Add(CilOpCodes.Ldftn, importer.ImportMethod(runtimeMethod.RepresentedMethod.ToMethodDescriptor(module)));
+                    instructions.Add(CilOpCodes.Ldftn, runtimeMethod.RepresentedMethod.ToMethodDescriptor(module));
                     break;
                 }
 
@@ -708,15 +711,14 @@ public static class IlGenerator
                     .CreateTypeReference("System", "Type")
                     .CreateMemberReference("GetTypeFromHandle", MethodSignature.CreateStatic(
                         corLibScope.CreateTypeReference("System", "Type").ToTypeSignature(false),
-                        [corLibScope.CreateTypeReference("System", "RuntimeTypeHandle").ToTypeSignature(true)]))
-                    .ImportWith(importer);
+                        [corLibScope.CreateTypeReference("System", "RuntimeTypeHandle").ToTypeSignature(true)]));
 
-                instructions.Add(CilOpCodes.Ldtoken, importer.ImportType(type.ToTypeSignature(module).ToTypeDefOrRef()));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(typeFromHandle));
+                instructions.Add(CilOpCodes.Ldtoken, type.ToTypeSignature(module).ToTypeDefOrRef());
+                instructions.Add(CilOpCodes.Call, typeFromHandle);
                 break;
             default:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic("Unknown operand: " + operand));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 instructions.Add(CilOpCodes.Ldnull);
                 break;
         }
@@ -739,17 +741,15 @@ public static class IlGenerator
             return false;
 
         var module = method.DeclaringModule!;
-        var importer = module.DefaultImporter!;
         var instructions = method.CilMethodBody!.Instructions;
 
         var getType = module.CorLibTypeFactory.CorLibScope
             .CreateTypeReference("System", "Object")
             .CreateMemberReference("GetType", MethodSignature.CreateInstance(
-                module.CorLibTypeFactory.CorLibScope.CreateTypeReference("System", "Type").ToTypeSignature(false)))
-            .ImportWith(importer);
+                module.CorLibTypeFactory.CorLibScope.CreateTypeReference("System", "Type").ToTypeSignature(false)));
 
         LoadLocal(objLocal, method, locals);
-        instructions.Add(CilOpCodes.Callvirt, importer.ImportMethod(getType));
+        instructions.Add(CilOpCodes.Callvirt, getType);
         LoadOperand(typeOperand, method, locals, writeLine); // emits typeof(T)
         instructions.Add(CilOpCodes.Ceq);
 
@@ -832,7 +832,6 @@ public static class IlGenerator
         var instructions = method.CilMethodBody!.Instructions;
 
         var module = method.DeclaringModule!;
-        var importer = module.DefaultImporter!;
 
         switch (operand)
         {
@@ -870,7 +869,7 @@ public static class IlGenerator
                 LoadLocal(arrayAccess.Array, method, locals);
                 LoadOperand(arrayAccess.Index, method, locals, writeLine);
                 instructions.Add(CilOpCodes.Ldloc, elementScratch);
-                instructions.Add(CilOpCodes.Stelem, importer.ImportTypeSignature(elementType.ToTypeSignature(module)).ToTypeDefOrRef());
+                instructions.Add(CilOpCodes.Stelem, elementType.ToTypeSignature(module).ToTypeDefOrRef());
                 break;
 
             case MemoryOperand memory:
@@ -886,7 +885,7 @@ public static class IlGenerator
 
             default:
                 instructions.Add(CilOpCodes.Ldstr, Diagnostic($"Store into unknown operand: {operand}"));
-                instructions.Add(CilOpCodes.Call, importer.ImportMethod(writeLine));
+                instructions.Add(CilOpCodes.Call, writeLine);
                 instructions.Add(CilOpCodes.Pop);
                 break;
         }

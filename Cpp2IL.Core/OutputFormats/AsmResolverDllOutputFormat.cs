@@ -236,9 +236,9 @@ public abstract class AsmResolverDllOutputFormat : Cpp2IlOutputFormat
                 continue;
 
             if (def.IsValueType)
-                asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.ValueType);
+                asmResolverType.BaseType = TypeDefinitionsAsmResolver.ValueType;
             else if (def.IsEnumType)
-                asmResolverType.BaseType = managedModule.DefaultImporter.ImportType(TypeDefinitionsAsmResolver.Enum);
+                asmResolverType.BaseType = TypeDefinitionsAsmResolver.Enum;
         }
 
         //Store the managed assembly in the context so we can use it later.

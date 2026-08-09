@@ -42,7 +42,6 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
         var shouldSkip = moduleName.StartsWith("UnityEngine.") || moduleName.StartsWith("Unity.") ||
                          moduleName.StartsWith("System.") || moduleName == "System" ||
                          moduleName.StartsWith("mscorlib");
-        var importer = new ReferenceImporter(module);
 
         if (!methodDefinition.IsManagedMethodWithBody())
             return;
@@ -91,8 +90,7 @@ public class AsmResolverDllOutputFormatIlRecovery : AsmResolverDllOutputFormat
             var factory = module.CorLibTypeFactory;
             var exceptionCtor = factory.CorLibScope
                 .CreateTypeReference("System", "Exception")
-                .CreateMemberReference(".ctor", MethodSignature.CreateInstance(factory.Void, [factory.String]))
-                .ImportWith(importer);
+                .CreateMemberReference(".ctor", MethodSignature.CreateInstance(factory.Void, [factory.String]));
 
             instructions.Add(CilOpCodes.Ldstr, detail);
             instructions.Add(CilOpCodes.Newobj, exceptionCtor);

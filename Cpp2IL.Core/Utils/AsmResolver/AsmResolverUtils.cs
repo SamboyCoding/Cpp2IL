@@ -170,14 +170,6 @@ public static class AsmResolverUtils
         return new ParsedTypeString(baseType, suffix, genericParams);
     }
 
-    public static ITypeDefOrRef ImportTypeIfNeeded(this ReferenceImporter importer, ITypeDefOrRef type)
-    {
-        if (type is TypeSpecification spec)
-            return new TypeSpecification(importer.ImportTypeSignature(spec.Signature!));
-
-        return importer.ImportType(type);
-    }
-
     internal static ArrayTypeSignature MakeArrayTypeWithLowerBounds(this TypeSignature elementType, int rank)
     {
         var result = new ArrayTypeSignature(elementType, rank);
