@@ -424,12 +424,15 @@ public static class LocalVariables
                 case OpCode.Phi:
                     changed |= PropagatePhi(instruction);
                     break;
-                case OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide:
+                case OpCode.Add or OpCode.Subtract or OpCode.Multiply:
                     changed |= PropagateArithmetic(instruction, method);
+                    break;
+                case OpCode.Divide or OpCode.Modulo:
+                    changed |= PropagateArithmetic(instruction, method) || PropagateIntegerResult(instruction, method);
                     break;
                 case OpCode.And or OpCode.Or or OpCode.Xor or OpCode.Not or OpCode.Negate
                     or OpCode.ShiftLeft or OpCode.ShiftRight:
-                    changed |= PropagateBitwise(instruction, method);
+                    changed |= PropagateIntegerResult(instruction, method);
                     break;
             }
         }
@@ -466,8 +469,8 @@ public static class LocalVariables
         return SetTypeIfUnknown(destination, floatType);
     }
 
-    // A bitwise/shift op over an integer operand produces an integer. Excludes bool operands so flag logic stays boolean.
-    private static bool PropagateBitwise(Instruction instruction, MethodAnalysisContext method)
+    // An integer operand makes the result an integer. Excludes bool operands so flag logic stays boolean.
+    private static bool PropagateIntegerResult(Instruction instruction, MethodAnalysisContext method)
     {
         if (instruction.Operands[0] is not LocalVariable { Type: null } destination)
             return false;

@@ -469,6 +469,7 @@ public static class IlGenerator
             case OpCode.Subtract:
             case OpCode.Multiply:
             case OpCode.Divide:
+            case OpCode.Modulo:
 
             case OpCode.ShiftLeft:
             case OpCode.ShiftRight:
@@ -521,6 +522,7 @@ public static class IlGenerator
                     case OpCode.Subtract: instructions.Add(CilOpCodes.Sub); break;
                     case OpCode.Multiply: instructions.Add(CilOpCodes.Mul); break;
                     case OpCode.Divide: instructions.Add(CilOpCodes.Div); break;
+                    case OpCode.Modulo: instructions.Add(CilOpCodes.Rem); break;
 
                     case OpCode.ShiftLeft: instructions.Add(CilOpCodes.Shl); break;
                     case OpCode.ShiftRight: instructions.Add(CilOpCodes.Shr); break;
@@ -586,7 +588,7 @@ public static class IlGenerator
 
     private static CilOpCode? FloatArithmeticConversion(Instruction instruction)
     {
-        if (instruction.OpCode is not (OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide))
+        if (instruction.OpCode is not (OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide or OpCode.Modulo))
             return null;
 
         return (instruction.Operands[0] as LocalVariable)?.Type?.FullName switch

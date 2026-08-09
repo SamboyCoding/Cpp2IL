@@ -65,6 +65,9 @@ public enum OpCode
     /// <summary>Divides op 2 by op 3, and moves the result into op 1</summary>
     Divide,
 
+    /// <summary>Divides op 2 by op 3, and moves the remainder into op 1</summary>
+    Modulo,
+
     /// <summary>Shifts the bits of op 2 left by op 3, and moves the result into op 1</summary>
     ShiftLeft,
 

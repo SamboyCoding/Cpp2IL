@@ -351,7 +351,7 @@ public static class WriteBarrierRecovery
 
             case OpCode.Move:
             case OpCode.Phi:
-            case OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide:
+            case OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide or OpCode.Modulo:
             case OpCode.ShiftLeft or OpCode.ShiftRight:
             case OpCode.And or OpCode.Or or OpCode.Xor or OpCode.Not or OpCode.Negate:
             case >= OpCode.CheckEqual and <= OpCode.CheckLessOrEqual:
