@@ -68,6 +68,13 @@ public abstract class Cpp2IlInstructionSet
     public virtual ulong GetThunkTarget(ApplicationAnalysisContext context, ulong thunkAddress) => 0;
 
     /// <summary>
+    /// For an internal call, returns the address of the runtime function it tail-calls into.
+    /// Unlike a thunk these can do a small amount of work before the jump, so implementations must scan the whole body, unlike for <see cref="GetThunkTarget"/>.
+    /// Returns 0 if there isn't exactly one such target, or if this instruction set does not implement it.
+    /// </summary>
+    public virtual ulong GetInternalCallTarget(MethodAnalysisContext method) => 0;
+
+    /// <summary>
     /// Create a string containing the raw native disassembly of the given method. You should print one instruction per line, alongside its address if applicable and available.
     /// </summary>
     /// <param name="context">The method context to disassemble.</param>

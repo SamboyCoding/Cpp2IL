@@ -330,9 +330,9 @@ public static class IlGenerator
                 // If we can't, just fall back to an Ldnull.
                 if (FindConstructorCall(context, instruction) is { Operands: [MethodAnalysisContext constructor, _, ..] } constructorCall)
                 {
-                    // Operands are [ctor, newObject, arguments..., methodInfo], so take only as many as
+                    // Operands run [ctor, newObject, arguments..., methodInfo], so take only as many as
                     // the constructor declares (i.e. drop methodInfo)
-                    var constructorArgs = constructorCall.Operands.Skip(2).Take(constructor.Parameters.Count).ToList();
+                    var constructorArgs = constructorCall.Operands.Skip(ConstructorReceiverIndex(constructorCall) + 1).Take(constructor.Parameters.Count).ToList();
                     for (var i = 0; i < constructorArgs.Count; i++)
                         LoadOperand(constructorArgs[i], method, locals, writeLine, constructor.Parameters[i].ParameterType);
 
@@ -341,6 +341,12 @@ public static class IlGenerator
 
                     constructorCall.OpCode = OpCode.Nop;
                     constructorCall.SetOperands();
+                }
+                else if (instruction.Operands is [_, TypeAnalysisContext allocatedType] && allocatedType.Methods.FirstOrDefault(m => m is { Name: ".ctor", Parameters.Count: 0 }) is { } parameterlessCtor)
+                {
+                    // Nothing to fuse with, so the allocation was self-contained. The type is still right, so construct it bare.
+                    instructions.Add(CilOpCodes.Newobj, parameterlessCtor.ToMethodDescriptor(module));
+                    StoreToOperand(instruction.Operands[0], method, locals, writeLine);
                 }
                 else
                 {
@@ -353,6 +359,8 @@ public static class IlGenerator
                 if (instruction.Operands is [TypeAnalysisContext exceptionType]
                     && exceptionType.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0) is { } exceptionCtor)
                     instructions.Add(CilOpCodes.Newobj, exceptionCtor.ToMethodDescriptor(module));
+                else if (instruction.Operands is [LocalVariable or FieldReference])
+                    LoadOperand(instruction.Operands[0], method, locals, writeLine); // an already-constructed exception
                 else
                     instructions.Add(CilOpCodes.Ldnull);
 
@@ -560,27 +568,32 @@ public static class IlGenerator
 
         return instructions.ToList().GetRange(startIndex, instructions.Count - startIndex); // Return added IL
     }
+    
+    private static int ConstructorReceiverIndex(Instruction constructorCall) => constructorCall.OpCode == OpCode.CallVoid ? 1 : 2;
 
     // Try find the follow up CallVoid for a constructor, after a Newobj.
     private static Instruction? FindConstructorCall(MethodAnalysisContext context, Instruction newobj)
     {
         var newObject = newobj.Operands[0];
 
-        foreach (var block in context.ControlFlowGraph!.Blocks)
+        // The allocation and the constructor call routinely end up in different blocks
+        var instructions = context.ControlFlowGraph!.Instructions;
+        var index = instructions.IndexOf(newobj);
+
+        if (index < 0)
+            return null;
+
+        for (var i = index + 1; i < instructions.Count; i++)
         {
-            var index = block.Instructions.IndexOf(newobj);
-            if (index < 0)
+            var candidate = instructions[i];
+
+            if (candidate is not { OpCode: OpCode.Call or OpCode.CallVoid, Operands: [MethodAnalysisContext { Name: ".ctor" }, ..] })
                 continue;
 
-            for (var i = index + 1; i < block.Instructions.Count; i++)
-            {
-                var candidate = block.Instructions[i];
-                if (candidate is { OpCode: OpCode.CallVoid, Operands: [MethodAnalysisContext { Name: ".ctor" }, _, ..] }
-                    && ReferenceEquals(candidate.Operands[1], newObject))
-                    return candidate;
-            }
+            var receiver = ConstructorReceiverIndex(candidate);
 
-            return null;
+            if (candidate.Operands.Count > receiver && ReferenceEquals(candidate.Operands[receiver], newObject))
+                return candidate;
         }
 
         return null;

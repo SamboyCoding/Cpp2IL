@@ -16,6 +16,7 @@ public abstract class BaseKeyFunctionAddresses
 {
     public ulong il2cpp_codegen_initialize_method; //Either this
     public ulong il2cpp_codegen_initialize_runtime_metadata; //Or this, are present, depending on metadata version, but not exported.
+    public ulong il2cpp_codegen_initialize_runtime_metadata_inline; //Thunk of the above without the memory barrier, and it hands the value back. Exception handlers use it.
     public ulong il2cpp_vm_metadatacache_initializemethodmetadata; //This is thunked from the above (but only pre-27?)
     public ulong il2cpp_runtime_class_init_export; //Api function (exported)
     public ulong il2cpp_runtime_class_init_actual; //Thunked from above
@@ -257,6 +258,13 @@ public abstract class BaseKeyFunctionAddresses
             Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_raise_exception:X}");
         }
 
+        if (il2cpp_codegen_initialize_runtime_metadata != 0)
+        {
+            Logger.Verbose("\tLooking for il2cpp_codegen_initialize_runtime_metadata_inline as a thunk of the metadata init...");
+            il2cpp_codegen_initialize_runtime_metadata_inline = FindAllThunkFunctions(il2cpp_codegen_initialize_runtime_metadata).FirstOrDefault();
+            Logger.VerboseNewline($"Found at 0x{il2cpp_codegen_initialize_runtime_metadata_inline:X}");
+        }
+
         if (il2cpp_runtime_class_init_export != 0)
         {
             Logger.Verbose("\tMapping il2cpp_runtime_class_init to il2cpp:vm::Runtime::ClassInit...");
@@ -336,6 +344,7 @@ public abstract class BaseKeyFunctionAddresses
 
         AddResolved(il2cpp_codegen_initialize_method);
         AddResolved(il2cpp_codegen_initialize_runtime_metadata);
+        AddResolved(il2cpp_codegen_initialize_runtime_metadata_inline);
         AddResolved(il2cpp_vm_metadatacache_initializemethodmetadata);
         AddResolved(il2cpp_runtime_class_init_export);
         AddResolved(il2cpp_runtime_class_init_actual);

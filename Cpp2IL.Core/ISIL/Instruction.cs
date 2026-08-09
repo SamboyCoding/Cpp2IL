@@ -28,6 +28,9 @@ public class Instruction : IOperand
 
     public OperandList Operands => new(_operands);
 
+    // Exists to clear the return register after a CallVoid, basically.
+    public Register? ImplicitDefinition;
+
     public bool IsFallThrough =>
         OpCode switch
         {

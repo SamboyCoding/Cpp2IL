@@ -98,6 +98,9 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return instructions;
     }
 
+    private static ISIL.Register? ReturnRegisterClobberedBy(MethodAnalysisContext callee)
+        => callee.IsVoid ? CallingConventions.ReturnRegister(callee) : null;
+
     public override List<ISIL.IOperand> GetParameterOperandsFromMethod(MethodAnalysisContext context)
     {
         return CallingConventions.ResolveForManaged(context).ToList();
@@ -131,12 +134,44 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         return 0;
     }
 
+    public override ulong GetInternalCallTarget(MethodAnalysisContext method)
+    {
+        var start = GetPointerForMethod(method);
+        var length = method.RawBytes.Length;
+
+        if (start == 0 || length == 0)
+            return 0;
+
+        var decoder = Decoder.Create(method.AppContext.Binary.is32Bit ? 32 : 64, new ByteArrayCodeReader(method.RawBytes.ToArray()), start);
+        var target = 0ul;
+
+        while (decoder.IP < start + (ulong)length)
+        {
+            var instruction = decoder.Decode();
+
+            if (instruction.FlowControl != FlowControl.UnconditionalBranch || instruction.Op0Kind is not (OpKind.NearBranch16 or OpKind.NearBranch32 or OpKind.NearBranch64))
+                continue;
+
+            var branch = instruction.NearBranchTarget;
+
+            if (branch >= start && branch < start + (ulong)length)
+                continue; // ordinary control flow within the stub
+
+            if (target != 0 && target != branch)
+                return 0;
+
+            target = branch;
+        }
+
+        return target;
+    }
+
     public override (IReadOnlyList<ulong> DataReferences, IReadOnlyList<ulong> CallTargets) InspectPotentialThrowHelper(ApplicationAnalysisContext context, ulong address)
     {
         Iced.Intel.InstructionList body;
         try
         {
-            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context.Binary);
+            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context.Binary, 256);
         }
         catch
         {
@@ -610,6 +645,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                             call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), CallingConventions.ReturnRegister(possibleMethods[0]));
 
                         call.AddOperands(CallingConventions.ResolveForManaged(possibleMethods[0]));
+                        call.ImplicitDefinition = ReturnRegisterClobberedBy(possibleMethods[0]);
                     }
                     else
                     {
@@ -639,6 +675,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                             call = Add(instruction.IP, ISIL.OpCode.Call, Imm(target), CallingConventions.ReturnRegister(ctx));
 
                         call.AddOperands(CallingConventions.ResolveForManaged(ctx));
+                        call.ImplicitDefinition = ReturnRegisterClobberedBy(ctx);
                     }
                 }
                 else

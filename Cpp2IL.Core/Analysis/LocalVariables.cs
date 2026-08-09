@@ -687,7 +687,9 @@ public static class LocalVariables
         {
             var thisLocal = method.ParameterLocals.FirstOrDefault(p => p.IsThis);
             if (thisLocal != null)
-                thisLocal.Type = method.DeclaringType;
+                thisLocal.Type = method.DeclaringType is { GenericParameters.Count: > 0 } generic
+                    ? new GenericInstanceTypeAnalysisContext(generic, generic.GenericParameters)
+                    : method.DeclaringType;
         }
 
         if (method.ParameterLocals.FirstOrDefault(p => p.IsMethodInfo) is { } methodInfoLocal && method.DeclaringType is { } owner)

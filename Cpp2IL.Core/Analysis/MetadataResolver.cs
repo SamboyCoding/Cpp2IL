@@ -73,12 +73,18 @@ public static class MetadataResolver
             if (instruction.OpCode != OpCode.Move)
                 continue;
 
-            // Only an absolute-address load [addr] (no base/index/scale) can be a metadata-usage global.
-            if (instruction.Operands[0] is not LocalVariable
-                || instruction.Operands[1] is not MemoryOperand { Base: null, Index: null, Scale: 0 } memory)
+            if (instruction.Operands[0] is not LocalVariable)
                 continue;
 
-            var address = (ulong)memory.Addend;
+            var address = instruction.Operands[1] switch
+            {
+                MemoryOperand { Base: null, Index: null, Scale: 0 } memory => (ulong)memory.Addend,
+                Immediate immediate => immediate.UnsignedValue,
+                _ => 0ul,
+            };
+
+            if (address == 0)
+                continue;
 
             // String literal.
             var stringLiteral = libContext.GetLiteralByAddress(address);
@@ -157,7 +163,11 @@ public static class MetadataResolver
                     if (genericOwner.GenericArguments.Any(a => a.IsValueType))
                         continue;
 
-                    field = GenericInstanceFieldLayout.FindFieldAtOffset(genericOwner, memory.Addend);
+                    field = GenericInstanceFieldLayout.FindFieldAtOffset(genericOwner.GenericType, memory.Addend);
+                }
+                else if (staticOwner == null && owner.GenericParameters.Count > 0)
+                {
+                    field = GenericInstanceFieldLayout.FindFieldAtOffset(owner, memory.Addend);
                 }
                 else
                 {
@@ -203,18 +213,47 @@ public static class MetadataResolver
             if (keyFunctionAddresses.IsKeyFunctionAddress(target))
             {
                 HandleKeyFunction(method.AppContext, callInstruction, target, keyFunctionAddresses);
+
+                if (target == keyFunctionAddresses.il2cpp_codegen_initialize_runtime_metadata_inline
+                    && callInstruction is { OpCode: OpCode.Call, Operands: [_, var initResult, var handle, ..] })
+                {
+                    callInstruction.OpCode = OpCode.Move;
+                    callInstruction.SetOperands(initResult, handle);
+                }
+
                 continue;
             }
 
             //Non-key function call. Try to find a single match
             if (!method.AppContext.MethodsByAddress.TryGetValue(target, out var targetMethods))
             {
-                // Not a managed method at all. It may be one of the runtime helpers that exist purely to
-                // throw, in which case restore the throw itself
+                // Not a managed method at all. It may be one of the runtime helpers built around an exception
+                // type, which either throw it themselves or build it and hand it back for the caller to raise.
                 if (ThrowHelperRecovery.GetThrownException(method.AppContext, target) is { } thrown)
                 {
+                    if (callInstruction.Destination is LocalVariable produced && method.ControlFlowGraph!.Instructions.Any(i => i.Sources.Any(s => ReferenceEquals(s, produced))))
+                    {
+                        callInstruction.OpCode = OpCode.Newobj;
+                        callInstruction.SetOperands(produced, thrown);
+                    }
+                    else
+                    {
+                        callInstruction.OpCode = OpCode.Throw;
+                        callInstruction.SetOperands(thrown);
+                    }
+
+                    continue;
+                }
+
+                // Otherwise it may be one of the raisers, which throw the exception they are given
+                var raisedIndex = callInstruction.OpCode == OpCode.CallVoid ? 1 : 2;
+
+                if (callInstruction.Operands.Count > raisedIndex && ThrowHelperRecovery.IsExceptionRaiser(method.AppContext, target))
+                {
+                    var raised = callInstruction.Operands[raisedIndex];
+
                     callInstruction.OpCode = OpCode.Throw;
-                    callInstruction.SetOperands(thrown);
+                    callInstruction.SetOperands(raised);
                 }
 
                 continue;
@@ -472,6 +511,10 @@ public static class MetadataResolver
             {
                 // Some shared generic bodies aren't in the address map at all (todo investigate?).
                 // Il2cpp still passes the concrete MethodInfo as the hidden final parameter, so we can use a methodof there if we have one.
+                // However, make sure it isn't our OWN hidden MethodInfo arg, because that would turn all unknown calls into recursion
+                if (ReferenceEquals(representedMethod, method))
+                    continue;
+
                 var firstArg = instruction.OpCode == OpCode.CallVoid ? 1 : 2;
                 var hiddenParamIndex = firstArg
                     + (representedMethod.AppContext.InstructionSet.CallingConventionResolver?.ReturnsViaHiddenBuffer(representedMethod) == true ? 1 : 0)

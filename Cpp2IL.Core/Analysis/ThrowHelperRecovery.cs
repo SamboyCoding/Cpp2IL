@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Cpp2IL.Core.Model.Contexts;
 
 namespace Cpp2IL.Core.Analysis;
@@ -12,6 +13,7 @@ namespace Cpp2IL.Core.Analysis;
 public static class ThrowHelperRecovery
 {
     private const int MaxDepth = 5;
+    private const int MaxRaiserDepth = 3;
     private const int MaxStringLength = 64;
 
     public static TypeAnalysisContext? GetThrownException(ApplicationAnalysisContext appContext, ulong address)
@@ -24,6 +26,44 @@ public static class ThrowHelperRecovery
         var type = appContext.LibCpp2IlContext.ReflectionCache.GetType(name);
 
         return type == null ? null : appContext.ResolveContextForType(type);
+    }
+
+    // Whether the provided method raises whatever exception it is handed
+    // e.g. il2cpp_codegen_raise_exception, il2cpp_codegen_rethrow_exception, vm::Exception::Raise
+    public static bool IsExceptionRaiser(ApplicationAnalysisContext appContext, ulong address)
+    {
+        if (address == 0)
+            return false;
+
+        if (appContext.ExceptionRaisersByAddress.TryGetValue(address, out var cached))
+            return cached;
+
+        var raise = appContext.GetOrCreateKeyFunctionAddresses().il2cpp_vm_exception_raise;
+
+        if (raise == 0)
+            return false;
+
+        // grab the c++ exception raise method from the end of il2cpp::vm::Exception::Raise
+        var nativeThrow = appContext.InstructionSet.InspectPotentialThrowHelper(appContext, raise).CallTargets.LastOrDefault();
+
+        // and then check if we're calling it
+        var result = nativeThrow != 0 && ReachesCall(appContext, address, nativeThrow, 0, []);
+
+        appContext.ExceptionRaisersByAddress[address] = result;
+        return result;
+    }
+
+    private static bool ReachesCall(ApplicationAnalysisContext appContext, ulong address, ulong wanted, int depth, HashSet<ulong> visited)
+    {
+        if (address == wanted)
+            return true;
+
+        if (depth >= MaxRaiserDepth || !visited.Add(address))
+            return false;
+
+        var (_, callTargets) = appContext.InstructionSet.InspectPotentialThrowHelper(appContext, address);
+
+        return callTargets.Any(target => ReachesCall(appContext, target, wanted, depth + 1, visited));
     }
 
     private static string? ResolveName(ApplicationAnalysisContext appContext, ulong address, int depth)

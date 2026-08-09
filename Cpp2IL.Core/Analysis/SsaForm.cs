@@ -147,6 +147,9 @@ public class SsaForm
 
     private static IEnumerable<Register> EnumerateRegisters(Instruction instruction)
     {
+        if (instruction.ImplicitDefinition is { } clobbered)
+            yield return clobbered;
+
         foreach (var operand in instruction.Operands)
         {
             if (operand is Register register)
@@ -268,6 +271,11 @@ public class SsaForm
 
                 if (instruction.Destination is Register definition)
                     instruction.Destination = NewName(definition, definedHere);
+
+                // Nothing to write the new version back into, but taking it off the stack is the point: reads
+                // after this one can't reach back past the call
+                if (instruction.ImplicitDefinition is { } clobbered)
+                    instruction.ImplicitDefinition = NewName(clobbered, definedHere);
 
                 for (var i = 0; i < instruction.Operands.Count; i++)
                 {

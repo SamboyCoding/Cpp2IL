@@ -149,9 +149,11 @@ public static class X86Utils
         return foundTable;
     }
 
-    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary) => GetMethodBodyAtVirtAddressNew(addr, peek, binary, out _);
+    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary, int peekLength = DefaultPeekLength) => GetMethodBodyAtVirtAddressNew(addr, peek, binary, out _, peekLength);
 
-    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary, out BinarySlice rawBytes)
+    public const int DefaultPeekLength = 50;
+
+    public static InstructionList GetMethodBodyAtVirtAddressNew(ulong addr, bool peek, Il2CppBinary binary, out BinarySlice rawBytes, int peekLength = DefaultPeekLength)
     {
         var ret = new InstructionList();
         var rawAddr = binary.MapVirtualAddressToRaw(addr);
@@ -182,7 +184,7 @@ public static class X86Utils
             if (ret.All(i => i.Mnemonic != Mnemonic.INVALID) && ret.Any(i => i.Code == Code.Int3))
                 con = false;
 
-            if (peek && functionLength > 50)
+            if (peek && functionLength > peekLength)
                 con = false;
             else if (functionLength > 50000)
                 con = false; // Sanity breakout.

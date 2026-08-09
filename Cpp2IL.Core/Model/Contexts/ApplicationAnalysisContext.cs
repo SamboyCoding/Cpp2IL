@@ -79,6 +79,11 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
     public readonly ConcurrentDictionary<ulong, string?> ThrowHelperNamesByAddress = new();
 
     /// <summary>
+    /// Dict of address to "is this method analogue to il2cpp::vm::Exception::Raise"
+    /// </summary>
+    public readonly ConcurrentDictionary<ulong, bool> ExceptionRaisersByAddress = new();
+
+    /// <summary>
     /// A dictionary of all the generic method variants to their corresponding analysis contexts.
     /// </summary>
     public readonly Dictionary<Cpp2IlMethodRef, ConcreteGenericMethodAnalysisContext> ConcreteGenericMethodsByRef = new();
@@ -151,8 +156,8 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
             MethodsByAddress[ptr].Add(m);
         });
 
-        Logger.VerboseNewline("\tProcessing method body thunks...");
-        RegisterThunkTargets(allMethods);
+        Logger.VerboseNewline("\tProcessing internal calls...");
+        RegisterInternalCallTargets(allMethods);
 
         Logger.VerboseNewline("\tProcessing concrete generic methods...");
         foreach (var methodRef in Binary.ConcreteGenericMethods.Values.SelectMany(v => v))
@@ -190,31 +195,22 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         }
     }
 
-    // some methods like Math.Ceiling are thunks to the c runtime `ceil` method, and can be inlined at call sites.
-    // there's no way we can hope to resolve those methods other than via checking for thunks, so we do that.
-    private void RegisterThunkTargets(List<MethodAnalysisContext> allMethods)
+    // ICalls are implemented as a stub that tail-jumps into the runtime (e.g. Math.Ceiling => the c runtime's
+    // ceil, Monitor.Enter => il2cpp::vm::Monitor::TryEnter). Many callers get inlined straight to that runtime
+    // address, so we map those out ahead of time so we can resolve them. 
+    private void RegisterInternalCallTargets(List<MethodAnalysisContext> allMethods)
     {
-        const int maxThunkBodySize = 32;
-
         var byTarget = new Dictionary<ulong, List<MethodAnalysisContext>>();
 
         foreach (var method in allMethods)
         {
-            if (method.RawBytes.Length is 0 or > maxThunkBodySize)
+            // Il2CppMethodDefinition.MethodImplAttributes masks this bit out, check directly against iflags
+            if (method.Definition is not { } definition || (definition.iflags & (ushort)MethodImplAttributes.InternalCall) == 0)
                 continue;
 
-            var ptr = InstructionSet.GetPointerForMethod(method);
+            var target = InstructionSet.GetInternalCallTarget(method);
 
-            if (ptr == 0)
-                continue;
-
-            var target = InstructionSet.GetThunkTarget(this, ptr);
-            
-            if (target == 0 || (target >= ptr && target < ptr + (ulong)method.RawBytes.Length))
-                // jump into another place in the method body, not a thunk
-                continue;
-
-            if (MethodsByAddress.ContainsKey(target))
+            if (target == 0 || MethodsByAddress.ContainsKey(target))
                 continue;
 
             if (!byTarget.TryGetValue(target, out var methods))
@@ -226,7 +222,7 @@ public class ApplicationAnalysisContext : ContextWithDataStorage
         foreach (var (target, methods) in byTarget)
             MethodsByAddress[target] = methods;
 
-        Logger.VerboseNewline($"\t\tRegistered {byTarget.Count} thunk targets, of which {byTarget.Count(t => t.Value.Count > 1)} are ambiguous");
+        Logger.VerboseNewline($"\t\tRegistered {byTarget.Count} internal call targets, of which {byTarget.Count(t => t.Value.Count > 1)} are ambiguous");
     }
 
     /// <summary>
