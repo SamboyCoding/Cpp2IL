@@ -171,7 +171,7 @@ public class X86InstructionSet : Cpp2IlInstructionSet
         Iced.Intel.InstructionList body;
         try
         {
-            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context.Binary, 256);
+            body = X86Utils.GetMethodBodyAtVirtAddressNew(address, true, context.Binary);
         }
         catch
         {
