@@ -615,8 +615,10 @@ public static class LocalVariables
             // Return value: a constructor yields its declaring type, otherwise the declared return type.
             if (instruction.Destination is LocalVariable returnValue)
             {
-                changed |= SetTypeIfUnknown(returnValue,
-                    calledMethod.Name is ".ctor" or ".cctor" ? calledMethod.DeclaringType : calledMethod.ReturnType);
+                var producedType = calledMethod.Name is ".ctor" or ".cctor" ? calledMethod.DeclaringType : calledMethod.ReturnType;
+
+                if (producedType != method.AppContext.SystemTypes.SystemVoidType)
+                    changed |= SetTypeIfUnknown(returnValue, producedType);
             }
 
 
@@ -684,6 +686,9 @@ public static class LocalVariables
             if (thisLocal != null)
                 thisLocal.Type = method.DeclaringType;
         }
+
+        if (method.ParameterLocals.FirstOrDefault(p => p.IsMethodInfo) is { } methodInfoLocal && method.DeclaringType is { } owner)
+            methodInfoLocal.Type = new RuntimeMethodInfoAnalysisContext(method, owner.DeclaringAssembly);
 
         if (method.Parameters.Count == 0)
             return;

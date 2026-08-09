@@ -38,8 +38,8 @@ public static class RgctxResolver
                 RuntimeMethodInfoAnalysisContext info when memory.Addend == klassOffset && info.RepresentedMethod.DeclaringType is { } declaring
                     => new RuntimeClassTypeAnalysisContext(declaring, declaring.DeclaringAssembly),
                 
-                RuntimeMethodInfoAnalysisContext { RepresentedMethod: ConcreteGenericMethodAnalysisContext { MethodGenericParameters.Count: > 0 } genericMethod } when memory.Addend == methodRgctxOffset
-                    => new MethodRgctxTableTypeAnalysisContext(genericMethod, genericMethod.CustomAttributeAssembly),
+                RuntimeMethodInfoAnalysisContext { RepresentedMethod: { } owningMethod } when memory.Addend == methodRgctxOffset && HasMethodRgctx(owningMethod)
+                    => new MethodRgctxTableTypeAnalysisContext(owningMethod, owningMethod.CustomAttributeAssembly),
 
                 RuntimeClassTypeAnalysisContext { RepresentedType: var owner } when memory.Addend == rgctxOffset
                     => new RgctxTableTypeAnalysisContext(owner, owner.DeclaringAssembly),
@@ -47,8 +47,8 @@ public static class RgctxResolver
                 RgctxTableTypeAnalysisContext table when memory.Addend % pointerSize == 0
                     => GetOrResolveEntry(table.ResolvedEntries, (int)(memory.Addend / pointerSize), () => ResolveTypeEntry(table.OwnerType, (int)(memory.Addend / pointerSize))),
 
-                MethodRgctxTableTypeAnalysisContext { OwnerMethod: ConcreteGenericMethodAnalysisContext ownerMethod } table when memory.Addend % pointerSize == 0
-                    => GetOrResolveEntry(table.ResolvedEntries, (int)(memory.Addend / pointerSize), () => ResolveMethodEntry(ownerMethod, (int)(memory.Addend / pointerSize))),
+                MethodRgctxTableTypeAnalysisContext table when memory.Addend % pointerSize == 0
+                    => GetOrResolveEntry(table.ResolvedEntries, (int)(memory.Addend / pointerSize), () => ResolveMethodEntry(table.OwnerMethod, (int)(memory.Addend / pointerSize))),
 
                 _ => null,
             };
@@ -93,12 +93,27 @@ public static class RgctxResolver
         return ResolveEntry(typeDefinition.RgctXs, index, typeArguments, [], instance.AppContext);
     }
 
-    private static TypeAnalysisContext? ResolveMethodEntry(ConcreteGenericMethodAnalysisContext owner, int index)
+    // Only a generic method (or one on a generic type) gets a per-method rgctx table
+    private static bool HasMethodRgctx(MethodAnalysisContext method) => method switch
     {
-        if (owner.IsPartialInstantiation || owner.BaseMethodContext.Definition is not { } definition)
+        ConcreteGenericMethodAnalysisContext concrete => concrete.MethodGenericParameters.Count > 0,
+        _ => method.GenericParameters.Count > 0 || method.DeclaringType?.GenericParameters.Count > 0,
+    };
+
+    private static TypeAnalysisContext? ResolveMethodEntry(MethodAnalysisContext owner, int index)
+    {
+        // an uninflated definition is shared generic code, so its own parameters stand in for the arguments
+        if (owner is not ConcreteGenericMethodAnalysisContext concrete)
+        {
+            return owner.Definition is not { } ownDefinition
+                ? null
+                : ResolveEntry(ownDefinition.RgctXs, index, owner.DeclaringType?.GenericParameters ?? [], owner.GenericParameters, owner.AppContext);
+        }
+
+        if (concrete.IsPartialInstantiation || concrete.BaseMethodContext.Definition is not { } definition)
             return null;
 
-        return ResolveEntry(definition.RgctXs, index, owner.TypeGenericParameters, owner.MethodGenericParameters, owner.AppContext);
+        return ResolveEntry(definition.RgctXs, index, concrete.TypeGenericParameters, concrete.MethodGenericParameters, concrete.AppContext);
     }
 
     private static TypeAnalysisContext? ResolveEntry(Il2CppRGCTXDefinition[] entries, int index, IReadOnlyList<TypeAnalysisContext> typeArguments, IReadOnlyList<TypeAnalysisContext> methodArguments, ApplicationAnalysisContext appContext)
