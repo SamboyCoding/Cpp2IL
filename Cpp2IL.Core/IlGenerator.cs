@@ -360,7 +360,7 @@ public static class IlGenerator
                 {
                     // il2cpp_value_box takes the value by address, but IL boxes it by value
                     LoadOperand(boxedValue is AddressOf { Target: LocalVariable byRef } ? byRef : boxedValue, method, locals, writeLine, boxedType);
-                    instructions.Add(CilOpCodes.Box, boxedType.ToTypeSignature(module).ToTypeDefOrRef());
+                    instructions.Add(CilOpCodes.Box, boxedType.ToTypeSignature().ToTypeDefOrRef());
                 }
                 else
                     instructions.Add(CilOpCodes.Ldnull);
