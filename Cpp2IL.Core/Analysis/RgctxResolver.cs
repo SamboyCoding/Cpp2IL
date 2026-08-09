@@ -53,11 +53,15 @@ public static class RgctxResolver
                 _ => null,
             };
 
-            // Wrappers are not unique objects, so compare what they contain, not references
-            if (resolved == null || DescribesSameThing(destination.Type, resolved))
+            if (resolved == null)
                 continue;
 
-            destination.Type = resolved;
+            // Wrappers are not unique objects, so compare what they contain, not references
+            if (!DescribesSameThing(destination.Type, resolved))
+                destination.Type = resolved;
+
+            // The address read is meaningless in managed, so replace it
+            instruction.SetOperand(1, resolved);
             changed = true;
         }
 

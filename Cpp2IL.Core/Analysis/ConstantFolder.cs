@@ -27,6 +27,11 @@ public static class ConstantFolder
         if (instruction is { OpCode: OpCode.Negate, Operands: [_, Immediate m] })
             return ToConstant(instruction, -m.Value);
 
+        // metadata handles are by definition never null
+        if (instruction is { OpCode: OpCode.CheckEqual or OpCode.CheckNotEqual, Operands: [_, TypeAnalysisContext, var against] }
+            && Constant(against) == 0)
+            return ToConstant(instruction, instruction.OpCode == OpCode.CheckEqual ? 0 : 1);
+
         // Binary constant folds.
         if (BinaryConstants(instruction, out var a, out var b))
         {

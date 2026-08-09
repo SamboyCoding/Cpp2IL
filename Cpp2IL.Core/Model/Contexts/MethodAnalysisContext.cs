@@ -411,6 +411,8 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // Needs the MethodInfo* receivers typed, so runs after resolution unlike the class-init guards
         MetadataInitGuardRemover.RunRgctx(this);
 
+        MetadataInitGuardRemover.RewriteUnguardedInits(this);
+
         // Needs type resolved for delegate locals
         DelegateInvokeRecovery.Run(this);
         BooleanFlagSimplifier.Run(this);
@@ -423,6 +425,9 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // Folding a constant exposes more to propagate
         for (var i = 0; i < 8 && ConstantFolder.Run(this); i++)
             SsaSimplifier.Run(this);
+
+        InternalCallGuardRemover.Run(this);
+        KeyFunctionRecovery.Run(this);
 
         SsaForm.Remove(this);
 

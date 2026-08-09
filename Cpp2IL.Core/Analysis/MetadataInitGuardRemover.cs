@@ -29,6 +29,19 @@ public static class MetadataInitGuardRemover
 
     public static void Run(MethodAnalysisContext method)
         => Run(method.ControlFlowGraph!, method.AppContext.Binary.is32Bit ? InitialisedFlagOffset32 : InitialisedFlagOffset64);
+
+    // Rewrite any metadata init calls we didn't remove into movs.
+    public static void RewriteUnguardedInits(MethodAnalysisContext method)
+    {
+        foreach (var instruction in method.ControlFlowGraph!.Instructions)
+        {
+            if (instruction.OpCode != OpCode.Call || instruction.Operands is not [StringLiteral { Value: InitializeRuntimeMetadata or InitializeMethod }, var result, var handle, ..])
+                continue;
+
+            instruction.OpCode = OpCode.Move;
+            instruction.SetOperands(result, handle);
+        }
+    }
     
     // Removes the lazy-init guards protecting a generic method's inlined RGCTX metadata lookups.
     public static void RunRgctx(MethodAnalysisContext method)
@@ -258,7 +271,7 @@ public static class MetadataInitGuardRemover
             _ => false,
         };
 
-    private static void Excise(ISILControlFlowGraph cfg, Block guard, Block initEntry, Block merge, HashSet<Block> region)
+    internal static void Excise(ISILControlFlowGraph cfg, Block guard, Block initEntry, Block merge, HashSet<Block> region)
     {
         // 1. Repair the merge's phis: drop the inputs from the region's back-edges.
         for (var i = merge.Predecessors.Count - 1; i >= 0; i--)

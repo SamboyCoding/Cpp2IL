@@ -355,6 +355,19 @@ public static class IlGenerator
                 }
                 break;
 
+            case OpCode.Box:
+                if (instruction.Operands is [_, TypeAnalysisContext boxedType, var boxedValue])
+                {
+                    // il2cpp_value_box takes the value by address, but IL boxes it by value
+                    LoadOperand(boxedValue is AddressOf { Target: LocalVariable byRef } ? byRef : boxedValue, method, locals, writeLine, boxedType);
+                    instructions.Add(CilOpCodes.Box, boxedType.ToTypeSignature(module).ToTypeDefOrRef());
+                }
+                else
+                    instructions.Add(CilOpCodes.Ldnull);
+
+                StoreToOperand(instruction.Operands[0], method, locals, writeLine);
+                break;
+
             case OpCode.Throw:
                 if (instruction.Operands is [TypeAnalysisContext exceptionType]
                     && exceptionType.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0) is { } exceptionCtor)
@@ -716,6 +729,11 @@ public static class IlGenerator
                     break;
                 }
 
+                instructions.Add(CilOpCodes.Ldc_I4_0);
+                instructions.Add(CilOpCodes.Conv_I);
+                break;
+            case RuntimeClassTypeAnalysisContext or RgctxTableTypeAnalysisContext
+                or MethodRgctxTableTypeAnalysisContext or StaticFieldStorageTypeAnalysisContext:
                 instructions.Add(CilOpCodes.Ldc_I4_0);
                 instructions.Add(CilOpCodes.Conv_I);
                 break;

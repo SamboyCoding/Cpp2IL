@@ -118,6 +118,11 @@ public enum OpCode
     NewArr,
 
     /// <summary>
+    /// Boxes the value at op 3 as the type described by op 2, and moves the result into op 1.
+    /// </summary>
+    Box,
+
+    /// <summary>
     /// Throws a new instance of the exception type described by op 1.
     /// </summary>
     Throw
