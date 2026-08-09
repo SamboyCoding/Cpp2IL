@@ -394,6 +394,18 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                     Add(instruction.IP, ISIL.OpCode.Or, dest, dest, temp);
                     break;
                 }
+            case Mnemonic.Btr: // CF = old bit, then clear it
+                {
+                    var dest = ConvertOperand(instruction, 0);
+                    var bit = ConvertOperand(instruction, 1);
+                    var temp = new ISIL.Register(null, "TEMP");
+                    Add(instruction.IP, ISIL.OpCode.ShiftRight, temp, dest, bit);
+                    Add(instruction.IP, ISIL.OpCode.And, new ISIL.Register(null, "CF"), temp, Imm(1));
+                    Add(instruction.IP, ISIL.OpCode.ShiftLeft, temp, Imm(1), bit);
+                    Add(instruction.IP, ISIL.OpCode.Not, temp, temp); // temp = ~(1 << bit)
+                    Add(instruction.IP, ISIL.OpCode.And, dest, dest, temp);
+                    break;
+                }
             case Mnemonic.Not:
                 Add(instruction.IP, ISIL.OpCode.Not, ConvertOperand(instruction, 0), ConvertOperand(instruction, 0));
                 break;
@@ -751,6 +763,74 @@ public class X86InstructionSet : Cpp2IlInstructionSet
                 Add(instruction.IP, ISIL.OpCode.Move, ConvertOperand(instruction, 0), ConvertOperand(instruction, 1)); // set if cond
                 Add(instruction.IP + 1, ISIL.OpCode.Nop);
                 break;
+
+            // Convert a flag condition into the (byte) destination as 0/1, mirroring the Cmov conditions.
+            case Mnemonic.Sete: // ZF
+            case Mnemonic.Setne: // !ZF
+            case Mnemonic.Seta: // above: !CF && !ZF
+            case Mnemonic.Setae: // above or equal: !CF
+            case Mnemonic.Setb: // below: CF
+            case Mnemonic.Setbe: // below or equal: CF || ZF
+            case Mnemonic.Setg: // greater: !ZF && SF == OF
+            case Mnemonic.Setge: // greater or equal: SF == OF
+            case Mnemonic.Setl: // less: SF != OF
+            case Mnemonic.Setle: // less or equal: ZF || SF != OF
+            case Mnemonic.Sets: // SF
+            case Mnemonic.Setns: // !SF
+                {
+                    var dest = ConvertOperand(instruction, 0);
+                    var cf = new ISIL.Register(null, "CF");
+                    var zf = new ISIL.Register(null, "ZF");
+                    var sf = new ISIL.Register(null, "SF");
+                    var of = new ISIL.Register(null, "OF");
+                    var temp = new ISIL.Register(null, "TEMP");
+
+                    switch (instruction.Mnemonic)
+                    {
+                        case Mnemonic.Sete:
+                            Add(instruction.IP, ISIL.OpCode.Move, dest, zf);
+                            break;
+                        case Mnemonic.Setne:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, zf, Imm(0));
+                            break;
+                        case Mnemonic.Setb:
+                            Add(instruction.IP, ISIL.OpCode.Move, dest, cf);
+                            break;
+                        case Mnemonic.Setae:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, cf, Imm(0));
+                            break;
+                        case Mnemonic.Seta:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, cf, Imm(0)); // TEMP = !CF
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, zf, Imm(0)); // dest = !ZF
+                            Add(instruction.IP, ISIL.OpCode.And, dest, dest, temp); // dest = !CF && !ZF
+                            break;
+                        case Mnemonic.Setbe:
+                            Add(instruction.IP, ISIL.OpCode.Or, dest, cf, zf); // dest = CF || ZF
+                            break;
+                        case Mnemonic.Sets:
+                            Add(instruction.IP, ISIL.OpCode.Move, dest, sf);
+                            break;
+                        case Mnemonic.Setns:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, sf, Imm(0));
+                            break;
+                        case Mnemonic.Setge:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, sf, of); // dest = SF == OF
+                            break;
+                        case Mnemonic.Setl:
+                            Add(instruction.IP, ISIL.OpCode.CheckNotEqual, dest, sf, of); // dest = SF != OF
+                            break;
+                        case Mnemonic.Setg:
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, temp, sf, of); // TEMP = SF == OF
+                            Add(instruction.IP, ISIL.OpCode.CheckEqual, dest, zf, Imm(0)); // dest = !ZF
+                            Add(instruction.IP, ISIL.OpCode.And, dest, dest, temp); // dest = !ZF && SF == OF
+                            break;
+                        case Mnemonic.Setle:
+                            Add(instruction.IP, ISIL.OpCode.CheckNotEqual, temp, sf, of); // TEMP = SF != OF
+                            Add(instruction.IP, ISIL.OpCode.Or, dest, temp, zf); // dest = ZF || SF != OF
+                            break;
+                    }
+                    break;
+                }
 
             case Mnemonic.Maxss: // dest < src ? src : dest
             case Mnemonic.Minss: // dest > src ? src : dest

@@ -427,6 +427,10 @@ public static class LocalVariables
                 case OpCode.Add or OpCode.Subtract or OpCode.Multiply or OpCode.Divide:
                     changed |= PropagateArithmetic(instruction, method);
                     break;
+                case OpCode.And or OpCode.Or or OpCode.Xor or OpCode.Not or OpCode.Negate
+                    or OpCode.ShiftLeft or OpCode.ShiftRight:
+                    changed |= PropagateBitwise(instruction, method);
+                    break;
             }
         }
 
@@ -460,6 +464,37 @@ public static class LocalVariables
             return false;
 
         return SetTypeIfUnknown(destination, floatType);
+    }
+
+    // A bitwise/shift op over an integer operand produces an integer. Excludes bool operands so flag logic stays boolean.
+    private static bool PropagateBitwise(Instruction instruction, MethodAnalysisContext method)
+    {
+        if (instruction.Operands[0] is not LocalVariable { Type: null } destination)
+            return false;
+
+        for (var i = 1; i < instruction.Operands.Count; i++)
+            if (IntegerResultType(instruction.Operands[i], method) is { } integerType)
+                return SetTypeIfUnknown(destination, integerType);
+
+        return false;
+    }
+
+    private static TypeAnalysisContext? IntegerResultType(IOperand operand, MethodAnalysisContext method)
+    {
+        var type = operand switch
+        {
+            LocalVariable { Type: { } localType } => localType,
+            FieldReference field => field.Field.FieldType,
+            _ => null,
+        };
+
+        return type?.FullName switch
+        {
+            "System.Byte" or "System.SByte" or "System.Int16" or "System.UInt16"
+                or "System.Int32" or "System.UInt32" or "System.Char" => method.AppContext.SystemTypes.SystemInt32Type,
+            "System.Int64" or "System.UInt64" => method.AppContext.SystemTypes.SystemInt64Type,
+            _ => null,
+        };
     }
 
     private static TypeAnalysisContext? FloatOperandType(IOperand operand, MethodAnalysisContext method) =>

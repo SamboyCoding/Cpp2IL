@@ -420,6 +420,10 @@ public class MethodAnalysisContext : HasGenericParameters, IMethodInfoProvider, 
         // make joins explicit, so forwarding a value is an unconditional global substitution.
         SsaSimplifier.Run(this);
 
+        // Folding a constant exposes more to propagate
+        for (var i = 0; i < 8 && ConstantFolder.Run(this); i++)
+            SsaSimplifier.Run(this);
+
         SsaForm.Remove(this);
 
         // Phi removal leaves a copy per merged version, most of which can share one local
