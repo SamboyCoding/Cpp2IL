@@ -12,35 +12,35 @@ public static class ContextToMethodDescriptor
         return context.GetExtraData<MethodDefinition>("AsmResolverMethod") ?? throw new($"AsmResolver method not found in method analysis context for {context}");
     }
 
-    private static MethodSignature ToMethodSignature(this MethodAnalysisContext context, ModuleDefinition parentModule)
+    private static MethodSignature ToMethodSignature(this MethodAnalysisContext context)
     {
-        var returnType = context.ReturnType.ToTypeSignature(parentModule);
-        var parameters = context.Parameters.Select(p => p.ToTypeSignature(parentModule));
+        var returnType = context.ReturnType.ToTypeSignature();
+        var parameters = context.Parameters.Select(p => p.ToTypeSignature());
 
         return context.IsStatic
             ? MethodSignature.CreateStatic(returnType, context.GenericParameters.Count, parameters)
             : MethodSignature.CreateInstance(returnType, context.GenericParameters.Count, parameters);
     }
 
-    public static IMethodDescriptor ToMethodDescriptor(this MethodAnalysisContext context, ModuleDefinition parentModule)
+    public static IMethodDescriptor ToMethodDescriptor(this MethodAnalysisContext context)
     {
         return context is ConcreteGenericMethodAnalysisContext concreteMethod
-            ? concreteMethod.ToMethodDescriptor(parentModule)
+            ? concreteMethod.ToMethodDescriptor()
             : context.GetMethodDefinition();
     }
 
-    public static IMethodDescriptor ToMethodDescriptor(this ConcreteGenericMethodAnalysisContext context, ModuleDefinition parentModule)
+    public static IMethodDescriptor ToMethodDescriptor(this ConcreteGenericMethodAnalysisContext context)
     {
         var memberReference = new MemberReference(
-            context.DeclaringType?.ToTypeSignature(parentModule).ToTypeDefOrRef(),
+            context.DeclaringType?.ToTypeSignature().ToTypeDefOrRef(),
             context.Name,
-            context.BaseMethodContext.ToMethodSignature(parentModule));
+            context.BaseMethodContext.ToMethodSignature());
 
         var methodGenericParameters = context.MethodGenericParameters;
         if (methodGenericParameters.Count == 0)
             return memberReference;
 
-        var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature(parentModule));
+        var typeSignatures = methodGenericParameters.Select(p => p.ToTypeSignature());
         return memberReference.MakeGenericInstanceMethod(typeSignatures);
     }
 }

@@ -43,7 +43,7 @@ public static class IlGenerator
             .GetTypeByFullName($"{HelpersNamespace}.{HelpersTypeName}")?.Methods.FirstOrDefault(m => m.Name == NoteIssueMethodName);
 
         var writeLine = noteIssueContext != null
-            ? noteIssueContext.ToMethodDescriptor(module)
+            ? noteIssueContext.ToMethodDescriptor()
             : factory.CorLibScope
                 .CreateTypeReference("System", "Console")
                 .CreateMemberReference("WriteLine", MethodSignature.CreateStatic(factory.Void, [factory.String]));
@@ -108,7 +108,7 @@ public static class IlGenerator
 
             // Use object if type couldn't be determined, or if it's void, which no locals sig can hold
             if (local.Type != null && local.Type != context.AppContext.SystemTypes.SystemVoidType)
-                ilType = local.Type.ToTypeSignature(module);
+                ilType = local.Type.ToTypeSignature();
             else
                 ilType = module.CorLibTypeFactory.Object;
 
@@ -294,7 +294,7 @@ public static class IlGenerator
                         LoadLocal(field.Local, method, locals);
 
                     LoadOperand(instruction.Operands[1], method, locals, writeLine, field.Field.FieldType);
-                    instructions.Add(field.Field.IsStatic ? CilOpCodes.Stsfld : CilOpCodes.Stfld, field.Field.ToFieldDescriptor(module));
+                    instructions.Add(field.Field.IsStatic ? CilOpCodes.Stsfld : CilOpCodes.Stfld, field.Field.ToFieldDescriptor());
                     break;
                 }
 
@@ -305,7 +305,7 @@ public static class IlGenerator
                     LoadLocal(target.Array, method, locals);
                     LoadOperand(target.Index, method, locals, writeLine);
                     LoadOperand(instruction.Operands[1], method, locals, writeLine, stored);
-                    instructions.Add(CilOpCodes.Stelem, stored.ToTypeSignature(module).ToTypeDefOrRef());
+                    instructions.Add(CilOpCodes.Stelem, stored.ToTypeSignature().ToTypeDefOrRef());
                     break;
                 }
 
@@ -317,7 +317,7 @@ public static class IlGenerator
                 if (instruction.Operands is [_, SzArrayTypeAnalysisContext { ElementType: { } newArrayElement }, { } length])
                 {
                     LoadOperand(length, method, locals, writeLine);
-                    instructions.Add(CilOpCodes.Newarr, newArrayElement.ToTypeSignature(module).ToTypeDefOrRef());
+                    instructions.Add(CilOpCodes.Newarr, newArrayElement.ToTypeSignature().ToTypeDefOrRef());
                 }
                 else
                     instructions.Add(CilOpCodes.Ldnull);
@@ -336,7 +336,7 @@ public static class IlGenerator
                     for (var i = 0; i < constructorArgs.Count; i++)
                         LoadOperand(constructorArgs[i], method, locals, writeLine, constructor.Parameters[i].ParameterType);
 
-                    instructions.Add(CilOpCodes.Newobj, constructor.ToMethodDescriptor(module));
+                    instructions.Add(CilOpCodes.Newobj, constructor.ToMethodDescriptor());
                     StoreToOperand(instruction.Operands[0], method, locals, writeLine);
 
                     constructorCall.OpCode = OpCode.Nop;
@@ -345,7 +345,7 @@ public static class IlGenerator
                 else if (instruction.Operands is [_, TypeAnalysisContext allocatedType] && allocatedType.Methods.FirstOrDefault(m => m is { Name: ".ctor", Parameters.Count: 0 }) is { } parameterlessCtor)
                 {
                     // Nothing to fuse with, so the allocation was self-contained. The type is still right, so construct it bare.
-                    instructions.Add(CilOpCodes.Newobj, parameterlessCtor.ToMethodDescriptor(module));
+                    instructions.Add(CilOpCodes.Newobj, parameterlessCtor.ToMethodDescriptor());
                     StoreToOperand(instruction.Operands[0], method, locals, writeLine);
                 }
                 else
@@ -360,7 +360,7 @@ public static class IlGenerator
                 {
                     // il2cpp_value_box takes the value by address, but IL boxes it by value
                     LoadOperand(boxedValue is AddressOf { Target: LocalVariable byRef } ? byRef : boxedValue, method, locals, writeLine, boxedType);
-                    instructions.Add(CilOpCodes.Box, boxedType.ToTypeSignature(module).ToTypeDefOrRef());
+                    instructions.Add(CilOpCodes.Box, boxedType.ToTypeSignature().ToTypeDefOrRef());
                 }
                 else
                     instructions.Add(CilOpCodes.Ldnull);
@@ -371,7 +371,7 @@ public static class IlGenerator
             case OpCode.Throw:
                 if (instruction.Operands is [TypeAnalysisContext exceptionType]
                     && exceptionType.Methods.FirstOrDefault(m => m.Name == ".ctor" && m.Parameters.Count == 0) is { } exceptionCtor)
-                    instructions.Add(CilOpCodes.Newobj, exceptionCtor.ToMethodDescriptor(module));
+                    instructions.Add(CilOpCodes.Newobj, exceptionCtor.ToMethodDescriptor());
                 else if (instruction.Operands is [LocalVariable or FieldReference])
                     LoadOperand(instruction.Operands[0], method, locals, writeLine); // an already-constructed exception
                 else
@@ -398,7 +398,7 @@ public static class IlGenerator
                     break;
                 }
 
-                var importedMethod = targetMethod.ToMethodDescriptor(module);
+                var importedMethod = targetMethod.ToMethodDescriptor();
 
                 var thisParamIndex = instruction.OpCode == OpCode.Call ? 2 : 1;
 
@@ -673,23 +673,23 @@ public static class IlGenerator
                 LoadLocal(elementAddress.Array, method, locals);
                 LoadOperand(elementAddress.Index, method, locals, writeLine);
                 instructions.Add(CilOpCodes.Ldelema,
-                    ((SzArrayTypeAnalysisContext)elementAddress.Array.Type!).ElementType.ToTypeSignature(module).ToTypeDefOrRef());
+                    ((SzArrayTypeAnalysisContext)elementAddress.Array.Type!).ElementType.ToTypeSignature().ToTypeDefOrRef());
                 break;
             case ArrayAccess arrayAccess:
                 LoadLocal(arrayAccess.Array, method, locals);
                 LoadOperand(arrayAccess.Index, method, locals, writeLine);
                 instructions.Add(CilOpCodes.Ldelem,
-                    ((SzArrayTypeAnalysisContext)arrayAccess.Array.Type!).ElementType.ToTypeSignature(module).ToTypeDefOrRef());
+                    ((SzArrayTypeAnalysisContext)arrayAccess.Array.Type!).ElementType.ToTypeSignature().ToTypeDefOrRef());
                 break;
             case FieldReference field:
                 if (field.Field.IsStatic)
                 {
-                    instructions.Add(CilOpCodes.Ldsfld, field.Field.ToFieldDescriptor(module));
+                    instructions.Add(CilOpCodes.Ldsfld, field.Field.ToFieldDescriptor());
                     break;
                 }
 
                 LoadLocal(field.Local, method, locals);
-                instructions.Add(CilOpCodes.Ldfld, field.Field.ToFieldDescriptor(module));
+                instructions.Add(CilOpCodes.Ldfld, field.Field.ToFieldDescriptor());
                 break;
             case MemoryOperand memory:
                 if (memory.Index == null && memory.Addend == 0 && memory.Scale == 0
@@ -700,7 +700,7 @@ public static class IlGenerator
                     // A load through a managed pointer (byref) dereferences it to yield the referent.
                     if (local2.Type is ByRefTypeAnalysisContext { ElementType: { } referent })
                         instructions.Add(referent.IsValueType
-                            ? new CilInstruction(CilOpCodes.Ldobj, referent.ToTypeSignature(module).ToTypeDefOrRef())
+                            ? new CilInstruction(CilOpCodes.Ldobj, referent.ToTypeSignature().ToTypeDefOrRef())
                             : new CilInstruction(CilOpCodes.Ldind_Ref));
                     break;
                 }
@@ -713,7 +713,7 @@ public static class IlGenerator
                 // A delegate constructor takes its target as a native pointer, which is exactly ldftn.
                 if (expectedType?.FullName == "System.IntPtr")
                 {
-                    instructions.Add(CilOpCodes.Ldftn, runtimeMethod.RepresentedMethod.ToMethodDescriptor(module));
+                    instructions.Add(CilOpCodes.Ldftn, runtimeMethod.RepresentedMethod.ToMethodDescriptor());
                     break;
                 }
 
@@ -725,7 +725,7 @@ public static class IlGenerator
                 // fieldof(F), e.g. the handle InitializeArray takes.
                 if (expectedType?.FullName == "System.RuntimeFieldHandle")
                 {
-                    instructions.Add(CilOpCodes.Ldtoken, runtimeField.RepresentedField.ToFieldDescriptor(module));
+                    instructions.Add(CilOpCodes.Ldtoken, runtimeField.RepresentedField.ToFieldDescriptor());
                     break;
                 }
 
@@ -746,7 +746,7 @@ public static class IlGenerator
                         corLibScope.CreateTypeReference("System", "Type").ToTypeSignature(false),
                         [corLibScope.CreateTypeReference("System", "RuntimeTypeHandle").ToTypeSignature(true)]));
 
-                instructions.Add(CilOpCodes.Ldtoken, type.ToTypeSignature(module).ToTypeDefOrRef());
+                instructions.Add(CilOpCodes.Ldtoken, type.ToTypeSignature().ToTypeDefOrRef());
                 instructions.Add(CilOpCodes.Call, typeFromHandle);
                 break;
             default:
@@ -864,8 +864,6 @@ public static class IlGenerator
     {
         var instructions = method.CilMethodBody!.Instructions;
 
-        var module = method.DeclaringModule!;
-
         switch (operand)
         {
             case LocalVariable local:
@@ -873,7 +871,7 @@ public static class IlGenerator
                 break;
 
             case FieldReference field:
-                var fieldDescriptor = field.Field.ToFieldDescriptor(module);
+                var fieldDescriptor = field.Field.ToFieldDescriptor();
 
                 if (field.Field.IsStatic)
                 {
@@ -895,14 +893,14 @@ public static class IlGenerator
             case ArrayAccess arrayAccess:
                 // stelem needs array and index before the value, so the same trick as stfld
                 var elementType = ((SzArrayTypeAnalysisContext)arrayAccess.Array.Type!).ElementType;
-                var elementScratch = new CilLocalVariable(elementType.ToTypeSignature(module));
+                var elementScratch = new CilLocalVariable(elementType.ToTypeSignature());
                 method.CilMethodBody!.LocalVariables.Add(elementScratch);
 
                 instructions.Add(CilOpCodes.Stloc, elementScratch);
                 LoadLocal(arrayAccess.Array, method, locals);
                 LoadOperand(arrayAccess.Index, method, locals, writeLine);
                 instructions.Add(CilOpCodes.Ldloc, elementScratch);
-                instructions.Add(CilOpCodes.Stelem, elementType.ToTypeSignature(module).ToTypeDefOrRef());
+                instructions.Add(CilOpCodes.Stelem, elementType.ToTypeSignature().ToTypeDefOrRef());
                 break;
 
             case MemoryOperand memory:
