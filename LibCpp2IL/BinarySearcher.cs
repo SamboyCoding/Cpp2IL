@@ -349,10 +349,18 @@ public class BinarySearcher(Il2CppBinary binary, Il2CppMetadata metadata, int me
                     if (i % 2 == 0)
                     {
                         //Count
-                        ok = mrWords[i] < 0xC_0000;
+                        // Sanity limit for metadata registration count fields.
+                        // Unity 6 (6000.x) games can legitimately exceed 0xC0000
+                        // (e.g. Pax Autocratica on 2026-08 update had ~0xD04C4),
+                        // which made real registrations get rejected and interop
+                        // generation fail with "Failed to find code registration
+                        // or metadata registration!". Subsequent checks
+                        // (typeDefinitionsSizesCount / numTypes vs metadata)
+                        // still validate candidates, so this is only a coarse filter.
+                        ok = mrWords[i] < 0x4_00000;
 
                         if (!ok)
-                            LibLogger.VerboseNewline($"\t\t\tRejected Metadata registration at 0x{va:X}, because it has a count field 0x{mrWords[i]:X} at offset {i} which is above sanity limit of 0xC0000. If metadata registration detection fails, may need to bump up the limit.");
+                            LibLogger.VerboseNewline($"\t\t\tRejected Metadata registration at 0x{va:X}, because it has a count field 0x{mrWords[i]:X} at offset {i} which is above sanity limit of 0x400000. If metadata registration detection fails, may need to bump up the limit.");
                     }
                     else
                     {
