@@ -154,7 +154,7 @@ public enum ElfMachine : ushort
     EM_K10M = 181,          // Intel K10M
     EM_AARCH64 = 183,       // ARM AArch64
     EM_AVR32 = 185,         // Atmel Corporation 32-bit microprocessor family
-    EM_STM8 = 186,          // STMicroeletronics STM8 8-bit microcontroller
+EM_STM8 = 186,          // STMicroelectronics STM8 8-bit microcontroller
     EM_TILE64 = 187,        // Tilera TILE64 multicore architecture family
     EM_TILEPRO = 188,       // Tilera TILEPro multicore architecture family
     EM_MICROBLAZE = 189,    // Xilinx MicroBlaze 32-bit RISC soft processor core
